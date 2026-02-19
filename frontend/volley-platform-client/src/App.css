@@ -1,0 +1,265 @@
+.appShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.appHeader {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 35, 66, 0.96),
+    rgba(10, 27, 53, 0.94)
+  );
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 22px rgba(5, 16, 33, 0.32);
+}
+
+.appHeaderTop {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 4px 14px 4px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brandLogo {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: contain;
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  padding: 10px;
+}
+
+.brandLogoFallback {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #1570ff, #0b56c7);
+  color: #fff;
+  border: 1px solid #0f4ead;
+  font-weight: 900;
+  font-size: 30px;
+  letter-spacing: 0.6px;
+}
+
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoLeft {
+  margin-right: 4px;
+  flex: 0 0 auto;
+}
+
+.brandText {
+  min-width: 0;
+}
+
+.brandTitle {
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.brandTitleTri {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 2px 8px 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.triWhite {
+  color: #ffffff;
+}
+
+.triGreen {
+  color: #1ea75a;
+}
+
+.triRed {
+  color: #d72638;
+}
+
+.brandSubtitle {
+  margin-top: 3px;
+  font-size: 15px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(72vw, 860px);
+}
+
+.brandSubtitleTri {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  padding: 2px 8px 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.accountArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.accountTopRight {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 4px 14px 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.accountMeta {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.accountUser {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.accountRole {
+  font-size: 10px;
+  color: rgba(228, 236, 255, 0.82);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.navBtnOutline {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 6px 10px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.appNav {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 14px 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.appNavDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.35);
+  margin: 0 4px;
+}
+
+.appNavLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 10px;
+  color: #f3f7ff;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.appNavLink:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.appContent {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 14px 16px 24px;
+  flex: 1;
+}
+
+.appFooter {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 16px 20px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .appHeaderTop {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accountTopRight {
+    width: 100%;
+    justify-content: flex-end;
+    padding: 6px 12px 0;
+  }
+
+  .accountArea {
+    justify-content: flex-end;
+  }
+
+  .brandSingleLine {
+    font-size: 21px;
+    white-space: normal;
+  }
+
+  .brandLogo,
+  .brandLogoFallback {
+    width: 72px;
+    height: 72px;
+  }
+
+  .brandTitle {
+    font-size: 20px;
+  }
+
+  .brandSubtitle {
+    font-size: 13px;
+    white-space: normal;
+  }
+}

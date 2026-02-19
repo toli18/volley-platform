@@ -1,0 +1,31 @@
+<html>
+<head>
+    <title>Упражнения</title>
+</head>
+
+<body style="font-family:Arial;">
+<h1>Всички упражнения</h1>
+
+<div id="content">Зареждане...</div>
+
+<script>
+fetch("/api/drills")
+.then(r => r.json())
+.then(data => {
+    let html = "";
+    data.forEach(d => {
+        html += `
+            <p>
+                <b>${d.name}</b><br>
+                ${d.goal || ""}<br>
+                <small>${d.category || ""}</small>
+            </p>
+            <hr>
+        `;
+    });
+    document.getElementById("content").innerHTML = html;
+});
+</script>
+
+</body>
+</html>

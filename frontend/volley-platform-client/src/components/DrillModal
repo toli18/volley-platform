@@ -1,0 +1,243 @@
+import { useEffect, useMemo } from "react";
+
+function normalizeToArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return [];
+    if (t.includes(",")) return t.split(",").map((s) => s.trim()).filter(Boolean);
+    return [t];
+  }
+  return [];
+}
+
+function youtubeEmbed(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.replace("/", "").trim();
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function vimeoEmbed(url) {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("vimeo.com")) return null;
+    const parts = u.pathname.split("/").filter(Boolean);
+    const id = parts[0];
+    return id ? `https://player.vimeo.com/video/${id}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function isVideoFileUrl(url) {
+  return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+}
+
+export default function DrillModal({ open, onClose, drill }) {
+  // ESC to close
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  const title = drill?.title || drill?.name || "Упражнение";
+
+  const images = useMemo(() => normalizeToArray(drill?.image_urls), [drill]);
+  const videosRaw = useMemo(() => normalizeToArray(drill?.video_urls), [drill]);
+
+  const embeds = useMemo(() => {
+    const out = [];
+    for (const url of videosRaw) {
+      const yt = youtubeEmbed(url);
+      if (yt) {
+        out.push({ type: "embed", src: yt, original: url });
+        continue;
+      }
+      const vm = vimeoEmbed(url);
+      if (vm) {
+        out.push({ type: "embed", src: vm, original: url });
+        continue;
+      }
+      if (isVideoFileUrl(url)) {
+        out.push({ type: "file", src: url, original: url });
+      }
+    }
+    // unique by src
+    const seen = new Set();
+    return out.filter((x) => {
+      if (seen.has(x.src)) return false;
+      seen.add(x.src);
+      return true;
+    });
+  }, [videosRaw]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(980px, 100%)",
+          maxHeight: "88vh",
+          overflow: "auto",
+          background: "white",
+          borderRadius: 14,
+          boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+          border: "1px solid rgba(0,0,0,0.08)",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 16px",
+            borderBottom: "1px solid #eee",
+            position: "sticky",
+            top: 0,
+            background: "white",
+            zIndex: 1,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+              ID: {drill?.id ?? "—"} • Категория: {drill?.category || "—"} • Ниво: {drill?.level || "—"} • Оборудване: {drill?.equipment || "—"}
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              borderRadius: 10,
+              padding: "8px 10px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            ✕ Затвори
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 16 }}>
+          {drill?.description && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Описание</div>
+              <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{drill.description}</div>
+            </div>
+          )}
+
+          {/* Images */}
+          {images.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontWeight: 800, marginBottom: 10 }}>Снимки</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {images.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "block",
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      border: "1px solid #e6e6e6",
+                      boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+                    }}
+                    title="Отвори в нов прозорец"
+                  >
+                    <img
+                      src={url}
+                      alt="drill"
+                      style={{ width: 260, height: 160, objectFit: "cover", display: "block" }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  </a>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+                (Клик върху снимка → отваря се по-голяма в нов таб)
+              </div>
+            </div>
+          )}
+
+          {/* Videos */}
+          {embeds.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 800, marginBottom: 10 }}>Видео</div>
+              <div style={{ display: "grid", gap: 14 }}>
+                {embeds.map((v) => (
+                  <div key={v.src} style={{ border: "1px solid #e6e6e6", borderRadius: 12, padding: 10 }}>
+                    {v.type === "embed" ? (
+                      <iframe
+                        src={v.src}
+                        title={v.original}
+                        style={{ width: "100%", aspectRatio: "16/9", borderRadius: 10 }}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video controls style={{ width: "100%", borderRadius: 10 }}>
+                        <source src={v.src} />
+                        Вашият браузър не поддържа video tag.
+                      </video>
+                    )}
+                    <div style={{ marginTop: 8, fontSize: 12 }}>
+                      <a href={v.original} target="_blank" rel="noreferrer">Отвори линк</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!drill?.description && images.length === 0 && embeds.length === 0 && (
+            <div style={{ background: "#f7f7f7", border: "1px solid #eee", padding: 12, borderRadius: 12 }}>
+              Няма добавена медия/описание за това упражнение.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

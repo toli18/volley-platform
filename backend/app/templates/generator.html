@@ -1,0 +1,28 @@
+<html>
+<head>
+    <title>Генератор</title>
+</head>
+
+<body style="font-family:Arial;">
+<h1>Генериране на тренировка</h1>
+
+<button onclick="generate()">Генерирай тренировка</button>
+
+<div id="result"></div>
+
+<script>
+function generate(){
+    fetch("/api/drills/random/6")
+    .then(r=>r.json())
+    .then(drills=>{
+        let html = "<h2>Резултат</h2>";
+        drills.forEach(d=>{
+            html += `<p><b>${d.name}</b> - ${d.level}</p>`;
+        });
+        document.getElementById("result").innerHTML = html;
+    });
+}
+</script>
+
+</body>
+</html>
