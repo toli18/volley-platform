@@ -1,3 +1,5 @@
+
+това е пълния файл който ползвам сега. дай ми пълен и поправен код без фрагменти
 # backend/app/main.py
 
 from fastapi import FastAPI, Request
