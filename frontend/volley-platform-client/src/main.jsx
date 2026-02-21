@@ -21,6 +21,8 @@ import Articles from "./pages/Articles.jsx";
 import ArticleDetails from "./pages/ArticleDetails.jsx";
 import CreateArticle from "./pages/CreateArticle.jsx";
 import EditArticle from "./pages/EditArticle.jsx";
+import Forum from "./pages/Forum.jsx";
+import ForumTopic from "./pages/ForumTopic.jsx";
 
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminDrills from "./pages/admin/AdminDrills.jsx";
@@ -70,6 +72,8 @@ const router = createBrowserRouter([
           { path: "ai-generator", element: <AIGenerator /> },
           { path: "articles/new", element: <CreateArticle /> },
           { path: "articles/:id/edit", element: <EditArticle /> },
+          { path: "forum", element: <Forum /> },
+          { path: "forum/:id", element: <ForumTopic /> },
         ],
       },
       {

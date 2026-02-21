@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import ArticleAttachmentList from "../components/articles/ArticleAttachmentList";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
+import RichTextToolbar from "../components/RichTextToolbar";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -27,10 +28,30 @@ export default function CreateArticle() {
     excerpt: "",
     content: "",
   });
+  const contentRef = useRef(null);
 
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const insertContentTemplate = (template) => {
+    if (createdArticleId) return;
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    if (!textarea) {
+      setForm((prev) => ({ ...prev, content: `${current}${template}` }));
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${template}${current.slice(end)}`;
+    setForm((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      const pos = start + template.length;
+      textarea.focus();
+      textarea.setSelectionRange(pos, pos);
+    });
   };
 
   const loadCreatedArticle = async (articleId) => {
@@ -201,7 +222,41 @@ export default function CreateArticle() {
         </div>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Съдържание *</label>
-          <textarea name="content" value={form.content} onChange={onChange} rows={14} disabled={Boolean(createdArticleId)} />
+          <textarea
+            ref={contentRef}
+            name="content"
+            value={form.content}
+            onChange={onChange}
+            rows={14}
+            disabled={Boolean(createdArticleId)}
+          />
+          <div style={{ marginTop: 8 }}>
+            <RichTextToolbar
+              textareaRef={contentRef}
+              value={form.content}
+              onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
+              disabled={Boolean(createdArticleId)}
+            />
+          </div>
+          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" disabled={Boolean(createdArticleId)} onClick={() => insertContentTemplate("\n## Нова секция\n")}>
+              Добави секция
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(createdArticleId)}
+              onClick={() => insertContentTemplate("\n### Подсекция\n")}
+            >
+              Добави подзаглавие
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(createdArticleId)}
+              onClick={() => insertContentTemplate("\n- Точка 1\n- Точка 2\n")}
+            >
+              Добави списък
+            </button>
+          </div>
           <div style={{ marginTop: 6, color: "#607693", fontSize: 12 }}>
             Поддържа структуриране с Markdown синтаксис: <code>## Заглавие</code>, <code>### Подзаглавие</code>,{" "}
             <code>- списък</code>, <code>&gt; цитат</code>.

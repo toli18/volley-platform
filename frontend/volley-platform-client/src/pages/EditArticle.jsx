@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { useAuth } from "../auth/AuthContext";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
+import RichTextToolbar from "../components/RichTextToolbar";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -30,6 +31,7 @@ export default function EditArticle() {
     links: [],
     author_id: null,
   });
+  const contentRef = useRef(null);
 
   const load = async () => {
     try {
@@ -63,6 +65,25 @@ export default function EditArticle() {
   };
 
   const canEdit = user && form.author_id === user.id && form.status !== "APPROVED";
+
+  const insertContentTemplate = (template) => {
+    if (!canEdit) return;
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    if (!textarea) {
+      setForm((prev) => ({ ...prev, content: `${current}${template}` }));
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${template}${current.slice(end)}`;
+    setForm((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      const pos = start + template.length;
+      textarea.focus();
+      textarea.setSelectionRange(pos, pos);
+    });
+  };
 
   const onSave = async () => {
     if (!canEdit) return;
@@ -174,7 +195,26 @@ export default function EditArticle() {
         </div>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Съдържание *</label>
-          <textarea name="content" value={form.content} onChange={onChange} rows={12} disabled={!canEdit} />
+          <textarea ref={contentRef} name="content" value={form.content} onChange={onChange} rows={12} disabled={!canEdit} />
+          <div style={{ marginTop: 8 }}>
+            <RichTextToolbar
+              textareaRef={contentRef}
+              value={form.content}
+              onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
+              disabled={!canEdit}
+            />
+          </div>
+          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n## Нова секция\n")}>
+              Добави секция
+            </button>
+            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n### Подсекция\n")}>
+              Добави подзаглавие
+            </button>
+            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n- Точка 1\n- Точка 2\n")}>
+              Добави списък
+            </button>
+          </div>
         </div>
       </div>
 

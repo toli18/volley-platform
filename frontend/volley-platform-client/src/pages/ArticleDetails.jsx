@@ -11,6 +11,7 @@ import {
   pickCoverImage,
   resolveMediaUrl,
 } from "../components/articles/articleUtils";
+import { extractTocItems, toDisplayHtml } from "../utils/richText";
 import "../components/articles/articles.css";
 
 const normalizeError = (err) => {
@@ -102,72 +103,15 @@ export default function ArticleDetails() {
     [article]
   );
 
-  const { tocItems, bodyNodes } = useMemo(() => {
-    const lines = String(article?.content || "")
-      .split("\n")
-      .map((l) => l.trimEnd());
-    const toc = [];
-    const nodes = [];
-    let key = 0;
-    let listBuffer = [];
-
-    const flushList = () => {
-      if (!listBuffer.length) return;
-      nodes.push(
-        <ul key={`ul-${key++}`}>
-          {listBuffer.map((item, idx) => (
-            <li key={`li-${idx}`}>{item}</li>
-          ))}
-        </ul>
-      );
-      listBuffer = [];
-    };
-
-    for (const lineRaw of lines) {
-      const line = lineRaw.trim();
-      if (!line) {
-        flushList();
-        continue;
-      }
-      if (line.startsWith("## ")) {
-        flushList();
-        const label = line.replace(/^##\s+/, "").trim();
-        const anchor = `sec-${toc.length + 1}`;
-        toc.push({ id: anchor, label });
-        nodes.push(
-          <h2 id={anchor} key={`h2-${key++}`}>
-            {label}
-          </h2>
-        );
-        continue;
-      }
-      if (line.startsWith("### ")) {
-        flushList();
-        const label = line.replace(/^###\s+/, "").trim();
-        const anchor = `sec-${toc.length + 1}`;
-        toc.push({ id: anchor, label });
-        nodes.push(
-          <h3 id={anchor} key={`h3-${key++}`}>
-            {label}
-          </h3>
-        );
-        continue;
-      }
-      if (line.startsWith("> ")) {
-        flushList();
-        nodes.push(<blockquote key={`bq-${key++}`}>{line.replace(/^>\s+/, "")}</blockquote>);
-        continue;
-      }
-      if (/^[-*]\s+/.test(line)) {
-        listBuffer.push(line.replace(/^[-*]\s+/, ""));
-        continue;
-      }
-      flushList();
-      nodes.push(<p key={`p-${key++}`}>{line}</p>);
-    }
-    flushList();
-    return { tocItems: toc, bodyNodes: nodes };
-  }, [article?.content]);
+  const tocItems = useMemo(
+    () =>
+      extractTocItems(article?.content || "").map((label, index) => ({
+        id: `sec-${index + 1}`,
+        label,
+      })),
+    [article?.content]
+  );
+  const articleHtml = useMemo(() => toDisplayHtml(article?.content || ""), [article?.content]);
 
   return (
     <div style={{ padding: 20, maxWidth: "100%" }}>
@@ -201,9 +145,7 @@ export default function ArticleDetails() {
           }
         >
           <section className="articleBody">
-            <div className="articleTypography">
-              {bodyNodes.length > 0 ? bodyNodes : <p>{article.content}</p>}
-            </div>
+            <div className="articleTypography" dangerouslySetInnerHTML={{ __html: articleHtml }} />
 
             {imageItems.length > 0 && (
               <div className="articleImageGallery">

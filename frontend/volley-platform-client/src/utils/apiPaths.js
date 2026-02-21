@@ -63,4 +63,19 @@ export const API_PATHS = {
   ADMIN_ARTICLE_NEEDS_EDIT: (id) => `/api/admin/articles/${id}/needs-edit`,
   ADMIN_ARTICLE_UPDATE: (id) => `/api/admin/articles/${id}`,
   ADMIN_ARTICLE_DELETE: (id) => `/api/admin/articles/${id}`,
+
+  // Forum
+  FORUM_POSTS_LIST: "/api/forum/posts",
+  FORUM_POST_CREATE: "/api/forum/posts",
+  FORUM_POST_GET: (id) => `/api/forum/posts/${id}`,
+  FORUM_POST_UPDATE: (id) => `/api/forum/posts/${id}`,
+  FORUM_POST_DELETE: (id) => `/api/forum/posts/${id}`,
+  FORUM_POST_MODERATION: (id) => `/api/forum/posts/${id}/moderation`,
+  FORUM_POST_MEDIA_UPLOAD: (id) => `/api/forum/posts/${id}/media`,
+  FORUM_POST_MEDIA_DELETE: (id, mediaId) => `/api/forum/posts/${id}/media/${mediaId}`,
+  FORUM_CATEGORIES: "/api/forum/categories",
+  FORUM_TAGS: "/api/forum/tags",
+  FORUM_REPLY_CREATE: (postId) => `/api/forum/posts/${postId}/replies`,
+  FORUM_REPLY_UPDATE: (postId, replyId) => `/api/forum/posts/${postId}/replies/${replyId}`,
+  FORUM_REPLY_DELETE: (postId, replyId) => `/api/forum/posts/${postId}/replies/${replyId}`,
 };

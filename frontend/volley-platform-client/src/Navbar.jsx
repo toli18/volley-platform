@@ -93,6 +93,9 @@ export default function Navbar() {
             <Link className="appNavLink" to="/my-trainings">
               Моите тренировки
             </Link>
+            <Link className="appNavLink" to="/forum">
+              Форум
+            </Link>
             {isCoachUser && (
               <Link className="appNavLink" to="/articles/new">
                 Нова статия

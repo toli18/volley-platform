@@ -344,10 +344,19 @@ class ForumPost(Base):
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    category = Column(String(100), nullable=True)
+    tags = Column(JSON, nullable=True)
+    is_pinned = Column(Boolean, nullable=False, default=False)
+    is_locked = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     author = relationship("User")
+    media_items = relationship(
+        "ForumPostMedia",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
     replies = relationship(
         "ForumReply",
         back_populates="post",
@@ -367,3 +376,17 @@ class ForumReply(Base):
 
     post = relationship("ForumPost", back_populates="replies")
     author = relationship("User")
+
+
+class ForumPostMedia(Base):
+    __tablename__ = "forum_post_media"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("forum_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    url = Column(String(1000), nullable=False)
+    name = Column(String(255), nullable=False)
+    mime_type = Column(String(255), nullable=False)
+    size = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    post = relationship("ForumPost", back_populates="media_items")

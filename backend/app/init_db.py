@@ -75,6 +75,21 @@ def init_db() -> None:
             conn.execute(text("ALTER TABLE trainings ADD COLUMN selected_drill_ids JSON"))
             print("✅ Added trainings.selected_drill_ids column")
 
+        forum_post_cols = conn.execute(text("PRAGMA table_info(forum_posts)")).fetchall()
+        forum_post_col_names = {row[1] for row in forum_post_cols}
+        if "category" not in forum_post_col_names:
+            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN category VARCHAR(100)"))
+            print("✅ Added forum_posts.category column")
+        if "tags" not in forum_post_col_names:
+            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN tags JSON"))
+            print("✅ Added forum_posts.tags column")
+        if "is_pinned" not in forum_post_col_names:
+            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"))
+            print("✅ Added forum_posts.is_pinned column")
+        if "is_locked" not in forum_post_col_names:
+            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT 0"))
+            print("✅ Added forum_posts.is_locked column")
+
     db = SessionLocal()
     try:
         # Admin (идемпотентно)
