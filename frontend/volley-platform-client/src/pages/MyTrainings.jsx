@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
+import { Button, EmptyState, Input } from "../components/ui";
 
 function fmtDate(v) {
   try {
@@ -135,30 +136,31 @@ export default function MyTrainings() {
         </div>
 
         <div className="mtActions">
-          <button className="btn" onClick={load} title="Опресни">↻ Опресни</button>
-          <button className="btn btnPrimary" onClick={() => navigate("/generator")}>＋ Нова тренировка</button>
+          <Button variant="secondary" onClick={load} title="Опресни">
+            ↻ Опресни
+          </Button>
+          <Button onClick={() => navigate("/generator")}>＋ Нова тренировка</Button>
         </div>
       </div>
 
       <div className="controls">
-        <input
-          className="input"
+        <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Търси по заглавие, ID, статус…"
         />
 
-        <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+        <Input as="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
           <option value="all">Всички статуси</option>
           <option value="saved">Запазени</option>
           <option value="draft">Чернови</option>
-        </select>
+        </Input>
 
-        <select className="select" value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
+        <Input as="select" value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
           <option value="all">Всички източници</option>
           <option value="generated">Генерирани</option>
           <option value="manual">Ръчни</option>
-        </select>
+        </Input>
       </div>
 
       {loading ? (
@@ -168,11 +170,11 @@ export default function MyTrainings() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="empty">
-          <div style={{ fontWeight: 950, marginBottom: 6 }}>Няма тренировки по тези филтри.</div>
-          <div style={{ marginBottom: 12 }}>Създай нова тренировка или изчисти филтрите.</div>
-          <button className="btn btnPrimary" onClick={() => navigate("/generator")}>＋ Нова тренировка</button>
-        </div>
+        <EmptyState
+          title="Няма тренировки по тези филтри"
+          description="Създай нова тренировка или изчисти филтрите."
+          action={<Button onClick={() => navigate("/generator")}>＋ Нова тренировка</Button>}
+        />
       ) : (
         <div className="grid">
           {filtered.map((t) => {
@@ -195,15 +197,15 @@ export default function MyTrainings() {
                 </div>
 
                 <div className="cardActions">
-                  <Link to={`/trainings/${t.id}`} style={{ textDecoration: "none" }}>
-                    <button className="btn">▶ Преглед</button>
-                  </Link>
-
-                  <Link to={`/trainings/${t.id}/edit`} style={{ textDecoration: "none" }}>
-                    <button className="btn btnPrimary">✎ Редакция</button>
-                  </Link>
-
-                  <button className="btn btnDanger" onClick={() => onDelete(t.id, title)}>🗑 Изтрий</button>
+                  <Button as={Link} to={`/trainings/${t.id}`} variant="secondary">
+                    ▶ Преглед
+                  </Button>
+                  <Button as={Link} to={`/trainings/${t.id}/edit`}>
+                    ✎ Редакция
+                  </Button>
+                  <Button variant="danger" onClick={() => onDelete(t.id, title)}>
+                    🗑 Изтрий
+                  </Button>
                 </div>
               </div>
             );

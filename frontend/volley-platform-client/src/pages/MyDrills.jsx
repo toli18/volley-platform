@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
+import { Button, Card, EmptyState } from "../components/ui";
 
 export default function MyDrills() {
   const navigate = useNavigate();
@@ -129,24 +130,14 @@ export default function MyDrills() {
           {isPending ? (
             <>
               <span style={{ marginRight: "10px", color: "#666" }}>Редакция: само админ</span>
-              <button
-                onClick={() => handleDelete(drill.id)}
-                style={{
-                  padding: "2px 8px",
-                  backgroundColor: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
+              <Button size="sm" variant="danger" onClick={() => handleDelete(drill.id)}>
                 Изтрий
-              </button>
+              </Button>
             </>
           ) : (
-            <Link to={`/drills/${drill.id}`} style={{ color: "#0066cc", textDecoration: "none" }}>
+            <Button as={Link} to={`/drills/${drill.id}`} variant="secondary" size="sm">
               Преглед
-            </Link>
+            </Button>
           )}
         </td>
       </tr>
@@ -157,10 +148,7 @@ export default function MyDrills() {
     if (list.length === 0) return null;
 
     return (
-      <div style={{ marginBottom: "30px" }}>
-        <h2>
-          {title} ({list.length})
-        </h2>
+      <Card key={title} title={`${title} (${list.length})`}>
         <table
           border="1"
           cellPadding="8"
@@ -177,44 +165,28 @@ export default function MyDrills() {
           </thead>
           <tbody>{list.map(renderDrillRow)}</tbody>
         </table>
-      </div>
+      </Card>
     );
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div className="uiPage">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1>Моите упражнения</h1>
 
-        {/* ✅ Restored create button */}
-        <button
-          onClick={() => navigate("/drills/new")}
-          style={{
-            padding: "8px 12px",
-            background: "#0066cc",
-            color: "#fff",
-            border: 0,
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
+        <Button onClick={() => navigate("/drills/new")}>
           + Ново упражнение
-        </button>
+        </Button>
       </div>
 
       {loading && <p>Зареждане…</p>}
 
-      {error && (
-        <p style={{ background: "#ffdddd", padding: "10px", borderRadius: "4px" }}>
-          Грешка: {error}
-        </p>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
       {!loading && !error && (
         <>
           {drills.length === 0 ? (
-            <p>Няма създадени упражнения.</p>
+            <EmptyState title="Няма създадени упражнения" description="Създай първото упражнение от бутона горе." />
           ) : (
             <>
               {renderTable("Чакащи одобрение", grouped.pending)}

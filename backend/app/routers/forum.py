@@ -6,6 +6,8 @@ from app.dependencies.auth import get_current_user
 from app.models import User, UserRole
 from app.dependencies.roles import require_role
 from app.schemas.forum import (
+    ForumFollowStateResponse,
+    ForumNotificationResponse,
     ForumPostCreate,
     ForumPostModerationUpdate,
     ForumPostMediaResponse,
@@ -28,7 +30,11 @@ from app.services.forum_service import (
     delete_reply,
     get_post,
     list_posts,
+    list_notifications,
+    mark_all_notifications_read,
+    mark_notification_read,
     moderate_post,
+    set_follow_post,
     update_post,
     update_reply,
 )
@@ -43,6 +49,7 @@ def list_forum_posts(
     category: str | None = Query(default=None),
     tag: str | None = Query(default=None),
     query: str | None = Query(default=None),
+    sort_by: str = Query(default="last_activity"),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
@@ -56,6 +63,7 @@ def list_forum_posts(
         category=category,
         tag=tag,
         query=query,
+        sort_by=sort_by,
     )
     meta = paginate_meta(page=page, page_size=page_size, total=total)
     return {"items": items, **meta}
@@ -179,6 +187,64 @@ def create_forum_reply(
     ),
 ):
     return create_reply(db, post_id, current_user, payload)
+
+
+@router.post("/forum/posts/{post_id}/follow", response_model=ForumFollowStateResponse)
+def follow_forum_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    return set_follow_post(db, post_id, current_user, follow=True)
+
+
+@router.delete("/forum/posts/{post_id}/follow", response_model=ForumFollowStateResponse)
+def unfollow_forum_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    return set_follow_post(db, post_id, current_user, follow=False)
+
+
+@router.get("/forum/notifications")
+def get_forum_notifications(
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    items, unread_count = list_notifications(db, current_user, limit=limit)
+    payload = [ForumNotificationResponse.model_validate(item).model_dump() for item in items]
+    return {"items": payload, "unread_count": unread_count}
+
+
+@router.post("/forum/notifications/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+def read_forum_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    mark_notification_read(db, notification_id, current_user)
+    return None
+
+
+@router.post("/forum/notifications/read-all", status_code=status.HTTP_204_NO_CONTENT)
+def read_all_forum_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    mark_all_notifications_read(db, current_user)
+    return None
 
 
 @router.put("/forum/posts/{post_id}/replies/{reply_id}", response_model=ForumReplyResponse)

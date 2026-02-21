@@ -6,6 +6,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { Button, Card, EmptyState, Input } from "../components/ui";
 import { toDisplayHtml } from "../utils/richText";
 
 const QUICK_EMOJIS = ["🏐", "🔥", "💪", "🎯", "📈", "🧱", "👏", "🤝"];
@@ -32,6 +33,7 @@ export default function ForumTopic() {
   const [editingReplyId, setEditingReplyId] = useState(null);
   const [editingReplyContent, setEditingReplyContent] = useState("");
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const postContentRef = useRef(null);
   const replyContentRef = useRef(null);
   const editReplyContentRef = useRef(null);
@@ -65,34 +67,37 @@ export default function ForumTopic() {
   const isLocked = Boolean(post?.is_locked);
 
   return (
-    <div style={{ padding: 20, display: "grid", gap: 12 }}>
+    <div className="uiPage">
       <div style={{ display: "flex", gap: 10 }}>
-        <Link to="/forum">← Към форума</Link>
+        <Button as={Link} to="/forum" variant="secondary" size="sm">
+          ← Към форума
+        </Button>
       </div>
 
-      {error && <div style={{ background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
       {loading && <p>Зареждане...</p>}
 
       {!loading && post && (
         <>
-          <section style={{ border: "1px solid #dbe5f2", borderRadius: 12, padding: 12, background: "#fff" }}>
+          <Card>
             {editPost ? (
               <div style={{ display: "grid", gap: 8 }}>
-                <input
+                <Input
                   value={postDraft.title}
                   onChange={(e) => setPostDraft((prev) => ({ ...prev, title: e.target.value }))}
                 />
-                <input
+                <Input
                   placeholder="Категория"
                   value={postDraft.category}
                   onChange={(e) => setPostDraft((prev) => ({ ...prev, category: e.target.value }))}
                 />
-                <input
+                <Input
                   placeholder="Тагове (със запетая)"
                   value={postDraft.tagsText}
                   onChange={(e) => setPostDraft((prev) => ({ ...prev, tagsText: e.target.value }))}
                 />
-                <textarea
+                <Input
+                  as="textarea"
                   ref={postContentRef}
                   rows={6}
                   value={postDraft.content}
@@ -105,7 +110,7 @@ export default function ForumTopic() {
                   disabled={busy}
                 />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
+                  <Button
                     disabled={busy}
                     onClick={async () => {
                       const payload = {
@@ -131,8 +136,10 @@ export default function ForumTopic() {
                     }}
                   >
                     Запази тема
-                  </button>
-                  <button onClick={() => setEditPost(false)}>Отказ</button>
+                  </Button>
+                  <Button variant="secondary" onClick={() => setEditPost(false)}>
+                    Отказ
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -179,8 +186,9 @@ export default function ForumTopic() {
                       </a>
                       {canManagePost && (
                         <div>
-                          <button
-                            style={{ color: "#b91c1c" }}
+                          <Button
+                            variant="danger"
+                            size="sm"
                             disabled={uploadBusy}
                             onClick={async () => {
                               if (!window.confirm("Изтриване на прикачения файл?")) return;
@@ -196,7 +204,7 @@ export default function ForumTopic() {
                             }}
                           >
                             Изтрий файл
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -218,14 +226,40 @@ export default function ForumTopic() {
             >
               <span>Автор: {post.author_name || `Потребител #${post.author_id}`}</span>
               <span>Създадена: {new Date(post.created_at || "").toLocaleString("bg-BG")}</span>
+              <span>Следят темата: {post.followers_count || 0}</span>
+            </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                variant="secondary"
+                disabled={followBusy}
+                onClick={async () => {
+                  try {
+                    setFollowBusy(true);
+                    if (post.is_following) {
+                      await axiosInstance.delete(API_PATHS.FORUM_POST_FOLLOW(id));
+                    } else {
+                      await axiosInstance.post(API_PATHS.FORUM_POST_FOLLOW(id));
+                    }
+                    await loadPost();
+                  } catch (err) {
+                    setError(normalizeError(err));
+                  } finally {
+                    setFollowBusy(false);
+                  }
+                }}
+              >
+                {post.is_following ? "Спри следене" : "Следвай тема"}
+              </Button>
             </div>
 
             {canManagePost && !editPost && (
               <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                <button onClick={() => setEditPost(true)}>Редактирай тема</button>
+                <Button variant="secondary" onClick={() => setEditPost(true)}>
+                  Редактирай тема
+                </Button>
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <span style={{ color: "#475569" }}>Прикачи файл</span>
-                  <input
+                  <Input
                     type="file"
                     disabled={uploadBusy}
                     onChange={async (e) => {
@@ -250,7 +284,8 @@ export default function ForumTopic() {
                 </label>
                 {isAdmin && (
                   <>
-                    <button
+                    <Button
+                      variant="ghost"
                       disabled={busy}
                       onClick={async () => {
                         try {
@@ -267,8 +302,9 @@ export default function ForumTopic() {
                       }}
                     >
                       {post.is_pinned ? "Махни закачане" : "Закачи тема"}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
                       disabled={busy}
                       onClick={async () => {
                         try {
@@ -285,11 +321,11 @@ export default function ForumTopic() {
                       }}
                     >
                       {post.is_locked ? "Отключи тема" : "Заключи тема"}
-                    </button>
+                    </Button>
                   </>
                 )}
-                <button
-                  style={{ color: "#b91c1c" }}
+                <Button
+                  variant="danger"
                   disabled={busy}
                   onClick={async () => {
                     if (!window.confirm("Да изтрия ли тази тема?")) return;
@@ -305,20 +341,19 @@ export default function ForumTopic() {
                   }}
                 >
                   Изтрий тема
-                </button>
+                </Button>
               </div>
             )}
-          </section>
+          </Card>
 
-          <section style={{ border: "1px solid #dbe5f2", borderRadius: 12, padding: 12, background: "#f9fbff" }}>
-            <h3 style={{ marginTop: 0 }}>Отговори</h3>
+          <Card title="Отговори" tone="soft">
             {isLocked && (
               <p style={{ marginTop: 0, color: "#92400e" }}>
                 Темата е заключена. Само администратор може да редактира или модерира съдържанието.
               </p>
             )}
             {(!post.replies || post.replies.length === 0) && (
-              <p style={{ marginTop: 0, color: "#607693" }}>Все още няма отговори по тази тема.</p>
+              <EmptyState title="Все още няма отговори по тази тема" description="Бъди първият, който ще отговори." />
             )}
 
             <div style={{ display: "grid", gap: 10 }}>
@@ -341,7 +376,8 @@ export default function ForumTopic() {
 
                   {editingReplyId === reply.id ? (
                     <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                      <textarea
+                      <Input
+                        as="textarea"
                         ref={editReplyContentRef}
                         rows={4}
                         value={editingReplyContent}
@@ -354,7 +390,7 @@ export default function ForumTopic() {
                         disabled={busy}
                       />
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button
+                        <Button
                           disabled={busy}
                           onClick={async () => {
                             const payload = { content: editingReplyContent.trim() };
@@ -373,15 +409,16 @@ export default function ForumTopic() {
                           }}
                         >
                           Запази
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="secondary"
                           onClick={() => {
                             setEditingReplyId(null);
                             setEditingReplyContent("");
                           }}
                         >
                           Отказ
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -391,18 +428,21 @@ export default function ForumTopic() {
                   {canManageReply(reply) && editingReplyId !== reply.id && (
                     <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                       {!isLocked || isAdmin ? (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => {
                             setEditingReplyId(reply.id);
                             setEditingReplyContent(reply.content || "");
                           }}
                         >
                           Редакция
-                        </button>
+                        </Button>
                       ) : null}
                       {!isLocked || isAdmin ? (
-                        <button
-                          style={{ color: "#b91c1c" }}
+                        <Button
+                          size="sm"
+                          variant="danger"
                           disabled={busy}
                           onClick={async () => {
                             if (!window.confirm("Изтриване на отговора?")) return;
@@ -418,7 +458,7 @@ export default function ForumTopic() {
                           }}
                         >
                           Изтрий
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   )}
@@ -428,7 +468,8 @@ export default function ForumTopic() {
 
             {!isLocked && (
               <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                <textarea
+                <Input
+                  as="textarea"
                   ref={replyContentRef}
                   rows={4}
                   placeholder="Напиши отговор..."
@@ -443,13 +484,13 @@ export default function ForumTopic() {
                 />
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {QUICK_EMOJIS.map((emoji) => (
-                  <button key={emoji} type="button" onClick={() => setReplyInput((prev) => `${prev}${emoji}`)}>
+                  <Button key={emoji} type="button" variant="ghost" size="sm" onClick={() => setReplyInput((prev) => `${prev}${emoji}`)}>
                     {emoji}
-                  </button>
+                  </Button>
                 ))}
               </div>
                 <div>
-                  <button
+                  <Button
                     disabled={busy}
                     onClick={async () => {
                       const payload = { content: replyInput.trim() };
@@ -467,11 +508,11 @@ export default function ForumTopic() {
                     }}
                   >
                     Публикувай отговор
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </section>
+          </Card>
         </>
       )}
     </div>

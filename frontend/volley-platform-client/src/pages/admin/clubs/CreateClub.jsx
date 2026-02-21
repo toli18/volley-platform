@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
+import { Button, Card, Input } from "../../../components/ui";
 
 export default function CreateClub() {
   const [name, setName] = useState("");
@@ -34,39 +35,23 @@ export default function CreateClub() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <h2>Create Club</h2>
 
-      {error && (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 4, marginBottom: 10, color: "#c33" }}>
-          {error}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
+
+      <Card style={{ maxWidth: 480 }}>
+        <div style={{ display: "grid", gap: 10 }}>
+          <Input
+            placeholder="Club name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <Button onClick={submit} disabled={loading}>
+            {loading ? "Създаване..." : "Create"}
+          </Button>
         </div>
-      )}
-
-      <input
-        placeholder="Club name"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        style={{ padding: 10, width: 300, fontSize: 16, marginBottom: 10 }}
-      />
-
-      <br />
-
-      <button 
-        onClick={submit}
-        disabled={loading}
-        style={{
-          padding: "10px 20px",
-          backgroundColor: loading ? "#6c757d" : "#0066cc",
-          color: "white",
-          border: "none",
-          borderRadius: 4,
-          cursor: loading ? "not-allowed" : "pointer",
-          fontSize: 16
-        }}
-      >
-        {loading ? "Създаване..." : "Create"}
-      </button>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
+import { Button, Card, Input } from "../../components/ui";
 
 const toIntOrNull = (v) => {
   if (v === "" || v === null || v === undefined) return null;
@@ -113,8 +114,7 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
   };
 
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
-      <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>
+    <Card title={title}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         {options.map((opt) => (
           <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -126,15 +126,14 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
 
       <div style={{ marginTop: 10 }}>
         <div style={{ fontWeight: 700, marginBottom: 6 }}>{otherLabel || "Други (по избор)"}</div>
-        <input
+        <Input
           value={otherValue || ""}
           onChange={(e) => onOtherChange(e.target.value)}
           placeholder="напр. Подавач, Комбинации, 6:6"
-          style={{ width: "100%", padding: 10 }}
         />
         <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>Разделяй със запетаи.</div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -335,21 +334,19 @@ export default function AdminEditDrill() {
     }
   };
 
-  if (loading) return <div style={{ padding: 20 }}>Зареждане…</div>;
+  if (loading) return <div className="uiPage">Зареждане…</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
+    <div className="uiPage" style={{ maxWidth: 980 }}>
       <div style={{ marginBottom: 12 }}>
-        <Link to="/admin/drills">← Назад към всички упражнения</Link>
+        <Button as={Link} to="/admin/drills" variant="secondary" size="sm">
+          ← Назад към всички упражнения
+        </Button>
       </div>
 
       <h2 style={{ marginTop: 0 }}>Администраторска редакция</h2>
 
-      {error ? (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00", marginBottom: 12 }}>
-          Грешка: {error}
-        </div>
-      ) : null}
+      {error ? <div className="uiAlert uiAlert--danger">Грешка: {error}</div> : null}
 
       <SectionTitle>Основни</SectionTitle>
       <div style={{ display: "grid", gap: 12 }}>
@@ -587,34 +584,20 @@ export default function AdminEditDrill() {
       </Row>
 
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-        <button
+        <Button
           onClick={save}
           disabled={saving}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "none",
-            background: "#0b66c3",
-            color: "white",
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
         >
           {saving ? "Запазване…" : "Запази промените"}
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => navigate(-1)}
           disabled={saving}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "white",
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
+          variant="secondary"
         >
           Назад
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
 } from "../components/articles/articleUtils";
 import "../components/articles/articles.css";
 import { useAuth } from "../auth/AuthContext";
+import { Button, Card, EmptyState, Input } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -123,81 +124,83 @@ export default function Articles() {
   }, [articles, filters]);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Статии и методика</h1>
         <div style={{ display: "flex", gap: 8 }}>
-          {user?.role === "coach" && <Link to="/articles/new">Нова статия</Link>}
-          <button onClick={loadArticles}>Презареди</button>
+          {user?.role === "coach" && (
+            <Button as={Link} to="/articles/new" size="sm">
+              Нова статия
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={loadArticles}>
+            Презареди
+          </Button>
         </div>
       </div>
 
-      {error && (
-        <div style={{ marginTop: 12, background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       {loading && <p style={{ marginTop: 12 }}>Зареждане...</p>}
 
       {!loading && !error && (
-        <div className="articleToolbar">
+        <Card className="articleToolbar">
           <div className="articleFilters">
-            <input
+            <Input
               placeholder="Търси по тема, заглавие, съдържание..."
               value={filters.query}
               onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
             />
 
-            <select value={filters.topic} onChange={(e) => setFilters((p) => ({ ...p, topic: e.target.value }))}>
+            <Input as="select" value={filters.topic} onChange={(e) => setFilters((p) => ({ ...p, topic: e.target.value }))}>
               <option value="all">Тема: всички</option>
               {topicOptions.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
-            </select>
+            </Input>
 
-            <select value={filters.level} onChange={(e) => setFilters((p) => ({ ...p, level: e.target.value }))}>
+            <Input as="select" value={filters.level} onChange={(e) => setFilters((p) => ({ ...p, level: e.target.value }))}>
               <option value="all">Ниво: всички</option>
               <option value="Начинаещи">Начинаещи</option>
               <option value="Средно ниво">Средно ниво</option>
               <option value="Напреднали">Напреднали</option>
               <option value="Всички нива">Всички нива</option>
-            </select>
+            </Input>
 
-            <select value={filters.author} onChange={(e) => setFilters((p) => ({ ...p, author: e.target.value }))}>
+            <Input as="select" value={filters.author} onChange={(e) => setFilters((p) => ({ ...p, author: e.target.value }))}>
               <option value="all">Автор: всички</option>
               {authorOptions.map((id) => (
                 <option key={id} value={String(id)}>
                   {authorDisplayLabel(articles.find((a) => String(a.author_id) === String(id)) || { author_id: id })}
                 </option>
               ))}
-            </select>
+            </Input>
 
-            <select value={filters.date} onChange={(e) => setFilters((p) => ({ ...p, date: e.target.value }))}>
+            <Input as="select" value={filters.date} onChange={(e) => setFilters((p) => ({ ...p, date: e.target.value }))}>
               <option value="all">Дата: всички</option>
               <option value="30d">Последни 30 дни</option>
               <option value="90d">Последни 90 дни</option>
-            </select>
+            </Input>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <select value={filters.sort} onChange={(e) => setFilters((p) => ({ ...p, sort: e.target.value }))}>
+            <Input as="select" value={filters.sort} onChange={(e) => setFilters((p) => ({ ...p, sort: e.target.value }))}>
               <option value="newest">Сортиране: Най-нови</option>
               <option value="oldest">Сортиране: Най-стари</option>
               <option value="most-read">Сортиране: Най-четени</option>
               <option value="a-z">Сортиране: A-Z</option>
-            </select>
+            </Input>
           </div>
-        </div>
+        </Card>
       )}
 
       {!loading && !error && filteredArticles.length === 0 && (
-        <div className="emptyBlock" style={{ marginTop: 16 }}>
-          <strong>Няма намерени статии по зададените критерии.</strong>
-          <p>Пробвай с по-широко търсене, махни филтър или сортирай по „Най-нови“.</p>
-        </div>
+        <EmptyState
+          title="Няма намерени статии по зададените критерии"
+          description="Пробвай с по-широко търсене, махни филтър или сортирай по „Най-нови“."
+        />
       )}
 
       {!loading && !error && filteredArticles.length > 0 && (

@@ -9,6 +9,7 @@ import {
   statusMeta,
 } from "../../components/articles/articleUtils";
 import "../../components/articles/articles.css";
+import { Button, Card, Input } from "../../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -93,17 +94,19 @@ export default function AdminArticleModeration() {
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
+    <div className="uiPage" style={{ maxWidth: 980 }}>
       <div style={{ marginBottom: 10 }}>
-        <Link to="/admin/articles/pending">← Към чакащи статии</Link>
+        <Button as={Link} to="/admin/articles/pending" variant="secondary" size="sm">
+          ← Към чакащи статии
+        </Button>
       </div>
       <h2 style={{ marginTop: 0 }}>Модерация на статия</h2>
       {loading && <p>Зареждане...</p>}
-      {error && <div style={{ background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       {!loading && article && (
         <>
-          <section className="articleBody">
+          <Card className="articleBody">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <h3 style={{ marginTop: 0, marginBottom: 8 }}>{article.title}</h3>
               <span className={`chip chipStatus ${statusMeta(article.status).className}`}>
@@ -132,9 +135,9 @@ export default function AdminArticleModeration() {
                     ))}
                 </div>
               )}
-          </section>
+          </Card>
 
-          <section className="articleBody">
+          <Card className="articleBody">
             <h4 style={{ marginTop: 0 }}>Материали за сваляне</h4>
             <ArticleAttachmentList attachments={article.media_items || []} />
             <h4 style={{ marginTop: 14 }}>Външни ресурси</h4>
@@ -149,14 +152,15 @@ export default function AdminArticleModeration() {
             ) : (
               <p style={{ color: "#607693" }}>Няма добавени външни ресурси.</p>
             )}
-          </section>
+          </Card>
 
-          <section className="articleBody">
+          <Card className="articleBody">
             <h4 style={{ marginTop: 0 }}>Действие на модератор</h4>
             <div style={{ display: "grid", gap: 10 }}>
               <div>
                 <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Причина за отказ</label>
-                <textarea
+                <Input
+                  as="textarea"
                   rows={3}
                   placeholder="напр. Липсват конкретни примери за изпълнение"
                   value={reason}
@@ -165,7 +169,8 @@ export default function AdminArticleModeration() {
               </div>
               <div>
                 <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Коментар за редакция</label>
-                <textarea
+                <Input
+                  as="textarea"
                   rows={3}
                   placeholder="напр. Добави диаграма и 2 тренировъчни варианта"
                   value={comment}
@@ -174,17 +179,17 @@ export default function AdminArticleModeration() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-              <button disabled={acting} onClick={approve}>
+              <Button disabled={acting} onClick={approve}>
                 Одобри статия
-              </button>
-              <button disabled={acting} onClick={reject} style={{ color: "#b91c1c" }}>
+              </Button>
+              <Button disabled={acting} onClick={reject} variant="danger">
                 Откажи с причина
-              </button>
-              <button disabled={acting} onClick={needsEdit}>
+              </Button>
+              <Button disabled={acting} onClick={needsEdit} variant="secondary">
                 Върни за редакция
-              </button>
+              </Button>
             </div>
-          </section>
+          </Card>
         </>
       )}
     </div>

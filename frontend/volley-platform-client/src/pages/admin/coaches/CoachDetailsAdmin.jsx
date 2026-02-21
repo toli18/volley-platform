@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
+import { Button, Card, Input } from "../../../components/ui";
 
 export default function CoachDetailsAdmin() {
   const { id } = useParams();
@@ -101,81 +102,79 @@ export default function CoachDetailsAdmin() {
     }
   };
 
-  if (loading) return <div style={{ padding: 20 }}>Зареждане…</div>;
+  if (loading) return <div className="uiPage">Зареждане…</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: "100%", minHeight: "80vh" }}>
+    <div className="uiPage" style={{ maxWidth: "100%", minHeight: "80vh" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <h2 style={{ margin: 0 }}>Пълен преглед / редакция на треньор #{coachId}</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <Link to="/admin/coaches"><button>Към треньори</button></Link>
-          <button onClick={() => navigate(-1)}>Назад</button>
+          <Button as={Link} to="/admin/coaches" variant="secondary">Към треньори</Button>
+          <Button onClick={() => navigate(-1)} variant="secondary">Назад</Button>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: "#ffe2e2", border: "1px solid #ffc7c7", color: "#9f1a1a", padding: 10, borderRadius: 10, marginBottom: 12 }}>
+        <div className="uiAlert uiAlert--danger">
           {error}
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 12 }}>
-        <div style={{ border: "1px solid #dce5f2", borderRadius: 12, padding: 12, background: "#fff" }}>
-          <h3 style={{ margin: "0 0 10px" }}>Профил</h3>
+        <Card title="Профил">
           <div style={{ display: "grid", gap: 10 }}>
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Име</div>
-              <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
             </label>
 
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Email</div>
-              <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+              <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </label>
 
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Роля</div>
-              <input value={form.role} disabled />
+              <Input value={form.role} disabled />
             </label>
 
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Клуб</div>
-              <select value={form.club_id} onChange={(e) => setForm((p) => ({ ...p, club_id: e.target.value }))}>
+              <Input as="select" value={form.club_id} onChange={(e) => setForm((p) => ({ ...p, club_id: e.target.value }))}>
                 <option value="">Избери клуб</option>
                 {clubs.map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Input>
             </label>
 
             <div style={{ marginTop: 4 }}>
-              <button onClick={onSave} disabled={saving}>{saving ? "Запис..." : "Запази данните"}</button>
+              <Button onClick={onSave} disabled={saving}>{saving ? "Запис..." : "Запази данните"}</Button>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div style={{ border: "1px solid #dce5f2", borderRadius: 12, padding: 12, background: "#fff" }}>
-          <h3 style={{ margin: "0 0 10px" }}>Reset password</h3>
+        <Card title="Reset password">
           <div style={{ display: "grid", gap: 10 }}>
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Нова парола</div>
-              <input
+              <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Поне 6 символа"
               />
             </label>
-            <button onClick={onResetPassword} disabled={resetting}>
+            <Button onClick={onResetPassword} disabled={resetting}>
               {resetting ? "Смяна..." : "Смени паролата"}
-            </button>
+            </Button>
             <div style={{ fontSize: 12, color: "#5f708c" }}>
               Старата парола не се показва никъде. Задава се само нова.
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { statusMeta } from "../../components/articles/articleUtils";
+import { Button, Card, EmptyState, Input } from "../../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -74,40 +75,44 @@ export default function AdminArticles() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>Admin: Всички статии</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={load}>Рефреш</button>
+          <Button onClick={load} variant="secondary" size="sm">
+            Рефреш
+          </Button>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 10, marginTop: 10 }}>
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Търси по заглавие, excerpt или съдържание..."
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Input as="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">Всички статуси</option>
           <option value="PENDING">PENDING</option>
           <option value="APPROVED">APPROVED</option>
           <option value="REJECTED">REJECTED</option>
           <option value="NEEDS_EDIT">NEEDS_EDIT</option>
-        </select>
+        </Input>
       </div>
 
       {loading && <p style={{ marginTop: 12 }}>Зареждане...</p>}
-      {error && <div style={{ marginTop: 12, background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
-      {!loading && !error && filtered.length === 0 && <p style={{ marginTop: 12 }}>Няма статии по избраните критерии.</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <EmptyState title="Няма статии по избраните критерии" description="Промени филтъра или заявката за търсене." />
+      )}
 
       {!loading && !error && filtered.length > 0 && (
         <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
           {filtered.map((a) => {
             const st = statusMeta(a.status);
             return (
-              <article key={a.id} style={{ border: "1px solid #dbe5f2", borderRadius: 10, padding: 12, background: "#fff" }}>
+              <Card key={a.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div>
                     <h3 style={{ margin: "0 0 6px 0" }}>{a.title}</h3>
@@ -119,15 +124,21 @@ export default function AdminArticles() {
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Link to={`/articles/${a.id}`}>Преглед</Link>
-                    <Link to={`/admin/articles/${a.id}`}>Модерация</Link>
-                    <button onClick={() => navigate(`/admin/articles/${a.id}/edit`)}>Редакция</button>
-                    <button onClick={() => removeArticle(a.id)} style={{ color: "#b91c1c" }}>
+                    <Button as={Link} to={`/articles/${a.id}`} variant="secondary" size="sm">
+                      Преглед
+                    </Button>
+                    <Button as={Link} to={`/admin/articles/${a.id}`} variant="ghost" size="sm">
+                      Модерация
+                    </Button>
+                    <Button onClick={() => navigate(`/admin/articles/${a.id}/edit`)} variant="ghost" size="sm">
+                      Редакция
+                    </Button>
+                    <Button onClick={() => removeArticle(a.id)} variant="danger" size="sm">
                       Изтрий
-                    </button>
+                    </Button>
                   </div>
                 </div>
-              </article>
+              </Card>
             );
           })}
         </div>

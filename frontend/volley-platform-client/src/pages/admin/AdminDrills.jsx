@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { Button, Card, EmptyState } from "../../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -56,32 +57,25 @@ export default function AdminDrills() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <h2 style={{ marginTop: 0 }}>📋 Admin: Всички упражнения</h2>
 
-        <button
-          onClick={fetchDrills}
-          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #333", background: "white" }}
-        >
+        <Button onClick={fetchDrills} variant="secondary" size="sm">
           🔄 Рефреш
-        </button>
+        </Button>
       </div>
 
       {loading && <p>Зареждане...</p>}
 
-      {error && (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 6, color: "#c33" }}>
-          Грешка: {error}
-        </div>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
-      {!loading && !error && drills.length === 0 && <p>Няма упражнения.</p>}
+      {!loading && !error && drills.length === 0 && <EmptyState title="Няма упражнения" description="Няма налични записи за админ преглед." />}
 
       {!loading && !error && drills.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {drills.map((d) => (
-            <div key={d.id} style={{ border: "1px solid #ccc", padding: 12, borderRadius: 6 }}>
+            <Card key={d.id}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <div>
                   <h3 style={{ margin: "0 0 6px 0" }}>{d.title || d.name || "няма име"}</h3>
@@ -91,56 +85,22 @@ export default function AdminDrills() {
                 </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  {/* Преглед (публичната страница) */}
-                  <Link
-                    to={`/drills/${d.id}`}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 6,
-                      border: "1px solid #0066cc",
-                      color: "#0066cc",
-                      textDecoration: "none",
-                      height: "fit-content",
-                    }}
-                  >
+                  <Button as={Link} to={`/drills/${d.id}`} variant="secondary" size="sm">
                     Преглед
-                  </Link>
+                  </Button>
 
-                  {/* Админ редакция */}
-                  <Link
-                    to={`/admin/drills/${d.id}/edit`}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 6,
-                      border: "1px solid #333",
-                      color: "#333",
-                      textDecoration: "none",
-                      height: "fit-content",
-                    }}
-                  >
+                  <Button as={Link} to={`/admin/drills/${d.id}/edit`} variant="ghost" size="sm">
                     Редакция
-                  </Link>
+                  </Button>
 
-                  {/* Админ delete */}
-                  <button
-                    onClick={() => deleteDrill(d.id)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 6,
-                      border: "none",
-                      background: "#dc3545",
-                      color: "white",
-                      cursor: "pointer",
-                      height: "fit-content",
-                    }}
-                  >
+                  <Button onClick={() => deleteDrill(d.id)} variant="danger" size="sm">
                     Изтрий
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <p style={{ margin: "10px 0 0 0" }}>{d.description || "няма описание"}</p>
-            </div>
+            </Card>
           ))}
         </div>
       )}

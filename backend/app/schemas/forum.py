@@ -69,6 +69,8 @@ class ForumPostListResponse(BaseModel):
     media_count: int = 0
     author_name: Optional[str] = None
     replies_count: int = 0
+    followers_count: int = 0
+    is_following: bool = False
     last_activity_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -85,4 +87,22 @@ class ForumPostPageResponse(BaseModel):
     page_size: int
     total: int
     total_pages: int
+
+
+class ForumFollowStateResponse(BaseModel):
+    post_id: int
+    is_following: bool
+    followers_count: int
+
+
+class ForumNotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    post_id: int
+    reply_id: Optional[int] = None
+    message: str
+    is_read: bool = False
+    created_at: Optional[datetime] = None
 

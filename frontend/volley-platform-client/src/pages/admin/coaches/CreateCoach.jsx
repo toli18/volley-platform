@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
+import { Button, Card, Input } from "../../../components/ui";
 
 export default function CreateCoach() {
   const [email, setEmail] = useState("");
@@ -72,53 +73,39 @@ export default function CreateCoach() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <h2>Create Coach</h2>
 
-      {error && (
-        <div
-          style={{
-            background: "#ffdddd",
-            padding: 10,
-            borderRadius: 6,
-            marginBottom: 10,
-            color: "#c33",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
-        <input
+      <Card style={{ maxWidth: 520 }}>
+        <div style={{ display: "grid", gap: 10 }}>
+        <Input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ padding: 10, fontSize: 16 }}
         />
 
-        <input
+        <Input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 10, fontSize: 16 }}
         />
 
-        <input
+        <Input
           type="text"
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ padding: 10, fontSize: 16 }}
         />
 
-        <select
+        <Input
+          as="select"
           value={clubId}
           onChange={(e) => setClubId(e.target.value)}
           disabled={loadingClubs}
-          style={{ padding: 10, fontSize: 16 }}
         >
           <option value="">
             {loadingClubs ? "Loading clubs..." : "Select club"}
@@ -128,24 +115,13 @@ export default function CreateCoach() {
               {c.name}
             </option>
           ))}
-        </select>
+        </Input>
 
-        <button
-          onClick={submit}
-          disabled={loading}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: loading ? "#6c757d" : "#0066cc",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontSize: 16,
-          }}
-        >
+        <Button onClick={submit} disabled={loading}>
           {loading ? "Създаване..." : "Create"}
-        </button>
-      </div>
+        </Button>
+        </div>
+      </Card>
     </div>
   );
 }

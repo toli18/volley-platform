@@ -13,6 +13,7 @@ import {
 } from "../components/articles/articleUtils";
 import { extractTocItems, toDisplayHtml } from "../utils/richText";
 import "../components/articles/articles.css";
+import { Button, EmptyState, Input } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -114,14 +115,20 @@ export default function ArticleDetails() {
   const articleHtml = useMemo(() => toDisplayHtml(article?.content || ""), [article?.content]);
 
   return (
-    <div style={{ padding: 20, maxWidth: "100%" }}>
+    <div className="uiPage" style={{ maxWidth: "100%" }}>
       <div style={{ marginBottom: 12, display: "flex", gap: 10 }}>
-        <Link to="/articles">← Към статии</Link>
-        {canEdit && <Link to={`/articles/${id}/edit`}>Редактирай</Link>}
+        <Button as={Link} to="/articles" variant="secondary" size="sm">
+          ← Към статии
+        </Button>
+        {canEdit && (
+          <Button as={Link} to={`/articles/${id}/edit`} size="sm">
+            Редактирай
+          </Button>
+        )}
       </div>
 
       {loading && <p>Зареждане...</p>}
-      {error && <div style={{ background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       {!loading && !error && article && (
         <ArticleLayout
@@ -169,9 +176,7 @@ export default function ArticleDetails() {
           <section className="articleBody">
             <h3 style={{ marginTop: 0 }}>Коментари</h3>
             {comments.length === 0 && (
-              <p style={{ color: "#607693", marginTop: 0 }}>
-                Все още няма коментари. Бъди първият, който ще сподели мнение.
-              </p>
+              <EmptyState title="Все още няма коментари" description="Бъди първият, който ще сподели мнение." />
             )}
 
             {comments.length > 0 && (
@@ -195,13 +200,15 @@ export default function ArticleDetails() {
 
                     {editingCommentId === c.id ? (
                       <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                        <textarea
+                        <Input
+                          as="textarea"
                           rows={3}
                           value={editingContent}
                           onChange={(e) => setEditingContent(e.target.value)}
                         />
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button
+                          <Button
+                            size="sm"
                             disabled={commentBusy}
                             onClick={async () => {
                               const text = editingContent.trim();
@@ -220,15 +227,17 @@ export default function ArticleDetails() {
                             }}
                           >
                             Запази
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
                             onClick={() => {
                               setEditingCommentId(null);
                               setEditingContent("");
                             }}
                           >
                             Отказ
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -237,16 +246,19 @@ export default function ArticleDetails() {
 
                     {canManageComment(c) && editingCommentId !== c.id && (
                       <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => {
                             setEditingCommentId(c.id);
                             setEditingContent(c.content || "");
                           }}
                         >
                           Редакция
-                        </button>
-                        <button
-                          style={{ color: "#b91c1c" }}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
                           onClick={async () => {
                             if (!window.confirm("Изтриване на коментар?")) return;
                             try {
@@ -261,7 +273,7 @@ export default function ArticleDetails() {
                           }}
                         >
                           Изтрий
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </article>
@@ -271,14 +283,15 @@ export default function ArticleDetails() {
 
             {canComment ? (
               <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                <textarea
+                <Input
+                  as="textarea"
                   rows={4}
                   placeholder="Добави коментар..."
                   value={commentInput}
                   onChange={(e) => setCommentInput(e.target.value)}
                 />
                 <div>
-                  <button
+                  <Button
                     disabled={commentBusy}
                     onClick={async () => {
                       const text = commentInput.trim();
@@ -296,7 +309,7 @@ export default function ArticleDetails() {
                     }}
                   >
                     Публикувай коментар
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -314,7 +327,9 @@ export default function ArticleDetails() {
                     <p style={{ color: "#607693", margin: "8px 0" }}>
                       {r.excerpt || "Практичен материал по близка тема."}
                     </p>
-                    <Link to={`/articles/${r.id}`}>Прочети</Link>
+                    <Button as={Link} to={`/articles/${r.id}`} variant="secondary" size="sm">
+                      Прочети
+                    </Button>
                   </article>
                 ))}
               </div>
@@ -331,9 +346,15 @@ export default function ArticleDetails() {
                 {lightboxIndex + 1}/{imageItems.length} • {imageItems[lightboxIndex]?.name || "Снимка"}
               </strong>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setLightboxIndex((i) => (i - 1 + imageItems.length) % imageItems.length)}>◀</button>
-                <button onClick={() => setLightboxIndex((i) => (i + 1) % imageItems.length)}>▶</button>
-                <button onClick={() => setLightboxIndex(-1)}>✕</button>
+                <Button size="sm" variant="secondary" onClick={() => setLightboxIndex((i) => (i - 1 + imageItems.length) % imageItems.length)}>
+                  ◀
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setLightboxIndex((i) => (i + 1) % imageItems.length)}>
+                  ▶
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setLightboxIndex(-1)}>
+                  ✕
+                </Button>
               </div>
             </div>
             <div className="lightboxBody">

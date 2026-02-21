@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
 import { Link } from "react-router-dom";
+import { Button, Card, EmptyState, Input } from "../../../components/ui";
 
 export default function CoachList() {
   const [coaches, setCoaches] = useState([]);
@@ -110,43 +111,39 @@ export default function CoachList() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <h2>👤 Coaches</h2>
 
-      <Link
+      <Button
+        as={Link}
         to="/admin/coaches/new"
-        style={{
-          display: "inline-block",
-          marginBottom: 16,
-          color: "#0066cc",
-          textDecoration: "none",
-        }}
+        variant="secondary"
+        size="sm"
       >
         ➕ Create Coach
-      </Link>
+      </Button>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 10, marginBottom: 12 }}>
-        <input
+        <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Търси по име, email, клуб…"
-          style={{ width: "100%", padding: 10 }}
         />
-        <select value={clubFilter} onChange={(e) => setClubFilter(e.target.value)} style={{ width: "100%", padding: 10 }}>
+        <Input as="select" value={clubFilter} onChange={(e) => setClubFilter(e.target.value)}>
           <option value="all">Всички клубове</option>
           {clubs.map((c) => (
             <option key={c.id} value={String(c.id)}>
               {c.name}
             </option>
           ))}
-        </select>
+        </Input>
       </div>
 
       {loading && <p>Зареждане…</p>}
-      {error && <p style={{ color: "crimson" }}>Грешка: {error}</p>}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
       {!loading && !error && filtered.length === 0 && (
-        <p>Няма треньори (или API връща празен списък).</p>
+        <EmptyState title="Няма треньори" description="Няма треньори по тези критерии." />
       )}
 
       {!loading && !error && filtered.length > 0 && (
@@ -154,15 +151,7 @@ export default function CoachList() {
           {filtered.map((c) => {
             const club = c?.club_id ? clubMap.get(Number(c.club_id)) : null;
             return (
-              <div
-                key={c.id}
-                style={{
-                  border: "1px solid #dce5f2",
-                  borderRadius: 12,
-                  padding: 10,
-                  background: "#fff",
-                }}
-              >
+              <Card key={c.id}>
                 <div style={{ fontWeight: 900 }}>{c.name || "Треньор"}</div>
                 <div style={{ fontSize: 13, color: "#415472" }}>{c.email}</div>
                 <div style={{ marginTop: 4, fontSize: 13 }}>
@@ -172,11 +161,13 @@ export default function CoachList() {
                   {club?.city ? `${club.city}, ` : ""}{club?.country || ""}
                 </div>
                 <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-                  <Link to={`/admin/coaches/${c.id}`}><button>Пълен преглед/редакция</button></Link>
-                  <button onClick={() => openEditModal(c)}>Редакция</button>
-                  <button onClick={() => onDeleteCoach(c)} style={{ color: "crimson" }}>Изтрий</button>
+                  <Button as={Link} to={`/admin/coaches/${c.id}`} variant="secondary" size="sm">
+                    Пълен преглед/редакция
+                  </Button>
+                  <Button onClick={() => openEditModal(c)} variant="ghost" size="sm">Редакция</Button>
+                  <Button onClick={() => onDeleteCoach(c)} variant="danger" size="sm">Изтрий</Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -203,14 +194,14 @@ export default function CoachList() {
             <div style={{ display: "grid", gap: 10 }}>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Име</div>
-                <input
+                <Input
                   value={editForm.name}
                   onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
                 />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Email</div>
-                <input
+                <Input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
@@ -218,7 +209,8 @@ export default function CoachList() {
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Клуб</div>
-                <select
+                <Input
+                  as="select"
                   value={editForm.club_id}
                   onChange={(e) => setEditForm((p) => ({ ...p, club_id: e.target.value }))}
                 >
@@ -228,14 +220,14 @@ export default function CoachList() {
                       {club.name}
                     </option>
                   ))}
-                </select>
+                </Input>
               </label>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-              <button onClick={() => setEditCoach(null)} disabled={editSaving}>Отказ</button>
-              <button onClick={onSaveEditCoach} disabled={editSaving}>
+              <Button onClick={() => setEditCoach(null)} disabled={editSaving} variant="secondary">Отказ</Button>
+              <Button onClick={onSaveEditCoach} disabled={editSaving}>
                 {editSaving ? "Запис..." : "Запази"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

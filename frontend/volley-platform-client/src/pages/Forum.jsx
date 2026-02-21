@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { Button, Card, EmptyState, Input } from "../components/ui";
 import { toPlainTextSnippet } from "../utils/richText";
 
 const QUICK_EMOJIS = ["🏐", "🔥", "💪", "🎯", "📈", "🧱", "👏", "🤝"];
@@ -54,6 +55,7 @@ export default function Forum() {
     query: "",
     category: "all",
     tag: "all",
+    sort_by: "last_activity",
     page: 1,
     page_size: 10,
   });
@@ -75,6 +77,7 @@ export default function Forum() {
       if (nextFilters.query.trim()) params.query = nextFilters.query.trim();
       if (nextFilters.category !== "all") params.category = nextFilters.category;
       if (nextFilters.tag !== "all") params.tag = nextFilters.tag;
+      if (nextFilters.sort_by) params.sort_by = nextFilters.sort_by;
 
       const res = await axiosInstance.get(API_PATHS.FORUM_POSTS_LIST, { params });
       const data = res.data || {};
@@ -141,21 +144,23 @@ export default function Forum() {
   };
 
   return (
-    <div style={{ padding: 20, display: "grid", gap: 16 }}>
-      <h1 style={{ margin: 0 }}>Форум за треньори</h1>
-      <p style={{ margin: 0, color: "#607693" }}>
+    <div className="uiPage">
+      <div className="uiPageHeader">
+        <h1 style={{ margin: 0 }}>Форум за треньори</h1>
+        <p className="uiMuted">
         Пространство за обмен на волейболни идеи, методики и практически опит между треньори и админи.
-      </p>
+        </p>
+      </div>
 
-      <section style={{ border: "1px solid #dbe5f2", borderRadius: 12, padding: 12, background: "#f9fbff" }}>
-        <h3 style={{ marginTop: 0 }}>Нова тема</h3>
+      <Card title="Нова тема" tone="soft">
         <div style={{ display: "grid", gap: 8 }}>
-          <input
+          <Input
             placeholder="Заглавие на темата"
             value={newPost.title}
             onChange={(e) => setNewPost((prev) => ({ ...prev, title: e.target.value }))}
           />
-          <select
+          <Input
+            as="select"
             value={newPost.category}
             onChange={(e) => setNewPost((prev) => ({ ...prev, category: e.target.value }))}
           >
@@ -165,44 +170,40 @@ export default function Forum() {
                 {c}
               </option>
             ))}
-          </select>
-          <input
+          </Input>
+          <Input
             placeholder="Добави собствен таг (по желание)"
             value={newPost.customTag}
             onChange={(e) => setNewPost((prev) => ({ ...prev, customTag: e.target.value }))}
           />
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
+            <Button
               onClick={() => {
                 const custom = String(newPost.customTag || "").trim();
                 if (!custom) return;
                 toggleTag(custom);
                 setNewPost((prev) => ({ ...prev, customTag: "" }));
               }}
+              variant="secondary"
+              size="sm"
             >
               Добави таг
-            </button>
+            </Button>
             <span style={{ color: "#64748b", fontSize: 13 }}>Избери тагове от примерите по-долу</span>
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {SUGGESTED_TAGS.map((tag) => {
               const selected = newPost.selectedTags.includes(tag);
               return (
-                <button
+                <Button
                   key={tag}
-                  type="button"
                   onClick={() => toggleTag(tag)}
-                  style={{
-                    borderRadius: 999,
-                    border: selected ? "1px solid #2563eb" : "1px solid #cbd5e1",
-                    background: selected ? "#dbeafe" : "#fff",
-                    color: selected ? "#1e3a8a" : "#334155",
-                    padding: "4px 10px",
-                  }}
+                  variant={selected ? "primary" : "secondary"}
+                  size="sm"
+                  style={{ borderRadius: 999 }}
                 >
                   #{tag}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -224,7 +225,8 @@ export default function Forum() {
               ))}
             </div>
           )}
-          <textarea
+          <Input
+            as="textarea"
             ref={newPostContentRef}
             rows={5}
             placeholder="Опиши темата, въпроса или идеята..."
@@ -241,7 +243,7 @@ export default function Forum() {
             <label style={{ color: "#334155", fontSize: 14 }}>
               Снимки/видео/файлове (по желание)
             </label>
-            <input
+            <Input
               type="file"
               multiple
               accept="image/*,video/*,.pdf,.docx,.pptx,.xlsx,.zip"
@@ -271,17 +273,18 @@ export default function Forum() {
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {QUICK_EMOJIS.map((emoji) => (
-              <button
+              <Button
                 key={emoji}
-                type="button"
                 onClick={() => setNewPost((prev) => ({ ...prev, content: `${prev.content}${emoji}` }))}
+                variant="ghost"
+                size="sm"
               >
                 {emoji}
-              </button>
+              </Button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button
+            <Button
               disabled={busy}
               onClick={async () => {
                 const payload = {
@@ -321,23 +324,25 @@ export default function Forum() {
               }}
             >
               Публикувай тема
-            </button>
-            <button onClick={() => loadPosts(filters)}>Презареди</button>
+            </Button>
+            <Button variant="secondary" onClick={() => loadPosts(filters)}>
+              Презареди
+            </Button>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section style={{ display: "grid", gap: 10 }}>
+      <Card title="Теми">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <h3 style={{ margin: 0 }}>Теми</h3>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input
+            <Input
               style={{ maxWidth: 260 }}
-              placeholder="Търси тема..."
+              placeholder="Търси в заглавие и съдържание..."
               value={filters.query}
               onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value, page: 1 }))}
             />
-            <select
+            <Input
+              as="select"
               value={filters.category}
               onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value, page: 1 }))}
             >
@@ -347,27 +352,34 @@ export default function Forum() {
                   {c}
                 </option>
               ))}
-            </select>
-            <select value={filters.tag} onChange={(e) => setFilters((prev) => ({ ...prev, tag: e.target.value, page: 1 }))}>
+            </Input>
+            <Input as="select" value={filters.tag} onChange={(e) => setFilters((prev) => ({ ...prev, tag: e.target.value, page: 1 }))}>
               <option value="all">Таг: всички</option>
               {popularTags.map((t) => (
                 <option key={t} value={t}>
                   #{t}
                 </option>
               ))}
-            </select>
-            <button onClick={() => loadPosts(filters)}>Приложи филтри</button>
+            </Input>
+            <Input
+              as="select"
+              value={filters.sort_by}
+              onChange={(e) => setFilters((prev) => ({ ...prev, sort_by: e.target.value, page: 1 }))}
+            >
+              <option value="last_activity">Сортиране: Последна активност</option>
+              <option value="most_replied">Сортиране: Най-коментирани</option>
+              <option value="newest">Сортиране: Най-нови</option>
+            </Input>
+            <Button variant="secondary" onClick={() => loadPosts(filters)}>
+              Приложи филтри
+            </Button>
           </div>
         </div>
 
-        {error && <div style={{ background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+        {error && <div className="uiAlert uiAlert--danger">{error}</div>}
         {loading && <p>Зареждане...</p>}
 
-        {!loading && posts.length === 0 && (
-          <div style={{ border: "1px dashed #dbe5f2", borderRadius: 10, padding: 12 }}>
-            Няма теми по това търсене.
-          </div>
-        )}
+        {!loading && posts.length === 0 && <EmptyState title="Няма теми по това търсене" description="Промени филтъра или създай нова тема." />}
 
         {!loading &&
           posts.map((post) => (
@@ -405,7 +417,9 @@ export default function Forum() {
                 <span>Файлове: {post.media_count || 0}</span>
               </div>
               <div>
-                <Link to={`/forum/${post.id}`}>Отвори темата</Link>
+                <Button as={Link} to={`/forum/${post.id}`} variant="secondary" size="sm">
+                  Отвори темата
+                </Button>
               </div>
             </article>
           ))}
@@ -416,30 +430,32 @@ export default function Forum() {
               Страница {meta.page} от {meta.total_pages} ({meta.total} теми)
             </span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button
+              <Button
                 disabled={meta.page <= 1}
                 onClick={() => {
                   const next = { ...filters, page: Math.max(1, meta.page - 1) };
                   setFilters(next);
                   loadPosts(next);
                 }}
+                variant="secondary"
               >
                 ← Предишна
-              </button>
-              <button
+              </Button>
+              <Button
                 disabled={meta.page >= meta.total_pages}
                 onClick={() => {
                   const next = { ...filters, page: Math.min(meta.total_pages, meta.page + 1) };
                   setFilters(next);
                   loadPosts(next);
                 }}
+                variant="secondary"
               >
                 Следваща →
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

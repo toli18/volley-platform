@@ -6,7 +6,15 @@ from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import ForumPost, ForumPostMedia, ForumReply, User, UserRole
+from app.models import (
+    ForumNotification,
+    ForumPost,
+    ForumPostMedia,
+    ForumPostSubscription,
+    ForumReply,
+    User,
+    UserRole,
+)
 from app.schemas.forum import (
     ForumPostCreate,
     ForumPostModerationUpdate,
@@ -53,12 +61,28 @@ def _normalize_tags(tags: list[str] | None) -> list[str]:
     return cleaned[:12]
 
 
-def _decorate_post(post: ForumPost) -> None:
+def _to_ts(dt_value) -> float:
+    if not dt_value:
+        return 0.0
+    try:
+        return float(dt_value.timestamp())
+    except Exception:
+        return 0.0
+
+
+def _decorate_post(db: Session, post: ForumPost, user: User) -> None:
     post.author_name = post.author.name if getattr(post, "author", None) else None
     post.tags = _normalize_tags(getattr(post, "tags", []))
     post.media_count = len(getattr(post, "media_items", []) or [])
     replies = list(getattr(post, "replies", []) or [])
     post.replies_count = len(replies)
+    post.followers_count = db.query(ForumPostSubscription).filter(ForumPostSubscription.post_id == post.id).count()
+    post.is_following = (
+        db.query(ForumPostSubscription)
+        .filter(ForumPostSubscription.post_id == post.id, ForumPostSubscription.user_id == user.id)
+        .first()
+        is not None
+    )
 
     last_reply_at = None
     for reply in replies:
@@ -80,6 +104,7 @@ def list_posts(
     category: str | None = None,
     tag: str | None = None,
     query: str | None = None,
+    sort_by: str = "last_activity",
 ) -> tuple[list[ForumPost], int]:
     if not _can_participate(user):
         raise HTTPException(status_code=403, detail="Forum access is allowed only for coaches and admins")
@@ -99,13 +124,40 @@ def list_posts(
         tag_value = tag.strip().lower()
         posts = [p for p in posts if tag_value in _normalize_tags(getattr(p, "tags", []))]
 
+    for post in posts:
+        _decorate_post(db, post, user)
+
+    if sort_by == "most_replied":
+        posts.sort(
+            key=lambda p: (
+                0 if p.is_pinned else 1,
+                -(getattr(p, "replies_count", 0) or 0),
+                -_to_ts(getattr(p, "last_activity_at", None) or getattr(p, "updated_at", None) or getattr(p, "created_at", None)),
+            )
+        )
+    elif sort_by == "newest":
+        posts.sort(
+            key=lambda p: (
+                0 if p.is_pinned else 1,
+                -_to_ts(getattr(p, "created_at", None)),
+            )
+        )
+    else:
+        posts.sort(
+            key=lambda p: (
+                0 if p.is_pinned else 1,
+                -_to_ts(
+                    getattr(p, "last_activity_at", None)
+                    or getattr(p, "updated_at", None)
+                    or getattr(p, "created_at", None)
+                ),
+            )
+        )
+
     total = len(posts)
     start = (safe_page - 1) * safe_page_size
     end = start + safe_page_size
     paged_items = posts[start:end]
-
-    for post in paged_items:
-        _decorate_post(post)
 
     return paged_items, total
 
@@ -151,7 +203,7 @@ def get_post(db: Session, post_id: int, user: User) -> ForumPost:
     if not post:
         raise HTTPException(status_code=404, detail="Forum topic not found")
 
-    _decorate_post(post)
+    _decorate_post(db, post, user)
     return post
 
 
@@ -168,6 +220,8 @@ def create_post(db: Session, user: User, payload: ForumPostCreate) -> ForumPost:
     tags = _normalize_tags(payload.tags)
     post = ForumPost(title=title, content=content, category=category, tags=tags, author_id=user.id)
     db.add(post)
+    db.commit()
+    db.add(ForumPostSubscription(post_id=post.id, user_id=user.id))
     db.commit()
     return get_post(db, post.id, user)
 
@@ -317,7 +371,88 @@ def create_reply(db: Session, post_id: int, user: User, payload: ForumReplyCreat
     db.commit()
     db.refresh(reply)
     reply.author_name = user.name
+
+    recipient_ids = set()
+    if post.author_id and post.author_id != user.id:
+        recipient_ids.add(post.author_id)
+    subs = db.query(ForumPostSubscription).filter(ForumPostSubscription.post_id == post_id).all()
+    for sub in subs:
+        if sub.user_id != user.id:
+            recipient_ids.add(sub.user_id)
+    if not any(sub.user_id == user.id for sub in subs):
+        db.add(ForumPostSubscription(post_id=post_id, user_id=user.id))
+    for recipient_id in recipient_ids:
+        db.add(
+            ForumNotification(
+                user_id=recipient_id,
+                post_id=post_id,
+                reply_id=reply.id,
+                message=f"Нов отговор в тема \"{post.title}\" от {user.name}",
+                is_read=False,
+            )
+        )
+    db.commit()
     return reply
+
+
+def set_follow_post(db: Session, post_id: int, user: User, follow: bool) -> dict:
+    post = db.query(ForumPost).filter(ForumPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Forum topic not found")
+
+    existing = (
+        db.query(ForumPostSubscription)
+        .filter(ForumPostSubscription.post_id == post_id, ForumPostSubscription.user_id == user.id)
+        .first()
+    )
+    if follow and not existing:
+        db.add(ForumPostSubscription(post_id=post_id, user_id=user.id))
+        db.commit()
+    if not follow and existing:
+        db.delete(existing)
+        db.commit()
+
+    followers_count = db.query(ForumPostSubscription).filter(ForumPostSubscription.post_id == post_id).count()
+    is_following = (
+        db.query(ForumPostSubscription)
+        .filter(ForumPostSubscription.post_id == post_id, ForumPostSubscription.user_id == user.id)
+        .first()
+        is not None
+    )
+    return {"post_id": post_id, "is_following": is_following, "followers_count": followers_count}
+
+
+def list_notifications(db: Session, user: User, limit: int = 20) -> tuple[list[ForumNotification], int]:
+    safe_limit = max(1, min(int(limit), 50))
+    unread_count = db.query(ForumNotification).filter(ForumNotification.user_id == user.id, ForumNotification.is_read.is_(False)).count()
+    items = (
+        db.query(ForumNotification)
+        .filter(ForumNotification.user_id == user.id)
+        .order_by(ForumNotification.created_at.desc())
+        .limit(safe_limit)
+        .all()
+    )
+    return items, unread_count
+
+
+def mark_notification_read(db: Session, notification_id: int, user: User) -> None:
+    item = (
+        db.query(ForumNotification)
+        .filter(ForumNotification.id == notification_id, ForumNotification.user_id == user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if not item.is_read:
+        item.is_read = True
+        db.commit()
+
+
+def mark_all_notifications_read(db: Session, user: User) -> None:
+    items = db.query(ForumNotification).filter(ForumNotification.user_id == user.id, ForumNotification.is_read.is_(False)).all()
+    for item in items:
+        item.is_read = True
+    db.commit()
 
 
 def update_reply(db: Session, post_id: int, reply_id: int, user: User, payload: ForumReplyUpdate) -> ForumReply:

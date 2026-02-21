@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
+import { Button, Card, EmptyState, Input } from "../../../components/ui";
 
 export default function ClubList() {
   const [clubs, setClubs] = useState([]);
@@ -121,33 +122,29 @@ export default function ClubList() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <h2>🏢 Clubs</h2>
 
-      <Link
+      <Button
+        as={Link}
         to="/admin/clubs/new"
-        style={{ display: "inline-block", marginBottom: 20, color: "#0066cc", textDecoration: "none" }}
+        variant="secondary"
+        size="sm"
       >
         ➕ Create Club
-      </Link>
+      </Button>
 
-      {error && <p style={{ color: "red" }}>Грешка: {error}</p>}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
       {loading && <p>Зареждане…</p>}
 
-      {!loading && !error && clubs.length === 0 && <p>Няма налични клубове.</p>}
+      {!loading && !error && clubs.length === 0 && <EmptyState title="Няма налични клубове" description="Създай първия клуб от бутона горе." />}
 
       {!loading && !error && clubs.length > 0 && (
         <div style={{ display: "grid", gap: 10 }}>
           {clubs.map((c) => (
-            <div
+            <Card
               key={c.id}
-              style={{
-                border: "1px solid #dce5f2",
-                borderRadius: 12,
-                padding: 12,
-                background: "#fff",
-                boxShadow: "0 2px 10px rgba(15,36,68,.05)",
-              }}
+              className="uiCard--soft"
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
                 <div>
@@ -160,9 +157,11 @@ export default function ClubList() {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => onToggleAccess(c)}>{c.is_active === false ? "Активирай достъп" : "Спри достъп"}</button>
-                  <button onClick={() => openEditModal(c)}>Редакция</button>
-                  <button onClick={() => onDelete(c)} style={{ color: "crimson" }}>Изтрий</button>
+                  <Button onClick={() => onToggleAccess(c)} size="sm" variant="secondary">
+                    {c.is_active === false ? "Активирай достъп" : "Спри достъп"}
+                  </Button>
+                  <Button onClick={() => openEditModal(c)} size="sm" variant="ghost">Редакция</Button>
+                  <Button onClick={() => onDelete(c)} size="sm" variant="danger">Изтрий</Button>
                 </div>
               </div>
 
@@ -187,7 +186,7 @@ export default function ClubList() {
                   "—"
                 )}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -213,42 +212,42 @@ export default function ClubList() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Име *</div>
-                <input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
+                <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Град</div>
-                <input value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
+                <Input value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Държава</div>
-                <input value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} />
+                <Input value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Телефон</div>
-                <input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} />
+                <Input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Email</div>
-                <input type="email" value={editForm.contact_email} onChange={(e) => setEditForm((p) => ({ ...p, contact_email: e.target.value }))} />
+                <Input type="email" value={editForm.contact_email} onChange={(e) => setEditForm((p) => ({ ...p, contact_email: e.target.value }))} />
               </label>
               <label>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Сайт (URL)</div>
-                <input value={editForm.website_url} onChange={(e) => setEditForm((p) => ({ ...p, website_url: e.target.value }))} />
+                <Input value={editForm.website_url} onChange={(e) => setEditForm((p) => ({ ...p, website_url: e.target.value }))} />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Адрес</div>
-                <input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+                <Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Лого URL</div>
-                <input value={editForm.logo_url} onChange={(e) => setEditForm((p) => ({ ...p, logo_url: e.target.value }))} />
+                <Input value={editForm.logo_url} onChange={(e) => setEditForm((p) => ({ ...p, logo_url: e.target.value }))} />
               </label>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-              <button onClick={() => setEditClub(null)} disabled={editSaving}>Отказ</button>
-              <button onClick={onSaveEdit} disabled={editSaving}>
+              <Button onClick={() => setEditClub(null)} disabled={editSaving} variant="secondary">Отказ</Button>
+              <Button onClick={onSaveEdit} disabled={editSaving}>
                 {editSaving ? "Запис..." : "Запази"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

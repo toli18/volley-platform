@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import ArticleAttachmentList from "../components/articles/ArticleAttachmentList";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { clearDraft, createDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -28,7 +29,12 @@ export default function CreateArticle() {
     excerpt: "",
     content: "",
   });
+  const [draftStatus, setDraftStatus] = useState("няма чернова");
+  const [draftSavedAt, setDraftSavedAt] = useState("");
   const contentRef = useRef(null);
+  const draftKey = createDraftKey();
+  const restoreCheckedRef = useRef(false);
+  const saveTimerRef = useRef(null);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -59,6 +65,54 @@ export default function CreateArticle() {
     setCreatedArticle(res.data);
   };
 
+  useEffect(() => {
+    if (restoreCheckedRef.current) return;
+    restoreCheckedRef.current = true;
+    const draft = loadDraft(draftKey);
+    if (!draft || !hasMeaningfulDraft(draft)) return;
+    const restore = window.confirm("Има намерена чернова за нова статия. Да я възстановя?");
+    if (!restore) return;
+    setForm({
+      title: draft.title || "",
+      excerpt: draft.excerpt || "",
+      content: draft.content || "",
+    });
+    setDraftStatus("чернова възстановена");
+    setDraftSavedAt(draft.saved_at || "");
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (createdArticleId) return;
+    if (!hasMeaningfulDraft(form)) {
+      clearDraft(draftKey);
+      setDraftStatus("няма чернова");
+      setDraftSavedAt("");
+      return;
+    }
+    setDraftStatus("запазване...");
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveDraft(draftKey, form);
+      const nowIso = new Date().toISOString();
+      setDraftSavedAt(nowIso);
+      setDraftStatus("черновата е запазена");
+    }, 700);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [createdArticleId, draftKey, form]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event) => {
+      if (createdArticleId) return;
+      if (!hasMeaningfulDraft(form)) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [createdArticleId, form]);
+
   const onSubmit = async () => {
     if (!form.title.trim() || !form.content.trim()) {
       setError("Заглавието и съдържанието са задължителни.");
@@ -77,6 +131,9 @@ export default function CreateArticle() {
       const res = await axiosInstance.post("/api/articles", payload);
       setCreatedArticleId(res.data.id);
       await loadCreatedArticle(res.data.id);
+      clearDraft(draftKey);
+      setDraftStatus("черновата е изчистена");
+      setDraftSavedAt("");
       setSuccess("Статията е създадена. Сега можеш да качиш корица, снимки, файлове и линкове.");
     } catch (err) {
       setError(normalizeError(err));
@@ -163,6 +220,24 @@ export default function CreateArticle() {
         <Link to="/articles">← Към статии</Link>
       </div>
       <h2 style={{ marginTop: 0 }}>Нова статия (разширен редактор)</h2>
+      <div style={{ color: "#607693", fontSize: 13, marginBottom: 8 }}>
+        Чернова: <strong>{draftStatus}</strong>
+        {draftSavedAt ? ` • ${new Date(draftSavedAt).toLocaleTimeString("bg-BG")}` : ""}
+        {!createdArticleId && hasMeaningfulDraft(form) && (
+          <button
+            type="button"
+            onClick={() => {
+              clearDraft(draftKey);
+              setForm({ title: "", excerpt: "", content: "" });
+              setDraftStatus("няма чернова");
+              setDraftSavedAt("");
+            }}
+            style={{ marginLeft: 8 }}
+          >
+            Изчисти чернова
+          </button>
+        )}
+      </div>
       <div
         style={{
           marginTop: 8,

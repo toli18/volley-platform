@@ -61,7 +61,16 @@ export const AuthProvider = ({ children }) => {
       setUser(me);
       setUserState(me);
 
-      return me;
+      return { success: true, user: me };
+    } catch (err) {
+      clearAuth();
+      setUserState(null);
+      const detail = err?.response?.data?.detail;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : "Невалиден имейл или парола. Моля, опитай отново.";
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }

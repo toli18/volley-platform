@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { Button, Card, EmptyState } from "../../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -44,40 +45,33 @@ export default function AdminPending() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ marginTop: 0 }}>📋 Чакащи упражнения</h2>
+    <div className="uiPage">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <h2 style={{ marginTop: 0 }}>📋 Чакащи упражнения</h2>
+        <Button variant="secondary" size="sm" onClick={fetchPending}>
+          Презареди
+        </Button>
+      </div>
 
       {loading && <p>Зареждане...</p>}
 
-      {error && (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 6, color: "#c33" }}>
-          Грешка: {error}
-        </div>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
-      {!loading && !error && drills.length === 0 && <p>Няма чакащи упражнения.</p>}
+      {!loading && !error && drills.length === 0 && (
+        <EmptyState title="Няма чакащи упражнения" description="Когато има нови предложения, ще се покажат тук." />
+      )}
 
       {!loading && !error && drills.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {drills.map((d) => (
-            <div key={d.id} style={{ border: "1px solid #ccc", padding: 12, borderRadius: 6 }}>
+            <Card key={d.id}>
               <h3 style={{ margin: "0 0 6px 0" }}>{d.title || d.name || "няма име"}</h3>
               <p style={{ margin: "0 0 10px 0" }}>{d.description || "няма описание"}</p>
 
-              <Link
-                to={`/admin/pending/${d.id}`}
-                style={{
-                  display: "inline-block",
-                  padding: "6px 10px",
-                  border: "1px solid #0066cc",
-                  borderRadius: 4,
-                  textDecoration: "none",
-                  color: "#0066cc",
-                }}
-              >
+              <Button as={Link} to={`/admin/pending/${d.id}`} variant="secondary" size="sm">
                 Преглед / Редакция
-              </Link>
-            </div>
+              </Button>
+            </Card>
           ))}
         </div>
       )}

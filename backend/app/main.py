@@ -16,6 +16,7 @@ from app.routers.drills import router as drills_router
 from app.routers.trainings import router as trainings_router
 from app.routers.ai_training import router as ai_training_router
 from app.routers.forum import router as forum_router
+from app.routers.fees import router as fees_router
 from app.routers import articles
 
 
@@ -62,6 +63,7 @@ app.include_router(trainings_router, prefix="/trainings", tags=["Trainings"])
 app.include_router(ai_training_router)
 app.include_router(articles.router, prefix="/api", tags=["Articles"])
 app.include_router(forum_router, prefix="/api", tags=["Forum"])
+app.include_router(fees_router, prefix="/api", tags=["Fees"])
 
 # --- Root ---
 @app.get("/")

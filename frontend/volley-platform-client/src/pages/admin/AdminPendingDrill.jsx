@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../../utils/drillCanonical";
+import { Button, Card, Input } from "../../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -90,8 +91,7 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
   };
 
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
-      <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>
+    <Card title={title}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         {options.map((opt) => (
           <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -103,14 +103,13 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
 
       <div style={{ marginTop: 10 }}>
         <div style={{ fontWeight: 700, marginBottom: 6 }}>{otherLabel || "Други (по избор)"}</div>
-        <input
+        <Input
           value={otherValue || ""}
           onChange={(e) => onOtherChange(e.target.value)}
           placeholder="Разделяй със запетаи"
-          style={{ width: "100%", padding: 10 }}
         />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -333,10 +332,10 @@ export default function AdminPendingDrill() {
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 900 }}>
-      <Link to="/admin/pending" style={{ display: "inline-block", marginBottom: 10 }}>
+    <div className="uiPage" style={{ maxWidth: 900 }}>
+      <Button as={Link} to="/admin/pending" variant="secondary" size="sm">
         ← Назад към чакащи
-      </Link>
+      </Button>
 
       <h2 style={{ marginTop: 0 }}>
         Преглед / Редакция на упражнение #{Number.isFinite(drillId) ? drillId : "?"}
@@ -344,11 +343,7 @@ export default function AdminPendingDrill() {
 
       {loading && <p>Зареждане…</p>}
 
-      {error && (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 6, color: "#c33", marginBottom: 10 }}>
-          Грешка: {error}
-        </div>
-      )}
+      {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
       {!loading && (
         <div style={{ display: "grid", gap: 10 }}>
@@ -631,49 +626,28 @@ export default function AdminPendingDrill() {
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-            <button
+            <Button
               onClick={saveChanges}
               disabled={saving || acting}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: "1px solid #333",
-                background: saving ? "#eee" : "white",
-                cursor: saving || acting ? "not-allowed" : "pointer",
-              }}
+              variant="secondary"
             >
               💾 Запази промени
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={() => decide("approve")}
               disabled={saving || acting}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: "none",
-                background: "#28a745",
-                color: "white",
-                cursor: saving || acting ? "not-allowed" : "pointer",
-              }}
             >
               ✅ Approve
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={() => decide("reject")}
               disabled={saving || acting}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: "none",
-                background: "#dc3545",
-                color: "white",
-                cursor: saving || acting ? "not-allowed" : "pointer",
-              }}
+              variant="danger"
             >
               ❌ Reject
-            </button>
+            </Button>
           </div>
         </div>
       )}

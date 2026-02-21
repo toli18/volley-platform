@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import { Button, Card, EmptyState } from "../components/ui";
 
 function clipText(s, n = 180) {
   const t = String(s || "").trim();
@@ -49,8 +50,8 @@ export default function TrainingDetails() {
     })();
   }, [id]);
 
-  if (loading) return <div style={{ padding: 16 }}>Зареждане…</div>;
-  if (!data) return <div style={{ padding: 16 }}>Няма данни.</div>;
+  if (loading) return <div className="uiPage">Зареждане…</div>;
+  if (!data) return <EmptyState title="Няма данни" description="Не успяхме да заредим детайлите за тренировката." />;
 
   const plan = data.plan || {};
   const drillsMap = data.drills || {};
@@ -88,10 +89,12 @@ export default function TrainingDetails() {
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn" onClick={() => navigate("/my-trainings")}>Към списъка</button>
-          <Link to={`/trainings/${id}/edit`}>
-            <button className="btnPrimary">Редакция</button>
-          </Link>
+          <Button variant="secondary" onClick={() => navigate("/my-trainings")}>
+            Към списъка
+          </Button>
+          <Button as={Link} to={`/trainings/${id}/edit`}>
+            Редакция
+          </Button>
         </div>
       </div>
 
@@ -142,9 +145,9 @@ export default function TrainingDetails() {
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center" }}>
-                        <button className="btn" onClick={() => d && setModalDrill(d)}>
+                        <Button variant="secondary" onClick={() => d && setModalDrill(d)}>
                           Бърз преглед
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );

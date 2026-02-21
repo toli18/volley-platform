@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
+import { Button, Card, EmptyState } from "../components/ui";
 
 /** ---------- Грешки от FastAPI ---------- */
 const normalizeFastApiError = (err) => {
@@ -67,16 +68,6 @@ const tagBg = (t) => {
 
   return dict[k] || x;
 };
-
-/** ---------- UI компоненти ---------- */
-function Card({ title, children }) {
-  return (
-    <section style={{ border: "1px solid #ddd", borderRadius: 10, padding: 14, marginTop: 12 }}>
-      <div style={{ fontWeight: 900, marginBottom: 10 }}>{title}</div>
-      {children}
-    </section>
-  );
-}
 
 function InfoRow({ label, value }) {
   const v = value === 0 ? "0" : value;
@@ -530,13 +521,15 @@ export default function DrillDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillId]);
 
-  if (loading) return <div style={{ padding: 20 }}>Зареждане…</div>;
+  if (loading) return <div className="uiPage">Зареждане…</div>;
 
   if (error) {
     return (
-      <div style={{ padding: 20 }}>
-        <Link to="/drills">← Назад към упражненията</Link>
-        <div style={{ marginTop: 12, background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00" }}>
+      <div className="uiPage">
+        <Button as={Link} to="/drills" variant="secondary" size="sm">
+          ← Назад към упражненията
+        </Button>
+        <div className="uiAlert uiAlert--danger">
           <strong>Грешка:</strong> {error}
         </div>
       </div>
@@ -545,9 +538,11 @@ export default function DrillDetails() {
 
   if (!drill) {
     return (
-      <div style={{ padding: 20 }}>
-        <Link to="/drills">← Назад към упражненията</Link>
-        <div style={{ marginTop: 12 }}>Няма данни за това упражнение.</div>
+      <div className="uiPage">
+        <Button as={Link} to="/drills" variant="secondary" size="sm">
+          ← Назад към упражненията
+        </Button>
+        <EmptyState title="Няма данни за това упражнение" description="Провери дали упражнението съществува." />
       </div>
     );
   }
@@ -560,14 +555,16 @@ export default function DrillDetails() {
   const hasImage = Boolean(String(imageUrl || "").trim());
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
+    <div className="uiPage" style={{ maxWidth: 980 }}>
       <div style={{ marginBottom: 12 }}>
-        <Link to="/drills">← Назад към упражненията</Link>
+        <Button as={Link} to="/drills" variant="secondary" size="sm">
+          ← Назад към упражненията
+        </Button>
       </div>
 
       <h2 style={{ marginTop: 0 }}>{drill.title || "Без име"}</h2>
 
-      <Card title="Обобщение">
+      <Card title="Обобщение" className="uiPage">
         <InfoRow label="Номер" value={drill.id != null ? String(drill.id) : ""} />
         <InfoRow label="Статус" value={mapStatusBg(drill.status)} />
 
@@ -650,7 +647,7 @@ export default function DrillDetails() {
             <ImagePreview url={imageUrl} alt={drill.title || "Снимка"} />
           </>
         ) : (
-          <div style={{ color: "#777", fontWeight: 800 }}>Няма добавено видео или снимка за това упражнение.</div>
+          <EmptyState title="Няма добавено видео или снимка" description="Добави медия към упражнението при редакция." />
         )}
       </Card>
     </div>

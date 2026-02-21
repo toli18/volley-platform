@@ -4,6 +4,7 @@ import axiosInstance from "../utils/apiClient";
 import { useAuth } from "../auth/AuthContext";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -31,7 +32,14 @@ export default function EditArticle() {
     links: [],
     author_id: null,
   });
+  const [draftStatus, setDraftStatus] = useState("няма чернова");
+  const [draftSavedAt, setDraftSavedAt] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [initialSnapshot, setInitialSnapshot] = useState({ title: "", excerpt: "", content: "" });
   const contentRef = useRef(null);
+  const restoreCheckedRef = useRef(false);
+  const saveTimerRef = useRef(null);
+  const draftKey = editDraftKey(id);
 
   const load = async () => {
     try {
@@ -48,6 +56,12 @@ export default function EditArticle() {
         links: Array.isArray(a.links) ? a.links : [],
         author_id: a.author_id,
       });
+      setInitialSnapshot({
+        title: a.title || "",
+        excerpt: a.excerpt || "",
+        content: a.content || "",
+      });
+      setLoaded(true);
     } catch (err) {
       setError(normalizeError(err));
     } finally {
@@ -59,12 +73,65 @@ export default function EditArticle() {
     load();
   }, [id]);
 
+  useEffect(() => {
+    if (!loaded || restoreCheckedRef.current === true) return;
+    restoreCheckedRef.current = true;
+    const draft = loadDraft(draftKey);
+    if (!draft || !hasMeaningfulDraft(draft)) return;
+    const restore = window.confirm("Има намерена чернова за редакцията. Да я възстановя?");
+    if (!restore) return;
+    setForm((prev) => ({
+      ...prev,
+      title: draft.title || prev.title,
+      excerpt: draft.excerpt || prev.excerpt,
+      content: draft.content || prev.content,
+    }));
+    setDraftStatus("чернова възстановена");
+    setDraftSavedAt(draft.saved_at || "");
+  }, [draftKey, loaded]);
+
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const canEdit = user && form.author_id === user.id && form.status !== "APPROVED";
+  const isDirty =
+    String(form.title || "") !== String(initialSnapshot.title || "") ||
+    String(form.excerpt || "") !== String(initialSnapshot.excerpt || "") ||
+    String(form.content || "") !== String(initialSnapshot.content || "");
+
+  useEffect(() => {
+    if (!loaded || !canEdit) return;
+    if (!isDirty) {
+      clearDraft(draftKey);
+      setDraftStatus("няма чернова");
+      setDraftSavedAt("");
+      return;
+    }
+    setDraftStatus("запазване...");
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveDraft(draftKey, form);
+      const nowIso = new Date().toISOString();
+      setDraftSavedAt(nowIso);
+      setDraftStatus("черновата е запазена");
+    }, 700);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [canEdit, draftKey, form, isDirty, loaded]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event) => {
+      if (!canEdit) return;
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [canEdit, isDirty]);
 
   const insertContentTemplate = (template) => {
     if (!canEdit) return;
@@ -99,6 +166,14 @@ export default function EditArticle() {
         excerpt: form.excerpt.trim() || null,
         content: form.content.trim(),
       });
+      setInitialSnapshot({
+        title: form.title,
+        excerpt: form.excerpt,
+        content: form.content,
+      });
+      clearDraft(draftKey);
+      setDraftStatus("черновата е изчистена");
+      setDraftSavedAt("");
       navigate(`/articles/${id}`);
     } catch (err) {
       setError(normalizeError(err));
@@ -173,6 +248,23 @@ export default function EditArticle() {
         <Link to={`/articles/${id}`}>← Към статията</Link>
       </div>
       <h2 style={{ marginTop: 0 }}>Редакция на статия</h2>
+      <div style={{ color: "#607693", fontSize: 13, marginBottom: 8 }}>
+        Чернова: <strong>{draftStatus}</strong>
+        {draftSavedAt ? ` • ${new Date(draftSavedAt).toLocaleTimeString("bg-BG")}` : ""}
+        {canEdit && isDirty && (
+          <button
+            type="button"
+            onClick={() => {
+              clearDraft(draftKey);
+              setDraftStatus("няма чернова");
+              setDraftSavedAt("");
+            }}
+            style={{ marginLeft: 8 }}
+          >
+            Изчисти чернова
+          </button>
+        )}
+      </div>
       <div style={{ color: "#607693", marginBottom: 10 }}>
         Статус: <strong>{form.status}</strong>
       </div>

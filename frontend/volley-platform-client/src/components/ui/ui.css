@@ -1,0 +1,250 @@
+.uiPage {
+  display: grid;
+  gap: 16px;
+}
+
+.uiPageHeader {
+  display: grid;
+  gap: 8px;
+}
+
+.uiMuted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.uiAlert {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+}
+
+.uiAlert--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.uiCard {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.uiCard--soft {
+  background: var(--surface-soft);
+}
+
+.uiCard--danger {
+  background: #fff7f7;
+  border-color: #f4caca;
+}
+
+.uiCard--success {
+  background: #f3fcf6;
+  border-color: #b8e5c7;
+}
+
+.uiCard--padded {
+  padding: 14px;
+}
+
+.uiCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.uiCardTitleWrap {
+  display: grid;
+  gap: 4px;
+}
+
+.uiCardTitle {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.uiCardSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.uiButton {
+  appearance: none;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  padding: 9px 13px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.04s ease;
+}
+
+.uiButton:active {
+  transform: translateY(1px);
+}
+
+.uiButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uiButton--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.uiButton--primary:hover:not(:disabled) {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+}
+
+.uiButton--secondary {
+  background: #fff;
+  color: var(--text-main);
+}
+
+.uiButton--secondary:hover:not(:disabled) {
+  border-color: #a8bad6;
+  background: #f7faff;
+}
+
+.uiButton--ghost {
+  background: transparent;
+  color: var(--text-main);
+}
+
+.uiButton--ghost:hover:not(:disabled) {
+  border-color: #a8bad6;
+  background: rgba(11, 92, 255, 0.06);
+}
+
+.uiButton--danger {
+  background: #be1e2d;
+  border-color: #be1e2d;
+  color: #fff;
+}
+
+.uiButton--danger:hover:not(:disabled) {
+  background: #a71825;
+  border-color: #a71825;
+}
+
+.uiButton--sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.uiButton--md {
+  font-size: 14px;
+}
+
+.uiButton--lg {
+  padding: 11px 16px;
+  font-size: 15px;
+}
+
+.uiButton--block {
+  width: 100%;
+}
+
+.uiField {
+  display: grid;
+  gap: 6px;
+}
+
+.uiFieldLabel {
+  color: #2d4365;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.uiControl {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-main);
+  padding: 9px 11px;
+}
+
+.uiControl:disabled {
+  background: #f4f7fb;
+  color: #7a8da8;
+}
+
+.uiFieldHint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.uiFieldError {
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.uiControl--error {
+  border-color: #dc2626;
+}
+
+.uiEmptyState {
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 18px;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  justify-items: center;
+}
+
+.uiEmptyStateIcon {
+  font-size: 22px;
+}
+
+.uiEmptyStateTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.uiEmptyStateDescription {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.uiBadge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  background: #f2f6fb;
+  color: #29456f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.uiBadge--success {
+  border-color: #99ddb5;
+  background: #ecfdf5;
+  color: #12693a;
+}
+
+.uiBadge--danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+

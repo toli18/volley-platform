@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { Button, Card, Input } from "../../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -67,37 +68,41 @@ export default function AdminEditArticle() {
     }
   };
 
-  if (loading) return <div style={{ padding: 20 }}>Зареждане...</div>;
+  if (loading) return <div className="uiPage">Зареждане...</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
+    <div className="uiPage" style={{ maxWidth: 980 }}>
       <div style={{ marginBottom: 10 }}>
-        <Link to="/admin/articles">← Назад към всички статии</Link>
+        <Button as={Link} to="/admin/articles" variant="secondary" size="sm">
+          ← Назад към всички статии
+        </Button>
       </div>
       <h2 style={{ marginTop: 0 }}>Редакция на статия (Admin)</h2>
 
-      {error && <div style={{ background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
-      <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+      <Card>
+        <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
         <div>
           <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Заглавие *</label>
-          <input name="title" value={form.title} onChange={onChange} />
+          <Input name="title" value={form.title} onChange={onChange} />
         </div>
         <div>
           <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Кратко описание</label>
-          <textarea name="excerpt" value={form.excerpt} onChange={onChange} rows={3} />
+          <Input as="textarea" name="excerpt" value={form.excerpt} onChange={onChange} rows={3} />
         </div>
         <div>
           <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Съдържание *</label>
-          <textarea name="content" value={form.content} onChange={onChange} rows={16} />
+          <Input as="textarea" name="content" value={form.content} onChange={onChange} rows={16} />
         </div>
-      </div>
+        </div>
 
       <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-        <button onClick={save} disabled={saving}>
+        <Button onClick={save} disabled={saving}>
           {saving ? "Запис..." : "Запази промените"}
-        </button>
+        </Button>
       </div>
+      </Card>
     </div>
   );
 }

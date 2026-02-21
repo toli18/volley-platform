@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { Button, Card, EmptyState } from "../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -64,32 +65,29 @@ export default function Drills() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1 style={{ marginTop: 0 }}>Упражнения</h1>
+    <div className="uiPage">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>Упражнения</h1>
+        <Button variant="secondary" onClick={load}>
+          ⟳ Презареди
+        </Button>
+      </div>
 
       {error && (
-        <div
-          style={{
-            background: "#ffdddd",
-            padding: 10,
-            borderRadius: 8,
-            color: "#a00",
-            marginBottom: 12,
-            fontWeight: 700,
-          }}
-        >
+        <div className="uiAlert uiAlert--danger">
           Грешка: {error}
         </div>
       )}
 
       {loading && <p>Зареждане…</p>}
 
-      {!loading && !error && (
-        <table
-          border="1"
-          cellPadding="8"
-          style={{ width: "100%", borderCollapse: "collapse" }}
-        >
+      {!loading && !error && drills.length === 0 && (
+        <EmptyState title="Няма упражнения" description="Добави ново упражнение или презареди по-късно." />
+      )}
+
+      {!loading && !error && drills.length > 0 && (
+        <Card padded={false}>
+          <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
           <thead>
             <tr style={{ backgroundColor: "#f5f5f5" }}>
               <th>ID</th>
@@ -100,130 +98,107 @@ export default function Drills() {
             </tr>
           </thead>
           <tbody>
-            {drills.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ textAlign: "center", padding: 20 }}>
-                  Няма упражнения
-                </td>
-              </tr>
-            ) : (
-              drills.map((drill) => {
-                let imageUrl = null;
+            {drills.map((drill) => {
+              let imageUrl = null;
 
-                if (drill.image_urls) {
-                  if (Array.isArray(drill.image_urls) && drill.image_urls.length > 0) {
-                    imageUrl = drill.image_urls[0];
-                  } else if (
-                    typeof drill.image_urls === "string" &&
-                    drill.image_urls.trim()
-                  ) {
-                    imageUrl = drill.image_urls.trim();
-                  }
+              if (drill.image_urls) {
+                if (Array.isArray(drill.image_urls) && drill.image_urls.length > 0) {
+                  imageUrl = drill.image_urls[0];
+                } else if (
+                  typeof drill.image_urls === "string" &&
+                  drill.image_urls.trim()
+                ) {
+                  imageUrl = drill.image_urls.trim();
                 }
+              }
 
-                const hasImage = !!(imageUrl && typeof imageUrl === "string" && imageUrl.trim());
+              const hasImage = !!(imageUrl && typeof imageUrl === "string" && imageUrl.trim());
 
-                const hasVideo =
-                  drill.video_urls &&
-                  ((Array.isArray(drill.video_urls) && drill.video_urls.length > 0) ||
-                    (typeof drill.video_urls === "string" && drill.video_urls.trim()));
+              const hasVideo =
+                drill.video_urls &&
+                ((Array.isArray(drill.video_urls) && drill.video_urls.length > 0) ||
+                  (typeof drill.video_urls === "string" && drill.video_urls.trim()));
 
-                const title = drill.title || drill.name || "няма заглавие";
+              const title = drill.title || drill.name || "няма заглавие";
 
-                const status = String(drill.status || "").toLowerCase();
-                const statusLabel =
-                  status === "approved"
-                    ? "Одобрено"
-                    : status === "pending"
-                    ? "Чака одобрение"
-                    : status === "rejected"
-                    ? "Отказано"
-                    : drill.status || "няма статус";
+              const status = String(drill.status || "").toLowerCase();
+              const statusLabel =
+                status === "approved"
+                  ? "Одобрено"
+                  : status === "pending"
+                  ? "Чака одобрение"
+                  : status === "rejected"
+                  ? "Отказано"
+                  : drill.status || "няма статус";
 
-                const statusColor =
-                  status === "approved"
-                    ? "#28a745"
-                    : status === "pending"
-                    ? "#ffc107"
-                    : status === "rejected"
-                    ? "#dc3545"
-                    : "#6c757d";
+              const statusColor =
+                status === "approved"
+                  ? "#28a745"
+                  : status === "pending"
+                  ? "#ffc107"
+                  : status === "rejected"
+                  ? "#dc3545"
+                  : "#6c757d";
 
-                return (
-                  <tr key={drill.id}>
-                    <td>{drill.id}</td>
+              return (
+                <tr key={drill.id}>
+                  <td>{drill.id}</td>
 
-                    <td>
-                      <Link
-                        to={`/drills/${drill.id}`}
-                        style={{ color: "#0066cc", textDecoration: "none", fontWeight: 800 }}
-                      >
-                        {title}
-                      </Link>
-                    </td>
+                  <td>
+                    <Link
+                      to={`/drills/${drill.id}`}
+                      style={{ color: "#0066cc", textDecoration: "none", fontWeight: 800 }}
+                    >
+                      {title}
+                    </Link>
+                  </td>
 
-                    <td>{drill.description || "няма описание"}</td>
+                  <td>{drill.description || "няма описание"}</td>
 
-                    <td>
-                      {hasImage ? (
-                        <img
-                          src={imageUrl}
-                          alt={title}
-                          style={{
-                            maxWidth: 100,
-                            maxHeight: 60,
-                            objectFit: "cover",
-                            border: "1px solid #ddd",
-                            borderRadius: 4,
-                          }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                      ) : hasVideo ? (
-                        <span style={{ color: "#0066cc", fontSize: 12 }}>📹 Видео</span>
-                      ) : (
-                        <span style={{ color: "#999", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-
-                    <td>
-                      <span
+                  <td>
+                    {hasImage ? (
+                      <img
+                        src={imageUrl}
+                        alt={title}
                         style={{
-                          padding: "4px 8px",
+                          maxWidth: 100,
+                          maxHeight: 60,
+                          objectFit: "cover",
+                          border: "1px solid #ddd",
                           borderRadius: 4,
-                          backgroundColor: statusColor,
-                          color: "white",
-                          fontSize: 12,
-                          fontWeight: 900,
                         }}
-                      >
-                        {statusLabel}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : hasVideo ? (
+                      <span style={{ color: "#0066cc", fontSize: 12 }}>📹 Видео</span>
+                    ) : (
+                      <span style={{ color: "#999", fontSize: 12 }}>—</span>
+                    )}
+                  </td>
+
+                  <td>
+                    <span
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        backgroundColor: statusColor,
+                        color: "white",
+                        fontSize: 12,
+                        fontWeight: 900,
+                      }}
+                    >
+                      {statusLabel}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        </Card>
       )}
-
-      <div style={{ marginTop: 14 }}>
-        <button
-          onClick={load}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "white",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          ⟳ Презареди
-        </button>
-      </div>
     </div>
   );
 }

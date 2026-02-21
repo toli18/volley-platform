@@ -11,30 +11,33 @@ import DrillDetails from "./pages/DrillDetails.jsx";
 import EditDrill from "./pages/EditDrill.jsx";
 import Generator from "./pages/Generator.jsx";
 import CreateDrill from "./pages/CreateDrill.jsx";
+import { ToastProvider } from "./components/ToastProvider.jsx";
+const Home = React.lazy(() => import("./pages/Home.jsx"));
 
-import MyDrills from "./pages/MyDrills.jsx";
-import MyTrainings from "./pages/MyTrainings.jsx";
-import TrainingDetails from "./pages/TrainingDetails.jsx";
-import EditTraining from "./pages/EditTraining.jsx";
-import AIGenerator from "./pages/AIGenerator.jsx";
-import Articles from "./pages/Articles.jsx";
-import ArticleDetails from "./pages/ArticleDetails.jsx";
-import CreateArticle from "./pages/CreateArticle.jsx";
-import EditArticle from "./pages/EditArticle.jsx";
-import Forum from "./pages/Forum.jsx";
-import ForumTopic from "./pages/ForumTopic.jsx";
+const MyDrills = React.lazy(() => import("./pages/MyDrills.jsx"));
+const MyTrainings = React.lazy(() => import("./pages/MyTrainings.jsx"));
+const TrainingDetails = React.lazy(() => import("./pages/TrainingDetails.jsx"));
+const EditTraining = React.lazy(() => import("./pages/EditTraining.jsx"));
+const AIGenerator = React.lazy(() => import("./pages/AIGenerator.jsx"));
+const Articles = React.lazy(() => import("./pages/Articles.jsx"));
+const ArticleDetails = React.lazy(() => import("./pages/ArticleDetails.jsx"));
+const CreateArticle = React.lazy(() => import("./pages/CreateArticle.jsx"));
+const EditArticle = React.lazy(() => import("./pages/EditArticle.jsx"));
+const Forum = React.lazy(() => import("./pages/Forum.jsx"));
+const ForumTopic = React.lazy(() => import("./pages/ForumTopic.jsx"));
+const MonthlyFees = React.lazy(() => import("./pages/MonthlyFees.jsx"));
 
-import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
-import AdminDrills from "./pages/admin/AdminDrills.jsx";
-import AdminPending from "./pages/admin/AdminPending.jsx";
-import AdminPendingDrill from "./pages/admin/AdminPendingDrill.jsx";
-import AdminEditDrill from "./pages/admin/AdminEditDrill.jsx";
-import AdminCoaches from "./pages/admin/AdminCoaches.jsx";
-import AdminClubs from "./pages/admin/AdminClubs.jsx";
-import AdminPendingArticles from "./pages/admin/AdminPendingArticles.jsx";
-import AdminArticleModeration from "./pages/admin/AdminArticleModeration.jsx";
-import AdminArticles from "./pages/admin/AdminArticles.jsx";
-import AdminEditArticle from "./pages/admin/AdminEditArticle.jsx";
+const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard.jsx"));
+const AdminDrills = React.lazy(() => import("./pages/admin/AdminDrills.jsx"));
+const AdminPending = React.lazy(() => import("./pages/admin/AdminPending.jsx"));
+const AdminPendingDrill = React.lazy(() => import("./pages/admin/AdminPendingDrill.jsx"));
+const AdminEditDrill = React.lazy(() => import("./pages/admin/AdminEditDrill.jsx"));
+const AdminCoaches = React.lazy(() => import("./pages/admin/AdminCoaches.jsx"));
+const AdminClubs = React.lazy(() => import("./pages/admin/AdminClubs.jsx"));
+const AdminPendingArticles = React.lazy(() => import("./pages/admin/AdminPendingArticles.jsx"));
+const AdminArticleModeration = React.lazy(() => import("./pages/admin/AdminArticleModeration.jsx"));
+const AdminArticles = React.lazy(() => import("./pages/admin/AdminArticles.jsx"));
+const AdminEditArticle = React.lazy(() => import("./pages/admin/AdminEditArticle.jsx"));
 
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
@@ -45,11 +48,13 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <AuthProvider>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </AuthProvider>
     ),
     children: [
-      { index: true, element: <Drills /> },
+      { index: true, element: <Home /> },
 
       { path: "login", element: <Login /> },
 
@@ -74,6 +79,7 @@ const router = createBrowserRouter([
           { path: "articles/:id/edit", element: <EditArticle /> },
           { path: "forum", element: <Forum /> },
           { path: "forum/:id", element: <ForumTopic /> },
+          { path: "monthly-fees", element: <MonthlyFees /> },
         ],
       },
       {

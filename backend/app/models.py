@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     Boolean,
+    Float,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -390,3 +391,87 @@ class ForumPostMedia(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     post = relationship("ForumPost", back_populates="media_items")
+
+
+class ForumPostSubscription(Base):
+    __tablename__ = "forum_post_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("forum_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_forum_post_subscription"),
+    )
+
+    post = relationship("ForumPost")
+    user = relationship("User")
+
+
+class ForumNotification(Base):
+    __tablename__ = "forum_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    post_id = Column(Integer, ForeignKey("forum_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    reply_id = Column(Integer, ForeignKey("forum_replies.id", ondelete="CASCADE"), nullable=True, index=True)
+    message = Column(String(400), nullable=False)
+    is_read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User")
+    post = relationship("ForumPost")
+    reply = relationship("ForumReply")
+
+
+# =========================
+# Monthly Fees
+# =========================
+class Athlete(Base):
+    __tablename__ = "athletes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True, index=True)
+
+    athlete_name = Column(String(255), nullable=False)
+    athlete_phone = Column(String(50), nullable=True)
+    parent_name = Column(String(255), nullable=True)
+    parent_phone = Column(String(50), nullable=True)
+    birth_year = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    coach = relationship("User", foreign_keys=[coach_id])
+    club = relationship("Club")
+    payments = relationship(
+        "AthletePayment",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+        order_by="AthletePayment.month_key.desc()",
+    )
+
+
+class AthletePayment(Base):
+    __tablename__ = "athlete_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    month_key = Column(String(7), nullable=False, index=True)  # YYYY-MM
+    amount = Column(Float, nullable=False)
+    paid_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("athlete_id", "month_key", name="uq_athlete_month_payment"),
+    )
+
+    athlete = relationship("Athlete", back_populates="payments")
+    coach = relationship("User", foreign_keys=[coach_id])

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import ArticleCard from "../../components/articles/ArticleCard";
 import "../../components/articles/articles.css";
+import { Button, EmptyState, Input } from "../../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -57,13 +58,15 @@ export default function AdminPendingArticles() {
   }, [articles, query]);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="uiPage">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>Чакащи статии</h2>
-        <button onClick={load}>Презареди</button>
+        <Button onClick={load} variant="secondary" size="sm">
+          Презареди
+        </Button>
       </div>
       <div style={{ marginTop: 10 }}>
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Търси по заглавие, excerpt или съдържание..."
@@ -71,13 +74,13 @@ export default function AdminPendingArticles() {
       </div>
 
       {loading && <p style={{ marginTop: 12 }}>Зареждане...</p>}
-      {error && <div style={{ marginTop: 12, background: "#ffdddd", color: "#a00", padding: 10, borderRadius: 8 }}>{error}</div>}
+      {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       {!loading && !error && filtered.length === 0 && (
-        <div className="emptyBlock" style={{ marginTop: 12 }}>
-          <strong>Няма чакащи статии за преглед.</strong>
-          <p>Когато треньорите изпратят нови материали, ще се покажат тук.</p>
-        </div>
+        <EmptyState
+          title="Няма чакащи статии за преглед"
+          description="Когато треньорите изпратят нови материали, ще се покажат тук."
+        />
       )}
 
       {!loading && !error && filtered.length > 0 && (
@@ -86,9 +89,9 @@ export default function AdminPendingArticles() {
             <div key={a.id}>
               <ArticleCard article={a} />
               <div style={{ marginTop: 8 }}>
-                <Link to={`/admin/articles/${a.id}`} style={{ fontWeight: 800 }}>
+                <Button as={Link} to={`/admin/articles/${a.id}`} variant="secondary" size="sm">
                   Преглед и модерация
-                </Link>
+                </Button>
               </div>
             </div>
           ))}

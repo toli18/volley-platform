@@ -263,3 +263,35 @@
     white-space: normal;
   }
 }
+
+@media (max-width: 680px) {
+  .appHeaderTop {
+    padding: 4px 10px 2px;
+  }
+
+  .accountTopRight {
+    padding: 6px 10px 0;
+  }
+
+  .appNav {
+    padding: 2px 10px 6px;
+    gap: 6px;
+  }
+
+  .appNavLink {
+    font-size: 13px;
+    padding: 5px 8px;
+  }
+
+  .accountUser {
+    font-size: 11px;
+  }
+
+  .accountRole {
+    display: none;
+  }
+
+  .appContent {
+    padding: 10px 10px 18px;
+  }
+}
