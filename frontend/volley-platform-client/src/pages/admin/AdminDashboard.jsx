@@ -10,7 +10,16 @@ export default function AdminDashboard() {
           <Link to="/admin/coaches">Треньори (създаване)</Link>
         </li>
         <li>
+          <Link to="/admin/drills">Всички упражнения (редакция / изтриване)</Link>
+        </li>
+        <li>
           <Link to="/admin/pending">Упражнения за одобрение</Link>
+        </li>
+        <li>
+          <Link to="/admin/articles">Всички статии (редакция / изтриване)</Link>
+        </li>
+        <li>
+          <Link to="/admin/articles/pending">Статии за одобрение</Link>
         </li>
         <li>
           <Link to="/admin/clubs">Клубове</Link>

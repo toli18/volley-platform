@@ -17,6 +17,10 @@ import MyTrainings from "./pages/MyTrainings.jsx";
 import TrainingDetails from "./pages/TrainingDetails.jsx";
 import EditTraining from "./pages/EditTraining.jsx";
 import AIGenerator from "./pages/AIGenerator.jsx";
+import Articles from "./pages/Articles.jsx";
+import ArticleDetails from "./pages/ArticleDetails.jsx";
+import CreateArticle from "./pages/CreateArticle.jsx";
+import EditArticle from "./pages/EditArticle.jsx";
 
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminDrills from "./pages/admin/AdminDrills.jsx";
@@ -25,6 +29,10 @@ import AdminPendingDrill from "./pages/admin/AdminPendingDrill.jsx";
 import AdminEditDrill from "./pages/admin/AdminEditDrill.jsx";
 import AdminCoaches from "./pages/admin/AdminCoaches.jsx";
 import AdminClubs from "./pages/admin/AdminClubs.jsx";
+import AdminPendingArticles from "./pages/admin/AdminPendingArticles.jsx";
+import AdminArticleModeration from "./pages/admin/AdminArticleModeration.jsx";
+import AdminArticles from "./pages/admin/AdminArticles.jsx";
+import AdminEditArticle from "./pages/admin/AdminEditArticle.jsx";
 
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
@@ -44,6 +52,8 @@ const router = createBrowserRouter([
       { path: "login", element: <Login /> },
 
       { path: "drills", element: <Drills /> },
+      { path: "articles", element: <Articles /> },
+      { path: "articles/:id", element: <ArticleDetails /> },
       { path: "drills/new", element: <CreateDrill /> },
       { path: "drills/:id", element: <DrillDetails /> },
       { path: "generator", element: <Generator /> },
@@ -58,6 +68,8 @@ const router = createBrowserRouter([
           { path: "trainings/:id", element: <TrainingDetails /> },
           { path: "trainings/:id/edit", element: <EditTraining /> },
           { path: "ai-generator", element: <AIGenerator /> },
+          { path: "articles/new", element: <CreateArticle /> },
+          { path: "articles/:id/edit", element: <EditArticle /> },
         ],
       },
       {
@@ -80,6 +92,10 @@ const router = createBrowserRouter([
 
           { path: "coaches/*", element: <AdminCoaches /> },
           { path: "clubs/*", element: <AdminClubs /> },
+          { path: "articles", element: <AdminArticles /> },
+          { path: "articles/pending", element: <AdminPendingArticles /> },
+          { path: "articles/:id", element: <AdminArticleModeration /> },
+          { path: "articles/:id/edit", element: <AdminEditArticle /> },
         ],
       },
     ],

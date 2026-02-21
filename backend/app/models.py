@@ -39,6 +39,18 @@ class DrillStatus(str, Enum):
     rejected = "rejected"
 
 
+class ArticleStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    NEEDS_EDIT = "NEEDS_EDIT"
+
+
+class ArticleMediaType(str, Enum):
+    IMAGE = "IMAGE"
+    FILE = "FILE"
+
+
 class TrainingSource(str, Enum):
     manual = "ръчна"
     generator = "генерирана"
@@ -95,6 +107,22 @@ class User(Base):
         back_populates="coach",
         cascade="all, delete-orphan",
         foreign_keys="Training.coach_id",
+    )
+    authored_articles = relationship(
+        "Article",
+        back_populates="author",
+        foreign_keys="Article.author_id",
+    )
+    approved_articles = relationship(
+        "Article",
+        back_populates="approver",
+        foreign_keys="Article.approved_by",
+    )
+    article_comments = relationship(
+        "ArticleComment",
+        back_populates="author",
+        cascade="all, delete-orphan",
+        foreign_keys="ArticleComment.author_id",
     )
 
 
@@ -235,13 +263,75 @@ class Article(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
+    excerpt = Column(Text, nullable=True)
     content = Column(Text, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    status = Column(SqlEnum(DrillStatus), nullable=False, default=DrillStatus.pending)
+    status = Column(SqlEnum(ArticleStatus), nullable=False, default=ArticleStatus.PENDING)
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    reject_reason = Column(Text, nullable=True)
+    needs_edit_comment = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    author = relationship("User")
+    author = relationship("User", back_populates="authored_articles", foreign_keys=[author_id])
+    approver = relationship("User", back_populates="approved_articles", foreign_keys=[approved_by])
+    media_items = relationship(
+        "ArticleMedia",
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
+    links = relationship(
+        "ArticleLink",
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
+    comments = relationship(
+        "ArticleComment",
+        back_populates="article",
+        cascade="all, delete-orphan",
+        order_by="ArticleComment.created_at",
+    )
+
+
+class ArticleMedia(Base):
+    __tablename__ = "article_media"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    type = Column(SqlEnum(ArticleMediaType), nullable=False)
+    url = Column(String(1000), nullable=False)
+    name = Column(String(255), nullable=False)
+    mime_type = Column(String(255), nullable=False)
+    size = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    article = relationship("Article", back_populates="media_items")
+
+
+class ArticleLink(Base):
+    __tablename__ = "article_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=True)
+    url = Column(String(1000), nullable=False)
+
+    article = relationship("Article", back_populates="links")
+
+
+class ArticleComment(Base):
+    __tablename__ = "article_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    article = relationship("Article", back_populates="comments")
+    author = relationship("User", back_populates="article_comments", foreign_keys=[author_id])
 
 
 # =========================

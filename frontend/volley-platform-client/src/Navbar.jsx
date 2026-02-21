@@ -16,6 +16,8 @@ export default function Navbar() {
   const userLabel = useMemo(() => user?.email || user?.username || "Потребител", [user]);
   const roleLabel = useMemo(() => (user?.role ? String(user.role) : "guest"), [user]);
   const isAdminUser = Boolean(isAdmin);
+  const isCoachUser = user?.role === "coach";
+  const isPlatformAdmin = user?.role === "platform_admin";
 
   return (
     <header className="appHeader">
@@ -74,6 +76,11 @@ export default function Navbar() {
         <Link className="appNavLink" to="/generator">
           Генератор
         </Link>
+        {user && (
+          <Link className="appNavLink" to="/articles">
+            Статии
+          </Link>
+        )}
 
         {user && (
           <>
@@ -86,6 +93,11 @@ export default function Navbar() {
             <Link className="appNavLink" to="/my-trainings">
               Моите тренировки
             </Link>
+            {isCoachUser && (
+              <Link className="appNavLink" to="/articles/new">
+                Нова статия
+              </Link>
+            )}
           </>
         )}
 
@@ -107,6 +119,16 @@ export default function Navbar() {
             <Link className="appNavLink" to="/admin/pending">
               Чакащи упражнения
             </Link>
+            {isPlatformAdmin && (
+              <Link className="appNavLink" to="/admin/articles/pending">
+                Чакащи статии
+              </Link>
+            )}
+            {isPlatformAdmin && (
+              <Link className="appNavLink" to="/admin/articles">
+                Всички статии
+              </Link>
+            )}
           </>
         )}
       </nav>

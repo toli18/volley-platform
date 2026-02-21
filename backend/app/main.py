@@ -15,6 +15,7 @@ from app.routers.clubs import router as clubs_router
 from app.routers.drills import router as drills_router
 from app.routers.trainings import router as trainings_router
 from app.routers.ai_training import router as ai_training_router
+from app.routers import articles
 
 
 app = FastAPI(
@@ -58,6 +59,7 @@ app.include_router(clubs_router, prefix="/clubs", tags=["Clubs"])
 app.include_router(drills_router, prefix="/drills", tags=["Drills"])
 app.include_router(trainings_router, prefix="/trainings", tags=["Trainings"])
 app.include_router(ai_training_router)
+app.include_router(articles.router, prefix="/api", tags=["Articles"])
 
 # --- Root ---
 @app.get("/")
