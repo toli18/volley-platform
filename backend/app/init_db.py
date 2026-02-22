@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, text
 
 from .database import engine, SessionLocal, Base
+from .settings import settings
 from .models import User, UserRole, Club, Drill
 from .seed.seed_clubs import seed_clubs
 from .seed.seed_drills import seed_drills
@@ -51,44 +52,45 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables ensured (create_all)")
 
-    # Backward-compatible schema fix for existing SQLite DBs:
-    # add clubs.is_active if table was created before this column existed.
-    with engine.begin() as conn:
-        cols = conn.execute(text("PRAGMA table_info(clubs)")).fetchall()
-        col_names = {row[1] for row in cols}
-        if "is_active" not in col_names:
-            conn.execute(text("ALTER TABLE clubs ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
-            print("✅ Added clubs.is_active column")
+    # SQLite-only compatibility patching.
+    # On PostgreSQL we rely on Alembic migrations and skip PRAGMA-based checks.
+    if settings.database_url.startswith("sqlite"):
+        with engine.begin() as conn:
+            cols = conn.execute(text("PRAGMA table_info(clubs)")).fetchall()
+            col_names = {row[1] for row in cols}
+            if "is_active" not in col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+                print("✅ Added clubs.is_active column")
 
-        training_cols = conn.execute(text("PRAGMA table_info(trainings)")).fetchall()
-        training_col_names = {row[1] for row in training_cols}
-        if "generation_request" not in training_col_names:
-            conn.execute(text("ALTER TABLE trainings ADD COLUMN generation_request JSON"))
-            print("✅ Added trainings.generation_request column")
-        if "model_version" not in training_col_names:
-            conn.execute(text("ALTER TABLE trainings ADD COLUMN model_version VARCHAR(50)"))
-            print("✅ Added trainings.model_version column")
-        if "score_summary" not in training_col_names:
-            conn.execute(text("ALTER TABLE trainings ADD COLUMN score_summary JSON"))
-            print("✅ Added trainings.score_summary column")
-        if "selected_drill_ids" not in training_col_names:
-            conn.execute(text("ALTER TABLE trainings ADD COLUMN selected_drill_ids JSON"))
-            print("✅ Added trainings.selected_drill_ids column")
+            training_cols = conn.execute(text("PRAGMA table_info(trainings)")).fetchall()
+            training_col_names = {row[1] for row in training_cols}
+            if "generation_request" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN generation_request JSON"))
+                print("✅ Added trainings.generation_request column")
+            if "model_version" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN model_version VARCHAR(50)"))
+                print("✅ Added trainings.model_version column")
+            if "score_summary" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN score_summary JSON"))
+                print("✅ Added trainings.score_summary column")
+            if "selected_drill_ids" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN selected_drill_ids JSON"))
+                print("✅ Added trainings.selected_drill_ids column")
 
-        forum_post_cols = conn.execute(text("PRAGMA table_info(forum_posts)")).fetchall()
-        forum_post_col_names = {row[1] for row in forum_post_cols}
-        if "category" not in forum_post_col_names:
-            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN category VARCHAR(100)"))
-            print("✅ Added forum_posts.category column")
-        if "tags" not in forum_post_col_names:
-            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN tags JSON"))
-            print("✅ Added forum_posts.tags column")
-        if "is_pinned" not in forum_post_col_names:
-            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"))
-            print("✅ Added forum_posts.is_pinned column")
-        if "is_locked" not in forum_post_col_names:
-            conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT 0"))
-            print("✅ Added forum_posts.is_locked column")
+            forum_post_cols = conn.execute(text("PRAGMA table_info(forum_posts)")).fetchall()
+            forum_post_col_names = {row[1] for row in forum_post_cols}
+            if "category" not in forum_post_col_names:
+                conn.execute(text("ALTER TABLE forum_posts ADD COLUMN category VARCHAR(100)"))
+                print("✅ Added forum_posts.category column")
+            if "tags" not in forum_post_col_names:
+                conn.execute(text("ALTER TABLE forum_posts ADD COLUMN tags JSON"))
+                print("✅ Added forum_posts.tags column")
+            if "is_pinned" not in forum_post_col_names:
+                conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"))
+                print("✅ Added forum_posts.is_pinned column")
+            if "is_locked" not in forum_post_col_names:
+                conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT 0"))
+                print("✅ Added forum_posts.is_locked column")
 
     db = SessionLocal()
     try:
