@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import Optional
+import re
 from uuid import uuid4
 
+import cloudinary
+import cloudinary.uploader
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -9,6 +12,7 @@ from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_role
 from app.models import ArticleMedia, ArticleMediaType, ArticleStatus, User, UserRole
+from app.settings import settings
 from app.schemas.article import (
     ArticleCommentCreate,
     ArticleCommentResponse,
@@ -57,6 +61,8 @@ ALLOWED_FILE_MIME_TYPES = {
     "application/x-zip-compressed",
 }
 
+_CLOUDINARY_CONFIGURED = False
+
 
 def _sanitize_filename(name: str) -> str:
     return Path(name).name.replace(" ", "_")
@@ -71,6 +77,57 @@ def _detect_media_type(file_name: str, mime_type: str) -> ArticleMediaType:
     raise HTTPException(status_code=400, detail="Unsupported file type")
 
 
+def _is_cloudinary_enabled() -> bool:
+    return bool(
+        settings.cloudinary_cloud_name
+        and settings.cloudinary_api_key
+        and settings.cloudinary_api_secret
+    )
+
+
+def _ensure_cloudinary_configured() -> None:
+    global _CLOUDINARY_CONFIGURED
+    if _CLOUDINARY_CONFIGURED:
+        return
+    if not _is_cloudinary_enabled():
+        return
+    cloudinary.config(
+        cloud_name=settings.cloudinary_cloud_name,
+        api_key=settings.cloudinary_api_key,
+        api_secret=settings.cloudinary_api_secret,
+        secure=True,
+    )
+    _CLOUDINARY_CONFIGURED = True
+
+
+def _upload_to_cloudinary(article_id: int, safe_name: str, content: bytes, media_type: ArticleMediaType) -> Optional[str]:
+    if not _is_cloudinary_enabled():
+        return None
+    _ensure_cloudinary_configured()
+    resource_type = "image" if media_type == ArticleMediaType.IMAGE else "raw"
+    base_name = Path(safe_name).stem
+    public_id = f"{uuid4().hex}_{base_name}"
+    result = cloudinary.uploader.upload(
+        content,
+        resource_type=resource_type,
+        folder=f"volley-platform/articles/{article_id}",
+        public_id=public_id,
+        overwrite=False,
+        unique_filename=False,
+        use_filename=False,
+    )
+    return result.get("secure_url") or result.get("url")
+
+
+def _cloudinary_public_id_from_url(url: str) -> Optional[str]:
+    match = re.search(r"/(?:image|raw|video)/upload/(?:v\d+/)?(.+)$", url or "")
+    if not match:
+        return None
+    tail = match.group(1)
+    # Drop extension from URL path to recover public_id.
+    return tail.rsplit(".", 1)[0]
+
+
 def _save_upload(article_id: int, upload: UploadFile) -> tuple[str, str, str, int, ArticleMediaType]:
     safe_name = _sanitize_filename(upload.filename or "file")
     mime_type = upload.content_type or "application/octet-stream"
@@ -80,6 +137,10 @@ def _save_upload(article_id: int, upload: UploadFile) -> tuple[str, str, str, in
     size = len(content)
     if size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File size exceeds 50MB limit")
+
+    cloudinary_url = _upload_to_cloudinary(article_id, safe_name, content, media_type)
+    if cloudinary_url:
+        return cloudinary_url, safe_name, mime_type, size, media_type
 
     file_name = f"{uuid4().hex}_{safe_name}"
     storage_dir = Path(__file__).resolve().parents[1] / "static" / "uploads" / "articles" / str(article_id)
@@ -155,10 +216,21 @@ def remove_article_media(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     media = db.query(ArticleMedia).filter(ArticleMedia.id == media_id, ArticleMedia.article_id == article_id).first()
-    if media and media.url.startswith("/static/"):
-        local_path = Path(__file__).resolve().parents[1] / media.url.lstrip("/")
-        if local_path.exists():
-            local_path.unlink()
+    if media:
+        if media.url.startswith("/static/"):
+            local_path = Path(__file__).resolve().parents[1] / media.url.lstrip("/")
+            if local_path.exists():
+                local_path.unlink()
+        elif "res.cloudinary.com" in media.url and _is_cloudinary_enabled():
+            _ensure_cloudinary_configured()
+            public_id = _cloudinary_public_id_from_url(media.url)
+            if public_id:
+                resource_type = "image" if media.type == ArticleMediaType.IMAGE else "raw"
+                try:
+                    cloudinary.uploader.destroy(public_id, resource_type=resource_type, invalidate=True)
+                except Exception:
+                    # Keep delete flow resilient even if remote media cleanup fails.
+                    pass
 
     delete_article_media(db, article_id, media_id, current_user)
     return None

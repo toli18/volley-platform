@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     migrations_path: Path = Path(__file__).resolve().parent / "migrations"
 
     storage_path: str = "./storage"
+    cloudinary_cloud_name: Optional[str] = Field(default=None, env="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: Optional[str] = Field(default=None, env="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: Optional[str] = Field(default=None, env="CLOUDINARY_API_SECRET")
 
 
 @lru_cache(maxsize=1)
