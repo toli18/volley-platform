@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, EmptyState } from "../../components/ui";
+import { Button, Card, EmptyState, Input } from "../../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -15,6 +15,7 @@ const normalizeFastApiError = (err) => {
 
 export default function AdminDrills() {
   const [drills, setDrills] = useState([]);
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -56,6 +57,23 @@ export default function AdminDrills() {
     }
   };
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredDrills = drills.filter((d) => {
+    if (!normalizedQuery) return true;
+    const haystack = [
+      d.id,
+      d.title,
+      d.name,
+      d.description,
+      d.status,
+      d.category,
+      d.level,
+    ]
+      .map((value) => String(value || "").toLowerCase())
+      .join(" ");
+    return haystack.includes(normalizedQuery);
+  });
+
   return (
     <div className="uiPage">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -66,15 +84,28 @@ export default function AdminDrills() {
         </Button>
       </div>
 
+      <div style={{ marginBottom: 10 }}>
+        <Input
+          placeholder="Търси по ID, заглавие, описание, статус, категория..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
       {loading && <p>Зареждане...</p>}
 
       {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
 
-      {!loading && !error && drills.length === 0 && <EmptyState title="Няма упражнения" description="Няма налични записи за админ преглед." />}
+      {!loading && !error && filteredDrills.length === 0 && (
+        <EmptyState
+          title={drills.length === 0 ? "Няма упражнения" : "Няма резултати"}
+          description={drills.length === 0 ? "Няма налични записи за админ преглед." : "Промени текста в търсачката и опитай отново."}
+        />
+      )}
 
-      {!loading && !error && drills.length > 0 && (
+      {!loading && !error && filteredDrills.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {drills.map((d) => (
+          {filteredDrills.map((d) => (
             <Card key={d.id}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <div>

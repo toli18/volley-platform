@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
@@ -9,6 +9,7 @@ export default function ClubList() {
   const [coaches, setCoaches] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
   const [editClub, setEditClub] = useState(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -48,6 +49,26 @@ export default function ClubList() {
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+
+  const filteredClubs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return clubs;
+    return clubs.filter((club) => {
+      const haystack = [
+        club.id,
+        club.name,
+        club.city,
+        club.country,
+        club.address,
+        club.contact_email,
+        club.contact_phone,
+        club.website_url,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return haystack.includes(q);
+    });
+  }, [clubs, query]);
 
   const reload = async () => {
     const [clubsData, coachesData] = await Promise.all([
@@ -134,14 +155,27 @@ export default function ClubList() {
         ➕ Create Club
       </Button>
 
+      <div style={{ marginTop: 10, marginBottom: 10 }}>
+        <Input
+          placeholder="Търси клуб по ID, име, град, държава, email..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
       {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
       {loading && <p>Зареждане…</p>}
 
-      {!loading && !error && clubs.length === 0 && <EmptyState title="Няма налични клубове" description="Създай първия клуб от бутона горе." />}
+      {!loading && !error && filteredClubs.length === 0 && (
+        <EmptyState
+          title={clubs.length === 0 ? "Няма налични клубове" : "Няма резултати"}
+          description={clubs.length === 0 ? "Създай първия клуб от бутона горе." : "Промени текста в търсачката и опитай отново."}
+        />
+      )}
 
-      {!loading && !error && clubs.length > 0 && (
+      {!loading && !error && filteredClubs.length > 0 && (
         <div style={{ display: "grid", gap: 10 }}>
-          {clubs.map((c) => (
+          {filteredClubs.map((c) => (
             <Card
               key={c.id}
               className="uiCard--soft"
