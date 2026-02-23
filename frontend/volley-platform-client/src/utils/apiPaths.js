@@ -48,6 +48,7 @@ export const API_PATHS = {
 
   // Articles
   ARTICLES_LIST: "/api/articles",
+  ARTICLE_MINE: "/api/articles/mine",
   ARTICLE_GET: (id) => `/api/articles/${id}`,
   ARTICLE_CREATE: "/api/articles",
   ARTICLE_UPDATE: (id) => `/api/articles/${id}`,
@@ -63,6 +64,7 @@ export const API_PATHS = {
   ADMIN_ARTICLE_NEEDS_EDIT: (id) => `/api/admin/articles/${id}/needs-edit`,
   ADMIN_ARTICLE_UPDATE: (id) => `/api/admin/articles/${id}`,
   ADMIN_ARTICLE_DELETE: (id) => `/api/admin/articles/${id}`,
+  ADMIN_ANALYTICS_OVERVIEW: "/api/admin/analytics/overview",
 
   // Forum
   FORUM_POSTS_LIST: "/api/forum/posts",

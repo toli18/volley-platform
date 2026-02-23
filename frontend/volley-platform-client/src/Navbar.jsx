@@ -203,8 +203,8 @@ export default function Navbar() {
               Статии
             </Link>
             {isCoachUser && (
-              <Link className="appNavLink" to="/articles/new">
-                Нова статия
+              <Link className="appNavLink" to="/articles/my">
+                Моите статии
               </Link>
             )}
             <Link className="appNavLink" to="/generator">

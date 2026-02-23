@@ -40,6 +40,7 @@ from app.services.article_service import (
     get_article_by_id,
     get_article_comments,
     get_articles,
+    get_my_articles,
     update_article_comment,
     needs_edit_article,
     reject_article,
@@ -158,6 +159,14 @@ def list_articles(
     current_user: User = Depends(get_current_user),
 ):
     return get_articles(db, current_user, admin_view=False)
+
+
+@router.get("/articles/mine", response_model=list[ArticleListResponse])
+def list_my_articles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    return get_my_articles(db, current_user)
 
 
 @router.get("/articles/{article_id}", response_model=ArticleResponse)

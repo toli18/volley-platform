@@ -23,6 +23,7 @@ const Articles = React.lazy(() => import("./pages/Articles.jsx"));
 const ArticleDetails = React.lazy(() => import("./pages/ArticleDetails.jsx"));
 const CreateArticle = React.lazy(() => import("./pages/CreateArticle.jsx"));
 const EditArticle = React.lazy(() => import("./pages/EditArticle.jsx"));
+const MyArticles = React.lazy(() => import("./pages/MyArticles.jsx"));
 const Forum = React.lazy(() => import("./pages/Forum.jsx"));
 const ForumTopic = React.lazy(() => import("./pages/ForumTopic.jsx"));
 const MonthlyFees = React.lazy(() => import("./pages/MonthlyFees.jsx"));
@@ -76,6 +77,7 @@ const router = createBrowserRouter([
           { path: "trainings/:id/edit", element: <EditTraining /> },
           { path: "ai-generator", element: <AIGenerator /> },
           { path: "articles/new", element: <CreateArticle /> },
+          { path: "articles/my", element: <MyArticles /> },
           { path: "articles/:id/edit", element: <EditArticle /> },
           { path: "forum", element: <Forum /> },
           { path: "forum/:id", element: <ForumTopic /> },

@@ -157,6 +157,17 @@ def get_articles(
     return results
 
 
+def get_my_articles(db: Session, user: User) -> list[Article]:
+    results = (
+        _query_with_relations(db)
+        .filter(Article.author_id == user.id)
+        .order_by(Article.updated_at.desc(), Article.created_at.desc())
+        .all()
+    )
+    _decorate_author_meta(results, db)
+    return results
+
+
 def get_article_by_id(db: Session, article_id: int, user: User) -> Article:
     article = _query_with_relations(db).filter(Article.id == article_id).first()
     if not article:
