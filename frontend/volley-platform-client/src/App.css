@@ -227,6 +227,16 @@
   flex-wrap: wrap;
 }
 
+.forum-post-content {
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+.forum-post-content p,
+.forum-post-content li {
+  line-height: inherit;
+}
+
 @media (max-width: 860px) {
   .appHeaderTop {
     align-items: flex-start;

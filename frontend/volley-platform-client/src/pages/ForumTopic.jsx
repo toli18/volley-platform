@@ -153,7 +153,7 @@ export default function ForumTopic() {
                     <span key={t}>#{t}</span>
                   ))}
                 </div>
-                <div dangerouslySetInnerHTML={{ __html: toDisplayHtml(post.content) }} />
+                <div className="forum-post-content" dangerouslySetInnerHTML={{ __html: toDisplayHtml(post.content) }} />
               </>
             )}
 
@@ -422,7 +422,11 @@ export default function ForumTopic() {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ marginTop: 8 }} dangerouslySetInnerHTML={{ __html: toDisplayHtml(reply.content) }} />
+                    <div
+                      className="forum-post-content"
+                      style={{ marginTop: 8 }}
+                      dangerouslySetInnerHTML={{ __html: toDisplayHtml(reply.content) }}
+                    />
                   )}
 
                   {canManageReply(reply) && editingReplyId !== reply.id && (
