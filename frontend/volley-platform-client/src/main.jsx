@@ -44,6 +44,21 @@ import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
 import { AuthProvider } from "./auth/AuthContext.jsx";
 
+// Prevent white-screen after deploy when browser has stale cached chunk references.
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    const key = "vp-preload-reload-once";
+    const alreadyReloaded = sessionStorage.getItem(key) === "1";
+    if (!alreadyReloaded) {
+      sessionStorage.setItem(key, "1");
+      window.location.reload();
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  });
+}
+
 const router = createBrowserRouter([
   {
     path: "/",
