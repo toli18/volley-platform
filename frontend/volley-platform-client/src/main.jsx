@@ -46,15 +46,27 @@ import { AuthProvider } from "./auth/AuthContext.jsx";
 
 // Prevent white-screen after deploy when browser has stale cached chunk references.
 if (typeof window !== "undefined") {
-  window.addEventListener("vite:preloadError", (event) => {
-    event.preventDefault();
-    const key = "vp-preload-reload-once";
-    const alreadyReloaded = sessionStorage.getItem(key) === "1";
+  const reloadKey = "vp-preload-reload-once";
+  const reloadOnce = () => {
+    const alreadyReloaded = sessionStorage.getItem(reloadKey) === "1";
     if (!alreadyReloaded) {
-      sessionStorage.setItem(key, "1");
+      sessionStorage.setItem(reloadKey, "1");
       window.location.reload();
     } else {
-      sessionStorage.removeItem(key);
+      sessionStorage.removeItem(reloadKey);
+    }
+  };
+
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    reloadOnce();
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const message = String(event?.reason?.message || event?.reason || "");
+    if (message.includes("Failed to fetch dynamically imported module")) {
+      event.preventDefault();
+      reloadOnce();
     }
   });
 }

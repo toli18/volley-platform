@@ -187,18 +187,24 @@ export default function Navbar() {
 
         {user && (
           <>
-            <Link className="appNavLink" to="/my-trainings">
-              Моите тренировки
-            </Link>
-            <Link className="appNavLink" to="/my-drills">
-              Моите упражнения
-            </Link>
+            {isCoachUser && (
+              <Link className="appNavLink" to="/my-trainings">
+                Моите тренировки
+              </Link>
+            )}
+            {isCoachUser && (
+              <Link className="appNavLink" to="/my-drills">
+                Моите упражнения
+              </Link>
+            )}
             <Link className="appNavLink" to="/forum">
               Форум
             </Link>
-            <Link className="appNavLink" to="/monthly-fees">
-              Месечни Такси
-            </Link>
+            {isCoachUser && (
+              <Link className="appNavLink" to="/monthly-fees">
+                Месечни Такси
+              </Link>
+            )}
             <Link className="appNavLink" to="/articles">
               Статии
             </Link>
@@ -210,9 +216,11 @@ export default function Navbar() {
             <Link className="appNavLink" to="/generator">
               Генератор
             </Link>
-            <Link className="appNavLink" to="/ai-generator">
-              AI Генератор
-            </Link>
+            {isCoachUser && (
+              <Link className="appNavLink" to="/ai-generator">
+                AI Генератор
+              </Link>
+            )}
           </>
         )}
         {!user && (
