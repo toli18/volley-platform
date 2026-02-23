@@ -68,8 +68,23 @@ export default function AdminDashboard() {
             <p className="uiMuted">Зареждане...</p>
           ) : (
             <div style={{ display: "grid", gap: 6 }}>
+              <span className="uiBadge">24 часа (брой): {stats.active_coaches.last_24_hours}</span>
               <span className="uiBadge">Последни 7 дни: {stats.active_coaches.last_7_days}</span>
               <span className="uiBadge uiBadge--success">Последни 30 дни: {stats.active_coaches.last_30_days}</span>
+              {!stats.active_coaches.now_names?.length ? (
+                <span className="uiMuted">В момента няма активни треньори.</span>
+              ) : (
+                <div style={{ display: "grid", gap: 4 }}>
+                  <strong style={{ fontSize: 13, color: "#334155" }}>В момента (по име):</strong>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {stats.active_coaches.now_names.map((name) => (
+                      <span key={name} className="uiBadge">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>

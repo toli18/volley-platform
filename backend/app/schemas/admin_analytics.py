@@ -9,6 +9,8 @@ class CoachRegistrationsSummary(BaseModel):
 
 
 class ActiveCoachesSummary(BaseModel):
+    now_names: list[str]
+    last_24_hours: int
     last_7_days: int
     last_30_days: int
 

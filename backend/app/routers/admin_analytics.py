@@ -53,6 +53,8 @@ def admin_analytics_overview(
     _admin=Depends(require_role(UserRole.platform_admin, UserRole.federation_admin)),
 ):
     now = datetime.utcnow()
+    start_now = now - timedelta(minutes=60)
+    start_24h = now - timedelta(hours=24)
     start_day = datetime(now.year, now.month, now.day)
     start_week = now - timedelta(days=7)
     start_month = now - timedelta(days=30)
@@ -101,6 +103,16 @@ def admin_analytics_overview(
 
     active_7 = len(_active_ids_since(start_week))
     active_30 = len(_active_ids_since(start_month))
+    active_now_ids = _active_ids_since(start_now)
+    active_24h = len(_active_ids_since(start_24h))
+    active_now_names = []
+    if active_now_ids:
+        active_now_names = sorted(
+            row[0] or f"Треньор #{row[1]}"
+            for row in db.query(User.name, User.id)
+            .filter(User.id.in_(active_now_ids))
+            .all()
+        )
 
     pending_drills = db.query(func.count(Drill.id)).filter(Drill.status == "pending").scalar() or 0
     pending_articles = db.query(func.count(Article.id)).filter(Article.status == ArticleStatus.PENDING).scalar() or 0
@@ -199,6 +211,8 @@ def admin_analytics_overview(
             month=int(reg_month),
         ),
         active_coaches=ActiveCoachesSummary(
+            now_names=active_now_names,
+            last_24_hours=int(active_24h),
             last_7_days=int(active_7),
             last_30_days=int(active_30),
         ),
