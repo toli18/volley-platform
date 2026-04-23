@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -66,6 +67,16 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":
         url = (self.database_url or "").strip()
+        if not url:
+            # Railway/Postgres fallback: allow deriving URL from split PG vars.
+            host = (os.getenv("PGHOST") or os.getenv("POSTGRES_HOST") or "").strip()
+            port = (os.getenv("PGPORT") or os.getenv("POSTGRES_PORT") or "5432").strip()
+            user = (os.getenv("PGUSER") or os.getenv("POSTGRES_USER") or "").strip()
+            password = (os.getenv("PGPASSWORD") or os.getenv("POSTGRES_PASSWORD") or "").strip()
+            database = (os.getenv("PGDATABASE") or os.getenv("POSTGRES_DB") or "").strip()
+            if host and user and database:
+                url = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+
         if not url:
             raise ValueError(
                 "DATABASE_URL is missing or empty. "
