@@ -3,8 +3,11 @@ from typing import Optional
 import re
 from uuid import uuid4
 
-import cloudinary
-import cloudinary.uploader
+try:
+    import cloudinary
+    import cloudinary.uploader
+except ModuleNotFoundError:
+    cloudinary = None
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -80,7 +83,9 @@ def _detect_media_type(file_name: str, mime_type: str) -> ArticleMediaType:
 
 def _is_cloudinary_enabled() -> bool:
     return bool(
-        settings.cloudinary_cloud_name
+        cloudinary is not None
+        and getattr(cloudinary, "uploader", None) is not None
+        and settings.cloudinary_cloud_name
         and settings.cloudinary_api_key
         and settings.cloudinary_api_secret
     )

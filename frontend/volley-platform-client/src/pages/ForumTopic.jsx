@@ -32,6 +32,9 @@ export default function ForumTopic() {
   const [postDraft, setPostDraft] = useState({ title: "", content: "", category: "", tagsText: "" });
   const [editingReplyId, setEditingReplyId] = useState(null);
   const [editingReplyContent, setEditingReplyContent] = useState("");
+  const [postDraftPreview, setPostDraftPreview] = useState(false);
+  const [replyPreview, setReplyPreview] = useState(false);
+  const [editReplyPreview, setEditReplyPreview] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const postContentRef = useRef(null);
@@ -65,6 +68,38 @@ export default function ForumTopic() {
   const canManagePost = post && user && (post.author_id === user.id || isAdmin);
   const canManageReply = (reply) => user && (reply.author_id === user.id || isAdmin);
   const isLocked = Boolean(post?.is_locked);
+
+  const insertInField = (ref, raw, setter, text) => {
+    const textarea = ref.current;
+    const current = raw || "";
+    if (!textarea) {
+      setter(`${current}${text}`);
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    setter(next);
+    requestAnimationFrame(() => {
+      const cursor = start + text.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const applyForumPreset = (target) => {
+    const preset =
+      "\n## Контекст\nКратко описание на ситуацията.\n\n## Какво пробвах досега\n- Вариант 1\n- Вариант 2\n\n## Въпрос към колегите\nКак бихте подходили вие?\n";
+    if (target === "post") {
+      insertInField(postContentRef, postDraft.content, (next) => setPostDraft((prev) => ({ ...prev, content: next })), preset);
+      return;
+    }
+    if (target === "reply") {
+      insertInField(replyContentRef, replyInput, setReplyInput, preset);
+      return;
+    }
+    insertInField(editReplyContentRef, editingReplyContent, setEditingReplyContent, preset);
+  };
 
   return (
     <div className="uiPage">
@@ -102,13 +137,27 @@ export default function ForumTopic() {
                   rows={6}
                   value={postDraft.content}
                   onChange={(e) => setPostDraft((prev) => ({ ...prev, content: e.target.value }))}
+                  style={{ display: postDraftPreview ? "none" : "block" }}
                 />
                 <RichTextToolbar
                   textareaRef={postContentRef}
                   value={postDraft.content}
                   onChange={(next) => setPostDraft((prev) => ({ ...prev, content: next }))}
                   disabled={busy}
+                  onInsertTemplate={() => applyForumPreset("post")}
                 />
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setPostDraftPreview((prev) => !prev)}>
+                    {postDraftPreview ? "Редакция" : "Преглед"}
+                  </Button>
+                </div>
+                {postDraftPreview && (
+                  <div
+                    className="forum-post-content"
+                    style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 12, background: "#fff" }}
+                    dangerouslySetInnerHTML={{ __html: toDisplayHtml(postDraft.content) }}
+                  />
+                )}
                 <div style={{ display: "flex", gap: 8 }}>
                   <Button
                     disabled={busy}
@@ -127,6 +176,7 @@ export default function ForumTopic() {
                         setBusy(true);
                         await axiosInstance.put(API_PATHS.FORUM_POST_UPDATE(id), payload);
                         setEditPost(false);
+                        setPostDraftPreview(false);
                         await loadPost();
                       } catch (err) {
                         setError(normalizeError(err));
@@ -382,13 +432,28 @@ export default function ForumTopic() {
                         rows={4}
                         value={editingReplyContent}
                         onChange={(e) => setEditingReplyContent(e.target.value)}
+                        style={{ display: editReplyPreview ? "none" : "block" }}
                       />
                       <RichTextToolbar
                         textareaRef={editReplyContentRef}
                         value={editingReplyContent}
                         onChange={setEditingReplyContent}
                         disabled={busy}
+                        onInsertTemplate={() => applyForumPreset("edit-reply")}
+                        compact
                       />
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setEditReplyPreview((prev) => !prev)}>
+                          {editReplyPreview ? "Редакция" : "Преглед"}
+                        </Button>
+                      </div>
+                      {editReplyPreview && (
+                        <div
+                          className="forum-post-content"
+                          style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 12, background: "#fff" }}
+                          dangerouslySetInnerHTML={{ __html: toDisplayHtml(editingReplyContent) }}
+                        />
+                      )}
                       <div style={{ display: "flex", gap: 8 }}>
                         <Button
                           disabled={busy}
@@ -400,6 +465,7 @@ export default function ForumTopic() {
                               await axiosInstance.put(API_PATHS.FORUM_REPLY_UPDATE(id, reply.id), payload);
                               setEditingReplyId(null);
                               setEditingReplyContent("");
+                              setEditReplyPreview(false);
                               await loadPost();
                             } catch (err) {
                               setError(normalizeError(err));
@@ -415,6 +481,7 @@ export default function ForumTopic() {
                           onClick={() => {
                             setEditingReplyId(null);
                             setEditingReplyContent("");
+                            setEditReplyPreview(false);
                           }}
                         >
                           Отказ
@@ -438,6 +505,7 @@ export default function ForumTopic() {
                           onClick={() => {
                             setEditingReplyId(reply.id);
                             setEditingReplyContent(reply.content || "");
+                            setEditReplyPreview(false);
                           }}
                         >
                           Редакция
@@ -479,13 +547,28 @@ export default function ForumTopic() {
                   placeholder="Напиши отговор..."
                   value={replyInput}
                   onChange={(e) => setReplyInput(e.target.value)}
+                  style={{ display: replyPreview ? "none" : "block" }}
                 />
                 <RichTextToolbar
                   textareaRef={replyContentRef}
                   value={replyInput}
                   onChange={setReplyInput}
                   disabled={busy}
+                  onInsertTemplate={() => applyForumPreset("reply")}
+                  compact
                 />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setReplyPreview((prev) => !prev)}>
+                  {replyPreview ? "Редакция" : "Преглед"}
+                </Button>
+              </div>
+              {replyPreview && (
+                <div
+                  className="forum-post-content"
+                  style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 12, background: "#fff" }}
+                  dangerouslySetInnerHTML={{ __html: toDisplayHtml(replyInput) }}
+                />
+              )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {QUICK_EMOJIS.map((emoji) => (
                   <Button key={emoji} type="button" variant="ghost" size="sm" onClick={() => setReplyInput((prev) => `${prev}${emoji}`)}>
@@ -503,6 +586,7 @@ export default function ForumTopic() {
                         setBusy(true);
                         await axiosInstance.post(API_PATHS.FORUM_REPLY_CREATE(id), payload);
                         setReplyInput("");
+                        setReplyPreview(false);
                         await loadPost();
                       } catch (err) {
                         setError(normalizeError(err));

@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
+import { toDisplayHtml } from "../utils/richText";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -34,6 +35,7 @@ export default function EditArticle() {
   });
   const [draftStatus, setDraftStatus] = useState("няма чернова");
   const [draftSavedAt, setDraftSavedAt] = useState("");
+  const [previewMode, setPreviewMode] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState({ title: "", excerpt: "", content: "" });
   const contentRef = useRef(null);
@@ -150,6 +152,21 @@ export default function EditArticle() {
       textarea.focus();
       textarea.setSelectionRange(pos, pos);
     });
+  };
+
+  const onInsertPreset = (kind) => {
+    if (!canEdit) return;
+    if (kind === "article") {
+      insertContentTemplate(
+        "\n## Въведение\nКратък контекст по темата.\n\n## Основна част\n### Точка 1\n- Основен акцент\n- Практически пример\n\n### Точка 2\n- Основен акцент\n- Практически пример\n\n## Заключение\nКакво да приложим в тренировъчния процес.\n"
+      );
+      return;
+    }
+    if (kind === "forum") {
+      insertContentTemplate(
+        "\n## Контекст\nКратко описание на ситуацията.\n\n## Какво пробвах досега\n- Вариант 1\n- Вариант 2\n\n## Въпрос към колегите\nКак бихте подходили вие?\n"
+      );
+    }
   };
 
   const onSave = async () => {
@@ -287,25 +304,38 @@ export default function EditArticle() {
         </div>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Съдържание *</label>
-          <textarea ref={contentRef} name="content" value={form.content} onChange={onChange} rows={12} disabled={!canEdit} />
+          <div style={{ marginBottom: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setPreviewMode((prev) => !prev)} disabled={!canEdit}>
+              {previewMode ? "Редакция" : "Преглед"}
+            </button>
+          </div>
+          <textarea
+            ref={contentRef}
+            name="content"
+            value={form.content}
+            onChange={onChange}
+            rows={12}
+            disabled={!canEdit}
+            style={{ display: previewMode ? "none" : "block" }}
+          />
           <div style={{ marginTop: 8 }}>
             <RichTextToolbar
               textareaRef={contentRef}
               value={form.content}
               onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
               disabled={!canEdit}
+              onInsertTemplate={onInsertPreset}
             />
           </div>
-          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n## Нова секция\n")}>
-              Добави секция
-            </button>
-            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n### Подсекция\n")}>
-              Добави подзаглавие
-            </button>
-            <button type="button" disabled={!canEdit} onClick={() => insertContentTemplate("\n- Точка 1\n- Точка 2\n")}>
-              Добави списък
-            </button>
+          {previewMode && (
+            <div
+              className="forum-post-content"
+              style={{ marginTop: 10, border: "1px solid #dbe5f2", borderRadius: 8, padding: 12, background: "#fff" }}
+              dangerouslySetInnerHTML={{ __html: toDisplayHtml(form.content) }}
+            />
+          )}
+          <div style={{ marginTop: 6, color: "#607693", fontSize: 12 }}>
+            За снимка: натисни "Снимка (линк)" или постави Imgur линк на отделен ред.
           </div>
         </div>
       </div>

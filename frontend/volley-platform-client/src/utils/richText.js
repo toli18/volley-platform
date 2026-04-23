@@ -32,6 +32,31 @@ const withHeadingIds = (html) => {
   });
 };
 
+const isDirectImageUrl = (url) =>
+  /^https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|bmp|svg|avif)(?:\?[^\s]*)?$/i.test(
+    String(url || "").trim()
+  );
+
+const normalizeImgurUrl = (url) => {
+  const text = String(url || "").trim();
+  const direct = text.match(
+    /^https?:\/\/i\.imgur\.com\/([a-zA-Z0-9]+)(\.[a-zA-Z0-9]+)?(?:\?[^\s]*)?$/i
+  );
+  if (direct) {
+    if (direct[2]) return text;
+    return `https://i.imgur.com/${direct[1]}.jpg`;
+  }
+  const short = text.match(/^https?:\/\/(?:www\.)?imgur\.com\/([a-zA-Z0-9]+)(?:\?[^\s]*)?$/i);
+  if (short) return `https://i.imgur.com/${short[1]}.jpg`;
+  return text;
+};
+
+const asEmbeddableImageUrl = (rawUrl) => {
+  const normalized = normalizeImgurUrl(rawUrl);
+  if (isDirectImageUrl(normalized)) return normalized;
+  return null;
+};
+
 const markdownToHtml = (raw) => {
   const lines = String(raw || "").split("\n");
   const out = [];
@@ -67,6 +92,32 @@ const markdownToHtml = (raw) => {
     }
     if (/^[-*]\s+/.test(trimmed)) {
       listBuffer.push(linkify(escapeHtml(trimmed.replace(/^[-*]\s+/, ""))));
+      continue;
+    }
+    const markdownImage = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\s)]+)\)$/i);
+    if (markdownImage) {
+      flushList();
+      const alt = escapeHtml(markdownImage[1] || "Снимка");
+      const imageUrl = asEmbeddableImageUrl(markdownImage[2]);
+      if (imageUrl) {
+        out.push(
+          `<p><img src="${escapeHtml(
+            imageUrl
+          )}" alt="${alt}" style="max-width:100%;height:auto;border-radius:8px;" /></p>`
+        );
+      } else {
+        out.push(`<p>${linkify(escapeHtml(trimmed))}</p>`);
+      }
+      continue;
+    }
+    const imageOnlyUrl = asEmbeddableImageUrl(trimmed);
+    if (imageOnlyUrl) {
+      flushList();
+      out.push(
+        `<p><img src="${escapeHtml(
+          imageOnlyUrl
+        )}" alt="Снимка" style="max-width:100%;height:auto;border-radius:8px;" /></p>`
+      );
       continue;
     }
     flushList();

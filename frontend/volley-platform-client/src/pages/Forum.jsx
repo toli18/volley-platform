@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, Card, EmptyState, Input } from "../components/ui";
 import { toPlainTextSnippet } from "../utils/richText";
+import { toDisplayHtml } from "../utils/richText";
 
 const QUICK_EMOJIS = ["🏐", "🔥", "💪", "🎯", "📈", "🧱", "👏", "🤝"];
 const SUGGESTED_TAGS = [
@@ -51,6 +52,7 @@ export default function Forum() {
   });
   const [newPostFiles, setNewPostFiles] = useState([]);
   const newPostContentRef = useRef(null);
+  const [newPostPreview, setNewPostPreview] = useState(false);
   const [filters, setFilters] = useState({
     query: "",
     category: "all",
@@ -143,6 +145,36 @@ export default function Forum() {
     });
   };
 
+  const insertInNewPost = (text) => {
+    const textarea = newPostContentRef.current;
+    const current = newPost.content || "";
+    if (!textarea) {
+      setNewPost((prev) => ({ ...prev, content: `${current}${text}` }));
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    setNewPost((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      const cursor = start + text.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const insertPreset = (kind) => {
+    if (kind === "forum") {
+      insertInNewPost(
+        "\n## Контекст\nКратко описание на ситуацията.\n\n## Какво пробвах досега\n- Вариант 1\n- Вариант 2\n\n## Въпрос към колегите\nКак бихте подходили вие?\n"
+      );
+      return;
+    }
+    insertInNewPost(
+      "\n## Въведение\nКратко въведение.\n\n## Основни точки\n### Точка 1\n- Детайл\n\n### Точка 2\n- Детайл\n\n## Заключение\n"
+    );
+  };
+
   return (
     <div className="uiPage">
       <div className="uiPageHeader">
@@ -232,13 +264,30 @@ export default function Forum() {
             placeholder="Опиши темата, въпроса или идеята..."
             value={newPost.content}
             onChange={(e) => setNewPost((prev) => ({ ...prev, content: e.target.value }))}
+            style={{ display: newPostPreview ? "none" : "block" }}
           />
           <RichTextToolbar
             textareaRef={newPostContentRef}
             value={newPost.content}
             onChange={(next) => setNewPost((prev) => ({ ...prev, content: next }))}
             disabled={busy}
+            onInsertTemplate={insertPreset}
           />
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setNewPostPreview((prev) => !prev)}>
+              {newPostPreview ? "Редакция" : "Преглед"}
+            </Button>
+            <span style={{ color: "#64748b", fontSize: 12 }}>
+              Ползвай бутоните за структура вместо ръчно форматиране.
+            </span>
+          </div>
+          {newPostPreview && (
+            <div
+              className="forum-post-content"
+              style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 12, background: "#fff" }}
+              dangerouslySetInnerHTML={{ __html: toDisplayHtml(newPost.content) }}
+            />
+          )}
           <div style={{ display: "grid", gap: 6 }}>
             <label style={{ color: "#334155", fontSize: 14 }}>
               Снимки/видео/файлове (по желание)
@@ -314,6 +363,7 @@ export default function Forum() {
                     selectedTags: [],
                     customTag: "",
                   });
+                  setNewPostPreview(false);
                   setNewPostFiles([]);
                   await loadPosts(filters);
                 } catch (err) {

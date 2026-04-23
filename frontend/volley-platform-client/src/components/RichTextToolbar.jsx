@@ -1,14 +1,3 @@
-const FONT_FAMILIES = [
-  "inherit",
-  "Arial, sans-serif",
-  "'Times New Roman', serif",
-  "Georgia, serif",
-  "Verdana, sans-serif",
-  "'Trebuchet MS', sans-serif",
-];
-
-const FONT_SIZES = ["12", "14", "16", "18", "22", "26", "32"];
-
 function wrapSelection(textarea, value, onChange, startTag, endTag, placeholder = "текст") {
   const start = textarea?.selectionStart ?? value.length;
   const end = textarea?.selectionEnd ?? value.length;
@@ -25,73 +14,127 @@ function wrapSelection(textarea, value, onChange, startTag, endTag, placeholder 
   });
 }
 
-export default function RichTextToolbar({ textareaRef, value, onChange, disabled }) {
+function insertAtCursor(textarea, value, onChange, insertedText) {
+  const start = textarea?.selectionStart ?? value.length;
+  const end = textarea?.selectionEnd ?? value.length;
+  const next = `${value.slice(0, start)}${insertedText}${value.slice(end)}`;
+  onChange(next);
+  requestAnimationFrame(() => {
+    if (!textarea) return;
+    const cursor = start + insertedText.length;
+    textarea.focus();
+    textarea.setSelectionRange(cursor, cursor);
+  });
+}
+
+function prefixSelectedLines(textarea, value, onChange, prefix) {
+  const start = textarea?.selectionStart ?? value.length;
+  const end = textarea?.selectionEnd ?? value.length;
+  const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+  const lineEndCandidate = value.indexOf("\n", end);
+  const lineEnd = lineEndCandidate === -1 ? value.length : lineEndCandidate;
+  const selectedBlock = value.slice(lineStart, lineEnd);
+  const lines = selectedBlock.split("\n");
+  const nextBlock = lines.map((line) => `${prefix}${line}`).join("\n");
+  const next = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+  onChange(next);
+
+  requestAnimationFrame(() => {
+    if (!textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(lineStart, lineStart + nextBlock.length);
+  });
+}
+
+function createToolbarButtonStyle(isPrimary = false) {
+  return {
+    border: "1px solid #dbe5f2",
+    background: isPrimary ? "#eff6ff" : "#fff",
+    color: "#0f172a",
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 700,
+    padding: "6px 10px",
+    cursor: "pointer",
+  };
+}
+
+export default function RichTextToolbar({
+  textareaRef,
+  value,
+  onChange,
+  disabled,
+  onInsertTemplate,
+  compact = false,
+}) {
   const applyWrap = (startTag, endTag, placeholder) => {
     wrapSelection(textareaRef?.current, value || "", onChange, startTag, endTag, placeholder);
   };
+  const applyPrefix = (prefix) => {
+    prefixSelectedLines(textareaRef?.current, value || "", onChange, prefix);
+  };
+  const insertText = (inserted) => {
+    insertAtCursor(textareaRef?.current, value || "", onChange, inserted);
+  };
+  const insertImageByUrl = () => {
+    const raw = window.prompt("Постави линк към снимка (например Imgur):");
+    const url = String(raw || "").trim();
+    if (!url) return;
+    insertText(`\n![Снимка](${url})\n`);
+  };
 
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-      <button type="button" disabled={disabled} onClick={() => applyWrap("<strong>", "</strong>")}>
-        B
-      </button>
-      <button type="button" disabled={disabled} onClick={() => applyWrap("<em>", "</em>")}>
-        I
-      </button>
-      <button type="button" disabled={disabled} onClick={() => applyWrap("<u>", "</u>")}>
-        U
-      </button>
-      <button type="button" disabled={disabled} onClick={() => applyWrap("<blockquote>", "</blockquote>")}>
-        Цитат
-      </button>
-      <button type="button" disabled={disabled} onClick={() => applyWrap("<ul><li>", "</li></ul>", "точка")}>
-        Списък
-      </button>
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" style={createToolbarButtonStyle(true)} disabled={disabled} onClick={() => insertText("\n## Заглавие\n")}>
+          Заглавие
+        </button>
+        <button type="button" style={createToolbarButtonStyle(true)} disabled={disabled} onClick={() => insertText("\n### Подзаглавие\n")}>
+          Подзаглавие
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={() => applyPrefix("- ")}>
+          Списък
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={() => applyPrefix("1. ")}>
+          Номериран
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={() => applyPrefix("> ")}>
+          Цитат
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={() => applyWrap("<strong>", "</strong>")}>
+          Удебелен
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={() => applyWrap("<em>", "</em>")}>
+          Курсив
+        </button>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={insertImageByUrl}>
+          Снимка (линк)
+        </button>
+      </div>
 
-      <select
-        disabled={disabled}
-        defaultValue=""
-        onChange={(e) => {
-          const family = e.target.value;
-          if (!family) return;
-          applyWrap(`<span style="font-family:${family};">`, "</span>");
-          e.target.value = "";
-        }}
-      >
-        <option value="">Шрифт</option>
-        {FONT_FAMILIES.map((font) => (
-          <option key={font} value={font}>
-            {font}
-          </option>
-        ))}
-      </select>
-
-      <select
-        disabled={disabled}
-        defaultValue=""
-        onChange={(e) => {
-          const size = e.target.value;
-          if (!size) return;
-          applyWrap(`<span style="font-size:${size}px;">`, "</span>");
-          e.target.value = "";
-        }}
-      >
-        <option value="">Размер</option>
-        {FONT_SIZES.map((size) => (
-          <option key={size} value={size}>
-            {size}px
-          </option>
-        ))}
-      </select>
-
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-        <span style={{ fontSize: 12, color: "#475569" }}>Цвят</span>
-        <input
-          type="color"
-          disabled={disabled}
-          onChange={(e) => applyWrap(`<span style="color:${e.target.value};">`, "</span>")}
-        />
-      </label>
+      {!compact && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            style={createToolbarButtonStyle()}
+            disabled={disabled}
+            onClick={() => onInsertTemplate?.("article")}
+          >
+            Шаблон статия
+          </button>
+          <button
+            type="button"
+            style={createToolbarButtonStyle()}
+            disabled={disabled}
+            onClick={() => onInsertTemplate?.("forum")}
+          >
+            Шаблон форум
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            Подсказка: ползвай Заглавие/Подзаглавие за по-ясна структура.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

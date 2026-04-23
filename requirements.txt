@@ -1,0 +1,2 @@
+# When the Railway service Root Directory is the repository root, install backend deps.
+-r backend/requirements.txt
