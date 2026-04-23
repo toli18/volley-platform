@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import AliasChoices, Field, model_validator
 
 
 def find_env_file() -> Optional[str]:
@@ -37,8 +37,16 @@ class Settings(BaseSettings):
     app_name: str = "Volley Platform API"
     debug: bool = False
 
-    # Database configuration - required, must be provided via env var or .env file
-    database_url: str = Field(..., env="DATABASE_URL")
+    # Database configuration - supports common provider aliases
+    database_url: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "DATABASE_URL",
+            "database_url",
+            "POSTGRES_URL",
+            "POSTGRESQL_URL",
+        ),
+    )
 
     # JWT configuration - can use env vars or defaults
     jwt_secret: str = Field(default="changeme-secret", env="JWT_SECRET_KEY")
@@ -54,6 +62,22 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: Optional[str] = Field(default=None, env="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: Optional[str] = Field(default=None, env="CLOUDINARY_API_KEY")
     cloudinary_api_secret: Optional[str] = Field(default=None, env="CLOUDINARY_API_SECRET")
+
+    @model_validator(mode="after")
+    def normalize_database_url(self) -> "Settings":
+        url = (self.database_url or "").strip()
+        if not url:
+            raise ValueError(
+                "DATABASE_URL is missing or empty. "
+                "Set DATABASE_URL in Railway Variables (or one of: database_url, POSTGRES_URL, POSTGRESQL_URL)."
+            )
+
+        # Some platforms still provide postgres://, normalize it for SQLAlchemy.
+        if url.startswith("postgres://"):
+            url = "postgresql+psycopg://" + url[len("postgres://") :]
+
+        self.database_url = url
+        return self
 
 
 @lru_cache(maxsize=1)
