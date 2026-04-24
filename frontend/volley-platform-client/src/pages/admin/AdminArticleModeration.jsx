@@ -9,7 +9,8 @@ import {
   statusMeta,
 } from "../../components/articles/articleUtils";
 import "../../components/articles/articles.css";
-import { Button, Card, Input } from "../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -28,6 +29,7 @@ export default function AdminArticleModeration() {
   const [error, setError] = useState("");
   const [reason, setReason] = useState("");
   const [comment, setComment] = useState("");
+  const toast = useToast();
 
   const load = async () => {
     try {
@@ -51,6 +53,7 @@ export default function AdminArticleModeration() {
       setActing(true);
       setError("");
       await axiosInstance.post(`/api/admin/articles/${id}/approve`);
+      toast.success("Статията е одобрена.");
       navigate("/admin/articles/pending");
     } catch (err) {
       setError(normalizeError(err));
@@ -68,6 +71,7 @@ export default function AdminArticleModeration() {
       setActing(true);
       setError("");
       await axiosInstance.post(`/api/admin/articles/${id}/reject`, { reason: reason.trim() });
+      toast.success("Статията е отхвърлена.");
       navigate("/admin/articles/pending");
     } catch (err) {
       setError(normalizeError(err));
@@ -85,6 +89,7 @@ export default function AdminArticleModeration() {
       setActing(true);
       setError("");
       await axiosInstance.post(`/api/admin/articles/${id}/needs-edit`, { comment: comment.trim() });
+      toast.success("Статията е върната за редакция.");
       navigate("/admin/articles/pending");
     } catch (err) {
       setError(normalizeError(err));
@@ -94,13 +99,16 @@ export default function AdminArticleModeration() {
   };
 
   return (
-    <div className="uiPage" style={{ maxWidth: 980 }}>
-      <div style={{ marginBottom: 10 }}>
-        <Button as={Link} to="/admin/articles/pending" variant="secondary" size="sm">
-          ← Към чакащи статии
-        </Button>
-      </div>
-      <h2 style={{ marginTop: 0 }}>Модерация на статия</h2>
+    <div className="uiPage adminTheme" style={{ maxWidth: 980 }}>
+      <AdminHero
+        title="Модерация на статия"
+        subtitle={`Преглед и решение за статия #${id}`}
+        actions={
+          <Button as={Link} to="/admin/articles/pending" variant="secondary" size="sm">
+            ← Към чакащи статии
+          </Button>
+        }
+      />
       {loading && <p>Зареждане...</p>}
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 

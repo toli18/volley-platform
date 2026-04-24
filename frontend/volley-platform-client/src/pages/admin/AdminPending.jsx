@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, EmptyState } from "../../components/ui";
+import { AdminActionsRow, AdminHero, AdminSection, Button, Card, EmptyState } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -17,6 +18,7 @@ export default function AdminPending() {
   const [drills, setDrills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   const fetchPending = async () => {
     try {
@@ -34,7 +36,9 @@ export default function AdminPending() {
       const data = res.data;
       setDrills(Array.isArray(data) ? data : []);
     } catch (e) {
-      setError(normalizeFastApiError(e));
+      const msg = normalizeFastApiError(e);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -45,13 +49,12 @@ export default function AdminPending() {
   }, []);
 
   return (
-    <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h2 style={{ marginTop: 0 }}>📋 Чакащи упражнения</h2>
-        <Button variant="secondary" size="sm" onClick={fetchPending}>
-          Презареди
-        </Button>
-      </div>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="📋 Чакащи упражнения"
+        subtitle="Преглед на новите предложения преди окончателно решение."
+        actions={<Button variant="primary" size="sm" onClick={fetchPending}>Презареди</Button>}
+      />
 
       {loading && <p>Зареждане...</p>}
 
@@ -62,18 +65,22 @@ export default function AdminPending() {
       )}
 
       {!loading && !error && drills.length > 0 && (
+        <AdminSection title={`Чакащи предложения (${drills.length})`}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {drills.map((d) => (
             <Card key={d.id}>
               <h3 style={{ margin: "0 0 6px 0" }}>{d.title || d.name || "няма име"}</h3>
               <p style={{ margin: "0 0 10px 0" }}>{d.description || "няма описание"}</p>
 
-              <Button as={Link} to={`/admin/pending/${d.id}`} variant="secondary" size="sm">
-                Преглед / Редакция
-              </Button>
+              <AdminActionsRow>
+                <Button as={Link} to={`/admin/pending/${d.id}`} variant="secondary" size="sm">
+                  Преглед / Редакция
+                </Button>
+              </AdminActionsRow>
             </Card>
           ))}
         </div>
+        </AdminSection>
       )}
     </div>
   );

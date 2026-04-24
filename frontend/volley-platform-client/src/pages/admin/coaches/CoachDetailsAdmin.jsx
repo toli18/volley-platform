@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
-import { Button, Card, Input } from "../../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../../components/ui";
+import { useToast } from "../../../components/ToastProvider";
 
 export default function CoachDetailsAdmin() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function CoachDetailsAdmin() {
     role: "coach",
   });
   const [newPassword, setNewPassword] = useState("");
+  const toast = useToast();
 
   useEffect(() => {
     const run = async () => {
@@ -73,7 +75,7 @@ export default function CoachDetailsAdmin() {
           club_id: Number(form.club_id),
         },
       });
-      alert("Промените са записани.");
+      toast.success("Промените са записани.");
     } catch (e) {
       setError(e?.message || "Грешка при запис.");
     } finally {
@@ -94,7 +96,7 @@ export default function CoachDetailsAdmin() {
         data: { password: newPassword.trim() },
       });
       setNewPassword("");
-      alert("Паролата е сменена успешно.");
+      toast.success("Паролата е сменена успешно.");
     } catch (e) {
       setError(e?.message || "Грешка при reset на парола.");
     } finally {
@@ -102,17 +104,20 @@ export default function CoachDetailsAdmin() {
     }
   };
 
-  if (loading) return <div className="uiPage">Зареждане…</div>;
+  if (loading) return <div className="uiPage adminTheme">Зареждане…</div>;
 
   return (
-    <div className="uiPage" style={{ maxWidth: "100%", minHeight: "80vh" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Пълен преглед / редакция на треньор #{coachId}</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button as={Link} to="/admin/coaches" variant="secondary">Към треньори</Button>
-          <Button onClick={() => navigate(-1)} variant="secondary">Назад</Button>
-        </div>
-      </div>
+    <div className="uiPage adminTheme" style={{ maxWidth: "100%", minHeight: "80vh" }}>
+      <AdminHero
+        title={`Пълен преглед / редакция на треньор #${coachId}`}
+        subtitle="Редакция на профил и смяна на парола от админ."
+        actions={
+          <>
+            <Button as={Link} to="/admin/coaches" variant="secondary">Към треньори</Button>
+            <Button onClick={() => navigate(-1)} variant="secondary">Назад</Button>
+          </>
+        }
+      />
 
       {error && (
         <div className="uiAlert uiAlert--danger">
@@ -120,7 +125,7 @@ export default function CoachDetailsAdmin() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
         <Card title="Профил">
           <div style={{ display: "grid", gap: 10 }}>
             <label>

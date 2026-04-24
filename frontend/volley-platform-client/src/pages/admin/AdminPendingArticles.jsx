@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import ArticleCard from "../../components/articles/ArticleCard";
 import "../../components/articles/articles.css";
-import { Button, EmptyState, Input } from "../../components/ui";
+import { AdminHero, Button, EmptyState, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -18,6 +19,7 @@ export default function AdminPendingArticles() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const toast = useToast();
 
   const load = async () => {
     try {
@@ -39,7 +41,9 @@ export default function AdminPendingArticles() {
       );
       setArticles(detailed);
     } catch (err) {
-      setError(normalizeError(err));
+      const msg = normalizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -58,13 +62,12 @@ export default function AdminPendingArticles() {
   }, [articles, query]);
 
   return (
-    <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Чакащи статии</h2>
-        <Button onClick={load} variant="secondary" size="sm">
-          Презареди
-        </Button>
-      </div>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="Чакащи статии"
+        subtitle="Всички материали, които чакат админ преглед и модерация."
+        actions={<Button onClick={load} variant="primary" size="sm">Презареди</Button>}
+      />
       <div style={{ marginTop: 10 }}>
         <Input
           value={query}
@@ -89,7 +92,7 @@ export default function AdminPendingArticles() {
             <div key={a.id}>
               <ArticleCard article={a} />
               <div style={{ marginTop: 8 }}>
-                <Button as={Link} to={`/admin/articles/${a.id}`} variant="secondary" size="sm">
+                <Button as={Link} to={`/admin/articles/${a.id}`} variant="primary" size="sm">
                   Преглед и модерация
                 </Button>
               </div>

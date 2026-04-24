@@ -9,6 +9,15 @@
   --brand: #0b5cff;
   --brand-strong: #0a4bcf;
   --danger: #be1e2d;
+  --badge-bg: #f2f6fb;
+  --badge-border: var(--border-strong);
+  --badge-text: #29456f;
+  --badge-success-bg: #ecfdf5;
+  --badge-success-border: #99ddb5;
+  --badge-success-text: #12693a;
+  --badge-danger-bg: #fef2f2;
+  --badge-danger-border: #fecaca;
+  --badge-danger-text: #991b1b;
   --shadow-sm: 0 2px 10px rgba(14, 34, 61, 0.08);
   --shadow-md: 0 12px 30px rgba(14, 34, 61, 0.1);
 }

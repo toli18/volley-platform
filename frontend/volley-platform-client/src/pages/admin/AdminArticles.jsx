@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { statusMeta } from "../../components/articles/articleUtils";
-import { Button, Card, EmptyState, Input } from "../../components/ui";
+import { AdminActionsRow, AdminHero, AdminSection, Button, Card, EmptyState, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -15,6 +16,7 @@ const normalizeError = (err) => {
 
 export default function AdminArticles() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -69,23 +71,22 @@ export default function AdminArticles() {
     try {
       await axiosInstance.delete(API_PATHS.ADMIN_ARTICLE_DELETE(id));
       await load();
+      toast.success("Статията е изтрита успешно.");
     } catch (err) {
-      alert(normalizeError(err));
+      toast.error(normalizeError(err));
     }
   };
 
   return (
-    <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0 }}>Admin: Всички статии</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button onClick={load} variant="secondary" size="sm">
-            Рефреш
-          </Button>
-        </div>
-      </div>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="Admin: Всички статии"
+        subtitle="Преглед, модерация и управление на цялото съдържание."
+        actions={<Button onClick={load} variant="secondary" size="sm">Рефреш</Button>}
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 10, marginTop: 10 }}>
+      <AdminSection title="Филтри">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 10 }}>
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -99,6 +100,7 @@ export default function AdminArticles() {
           <option value="NEEDS_EDIT">NEEDS_EDIT</option>
         </Input>
       </div>
+      </AdminSection>
 
       {loading && <p style={{ marginTop: 12 }}>Зареждане...</p>}
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
@@ -108,6 +110,7 @@ export default function AdminArticles() {
       )}
 
       {!loading && !error && filtered.length > 0 && (
+        <AdminSection title={`Резултати (${filtered.length})`}>
         <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
           {filtered.map((a) => {
             const st = statusMeta(a.status);
@@ -123,7 +126,7 @@ export default function AdminArticles() {
                     <p style={{ margin: "8px 0 0", color: "#607693" }}>{a.excerpt || "Няма кратко описание."}</p>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <AdminActionsRow>
                     <Button as={Link} to={`/articles/${a.id}`} variant="secondary" size="sm">
                       Преглед
                     </Button>
@@ -136,12 +139,13 @@ export default function AdminArticles() {
                     <Button onClick={() => removeArticle(a.id)} variant="danger" size="sm">
                       Изтрий
                     </Button>
-                  </div>
+                  </AdminActionsRow>
                 </div>
               </Card>
             );
           })}
         </div>
+        </AdminSection>
       )}
     </div>
   );

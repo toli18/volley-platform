@@ -3,9 +3,9 @@ import { createContext, useContext, useMemo, useState } from "react";
 const ToastContext = createContext(null);
 
 const kinds = {
-  success: { bg: "#ecfdf5", border: "#86efac", color: "#166534" },
-  error: { bg: "#fef2f2", border: "#fecaca", color: "#991b1b" },
-  info: { bg: "#eff6ff", border: "#bfdbfe", color: "#1e3a8a" },
+  success: { bg: "#e9faf1", border: "#8ccfb0", color: "#0a5a3d" },
+  error: { bg: "#fff2f3", border: "#f6c7cd", color: "#9f1d28" },
+  info: { bg: "#eef6f2", border: "#b9d8c8", color: "#0c5b3e" },
 };
 
 export function ToastProvider({ children }) {

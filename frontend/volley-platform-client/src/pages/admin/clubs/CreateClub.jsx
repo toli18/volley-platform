@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
-import { Button, Card, Input } from "../../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../../components/ui";
+import { useToast } from "../../../components/ToastProvider";
 
 export default function CreateClub() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const submit = async () => {
     if (!name.trim()) {
@@ -25,30 +27,34 @@ export default function CreateClub() {
         data: { name: name.trim(), is_active: true }
       });
 
+      toast.success(`Клуб "${name.trim()}" е създаден успешно.`);
       navigate("/admin/clubs");
     } catch (err) {
       setError(err.message || "Възникна грешка при създаване на клуб");
-      console.error("Error creating club:", err);
+      toast.error(err?.message || "Възникна грешка при създаване на клуб");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="uiPage">
-      <h2>Create Club</h2>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="Създай клуб"
+        subtitle="Добави нов клуб в системата с активен достъп."
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       <Card style={{ maxWidth: 480 }}>
         <div style={{ display: "grid", gap: 10 }}>
           <Input
-            placeholder="Club name"
+            placeholder="Име на клуб"
             value={name}
             onChange={e => setName(e.target.value)}
           />
           <Button onClick={submit} disabled={loading}>
-            {loading ? "Създаване..." : "Create"}
+            {loading ? "Създаване..." : "Създай"}
           </Button>
         </div>
       </Card>

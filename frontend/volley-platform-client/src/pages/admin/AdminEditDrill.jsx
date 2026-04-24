@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
-import { Button, Card, Input } from "../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const toIntOrNull = (v) => {
   if (v === "" || v === null || v === undefined) return null;
@@ -141,6 +142,7 @@ export default function AdminEditDrill() {
   const { id } = useParams();
   const drillId = useMemo(() => Number(id), [id]);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -325,7 +327,7 @@ export default function AdminEditDrill() {
       // Админ редакция: PATCH /drills/{id} (при теб това е админският update)
       await axiosInstance.patch(`/drills/${drillId}`, computedPayload);
 
-      alert("Промените са запазени.");
+      toast.success("Промените са запазени.");
       navigate("/admin/drills");
     } catch (e) {
       setError(normalizeFastApiError(e));
@@ -334,17 +336,19 @@ export default function AdminEditDrill() {
     }
   };
 
-  if (loading) return <div className="uiPage">Зареждане…</div>;
+  if (loading) return <div className="uiPage adminTheme">Зареждане…</div>;
 
   return (
-    <div className="uiPage" style={{ maxWidth: 980 }}>
-      <div style={{ marginBottom: 12 }}>
-        <Button as={Link} to="/admin/drills" variant="secondary" size="sm">
-          ← Назад към всички упражнения
-        </Button>
-      </div>
-
-      <h2 style={{ marginTop: 0 }}>Администраторска редакция</h2>
+    <div className="uiPage adminTheme" style={{ maxWidth: 980 }}>
+      <AdminHero
+        title="Администраторска редакция на упражнение"
+        subtitle={`Редактираш упражнение #${Number.isFinite(drillId) ? drillId : "?"}`}
+        actions={
+          <Button as={Link} to="/admin/drills" variant="secondary" size="sm">
+            ← Назад към всички упражнения
+          </Button>
+        }
+      />
 
       {error ? <div className="uiAlert uiAlert--danger">Грешка: {error}</div> : null}
 

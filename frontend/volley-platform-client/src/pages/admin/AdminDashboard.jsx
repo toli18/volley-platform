@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, EmptyState } from "../../components/ui";
+import { AdminHero, AdminSection, AdminStatCard, Button, Card, EmptyState } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -17,21 +18,25 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState(null);
+  const toast = useToast();
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await axiosInstance.get(API_PATHS.ADMIN_ANALYTICS_OVERVIEW);
+      setStats(res.data || null);
+    } catch (err) {
+      const msg = normalizeError(err);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const res = await axiosInstance.get(API_PATHS.ADMIN_ANALYTICS_OVERVIEW);
-        setStats(res.data || null);
-      } catch (err) {
-        setError(normalizeError(err));
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadDashboard();
   }, []);
 
   const links = [
@@ -44,13 +49,18 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="uiPage">
-      <h2 style={{ margin: 0 }}>Админ панел</h2>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="Админ панел"
+        subtitle="Централен преглед на ключовите метрики и модерация."
+        actions={<Button variant="secondary" onClick={loadDashboard}>Обнови данните</Button>}
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-        <Card title="Нови регистрации на треньори">
+      <AdminSection title="Основни метрики">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+        <AdminStatCard title="Нови регистрации на треньори">
           {loading || !stats ? (
             <p className="uiMuted">Зареждане...</p>
           ) : (
@@ -61,9 +71,9 @@ export default function AdminDashboard() {
               <span className="uiBadge uiBadge--success">Общо: {stats.coach_registrations.total}</span>
             </div>
           )}
-        </Card>
+        </AdminStatCard>
 
-        <Card title="Активни треньори">
+        <AdminStatCard title="Активни треньори">
           {loading || !stats ? (
             <p className="uiMuted">Зареждане...</p>
           ) : (
@@ -87,9 +97,9 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
-        </Card>
+        </AdminStatCard>
 
-        <Card title="Чакащи за модерация">
+        <AdminStatCard title="Чакащи за модерация">
           {loading || !stats ? (
             <p className="uiMuted">Зареждане...</p>
           ) : (
@@ -98,9 +108,9 @@ export default function AdminDashboard() {
               <span className="uiBadge uiBadge--danger">Статии: {stats.pending.articles}</span>
             </div>
           )}
-        </Card>
+        </AdminStatCard>
 
-        <Card title="Approval rate">
+        <AdminStatCard title="Approval rate">
           {loading || !stats ? (
             <p className="uiMuted">Зареждане...</p>
           ) : (
@@ -110,9 +120,11 @@ export default function AdminDashboard() {
               <span className="uiBadge">Approval rate: {stats.approval_rate.approval_rate_percent}%</span>
             </div>
           )}
-        </Card>
+        </AdminStatCard>
       </div>
+      </AdminSection>
 
+      <AdminSection title="Детайлни класации">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 10 }}>
         <Card title="Най-използвани упражнения в тренировки">
           {loading ? (
@@ -181,7 +193,7 @@ export default function AdminDashboard() {
                       <span>{row.count}</span>
                     </div>
                     <div style={{ height: 10, background: "#eef3fa", borderRadius: 999 }}>
-                      <div style={{ height: "100%", width: `${width}%`, background: "#0b5cff", borderRadius: 999 }} />
+                      <div style={{ height: "100%", width: `${width}%`, background: "#0c6a47", borderRadius: 999 }} />
                     </div>
                   </div>
                 );
@@ -190,16 +202,19 @@ export default function AdminDashboard() {
           )}
         </Card>
       </div>
+      </AdminSection>
 
+      <AdminSection title="Бързи връзки">
       <Card>
         <div style={{ display: "grid", gap: 8 }}>
           {links.map((item) => (
-            <Button key={item.to} as={Link} to={item.to} variant="secondary">
+            <Button key={item.to} as={Link} to={item.to} variant="primary">
               {item.label}
             </Button>
           ))}
         </div>
       </Card>
+      </AdminSection>
     </div>
   );
 }

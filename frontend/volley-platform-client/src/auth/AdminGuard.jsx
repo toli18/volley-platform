@@ -24,5 +24,9 @@ export default function AdminGuard() {
   }
 
   // ✅ Това е ключът: пуска child routes да се рендерират
-  return <Outlet />;
+  return (
+    <div className="adminTheme">
+      <Outlet />
+    </div>
+  );
 }

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
-import { Button, Card, Input } from "../../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../../components/ui";
+import { useToast } from "../../../components/ToastProvider";
 
 export default function CreateCoach() {
   const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ export default function CreateCoach() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const toast = useToast();
 
   useEffect(() => {
     const run = async () => {
@@ -60,6 +62,7 @@ export default function CreateCoach() {
         club_id: Number(clubId),
       });
 
+      toast.success(`Треньор "${name.trim()}" е създаден успешно.`);
       navigate("/admin/coaches");
     } catch (e) {
       const msg =
@@ -67,14 +70,18 @@ export default function CreateCoach() {
         e?.message ||
         "Възникна грешка при създаване на треньор";
       setError(typeof msg === "string" ? msg : "Възникна грешка при създаване на треньор");
+      toast.error(typeof msg === "string" ? msg : "Възникна грешка при създаване на треньор");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="uiPage">
-      <h2>Create Coach</h2>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="Създай треньор"
+        subtitle="Добавяне на нов треньор към избран клуб."
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
@@ -89,14 +96,14 @@ export default function CreateCoach() {
 
         <Input
           type="password"
-          placeholder="Password"
+          placeholder="Парола"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
         <Input
           type="text"
-          placeholder="Name"
+          placeholder="Име"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -108,7 +115,7 @@ export default function CreateCoach() {
           disabled={loadingClubs}
         >
           <option value="">
-            {loadingClubs ? "Loading clubs..." : "Select club"}
+            {loadingClubs ? "Зареждане на клубове..." : "Избери клуб"}
           </option>
           {clubs.map((c) => (
             <option key={c.id} value={c.id}>
@@ -118,7 +125,7 @@ export default function CreateCoach() {
         </Input>
 
         <Button onClick={submit} disabled={loading}>
-          {loading ? "Създаване..." : "Create"}
+          {loading ? "Създаване..." : "Създай"}
         </Button>
         </div>
       </Card>

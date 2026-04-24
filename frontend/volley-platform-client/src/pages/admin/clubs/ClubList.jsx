@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
-import { Button, Card, EmptyState, Input } from "../../../components/ui";
+import { AdminHero, Button, Card, EmptyState, Input } from "../../../components/ui";
+import { useToast } from "../../../components/ToastProvider";
 
 export default function ClubList() {
   const [clubs, setClubs] = useState([]);
@@ -22,6 +23,7 @@ export default function ClubList() {
     logo_url: "",
   });
   const [editSaving, setEditSaving] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const run = async () => {
@@ -81,10 +83,15 @@ export default function ClubList() {
 
   const onToggleAccess = async (club) => {
     try {
-      await apiClient(API_PATHS.CLUB_TOGGLE_ACCESS(club.id), { method: "POST" });
+      const result = await apiClient(API_PATHS.CLUB_TOGGLE_ACCESS(club.id), { method: "POST" });
       await reload();
+      toast.success(
+        result?.is_active === false
+          ? `Достъпът на клуб "${club.name}" е спрян.`
+          : `Достъпът на клуб "${club.name}" е активиран.`
+      );
     } catch (e) {
-      alert(e?.message || "Грешка при смяна на достъпа");
+      toast.error(e?.message || "Грешка при смяна на достъпа");
     }
   };
 
@@ -105,7 +112,7 @@ export default function ClubList() {
   const onSaveEdit = async () => {
     if (!editClub) return;
     if (!editForm.name.trim()) {
-      alert("Името на клуба е задължително.");
+      toast.error("Името на клуба е задължително.");
       return;
     }
     setEditSaving(true);
@@ -125,8 +132,9 @@ export default function ClubList() {
       });
       setEditClub(null);
       await reload();
+      toast.success(`Клуб "${editForm.name.trim()}" е обновен успешно.`);
     } catch (e) {
-      alert(e?.message || "Грешка при редакция на клуба");
+      toast.error(e?.message || "Грешка при редакция на клуба");
     } finally {
       setEditSaving(false);
     }
@@ -137,14 +145,18 @@ export default function ClubList() {
     try {
       await apiClient(API_PATHS.CLUB_DELETE(club.id), { method: "DELETE" });
       await reload();
+      toast.success(`Клуб "${club.name}" е изтрит.`);
     } catch (e) {
-      alert(e?.message || "Грешка при изтриване на клуба");
+      toast.error(e?.message || "Грешка при изтриване на клуба");
     }
   };
 
   return (
-    <div className="uiPage">
-      <h2>🏢 Clubs</h2>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="🏢 Админ управление на клубове"
+        subtitle="Стил B: по-контрастен sporty вид с цветове, близки до БФ Волейбол."
+      />
 
       <Button
         as={Link}
@@ -164,7 +176,21 @@ export default function ClubList() {
       </div>
 
       {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
-      {loading && <p>Зареждане…</p>}
+      {loading && (
+        <div style={{ display: "grid", gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <Card
+              key={idx}
+              className="uiCard--soft"
+              style={{ minHeight: 110, opacity: 0.9 }}
+            >
+              <div style={{ height: 14, width: "42%", background: "#dce5f2", borderRadius: 7, marginBottom: 8 }} />
+              <div style={{ height: 10, width: "70%", background: "#e6edf7", borderRadius: 7, marginBottom: 10 }} />
+              <div style={{ height: 10, width: "90%", background: "#e6edf7", borderRadius: 7 }} />
+            </Card>
+          ))}
+        </div>
+      )}
 
       {!loading && !error && filteredClubs.length === 0 && (
         <EmptyState
@@ -185,7 +211,7 @@ export default function ClubList() {
                   <div style={{ fontWeight: 900, fontSize: 18 }}>{c.name || "Клуб"}</div>
                   <div style={{ fontSize: 12, color: "#5f708c", marginTop: 2 }}>
                     ID: {c.id} • Треньори: <b>{coachesByClub[Number(c.id)] || 0}</b> • Статус:{" "}
-                    <b style={{ color: c.is_active === false ? "#b00020" : "#0b7a31" }}>
+                    <b style={{ color: c.is_active === false ? "#be1e2d" : "#0a6b47" }}>
                       {c.is_active === false ? "Спрян достъп" : "Активен"}
                     </b>
                   </div>

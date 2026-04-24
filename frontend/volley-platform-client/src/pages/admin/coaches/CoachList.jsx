@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
 import { Link } from "react-router-dom";
-import { Button, Card, EmptyState, Input } from "../../../components/ui";
+import { AdminActionsRow, AdminHero, AdminSection, Button, Card, EmptyState, Input } from "../../../components/ui";
+import { useToast } from "../../../components/ToastProvider";
 
 export default function CoachList() {
   const [coaches, setCoaches] = useState([]);
@@ -14,6 +15,7 @@ export default function CoachList() {
   const [editCoach, setEditCoach] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", club_id: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const run = async () => {
@@ -71,8 +73,9 @@ export default function CoachList() {
     try {
       await apiClient(API_PATHS.COACH_DELETE(coach.id), { method: "DELETE" });
       await reload();
+      toast.success(`Треньор "${coach.name || coach.email}" е изтрит.`);
     } catch (e) {
-      alert(e?.message || "Грешка при изтриване на треньор");
+      toast.error(e?.message || "Грешка при изтриване на треньор");
     }
   };
 
@@ -88,7 +91,7 @@ export default function CoachList() {
   const onSaveEditCoach = async () => {
     if (!editCoach) return;
     if (!editForm.name.trim() || !editForm.email.trim() || !editForm.club_id) {
-      alert("Име, email и клуб са задължителни.");
+      toast.error("Име, email и клуб са задължителни.");
       return;
     }
     setEditSaving(true);
@@ -103,27 +106,30 @@ export default function CoachList() {
       });
       setEditCoach(null);
       await reload();
+      toast.success("Данните за треньора са обновени.");
     } catch (e) {
-      alert(e?.message || "Грешка при редакция на треньор");
+      toast.error(e?.message || "Грешка при редакция на треньор");
     } finally {
       setEditSaving(false);
     }
   };
 
   return (
-    <div className="uiPage">
-      <h2>👤 Coaches</h2>
+    <div className="uiPage adminTheme">
+      <AdminHero title="👤 Управление на треньори" subtitle="Преглед, филтър и бърза редакция на треньорски профили." />
 
-      <Button
-        as={Link}
-        to="/admin/coaches/new"
-        variant="secondary"
-        size="sm"
-      >
-        ➕ Create Coach
-      </Button>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 10, marginBottom: 12 }}>
+      <AdminSection title="Действия и филтри" subtitle="Създай нов треньор или филтрирай текущия списък.">
+      <AdminActionsRow>
+        <Button
+          as={Link}
+          to="/admin/coaches/new"
+          variant="secondary"
+          size="sm"
+        >
+          ➕ Create Coach
+        </Button>
+      </AdminActionsRow>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -138,6 +144,7 @@ export default function CoachList() {
           ))}
         </Input>
       </div>
+      </AdminSection>
 
       {loading && <p>Зареждане…</p>}
       {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
@@ -147,6 +154,7 @@ export default function CoachList() {
       )}
 
       {!loading && !error && filtered.length > 0 && (
+        <AdminSection title={`Треньори (${filtered.length})`}>
         <div style={{ display: "grid", gap: 8 }}>
           {filtered.map((c) => {
             const club = c?.club_id ? clubMap.get(Number(c.club_id)) : null;
@@ -160,17 +168,18 @@ export default function CoachList() {
                 <div style={{ marginTop: 2, fontSize: 12, color: "#5f708c" }}>
                   {club?.city ? `${club.city}, ` : ""}{club?.country || ""}
                 </div>
-                <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                <AdminActionsRow>
                   <Button as={Link} to={`/admin/coaches/${c.id}`} variant="secondary" size="sm">
                     Пълен преглед/редакция
                   </Button>
                   <Button onClick={() => openEditModal(c)} variant="ghost" size="sm">Редакция</Button>
                   <Button onClick={() => onDeleteCoach(c)} variant="danger" size="sm">Изтрий</Button>
-                </div>
+                </AdminActionsRow>
               </Card>
             );
           })}
         </div>
+        </AdminSection>
       )}
 
       {editCoach && (

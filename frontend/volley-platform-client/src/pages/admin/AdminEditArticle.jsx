@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, Input } from "../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -19,6 +20,7 @@ export default function AdminEditArticle() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ title: "", excerpt: "", content: "" });
+  const toast = useToast();
 
   const load = async () => {
     try {
@@ -60,6 +62,7 @@ export default function AdminEditArticle() {
         excerpt: form.excerpt.trim() || null,
         content: form.content.trim(),
       });
+      toast.success("Статията е обновена успешно.");
       navigate("/admin/articles");
     } catch (err) {
       setError(normalizeError(err));
@@ -68,16 +71,19 @@ export default function AdminEditArticle() {
     }
   };
 
-  if (loading) return <div className="uiPage">Зареждане...</div>;
+  if (loading) return <div className="uiPage adminTheme">Зареждане...</div>;
 
   return (
-    <div className="uiPage" style={{ maxWidth: 980 }}>
-      <div style={{ marginBottom: 10 }}>
-        <Button as={Link} to="/admin/articles" variant="secondary" size="sm">
-          ← Назад към всички статии
-        </Button>
-      </div>
-      <h2 style={{ marginTop: 0 }}>Редакция на статия (Admin)</h2>
+    <div className="uiPage adminTheme" style={{ maxWidth: 980 }}>
+      <AdminHero
+        title="Редакция на статия (Admin)"
+        subtitle={`Редактираш статия #${id}`}
+        actions={
+          <Button as={Link} to="/admin/articles" variant="secondary" size="sm">
+            ← Назад към всички статии
+          </Button>
+        }
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 

@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../../utils/drillCanonical";
-import { Button, Card, Input } from "../../components/ui";
+import { AdminHero, Button, Card, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -117,6 +118,7 @@ export default function AdminPendingDrill() {
   const { id } = useParams();
   const drillId = useMemo(() => Number(id), [id]);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -300,7 +302,7 @@ export default function AdminPendingDrill() {
       // ✅ ВАЖНО: PATCH /drills/{id} (иначе 405)
       await axiosInstance.patch(API_PATHS.DRILL_UPDATE(drillId), payload);
 
-      alert("Промените са запазени.");
+      toast.success("Промените са запазени.");
       // по желание: reload от бекенда да видиш реално върнатото
       await load();
     } catch (e) {
@@ -322,7 +324,7 @@ export default function AdminPendingDrill() {
         await axiosInstance.post(API_PATHS.DRILL_DECISION_ALIAS(drillId), { action });
       }
 
-      alert(action === "approve" ? "Упражнението е одобрено." : "Упражнението е отхвърлено.");
+      toast.success(action === "approve" ? "Упражнението е одобрено." : "Упражнението е отхвърлено.");
       navigate("/admin/pending");
     } catch (e) {
       setError(normalizeFastApiError(e));
@@ -332,14 +334,12 @@ export default function AdminPendingDrill() {
   };
 
   return (
-    <div className="uiPage" style={{ maxWidth: 900 }}>
-      <Button as={Link} to="/admin/pending" variant="secondary" size="sm">
-        ← Назад към чакащи
-      </Button>
-
-      <h2 style={{ marginTop: 0 }}>
-        Преглед / Редакция на упражнение #{Number.isFinite(drillId) ? drillId : "?"}
-      </h2>
+    <div className="uiPage adminTheme" style={{ maxWidth: 900 }}>
+      <AdminHero
+        title={`Преглед / Редакция на упражнение #${Number.isFinite(drillId) ? drillId : "?"}`}
+        subtitle="Преди одобрение може да коригираш детайлите и етикетите за генератора."
+        actions={<Button as={Link} to="/admin/pending" variant="secondary" size="sm">← Назад към чакащи</Button>}
+      />
 
       {loading && <p>Зареждане…</p>}
 

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, EmptyState, Input } from "../../components/ui";
+import { AdminHero, Button, Card, EmptyState, Input } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -18,6 +19,7 @@ export default function AdminDrills() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   const fetchDrills = async () => {
     try {
@@ -52,8 +54,9 @@ export default function AdminDrills() {
       await axiosInstance.delete(API_PATHS.DRILL_DELETE(id));
       // рефреш на листа
       await fetchDrills();
+      toast.success("Упражнението е изтрито успешно.");
     } catch (e) {
-      alert("Грешка: " + normalizeFastApiError(e));
+      toast.error("Грешка: " + normalizeFastApiError(e));
     }
   };
 
@@ -75,14 +78,12 @@ export default function AdminDrills() {
   });
 
   return (
-    <div className="uiPage">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <h2 style={{ marginTop: 0 }}>📋 Admin: Всички упражнения</h2>
-
-        <Button onClick={fetchDrills} variant="secondary" size="sm">
-          🔄 Рефреш
-        </Button>
-      </div>
+    <div className="uiPage adminTheme">
+      <AdminHero
+        title="📋 Admin: Всички упражнения"
+        subtitle="Пълен каталог за админ преглед, редакция и изтриване."
+        actions={<Button onClick={fetchDrills} variant="secondary" size="sm">🔄 Рефреш</Button>}
+      />
 
       <div style={{ marginBottom: 10 }}>
         <Input
