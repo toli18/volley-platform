@@ -77,6 +77,14 @@ export default function AdminDrills() {
     return haystack.includes(normalizedQuery);
   });
 
+  const getStatusMeta = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "approved") return { label: "Одобрено", className: "uiBadge uiBadge--success" };
+    if (normalized === "rejected") return { label: "Отказано", className: "uiBadge uiBadge--danger" };
+    if (normalized === "pending") return { label: "Чака одобрение", className: "uiBadge" };
+    return { label: status || "Неизвестен", className: "uiBadge" };
+  };
+
   return (
     <div className="uiPage adminTheme">
       <AdminHero
@@ -116,13 +124,15 @@ export default function AdminDrills() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDrills.map((d) => (
+            {filteredDrills.map((d) => {
+              const statusMeta = getStatusMeta(d.status);
+              return (
               <TableRow key={d.id}>
                 <TableCell>{d.id}</TableCell>
                 <TableCell>{d.title || d.name || "няма име"}</TableCell>
                 <TableCell>{d.description || "няма описание"}</TableCell>
                 <TableCell>
-                  <span className="uiBadge">{d.status || "unknown"}</span>
+                  <span className={statusMeta.className}>{statusMeta.label}</span>
                 </TableCell>
                 <TableCell>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -138,7 +148,8 @@ export default function AdminDrills() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       )}

@@ -240,16 +240,7 @@ export default function Forum() {
           {newPost.selectedTags.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {newPost.selectedTags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    background: "#f1f5f9",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: 999,
-                    padding: "3px 10px",
-                    fontSize: 13,
-                  }}
-                >
+                <span key={tag} className="uiBadge">
                   #{tag}
                 </span>
               ))}
