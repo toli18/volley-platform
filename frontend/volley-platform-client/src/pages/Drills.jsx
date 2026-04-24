@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -86,17 +86,17 @@ export default function Drills() {
 
       {!loading && !error && drills.length > 0 && (
         <Card padded={false}>
-          <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
-          <thead>
-            <tr style={{ backgroundColor: "#f5f5f5" }}>
-              <th>ID</th>
-              <th>Заглавие</th>
-              <th>Описание</th>
-              <th>Медия</th>
-              <th>Статус</th>
-            </tr>
-          </thead>
-          <tbody>
+          <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Заглавие</TableHead>
+              <TableHead>Описание</TableHead>
+              <TableHead>Медия</TableHead>
+              <TableHead>Статус</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {drills.map((drill) => {
               let imageUrl = null;
 
@@ -140,21 +140,18 @@ export default function Drills() {
                   : "#6c757d";
 
               return (
-                <tr key={drill.id}>
-                  <td>{drill.id}</td>
+                <TableRow key={drill.id}>
+                  <TableCell>{drill.id}</TableCell>
 
-                  <td>
-                    <Link
-                      to={`/drills/${drill.id}`}
-                      style={{ color: "#0066cc", textDecoration: "none", fontWeight: 800 }}
-                    >
+                  <TableCell>
+                    <Button as={Link} to={`/drills/${drill.id}`} variant="ghost" size="sm">
                       {title}
-                    </Link>
-                  </td>
+                    </Button>
+                  </TableCell>
 
-                  <td>{drill.description || "няма описание"}</td>
+                  <TableCell>{drill.description || "няма описание"}</TableCell>
 
-                  <td>
+                  <TableCell>
                     {hasImage ? (
                       <img
                         src={imageUrl}
@@ -175,9 +172,9 @@ export default function Drills() {
                     ) : (
                       <span style={{ color: "#999", fontSize: 12 }}>—</span>
                     )}
-                  </td>
+                  </TableCell>
 
-                  <td>
+                  <TableCell>
                     <span
                       style={{
                         padding: "4px 8px",
@@ -190,12 +187,12 @@ export default function Drills() {
                     >
                       {statusLabel}
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         </Card>
       )}
     </div>

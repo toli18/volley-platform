@@ -248,6 +248,58 @@
   color: var(--badge-danger-text);
 }
 
+.uiTableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.uiTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  min-width: 760px;
+}
+
+.uiTable thead tr {
+  background: #f4f8fb;
+}
+
+.uiTable th,
+.uiTable td {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.uiTable th:first-child,
+.uiTable td:first-child {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.uiTable th:last-child,
+.uiTable td:last-child {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.uiTable thead th {
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #415472;
+}
+
+.uiTable tbody tr:hover {
+  background: #f9fcff;
+}
+
+.uiTableHead,
+.uiTableCell {
+  font-size: 13px;
+}
+
 .adminTheme {
   --brand: #0c6a47;
   --brand-strong: #09563a;

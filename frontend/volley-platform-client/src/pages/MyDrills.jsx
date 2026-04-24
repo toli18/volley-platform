@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
-import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
 export default function MyDrills() {
@@ -122,14 +122,14 @@ export default function MyDrills() {
     const title = drill.title || drill.name || "(без име)"; // fallback ако някъде е name
 
     return (
-      <tr key={drill.id}>
-        <td>{title}</td>
-        <td>{drill.category || "няма данни"}</td>
-        <td>{formatAgeGroup(drill.age_min, drill.age_max)}</td>
-        <td>
+      <TableRow key={drill.id}>
+        <TableCell>{title}</TableCell>
+        <TableCell>{drill.category || "няма данни"}</TableCell>
+        <TableCell>{formatAgeGroup(drill.age_min, drill.age_max)}</TableCell>
+        <TableCell>
           <span style={getStatusStyle(drill.status)}>{getStatusLabel(drill.status)}</span>
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           {isPending ? (
             <>
               <span style={{ marginRight: "10px", color: "#666" }}>Редакция: само админ</span>
@@ -142,8 +142,8 @@ export default function MyDrills() {
               Преглед
             </Button>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     );
   };
 
@@ -152,22 +152,18 @@ export default function MyDrills() {
 
     return (
       <Card key={title} title={`${title} (${list.length})`}>
-        <table
-          border="1"
-          cellPadding="8"
-          style={{ width: "100%", borderCollapse: "collapse", marginTop: "10px" }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: "#f5f5f5" }}>
-              <th>Име</th>
-              <th>Категория</th>
-              <th>Възрастова група</th>
-              <th>Статус</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>{list.map(renderDrillRow)}</tbody>
-        </table>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Име</TableHead>
+              <TableHead>Категория</TableHead>
+              <TableHead>Възрастова група</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{list.map(renderDrillRow)}</TableBody>
+        </Table>
       </Card>
     );
   };
