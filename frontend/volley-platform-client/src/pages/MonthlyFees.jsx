@@ -573,56 +573,75 @@ export default function MonthlyFees() {
         <Card
           title={`Отчет по месеци: ${athleteReport.athlete?.athlete_name} (Общо платено: ${Number(athleteReport.total_paid || 0).toFixed(2)} лв.)`}
         >
-          <div style={{ display: "grid", gap: 6 }}>
-            {(athleteReport.months || []).map((m) => (
-              <div key={m.month_key} style={{ display: "flex", justifyContent: "space-between", gap: 8, borderBottom: "1px solid #eef3fa", padding: "6px 0" }}>
-                <span>{m.month_key}</span>
-                <span style={{ color: m.paid ? "#0f7f47" : "#b91c1c" }}>
-                  {m.paid ? `Платено (${Number(m.amount || 0).toFixed(2)} лв.)` : "Неплатено"}
-                </span>
-                {m.payment_id ? (
-                  <Button size="sm" variant="secondary" onClick={() => downloadReceipt(m.payment_id)}>
-                    Квитанция PDF
-                  </Button>
-                ) : (
-                  <span style={{ color: "#94a3b8" }}>—</span>
-                )}
-              </div>
-            ))}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Месец</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Сума</TableHead>
+                <TableHead>Квитанция</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(athleteReport.months || []).map((m) => (
+                <TableRow key={m.month_key}>
+                  <TableCell>{m.month_key}</TableCell>
+                  <TableCell>
+                    <span className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                      {m.paid ? "Платено" : "Неплатено"}
+                    </span>
+                  </TableCell>
+                  <TableCell>{m.paid ? `${Number(m.amount || 0).toFixed(2)} лв.` : "—"}</TableCell>
+                  <TableCell>
+                    {m.payment_id ? (
+                      <Button size="sm" variant="secondary" onClick={() => downloadReceipt(m.payment_id)}>
+                        Квитанция PDF
+                      </Button>
+                    ) : (
+                      <span style={{ color: "#94a3b8" }}>—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 
       {periodReport && (
         <Card title={`Общ отчет (${periodReport.from_month} → ${periodReport.to_month}) • Състезатели: ${periodReport.total_athletes}`}>
-          <div style={{ display: "grid", gap: 8 }}>
-            {(periodReport.rows || []).map((row) => (
-              <article key={row.athlete_id} style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 10, background: "#f9fbff" }}>
-                <strong>{row.athlete_name}</strong>
-                <div style={{ color: "#607693", fontSize: 13, marginTop: 4 }}>
-                  Платени: {row.paid_months} | Неплатени: {row.unpaid_months} | Общо: {Number(row.total_paid || 0).toFixed(2)} лв.
-                </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                  {(row.months || []).map((m) => (
-                    <span
-                      key={`${row.athlete_id}-${m.month_key}`}
-                      style={{
-                        borderRadius: 999,
-                        padding: "3px 8px",
-                        fontSize: 12,
-                        border: "1px solid",
-                        borderColor: m.paid ? "#9fe3bd" : "#fecaca",
-                        background: m.paid ? "#ecfdf5" : "#fff1f2",
-                        color: m.paid ? "#0f7f47" : "#b91c1c",
-                      }}
-                    >
-                      {m.month_key}: {m.paid ? "ПЛАТЕНО" : "НЕПЛАТЕНО"}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Състезател</TableHead>
+                <TableHead>Платени</TableHead>
+                <TableHead>Неплатени</TableHead>
+                <TableHead>Общо</TableHead>
+                <TableHead>Месеци</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(periodReport.rows || []).map((row) => (
+                <TableRow key={row.athlete_id}>
+                  <TableCell>
+                    <strong>{row.athlete_name}</strong>
+                  </TableCell>
+                  <TableCell>{row.paid_months}</TableCell>
+                  <TableCell>{row.unpaid_months}</TableCell>
+                  <TableCell>{Number(row.total_paid || 0).toFixed(2)} лв.</TableCell>
+                  <TableCell>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(row.months || []).map((m) => (
+                        <span key={`${row.athlete_id}-${m.month_key}`} className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                          {m.month_key}: {m.paid ? "ПЛАТЕНО" : "НЕПЛАТЕНО"}
+                        </span>
+                      ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 
