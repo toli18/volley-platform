@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../utils/drillCanonical";
+import { useToast } from "../components/ToastProvider";
+import { Button, PageHero } from "../components/ui";
 
 const toIntOrNull = (v) => {
   if (v === "" || v === null || v === undefined) return null;
@@ -146,6 +148,7 @@ export default function EditDrill() {
   const { id } = useParams();
   const drillId = useMemo(() => Number(id), [id]);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -338,7 +341,7 @@ export default function EditDrill() {
       // PATCH /drills/{id}
       await axiosInstance.patch(`/drills/${drillId}`, normalized);
 
-      alert("Промените са запазени.");
+      toast.success("Промените са запазени.");
       navigate(`/drills/${drillId}`);
     } catch (e) {
       setError(normalizeFastApiError(e));
@@ -347,15 +350,15 @@ export default function EditDrill() {
     }
   };
 
-  if (loading) return <div style={{ padding: 20 }}>Зареждане…</div>;
+  if (loading) return <div className="uiPage" style={{ padding: 20 }}>Зареждане…</div>;
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
-      <div style={{ marginBottom: 12 }}>
-        <Link to={`/drills/${drillId}`}>← Назад към преглед</Link>
-      </div>
-
-      <h2 style={{ marginTop: 0 }}>Редакция на упражнение</h2>
+    <div className="uiPage" style={{ padding: 20, maxWidth: 980 }}>
+      <PageHero
+        title="Редакция на упражнение"
+        subtitle={`Промени полетата за упражнение #${drillId} и запази.`}
+        actions={<Button as={Link} to={`/drills/${drillId}`} variant="secondary">← Назад към преглед</Button>}
+      />
 
       {error ? (
         <div style={{ background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00", marginBottom: 12 }}>
@@ -620,34 +623,20 @@ export default function EditDrill() {
       </Row>
 
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-        <button
+        <Button
           onClick={save}
           disabled={saving}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "none",
-            background: "#0b66c3",
-            color: "white",
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
         >
           {saving ? "Запазване…" : "Запази промените"}
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => navigate(-1)}
           disabled={saving}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "white",
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
+          variant="secondary"
         >
           Назад
-        </button>
+        </Button>
       </div>
     </div>
   );

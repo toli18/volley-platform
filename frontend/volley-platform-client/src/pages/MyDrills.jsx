@@ -2,10 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
-import { Button, Card, EmptyState } from "../components/ui";
+import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import { useToast } from "../components/ToastProvider";
 
 export default function MyDrills() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [drills, setDrills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,9 +49,10 @@ export default function MyDrills() {
       await axiosInstance.delete(`/drills/${drillId}`);
       // refresh
       await loadDrills();
+      toast.success("Упражнението е изтрито.");
     } catch (e) {
       const msg = e?.response?.data?.detail || e?.message || "Грешка при изтриване";
-      alert("Грешка: " + (typeof msg === "string" ? msg : "Грешка при изтриване"));
+      toast.error("Грешка: " + (typeof msg === "string" ? msg : "Грешка при изтриване"));
     }
   };
 
@@ -171,13 +174,11 @@ export default function MyDrills() {
 
   return (
     <div className="uiPage">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1>Моите упражнения</h1>
-
-        <Button onClick={() => navigate("/drills/new")}>
-          + Ново упражнение
-        </Button>
-      </div>
+      <PageHero
+        title="Моите упражнения"
+        subtitle="Преглед на статуса и управление на собствените предложения."
+        actions={<Button onClick={() => navigate("/drills/new")}>+ Ново упражнение</Button>}
+      />
 
       {loading && <p>Зареждане…</p>}
 

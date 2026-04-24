@@ -2,7 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
-import { Button, EmptyState, Input } from "../components/ui";
+import { Button, EmptyState, Input, PageHero } from "../components/ui";
+import { useToast } from "../components/ToastProvider";
 
 function fmtDate(v) {
   try {
@@ -33,6 +34,7 @@ export default function MyTrainings() {
   const [filterStatus, setFilterStatus] = useState("all"); // all | saved | draft
   const [filterSource, setFilterSource] = useState("all"); // all | generated | manual
   const navigate = useNavigate();
+  const toast = useToast();
 
   async function load() {
     setLoading(true);
@@ -40,7 +42,7 @@ export default function MyTrainings() {
       const data = await apiJson("/trainings/my");
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
-      alert(e?.message || "Грешка при зареждане на тренировките");
+      toast.error(e?.message || "Грешка при зареждане на тренировките");
       setItems([]);
     } finally {
       setLoading(false);
@@ -58,8 +60,9 @@ export default function MyTrainings() {
     try {
       await apiJson(`/trainings/${id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((x) => x.id !== id));
+      toast.success("Тренировката е изтрита.");
     } catch (e) {
-      alert(e?.message || "Неуспешно изтриване");
+      toast.error(e?.message || "Неуспешно изтриване");
     }
   }
 
@@ -128,19 +131,16 @@ export default function MyTrainings() {
       `}</style>
 
       <div className="mtHeader">
-        <div>
-          <h1 className="mtTitle">Моите тренировки</h1>
-          <div className="mtSub">
-            {loading ? "Зареждане…" : `${filtered.length} тренировк${filtered.length === 1 ? "а" : "и"}`}
-          </div>
-        </div>
-
-        <div className="mtActions">
-          <Button variant="secondary" onClick={load} title="Опресни">
-            ↻ Опресни
-          </Button>
-          <Button onClick={() => navigate("/generator")}>＋ Нова тренировка</Button>
-        </div>
+        <PageHero
+          title="Моите тренировки"
+          subtitle={loading ? "Зареждане…" : `${filtered.length} тренировк${filtered.length === 1 ? "а" : "и"}`}
+          actions={
+            <>
+              <Button variant="secondary" onClick={load} title="Опресни">↻ Опресни</Button>
+              <Button onClick={() => navigate("/generator")}>＋ Нова тренировка</Button>
+            </>
+          }
+        />
       </div>
 
       <div className="controls">

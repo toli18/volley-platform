@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../utils/drillCanonical";
+import { useToast } from "../components/ToastProvider";
+import { Button, PageHero } from "../components/ui";
 
 const toIntOrNull = (v) => {
   if (v === "" || v === null || v === undefined) return null;
@@ -154,6 +156,7 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
 
 export default function CreateDrill() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -287,7 +290,7 @@ export default function CreateDrill() {
       // Твоят backend приема POST /drills
       await axiosInstance.post("/drills", normalized);
 
-      alert("Упражнението е изпратено за одобрение.");
+      toast.success("Упражнението е изпратено за одобрение.");
       navigate("/my-drills");
     } catch (e) {
       setError(normalizeFastApiError(e));
@@ -297,12 +300,12 @@ export default function CreateDrill() {
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 980 }}>
-      <div style={{ marginBottom: 12 }}>
-        <Link to="/drills">← Назад към упражненията</Link>
-      </div>
-
-      <h2 style={{ marginTop: 0 }}>Добави упражнение (подробно)</h2>
+    <div className="uiPage" style={{ padding: 20, maxWidth: 980 }}>
+      <PageHero
+        title="Добави упражнение (подробно)"
+        subtitle="Попълни ключовите полета и изпрати за одобрение."
+        actions={<Button as={Link} to="/drills" variant="secondary">← Назад към упражненията</Button>}
+      />
 
       {error ? (
         <div style={{ background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00", marginBottom: 12 }}>
@@ -657,34 +660,20 @@ export default function CreateDrill() {
       </Row>
 
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-        <button
+        <Button
           onClick={submit}
           disabled={submitting}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "none",
-            background: "#0b66c3",
-            color: "white",
-            cursor: submitting ? "not-allowed" : "pointer",
-          }}
         >
           {submitting ? "Изпращане…" : "Изпрати за одобрение"}
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => navigate(-1)}
           disabled={submitting}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "white",
-            cursor: submitting ? "not-allowed" : "pointer",
-          }}
+          variant="secondary"
         >
           Назад
-        </button>
+        </Button>
       </div>
     </div>
   );

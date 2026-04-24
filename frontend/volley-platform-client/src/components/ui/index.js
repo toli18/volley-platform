@@ -6,4 +6,5 @@ export { default as AdminHero } from "./AdminHero";
 export { default as AdminSection } from "./AdminSection";
 export { default as AdminActionsRow } from "./AdminActionsRow";
 export { default as AdminStatCard } from "./AdminStatCard";
+export { default as PageHero } from "./PageHero";
 

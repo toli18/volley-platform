@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
-import { Button, Card, EmptyState } from "../components/ui";
+import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import { useToast } from "../components/ToastProvider";
 
 function clipText(s, n = 180) {
   const t = String(s || "").trim();
@@ -17,6 +18,7 @@ function clipText(s, n = 180) {
 export default function TrainingDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function TrainingDetails() {
         const res = await apiJson(`/trainings/${id}/details`);
         setData(res);
       } catch (e) {
-        alert(e?.message || "Грешка при зареждане");
+        toast.error(e?.message || "Грешка при зареждане");
         setData(null);
       } finally {
         setLoading(false);
@@ -80,23 +82,16 @@ export default function TrainingDetails() {
         .mediaBtn img{width:100%; height:100%; object-fit:cover;}
       `}</style>
 
-      <div className="topBar">
-        <div>
-          <h1 className="title">{data.title}</h1>
-          <div className="meta">
-            {data.source} • {data.status} • {data.created_at ? new Date(data.created_at).toLocaleString() : ""}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button variant="secondary" onClick={() => navigate("/my-trainings")}>
-            Към списъка
-          </Button>
-          <Button as={Link} to={`/trainings/${id}/edit`}>
-            Редакция
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        title={data.title}
+        subtitle={`${data.source} • ${data.status} • ${data.created_at ? new Date(data.created_at).toLocaleString() : ""}`}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => navigate("/my-trainings")}>Към списъка</Button>
+            <Button as={Link} to={`/trainings/${id}/edit`}>Редакция</Button>
+          </>
+        }
+      />
 
       {data.notes ? (
         <div className="sectionBox" style={{ background: "#fff" }}>

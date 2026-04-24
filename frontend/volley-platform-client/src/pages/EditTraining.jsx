@@ -3,10 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import { Button, PageHero } from "../components/ui";
+import { useToast } from "../components/ToastProvider";
 
 export default function EditTraining() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const SECTIONS = useMemo(
     () => [
@@ -68,7 +71,7 @@ export default function EditTraining() {
         const drillsList = await apiJson("/drills/");
         setDrills(Array.isArray(drillsList) ? drillsList : []);
       } catch (e) {
-        alert(e?.message || "Грешка при зареждане");
+        toast.error(e?.message || "Грешка при зареждане");
       } finally {
         setLoading(false);
       }
@@ -128,7 +131,7 @@ export default function EditTraining() {
   async function onSave() {
     const t = form.title.trim();
     if (!t) {
-      alert("Заглавието е задължително.");
+      toast.error("Заглавието е задължително.");
       return;
     }
 
@@ -145,10 +148,10 @@ export default function EditTraining() {
         },
       });
 
-      alert("Запазено ✅");
+      toast.success("Запазено.");
       navigate(`/trainings/${id}`);
     } catch (e) {
-      alert(e?.message || "Грешка при запис (PATCH)");
+      toast.error(e?.message || "Грешка при запис (PATCH)");
     } finally {
       setSaving(false);
     }
@@ -158,7 +161,16 @@ export default function EditTraining() {
 
   return (
     <div style={{ padding: 16, maxWidth: 1200, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 12 }}>Редакция на тренировка #{id}</h1>
+      <PageHero
+        title={`Редакция на тренировка #${id}`}
+        subtitle="Промени плана, реда и настройките преди запазване."
+        actions={
+          <>
+            <Button variant="secondary" as={Link} to={`/trainings/${id}`}>Преглед</Button>
+            <Button variant="secondary" as={Link} to="/my-trainings">Към списъка</Button>
+          </>
+        }
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {/* LEFT: Form + Plan */}
@@ -210,12 +222,9 @@ export default function EditTraining() {
             </label>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={onSave} disabled={saving}>
-                {saving ? "Запис…" : "Запази промените"}
-              </button>
-
-              <Link to={`/trainings/${id}`}><button type="button">Преглед</button></Link>
-              <Link to="/my-trainings"><button type="button">Към списъка</button></Link>
+              <Button onClick={onSave} disabled={saving}>
+                {saving ? "Запис..." : "Запази промените"}
+              </Button>
             </div>
           </div>
 
