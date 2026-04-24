@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
-import { Button, Card, Input } from "../components/ui";
+import { Button, Card, Input, PageHero } from "../components/ui";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,6 +45,7 @@ export default function Login() {
 
   return (
     <div className="uiPage" style={{ maxWidth: 420, margin: "40px auto" }}>
+      <PageHero title="Вход" subtitle="Влез в платформата с твоите данни." />
       <Card title="Вход" subtitle="Влез в платформата с твоите данни.">
         {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 

@@ -6,7 +6,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
-import { Button, Card, EmptyState, Input } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 import { toDisplayHtml } from "../utils/richText";
 
 const QUICK_EMOJIS = ["🏐", "🔥", "💪", "🎯", "📈", "🧱", "👏", "🤝"];
@@ -103,11 +103,11 @@ export default function ForumTopic() {
 
   return (
     <div className="uiPage">
-      <div style={{ display: "flex", gap: 10 }}>
-        <Button as={Link} to="/forum" variant="secondary" size="sm">
-          ← Към форума
-        </Button>
-      </div>
+      <PageHero
+        title={post?.title || "Тема във форума"}
+        subtitle="Дискусия, отговори и модерация в реално време."
+        actions={<Button as={Link} to="/forum" variant="secondary" size="sm">← Към форума</Button>}
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
       {loading && <p>Зареждане...</p>}

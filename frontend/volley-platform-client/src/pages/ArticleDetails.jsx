@@ -13,7 +13,7 @@ import {
 } from "../components/articles/articleUtils";
 import { extractTocItems, toDisplayHtml } from "../utils/richText";
 import "../components/articles/articles.css";
-import { Button, EmptyState, Input } from "../components/ui";
+import { Button, EmptyState, Input, PageHero } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -116,16 +116,16 @@ export default function ArticleDetails() {
 
   return (
     <div className="uiPage" style={{ maxWidth: "100%" }}>
-      <div style={{ marginBottom: 12, display: "flex", gap: 10 }}>
-        <Button as={Link} to="/articles" variant="secondary" size="sm">
-          ← Към статии
-        </Button>
-        {canEdit && (
-          <Button as={Link} to={`/articles/${id}/edit`} size="sm">
-            Редактирай
-          </Button>
-        )}
-      </div>
+      <PageHero
+        title={article?.title || "Детайли за статия"}
+        subtitle="Подробен преглед на съдържание, ресурси и коментари."
+        actions={
+          <>
+            <Button as={Link} to="/articles" variant="secondary" size="sm">← Към статии</Button>
+            {canEdit && <Button as={Link} to={`/articles/${id}/edit`} size="sm">Редактирай</Button>}
+          </>
+        }
+      />
 
       {loading && <p>Зареждане...</p>}
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}

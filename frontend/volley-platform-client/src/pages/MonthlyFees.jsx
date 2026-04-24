@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
-import { Button, Card, EmptyState, Input } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -366,7 +366,10 @@ export default function MonthlyFees() {
 
   return (
     <div className="uiPage">
-      <h1 style={{ margin: 0 }}>Месечни Такси</h1>
+      <PageHero
+        title="Месечни Такси"
+        subtitle="Управлявай състезатели, плащания и отчетни периоди от едно място."
+      />
 
       <Card title="Нов състезател">
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>

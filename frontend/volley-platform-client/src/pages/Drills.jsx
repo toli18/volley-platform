@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { Button, Card, EmptyState } from "../components/ui";
+import { Button, Card, EmptyState, PageHero } from "../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -66,12 +66,11 @@ export default function Drills() {
 
   return (
     <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Упражнения</h1>
-        <Button variant="secondary" onClick={load}>
-          ⟳ Презареди
-        </Button>
-      </div>
+      <PageHero
+        title="Упражнения"
+        subtitle="Каталог с одобрени упражнения за преглед и практическа употреба."
+        actions={<Button variant="secondary" onClick={load}>⟳ Презареди</Button>}
+      />
 
       {error && (
         <div className="uiAlert uiAlert--danger">

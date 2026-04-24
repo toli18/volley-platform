@@ -5,6 +5,7 @@ import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { isAuthenticated, isCoach } from "../utils/auth";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import { PageHero } from "../components/ui";
 
 // ---------- helpers ----------
 function normalizeFastApiError(err) {
@@ -357,7 +358,10 @@ export default function Generator() {
         .planActions{display:flex; gap:8px; align-items:center;}
       `}</style>
 
-      <h1 style={{ margin: "8px 0 12px" }}>Генератор / Създаване на тренировка</h1>
+      <PageHero
+        title="Генератор / Създаване на тренировка"
+        subtitle="Изгради тренировъчен план с ръчен подбор и интелигентни филтри."
+      />
 
       <div className="top">
         <div className="field" style={{ flex: "2 1 360px" }}>

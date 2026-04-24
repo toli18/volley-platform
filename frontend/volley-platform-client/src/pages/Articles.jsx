@@ -11,7 +11,7 @@ import {
 } from "../components/articles/articleUtils";
 import "../components/articles/articles.css";
 import { useAuth } from "../auth/AuthContext";
-import { Button, Card, EmptyState, Input } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -125,19 +125,18 @@ export default function Articles() {
 
   return (
     <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Статии и методика</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          {user?.role === "coach" && (
-            <Button as={Link} to="/articles/new" size="sm">
-              Нова статия
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={loadArticles}>
-            Презареди
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        title="Статии и методика"
+        subtitle="Практически знания, тренировъчни принципи и материали за развитие."
+        actions={
+          <>
+            {user?.role === "coach" && (
+              <Button as={Link} to="/articles/new" size="sm">Нова статия</Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={loadArticles}>Презареди</Button>
+          </>
+        }
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 

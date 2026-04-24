@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { Button, Card, EmptyState } from "../components/ui";
+import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { createDraftKey, hasMeaningfulDraft, loadDraft } from "../utils/articleDrafts";
 import Drills from "./Drills";
 
@@ -212,12 +212,10 @@ export default function Home() {
 
   return (
     <div className="uiPage">
-      <div className="uiPageHeader">
-        <h1 style={{ margin: 0 }}>Coach Dashboard</h1>
-        <p className="uiMuted">
-        Най-важното за днес: месечни такси, нови теми във форума и последни статии.
-        </p>
-      </div>
+      <PageHero
+        title="Coach Dashboard"
+        subtitle="Най-важното за днес: месечни такси, нови теми във форума и последни статии."
+      />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 

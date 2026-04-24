@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import RichTextToolbar from "../components/RichTextToolbar";
-import { Button, Card, EmptyState, Input } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 import { toPlainTextSnippet } from "../utils/richText";
 import { toDisplayHtml } from "../utils/richText";
 
@@ -177,12 +177,10 @@ export default function Forum() {
 
   return (
     <div className="uiPage">
-      <div className="uiPageHeader">
-        <h1 style={{ margin: 0 }}>Форум за треньори</h1>
-        <p className="uiMuted">
-        Пространство за обмен на волейболни идеи, методики и практически опит между треньори и админи.
-        </p>
-      </div>
+      <PageHero
+        title="Форум за треньори"
+        subtitle="Пространство за обмен на волейболни идеи, методики и практически опит между треньори и админи."
+      />
 
       <Card title="Нова тема" tone="soft">
         <div style={{ display: "grid", gap: 8 }}>

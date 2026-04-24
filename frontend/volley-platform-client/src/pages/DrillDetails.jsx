@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
-import { Button, Card, EmptyState } from "../components/ui";
+import { Button, Card, EmptyState, PageHero } from "../components/ui";
 
 /** ---------- Грешки от FastAPI ---------- */
 const normalizeFastApiError = (err) => {
@@ -556,11 +556,11 @@ export default function DrillDetails() {
 
   return (
     <div className="uiPage" style={{ maxWidth: 980 }}>
-      <div style={{ marginBottom: 12 }}>
-        <Button as={Link} to="/drills" variant="secondary" size="sm">
-          ← Назад към упражненията
-        </Button>
-      </div>
+      <PageHero
+        title={drill?.title || "Детайли за упражнение"}
+        subtitle="Подробен преглед на методика, медия и практически детайли."
+        actions={<Button as={Link} to="/drills" variant="secondary" size="sm">← Назад към упражненията</Button>}
+      />
 
       <h2 style={{ marginTop: 0 }}>{drill.title || "Без име"}</h2>
 

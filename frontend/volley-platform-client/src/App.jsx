@@ -6,7 +6,7 @@ import "./App.css";
 
 export default function App() {
   return (
-    <div className="appShell">
+    <div className="appShell bfvTheme">
       <Navbar />
       <main className="appContent">
         <Suspense fallback={<div style={{ padding: 24 }}>Зареждане...</div>}>

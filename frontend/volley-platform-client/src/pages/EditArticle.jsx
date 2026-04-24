@@ -4,6 +4,7 @@ import axiosInstance from "../utils/apiClient";
 import { useAuth } from "../auth/AuthContext";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { Button, PageHero } from "../components/ui";
 import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 import { toDisplayHtml } from "../utils/richText";
 
@@ -261,10 +262,11 @@ export default function EditArticle() {
 
   return (
     <div style={{ padding: 20, maxWidth: 980 }}>
-      <div style={{ marginBottom: 10 }}>
-        <Link to={`/articles/${id}`}>← Към статията</Link>
-      </div>
-      <h2 style={{ marginTop: 0 }}>Редакция на статия</h2>
+      <PageHero
+        title="Редакция на статия"
+        subtitle={`Работиш по статия #${id}`}
+        actions={<Button as={Link} to={`/articles/${id}`} variant="secondary">← Към статията</Button>}
+      />
       <div style={{ color: "#607693", fontSize: 13, marginBottom: 8 }}>
         Чернова: <strong>{draftStatus}</strong>
         {draftSavedAt ? ` • ${new Date(draftSavedAt).toLocaleTimeString("bg-BG")}` : ""}

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { statusMeta } from "../components/articles/articleUtils";
-import { Button, Card, EmptyState, Input } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -60,17 +60,16 @@ export default function MyArticles() {
 
   return (
     <div className="uiPage">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Моите статии</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button as={Link} to="/articles/new" size="sm">
-            Нова статия
-          </Button>
-          <Button onClick={load} variant="secondary" size="sm">
-            Презареди
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        title="Моите статии"
+        subtitle="Преглед на статуса и управление на собствените публикации."
+        actions={
+          <>
+            <Button as={Link} to="/articles/new" size="sm">Нова статия</Button>
+            <Button onClick={load} variant="secondary" size="sm">Презареди</Button>
+          </>
+        }
+      />
 
       <Card>
         <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 10 }}>

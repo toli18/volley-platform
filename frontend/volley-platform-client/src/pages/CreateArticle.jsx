@@ -4,6 +4,7 @@ import axiosInstance from "../utils/apiClient";
 import ArticleAttachmentList from "../components/articles/ArticleAttachmentList";
 import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
+import { Button, PageHero } from "../components/ui";
 import { clearDraft, createDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 import { toDisplayHtml } from "../utils/richText";
 
@@ -232,10 +233,11 @@ export default function CreateArticle() {
 
   return (
     <div style={{ padding: 20, maxWidth: 980 }}>
-      <div style={{ marginBottom: 10 }}>
-        <Link to="/articles">← Към статии</Link>
-      </div>
-      <h2 style={{ marginTop: 0 }}>Нова статия (разширен редактор)</h2>
+      <PageHero
+        title="Нова статия (разширен редактор)"
+        subtitle="Създай съдържание, добави медия и изпрати за одобрение."
+        actions={<Button as={Link} to="/articles" variant="secondary">← Към статии</Button>}
+      />
       <div style={{ color: "#607693", fontSize: 13, marginBottom: 8 }}>
         Чернова: <strong>{draftStatus}</strong>
         {draftSavedAt ? ` • ${new Date(draftSavedAt).toLocaleTimeString("bg-BG")}` : ""}

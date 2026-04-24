@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import { PageHero } from "../components/ui";
 
 const PERIODS = [
   { value: "prep", label: "Подготовителен период" },
@@ -549,10 +550,10 @@ export default function AIGenerator() {
 
   return (
     <div style={{ padding: 16 }}>
-      <h2 style={{ marginTop: 0 }}>AI генератор на тренировки</h2>
-      <div style={{ marginBottom: 10, fontSize: 13, color: "#415472" }}>
-        Използва само одобрените упражнения в платформата и ги разпределя по логика в 4 части.
-      </div>
+      <PageHero
+        title="AI генератор на тренировки"
+        subtitle="Използва само одобрените упражнения в платформата и ги разпределя по логика в 4 части."
+      />
       <div style={{ border: "1px solid #dce5f2", borderRadius: 14, padding: 12, background: "#f8fafc", marginBottom: 12 }}>
         <div style={{ fontWeight: 900, marginBottom: 8 }}>Параметри, които влияят на AI генератора</div>
         <div style={{ fontSize: 12, color: "#415472", marginBottom: 8 }}>

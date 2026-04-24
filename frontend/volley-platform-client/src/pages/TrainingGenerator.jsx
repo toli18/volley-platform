@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient, isAuthenticated, isCoach } from "../utils/auth";
+import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 
 export default function TrainingGenerator() {
   const navigate = useNavigate();
@@ -157,15 +158,15 @@ export default function TrainingGenerator() {
 
   if (authLoading) {
     return (
-      <div style={{ padding: "20px" }}>
+      <div className="uiPage" style={{ padding: "20px" }}>
         <p>Зареждане...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Създаване на тренировка</h1>
+    <div className="uiPage" style={{ padding: "20px" }}>
+      <PageHero title="Създаване на тренировка" subtitle="Генерирай и запази тренировка от налични упражнения." />
 
       {loading && <p>Зареждане на упражнения…</p>}
 
@@ -182,25 +183,17 @@ export default function TrainingGenerator() {
       )}
 
       {!loading && !error && (
-        <div style={{ marginTop: "20px" }}>
+        <Card style={{ marginTop: "20px" }}>
           {/* Title Input (required by Step 2 manual) */}
           <div style={{ marginBottom: "20px" }}>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
               Заглавие на тренировката: *
             </label>
-            <input
-              type="text"
+            <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Напр. Тренировка 1"
-              style={{
-                width: "100%",
-                maxWidth: "500px",
-                padding: "10px",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                fontSize: "16px",
-              }}
+              style={{ width: "100%", maxWidth: "500px" }}
             />
           </div>
 
@@ -282,22 +275,7 @@ export default function TrainingGenerator() {
 
           {/* Generate Button */}
           <div style={{ marginBottom: "30px" }}>
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#0066cc",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: loading ? "not-allowed" : "pointer",
-                fontSize: "16px",
-                fontWeight: "bold",
-              }}
-            >
-              Генерирай упражнения
-            </button>
+            <Button onClick={handleGenerate} disabled={loading}>Генерирай упражнения</Button>
           </div>
 
           {/* Selected Drills */}
@@ -338,45 +316,27 @@ export default function TrainingGenerator() {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => handleRemoveDrill(drill.id)}
-                        style={{
-                          padding: "5px 10px",
-                          backgroundColor: "#dc3545",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Премахни
-                      </button>
+                      <Button onClick={() => handleRemoveDrill(drill.id)} variant="danger" size="sm">Премахни</Button>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Save Training Button */}
-              <button
+              <Button
                 onClick={handleSaveTraining}
                 disabled={submitting || selectedDrills.length === 0}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: submitting || selectedDrills.length === 0 ? "#ccc" : "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: submitting || selectedDrills.length === 0 ? "not-allowed" : "pointer",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                }}
+                variant="primary"
               >
                 {submitting ? "Запазване..." : "Запази тренировка"}
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
       )}
+      {!loading && !error && drills.length === 0 ? (
+        <EmptyState title="Няма упражнения за генериране" description="Добави или одобри упражнения, за да генерираш тренировка." />
+      ) : null}
     </div>
   );
 }

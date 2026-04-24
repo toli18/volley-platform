@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { isAdmin } from "../utils/auth";
+import { Button, EmptyState, PageHero } from "../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -37,8 +38,8 @@ export default function DrillsList() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ marginTop: 0 }}>Упражнения</h2>
+    <div className="uiPage" style={{ padding: 20 }}>
+      <PageHero title="Упражнения" subtitle="Бърз списък с упражнения (legacy изглед)." />
 
       {error && (
         <div style={{ background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00", marginBottom: 12 }}>
@@ -48,7 +49,7 @@ export default function DrillsList() {
 
       {loading && <div>Зареждане…</div>}
 
-      {!loading && !error && drills.length === 0 && <div>Няма налични упражнения.</div>}
+      {!loading && !error && drills.length === 0 && <EmptyState title="Няма налични упражнения" description="Опитай отново след презареждане." />}
 
       {!loading && !error && drills.length > 0 && (
         <div style={{ display: "grid", gap: 12 }}>
@@ -61,36 +62,10 @@ export default function DrillsList() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                <Link
-                  to={`/drills/${d.id}`}
-                  style={{
-                    display: "inline-block",
-                    padding: "6px 10px",
-                    border: "1px solid #0066cc",
-                    borderRadius: 6,
-                    textDecoration: "none",
-                    color: "#0066cc",
-                    fontWeight: 800,
-                  }}
-                >
-                  Преглед
-                </Link>
+                <Button as={Link} to={`/drills/${d.id}`} variant="secondary" size="sm">Преглед</Button>
 
                 {isAdmin() && (
-                  <Link
-                    to={`/drills/${d.id}/edit`}
-                    style={{
-                      display: "inline-block",
-                      padding: "6px 10px",
-                      border: "1px solid #333",
-                      borderRadius: 6,
-                      textDecoration: "none",
-                      color: "#111",
-                      fontWeight: 800,
-                    }}
-                  >
-                    Редакция
-                  </Link>
+                  <Button as={Link} to={`/drills/${d.id}/edit`} variant="ghost" size="sm">Редакция</Button>
                 )}
               </div>
             </div>
@@ -99,19 +74,7 @@ export default function DrillsList() {
       )}
 
       <div style={{ marginTop: 14 }}>
-        <button
-          onClick={load}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "white",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          ⟳ Презареди
-        </button>
+        <Button onClick={load} variant="secondary">⟳ Презареди</Button>
       </div>
     </div>
   );
