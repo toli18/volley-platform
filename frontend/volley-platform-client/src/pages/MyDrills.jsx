@@ -63,35 +63,10 @@ export default function MyDrills() {
     return status || "—";
   };
 
-  const getStatusStyle = (status) => {
-    if (status === "pending") {
-      return {
-        padding: "4px 8px",
-        backgroundColor: "#fff3cd",
-        color: "#856404",
-        borderRadius: "4px",
-        fontWeight: "bold",
-      };
-    }
-    if (status === "approved") {
-      return {
-        padding: "4px 8px",
-        backgroundColor: "#d4edda",
-        color: "#155724",
-        borderRadius: "4px",
-        fontWeight: "bold",
-      };
-    }
-    if (status === "rejected") {
-      return {
-        padding: "4px 8px",
-        backgroundColor: "#f8d7da",
-        color: "#721c24",
-        borderRadius: "4px",
-        fontWeight: "bold",
-      };
-    }
-    return { padding: "4px 8px", backgroundColor: "#eee", borderRadius: "4px" };
+  const getStatusClass = (status) => {
+    if (status === "approved") return "uiBadge uiBadge--success";
+    if (status === "rejected") return "uiBadge uiBadge--danger";
+    return "uiBadge";
   };
 
   const formatAgeGroup = (ageMin, ageMax) => {
@@ -127,7 +102,7 @@ export default function MyDrills() {
         <TableCell>{drill.category || "няма данни"}</TableCell>
         <TableCell>{formatAgeGroup(drill.age_min, drill.age_max)}</TableCell>
         <TableCell>
-          <span style={getStatusStyle(drill.status)}>{getStatusLabel(drill.status)}</span>
+          <span className={getStatusClass(drill.status)}>{getStatusLabel(drill.status)}</span>
         </TableCell>
         <TableCell>
           {isPending ? (

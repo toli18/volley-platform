@@ -646,32 +646,18 @@ export default function MonthlyFees() {
       )}
 
       {payAthlete && (
-        <div
-          onClick={closePayModal}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.45)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <section
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(560px, 96vw)", borderRadius: 12, background: "#fff", padding: 14, border: "1px solid #dbe5f2" }}
-          >
-            <h3 style={{ marginTop: 0 }}>Плащане: {selectedAthleteName}</h3>
+        <div onClick={closePayModal} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Плащане: {selectedAthleteName}</h3>
             <div style={{ display: "grid", gap: 8 }}>
               <Input
                 type="month"
                 value={payForm.month_key}
                 onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
               />
-              {checkingMonthPaid && <small style={{ color: "#475569" }}>Проверка за съществуващо плащане...</small>}
+              {checkingMonthPaid && <small className="uiFieldHint">Проверка за съществуващо плащане...</small>}
               {monthAlreadyPaid && (
-                <small style={{ color: "#b91c1c", fontWeight: 700 }}>
+                <small className="uiFieldError">
                   За този месец вече е отбелязано плащане. Не може дублиране.
                 </small>
               )}
@@ -687,7 +673,7 @@ export default function MonthlyFees() {
                 value={payForm.note}
                 onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
               />
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="uiModalActions">
                 <Button disabled={busy || monthAlreadyPaid || checkingMonthPaid} onClick={savePayment}>
                   Запиши плащане
                 </Button>
@@ -701,23 +687,9 @@ export default function MonthlyFees() {
       )}
 
       {editAthlete && (
-        <div
-          onClick={closeEditModal}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.45)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <section
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(680px, 96vw)", borderRadius: 12, background: "#fff", padding: 14, border: "1px solid #dbe5f2" }}
-          >
-            <h3 style={{ marginTop: 0 }}>Редакция: {editAthlete.athlete_name}</h3>
+        <div onClick={closeEditModal} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal">
+            <h3 className="uiModalTitle">Редакция: {editAthlete.athlete_name}</h3>
             <div style={{ display: "grid", gap: 8 }}>
               <Input
                 placeholder="Име на състезател"
@@ -759,7 +731,7 @@ export default function MonthlyFees() {
                 />
                 Активен състезател
               </label>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="uiModalActions">
                 <Button disabled={busy} onClick={saveEditedAthlete}>
                   Запази промените
                 </Button>

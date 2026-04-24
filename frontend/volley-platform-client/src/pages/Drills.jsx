@@ -129,15 +129,12 @@ export default function Drills() {
                   : status === "rejected"
                   ? "Отказано"
                   : drill.status || "няма статус";
-
-              const statusColor =
+              const statusClass =
                 status === "approved"
-                  ? "#28a745"
-                  : status === "pending"
-                  ? "#ffc107"
+                  ? "uiBadge uiBadge--success"
                   : status === "rejected"
-                  ? "#dc3545"
-                  : "#6c757d";
+                  ? "uiBadge uiBadge--danger"
+                  : "uiBadge";
 
               return (
                 <TableRow key={drill.id}>
@@ -175,18 +172,7 @@ export default function Drills() {
                   </TableCell>
 
                   <TableCell>
-                    <span
-                      style={{
-                        padding: "4px 8px",
-                        borderRadius: 4,
-                        backgroundColor: statusColor,
-                        color: "white",
-                        fontSize: 12,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {statusLabel}
-                    </span>
+                    <span className={statusClass}>{statusLabel}</span>
                   </TableCell>
                 </TableRow>
               );

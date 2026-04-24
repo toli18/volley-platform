@@ -300,6 +300,40 @@
   font-size: 13px;
 }
 
+.uiModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.uiModal {
+  width: min(680px, 96vw);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 10px;
+}
+
+.uiModal--compact {
+  width: min(560px, 96vw);
+}
+
+.uiModalTitle {
+  margin: 0;
+}
+
+.uiModalActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .adminTheme {
   --brand: #0c6a47;
   --brand-strong: #09563a;
