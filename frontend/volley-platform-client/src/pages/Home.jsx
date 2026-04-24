@@ -23,6 +23,14 @@ const monthStart = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 };
 
+const cardLinkStyle = {
+  border: "1px solid #e2e8f0",
+  borderRadius: 10,
+  padding: 10,
+  textDecoration: "none",
+  color: "#0f172a",
+};
+
 const extractDrillIdsFromPlan = (plan) => {
   if (!plan || typeof plan !== "object") return [];
   const out = [];
@@ -218,7 +226,7 @@ export default function Home() {
       />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
-
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
       <Card
         title="Твоите последни 5 тренировки"
         actions={
@@ -234,7 +242,7 @@ export default function Home() {
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {lastTrainings.map((t) => (
-              <Link key={t.id} to={`/trainings/${t.id}`} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10 }}>
+              <Link key={t.id} to={`/trainings/${t.id}`} style={cardLinkStyle}>
                 <div style={{ fontWeight: 700 }}>{t.title || `Тренировка #${t.id}`}</div>
                 <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
                   {formatDate(t.created_at)} • {String(t.status || "—")}
@@ -292,7 +300,7 @@ export default function Home() {
             ) : (
               <div style={{ display: "grid", gap: 8 }}>
                 {returnedArticles.map((a) => (
-                  <Link key={a.id} to={`/articles/${a.id}/edit`} style={{ border: "1px solid #f4caca", borderRadius: 10, padding: 10, background: "#fff7f7" }}>
+                  <Link key={a.id} to={`/articles/${a.id}/edit`} style={{ ...cardLinkStyle, border: "1px solid #f4caca", background: "#fff7f7" }}>
                     <div style={{ fontWeight: 700 }}>{a.title || `Статия #${a.id}`}</div>
                     <div style={{ marginTop: 4, color: "#7f1d1d", fontSize: 13 }}>Обновена: {formatDate(a.updated_at || a.created_at)}</div>
                   </Link>
@@ -364,6 +372,9 @@ export default function Home() {
           </div>
         )}
       </Card>
+      </div>
+
+      <div style={{ display: "grid", gap: 16 }}>
 
       <Card
         title="Последни теми във форума"
@@ -383,7 +394,7 @@ export default function Home() {
               <Link
                 key={post.id}
                 to={`/forum/${post.id}`}
-                style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, textDecoration: "none", color: "#0f172a" }}
+                style={cardLinkStyle}
               >
                 <div style={{ fontWeight: 700 }}>
                   {post.is_pinned ? "📌 " : ""}
@@ -417,7 +428,7 @@ export default function Home() {
               <Link
                 key={article.id}
                 to={`/articles/${article.id}`}
-                style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10, textDecoration: "none", color: "#0f172a" }}
+                style={cardLinkStyle}
               >
                 <div style={{ fontWeight: 700 }}>{article.title || `Статия #${article.id}`}</div>
                 <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
@@ -428,6 +439,7 @@ export default function Home() {
           </div>
         )}
       </Card>
+      </div>
     </div>
   );
 }

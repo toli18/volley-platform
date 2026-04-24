@@ -72,9 +72,9 @@ const tagBg = (t) => {
 function InfoRow({ label, value }) {
   const v = value === 0 ? "0" : value;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 10, padding: "4px 0" }}>
-      <div style={{ color: "#444" }}>{label}</div>
-      <div style={{ fontWeight: 700, color: v ? "#111" : "#777" }}>{v || "—"}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 12, padding: "7px 0", borderBottom: "1px solid #eef3fa" }}>
+      <div style={{ color: "#5b6f8d", fontSize: 13 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 14, color: v ? "#0f172a" : "#777" }}>{v || "—"}</div>
     </div>
   );
 }
@@ -91,17 +91,7 @@ function Chips({ label, items }) {
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {shown.map((x, idx) => (
-            <span
-              key={`${x}-${idx}`}
-              style={{
-                border: "1px solid #ccc",
-                borderRadius: 999,
-                padding: "4px 10px",
-                fontWeight: 800,
-              }}
-            >
-              {x}
-            </span>
+            <span key={`${x}-${idx}`} className="uiBadge">{x}</span>
           ))}
         </div>
       )}
@@ -319,20 +309,9 @@ function ImagePreview({ url, alt }) {
         </div>
 
         <div style={{ padding: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <button
-            type="button"
-            onClick={openModal}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "white",
-              cursor: "pointer",
-              fontWeight: 800,
-            }}
-          >
+          <Button type="button" onClick={openModal} variant="secondary" size="sm">
             🔍 Увеличи
-          </button>
+          </Button>
 
           <a href={safeUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
             Отвори снимката в нов прозорец
@@ -378,53 +357,17 @@ function ImagePreview({ url, alt }) {
                 borderBottom: "1px solid rgba(255,255,255,0.12)",
               }}
             >
-              <button
-                type="button"
-                onClick={zoomOut}
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #fff",
-                  background: "#111",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
+              <Button type="button" onClick={zoomOut} variant="secondary" size="sm">
                 −
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                onClick={zoomIn}
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #fff",
-                  background: "#111",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
+              <Button type="button" onClick={zoomIn} variant="secondary" size="sm">
                 +
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                onClick={reset}
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #fff",
-                  background: "#111",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
+              <Button type="button" onClick={reset} variant="secondary" size="sm">
                 Побиране
-              </button>
+              </Button>
 
               <div style={{ color: "#fff", fontWeight: 800, marginLeft: 6, opacity: 0.9 }}>
                 Мащаб: {fit ? "побиране" : `${Math.round(scale * 100)}%`}
@@ -432,21 +375,9 @@ function ImagePreview({ url, alt }) {
 
               <div style={{ flex: 1 }} />
 
-              <button
-                type="button"
-                onClick={closeModal}
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #fff",
-                  background: "#111",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
+              <Button type="button" onClick={closeModal} variant="secondary" size="sm">
                 ✕ Затвори
-              </button>
+              </Button>
             </div>
 
             <div
@@ -555,14 +486,12 @@ export default function DrillDetails() {
   const hasImage = Boolean(String(imageUrl || "").trim());
 
   return (
-    <div className="uiPage" style={{ maxWidth: 980 }}>
+    <div className="uiPage" style={{ maxWidth: 1040 }}>
       <PageHero
         title={drill?.title || "Детайли за упражнение"}
         subtitle="Подробен преглед на методика, медия и практически детайли."
         actions={<Button as={Link} to="/drills" variant="secondary" size="sm">← Назад към упражненията</Button>}
       />
-
-      <h2 style={{ marginTop: 0 }}>{drill.title || "Без име"}</h2>
 
       <Card title="Обобщение" className="uiPage">
         <InfoRow label="Номер" value={drill.id != null ? String(drill.id) : ""} />
