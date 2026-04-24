@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { AdminHero, Button, Card, EmptyState, Input } from "../../components/ui";
+import { AdminHero, Button, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
 const normalizeFastApiError = (err) => {
@@ -105,36 +105,42 @@ export default function AdminDrills() {
       )}
 
       {!loading && !error && filteredDrills.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {filteredDrills.map((d) => (
-            <Card key={d.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <div>
-                  <h3 style={{ margin: "0 0 6px 0" }}>{d.title || d.name || "няма име"}</h3>
-                  <div style={{ fontSize: 12, color: "#666" }}>
-                    ID: {d.id} • Статус: {d.status || "unknown"}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Заглавие</TableHead>
+              <TableHead>Описание</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredDrills.map((d) => (
+              <TableRow key={d.id}>
+                <TableCell>{d.id}</TableCell>
+                <TableCell>{d.title || d.name || "няма име"}</TableCell>
+                <TableCell>{d.description || "няма описание"}</TableCell>
+                <TableCell>
+                  <span className="uiBadge">{d.status || "unknown"}</span>
+                </TableCell>
+                <TableCell>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Button as={Link} to={`/drills/${d.id}`} variant="secondary" size="sm">
+                      Преглед
+                    </Button>
+                    <Button as={Link} to={`/admin/drills/${d.id}/edit`} variant="ghost" size="sm">
+                      Редакция
+                    </Button>
+                    <Button onClick={() => deleteDrill(d.id)} variant="danger" size="sm">
+                      Изтрий
+                    </Button>
                   </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <Button as={Link} to={`/drills/${d.id}`} variant="secondary" size="sm">
-                    Преглед
-                  </Button>
-
-                  <Button as={Link} to={`/admin/drills/${d.id}/edit`} variant="ghost" size="sm">
-                    Редакция
-                  </Button>
-
-                  <Button onClick={() => deleteDrill(d.id)} variant="danger" size="sm">
-                    Изтрий
-                  </Button>
-                </div>
-              </div>
-
-              <p style={{ margin: "10px 0 0 0" }}>{d.description || "няма описание"}</p>
-            </Card>
-          ))}
-        </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

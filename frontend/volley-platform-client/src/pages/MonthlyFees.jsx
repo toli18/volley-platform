@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
-import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -473,74 +473,80 @@ export default function MonthlyFees() {
         {loading && <p>Зареждане...</p>}
         {!loading && athletes.length === 0 && <EmptyState title="Няма състезатели" description="Добави първия състезател или импортирай списък." />}
         {!loading && athletes.length > 0 && (
-          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-            {athletes.map((a) => (
-              <article key={a.id} style={{ border: "1px solid #dbe5f2", borderRadius: 8, padding: 10, background: "#f9fbff" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                  <strong>{a.athlete_name}</strong>
-                  <span style={{ color: a.is_active ? "#0f7f47" : "#9a3412" }}>{a.is_active ? "Активен" : "Неактивен"}</span>
-                </div>
-                <div style={{ color: "#607693", marginTop: 6, fontSize: 13 }}>
-                  Родител: {a.parent_name || "-"} | Тел. състезател: {a.athlete_phone || "-"} | Тел. родител: {a.parent_phone || "-"} | Година: {a.birth_year || "-"}
-                </div>
-                <div style={{ marginTop: 8, fontSize: 15, color: "#0f172a" }}>
-                  <strong>Последни 3 месеца:</strong>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                    {lastMonths(3).map((monthKey) => {
-                      const paid = (a.recent_payments || []).find((p) => p.month_key === monthKey);
-                      return (
-                        <span
-                          key={`${a.id}-${monthKey}`}
-                          style={{
-                            borderRadius: 999,
-                            padding: "5px 10px",
-                            border: "1px solid",
-                            borderColor: paid ? "#86efac" : "#fecaca",
-                            background: paid ? "#ecfdf5" : "#fef2f2",
-                            color: paid ? "#15803d" : "#b91c1c",
-                            fontWeight: 700,
-                            fontSize: 14,
-                          }}
-                        >
-                          {paid
-                            ? `${monthKey}: ${new Date(paid.paid_at || "").toLocaleDateString("bg-BG")}`
-                            : `${monthKey}: липсва плащане`}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                  <Button onClick={() => { setPayAthlete(a); setPayForm((p) => ({ ...p, month_key: currentMonthKey() })); }}>
-                    Плати
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setEditAthlete(a);
-                      setEditForm({
-                        athlete_name: a.athlete_name || "",
-                        athlete_phone: a.athlete_phone || "",
-                        parent_name: a.parent_name || "",
-                        parent_phone: a.parent_phone || "",
-                        birth_year: a.birth_year || "",
-                        notes: a.notes || "",
-                        is_active: Boolean(a.is_active),
-                      });
-                    }}
-                  >
-                    Редактирай
-                  </Button>
-                  <Button variant="danger" onClick={() => removeAthlete(a)}>
-                    Изтрий
-                  </Button>
-                  <Button variant="ghost" onClick={() => loadAthleteReport(a)}>
-                    Отчет по месеци
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Състезател</TableHead>
+                <TableHead>Контакти</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Последни 3 месеца</TableHead>
+                <TableHead>Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {athletes.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell>
+                    <strong>{a.athlete_name}</strong>
+                    <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>Родител: {a.parent_name || "-"}</div>
+                    <div>Тел. състезател: {a.athlete_phone || "-"}</div>
+                    <div>Тел. родител: {a.parent_phone || "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
+                      {a.is_active ? "Активен" : "Неактивен"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {lastMonths(3).map((monthKey) => {
+                        const paid = (a.recent_payments || []).find((p) => p.month_key === monthKey);
+                        return (
+                          <span key={`${a.id}-${monthKey}`} className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                            {paid ? `${monthKey}: платено` : `${monthKey}: липсва`}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Button onClick={() => { setPayAthlete(a); setPayForm((p) => ({ ...p, month_key: currentMonthKey() })); }} size="sm">
+                        Плати
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setEditAthlete(a);
+                          setEditForm({
+                            athlete_name: a.athlete_name || "",
+                            athlete_phone: a.athlete_phone || "",
+                            parent_name: a.parent_name || "",
+                            parent_phone: a.parent_phone || "",
+                            birth_year: a.birth_year || "",
+                            notes: a.notes || "",
+                            is_active: Boolean(a.is_active),
+                          });
+                        }}
+                      >
+                        Редактирай
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                        Изтрий
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
+                        Отчет
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Card>
 
