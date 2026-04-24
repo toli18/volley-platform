@@ -297,14 +297,27 @@
     padding: 6px 10px 0;
   }
 
+  .brandSubtitle {
+    display: none;
+  }
+
   .appNav {
     padding: 2px 10px 6px;
     gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .appNavDivider {
+    display: none;
   }
 
   .appNavLink {
-    font-size: 13px;
-    padding: 5px 8px;
+    font-size: 12px;
+    padding: 6px 8px;
+    white-space: nowrap;
   }
 
   .accountUser {

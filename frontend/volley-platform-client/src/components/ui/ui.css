@@ -425,3 +425,60 @@
   min-height: 138px;
 }
 
+@media (max-width: 760px) {
+  .uiPage {
+    gap: 12px;
+  }
+
+  .uiCard--padded {
+    padding: 12px;
+  }
+
+  .uiTable {
+    min-width: 620px;
+  }
+
+  .uiTable th,
+  .uiTable td {
+    padding: 8px 9px;
+  }
+}
+
+@media (max-width: 560px) {
+  .uiButton {
+    min-height: 36px;
+  }
+
+  .uiButton--sm {
+    min-height: 32px;
+    font-size: 11px;
+  }
+
+  .uiTable {
+    min-width: 540px;
+  }
+
+  .uiTable thead th {
+    font-size: 11px;
+  }
+
+  .uiTableHead,
+  .uiTableCell {
+    font-size: 12px;
+  }
+
+  .uiModalOverlay {
+    padding: 10px;
+  }
+
+  .uiModal,
+  .uiModal--compact {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .uiModalActions .uiButton {
+    width: 100%;
+  }
+}
+

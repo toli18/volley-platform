@@ -72,7 +72,7 @@ const tagBg = (t) => {
 function InfoRow({ label, value }) {
   const v = value === 0 ? "0" : value;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 12, padding: "7px 0", borderBottom: "1px solid #eef3fa" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 36%) 1fr", gap: 12, padding: "7px 0", borderBottom: "1px solid #eef3fa" }}>
       <div style={{ color: "#5b6f8d", fontSize: 13 }}>{label}</div>
       <div style={{ fontWeight: 600, fontSize: 14, color: v ? "#0f172a" : "#777" }}>{v || "—"}</div>
     </div>
