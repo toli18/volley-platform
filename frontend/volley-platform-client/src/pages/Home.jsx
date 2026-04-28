@@ -59,7 +59,7 @@ export default function Home() {
   const [error, setError] = useState("");
 
   const role = String(user?.role || "").toLowerCase();
-  const showCoachDashboard = role === "coach";
+  const showCoachDashboard = role === "coach" || role === "club_head_coach";
   const monthKey = useMemo(() => currentMonthKey(), []);
 
   useEffect(() => {

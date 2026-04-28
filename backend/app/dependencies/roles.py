@@ -18,6 +18,10 @@ def require_role(*allowed_roles: UserRole):
             for r in allowed_roles
         ]
 
+        # Главният треньор наследява всички права на стандартния треньор.
+        if role_value == UserRole.club_head_coach.value and UserRole.coach.value in allowed_values:
+            return user
+
         if role_value not in allowed_values:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

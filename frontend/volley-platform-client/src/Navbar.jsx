@@ -12,6 +12,9 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [newTaskCount, setNewTaskCount] = useState(0);
+  const [tasks, setTasks] = useState([]);
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   const onLogout = () => {
     logout();
@@ -21,7 +24,8 @@ export default function Navbar() {
   const userLabel = useMemo(() => user?.email || user?.username || "Потребител", [user]);
   const roleLabel = useMemo(() => (user?.role ? String(user.role) : "guest"), [user]);
   const isAdminUser = Boolean(isAdmin);
-  const isCoachUser = user?.role === "coach";
+  const isCoachUser = user?.role === "coach" || user?.role === "club_head_coach";
+  const isHeadCoachUser = user?.role === "club_head_coach";
   const isPlatformAdmin = user?.role === "platform_admin";
 
   useEffect(() => {
@@ -51,6 +55,55 @@ export default function Navbar() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!isCoachUser || !user) {
+      setNewTaskCount(0);
+      return;
+    }
+    let cancelled = false;
+    const loadTasks = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS);
+        if (cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : [];
+        const fresh = items.filter((x) => String(x?.status || "").toLowerCase() === "new").length;
+        setNewTaskCount(fresh);
+      } catch {
+        if (!cancelled) setNewTaskCount(0);
+      }
+    };
+    loadTasks();
+    const timer = window.setInterval(loadTasks, 45000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isCoachUser, user]);
+
+  useEffect(() => {
+    if (!isCoachUser || !user) {
+      setTasks([]);
+      return;
+    }
+    let cancelled = false;
+    const loadTaskItems = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS);
+        if (cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : [];
+        setTasks(items.slice(0, 8));
+      } catch {
+        if (!cancelled) setTasks([]);
+      }
+    };
+    loadTaskItems();
+    const timer = window.setInterval(loadTaskItems, 45000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isCoachUser, user]);
+
   return (
     <header className="appHeader">
       <div className="accountTopRight">
@@ -60,6 +113,62 @@ export default function Navbar() {
           </Link>
         ) : (
           <div className="accountArea">
+            {isCoachUser && (
+              <div style={{ position: "relative" }}>
+                <button className="navBtnOutline" onClick={() => setTasksOpen((prev) => !prev)}>
+                  Задачи ({newTaskCount})
+                </button>
+                {tasksOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 8px)",
+                      width: "min(92vw, 380px)",
+                      background: "#fff",
+                      border: "1px solid #dbe5f2",
+                      borderRadius: 12,
+                      boxShadow: "0 8px 28px rgba(15, 23, 42, 0.14)",
+                      padding: 10,
+                      zIndex: 9999,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <strong>Task Center</strong>
+                      <Link className="navBtnOutline" to="/my-trainings" onClick={() => setTasksOpen(false)}>
+                        Отвори всички
+                      </Link>
+                    </div>
+                    {tasks.length === 0 && (
+                      <span style={{ color: "#64748b", fontSize: 13 }}>Няма активни задачи.</span>
+                    )}
+                    {tasks.map((item) => (
+                      <Link
+                        key={item.id}
+                        to="/my-trainings"
+                        onClick={() => setTasksOpen(false)}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: 8,
+                          textDecoration: "none",
+                          color: "#0f172a",
+                          background: String(item.status || "").toLowerCase() === "new" ? "#f8fbff" : "#fff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                          Статус: {item.status === "done" ? "Готово" : item.status === "in_progress" ? "В процес" : "Нова"}
+                          {item.due_date ? ` • Срок: ${item.due_date}` : ""}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ position: "relative" }}>
               <button className="navBtnOutline" onClick={() => setNotificationsOpen((prev) => !prev)}>
                 Известия ({unreadCount})
@@ -189,7 +298,7 @@ export default function Navbar() {
           <>
             {isCoachUser && (
               <Link className="appNavLink" to="/my-trainings">
-                Моите тренировки
+                Моите тренировки{newTaskCount > 0 ? ` (${newTaskCount})` : ""}
               </Link>
             )}
             {isCoachUser && (
@@ -203,6 +312,16 @@ export default function Navbar() {
             {isCoachUser && (
               <Link className="appNavLink" to="/monthly-fees">
                 Месечни Такси
+              </Link>
+            )}
+            {isCoachUser && (
+              <Link className="appNavLink" to="/teams">
+                Отбори
+              </Link>
+            )}
+            {isHeadCoachUser && (
+              <Link className="appNavLink" to="/club-head">
+                Главен треньор
               </Link>
             )}
             <Link className="appNavLink" to="/articles">

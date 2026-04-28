@@ -31,6 +31,7 @@ class UserRole(str, Enum):
     platform_admin = "platform_admin"
     federation_admin = "federation_admin"
     coach = "coach"
+    club_head_coach = "club_head_coach"
 
 
 class DrillStatus(str, Enum):
@@ -475,3 +476,103 @@ class AthletePayment(Base):
 
     athlete = relationship("Athlete", back_populates="payments")
     coach = relationship("User", foreign_keys=[coach_id])
+
+
+# =========================
+# Teams & Attendance
+# =========================
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True, index=True)
+    name = Column(String(120), nullable=False)
+    age_group = Column(String(80), nullable=True)
+    season = Column(String(40), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    coach = relationship("User", foreign_keys=[coach_id])
+    club = relationship("Club")
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    sessions = relationship("TeamSession", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    joined_at = Column(DateTime, server_default=func.now())
+    left_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("team_id", "athlete_id", name="uq_team_member"),
+    )
+
+    team = relationship("Team", back_populates="members")
+    athlete = relationship("Athlete")
+
+
+class TeamSession(Base):
+    __tablename__ = "team_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    title = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("team_id", "date", name="uq_team_session_date"),
+    )
+
+    team = relationship("Team", back_populates="sessions")
+    attendance_items = relationship("AttendanceRecord", back_populates="session", cascade="all, delete-orphan")
+
+
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("team_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="present")  # present | late | absent | excused
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "athlete_id", name="uq_session_athlete_attendance"),
+    )
+
+    session = relationship("TeamSession", back_populates="attendance_items")
+    athlete = relationship("Athlete")
+
+
+class TrainingAssignment(Base):
+    __tablename__ = "training_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    training_id = Column(Integer, ForeignKey("trainings.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="new")  # new | in_progress | done
+    note = Column(Text, nullable=True)
+    due_date = Column(String(10), nullable=True)  # YYYY-MM-DD
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("training_id", "assigned_to", name="uq_training_assignment_target"),
+    )
+
+    training = relationship("Training")
+    assigner = relationship("User", foreign_keys=[assigned_by])
+    assignee = relationship("User", foreign_keys=[assigned_to])

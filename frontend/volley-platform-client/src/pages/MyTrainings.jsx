@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
+import { API_PATHS } from "../utils/apiPaths";
 import { Button, EmptyState, Input, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
@@ -29,18 +30,25 @@ function chipVariant({ status, source }) {
 
 export default function MyTrainings() {
   const [items, setItems] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // all | saved | draft
   const [filterSource, setFilterSource] = useState("all"); // all | generated | manual
+  const [assignmentStatusFilter, setAssignmentStatusFilter] = useState("all"); // all | new | in_progress | done
+  const [assignmentSort, setAssignmentSort] = useState("newest"); // newest | due_asc | due_desc | status
   const navigate = useNavigate();
   const toast = useToast();
 
   async function load() {
     setLoading(true);
     try {
-      const data = await apiJson("/trainings/my");
+      const [data, myAssignments] = await Promise.all([
+        apiJson("/trainings/my"),
+        apiJson(API_PATHS.MY_TRAINING_ASSIGNMENTS).catch(() => []),
+      ]);
       setItems(Array.isArray(data) ? data : []);
+      setAssignments(Array.isArray(myAssignments) ? myAssignments : []);
     } catch (e) {
       toast.error(e?.message || "Грешка при зареждане на тренировките");
       setItems([]);
@@ -93,6 +101,37 @@ export default function MyTrainings() {
         return db - da;
       });
   }, [items, q, filterStatus, filterSource]);
+
+  const updateAssignmentStatus = async (assignmentId, status) => {
+    try {
+      await apiJson(API_PATHS.TRAINING_ASSIGNMENT_UPDATE(assignmentId), {
+        method: "PATCH",
+        data: { status },
+      });
+      setAssignments((prev) => prev.map((a) => (a.id === assignmentId ? { ...a, status } : a)));
+      toast.success("Статусът на задачата е обновен.");
+    } catch (e) {
+      toast.error(e?.message || "Грешка при обновяване на задачата");
+    }
+  };
+
+  const filteredAssignments = useMemo(() => {
+    let list = [...(assignments || [])];
+    if (assignmentStatusFilter !== "all") {
+      list = list.filter((a) => String(a?.status || "").toLowerCase() === assignmentStatusFilter);
+    }
+    if (assignmentSort === "due_asc") {
+      list.sort((a, b) => String(a?.due_date || "9999-99-99").localeCompare(String(b?.due_date || "9999-99-99")));
+    } else if (assignmentSort === "due_desc") {
+      list.sort((a, b) => String(b?.due_date || "").localeCompare(String(a?.due_date || "")));
+    } else if (assignmentSort === "status") {
+      const order = { new: 0, in_progress: 1, done: 2 };
+      list.sort((a, b) => (order[a?.status] ?? 99) - (order[b?.status] ?? 99));
+    } else {
+      list.sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime());
+    }
+    return list;
+  }, [assignments, assignmentStatusFilter, assignmentSort]);
 
   return (
     <div className="mtWrap">
@@ -161,6 +200,54 @@ export default function MyTrainings() {
           <option value="generated">Генерирани</option>
           <option value="manual">Ръчни</option>
         </Input>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <h3 style={{ margin: "0 0 8px" }}>Възложени към мен задачи</h3>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <Input as="select" value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)}>
+            <option value="all">Всички статуси</option>
+            <option value="new">Нови</option>
+            <option value="in_progress">В процес</option>
+            <option value="done">Готови</option>
+          </Input>
+          <Input as="select" value={assignmentSort} onChange={(e) => setAssignmentSort(e.target.value)}>
+            <option value="newest">Най-нови</option>
+            <option value="due_asc">Срок (най-близък)</option>
+            <option value="due_desc">Срок (най-далечен)</option>
+            <option value="status">По статус</option>
+          </Input>
+        </div>
+        {filteredAssignments.length === 0 ? (
+          <div className="empty">Няма възложени тренировки.</div>
+        ) : (
+          <div className="grid">
+            {filteredAssignments.map((a) => (
+              <div key={a.id} className="card">
+                <div className="cardTitle">{a.training_title || `Тренировка #${a.training_id}`}</div>
+                <div className="meta">
+                  От: {a.assigned_by_name || `#${a.assigned_by}`} • Срок: {a.due_date || "—"}
+                </div>
+                {a.note && <div style={{ marginTop: 8, fontSize: 13 }}>{a.note}</div>}
+                <div className="cardActions">
+                  <Button as={Link} to={`/trainings/${a.training_id}`} variant="secondary">Преглед</Button>
+                  <Button
+                    variant={a.status === "new" ? "primary" : "secondary"}
+                    onClick={() => updateAssignmentStatus(a.id, "in_progress")}
+                  >
+                    В процес
+                  </Button>
+                  <Button
+                    variant={a.status === "done" ? "primary" : "secondary"}
+                    onClick={() => updateAssignmentStatus(a.id, "done")}
+                  >
+                    Готово
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (

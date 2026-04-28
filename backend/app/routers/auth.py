@@ -60,7 +60,7 @@ async def authenticate_user(db: Session, email: str, password: str) -> User:
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if user.role == UserRole.coach and user.club_id is not None:
+    if user.role in {UserRole.coach, UserRole.club_head_coach} and user.club_id is not None:
         club = db.get(Club, user.club_id)
         if club is not None and not bool(getattr(club, "is_active", True)):
             raise HTTPException(
@@ -111,7 +111,7 @@ async def get_current_user(
     user = db.get(User, int(user_id))
     if user is None:
         raise credentials_exception
-    if user.role == UserRole.coach and user.club_id is not None:
+    if user.role in {UserRole.coach, UserRole.club_head_coach} and user.club_id is not None:
         club = db.get(Club, user.club_id)
         if club is not None and not bool(getattr(club, "is_active", True)):
             raise HTTPException(

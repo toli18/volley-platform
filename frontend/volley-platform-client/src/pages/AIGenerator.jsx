@@ -3,6 +3,7 @@ import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
 import { PageHero } from "../components/ui";
+import { useAuth } from "../auth/AuthContext";
 
 const PERIODS = [
   { value: "prep", label: "Подготовителен период" },
@@ -101,6 +102,8 @@ function toBgLabel(raw) {
 }
 
 export default function AIGenerator() {
+  const { user } = useAuth();
+  const isHeadCoachUser = String(user?.role || "").toLowerCase() === "club_head_coach";
   const resultsRef = useRef(null);
   const [drills, setDrills] = useState([]);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -138,6 +141,10 @@ export default function AIGenerator() {
   const [editableBlocks, setEditableBlocks] = useState([]);
   const [targetBlockType, setTargetBlockType] = useState("Интеграция");
   const [cardTargetByDrill, setCardTargetByDrill] = useState({});
+  const [assignCoaches, setAssignCoaches] = useState([]);
+  const [assignDueDate, setAssignDueDate] = useState("");
+  const [assignNote, setAssignNote] = useState("");
+  const [clubCoaches, setClubCoaches] = useState([]);
 
   const cloneBlocks = (blocks) =>
     (blocks || []).map((b) => ({
@@ -212,6 +219,32 @@ export default function AIGenerator() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHeadCoachUser) {
+      setClubCoaches([]);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const month = today.slice(0, 7);
+        const overview = await apiClient(API_PATHS.CLUB_OVERVIEW, {
+          params: { month_key: month, from_date: today, to_date: today },
+        });
+        if (!alive) return;
+        const coaches = Array.isArray(overview?.coaches) ? overview.coaches.filter((c) => c.role === "coach") : [];
+        setClubCoaches(coaches);
+      } catch {
+        if (!alive) return;
+        setClubCoaches([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isHeadCoachUser]);
 
   const options = useMemo(() => {
     const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "bg"));
@@ -541,6 +574,17 @@ export default function AIGenerator() {
       if (blocks.length) setTargetBlockType(blocks[0].blockType);
       setCardTargetByDrill({});
       setSavedTraining(data?.training || null);
+      if (isHeadCoachUser && (assignCoaches || []).length > 0 && data?.training?.id) {
+        await apiClient(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_CREATE, {
+          method: "POST",
+          data: {
+            training_id: Number(data.training.id),
+            assignee_ids: assignCoaches.map((x) => Number(x)),
+            due_date: assignDueDate || null,
+            note: assignNote || null,
+          },
+        });
+      }
     } catch (e) {
       setErr(e?.response?.data?.detail || e?.message || "Грешка при generate-and-save.");
     } finally {
@@ -784,6 +828,37 @@ export default function AIGenerator() {
       {savedTraining?.id && (
         <div style={{ marginTop: 8, color: "#0a6b1f", fontWeight: 700 }}>
           Записано като тренировка #{savedTraining.id}: {savedTraining.title}
+          {isHeadCoachUser && assignCoaches.length > 0 ? " • Възложена като задача." : ""}
+        </div>
+      )}
+
+      {isHeadCoachUser && (
+        <div style={{ marginTop: 10, border: "1px solid #dce5f2", borderRadius: 12, padding: 10, background: "#f8fbff" }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Директно възлагане след запис</div>
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <label>
+              <div>Към треньори</div>
+              <select
+                multiple
+                value={assignCoaches}
+                onChange={(e) => setAssignCoaches(Array.from(e.target.selectedOptions).map((x) => x.value))}
+              >
+                {clubCoaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <div>Краен срок</div>
+              <input type="date" value={assignDueDate} onChange={(e) => setAssignDueDate(e.target.value)} />
+            </label>
+            <label>
+              <div>Бележка</div>
+              <input value={assignNote} onChange={(e) => setAssignNote(e.target.value)} placeholder="Бележка към задачата" />
+            </label>
+          </div>
         </div>
       )}
 

@@ -79,6 +79,24 @@ export default function CoachList() {
     }
   };
 
+  const assignHeadCoach = async (coach) => {
+    if (!coach?.club_id) {
+      toast.error("Треньорът няма зададен клуб.");
+      return;
+    }
+    if (!confirm(`Назначаване на "${coach.name || coach.email}" за Главен треньор на клуба?`)) return;
+    try {
+      await apiClient(API_PATHS.CLUB_HEAD_COACH_ASSIGN(coach.club_id), {
+        method: "PUT",
+        data: { user_id: coach.id },
+      });
+      await reload();
+      toast.success("Главният треньор е обновен успешно.");
+    } catch (e) {
+      toast.error(e?.message || "Грешка при назначаване на главен треньор");
+    }
+  };
+
   const openEditModal = (coach) => {
     setEditCoach(coach);
     setEditForm({
@@ -165,6 +183,11 @@ export default function CoachList() {
                 <div style={{ marginTop: 4, fontSize: 13 }}>
                   <b>Клуб:</b> {club?.name || (c.club_id ? `ID ${c.club_id}` : "Не е зададен")}
                 </div>
+                <div style={{ marginTop: 4, fontSize: 12 }}>
+                  <span className={`uiBadge ${c.role === "club_head_coach" ? "uiBadge--info" : "uiBadge--secondary"}`}>
+                    {c.role === "club_head_coach" ? "Главен треньор" : "Треньор"}
+                  </span>
+                </div>
                 <div style={{ marginTop: 2, fontSize: 12, color: "#5f708c" }}>
                   {club?.city ? `${club.city}, ` : ""}{club?.country || ""}
                 </div>
@@ -172,6 +195,7 @@ export default function CoachList() {
                   <Button as={Link} to={`/admin/coaches/${c.id}`} variant="secondary" size="sm">
                     Пълен преглед/редакция
                   </Button>
+                  <Button onClick={() => assignHeadCoach(c)} variant="primary" size="sm">Направи главен</Button>
                   <Button onClick={() => openEditModal(c)} variant="ghost" size="sm">Редакция</Button>
                   <Button onClick={() => onDeleteCoach(c)} variant="danger" size="sm">Изтрий</Button>
                 </AdminActionsRow>

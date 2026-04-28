@@ -13,6 +13,7 @@ export const API_PATHS = {
   COACH_CREATE: "/users/users/create-coach",
   COACH_UPDATE: (id) => `/users/users/coaches/${id}`,
   COACH_DELETE: (id) => `/users/users/coaches/${id}`,
+  CLUB_HEAD_COACH_ASSIGN: (clubId) => `/users/users/clubs/${clubId}/head-coach`,
 
   // Drills (public lists)
   DRILLS_LIST: "/drills",
@@ -96,4 +97,29 @@ export const API_PATHS = {
   FEES_ATHLETE_REPORT: (athleteId) => `/api/fees/athletes/${athleteId}/payments`,
   FEES_PERIOD_REPORT: "/api/fees/reports/period",
   FEES_PAYMENT_RECEIPT: (paymentId) => `/api/fees/payments/${paymentId}/receipt.pdf`,
+
+  // Teams
+  TEAMS_LIST: "/api/teams",
+  TEAM_CREATE: "/api/teams",
+  TEAM_UPDATE: (teamId) => `/api/teams/${teamId}`,
+  TEAM_DELETE: (teamId) => `/api/teams/${teamId}`,
+  TEAM_MEMBERS_GET: (teamId) => `/api/teams/${teamId}/members`,
+  TEAM_MEMBERS_SET: (teamId) => `/api/teams/${teamId}/members`,
+  TEAM_ATTENDANCE_GET: (teamId) => `/api/teams/${teamId}/attendance`,
+  TEAM_ATTENDANCE_SAVE: (teamId) => `/api/teams/${teamId}/attendance`,
+  TEAM_ATTENDANCE_REPORT: (teamId) => `/api/teams/${teamId}/attendance/report`,
+  TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
+
+  // Club head coach
+  CLUB_OVERVIEW: "/api/club/overview",
+  CLUB_ATHLETES: "/api/club/athletes",
+  CLUB_FEES_SUMMARY: "/api/club/fees/summary",
+  CLUB_ATTENDANCE_SUMMARY: "/api/club/attendance/summary",
+  CLUB_TRAININGS: "/api/club/trainings",
+
+  // Training assignments
+  CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",
+  CLUB_TRAINING_ASSIGNMENTS_CREATE: "/api/club/training-assignments",
+  MY_TRAINING_ASSIGNMENTS: "/api/trainings/assignments/my",
+  TRAINING_ASSIGNMENT_UPDATE: (assignmentId) => `/api/trainings/assignments/${assignmentId}`,
 };
