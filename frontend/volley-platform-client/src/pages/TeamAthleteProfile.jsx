@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -32,9 +32,11 @@ const statusBadgeClass = (value) => {
 
 export default function TeamAthleteProfile() {
   const { athleteId } = useParams();
+  const location = useLocation();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const fromPath = new URLSearchParams(location.search).get("from") || "/teams";
 
   useEffect(() => {
     let cancelled = false;
@@ -78,7 +80,7 @@ export default function TeamAthleteProfile() {
         title={`Профил: ${profile.athlete_name}`}
         subtitle="Присъствие, отбори и последни плащания на едно място."
         actions={
-          <Link to="/teams">
+          <Link to={fromPath}>
             <Button variant="secondary">Назад към Отбори</Button>
           </Link>
         }

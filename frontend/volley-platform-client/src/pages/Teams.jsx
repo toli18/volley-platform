@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -14,86 +14,25 @@ const normalizeError = (err, fallback = "Грешка при работа с о�
   return fallback;
 };
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
-
 export default function Teams() {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
   const [teams, setTeams] = useState([]);
-  const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [teamForm, setTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
   const [editTeam, setEditTeam] = useState(null);
   const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
-
-  const [athletes, setAthletes] = useState([]);
-  const [memberIds, setMemberIds] = useState([]);
-  const [memberAthletes, setMemberAthletes] = useState([]);
-
-  const [attendanceDate, setAttendanceDate] = useState(todayKey());
-  const [attendanceTitle, setAttendanceTitle] = useState("");
-  const [attendanceRows, setAttendanceRows] = useState([]);
-  const [reportPeriod, setReportPeriod] = useState({ from_date: todayKey(), to_date: todayKey() });
-  const [attendanceReport, setAttendanceReport] = useState(null);
-  const [payAthlete, setPayAthlete] = useState(null);
-  const [payForm, setPayForm] = useState({ month_key: new Date().toISOString().slice(0, 7), amount: "", note: "" });
-
-  const selectedTeam = useMemo(() => teams.find((t) => t.id === selectedTeamId) || null, [teams, selectedTeamId]);
 
   const loadTeams = async () => {
     const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
     const list = Array.isArray(res.data) ? res.data : [];
     setTeams(list);
-    if (!selectedTeamId && list.length > 0) {
-      setSelectedTeamId(list[0].id);
-    } else if (selectedTeamId && !list.some((x) => x.id === selectedTeamId)) {
-      setSelectedTeamId(list[0]?.id || null);
-    }
-  };
-
-  const loadAthletes = async () => {
-    const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST);
-    setAthletes(Array.isArray(res.data) ? res.data : []);
-  };
-
-  const loadMembers = async (teamId) => {
-    if (!teamId) {
-      setMemberIds([]);
-      return;
-    }
-    const res = await axiosInstance.get(API_PATHS.TEAM_MEMBERS_GET(teamId));
-    const members = Array.isArray(res.data?.members) ? res.data.members : [];
-    const ids = members.map((m) => m.athlete_id);
-    setMemberIds(ids);
-    setMemberAthletes(members);
-  };
-
-  const loadAttendance = async (teamId, date) => {
-    if (!teamId || !date) {
-      setAttendanceRows([]);
-      setAttendanceTitle("");
-      return;
-    }
-    const res = await axiosInstance.get(API_PATHS.TEAM_ATTENDANCE_GET(teamId), { params: { date } });
-    setAttendanceRows(Array.isArray(res.data?.items) ? res.data.items : []);
-    setAttendanceTitle(res.data?.title || "");
-  };
-
-  const loadAttendanceReport = async (teamId, fromDate, toDate) => {
-    if (!teamId || !fromDate || !toDate) {
-      setAttendanceReport(null);
-      return;
-    }
-    const res = await axiosInstance.get(API_PATHS.TEAM_ATTENDANCE_REPORT(teamId), {
-      params: { from_date: fromDate, to_date: toDate },
-    });
-    setAttendanceReport(res.data || null);
   };
 
   const bootstrap = async () => {
     try {
       setBusy(true);
-      await Promise.all([loadTeams(), loadAthletes()]);
+      await loadTeams();
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -104,49 +43,6 @@ export default function Teams() {
   useEffect(() => {
     bootstrap();
   }, []);
-
-  useEffect(() => {
-    if (!selectedTeamId) return;
-    const run = async () => {
-      try {
-        setBusy(true);
-        await Promise.all([
-          loadMembers(selectedTeamId),
-          loadAttendance(selectedTeamId, attendanceDate),
-          loadAttendanceReport(selectedTeamId, reportPeriod.from_date, reportPeriod.to_date),
-        ]);
-      } catch (err) {
-        toast.error(normalizeError(err));
-      } finally {
-        setBusy(false);
-      }
-    };
-    run();
-  }, [selectedTeamId]);
-
-  useEffect(() => {
-    if (!selectedTeamId || !attendanceDate) return;
-    const run = async () => {
-      try {
-        await loadAttendance(selectedTeamId, attendanceDate);
-      } catch (err) {
-        toast.error(normalizeError(err, "Грешка при зареждане на присъствието."));
-      }
-    };
-    run();
-  }, [attendanceDate]);
-
-  useEffect(() => {
-    if (!selectedTeamId || !reportPeriod.from_date || !reportPeriod.to_date) return;
-    const run = async () => {
-      try {
-        await loadAttendanceReport(selectedTeamId, reportPeriod.from_date, reportPeriod.to_date);
-      } catch (err) {
-        toast.error(normalizeError(err, "Грешка при зареждане на отчета."));
-      }
-    };
-    run();
-  }, [selectedTeamId, reportPeriod.from_date, reportPeriod.to_date]);
 
   const createTeam = async () => {
     const payload = {
@@ -164,78 +60,9 @@ export default function Teams() {
       const res = await axiosInstance.post(API_PATHS.TEAM_CREATE, payload);
       await loadTeams();
       setTeamForm({ name: "", age_group: "", season: "", is_active: true });
-      setSelectedTeamId(res.data?.id || null);
       toast.success("Отборът е създаден.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно създаване на отбор."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveMembers = async () => {
-    if (!selectedTeamId) return;
-    try {
-      setBusy(true);
-      await axiosInstance.put(API_PATHS.TEAM_MEMBERS_SET(selectedTeamId), { athlete_ids: memberIds });
-      await loadMembers(selectedTeamId);
-      await loadAttendance(selectedTeamId, attendanceDate);
-      toast.success("Съставът е запазен.");
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно запазване на състава."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveAttendance = async () => {
-    if (!selectedTeamId || !attendanceDate) return;
-    try {
-      setBusy(true);
-      await axiosInstance.post(API_PATHS.TEAM_ATTENDANCE_SAVE(selectedTeamId), {
-        date: attendanceDate,
-        title: attendanceTitle || null,
-        items: attendanceRows.map((r) => ({
-          athlete_id: r.athlete_id,
-          status: r.status || "present",
-          note: r.note || null,
-        })),
-      });
-      toast.success("Присъствието е запазено.");
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно запазване на присъствието."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const quickSetAllAttendance = (status) => {
-    setAttendanceRows((prev) => prev.map((x) => ({ ...x, status })));
-  };
-
-  const quickToggleRow = (athleteId, status) => {
-    setAttendanceRows((prev) => prev.map((x) => (x.athlete_id === athleteId ? { ...x, status } : x)));
-  };
-
-  const saveMemberFee = async () => {
-    if (!payAthlete) return;
-    const amount = Number(payForm.amount);
-    if (!payForm.month_key || !Number.isFinite(amount) || amount <= 0) {
-      toast.error("Въведи валиден месец и сума.");
-      return;
-    }
-    try {
-      setBusy(true);
-      await axiosInstance.post(API_PATHS.FEES_PAYMENT_SAVE(payAthlete.athlete_id), {
-        month_key: payForm.month_key,
-        amount,
-        note: payForm.note?.trim() || null,
-      });
-      toast.success("Таксата е записана.");
-      setPayAthlete(null);
-      setPayForm((p) => ({ ...p, amount: "", note: "" }));
-    } catch (err) {
-      toast.error(normalizeError(err, "Грешка при запис на такса."));
     } finally {
       setBusy(false);
     }
@@ -294,7 +121,7 @@ export default function Teams() {
     <div className="uiPage">
       <PageHero
         title="Отбори"
-        subtitle="Създавай отбори, избирай състезатели и води присъствие по дата."
+        subtitle="Първо избери отбор, после отвори отделния му екран."
       />
 
       <Card title="Списък отбори">
@@ -313,14 +140,7 @@ export default function Teams() {
             </TableHeader>
             <TableBody>
               {teams.map((team) => (
-                <TableRow
-                  key={team.id}
-                  onClick={() => setSelectedTeamId(team.id)}
-                  style={{
-                    cursor: "pointer",
-                    background: selectedTeamId === team.id ? "#f8fbff" : undefined,
-                  }}
-                >
+                <TableRow key={team.id}>
                   <TableCell><strong>{team.name}</strong></TableCell>
                   <TableCell>{team.age_group || "-"}</TableCell>
                   <TableCell>{team.season || "-"}</TableCell>
@@ -330,10 +150,10 @@ export default function Teams() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant={selectedTeamId === team.id ? "secondary" : "primary"} onClick={() => setSelectedTeamId(team.id)}>
-                        {selectedTeamId === team.id ? "Избран" : "Отвори"}
-                      </Button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Link to={`/teams/${team.id}`}>
+                        <Button size="sm">Отвори</Button>
+                      </Link>
                       <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>Редактирай</Button>
                       <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>Изтрий</Button>
                     </div>
@@ -359,219 +179,6 @@ export default function Teams() {
           </div>
         </div>
       </Card>
-
-      {selectedTeam && (
-        <>
-          <Card title={`Екран на отбор: ${selectedTeam.name}`}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span className="uiBadge uiBadge--info">Група: {selectedTeam.age_group || "-"}</span>
-              <span className="uiBadge">Сезон: {selectedTeam.season || "-"}</span>
-              <span className={`uiBadge ${selectedTeam.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-                {selectedTeam.is_active ? "Активен отбор" : "Неактивен отбор"}
-              </span>
-            </div>
-          </Card>
-
-          <Card title={`Състезатели в отбора: ${selectedTeam.name}`}>
-            {memberAthletes.length === 0 ? (
-              <EmptyState title="Няма добавени състезатели" description="Маркирай състезатели в секцията за управление на състава." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Състезател</TableHead>
-                    <TableHead>Родител</TableHead>
-                    <TableHead>Телефон</TableHead>
-                    <TableHead>Профил</TableHead>
-                    <TableHead>Такса</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {memberAthletes.map((a) => (
-                    <TableRow key={a.athlete_id}>
-                      <TableCell>
-                        <Link to={`/teams/athletes/${a.athlete_id}`} style={{ fontWeight: 700 }}>
-                          {a.athlete_name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{a.parent_name || "-"}</TableCell>
-                      <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                      <TableCell>
-                        <Link to={`/teams/athletes/${a.athlete_id}`}>
-                          <Button size="sm" variant="ghost">Отвори</Button>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
-
-          <Card title={`Управление на състав: ${selectedTeam.name}`}>
-            {athletes.length === 0 ? (
-              <EmptyState title="Няма състезатели" description="Добави състезатели в меню Месечни Такси." />
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>В отбора</TableHead>
-                      <TableHead>Състезател</TableHead>
-                      <TableHead>Родител</TableHead>
-                      <TableHead>Телефон</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {athletes.map((a) => (
-                      <TableRow key={a.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={memberIds.includes(a.id)}
-                            onChange={(e) => {
-                              setMemberIds((prev) => {
-                                if (e.target.checked) return [...new Set([...prev, a.id])];
-                                return prev.filter((id) => id !== a.id);
-                              });
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>{a.athlete_name}</TableCell>
-                        <TableCell>{a.parent_name || "-"}</TableCell>
-                        <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div style={{ marginTop: 12 }}>
-                  <Button disabled={busy} onClick={saveMembers}>Запази състав</Button>
-                </div>
-              </>
-            )}
-          </Card>
-
-          <Card title={`Присъствие (отделен екран за отбор): ${selectedTeam.name}`}>
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
-              <Input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
-              <Input placeholder="Заглавие на тренировка (по желание)" value={attendanceTitle} onChange={(e) => setAttendanceTitle(e.target.value)} />
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-                <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>Запази присъствие</Button>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-              <Button size="sm" onClick={() => quickSetAllAttendance("present")}>Бързо: всички присъстват</Button>
-              <Button size="sm" variant="secondary" onClick={() => quickSetAllAttendance("absent")}>Бързо: всички отсъстват</Button>
-            </div>
-            {attendanceRows.length === 0 ? (
-              <EmptyState title="Няма избрани състезатели" description="Добави състезатели в състава на отбора, за да отбелязваш присъствие." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Състезател</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead>Бележка</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendanceRows.map((row) => (
-                    <TableRow key={row.athlete_id}>
-                      <TableCell>{row.athlete_name}</TableCell>
-                      <TableCell>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <select
-                          className="uiInput"
-                          value={row.status || "present"}
-                          onChange={(e) =>
-                            setAttendanceRows((prev) =>
-                              prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, status: e.target.value } : x))
-                            )
-                          }
-                        >
-                          <option value="present">Присъства</option>
-                          <option value="late">Закъсня</option>
-                          <option value="absent">Отсъства</option>
-                          <option value="excused">Извинен</option>
-                        </select>
-                          <Button size="sm" variant="ghost" onClick={() => quickToggleRow(row.athlete_id, "present")}>+ Присъства</Button>
-                          <Button size="sm" variant="ghost" onClick={() => quickToggleRow(row.athlete_id, "absent")}>+ Отсъства</Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          placeholder="Бележка"
-                          value={row.note || ""}
-                          onChange={(e) =>
-                            setAttendanceRows((prev) =>
-                              prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, note: e.target.value } : x))
-                            )
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
-
-          <Card title={`Отчет присъствие: ${selectedTeam.name}`}>
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
-              <Input
-                type="date"
-                value={reportPeriod.from_date}
-                onChange={(e) => setReportPeriod((p) => ({ ...p, from_date: e.target.value }))}
-              />
-              <Input
-                type="date"
-                value={reportPeriod.to_date}
-                onChange={(e) => setReportPeriod((p) => ({ ...p, to_date: e.target.value }))}
-              />
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="uiBadge uiBadge--info">Тренировки: {attendanceReport?.sessions_count || 0}</span>
-              </div>
-            </div>
-            {!attendanceReport || (attendanceReport.rows || []).length === 0 ? (
-              <EmptyState title="Няма данни за периода" description="Промени периода или добави присъствия за избрания отбор." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Състезател</TableHead>
-                    <TableHead>Присъства</TableHead>
-                    <TableHead>Закъсня</TableHead>
-                    <TableHead>Отсъства</TableHead>
-                    <TableHead>Извинен</TableHead>
-                    <TableHead>Общо</TableHead>
-                    <TableHead>% посещаемост</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(attendanceReport.rows || []).map((row) => (
-                    <TableRow key={row.athlete_id}>
-                      <TableCell>{row.athlete_name}</TableCell>
-                      <TableCell>{row.present}</TableCell>
-                      <TableCell>{row.late}</TableCell>
-                      <TableCell>{row.absent}</TableCell>
-                      <TableCell>{row.excused}</TableCell>
-                      <TableCell>{row.total}</TableCell>
-                      <TableCell>
-                        <span className={`uiBadge ${row.attendance_rate_percent >= 80 ? "uiBadge--success" : row.attendance_rate_percent >= 60 ? "uiBadge--warning" : "uiBadge--danger"}`}>
-                          {row.attendance_rate_percent}%
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
-        </>
-      )}
 
       {editTeam && (
         <div onClick={() => !busy && setEditTeam(null)} className="uiModalOverlay">
@@ -610,36 +217,6 @@ export default function Teams() {
         </div>
       )}
 
-      {payAthlete && (
-        <div onClick={() => !busy && setPayAthlete(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Такса: {payAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                type="month"
-                value={payForm.month_key}
-                onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
-              />
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Сума"
-                value={payForm.amount}
-                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
-              />
-              <Input
-                placeholder="Бележка"
-                value={payForm.note}
-                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
-              />
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveMemberFee}>Запиши такса</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setPayAthlete(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   );
 }

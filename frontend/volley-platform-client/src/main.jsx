@@ -28,6 +28,9 @@ const Forum = React.lazy(() => import("./pages/Forum.jsx"));
 const ForumTopic = React.lazy(() => import("./pages/ForumTopic.jsx"));
 const MonthlyFees = React.lazy(() => import("./pages/MonthlyFees.jsx"));
 const Teams = React.lazy(() => import("./pages/Teams.jsx"));
+const TeamDetails = React.lazy(() => import("./pages/TeamDetails.jsx"));
+const TeamAttendance = React.lazy(() => import("./pages/TeamAttendance.jsx"));
+const TeamAttendanceReport = React.lazy(() => import("./pages/TeamAttendanceReport.jsx"));
 const TeamAthleteProfile = React.lazy(() => import("./pages/TeamAthleteProfile.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 
@@ -113,6 +116,9 @@ const router = createBrowserRouter([
           { path: "forum/:id", element: <ForumTopic /> },
           { path: "monthly-fees", element: <MonthlyFees /> },
           { path: "teams", element: <Teams /> },
+          { path: "teams/:teamId", element: <TeamDetails /> },
+          { path: "teams/:teamId/attendance", element: <TeamAttendance /> },
+          { path: "teams/:teamId/report", element: <TeamAttendanceReport /> },
           { path: "teams/athletes/:athleteId", element: <TeamAthleteProfile /> },
           { path: "club-head", element: <ClubHeadDashboard /> },
         ],
