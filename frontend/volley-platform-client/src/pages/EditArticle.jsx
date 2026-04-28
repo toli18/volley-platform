@@ -8,6 +8,14 @@ import { Button, PageHero } from "../components/ui";
 import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 import { normalizePastedHtmlFragment, toDisplayHtml } from "../utils/richText";
 
+const SLASH_COMMANDS = [
+  { id: "heading", key: "заглавие", label: "/заглавие", insert: "\n## Заглавие\n" },
+  { id: "subheading", key: "подзаглавие", label: "/подзаглавие", insert: "\n### Подзаглавие\n" },
+  { id: "quote", key: "цитат", label: "/цитат", insert: "\n> Цитат\n" },
+  { id: "list", key: "списък", label: "/списък", insert: "\n- Точка 1\n- Точка 2\n" },
+  { id: "image", key: "снимка", label: "/снимка", insert: "" },
+];
+
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
   if (!detail) return err?.message || "Грешка при заявката.";
@@ -37,9 +45,12 @@ export default function EditArticle() {
   const [draftStatus, setDraftStatus] = useState("няма чернова");
   const [draftSavedAt, setDraftSavedAt] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [dropActive, setDropActive] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState({ title: "", excerpt: "", content: "" });
   const contentRef = useRef(null);
+  const inlineImageInputRef = useRef(null);
   const restoreCheckedRef = useRef(false);
   const saveTimerRef = useRef(null);
   const draftKey = editDraftKey(id);
@@ -198,6 +209,89 @@ export default function EditArticle() {
     insertAtCursor(`\n${normalized}\n`);
   };
 
+  const getCurrentSlashQuery = () => {
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    const caret = textarea?.selectionStart ?? current.length;
+    const before = current.slice(0, caret);
+    const slashStart = before.lastIndexOf("/");
+    if (slashStart < 0) return "";
+    const token = before.slice(slashStart + 1);
+    if (!token || /\s/.test(token)) return "";
+    return token.toLowerCase();
+  };
+
+  const replaceSlashToken = (insertText = "") => {
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    const caret = textarea?.selectionStart ?? current.length;
+    const before = current.slice(0, caret);
+    const slashStart = before.lastIndexOf("/");
+    if (slashStart < 0) return false;
+    const token = before.slice(slashStart);
+    if (!token.startsWith("/") || /\s/.test(token)) return false;
+    const next = `${current.slice(0, slashStart)}${insertText}${current.slice(caret)}`;
+    const cursor = slashStart + insertText.length;
+    setForm((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
+    return true;
+  };
+
+  const applySlashCommand = (command) => {
+    if (!command || !canEdit) return;
+    if (command.id === "image") {
+      replaceSlashToken("");
+      requestAnimationFrame(() => inlineImageInputRef.current?.click());
+      setSlashQuery("");
+      return;
+    }
+    replaceSlashToken(command.insert);
+    setSlashQuery("");
+  };
+
+  const filteredSlashCommands = slashQuery
+    ? SLASH_COMMANDS.filter((cmd) => cmd.key.startsWith(slashQuery))
+    : [];
+
+  const uploadInlineImageAndInsert = async (file) => {
+    if (!file || !canEdit) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      setUploading(true);
+      setError("");
+      const res = await axiosInstance.post(`/api/articles/${id}/media`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      let imageUrl = res.data?.url ? resolveMediaUrl(res.data.url) : "";
+      let imageName = res.data?.name || "Снимка";
+      if (!imageUrl) {
+        const fresh = await axiosInstance.get(`/api/articles/${id}`);
+        const latestImage = (Array.isArray(fresh.data?.media_items) ? fresh.data.media_items : [])
+          .filter((m) => String(m?.type || "").toUpperCase() === "IMAGE")
+          .at(-1);
+        if (latestImage) {
+          imageUrl = resolveMediaUrl(latestImage.url);
+          imageName = latestImage.name || imageName;
+        }
+      }
+      await load();
+      if (!imageUrl) {
+        setError("Снимката е качена, но не успях да я вмъкна автоматично.");
+        return;
+      }
+      insertAtCursor(`\n<p><img src="${imageUrl}" alt="${imageName}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`);
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const onSave = async () => {
     if (!canEdit) return;
     if (!form.title.trim() || !form.content.trim()) {
@@ -345,9 +439,44 @@ export default function EditArticle() {
             value={form.content}
             onChange={onChange}
             onPaste={onContentPaste}
+            onKeyUp={() => setSlashQuery(getCurrentSlashQuery())}
+            onClick={() => setSlashQuery(getCurrentSlashQuery())}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!canEdit) return;
+              setDropActive(true);
+            }}
+            onDragLeave={() => setDropActive(false)}
+            onDrop={async (e) => {
+              e.preventDefault();
+              setDropActive(false);
+              if (!canEdit) return;
+              const file = e.dataTransfer?.files?.[0];
+              if (!file) return;
+              if (!String(file.type || "").startsWith("image/")) {
+                setError("Drag & drop е разрешен само за изображения.");
+                return;
+              }
+              await uploadInlineImageAndInsert(file);
+            }}
             rows={12}
             disabled={!canEdit}
-            style={{ display: previewMode ? "none" : "block" }}
+            style={{
+              display: previewMode ? "none" : "block",
+              borderColor: dropActive ? "#0c6a47" : undefined,
+              boxShadow: dropActive ? "0 0 0 2px rgba(12,106,71,.15)" : undefined,
+            }}
+          />
+          <input
+            ref={inlineImageInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.gif"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              await uploadInlineImageAndInsert(file);
+            }}
           />
           <div style={{ marginTop: 8 }}>
             <RichTextToolbar
@@ -365,8 +494,17 @@ export default function EditArticle() {
               dangerouslySetInnerHTML={{ __html: toDisplayHtml(form.content) }}
             />
           )}
+          {filteredSlashCommands.length > 0 && !previewMode && canEdit && (
+            <div style={{ marginTop: 8, border: "1px solid #dbe5f2", borderRadius: 8, background: "#fff", padding: 6, display: "grid", gap: 4 }}>
+              {filteredSlashCommands.map((cmd) => (
+                <button key={cmd.id} type="button" onClick={() => applySlashCommand(cmd)} style={{ textAlign: "left" }}>
+                  {cmd.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div style={{ marginTop: 6, color: "#607693", fontSize: 12 }}>
-            Поставяне (Ctrl+V) пази структурата от Word/Google Docs. За снимка в текста: качи файл и натисни „Вмъкни в текста“.
+            Поставяне (Ctrl+V) пази структурата. Използвай `/заглавие`, `/подзаглавие`, `/цитат`, `/снимка` или drag & drop на изображение.
           </div>
         </div>
       </div>
