@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../utils/drillCanonical";
 import { useToast } from "../components/ToastProvider";
-import { Button, PageHero } from "../components/ui";
+import { Button, Card, PageHero } from "../components/ui";
 
 const toIntOrNull = (v) => {
   if (v === "" || v === null || v === undefined) return null;
@@ -91,14 +91,10 @@ const OPTIONS = {
   зоналенФокус: ["Зона 1", "Зона 2", "Зона 3", "Зона 4", "Зона 5", "Зона 6"],
 };
 
-function SectionTitle({ children }) {
-  return <h3 style={{ marginTop: 18, marginBottom: 10 }}>{children}</h3>;
-}
-
 function Field({ label, children, hint }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <label style={{ fontWeight: 700 }}>{label}</label>
+      <label style={{ fontWeight: 700, fontSize: 13 }}>{label}</label>
       {children}
       {hint ? <div style={{ fontSize: 12, color: "#666" }}>{hint}</div> : null}
     </div>
@@ -110,7 +106,7 @@ function Row({ children, cols = 2 }) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: cols === 3 ? "1fr 1fr 1fr" : "1fr 1fr",
+        gridTemplateColumns: cols === 3 ? "repeat(auto-fit, minmax(170px, 1fr))" : "repeat(auto-fit, minmax(240px, 1fr))",
         gap: 12,
       }}
     >
@@ -129,9 +125,9 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
   };
 
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
+    <div style={{ border: "1px solid #dbe5f2", borderRadius: 10, padding: 12, background: "#fbfdff" }}>
       <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 6 }}>
         {options.map((opt) => (
           <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={set.has(opt)} onChange={() => toggle(opt)} />
@@ -269,6 +265,21 @@ export default function CreateDrill() {
     };
   }, [form]);
 
+  const requiredChecks = [
+    { label: "Име", ok: !!form.title.trim() },
+    { label: "Категория", ok: !!form.category },
+    { label: "Ниво", ok: !!form.level },
+    { label: "Фокус", ok: !!form.skill_focus.trim() },
+    { label: "Играч(и)", ok: !!form.players.trim() },
+    { label: "Оборудване", ok: !!form.equipment.trim() },
+    { label: "Тип интензивност", ok: !!form.intensity_type },
+    { label: "Цел на тренировка", ok: !!form.training_goal },
+    { label: "Ниво на сложност", ok: !!form.complexity_level },
+    { label: "Ниво на решения", ok: !!form.decision_level },
+  ];
+  const completedRequired = requiredChecks.filter((x) => x.ok).length;
+  const missingRequired = requiredChecks.filter((x) => !x.ok).map((x) => x.label);
+
   const submit = async () => {
     setError("");
     if (!form.title.trim()) {
@@ -300,20 +311,32 @@ export default function CreateDrill() {
   };
 
   return (
-    <div className="uiPage" style={{ padding: 20, maxWidth: 980 }}>
+    <div className="uiPage" style={{ padding: 20, maxWidth: 1120 }}>
       <PageHero
         title="Добави упражнение (подробно)"
         subtitle="Попълни ключовите полета и изпрати за одобрение."
-        actions={<Button as={Link} to="/drills" variant="secondary">← Назад към упражненията</Button>}
+        actions={
+          <>
+            <Button onClick={submit} disabled={submitting}>{submitting ? "Изпращане…" : "Изпрати за одобрение"}</Button>
+            <Button as={Link} to="/drills" variant="secondary">← Назад към упражненията</Button>
+          </>
+        }
       />
 
-      {error ? (
-        <div style={{ background: "#ffdddd", padding: 10, borderRadius: 8, color: "#a00", marginBottom: 12 }}>
-          Грешка: {error}
+      <Card title="Прогрес на формата" subtitle="Ключовите полета за генератора и одобрение.">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <span className="uiBadge">Попълнени: {completedRequired}/{requiredChecks.length}</span>
+          {missingRequired.length > 0 ? (
+            <span className="uiBadge uiBadge--danger">Липсват: {missingRequired.slice(0, 3).join(", ")}{missingRequired.length > 3 ? "..." : ""}</span>
+          ) : (
+            <span className="uiBadge uiBadge--success">Всички ключови полета са попълнени</span>
+          )}
         </div>
-      ) : null}
+      </Card>
 
-      <SectionTitle>Основни</SectionTitle>
+      {error ? <div className="uiAlert uiAlert--danger">Грешка: {error}</div> : null}
+
+      <Card title="1) Основни" subtitle="Име, цел, описание и вариации.">
       <div style={{ display: "grid", gap: 12 }}>
         <Field label="Име *">
           <input
@@ -358,8 +381,9 @@ export default function CreateDrill() {
           />
         </Field>
       </div>
+      </Card>
 
-      <SectionTitle>Категоризация</SectionTitle>
+      <Card title="2) Категоризация" subtitle="Класифицирай упражнението за търсене и генератор.">
       <Row>
         <Field label="Категория">
           <select name="category" value={form.category} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -394,8 +418,9 @@ export default function CreateDrill() {
           ))}
         </select>
       </Field>
+      </Card>
 
-      <SectionTitle>Организация и метрики</SectionTitle>
+      <Card title="3) Организация и метрики" subtitle="Играч(и), оборудване и натоварване.">
       <Row>
         <Field label="Играчи">
           <select name="players" value={form.players} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -443,8 +468,9 @@ export default function CreateDrill() {
           />
         </Field>
       </Row>
+      </Card>
 
-      <SectionTitle>Интелигентни полета (за генератора)</SectionTitle>
+      <Card title="4) Интелигентни полета (за генератора)" subtitle="Параметри за по-точна автоматична селекция.">
       <Row>
         <Field label="Тип интензивност">
           <select
@@ -536,8 +562,9 @@ export default function CreateDrill() {
           </select>
         </Field>
       </Row>
+      </Card>
 
-      <SectionTitle>Етикети (за генератора)</SectionTitle>
+      <Card title="5) Етикети (за генератора)" subtitle="Избери тагове за домейн, фаза, тактика и позиция.">
       <div style={{ display: "grid", gap: 12 }}>
         <CheckboxGroup
           title="Домейни на умения"
@@ -599,8 +626,9 @@ export default function CreateDrill() {
           otherLabel="Други зони (по избор)"
         />
       </div>
+      </Card>
 
-      <SectionTitle>Методика</SectionTitle>
+      <Card title="6) Методика" subtitle="Инструкции, насоки, грешки и прогресии.">
       <div style={{ display: "grid", gap: 12 }}>
         <Field label="Подготовка / подредба">
           <textarea name="setup" value={form.setup} onChange={onChange} rows={3} style={{ width: "100%", padding: 10 }} />
@@ -633,8 +661,9 @@ export default function CreateDrill() {
           <textarea name="regressions" value={form.regressions} onChange={onChange} rows={3} style={{ width: "100%", padding: 10 }} />
         </Field>
       </div>
+      </Card>
 
-      <SectionTitle>Медия</SectionTitle>
+      <Card title="7) Медия" subtitle="Добави линкове към изображения и видео (по един на ред).">
       <Row>
         <Field label="Линкове към изображения (по 1 на ред)">
           <textarea
@@ -658,8 +687,9 @@ export default function CreateDrill() {
           />
         </Field>
       </Row>
+      </Card>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 18, position: "sticky", bottom: 10, background: "#f3f7fd", padding: 10, border: "1px solid #dbe5f2", borderRadius: 12 }}>
         <Button
           onClick={submit}
           disabled={submitting}
