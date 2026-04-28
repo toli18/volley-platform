@@ -6,7 +6,7 @@ import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, PageHero } from "../components/ui";
 import { clearDraft, createDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
-import { toDisplayHtml } from "../utils/richText";
+import { normalizePastedHtmlFragment, toDisplayHtml } from "../utils/richText";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -77,6 +77,34 @@ export default function CreateArticle() {
     }
   };
 
+  const insertAtCursor = (text) => {
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    if (!textarea) {
+      setForm((prev) => ({ ...prev, content: `${current}${text}` }));
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    setForm((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      const pos = start + text.length;
+      textarea.focus();
+      textarea.setSelectionRange(pos, pos);
+    });
+  };
+
+  const onContentPaste = (e) => {
+    if (previewMode) return;
+    const html = e.clipboardData?.getData("text/html");
+    if (!html) return;
+    const normalized = normalizePastedHtmlFragment(html);
+    if (!normalized) return;
+    e.preventDefault();
+    insertAtCursor(`\n${normalized}\n`);
+  };
+
   const loadCreatedArticle = async (articleId) => {
     const res = await axiosInstance.get(`/api/articles/${articleId}`);
     setCreatedArticle(res.data);
@@ -145,13 +173,19 @@ export default function CreateArticle() {
         excerpt: form.excerpt.trim() || null,
         content: form.content.trim(),
       };
-      const res = await axiosInstance.post("/api/articles", payload);
-      setCreatedArticleId(res.data.id);
-      await loadCreatedArticle(res.data.id);
+      if (!createdArticleId) {
+        const res = await axiosInstance.post("/api/articles", payload);
+        setCreatedArticleId(res.data.id);
+        await loadCreatedArticle(res.data.id);
+        setSuccess("Статията е създадена. Можеш да редактираш текста и да добавяш медия между абзаците.");
+      } else {
+        await axiosInstance.put(`/api/articles/${createdArticleId}`, payload);
+        await loadCreatedArticle(createdArticleId);
+        setSuccess("Промените по текста са запазени.");
+      }
       clearDraft(draftKey);
       setDraftStatus("черновата е изчистена");
       setDraftSavedAt("");
-      setSuccess("Статията е създадена. Сега можеш да качиш корица, снимки, файлове и линкове.");
     } catch (err) {
       setError(normalizeError(err));
     } finally {
@@ -307,16 +341,16 @@ export default function CreateArticle() {
       <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Заглавие *</label>
-          <input name="title" value={form.title} onChange={onChange} disabled={Boolean(createdArticleId)} />
+          <input name="title" value={form.title} onChange={onChange} />
         </div>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Кратко описание</label>
-          <textarea name="excerpt" value={form.excerpt} onChange={onChange} rows={3} disabled={Boolean(createdArticleId)} />
+          <textarea name="excerpt" value={form.excerpt} onChange={onChange} rows={3} />
         </div>
         <div>
           <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Съдържание *</label>
           <div style={{ marginBottom: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={() => setPreviewMode((prev) => !prev)} disabled={Boolean(createdArticleId)}>
+            <button type="button" onClick={() => setPreviewMode((prev) => !prev)}>
               {previewMode ? "Редакция" : "Преглед"}
             </button>
           </div>
@@ -325,8 +359,8 @@ export default function CreateArticle() {
             name="content"
             value={form.content}
             onChange={onChange}
+            onPaste={onContentPaste}
             rows={14}
-            disabled={Boolean(createdArticleId)}
             style={{ display: previewMode ? "none" : "block" }}
           />
           <div style={{ marginTop: 8 }}>
@@ -334,7 +368,6 @@ export default function CreateArticle() {
               textareaRef={contentRef}
               value={form.content}
               onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
-              disabled={Boolean(createdArticleId)}
               onInsertTemplate={onInsertPreset}
             />
           </div>
@@ -346,22 +379,21 @@ export default function CreateArticle() {
             />
           )}
           <div style={{ marginTop: 6, color: "#607693", fontSize: 12 }}>
-            Форматирай чрез бутоните в лентата. За снимка: натисни "Снимка (линк)" или постави Imgur линк на отделен ред.
+            Поставяне (Ctrl+V) пази структурата от Word/Google Docs. За снимка в текста: качи в стъпка 2 и натисни „Вмъкни в текста“.
           </div>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        {!createdArticleId ? (
-          <button onClick={onSubmit} disabled={saving}>
-            {saving ? "Запис..." : "1) Създай статия"}
-          </button>
-        ) : (
+        <button onClick={onSubmit} disabled={saving}>
+          {saving ? "Запис..." : createdArticleId ? "Запази промени в текста" : "1) Създай статия"}
+        </button>
+        {createdArticleId ? (
           <>
             <button onClick={() => navigate(`/articles/${createdArticleId}`)}>2) Преглед на статията</button>
             <button onClick={() => navigate(`/articles/${createdArticleId}/edit`)}>Отвори в редактор</button>
           </>
-        )}
+        ) : null}
       </div>
 
       <section style={{ marginTop: 18, border: "1px solid #dbe5f2", borderRadius: 12, padding: 12, background: "#fff" }}>
@@ -400,11 +432,21 @@ export default function CreateArticle() {
                     alt={img.name || "Снимка"}
                     style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }}
                   />
-                  <div style={{ padding: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ padding: 8, display: "grid", gap: 8 }}>
                     <span style={{ fontSize: 12, color: "#607693" }}>{img.name}</span>
-                    <button onClick={() => onDeleteMedia(img.id)} style={{ color: "#b91c1c" }}>
-                      Изтрий
-                    </button>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          insertAtCursor(`\n<p><img src="${resolveMediaUrl(img.url)}" alt="${img.name || "Снимка"}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`)
+                        }
+                      >
+                        Вмъкни в текста
+                      </button>
+                      <button onClick={() => onDeleteMedia(img.id)} style={{ color: "#b91c1c" }}>
+                        Изтрий
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

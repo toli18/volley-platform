@@ -164,3 +164,27 @@ export const toPlainTextSnippet = (raw, max = 240) => {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 };
 
+const compactWhitespace = (raw) =>
+  String(raw || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+
+export const normalizePastedHtmlFragment = (raw) => {
+  if (!raw) return "";
+  let safe = sanitizeHtml(String(raw));
+
+  // Remove common Word/Docs leftovers while preserving readable structure.
+  safe = safe.replace(/<!--[\s\S]*?-->/g, "");
+  safe = safe.replace(/<o:p>\s*<\/o:p>/gi, "");
+  safe = safe.replace(/\sclass="[^"]*"/gi, "");
+  safe = safe.replace(/\sid="[^"]*"/gi, "");
+  safe = safe.replace(/\sstyle="[^"]*mso-[^"]*"/gi, "");
+  safe = safe.replace(/<(\/?)h1\b/gi, "<$1h2");
+  safe = safe.replace(/<(\/?)h4\b/gi, "<$1h3");
+  safe = safe.replace(/<(\/?)h5\b/gi, "<$1h3");
+  safe = safe.replace(/<(\/?)h6\b/gi, "<$1h3");
+  safe = safe.replace(/<(\/?)div\b/gi, "<$1p");
+
+  return compactWhitespace(safe).trim();
+};
+

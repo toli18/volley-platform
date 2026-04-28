@@ -14,6 +14,20 @@ function wrapSelection(textarea, value, onChange, startTag, endTag, placeholder 
   });
 }
 
+function replaceSelection(textarea, value, onChange, mapper) {
+  const start = textarea?.selectionStart ?? value.length;
+  const end = textarea?.selectionEnd ?? value.length;
+  const selected = value.slice(start, end) || "текст";
+  const replaced = mapper(selected);
+  const next = `${value.slice(0, start)}${replaced}${value.slice(end)}`;
+  onChange(next);
+  requestAnimationFrame(() => {
+    if (!textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(start, start + replaced.length);
+  });
+}
+
 function insertAtCursor(textarea, value, onChange, insertedText) {
   const start = textarea?.selectionStart ?? value.length;
   const end = textarea?.selectionEnd ?? value.length;
@@ -82,6 +96,27 @@ export default function RichTextToolbar({
     if (!url) return;
     insertText(`\n![Снимка](${url})\n`);
   };
+  const applyColor = (color) => {
+    if (!color) return;
+    replaceSelection(textareaRef?.current, value || "", onChange, (selected) => {
+      const normalized = selected.replace(/^<span[^>]*>|<\/span>$/g, "");
+      return `<span style="color:${color};">${normalized}</span>`;
+    });
+  };
+  const applySize = (size) => {
+    if (!size) return;
+    replaceSelection(textareaRef?.current, value || "", onChange, (selected) => {
+      const normalized = selected.replace(/^<span[^>]*>|<\/span>$/g, "");
+      return `<span style="font-size:${size};">${normalized}</span>`;
+    });
+  };
+  const clearFormatting = () => {
+    replaceSelection(textareaRef?.current, value || "", onChange, (selected) =>
+      selected
+        .replace(/<\/?(strong|em|u|span|h2|h3|blockquote|p|ul|ol|li)[^>]*>/gi, "")
+        .replace(/&nbsp;/gi, " ")
+    );
+  };
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -109,6 +144,41 @@ export default function RichTextToolbar({
         </button>
         <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={insertImageByUrl}>
           Снимка (линк)
+        </button>
+        <select
+          disabled={disabled}
+          onChange={(e) => {
+            applySize(e.target.value);
+            e.target.value = "";
+          }}
+          defaultValue=""
+          style={{ ...createToolbarButtonStyle(), padding: "6px 8px" }}
+        >
+          <option value="" disabled>Размер</option>
+          <option value="14px">14</option>
+          <option value="16px">16</option>
+          <option value="18px">18</option>
+          <option value="22px">22</option>
+          <option value="26px">26</option>
+        </select>
+        <select
+          disabled={disabled}
+          onChange={(e) => {
+            applyColor(e.target.value);
+            e.target.value = "";
+          }}
+          defaultValue=""
+          style={{ ...createToolbarButtonStyle(), padding: "6px 8px" }}
+        >
+          <option value="" disabled>Цвят</option>
+          <option value="#0f172a">Черно</option>
+          <option value="#0c6a47">Зелено</option>
+          <option value="#be1e2d">Червено</option>
+          <option value="#1d4ed8">Синьо</option>
+          <option value="#7c2d12">Кафяво</option>
+        </select>
+        <button type="button" style={createToolbarButtonStyle()} disabled={disabled} onClick={clearFormatting}>
+          Изчисти формат
         </button>
       </div>
 

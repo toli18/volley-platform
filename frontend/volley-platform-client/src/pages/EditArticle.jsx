@@ -6,7 +6,7 @@ import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, PageHero } from "../components/ui";
 import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
-import { toDisplayHtml } from "../utils/richText";
+import { normalizePastedHtmlFragment, toDisplayHtml } from "../utils/richText";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -170,6 +170,34 @@ export default function EditArticle() {
     }
   };
 
+  const insertAtCursor = (text) => {
+    const textarea = contentRef.current;
+    const current = form.content || "";
+    if (!textarea) {
+      setForm((prev) => ({ ...prev, content: `${current}${text}` }));
+      return;
+    }
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    setForm((prev) => ({ ...prev, content: next }));
+    requestAnimationFrame(() => {
+      const pos = start + text.length;
+      textarea.focus();
+      textarea.setSelectionRange(pos, pos);
+    });
+  };
+
+  const onContentPaste = (e) => {
+    if (previewMode || !canEdit) return;
+    const html = e.clipboardData?.getData("text/html");
+    if (!html) return;
+    const normalized = normalizePastedHtmlFragment(html);
+    if (!normalized) return;
+    e.preventDefault();
+    insertAtCursor(`\n${normalized}\n`);
+  };
+
   const onSave = async () => {
     if (!canEdit) return;
     if (!form.title.trim() || !form.content.trim()) {
@@ -316,6 +344,7 @@ export default function EditArticle() {
             name="content"
             value={form.content}
             onChange={onChange}
+            onPaste={onContentPaste}
             rows={12}
             disabled={!canEdit}
             style={{ display: previewMode ? "none" : "block" }}
@@ -337,7 +366,7 @@ export default function EditArticle() {
             />
           )}
           <div style={{ marginTop: 6, color: "#607693", fontSize: 12 }}>
-            За снимка: натисни "Снимка (линк)" или постави Imgur линк на отделен ред.
+            Поставяне (Ctrl+V) пази структурата от Word/Google Docs. За снимка в текста: качи файл и натисни „Вмъкни в текста“.
           </div>
         </div>
       </div>
@@ -355,9 +384,21 @@ export default function EditArticle() {
         <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
           {form.media_items.map((m) => (
             <div key={m.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <a href={resolveMediaUrl(m.url)} target="_blank" rel="noreferrer">
-                {m.name}
-              </a>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <a href={resolveMediaUrl(m.url)} target="_blank" rel="noreferrer">
+                  {m.name}
+                </a>
+                {canEdit && String(m.type || "").toUpperCase() === "IMAGE" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      insertAtCursor(`\n<p><img src="${resolveMediaUrl(m.url)}" alt="${m.name || "Снимка"}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`)
+                    }
+                  >
+                    Вмъкни в текста
+                  </button>
+                )}
+              </div>
               {canEdit && (
                 <button onClick={() => onDeleteMedia(m.id)} style={{ color: "#b91c1c" }}>
                   Изтрий
