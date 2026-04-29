@@ -15,6 +15,9 @@ export default function Navbar() {
   const [newTaskCount, setNewTaskCount] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [feeAlerts, setFeeAlerts] = useState([]);
+  const [feeUnreadCount, setFeeUnreadCount] = useState(0);
+  const [feeAlertsOpen, setFeeAlertsOpen] = useState(false);
 
   const onLogout = () => {
     logout();
@@ -79,6 +82,38 @@ export default function Navbar() {
       window.clearInterval(timer);
     };
   }, [isCoachUser, user]);
+
+  useEffect(() => {
+    if (!isHeadCoachUser || !user) {
+      setFeeAlerts([]);
+      setFeeUnreadCount(0);
+      return;
+    }
+    const storageKey = `vp-fee-alerts-seen-${user.id}`;
+    let cancelled = false;
+    const loadFeeAlerts = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.FEES_PAYMENT_ACTIVITY, { params: { limit: 12 } });
+        if (cancelled) return;
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        setFeeAlerts(items);
+        const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        const unread = items.filter((x) => !seen.includes(x.id)).length;
+        setFeeUnreadCount(unread);
+      } catch {
+        if (!cancelled) {
+          setFeeAlerts([]);
+          setFeeUnreadCount(0);
+        }
+      }
+    };
+    loadFeeAlerts();
+    const timer = window.setInterval(loadFeeAlerts, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isHeadCoachUser, user]);
 
   useEffect(() => {
     if (!isCoachUser || !user) {
@@ -164,6 +199,64 @@ export default function Navbar() {
                           {item.due_date ? ` • Срок: ${item.due_date}` : ""}
                         </div>
                       </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {isHeadCoachUser && (
+              <div style={{ position: "relative" }}>
+                <button className="navBtnOutline" onClick={() => setFeeAlertsOpen((prev) => !prev)}>
+                  Такси ({feeUnreadCount})
+                </button>
+                {feeAlertsOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 8px)",
+                      width: "min(92vw, 400px)",
+                      background: "#fff",
+                      border: "1px solid #dbe5f2",
+                      borderRadius: 12,
+                      boxShadow: "0 8px 28px rgba(15, 23, 42, 0.14)",
+                      padding: 10,
+                      zIndex: 9999,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <strong>Платени такси (клуб)</strong>
+                      <button
+                        className="navBtnOutline"
+                        onClick={() => {
+                          const key = `vp-fee-alerts-seen-${user.id}`;
+                          localStorage.setItem(key, JSON.stringify(feeAlerts.map((x) => x.id)));
+                          setFeeUnreadCount(0);
+                        }}
+                      >
+                        Маркирай прочетени
+                      </button>
+                    </div>
+                    {feeAlerts.length === 0 && (
+                      <span style={{ color: "#64748b", fontSize: 13 }}>Няма нови плащания.</span>
+                    )}
+                    {feeAlerts.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: 8,
+                          background: "#f8fbff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                          {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

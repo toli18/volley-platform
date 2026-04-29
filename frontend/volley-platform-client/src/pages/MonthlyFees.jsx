@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
+import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeError = (err) => {
@@ -31,11 +32,14 @@ const lastMonths = (count = 3) => {
 };
 
 export default function MonthlyFees() {
+  const { user } = useAuth();
   const toast = useToast();
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
+  const [coachFilter, setCoachFilter] = useState("");
+  const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
 
   const [athleteForm, setAthleteForm] = useState({
@@ -74,12 +78,16 @@ export default function MonthlyFees() {
     to_month: currentMonthKey(),
   });
   const [periodReport, setPeriodReport] = useState(null);
+  const [transferAthlete, setTransferAthlete] = useState(null);
+  const [targetCoachId, setTargetCoachId] = useState("");
+  const isHeadCoach = user?.role === "club_head_coach";
 
-  const loadAthletes = async (search = query) => {
+  const loadAthletes = async (search = query, selectedCoach = coachFilter) => {
     try {
       setLoading(true);
       const params = {};
       if ((search || "").trim()) params.query = search.trim();
+      if (isHeadCoach && selectedCoach) params.coach_id = Number(selectedCoach);
       const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST, { params });
       setAthletes(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -92,6 +100,19 @@ export default function MonthlyFees() {
   useEffect(() => {
     loadAthletes("");
   }, []);
+
+  useEffect(() => {
+    if (!isHeadCoach) return;
+    const run = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
+        setClubCoaches(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setClubCoaches([]);
+      }
+    };
+    run();
+  }, [isHeadCoach]);
 
   const resetAthleteForm = () => {
     setAthleteForm({
@@ -187,7 +208,7 @@ export default function MonthlyFees() {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetAthleteForm();
-      await loadAthletes();
+      await loadAthletes(query, coachFilter);
       toast.success("Състезателят е създаден.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -212,7 +233,7 @@ export default function MonthlyFees() {
       setBusy(true);
       await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(editAthlete.id), payload);
       setEditAthlete(null);
-      await loadAthletes();
+      await loadAthletes(query, coachFilter);
       toast.success("Промените са запазени.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -231,7 +252,7 @@ export default function MonthlyFees() {
         setReportAthlete(null);
         setAthleteReport(null);
       }
-      await loadAthletes();
+      await loadAthletes(query, coachFilter);
       toast.success("Състезателят е изтрит.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -256,7 +277,7 @@ export default function MonthlyFees() {
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_PAYMENT_SAVE(athleteForRefresh.id), payload);
-      await loadAthletes(query);
+      await loadAthletes(query, coachFilter);
       if (reportAthlete?.id === athleteForRefresh.id) {
         await loadAthleteReport(athleteForRefresh);
       }
@@ -291,11 +312,13 @@ export default function MonthlyFees() {
   const loadPeriodReport = async () => {
     try {
       setBusy(true);
+      const params = {
+        from_month: reportPeriod.from_month,
+        to_month: reportPeriod.to_month,
+      };
+      if (isHeadCoach && coachFilter) params.coach_id = Number(coachFilter);
       const res = await axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, {
-        params: {
-          from_month: reportPeriod.from_month,
-          to_month: reportPeriod.to_month,
-        },
+        params,
       });
       setPeriodReport(res.data);
     } catch (err) {
@@ -337,7 +360,7 @@ export default function MonthlyFees() {
       toast.success(
         `Импорт: нови ${data.created || 0}, празни ${data.skipped_empty || 0}, дубликати ${data.skipped_duplicates || 0}.`
       );
-      await loadAthletes(query);
+      await loadAthletes(query, coachFilter);
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -361,6 +384,24 @@ export default function MonthlyFees() {
       toast.success("Шаблонът е изтеглен.");
     } catch (err) {
       toast.error(normalizeError(err));
+    }
+  };
+
+  const transferToCoach = async () => {
+    if (!transferAthlete || !targetCoachId) return;
+    try {
+      setBusy(true);
+      await axiosInstance.put(API_PATHS.FEES_ATHLETE_TRANSFER(transferAthlete.id), null, {
+        params: { coach_id: Number(targetCoachId) },
+      });
+      toast.success("Състезателят е прехвърлен.");
+      setTransferAthlete(null);
+      setTargetCoachId("");
+      await loadAthletes(query, coachFilter);
+    } catch (err) {
+      toast.error(normalizeError(err));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -429,6 +470,14 @@ export default function MonthlyFees() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Input placeholder="Бързо търсене..." value={query} onChange={(e) => setQuery(e.target.value)} />
+            {isHeadCoach && (
+              <select className="uiInput" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
+                <option value="">Всички треньори</option>
+                {clubCoaches.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
             <Button variant="secondary" onClick={() => loadAthletes(query)}>
               Търси
             </Button>
@@ -541,6 +590,18 @@ export default function MonthlyFees() {
                       <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                         Отчет
                       </Button>
+                      {isHeadCoach && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setTransferAthlete(a);
+                            setTargetCoachId("");
+                          }}
+                        >
+                          Прехвърли
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -738,6 +799,28 @@ export default function MonthlyFees() {
                 <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
                   Затвори
                 </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {transferAthlete && (
+        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <select className="uiInput" value={targetCoachId} onChange={(e) => setTargetCoachId(e.target.value)}>
+                <option value="">Избери треньор</option>
+                {clubCoaches
+                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+              <div className="uiModalActions">
+                <Button disabled={busy || !targetCoachId} onClick={transferToCoach}>Прехвърли</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>Отказ</Button>
               </div>
             </div>
           </section>

@@ -91,12 +91,15 @@ export const API_PATHS = {
   FEES_ATHLETE_CREATE: "/api/fees/athletes",
   FEES_ATHLETES_IMPORT: "/api/fees/athletes/import",
   FEES_ATHLETES_IMPORT_TEMPLATE: "/api/fees/athletes/import-template",
+  FEES_COACHES_LIST: "/api/fees/coaches",
   FEES_ATHLETE_UPDATE: (athleteId) => `/api/fees/athletes/${athleteId}`,
   FEES_ATHLETE_DELETE: (athleteId) => `/api/fees/athletes/${athleteId}`,
+  FEES_ATHLETE_TRANSFER: (athleteId) => `/api/fees/athletes/${athleteId}/transfer`,
   FEES_PAYMENT_SAVE: (athleteId) => `/api/fees/athletes/${athleteId}/payments`,
   FEES_ATHLETE_REPORT: (athleteId) => `/api/fees/athletes/${athleteId}/payments`,
   FEES_PERIOD_REPORT: "/api/fees/reports/period",
   FEES_PAYMENT_RECEIPT: (paymentId) => `/api/fees/payments/${paymentId}/receipt.pdf`,
+  FEES_PAYMENT_ACTIVITY: "/api/fees/payments/activity",
 
   // Teams
   TEAMS_LIST: "/api/teams",

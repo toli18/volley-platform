@@ -38,8 +38,21 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ATTENDANCE_STATUSES = {"present", "late", "absent", "excused"}
 
 
+def _role_value(user: User) -> str:
+    return user.role.value if hasattr(user.role, "value") else str(user.role)
+
+
+def _is_head_coach(user: User) -> bool:
+    return _role_value(user) == UserRole.club_head_coach.value
+
+
 def _ensure_team_owner(db: Session, team_id: int, user: User) -> Team:
-    team = db.query(Team).filter(Team.id == team_id, Team.coach_id == user.id).first()
+    q = db.query(Team).filter(Team.id == team_id)
+    if _is_head_coach(user):
+        q = q.filter(Team.club_id == user.club_id)
+    else:
+        q = q.filter(Team.coach_id == user.id)
+    team = q.first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     return team
@@ -57,12 +70,12 @@ def list_teams(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    return (
-        db.query(Team)
-        .filter(Team.coach_id == current_user.id)
-        .order_by(Team.is_active.desc(), Team.name.asc())
-        .all()
-    )
+    q = db.query(Team)
+    if _is_head_coach(current_user):
+        q = q.filter(Team.club_id == current_user.club_id)
+    else:
+        q = q.filter(Team.coach_id == current_user.id)
+    return q.order_by(Team.is_active.desc(), Team.name.asc()).all()
 
 
 @router.post("/teams", response_model=TeamRead, status_code=status.HTTP_201_CREATED)
@@ -164,13 +177,13 @@ def replace_team_members(
     team = _ensure_team_owner(db, team_id, current_user)
     desired_ids = sorted(set(int(x) for x in (payload.athlete_ids or []) if x))
     if desired_ids:
-        owned_count = (
-            db.query(Athlete)
-            .filter(Athlete.coach_id == current_user.id, Athlete.id.in_(desired_ids))
-            .count()
-        )
-        if owned_count != len(desired_ids):
-            raise HTTPException(status_code=422, detail="One or more athletes are invalid for this coach")
+        owned_query = db.query(Athlete).filter(Athlete.id.in_(desired_ids))
+        if _is_head_coach(current_user):
+            owned_query = owned_query.filter(Athlete.club_id == current_user.club_id)
+        else:
+            owned_query = owned_query.filter(Athlete.coach_id == current_user.id)
+        if owned_query.count() != len(desired_ids):
+            raise HTTPException(status_code=422, detail="One or more athletes are invalid for this club/coach")
 
     existing = db.query(TeamMember).filter(TeamMember.team_id == team.id).all()
     existing_map = {m.athlete_id: m for m in existing}
@@ -392,7 +405,10 @@ def athlete_profile(
 ):
     athlete = (
         db.query(Athlete)
-        .filter(Athlete.id == athlete_id, Athlete.coach_id == current_user.id)
+        .filter(
+            Athlete.id == athlete_id,
+            Athlete.club_id == current_user.club_id if _is_head_coach(current_user) else Athlete.coach_id == current_user.id,
+        )
         .first()
     )
     if not athlete:
@@ -401,7 +417,11 @@ def athlete_profile(
     team_rows = (
         db.query(Team.name)
         .join(TeamMember, TeamMember.team_id == Team.id)
-        .filter(Team.coach_id == current_user.id, TeamMember.athlete_id == athlete.id, TeamMember.is_active.is_(True))
+        .filter(
+            Team.club_id == current_user.club_id if _is_head_coach(current_user) else Team.coach_id == current_user.id,
+            TeamMember.athlete_id == athlete.id,
+            TeamMember.is_active.is_(True),
+        )
         .all()
     )
     teams = [row[0] for row in team_rows]
@@ -410,7 +430,10 @@ def athlete_profile(
         db.query(AttendanceRecord.status, TeamSession.date, Team.name)
         .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
         .join(Team, Team.id == TeamSession.team_id)
-        .filter(AttendanceRecord.athlete_id == athlete.id, Team.coach_id == current_user.id)
+        .filter(
+            AttendanceRecord.athlete_id == athlete.id,
+            Team.club_id == current_user.club_id if _is_head_coach(current_user) else Team.coach_id == current_user.id,
+        )
         .order_by(TeamSession.date.desc())
         .limit(50)
         .all()

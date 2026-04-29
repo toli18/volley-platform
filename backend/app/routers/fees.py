@@ -64,8 +64,21 @@ def _iter_months(from_month: str, to_month: str) -> list[str]:
     return out
 
 
-def _ensure_athlete_owner(db: Session, athlete_id: int, user: User) -> Athlete:
-    athlete = db.query(Athlete).filter(Athlete.id == athlete_id, Athlete.coach_id == user.id).first()
+def _role_value(user: User) -> str:
+    return user.role.value if hasattr(user.role, "value") else str(user.role)
+
+
+def _is_head_coach(user: User) -> bool:
+    return _role_value(user) == UserRole.club_head_coach.value
+
+
+def _ensure_athlete_access(db: Session, athlete_id: int, user: User) -> Athlete:
+    q = db.query(Athlete).filter(Athlete.id == athlete_id)
+    if _is_head_coach(user):
+        q = q.filter(Athlete.club_id == user.club_id)
+    else:
+        q = q.filter(Athlete.coach_id == user.id)
+    athlete = q.first()
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
     return athlete
@@ -153,10 +166,18 @@ def _build_receipt_pdf(lines: list[str]) -> bytes:
 @router.get("/fees/athletes", response_model=list[AthleteRead])
 def list_athletes(
     query: str | None = Query(default=None),
+    coach_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    q = db.query(Athlete).filter(Athlete.coach_id == current_user.id).order_by(Athlete.athlete_name.asc())
+    q = db.query(Athlete)
+    if _is_head_coach(current_user):
+        q = q.filter(Athlete.club_id == current_user.club_id)
+        if coach_id:
+            q = q.filter(Athlete.coach_id == coach_id)
+    else:
+        q = q.filter(Athlete.coach_id == current_user.id)
+    q = q.order_by(Athlete.athlete_name.asc())
     if query and query.strip():
         search = f"%{query.strip()}%"
         q = q.filter(
@@ -352,6 +373,25 @@ def download_athletes_import_template(
     return Response(content=data, media_type="text/csv; charset=utf-8", headers=headers)
 
 
+@router.get("/fees/coaches")
+def list_fee_coaches(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    if not _is_head_coach(current_user):
+        return [{"id": current_user.id, "name": current_user.name, "email": current_user.email}]
+    coaches = (
+        db.query(User)
+        .filter(
+            User.club_id == current_user.club_id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
+    return [{"id": c.id, "name": c.name, "email": c.email, "role": c.role} for c in coaches]
+
+
 @router.put("/fees/athletes/{athlete_id}", response_model=AthleteRead)
 def update_athlete(
     athlete_id: int,
@@ -359,7 +399,7 @@ def update_athlete(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    athlete = _ensure_athlete_owner(db, athlete_id, current_user)
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
     data = payload.model_dump(exclude_unset=True)
 
     if "athlete_name" in data:
@@ -392,10 +432,39 @@ def delete_athlete(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    athlete = _ensure_athlete_owner(db, athlete_id, current_user)
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
     db.delete(athlete)
     db.commit()
     return None
+
+
+@router.put("/fees/athletes/{athlete_id}/transfer", response_model=AthleteRead)
+def transfer_athlete_to_coach(
+    athlete_id: int,
+    coach_id: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    if not _is_head_coach(current_user):
+        raise HTTPException(status_code=403, detail="Само главният треньор може да прехвърля състезатели.")
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    target = (
+        db.query(User)
+        .filter(
+            User.id == coach_id,
+            User.club_id == current_user.club_id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Треньорът не е намерен в този клуб.")
+    athlete.coach_id = target.id
+    athlete.club_id = target.club_id
+    athlete.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(athlete)
+    return athlete
 
 
 @router.post("/fees/athletes/{athlete_id}/payments", response_model=AthletePaymentRead, status_code=status.HTTP_201_CREATED)
@@ -405,7 +474,7 @@ def save_month_payment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    athlete = _ensure_athlete_owner(db, athlete_id, current_user)
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
     month_key = _validate_month_key(payload.month_key)
     amount = float(payload.amount or 0)
     if amount <= 0:
@@ -444,7 +513,7 @@ def athlete_monthly_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    athlete = _ensure_athlete_owner(db, athlete_id, current_user)
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
     months = _iter_months(from_month, to_month)
     payments = (
         db.query(AthletePayment)
@@ -482,11 +551,19 @@ def athlete_monthly_report(
 def period_report(
     from_month: str = Query(...),
     to_month: str = Query(...),
+    coach_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
     months = _iter_months(from_month, to_month)
-    athletes = db.query(Athlete).filter(Athlete.coach_id == current_user.id).order_by(Athlete.athlete_name.asc()).all()
+    q = db.query(Athlete)
+    if _is_head_coach(current_user):
+        q = q.filter(Athlete.club_id == current_user.club_id)
+        if coach_id:
+            q = q.filter(Athlete.coach_id == coach_id)
+    else:
+        q = q.filter(Athlete.coach_id == current_user.id)
+    athletes = q.order_by(Athlete.athlete_name.asc()).all()
     athlete_ids = [a.id for a in athletes]
 
     payments = []
@@ -553,12 +630,16 @@ def payment_receipt_pdf(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    payment = (
+    payment_query = (
         db.query(AthletePayment)
         .join(Athlete, Athlete.id == AthletePayment.athlete_id)
-        .filter(AthletePayment.id == payment_id, Athlete.coach_id == current_user.id)
-        .first()
+        .filter(AthletePayment.id == payment_id)
     )
+    if _is_head_coach(current_user):
+        payment_query = payment_query.filter(Athlete.club_id == current_user.club_id)
+    else:
+        payment_query = payment_query.filter(Athlete.coach_id == current_user.id)
+    payment = payment_query.first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
@@ -590,4 +671,37 @@ def payment_receipt_pdf(
     file_name = f"kvitanciya_{payment.id}_{payment.month_key}.pdf"
     headers = {"Content-Disposition": f'attachment; filename="{file_name}"'}
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.get("/fees/payments/activity")
+def recent_fee_payment_activity(
+    limit: int = Query(default=15, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    if not _is_head_coach(current_user):
+        return {"items": [], "unread_hint": 0}
+    rows = (
+        db.query(AthletePayment, Athlete, User)
+        .join(Athlete, Athlete.id == AthletePayment.athlete_id)
+        .join(User, User.id == AthletePayment.coach_id)
+        .filter(Athlete.club_id == current_user.club_id, AthletePayment.coach_id != current_user.id)
+        .order_by(AthletePayment.paid_at.desc())
+        .limit(limit)
+        .all()
+    )
+    items = [
+        {
+            "id": payment.id,
+            "athlete_id": athlete.id,
+            "athlete_name": athlete.athlete_name,
+            "coach_id": coach.id,
+            "coach_name": coach.name,
+            "month_key": payment.month_key,
+            "amount": float(payment.amount or 0),
+            "paid_at": payment.paid_at,
+        }
+        for payment, athlete, coach in rows
+    ]
+    return {"items": items, "unread_hint": len(items)}
 
