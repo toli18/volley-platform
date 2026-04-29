@@ -110,7 +110,8 @@ def get_training(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     training = db.query(Training).filter(Training.id == training_id).first()
-    _ensure_view_access(db, training, current_user)
+    if not training:
+        raise HTTPException(status_code=404, detail="Training not found")
     return training
 
 
@@ -121,7 +122,8 @@ def get_training_details(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     training = db.query(Training).filter(Training.id == training_id).first()
-    _ensure_view_access(db, training, current_user)
+    if not training:
+        raise HTTPException(status_code=404, detail="Training not found")
 
     plan = training.plan or {}
     ids = _collect_plan_ids(plan)
