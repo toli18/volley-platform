@@ -59,7 +59,11 @@ export default function ClubHeadDashboard() {
   });
 
   const coaches = useMemo(() => overview?.coaches || [], [overview]);
-  const transferCoaches = useMemo(() => coaches.filter((c) => String(c?.role || "").toLowerCase() === "coach"), [coaches]);
+  // Backend transfer endpoint допуска целта да е и "coach", и "club_head_coach"
+  const transferCoaches = useMemo(
+    () => coaches.filter((c) => ["coach", "club_head_coach"].includes(String(c?.role || "").toLowerCase())),
+    [coaches]
+  );
   const filteredAssignments = useMemo(() => {
     let list = [...(assignments || [])];
     if (assignmentStatusFilter !== "all") {
