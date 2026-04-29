@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Training, TrainingAssignment, User, UserRole
+from app.models import Drill, Training, TrainingAssignment, User, UserRole
 
 router = APIRouter()
 
@@ -15,6 +15,21 @@ def _ensure_head(user: User):
         raise HTTPException(status_code=403, detail="Only club head coach can assign trainings")
     if not user.club_id:
         raise HTTPException(status_code=422, detail="Head coach is not assigned to a club")
+
+
+def _collect_plan_ids(plan: dict) -> set[int]:
+    ids: set[int] = set()
+    if not isinstance(plan, dict):
+        return ids
+    for arr in plan.values():
+        if not arr:
+            continue
+        for x in arr:
+            try:
+                ids.add(int(x))
+            except Exception:
+                pass
+    return ids
 
 
 @router.post("/club/training-assignments")
@@ -164,3 +179,47 @@ def update_assignment_status(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.get("/trainings/assignments/{assignment_id}/details")
+def assigned_training_details(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    assignment = (
+        db.query(TrainingAssignment)
+        .filter(TrainingAssignment.id == assignment_id, TrainingAssignment.assigned_to == current_user.id)
+        .first()
+    )
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    training = db.query(Training).filter(Training.id == assignment.training_id).first()
+    if not training:
+        raise HTTPException(status_code=404, detail="Training not found")
+
+    plan = training.plan or {}
+    drill_ids = _collect_plan_ids(plan)
+    drills_map = {}
+    if drill_ids:
+        drills = db.query(Drill).filter(Drill.id.in_(list(drill_ids))).all()
+        for d in drills:
+            drills_map[int(d.id)] = d
+
+    return {
+        "id": training.id,
+        "title": training.title,
+        "club_id": training.club_id,
+        "source": training.source,
+        "status": training.status,
+        "plan": plan,
+        "notes": training.notes,
+        "coach_id": training.coach_id,
+        "created_at": training.created_at,
+        "updated_at": training.updated_at,
+        "drills": drills_map,
+        "assignment_id": assignment.id,
+        "assignment_status": assignment.status,
+        "assignment_due_date": assignment.due_date,
+    }

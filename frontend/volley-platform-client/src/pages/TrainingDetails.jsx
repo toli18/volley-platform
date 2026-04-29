@@ -1,6 +1,6 @@
 // src/pages/TrainingDetails.jsx
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
@@ -17,6 +17,7 @@ function clipText(s, n = 180) {
 ========================= */
 export default function TrainingDetails() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -40,17 +41,29 @@ export default function TrainingDetails() {
   useEffect(() => {
     (async () => {
       setLoading(true);
+      const assignmentId = new URLSearchParams(location.search).get("assignment");
       try {
         const res = await apiJson(`/trainings/${id}/details`);
         setData(res);
       } catch (e) {
-        toast.error(e?.message || "Грешка при зареждане");
-        setData(null);
+        // Fallback: if the page is opened from an assignment card, load details via assignment context.
+        if (assignmentId) {
+          try {
+            const fallback = await apiJson(`/api/trainings/assignments/${assignmentId}/details`);
+            setData(fallback);
+          } catch (fallbackErr) {
+            toast.error(fallbackErr?.message || e?.message || "Грешка при зареждане");
+            setData(null);
+          }
+        } else {
+          toast.error(e?.message || "Грешка при зареждане");
+          setData(null);
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, location.search]);
 
   if (loading) return <div className="uiPage">Зареждане…</div>;
   if (!data) return <EmptyState title="Няма данни" description="Не успяхме да заредим детайлите за тренировката." />;

@@ -230,7 +230,7 @@ export default function MyTrainings() {
                 </div>
                 {a.note && <div style={{ marginTop: 8, fontSize: 13 }}>{a.note}</div>}
                 <div className="cardActions">
-                  <Button as={Link} to={`/trainings/${a.training_id}`} variant="secondary">Преглед</Button>
+                  <Button as={Link} to={`/trainings/${a.training_id}?assignment=${a.id}`} variant="secondary">Преглед</Button>
                   <Button
                     variant={a.status === "new" ? "primary" : "secondary"}
                     onClick={() => updateAssignmentStatus(a.id, "in_progress")}
