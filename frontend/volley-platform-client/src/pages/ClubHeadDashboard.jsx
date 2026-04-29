@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -23,6 +24,7 @@ export default function ClubHeadDashboard() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("athletes");
   const [monthKey, setMonthKey] = useState(nowMonth());
   const [period, setPeriod] = useState({ from_date: todayDate(), to_date: todayDate() });
   const [overview, setOverview] = useState(null);
@@ -31,6 +33,10 @@ export default function ClubHeadDashboard() {
   const [assignments, setAssignments] = useState([]);
   const [assignmentStatusFilter, setAssignmentStatusFilter] = useState("all");
   const [assignmentSort, setAssignmentSort] = useState("newest");
+  const [payAthlete, setPayAthlete] = useState(null);
+  const [payForm, setPayForm] = useState({ month_key: nowMonth(), amount: "", note: "" });
+  const [transferAthlete, setTransferAthlete] = useState(null);
+  const [transferCoachId, setTransferCoachId] = useState("");
   const [assignForm, setAssignForm] = useState({
     training_id: "",
     assignee_ids: [],
@@ -39,6 +45,7 @@ export default function ClubHeadDashboard() {
   });
 
   const coaches = useMemo(() => overview?.coaches || [], [overview]);
+  const transferCoaches = useMemo(() => coaches.filter((c) => String(c?.role || "").toLowerCase() === "coach"), [coaches]);
   const filteredAssignments = useMemo(() => {
     let list = [...(assignments || [])];
     if (assignmentStatusFilter !== "all") {
@@ -84,6 +91,49 @@ export default function ClubHeadDashboard() {
     load();
   }, []);
 
+  const savePay = async () => {
+    if (!payAthlete) return;
+    const amount = Number(payForm.amount);
+    if (!payForm.month_key || !Number.isFinite(amount) || amount <= 0) {
+      toast.error("Въведи валиден месец и сума.");
+      return;
+    }
+    try {
+      setBusy(true);
+      await axiosInstance.post(API_PATHS.FEES_PAYMENT_SAVE(payAthlete.id), {
+        month_key: payForm.month_key,
+        amount,
+        note: payForm.note?.trim() || null,
+      });
+      toast.success("Плащането е записано.");
+      setPayAthlete(null);
+      setPayForm({ month_key: nowMonth(), amount: "", note: "" });
+      await load();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при запис на плащане."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const transferAth = async () => {
+    if (!transferAthlete || !transferCoachId) return;
+    try {
+      setBusy(true);
+      await axiosInstance.put(API_PATHS.FEES_ATHLETE_TRANSFER(transferAthlete.id), null, {
+        params: { coach_id: Number(transferCoachId) },
+      });
+      toast.success("Състезателят е прехвърлен.");
+      setTransferAthlete(null);
+      setTransferCoachId("");
+      await load();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при прехвърляне."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const assignTraining = async () => {
     const trainingId = Number(assignForm.training_id);
     const assignees = assignForm.assignee_ids || [];
@@ -114,210 +164,292 @@ export default function ClubHeadDashboard() {
       <PageHero
         title="Главен треньор"
         subtitle="Клубен контролен панел: състезатели, такси, присъствие и тренировки."
+        actions={
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button variant={tab === "athletes" ? "primary" : "secondary"} onClick={() => setTab("athletes")}>
+              Състезатели
+            </Button>
+            <Button variant={tab === "tasks" ? "primary" : "secondary"} onClick={() => setTab("tasks")}>
+              Задачи
+            </Button>
+          </div>
+        }
       />
 
-      <Card title="Филтри и обновяване">
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
-          <Input type="date" value={period.from_date} onChange={(e) => setPeriod((p) => ({ ...p, from_date: e.target.value }))} />
-          <Input type="date" value={period.to_date} onChange={(e) => setPeriod((p) => ({ ...p, to_date: e.target.value }))} />
-          <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
-            <option value="">Всички треньори</option>
-            {coaches.map((c) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.name} ({c.role === "club_head_coach" ? "Главен треньор" : "Треньор"})
-              </option>
-            ))}
-          </Input>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-            <Button onClick={load} disabled={busy}>{busy ? "Обновяване..." : "Обнови"}</Button>
-          </div>
-        </div>
-      </Card>
+      {tab === "athletes" && (
+        <>
+          <Card title="Филтри и обновяване">
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
+              <Input type="date" value={period.from_date} onChange={(e) => setPeriod((p) => ({ ...p, from_date: e.target.value }))} />
+              <Input type="date" value={period.to_date} onChange={(e) => setPeriod((p) => ({ ...p, to_date: e.target.value }))} />
+              <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
+                <option value="">Всички треньори</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name} ({c.role === "club_head_coach" ? "Главен треньор" : "Треньор"})
+                  </option>
+                ))}
+              </Input>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                <Button onClick={load} disabled={busy}>{busy ? "Обновяване..." : "Обнови"}</Button>
+              </div>
+            </div>
+          </Card>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-        <Card title="Месечни такси">
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span className="uiBadge">Общо: {overview?.fees?.total_athletes || 0}</span>
-            <span className="uiBadge uiBadge--success">Платили: {overview?.fees?.paid_athletes || 0}</span>
-            <span className="uiBadge uiBadge--danger">Неплатили: {overview?.fees?.unpaid_athletes || 0}</span>
-            <span className="uiBadge uiBadge--info">Сума: {Number(overview?.fees?.total_paid_amount || 0).toFixed(2)} лв.</span>
-          </div>
-        </Card>
+          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+            <Card title="Месечни такси">
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <span className="uiBadge">Общо: {overview?.fees?.total_athletes || 0}</span>
+                <span className="uiBadge uiBadge--success">Платили: {overview?.fees?.paid_athletes || 0}</span>
+                <span className="uiBadge uiBadge--danger">Неплатили: {overview?.fees?.unpaid_athletes || 0}</span>
+                <span className="uiBadge uiBadge--info">Сума: {Number(overview?.fees?.total_paid_amount || 0).toFixed(2)} лв.</span>
+              </div>
+            </Card>
 
-        <Card title="Присъствие за период">
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span className="uiBadge">Тренировки: {overview?.attendance?.sessions_count || 0}</span>
-            <span className="uiBadge uiBadge--success">Присъства: {overview?.attendance?.present || 0}</span>
-            <span className="uiBadge uiBadge--warning">Закъсня: {overview?.attendance?.late || 0}</span>
-            <span className="uiBadge uiBadge--danger">Отсъства: {overview?.attendance?.absent || 0}</span>
-            <span className="uiBadge uiBadge--secondary">Извинен: {overview?.attendance?.excused || 0}</span>
+            <Card title="Присъствие за период">
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <span className="uiBadge">Тренировки: {overview?.attendance?.sessions_count || 0}</span>
+                <span className="uiBadge uiBadge--success">Присъства: {overview?.attendance?.present || 0}</span>
+                <span className="uiBadge uiBadge--warning">Закъсня: {overview?.attendance?.late || 0}</span>
+                <span className="uiBadge uiBadge--danger">Отсъства: {overview?.attendance?.absent || 0}</span>
+                <span className="uiBadge uiBadge--secondary">Извинен: {overview?.attendance?.excused || 0}</span>
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
 
-      <Card title="Състезатели в клуба">
-        {loading ? (
-          <p>Зареждане...</p>
-        ) : athletes.length === 0 ? (
-          <EmptyState title="Няма състезатели" description="Все още няма състезатели в избрания филтър." />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Треньор</TableHead>
-                <TableHead>Родител</TableHead>
-                <TableHead>Телефон</TableHead>
-                <TableHead>Статус</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {athletes.map((a) => {
-                const coach = coaches.find((c) => c.id === a.coach_id);
-                return (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.athlete_name}</TableCell>
-                    <TableCell>{coach?.name || `#${a.coach_id}`}</TableCell>
-                    <TableCell>{a.parent_name || "-"}</TableCell>
-                    <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                    <TableCell>
-                      <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-                        {a.is_active ? "Активен" : "Неактивен"}
-                      </span>
-                    </TableCell>
+          <Card title="Състезатели в клуба">
+            {loading ? (
+              <p>Зареждане...</p>
+            ) : athletes.length === 0 ? (
+              <EmptyState title="Няма състезатели" description="Все още няма състезатели в избрания филтър." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Състезател</TableHead>
+                    <TableHead>Треньор</TableHead>
+                    <TableHead>Родител</TableHead>
+                    <TableHead>Телефон</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Действия</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {athletes.map((a) => {
+                    const coach = coaches.find((c) => c.id === a.coach_id);
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell>
+                          <Link to={`/teams/athletes/${a.id}`}>
+                            <span style={{ fontWeight: 700, cursor: "pointer" }}>{a.athlete_name}</span>
+                          </Link>
+                        </TableCell>
+                        <TableCell>{coach?.name || `#${a.coach_id}`}</TableCell>
+                        <TableCell>{a.parent_name || "-"}</TableCell>
+                        <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
+                        <TableCell>
+                          <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
+                            {a.is_active ? "Активен" : "Неактивен"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <Button size="sm" onClick={() => setPayAthlete(a)}>Плати</Button>
+                            <Button size="sm" variant="secondary" onClick={() => { setTransferAthlete(a); setTransferCoachId(""); }}>
+                              Прехвърли
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </>
+      )}
 
-      <Card title="Последни тренировки в клуба">
-        {(overview?.recent_trainings || []).length === 0 ? (
-          <EmptyState title="Няма тренировки" description="Все още няма записани тренировки в клуба." />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Заглавие</TableHead>
-                <TableHead>Треньор</TableHead>
-                <TableHead>Източник</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Създадена</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(overview?.recent_trainings || []).map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.title}</TableCell>
-                  <TableCell>{t.coach_name || `#${t.coach_id}`}</TableCell>
-                  <TableCell>{t.source}</TableCell>
-                  <TableCell>{t.status}</TableCell>
-                  <TableCell>{t.created_at ? new Date(t.created_at).toLocaleString("bg-BG") : "-"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
+      {tab === "tasks" && (
+        <>
+          <Card title="Последни тренировки в клуба">
+            {(overview?.recent_trainings || []).length === 0 ? (
+              <EmptyState title="Няма тренировки" description="Все още няма записани тренировки в клуба." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Заглавие</TableHead>
+                    <TableHead>Треньор</TableHead>
+                    <TableHead>Източник</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Създадена</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(overview?.recent_trainings || []).map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.title}</TableCell>
+                      <TableCell>{t.coach_name || `#${t.coach_id}`}</TableCell>
+                      <TableCell>{t.source}</TableCell>
+                      <TableCell>{t.status}</TableCell>
+                      <TableCell>{t.created_at ? new Date(t.created_at).toLocaleString("bg-BG") : "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
 
-      <Card title="Възлагане на тренировка като задача">
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          <Input
-            as="select"
-            value={assignForm.training_id}
-            onChange={(e) => setAssignForm((p) => ({ ...p, training_id: e.target.value }))}
-          >
-            <option value="">Избери тренировка</option>
-            {(overview?.recent_trainings || []).map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.title} ({t.coach_name || `#${t.coach_id}`})
-              </option>
-            ))}
-          </Input>
-          <Input
-            as="select"
-            multiple
-            value={assignForm.assignee_ids}
-            onChange={(e) =>
-              setAssignForm((p) => ({
-                ...p,
-                assignee_ids: Array.from(e.target.selectedOptions).map((x) => x.value),
-              }))
-            }
-          >
-            {coaches
-              .filter((c) => c.role === "coach")
-              .map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}
-                </option>
-              ))}
-          </Input>
-          <Input
-            type="date"
-            value={assignForm.due_date}
-            onChange={(e) => setAssignForm((p) => ({ ...p, due_date: e.target.value }))}
-          />
-          <Input
-            placeholder="Бележка към задачата"
-            value={assignForm.note}
-            onChange={(e) => setAssignForm((p) => ({ ...p, note: e.target.value }))}
-          />
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-            <Button onClick={assignTraining} disabled={busy}>Възложи</Button>
-          </div>
+          <Card title="Възлагане на тренировка като задача">
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <Input
+                as="select"
+                value={assignForm.training_id}
+                onChange={(e) => setAssignForm((p) => ({ ...p, training_id: e.target.value }))}
+              >
+                <option value="">Избери тренировка</option>
+                {(overview?.recent_trainings || []).map((t) => (
+                  <option key={t.id} value={String(t.id)}>
+                    {t.title} ({t.coach_name || `#${t.coach_id}`})
+                  </option>
+                ))}
+              </Input>
+              <Input
+                as="select"
+                multiple
+                value={assignForm.assignee_ids}
+                onChange={(e) =>
+                  setAssignForm((p) => ({
+                    ...p,
+                    assignee_ids: Array.from(e.target.selectedOptions).map((x) => x.value),
+                  }))
+                }
+              >
+                {coaches
+                  .filter((c) => c.role === "coach")
+                  .map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+              </Input>
+              <Input
+                type="date"
+                value={assignForm.due_date}
+                onChange={(e) => setAssignForm((p) => ({ ...p, due_date: e.target.value }))}
+              />
+              <Input
+                placeholder="Бележка към задачата"
+                value={assignForm.note}
+                onChange={(e) => setAssignForm((p) => ({ ...p, note: e.target.value }))}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+                <Button onClick={assignTraining} disabled={busy}>Възложи</Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Възложени задачи">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <Input as="select" value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)}>
+                <option value="all">Всички статуси</option>
+                <option value="new">Нови</option>
+                <option value="in_progress">В процес</option>
+                <option value="done">Готови</option>
+              </Input>
+              <Input as="select" value={assignmentSort} onChange={(e) => setAssignmentSort(e.target.value)}>
+                <option value="newest">Най-нови</option>
+                <option value="due_asc">Срок (най-близък)</option>
+                <option value="due_desc">Срок (най-далечен)</option>
+                <option value="status">По статус</option>
+              </Input>
+            </div>
+            {filteredAssignments.length === 0 ? (
+              <EmptyState title="Няма възложени задачи" description="Възложи първата тренировка към треньорите." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Тренировка</TableHead>
+                    <TableHead>Към</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Краен срок</TableHead>
+                    <TableHead>Бележка</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAssignments.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>{a.training_title || `#${a.training_id}`}</TableCell>
+                      <TableCell>{a.assigned_to_name || `#${a.assigned_to}`}</TableCell>
+                      <TableCell>
+                        <span className={`uiBadge ${a.status === "done" ? "uiBadge--success" : a.status === "in_progress" ? "uiBadge--warning" : "uiBadge--secondary"}`}>
+                          {a.status === "done" ? "Готово" : a.status === "in_progress" ? "В процес" : "Нова"}
+                        </span>
+                      </TableCell>
+                      <TableCell>{a.due_date || "-"}</TableCell>
+                      <TableCell>{a.note || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </>
+      )}
+
+      {payAthlete && (
+        <div onClick={() => !busy && setPayAthlete(null)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Плащане: {payAthlete.athlete_name}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input type="month" value={payForm.month_key} onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))} />
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Сума"
+                value={payForm.amount}
+                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+              />
+              <Input
+                placeholder="Бележка (по желание)"
+                value={payForm.note}
+                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
+              />
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={savePay}>Запиши</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setPayAthlete(null)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
         </div>
-      </Card>
+      )}
 
-      <Card title="Възложени задачи">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-          <Input as="select" value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)}>
-            <option value="all">Всички статуси</option>
-            <option value="new">Нови</option>
-            <option value="in_progress">В процес</option>
-            <option value="done">Готови</option>
-          </Input>
-          <Input as="select" value={assignmentSort} onChange={(e) => setAssignmentSort(e.target.value)}>
-            <option value="newest">Най-нови</option>
-            <option value="due_asc">Срок (най-близък)</option>
-            <option value="due_desc">Срок (най-далечен)</option>
-            <option value="status">По статус</option>
-          </Input>
+      {transferAthlete && (
+        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input as="select" value={transferCoachId} onChange={(e) => setTransferCoachId(e.target.value)}>
+                <option value="">Избери треньор</option>
+                {transferCoaches
+                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
+                  .map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+              </Input>
+              <div className="uiModalActions">
+                <Button disabled={busy || !transferCoachId} onClick={transferAth}>Прехвърли</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
         </div>
-        {filteredAssignments.length === 0 ? (
-          <EmptyState title="Няма възложени задачи" description="Възложи първата тренировка към треньорите." />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Тренировка</TableHead>
-                <TableHead>Към</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Краен срок</TableHead>
-                <TableHead>Бележка</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssignments.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>{a.training_title || `#${a.training_id}`}</TableCell>
-                  <TableCell>{a.assigned_to_name || `#${a.assigned_to}`}</TableCell>
-                  <TableCell>
-                    <span className={`uiBadge ${a.status === "done" ? "uiBadge--success" : a.status === "in_progress" ? "uiBadge--warning" : "uiBadge--secondary"}`}>
-                      {a.status === "done" ? "Готово" : a.status === "in_progress" ? "В процес" : "Нова"}
-                    </span>
-                  </TableCell>
-                  <TableCell>{a.due_date || "-"}</TableCell>
-                  <TableCell>{a.note || "-"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
+      )}
     </div>
   );
 }
