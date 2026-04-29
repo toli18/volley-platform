@@ -360,7 +360,10 @@ export default function MonthlyFees() {
       toast.success(
         `Импорт: нови ${data.created || 0}, празни ${data.skipped_empty || 0}, дубликати ${data.skipped_duplicates || 0}.`
       );
-      await loadAthletes(query, coachFilter);
+      // Prevent hidden search/filter state from masking imported athletes.
+      setQuery("");
+      if (isHeadCoach) setCoachFilter("");
+      await loadAthletes("", "");
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -467,6 +470,9 @@ export default function MonthlyFees() {
       </Card>
 
       <Card title="Списък състезатели">
+        <div style={{ marginBottom: 8 }}>
+          <span className="uiBadge uiBadge--info">Общо в списъка: {athletes.length}</span>
+        </div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Input placeholder="Бързо търсене..." value={query} onChange={(e) => setQuery(e.target.value)} />
