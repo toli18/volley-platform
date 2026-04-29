@@ -49,7 +49,9 @@ export default function TrainingDetails() {
         // Fallback: if the page is opened from an assignment card, load details via assignment context.
         if (assignmentId) {
           try {
-            const fallback = await apiJson(`/api/trainings/assignments/${assignmentId}/details`);
+            const fallback = await apiJson(`/api/trainings/assignments/${assignmentId}/details`, {
+              params: { training_id: Number(id) || undefined },
+            });
             setData(fallback);
           } catch (fallbackErr) {
             toast.error(fallbackErr?.message || e?.message || "Грешка при зареждане");

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -184,6 +184,7 @@ def update_assignment_status(
 @router.get("/trainings/assignments/{assignment_id}/details")
 def assigned_training_details(
     assignment_id: int,
+    training_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
@@ -192,10 +193,27 @@ def assigned_training_details(
         .filter(TrainingAssignment.id == assignment_id, TrainingAssignment.assigned_to == current_user.id)
         .first()
     )
-    if not assignment:
+    if not assignment and training_id:
+        assignment = (
+            db.query(TrainingAssignment)
+            .filter(
+                TrainingAssignment.training_id == training_id,
+                TrainingAssignment.assigned_to == current_user.id,
+            )
+            .order_by(TrainingAssignment.created_at.desc())
+            .first()
+        )
+
+    # Fallback for older/misaligned assignment ids:
+    # if assignment is not found, still allow preview for trainings in coach's club.
+    training_lookup_id = assignment.training_id if assignment else training_id
+    if not training_lookup_id:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
-    training = db.query(Training).filter(Training.id == assignment.training_id).first()
+    training_query = db.query(Training).filter(Training.id == training_lookup_id)
+    if current_user.club_id:
+        training_query = training_query.filter(Training.club_id == current_user.club_id)
+    training = training_query.first()
     if not training:
         raise HTTPException(status_code=404, detail="Training not found")
 
@@ -219,7 +237,7 @@ def assigned_training_details(
         "created_at": training.created_at,
         "updated_at": training.updated_at,
         "drills": drills_map,
-        "assignment_id": assignment.id,
-        "assignment_status": assignment.status,
-        "assignment_due_date": assignment.due_date,
+        "assignment_id": assignment.id if assignment else None,
+        "assignment_status": assignment.status if assignment else None,
+        "assignment_due_date": assignment.due_date if assignment else None,
     }
