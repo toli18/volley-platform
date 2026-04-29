@@ -77,11 +77,9 @@ export default function TeamDetails() {
 
   const nonMemberMatches = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
-    if (!q) return [];
-    return athletes
-      .filter((a) => !memberIds.includes(a.id))
-      .filter((a) => String(a.athlete_name || "").toLowerCase().includes(q))
-      .slice(0, 12);
+    const nonMembers = athletes.filter((a) => !memberIds.includes(a.id));
+    if (!q) return nonMembers;
+    return nonMembers.filter((a) => String(a.athlete_name || "").toLowerCase().includes(q));
   }, [athletes, memberIds, memberSearch]);
 
   const saveMembers = async (ids) => {
@@ -211,9 +209,7 @@ export default function TeamDetails() {
           onChange={(e) => setMemberSearch(e.target.value)}
         />
         <div style={{ marginTop: 10 }}>
-          {!memberSearch.trim() ? (
-            <span className="uiBadge">Въведи име за търсене</span>
-          ) : nonMemberMatches.length === 0 ? (
+          {nonMemberMatches.length === 0 ? (
             <EmptyState title="Няма резултати" description="Няма свободни състезатели с това име." />
           ) : (
             <Table>
