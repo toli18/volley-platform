@@ -31,6 +31,10 @@ def _ensure_view_access(db: Session, training: Training, current_user: User):
     if training.coach_id == current_user.id:
         return
 
+    # Coaches from the same club can preview club trainings.
+    if training.club_id and current_user.club_id and training.club_id == current_user.club_id:
+        return
+
     # Assigned coach can preview details of the training task.
     assigned = (
         db.query(TrainingAssignment)
