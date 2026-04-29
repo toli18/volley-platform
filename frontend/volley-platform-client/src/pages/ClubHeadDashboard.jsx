@@ -12,6 +12,19 @@ const nowMonth = () => {
 };
 const todayDate = () => new Date().toISOString().slice(0, 10);
 
+const monthRangeForKey = (monthKey) => {
+  if (!monthKey || typeof monthKey !== "string") return { from_date: todayDate(), to_date: todayDate() };
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return { from_date: todayDate(), to_date: todayDate() };
+
+  const from_date = `${monthKey}-01`;
+  const lastDay = new Date(year, month, 0).getDate(); // month is 1-12
+  const to_date = `${monthKey}-${String(lastDay).padStart(2, "0")}`;
+  return { from_date, to_date };
+};
+
 const normalizeError = (err, fallback = "Грешка при зареждане на таблото на главния треньор.") => {
   const detail = err?.response?.data?.detail;
   if (!detail) return err?.message || fallback;
@@ -26,10 +39,11 @@ export default function ClubHeadDashboard() {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("athletes");
   const [monthKey, setMonthKey] = useState(nowMonth());
-  const [period, setPeriod] = useState({ from_date: todayDate(), to_date: todayDate() });
+  const [period, setPeriod] = useState(() => monthRangeForKey(nowMonth()));
   const [overview, setOverview] = useState(null);
   const [athletes, setAthletes] = useState([]);
   const [coachFilter, setCoachFilter] = useState("");
+  const [athleteQuery, setAthleteQuery] = useState("");
   const [assignments, setAssignments] = useState([]);
   const [assignmentStatusFilter, setAssignmentStatusFilter] = useState("all");
   const [assignmentSort, setAssignmentSort] = useState("newest");
@@ -64,6 +78,12 @@ export default function ClubHeadDashboard() {
     return list;
   }, [assignments, assignmentStatusFilter, assignmentSort]);
 
+  const visibleAthletes = useMemo(() => {
+    const q = (athleteQuery || "").trim().toLowerCase();
+    if (!q) return athletes;
+    return (athletes || []).filter((a) => String(a?.athlete_name || "").toLowerCase().includes(q));
+  }, [athletes, athleteQuery]);
+
   const load = async () => {
     try {
       setBusy(true);
@@ -90,6 +110,12 @@ export default function ClubHeadDashboard() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    // UI вече не позволява избор на конкретни дати,
+    // затова държим периода за месеца, който е активен в таблото.
+    setPeriod(monthRangeForKey(monthKey));
+  }, [monthKey]);
 
   const savePay = async () => {
     if (!payAthlete) return;
@@ -120,9 +146,11 @@ export default function ClubHeadDashboard() {
     if (!transferAthlete || !transferCoachId) return;
     try {
       setBusy(true);
-      await axiosInstance.put(API_PATHS.FEES_ATHLETE_TRANSFER(transferAthlete.id), null, {
-        params: { coach_id: Number(transferCoachId) },
-      });
+      await axiosInstance.put(
+        API_PATHS.FEES_ATHLETE_TRANSFER(transferAthlete.id),
+        {},
+        { params: { coach_id: Number(transferCoachId) } }
+      );
       toast.success("Състезателят е прехвърлен.");
       setTransferAthlete(null);
       setTransferCoachId("");
@@ -180,9 +208,11 @@ export default function ClubHeadDashboard() {
         <>
           <Card title="Филтри и обновяване">
             <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-              <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
-              <Input type="date" value={period.from_date} onChange={(e) => setPeriod((p) => ({ ...p, from_date: e.target.value }))} />
-              <Input type="date" value={period.to_date} onChange={(e) => setPeriod((p) => ({ ...p, to_date: e.target.value }))} />
+              <Input
+                placeholder="Търсене по име..."
+                value={athleteQuery}
+                onChange={(e) => setAthleteQuery(e.target.value)}
+              />
               <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
                 <option value="">Всички треньори</option>
                 {coaches.map((c) => (
@@ -223,6 +253,8 @@ export default function ClubHeadDashboard() {
               <p>Зареждане...</p>
             ) : athletes.length === 0 ? (
               <EmptyState title="Няма състезатели" description="Все още няма състезатели в избрания филтър." />
+            ) : visibleAthletes.length === 0 ? (
+              <EmptyState title="Няма резултати" description={athleteQuery ? `Няма съвпадения по "${athleteQuery}".` : "Опитай друга ключова дума."} />
             ) : (
               <Table>
                 <TableHeader>
@@ -236,7 +268,7 @@ export default function ClubHeadDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {athletes.map((a) => {
+                  {visibleAthletes.map((a) => {
                     const coach = coaches.find((c) => c.id === a.coach_id);
                     return (
                       <TableRow key={a.id}>
@@ -256,7 +288,15 @@ export default function ClubHeadDashboard() {
                         <TableCell>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <Button size="sm" onClick={() => setPayAthlete(a)}>Плати</Button>
-                            <Button size="sm" variant="secondary" onClick={() => { setTransferAthlete(a); setTransferCoachId(""); }}>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                const nextCoach = transferCoaches.find((c) => String(c?.id) !== String(a?.coach_id));
+                                setTransferAthlete(a);
+                                setTransferCoachId(nextCoach ? String(nextCoach.id) : "");
+                              }}
+                            >
                               Прехвърли
                             </Button>
                           </div>
