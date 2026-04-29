@@ -210,10 +210,9 @@ def assigned_training_details(
     if not training_lookup_id:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
-    training_query = db.query(Training).filter(Training.id == training_lookup_id)
-    if current_user.club_id:
-        training_query = training_query.filter(Training.club_id == current_user.club_id)
-    training = training_query.first()
+    # Keep preview resilient: if assignment exists and training id is known,
+    # return the training even when user/club metadata is inconsistent.
+    training = db.query(Training).filter(Training.id == training_lookup_id).first()
     if not training:
         raise HTTPException(status_code=404, detail="Training not found")
 
