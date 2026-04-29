@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
+import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeError = (err, fallback = "Грешка при работа с отбора.") => {
@@ -17,6 +18,7 @@ const normalizeError = (err, fallback = "Грешка при работа с о�
 export default function TeamDetails() {
   const { teamId } = useParams();
   const toast = useToast();
+  const { user } = useAuth();
 
   const [busy, setBusy] = useState(false);
   const [team, setTeam] = useState(null);
@@ -29,17 +31,26 @@ export default function TeamDetails() {
   const [payForm, setPayForm] = useState({ month_key: new Date().toISOString().slice(0, 7), amount: "", note: "" });
 
   const teamIdNum = Number(teamId);
+  const isHeadCoach = user?.role === "club_head_coach";
+  const currentUserId = Number(user?.id || 0);
 
   const loadTeam = async () => {
     const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
-    const list = Array.isArray(res.data) ? res.data : [];
+    const list = (Array.isArray(res.data) ? res.data : []).filter((t) => {
+      if (isHeadCoach) return true;
+      return Number(t?.coach_id) === currentUserId;
+    });
     const found = list.find((x) => x.id === teamIdNum) || null;
     setTeam(found);
   };
 
   const loadAthletes = async () => {
     const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST);
-    setAthletes(Array.isArray(res.data) ? res.data : []);
+    const list = (Array.isArray(res.data) ? res.data : []).filter((a) => {
+      if (isHeadCoach) return true;
+      return Number(a?.coach_id) === currentUserId;
+    });
+    setAthletes(list);
   };
 
   const loadMembers = async () => {
@@ -62,7 +73,7 @@ export default function TeamDetails() {
       }
     };
     run();
-  }, [teamIdNum]);
+  }, [teamIdNum, isHeadCoach, currentUserId]);
 
   const nonMemberMatches = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
