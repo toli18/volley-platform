@@ -75,12 +75,12 @@ export default function TeamDetails() {
     run();
   }, [teamIdNum, isHeadCoach, currentUserId]);
 
-  const nonMemberMatches = useMemo(() => {
+  const nonMembers = useMemo(() => athletes.filter((a) => !memberIds.includes(a.id)), [athletes, memberIds]);
+  const visibleCandidates = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
-    const nonMembers = athletes.filter((a) => !memberIds.includes(a.id));
     if (!q) return nonMembers;
     return nonMembers.filter((a) => String(a.athlete_name || "").toLowerCase().includes(q));
-  }, [athletes, memberIds, memberSearch]);
+  }, [nonMembers, memberSearch]);
 
   const saveMembers = async (ids) => {
     try {
@@ -209,8 +209,11 @@ export default function TeamDetails() {
           onChange={(e) => setMemberSearch(e.target.value)}
         />
         <div style={{ marginTop: 10 }}>
-          {nonMemberMatches.length === 0 ? (
-            <EmptyState title="Няма резултати" description="Няма свободни състезатели с това име." />
+          {visibleCandidates.length === 0 ? (
+            <EmptyState
+              title={memberSearch.trim() ? "Няма резултати" : "Няма свободни състезатели"}
+              description={memberSearch.trim() ? "Няма свободни състезатели с това име." : "Всички налични състезатели вече са добавени в отбора."}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -222,7 +225,7 @@ export default function TeamDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {nonMemberMatches.map((a) => (
+                {visibleCandidates.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell>{a.athlete_name}</TableCell>
                     <TableCell>{a.parent_name || "-"}</TableCell>
