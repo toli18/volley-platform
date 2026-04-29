@@ -265,7 +265,13 @@ def import_athletes(
                     continue
             if decoded is None:
                 raise HTTPException(status_code=400, detail="Неуспешно декодиране на CSV файла.")
-            reader = csv.DictReader(decoded.splitlines())
+            sample = decoded[:2048]
+            try:
+                dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+                reader = csv.DictReader(decoded.splitlines(), dialect=dialect)
+            except Exception:
+                # Fallback to comma for malformed CSV samples.
+                reader = csv.DictReader(decoded.splitlines())
             rows = [dict(r) for r in reader]
         elif file_name.endswith(".xlsx") or file_name.endswith(".xls"):
             try:
