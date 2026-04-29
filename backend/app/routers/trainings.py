@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies.roles import require_role
-from ..models import Training, UserRole, User, Drill
+from ..models import Training, TrainingAssignment, UserRole, User, Drill
 from ..schemas.training import (
     TrainingCreate,
     TrainingRead,
@@ -21,6 +21,29 @@ router = APIRouter(tags=["Trainings"])
 def _ensure_owner(training: Training, current_user: User):
     if not training or training.coach_id != current_user.id:
         raise HTTPException(status_code=404, detail="Training not found")
+
+
+def _ensure_view_access(db: Session, training: Training, current_user: User):
+    if not training:
+        raise HTTPException(status_code=404, detail="Training not found")
+
+    # Owner always has access.
+    if training.coach_id == current_user.id:
+        return
+
+    # Assigned coach can preview details of the training task.
+    assigned = (
+        db.query(TrainingAssignment)
+        .filter(
+            TrainingAssignment.training_id == training.id,
+            TrainingAssignment.assigned_to == current_user.id,
+        )
+        .first()
+    )
+    if assigned:
+        return
+
+    raise HTTPException(status_code=404, detail="Training not found")
 
 
 def _collect_plan_ids(plan: Dict[str, List[int]]) -> Set[int]:
@@ -83,7 +106,7 @@ def get_training(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     training = db.query(Training).filter(Training.id == training_id).first()
-    _ensure_owner(training, current_user)
+    _ensure_view_access(db, training, current_user)
     return training
 
 
@@ -94,7 +117,7 @@ def get_training_details(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     training = db.query(Training).filter(Training.id == training_id).first()
-    _ensure_owner(training, current_user)
+    _ensure_view_access(db, training, current_user)
 
     plan = training.plan or {}
     ids = _collect_plan_ids(plan)
