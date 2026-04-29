@@ -160,7 +160,13 @@ export default function ClubHeadDashboard() {
       setTransferCoachId("");
       await load();
     } catch (err) {
-      toast.error(normalizeError(err, "Грешка при прехвърляне."));
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      const msg = normalizeError(err, "Грешка при прехвърляне.");
+      toast.error(`Прехвърляне неуспешно${status ? ` (HTTP ${status})` : ""}: ${detail || msg}`);
+      // Помага ако искаш да видиш точния error и в DevTools Console.
+      // eslint-disable-next-line no-console
+      console.error("transferAth failed", err);
     } finally {
       setBusy(false);
     }
