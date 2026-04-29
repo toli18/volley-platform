@@ -149,11 +149,19 @@ export default function ClubHeadDashboard() {
   const transferAth = async () => {
     if (!transferAthlete || !transferCoachId) return;
     try {
+      const athleteId = Number(transferAthlete.id);
+      const coachId = Number(transferCoachId);
+
+      if (!Number.isFinite(athleteId) || !Number.isFinite(coachId)) {
+        toast.error(`Невалидни данни за прехвърляне (athlete_id=${transferAthlete?.id}, coach_id=${transferCoachId}).`);
+        return;
+      }
+
       setBusy(true);
       await axiosInstance.put(
-        API_PATHS.FEES_ATHLETE_TRANSFER(transferAthlete.id),
+        API_PATHS.FEES_ATHLETE_TRANSFER(athleteId),
         {},
-        { params: { coach_id: Number(transferCoachId) } }
+        { params: { coach_id: coachId } }
       );
       toast.success("Състезателят е прехвърлен.");
       setTransferAthlete(null);
@@ -163,10 +171,16 @@ export default function ClubHeadDashboard() {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
       const msg = normalizeError(err, "Грешка при прехвърляне.");
-      toast.error(`Прехвърляне неуспешно${status ? ` (HTTP ${status})` : ""}: ${detail || msg}`);
+      toast.error(
+        `Прехвърляне неуспешно${status ? ` (HTTP ${status})` : ""}: ${detail || msg}`
+      );
       // Помага ако искаш да видиш точния error и в DevTools Console.
       // eslint-disable-next-line no-console
-      console.error("transferAth failed", err);
+      console.error("transferAth failed", {
+        athlete_id: transferAthlete?.id,
+        coach_id: transferCoachId,
+        error: err,
+      });
     } finally {
       setBusy(false);
     }
