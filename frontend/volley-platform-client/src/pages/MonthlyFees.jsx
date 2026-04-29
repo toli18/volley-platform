@@ -106,9 +106,20 @@ export default function MonthlyFees() {
     const run = async () => {
       try {
         const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
-        setClubCoaches(Array.isArray(res.data) ? res.data : []);
-      } catch {
+        const coaches = Array.isArray(res.data) ? res.data : [];
+        if (coaches.length > 0) {
+          setClubCoaches(coaches);
+          return;
+        }
+        // Fallback source in case the dedicated endpoint returns an empty list unexpectedly.
+        const month = currentMonthKey();
+        const ov = await axiosInstance.get(API_PATHS.CLUB_OVERVIEW, {
+          params: { month_key: month, from_date: `${month}-01`, to_date: `${month}-31` },
+        });
+        setClubCoaches(Array.isArray(ov.data?.coaches) ? ov.data.coaches : []);
+      } catch (err) {
         setClubCoaches([]);
+        toast.error(normalizeError(err));
       }
     };
     run();

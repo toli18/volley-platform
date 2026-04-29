@@ -386,16 +386,31 @@ def list_fee_coaches(
 ):
     if not _is_head_coach(current_user):
         return [{"id": current_user.id, "name": current_user.name, "email": current_user.email}]
-    coaches = (
-        db.query(User)
-        .filter(
-            User.club_id == current_user.club_id,
-            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+    if not current_user.club_id:
+        return []
+    # Primary query by enum role
+    coaches = []
+    try:
+        coaches = (
+            db.query(User)
+            .filter(
+                User.club_id == current_user.club_id,
+                User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+            )
+            .order_by(User.name.asc())
+            .all()
         )
-        .order_by(User.name.asc())
-        .all()
-    )
-    return [{"id": c.id, "name": c.name, "email": c.email, "role": c.role} for c in coaches]
+    except Exception:
+        # Fallback when DB enum state is inconsistent: fetch by club and filter in Python.
+        raw_users = db.query(User).filter(User.club_id == current_user.club_id).order_by(User.name.asc()).all()
+        coaches = [
+            u for u in raw_users
+            if (u.role.value if hasattr(u.role, "value") else str(u.role)) in {UserRole.coach.value, UserRole.club_head_coach.value}
+        ]
+    return [
+        {"id": c.id, "name": c.name, "email": c.email, "role": c.role.value if hasattr(c.role, "value") else c.role}
+        for c in coaches
+    ]
 
 
 @router.put("/fees/athletes/{athlete_id}", response_model=AthleteRead)
