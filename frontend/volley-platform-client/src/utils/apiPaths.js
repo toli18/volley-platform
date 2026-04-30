@@ -123,6 +123,8 @@ export const API_PATHS = {
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",
   CLUB_TRAINING_ASSIGNMENTS_CREATE: "/api/club/training-assignments",
+  CLUB_TRAINING_ASSIGNMENTS_ACTIVITY: "/api/club/training-assignments/activity",
   MY_TRAINING_ASSIGNMENTS: "/api/trainings/assignments/my",
   TRAINING_ASSIGNMENT_UPDATE: (assignmentId) => `/api/trainings/assignments/${assignmentId}`,
+  TRAINING_ASSIGNMENT_DELETE: (assignmentId) => `/api/trainings/assignments/${assignmentId}`,
 };

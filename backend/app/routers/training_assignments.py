@@ -181,6 +181,26 @@ def update_assignment_status(
     return item
 
 
+@router.delete("/trainings/assignments/{assignment_id}")
+def delete_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    item = (
+        db.query(TrainingAssignment)
+        .filter(TrainingAssignment.id == assignment_id, TrainingAssignment.assigned_to == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if str(item.status or "").strip().lower() != "done":
+        raise HTTPException(status_code=422, detail="Assignment can be deleted only when status is done")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/trainings/assignments/{assignment_id}/details")
 def assigned_training_details(
     assignment_id: int,
@@ -239,4 +259,40 @@ def assigned_training_details(
         "assignment_id": assignment.id if assignment else None,
         "assignment_status": assignment.status if assignment else None,
         "assignment_due_date": assignment.due_date if assignment else None,
+    }
+
+
+@router.get("/club/training-assignments/activity")
+def club_assignment_activity(
+    limit: int = Query(default=12, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    _ensure_head(current_user)
+    rows = (
+        db.query(TrainingAssignment, Training.title, User.name)
+        .join(Training, Training.id == TrainingAssignment.training_id)
+        .join(User, User.id == TrainingAssignment.assigned_to)
+        .filter(
+            TrainingAssignment.assigned_by == current_user.id,
+            Training.club_id == current_user.club_id,
+            TrainingAssignment.status == "done",
+        )
+        .order_by(TrainingAssignment.updated_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "id": a.id,
+                "training_id": a.training_id,
+                "training_title": title,
+                "assigned_to": a.assigned_to,
+                "assigned_to_name": assignee_name,
+                "status": a.status,
+                "updated_at": a.updated_at,
+            }
+            for a, title, assignee_name in rows
+        ]
     }

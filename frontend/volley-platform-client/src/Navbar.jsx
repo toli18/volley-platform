@@ -18,6 +18,9 @@ export default function Navbar() {
   const [feeAlerts, setFeeAlerts] = useState([]);
   const [feeUnreadCount, setFeeUnreadCount] = useState(0);
   const [feeAlertsOpen, setFeeAlertsOpen] = useState(false);
+  const [taskReports, setTaskReports] = useState([]);
+  const [taskReportsUnread, setTaskReportsUnread] = useState(0);
+  const [taskReportsOpen, setTaskReportsOpen] = useState(false);
 
   const onLogout = () => {
     logout();
@@ -116,6 +119,38 @@ export default function Navbar() {
   }, [isHeadCoachUser, user]);
 
   useEffect(() => {
+    if (!isHeadCoachUser || !user) {
+      setTaskReports([]);
+      setTaskReportsUnread(0);
+      return;
+    }
+    const storageKey = `vp-task-reports-seen-${user.id}`;
+    let cancelled = false;
+    const loadTaskReports = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_ACTIVITY, { params: { limit: 12 } });
+        if (cancelled) return;
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        setTaskReports(items);
+        const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        const unread = items.filter((x) => !seen.includes(x.id)).length;
+        setTaskReportsUnread(unread);
+      } catch {
+        if (!cancelled) {
+          setTaskReports([]);
+          setTaskReportsUnread(0);
+        }
+      }
+    };
+    loadTaskReports();
+    const timer = window.setInterval(loadTaskReports, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isHeadCoachUser, user]);
+
+  useEffect(() => {
     if (!isCoachUser || !user) {
       setTasks([]);
       return;
@@ -199,6 +234,65 @@ export default function Navbar() {
                           {item.due_date ? ` • Срок: ${item.due_date}` : ""}
                         </div>
                       </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {isHeadCoachUser && (
+              <div style={{ position: "relative" }}>
+                <button className="navBtnOutline" onClick={() => setTaskReportsOpen((prev) => !prev)}>
+                  Готови задачи ({taskReportsUnread})
+                </button>
+                {taskReportsOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 8px)",
+                      width: "min(92vw, 420px)",
+                      background: "#fff",
+                      border: "1px solid #dbe5f2",
+                      borderRadius: 12,
+                      boxShadow: "0 8px 28px rgba(15, 23, 42, 0.14)",
+                      padding: 10,
+                      zIndex: 9999,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <strong>Докладвани като готови</strong>
+                      <button
+                        className="navBtnOutline"
+                        onClick={() => {
+                          const key = `vp-task-reports-seen-${user.id}`;
+                          localStorage.setItem(key, JSON.stringify(taskReports.map((x) => x.id)));
+                          setTaskReportsUnread(0);
+                        }}
+                      >
+                        Маркирай прочетени
+                      </button>
+                    </div>
+                    {taskReports.length === 0 && (
+                      <span style={{ color: "#64748b", fontSize: 13 }}>Няма нови докладвани задачи.</span>
+                    )}
+                    {taskReports.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: 8,
+                          background: "#f8fbff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                          Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`} •{" "}
+                          {item.updated_at ? new Date(item.updated_at).toLocaleString("bg-BG") : "—"}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

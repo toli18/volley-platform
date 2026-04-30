@@ -115,6 +115,18 @@ export default function MyTrainings() {
     }
   };
 
+  const deleteAssignment = async (assignmentId) => {
+    const ok = confirm("Да изтрия ли задачата? Това е позволено само за задачи със статус 'Готово'.");
+    if (!ok) return;
+    try {
+      await apiJson(API_PATHS.TRAINING_ASSIGNMENT_DELETE(assignmentId), { method: "DELETE" });
+      setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
+      toast.success("Задачата е изтрита.");
+    } catch (e) {
+      toast.error(e?.message || "Грешка при изтриване на задачата");
+    }
+  };
+
   const filteredAssignments = useMemo(() => {
     let list = [...(assignments || [])];
     if (assignmentStatusFilter !== "all") {
@@ -243,6 +255,11 @@ export default function MyTrainings() {
                   >
                     Готово
                   </Button>
+                  {String(a?.status || "").toLowerCase() === "done" && (
+                    <Button variant="danger" onClick={() => deleteAssignment(a.id)}>
+                      Изтрий
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
