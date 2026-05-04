@@ -1,0 +1,4 @@
+# Railway uses Nixpacks when no Dockerfile is present. Install system fonts so
+# ReportLab can register a Cyrillic-capable TTF without relying on runtime downloads.
+[phases.setup]
+aptPkgs = ["...", "fontconfig", "fonts-dejavu-core"]

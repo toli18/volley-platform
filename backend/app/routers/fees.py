@@ -115,9 +115,18 @@ def _to_bool(value) -> bool:
 PDF_FONT_NAME = "ReceiptFontBG"
 PDF_FONT_REGISTERED = False
 
-_DEJAVU_MIRROR_URLS = (
-    "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/version_2_37/ttf/DejaVuSans.ttf",
-    "https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@version_2_37/ttf/DejaVuSans.ttf",
+# DejaVu upstream removed prebuilt TTF from the GitHub tree; use jsDelivr + Noto as reliable fallbacks.
+_PDF_REMOTE_FONT_SOURCES: tuple[tuple[str, str, int], ...] = (
+    (
+        "https://cdn.jsdelivr.net/gh/notofonts/noto-fonts@main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+        "NotoSans-Regular.ttf",
+        200_000,
+    ),
+    (
+        "https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+        "NotoSans-Regular.ttf",
+        200_000,
+    ),
 )
 
 
@@ -192,22 +201,23 @@ def _pdf_font_scan_share() -> Path | None:
     return None
 
 
-def _pdf_font_download_dejavu() -> Path | None:
+def _pdf_font_download_remote() -> Path | None:
     base = Path(os.environ.get("VP_FONT_CACHE", "/tmp/vp-fonts"))
     try:
         base.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         logger.warning("PDF font cache dir not usable %s: %s", base, exc)
         return None
-    dest = base / "DejaVuSans.ttf"
-    if dest.is_file() and dest.stat().st_size > 200_000:
-        return dest
-    for url in _DEJAVU_MIRROR_URLS:
+    for url, filename, min_bytes in _PDF_REMOTE_FONT_SOURCES:
+        dest = base / filename
+        if dest.is_file() and dest.stat().st_size >= min_bytes:
+            return dest
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "VolleyPlatform/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=45) as resp:
                 data = resp.read()
-            if len(data) < 100_000:
+            if len(data) < min_bytes:
+                logger.warning("PDF font download too small (%s bytes) from %s", len(data), url)
                 continue
             dest.write_bytes(data)
             return dest
@@ -226,7 +236,7 @@ def _ensure_pdf_font() -> str:
         if _try_register_ttf(candidate):
             return PDF_FONT_NAME
 
-    for resolver in (_pdf_font_via_fc_match, _pdf_font_scan_share, _pdf_font_download_dejavu):
+    for resolver in (_pdf_font_via_fc_match, _pdf_font_scan_share, _pdf_font_download_remote):
         resolved = resolver()
         if resolved and _try_register_ttf(resolved):
             return PDF_FONT_NAME
