@@ -1,8 +1,13 @@
+import csv
+import logging
+import os
 import re
+import shutil
+import subprocess
+import urllib.request
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-import csv
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
@@ -28,6 +33,7 @@ from app.schemas.fees import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
@@ -109,24 +115,127 @@ def _to_bool(value) -> bool:
 PDF_FONT_NAME = "ReceiptFontBG"
 PDF_FONT_REGISTERED = False
 
+_DEJAVU_MIRROR_URLS = (
+    "https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/version_2_37/ttf/DejaVuSans.ttf",
+    "https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@version_2_37/ttf/DejaVuSans.ttf",
+)
+
+
+def _try_register_ttf(path: Path) -> bool:
+    global PDF_FONT_REGISTERED
+    try:
+        if not path.is_file():
+            return False
+        pdfmetrics.registerFont(TTFont(PDF_FONT_NAME, str(path)))
+        PDF_FONT_REGISTERED = True
+        return True
+    except Exception as exc:
+        logger.warning("PDF font register failed for %s: %s", path, exc)
+        return False
+
+
+def _pdf_font_static_candidates() -> list[Path]:
+    app_dir = Path(__file__).resolve().parent.parent
+    return [
+        app_dir / "fonts" / "DejaVuSans.ttf",
+        Path("C:/Windows/Fonts/arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/dejavu/ttf/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/TTF/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        Path("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+        Path("/usr/share/fonts/opentype/noto/NotoSans-Regular.ttf"),
+    ]
+
+
+def _pdf_font_via_fc_match() -> Path | None:
+    fc = shutil.which("fc-match")
+    if not fc:
+        return None
+    for pattern in ("DejaVu Sans", "Liberation Sans", "sans"):
+        try:
+            out = subprocess.check_output(
+                [fc, "-f", "%{file}", pattern],
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=6,
+            ).strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            continue
+        if out:
+            p = Path(out)
+            if p.is_file():
+                return p
+    return None
+
+
+def _pdf_font_scan_share() -> Path | None:
+    root = Path("/usr/share/fonts")
+    if not root.is_dir():
+        return None
+    wanted = frozenset(
+        {
+            "dejavusans.ttf",
+            "liberationsans-regular.ttf",
+            "notosans-regular.ttf",
+            "notosansdisplay-regular.ttf",
+        }
+    )
+    try:
+        for p in root.rglob("*.ttf"):
+            if p.name.lower() in wanted:
+                return p
+    except OSError as exc:
+        logger.warning("PDF font scan under %s failed: %s", root, exc)
+    return None
+
+
+def _pdf_font_download_dejavu() -> Path | None:
+    base = Path(os.environ.get("VP_FONT_CACHE", "/tmp/vp-fonts"))
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("PDF font cache dir not usable %s: %s", base, exc)
+        return None
+    dest = base / "DejaVuSans.ttf"
+    if dest.is_file() and dest.stat().st_size > 200_000:
+        return dest
+    for url in _DEJAVU_MIRROR_URLS:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "VolleyPlatform/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = resp.read()
+            if len(data) < 100_000:
+                continue
+            dest.write_bytes(data)
+            return dest
+        except Exception as exc:
+            logger.warning("PDF font download failed (%s): %s", url, exc)
+            continue
+    return None
+
 
 def _ensure_pdf_font() -> str:
     global PDF_FONT_REGISTERED
     if PDF_FONT_REGISTERED:
         return PDF_FONT_NAME
 
-    font_candidates = [
-        Path("C:/Windows/Fonts/arial.ttf"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-        Path("/usr/share/fonts/dejavu/DejaVuSans.ttf"),
-    ]
-    for candidate in font_candidates:
-        if candidate.exists():
-            pdfmetrics.registerFont(TTFont(PDF_FONT_NAME, str(candidate)))
-            PDF_FONT_REGISTERED = True
+    for candidate in _pdf_font_static_candidates():
+        if _try_register_ttf(candidate):
             return PDF_FONT_NAME
 
-    raise HTTPException(status_code=500, detail="Не е намерен подходящ шрифт за PDF (кирилица).")
+    for resolver in (_pdf_font_via_fc_match, _pdf_font_scan_share, _pdf_font_download_dejavu):
+        resolved = resolver()
+        if resolved and _try_register_ttf(resolved):
+            return PDF_FONT_NAME
+
+    raise HTTPException(
+        status_code=500,
+        detail="Не е наличен шрифт за PDF (кирилица). На сървъра няма DejaVu/Liberation и изтеглянето неуспя. "
+        "Добавете пакет fonts-dejavu-core в образа или файл backend/app/fonts/DejaVuSans.ttf.",
+    )
 
 
 def _build_receipt_pdf(lines: list[str]) -> bytes:
