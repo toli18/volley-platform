@@ -29,8 +29,14 @@ export default function Navbar() {
   const userLabel = useMemo(() => user?.email || user?.username || "Потребител", [user]);
   const roleLabel = useMemo(() => (user?.role ? String(user.role) : "guest"), [user]);
   const isAdminUser = Boolean(isAdmin);
-  const isCoachUser = user?.role === "coach" || user?.role === "club_head_coach";
-  const isHeadCoachUser = user?.role === "club_head_coach";
+  const userRoleNorm = useMemo(() => {
+    const r = user?.role;
+    if (r == null || r === undefined) return "";
+    if (typeof r === "object" && r !== null && "value" in r) return String(r.value).toLowerCase();
+    return String(r).toLowerCase();
+  }, [user?.role]);
+  const isCoachUser = userRoleNorm === "coach" || userRoleNorm === "club_head_coach";
+  const isHeadCoachUser = userRoleNorm === "club_head_coach";
   const isPlatformAdmin = user?.role === "platform_admin";
 
   const combinedUnreadCount = useMemo(() => {

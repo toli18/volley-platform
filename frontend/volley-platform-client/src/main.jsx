@@ -101,7 +101,7 @@ const router = createBrowserRouter([
 
       // Coach-only
         {
-        element: <ProtectedRoute allowRoles={["coach", "federation_admin"]} />,
+        element: <ProtectedRoute allowRoles={["coach", "club_head_coach", "federation_admin"]} />,
         children: [
           { path: "my-drills", element: <MyDrills /> },
 

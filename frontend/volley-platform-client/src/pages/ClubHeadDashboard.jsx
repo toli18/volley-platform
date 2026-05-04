@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
@@ -33,8 +34,17 @@ const normalizeError = (err, fallback = "Грешка при зареждане 
   return fallback;
 };
 
+const normalizeRole = (user) => {
+  const r = user?.role;
+  if (r == null || r === undefined) return "";
+  if (typeof r === "object" && r !== null && "value" in r) return String(r.value).toLowerCase();
+  return String(r).toLowerCase();
+};
+
 export default function ClubHeadDashboard() {
+  const { user, loading: authLoading } = useAuth();
   const toast = useToast();
+  const isHeadCoach = normalizeRole(user) === "club_head_coach";
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("athletes");
@@ -121,8 +131,13 @@ export default function ClubHeadDashboard() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isHeadCoach) {
+      setLoading(false);
+      return;
+    }
     load();
-  }, []);
+  }, [authLoading, isHeadCoach]);
 
   const downloadClubBlob = async (path, params, filename) => {
     try {
@@ -237,6 +252,26 @@ export default function ClubHeadDashboard() {
       setBusy(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="uiPage">
+        <PageHero title="Главен треньор" subtitle="Зареждане на профил…" />
+      </div>
+    );
+  }
+
+  if (!isHeadCoach) {
+    return (
+      <div className="uiPage">
+        <PageHero title="Главен треньор" subtitle="Нямате достъп до този модул." />
+        <EmptyState
+          title="Достъпът е ограничен"
+          description="Тази страница е само за потребители с роля „Главен треньор на клуб“. Ако профилът ви е обновен наскоро, излезте и влезте отново."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="uiPage">

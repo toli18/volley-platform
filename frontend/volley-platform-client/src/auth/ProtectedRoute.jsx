@@ -16,10 +16,13 @@ export default function ProtectedRoute({ allowRoles }) {
 
   // Проверка на роли
   if (allowRoles && allowRoles.length > 0) {
-    const userRole = user.role;
+    const raw = user.role;
+    const userRole =
+      raw && typeof raw === "object" && "value" in raw ? String(raw.value).toLowerCase() : String(raw || "").toLowerCase();
 
     const hasAccess = allowRoles.some((role) => {
-      if (role === "coach") return isCoach();
+      if (role === "coach") return userRole === "coach" || userRole === "club_head_coach";
+      if (role === "club_head_coach") return userRole === "club_head_coach";
       if (role === "federation_admin" || role === "platform_admin") return isAdmin();
       return userRole === role;
     });

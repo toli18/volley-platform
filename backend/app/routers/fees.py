@@ -760,47 +760,57 @@ def payment_receipt_pdf(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    payment_query = (
-        db.query(AthletePayment)
-        .join(Athlete, Athlete.id == AthletePayment.athlete_id)
-        .filter(AthletePayment.id == payment_id)
-    )
-    if _is_head_coach(current_user):
-        payment_query = payment_query.filter(Athlete.club_id == current_user.club_id)
-    else:
-        payment_query = payment_query.filter(Athlete.coach_id == current_user.id)
-    payment = payment_query.first()
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
+    try:
+        payment_query = (
+            db.query(AthletePayment)
+            .join(Athlete, Athlete.id == AthletePayment.athlete_id)
+            .filter(AthletePayment.id == payment_id)
+        )
+        if _is_head_coach(current_user):
+            payment_query = payment_query.filter(Athlete.club_id == current_user.club_id)
+        else:
+            payment_query = payment_query.filter(Athlete.coach_id == current_user.id)
+        payment = payment_query.first()
+        if not payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
 
-    athlete = payment.athlete
-    paid_on = payment.paid_at.strftime("%d.%m.%Y %H:%M")
-    club_name = getattr(getattr(athlete, "club", None), "name", None) or "Не е посочен клуб"
-    lines = [
-        f"Номер на квитанция: {payment.id}",
-        f"Клуб: {club_name}",
-        f"Треньор: {current_user.name} ({current_user.email})",
-        f"Дата и час на плащане: {paid_on}",
-        "",
-        f"Състезател: {athlete.athlete_name}",
-        f"Година на раждане: {athlete.birth_year or '-'}",
-        f"Телефон състезател: {athlete.athlete_phone or '-'}",
-        f"Родител: {athlete.parent_name or '-'}",
-        f"Телефон родител: {athlete.parent_phone or '-'}",
-        "",
-        f"Период (месец): {payment.month_key}",
-        f"Основание: Месечна такса тренировки",
-        f"Платена сума: {payment.amount:.2f} лв.",
-    ]
-    if payment.note:
-        lines.append(f"Бележка: {payment.note}")
-    lines.append("")
-    lines.append("Документът е генериран автоматично от Volley Coach Platform.")
+        athlete = payment.athlete
+        paid_dt = payment.paid_at or getattr(payment, "created_at", None) or datetime.utcnow()
+        paid_on = paid_dt.strftime("%d.%m.%Y %H:%M") if hasattr(paid_dt, "strftime") else str(paid_dt)
+        club_name = getattr(getattr(athlete, "club", None), "name", None) or "Не е посочен клуб"
+        lines = [
+            f"Номер на квитанция: {payment.id}",
+            f"Клуб: {club_name}",
+            f"Треньор: {current_user.name} ({current_user.email})",
+            f"Дата и час на плащане: {paid_on}",
+            "",
+            f"Състезател: {athlete.athlete_name}",
+            f"Година на раждане: {athlete.birth_year or '-'}",
+            f"Телефон състезател: {athlete.athlete_phone or '-'}",
+            f"Родител: {athlete.parent_name or '-'}",
+            f"Телефон родител: {athlete.parent_phone or '-'}",
+            "",
+            f"Период (месец): {payment.month_key}",
+            f"Основание: Месечна такса тренировки",
+            f"Платена сума: {payment.amount:.2f} лв.",
+        ]
+        if payment.note:
+            lines.append(f"Бележка: {payment.note}")
+        lines.append("")
+        lines.append("Документът е генериран автоматично от Volley Coach Platform.")
 
-    pdf_bytes = _build_receipt_pdf(lines)
-    file_name = f"kvitanciya_{payment.id}_{payment.month_key}.pdf"
-    headers = {"Content-Disposition": f'attachment; filename="{file_name}"'}
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+        pdf_bytes = _build_receipt_pdf(lines)
+        file_name = f"kvitanciya_{payment.id}_{payment.month_key}.pdf"
+        headers = {"Content-Disposition": f'attachment; filename="{file_name}"'}
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("payment_receipt_pdf failed payment_id=%s", payment_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Грешка при генериране на PDF квитанция. Проверете логовете на сървъра или опитайте по-късно.",
+        ) from exc
 
 
 @router.get("/fees/payments/activity")
