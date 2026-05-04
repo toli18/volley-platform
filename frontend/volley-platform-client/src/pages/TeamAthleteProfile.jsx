@@ -80,9 +80,14 @@ export default function TeamAthleteProfile() {
         title={`Профил: ${profile.athlete_name}`}
         subtitle="Присъствие, отбори и последни плащания на едно място."
         actions={
-          <Link to={fromPath}>
-            <Button variant="secondary">Назад към Отбори</Button>
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button as={Link} to={`/monthly-fees?athlete_id=${profile.athlete_id}`} variant="primary">
+              Месечни такси и плащане
+            </Button>
+            <Link to={fromPath}>
+              <Button variant="secondary">Назад към Отбори</Button>
+            </Link>
+          </div>
         }
       />
 

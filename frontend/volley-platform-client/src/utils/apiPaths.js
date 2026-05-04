@@ -119,6 +119,10 @@ export const API_PATHS = {
   CLUB_FEES_SUMMARY: "/api/club/fees/summary",
   CLUB_ATTENDANCE_SUMMARY: "/api/club/attendance/summary",
   CLUB_TRAININGS: "/api/club/trainings",
+  CLUB_REPORT_FEES_XLSX: "/api/club/reports/fees.xlsx",
+  CLUB_REPORT_FEES_PDF: "/api/club/reports/fees.pdf",
+  CLUB_REPORT_ATTENDANCE_XLSX: "/api/club/reports/attendance.xlsx",
+  CLUB_REPORT_ATTENDANCE_PDF: "/api/club/reports/attendance.pdf",
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

@@ -45,8 +45,13 @@ export default function ClubHeadDashboard() {
   const [coachFilter, setCoachFilter] = useState("");
   const [athleteQuery, setAthleteQuery] = useState("");
   const [assignments, setAssignments] = useState([]);
+  const [assignmentCoachFilter, setAssignmentCoachFilter] = useState("");
+  const [assignmentUpdatedFrom, setAssignmentUpdatedFrom] = useState("");
+  const [assignmentUpdatedTo, setAssignmentUpdatedTo] = useState("");
   const [assignmentStatusFilter, setAssignmentStatusFilter] = useState("all");
   const [assignmentSort, setAssignmentSort] = useState("newest");
+  const [expFeesFrom, setExpFeesFrom] = useState(nowMonth());
+  const [expFeesTo, setExpFeesTo] = useState(nowMonth());
   const [payAthlete, setPayAthlete] = useState(null);
   const [payForm, setPayForm] = useState({ month_key: nowMonth(), amount: "", note: "" });
   const [transferAthlete, setTransferAthlete] = useState(null);
@@ -91,6 +96,10 @@ export default function ClubHeadDashboard() {
   const load = async () => {
     try {
       setBusy(true);
+      const assignParams = {};
+      if (assignmentCoachFilter) assignParams.assigned_to = Number(assignmentCoachFilter);
+      if (assignmentUpdatedFrom) assignParams.updated_from = assignmentUpdatedFrom;
+      if (assignmentUpdatedTo) assignParams.updated_to = assignmentUpdatedTo;
       const [overviewRes, athletesRes, assignmentsRes] = await Promise.all([
         axiosInstance.get(API_PATHS.CLUB_OVERVIEW, {
           params: { month_key: monthKey, from_date: period.from_date, to_date: period.to_date },
@@ -98,7 +107,7 @@ export default function ClubHeadDashboard() {
         axiosInstance.get(API_PATHS.CLUB_ATHLETES, {
           params: coachFilter ? { coach_id: Number(coachFilter) } : {},
         }),
-        axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_LIST),
+        axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_LIST, { params: assignParams }),
       ]);
       setOverview(overviewRes.data || null);
       setAthletes(Array.isArray(athletesRes.data) ? athletesRes.data : []);
@@ -114,6 +123,24 @@ export default function ClubHeadDashboard() {
   useEffect(() => {
     load();
   }, []);
+
+  const downloadClubBlob = async (path, params, filename) => {
+    try {
+      setBusy(true);
+      const res = await axiosInstance.get(path, { params, responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Файлът е изтеглен.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при изтегляне на файла."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     // UI вече не позволява избор на конкретни дати,
@@ -272,6 +299,77 @@ export default function ClubHeadDashboard() {
             </Card>
           </div>
 
+          <Card title="Експорт за клуба">
+            <p style={{ margin: "0 0 10px", color: "#475569", fontSize: 14 }}>
+              Изтегляне на Excel или PDF за избран период (само за главен треньор).
+            </p>
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <div style={{ display: "grid", gap: 8 }}>
+                <strong style={{ fontSize: 13 }}>Месечни такси</strong>
+                <Input type="month" value={expFeesFrom} onChange={(e) => setExpFeesFrom(e.target.value)} />
+                <Input type="month" value={expFeesTo} onChange={(e) => setExpFeesTo(e.target.value)} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_XLSX, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.xlsx`)
+                    }
+                  >
+                    Такси Excel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_PDF, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.pdf`)
+                    }
+                  >
+                    Такси PDF
+                  </Button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <strong style={{ fontSize: 13 }}>Присъствие</strong>
+                <span style={{ fontSize: 13, color: "#64748b" }}>
+                  Ползва периода от таблото: {period.from_date} – {period.to_date} (вързан с избрания месец по-горе).
+                </span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      downloadClubBlob(
+                        API_PATHS.CLUB_REPORT_ATTENDANCE_XLSX,
+                        { from_date: period.from_date, to_date: period.to_date },
+                        `klub_prisastvie_${period.from_date}_${period.to_date}.xlsx`
+                      )
+                    }
+                  >
+                    Присъствие Excel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      downloadClubBlob(
+                        API_PATHS.CLUB_REPORT_ATTENDANCE_PDF,
+                        { from_date: period.from_date, to_date: period.to_date },
+                        `klub_prisastvie_${period.from_date}_${period.to_date}.pdf`
+                      )
+                    }
+                  >
+                    Присъствие PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <Card title="Състезатели в клуба">
             {loading ? (
               <p>Зареждане...</p>
@@ -416,6 +514,25 @@ export default function ClubHeadDashboard() {
           </Card>
 
           <Card title="Възложени задачи">
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: 12 }}>
+              <Input as="select" value={assignmentCoachFilter} onChange={(e) => setAssignmentCoachFilter(e.target.value)}>
+                <option value="">Всички треньори (към)</option>
+                {coaches
+                  .filter((c) => ["coach", "club_head_coach"].includes(String(c?.role || "").toLowerCase()))
+                  .map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+              </Input>
+              <Input type="date" value={assignmentUpdatedFrom} onChange={(e) => setAssignmentUpdatedFrom(e.target.value)} />
+              <Input type="date" value={assignmentUpdatedTo} onChange={(e) => setAssignmentUpdatedTo(e.target.value)} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                <Button size="sm" variant="secondary" onClick={() => load()} disabled={busy}>
+                  Обнови списъка
+                </Button>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
               <Input as="select" value={assignmentStatusFilter} onChange={(e) => setAssignmentStatusFilter(e.target.value)}>
                 <option value="all">Всички статуси</option>
@@ -441,6 +558,7 @@ export default function ClubHeadDashboard() {
                     <TableHead>Статус</TableHead>
                     <TableHead>Краен срок</TableHead>
                     <TableHead>Бележка</TableHead>
+                    <TableHead>Отчет (готово)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -455,6 +573,7 @@ export default function ClubHeadDashboard() {
                       </TableCell>
                       <TableCell>{a.due_date || "-"}</TableCell>
                       <TableCell>{a.note || "-"}</TableCell>
+                      <TableCell>{a.completion_note || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

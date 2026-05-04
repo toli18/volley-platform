@@ -37,6 +37,7 @@ export default function MyTrainings() {
   const [filterSource, setFilterSource] = useState("all"); // all | generated | manual
   const [assignmentStatusFilter, setAssignmentStatusFilter] = useState("all"); // all | new | in_progress | done
   const [assignmentSort, setAssignmentSort] = useState("newest"); // newest | due_asc | due_desc | status
+  const [doneModal, setDoneModal] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -102,17 +103,36 @@ export default function MyTrainings() {
       });
   }, [items, q, filterStatus, filterSource]);
 
-  const updateAssignmentStatus = async (assignmentId, status) => {
+  const updateAssignmentStatus = async (assignmentId, status, completionNote = null) => {
     try {
+      const data = { status };
+      if (status === "done" && completionNote !== undefined) {
+        data.completion_note = completionNote;
+      }
       await apiJson(API_PATHS.TRAINING_ASSIGNMENT_UPDATE(assignmentId), {
         method: "PATCH",
-        data: { status },
+        data,
       });
-      setAssignments((prev) => prev.map((a) => (a.id === assignmentId ? { ...a, status } : a)));
+      setAssignments((prev) =>
+        prev.map((a) => {
+          if (a.id !== assignmentId) return a;
+          if (status === "done" && completionNote !== undefined) {
+            return { ...a, status, completion_note: completionNote };
+          }
+          return { ...a, status, completion_note: status === "done" ? a.completion_note : null };
+        })
+      );
       toast.success("Статусът на задачата е обновен.");
     } catch (e) {
       toast.error(e?.message || "Грешка при обновяване на задачата");
     }
+  };
+
+  const submitDoneModal = async () => {
+    if (!doneModal) return;
+    const note = (doneModal.completionNote || "").trim();
+    await updateAssignmentStatus(doneModal.id, "done", note || null);
+    setDoneModal(null);
   };
 
   const deleteAssignment = async (assignmentId) => {
@@ -240,7 +260,10 @@ export default function MyTrainings() {
                 <div className="meta">
                   От: {a.assigned_by_name || `#${a.assigned_by}`} • Срок: {a.due_date || "—"}
                 </div>
-                {a.note && <div style={{ marginTop: 8, fontSize: 13 }}>{a.note}</div>}
+                {a.note && <div style={{ marginTop: 8, fontSize: 13 }}>Бележка от възлагащия: {a.note}</div>}
+                {a.completion_note && (
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#0f766e" }}>Отчет: {a.completion_note}</div>
+                )}
                 <div className="cardActions">
                   <Button as={Link} to={`/trainings/${a.training_id}?assignment=${a.id}`} variant="secondary">Преглед</Button>
                   <Button
@@ -251,7 +274,7 @@ export default function MyTrainings() {
                   </Button>
                   <Button
                     variant={a.status === "done" ? "primary" : "secondary"}
-                    onClick={() => updateAssignmentStatus(a.id, "done")}
+                    onClick={() => setDoneModal({ id: a.id, completionNote: a.completion_note || "" })}
                   >
                     Готово
                   </Button>
@@ -314,6 +337,57 @@ export default function MyTrainings() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {doneModal && (
+        <div
+          role="presentation"
+          onClick={() => setDoneModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.45)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(100%, 420px)",
+              background: "#fff",
+              borderRadius: 12,
+              padding: 16,
+              boxShadow: "0 12px 40px rgba(15,23,42,0.2)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 8px" }}>Маркирай като готово</h3>
+            <p style={{ margin: "0 0 10px", fontSize: 14, color: "#64748b" }}>
+              По желание добави кратък отчет за главния треньор (напр. как мина тренировката).
+            </p>
+            <Input
+              as="textarea"
+              rows={4}
+              value={doneModal.completionNote}
+              onChange={(e) => setDoneModal((m) => (m ? { ...m, completionNote: e.target.value } : m))}
+              placeholder="Отчет (по желание)…"
+              style={{ width: "100%", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <Button variant="secondary" type="button" onClick={() => setDoneModal(null)}>
+                Отказ
+              </Button>
+              <Button type="button" onClick={submitDoneModal}>
+                Потвърди готово
+              </Button>
+            </div>
+          </section>
         </div>
       )}
     </div>

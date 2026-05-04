@@ -17,10 +17,9 @@ export default function Navbar() {
   const [tasksOpen, setTasksOpen] = useState(false);
   const [feeAlerts, setFeeAlerts] = useState([]);
   const [feeUnreadCount, setFeeUnreadCount] = useState(0);
-  const [feeAlertsOpen, setFeeAlertsOpen] = useState(false);
   const [taskReports, setTaskReports] = useState([]);
   const [taskReportsUnread, setTaskReportsUnread] = useState(0);
-  const [taskReportsOpen, setTaskReportsOpen] = useState(false);
+  const [clubSeenTick, setClubSeenTick] = useState(0);
 
   const onLogout = () => {
     logout();
@@ -33,6 +32,113 @@ export default function Navbar() {
   const isCoachUser = user?.role === "coach" || user?.role === "club_head_coach";
   const isHeadCoachUser = user?.role === "club_head_coach";
   const isPlatformAdmin = user?.role === "platform_admin";
+
+  const combinedUnreadCount = useMemo(() => {
+    let n = Number(unreadCount) || 0;
+    if (isHeadCoachUser) {
+      n += Number(feeUnreadCount) || 0;
+      n += Number(taskReportsUnread) || 0;
+    }
+    return n;
+  }, [unreadCount, feeUnreadCount, taskReportsUnread, isHeadCoachUser]);
+
+  const unifiedFeedItems = useMemo(() => {
+    let feeSeen = new Set();
+    let taskSeen = new Set();
+    if (isHeadCoachUser && user?.id) {
+      try {
+        feeSeen = new Set(JSON.parse(localStorage.getItem(`vp-fee-alerts-seen-${user.id}`) || "[]"));
+      } catch {
+        feeSeen = new Set();
+      }
+      try {
+        taskSeen = new Set(JSON.parse(localStorage.getItem(`vp-task-reports-seen-${user.id}`) || "[]"));
+      } catch {
+        taskSeen = new Set();
+      }
+    }
+    const out = [];
+    (notifications || []).forEach((n) => {
+      out.push({
+        kind: "forum",
+        key: `forum-${n.id}`,
+        ts: n.created_at,
+        unread: !n.is_read,
+        forum: n,
+      });
+    });
+    if (isHeadCoachUser) {
+      (feeAlerts || []).forEach((f) => {
+        out.push({
+          kind: "fee",
+          key: `fee-${f.id}`,
+          ts: f.paid_at,
+          unread: !feeSeen.has(f.id),
+          fee: f,
+        });
+      });
+      (taskReports || []).forEach((t) => {
+        out.push({
+          kind: "task",
+          key: `task-${t.id}`,
+          ts: t.updated_at,
+          unread: !taskSeen.has(t.id),
+          task: t,
+        });
+      });
+    }
+    out.sort((a, b) => {
+      const da = new Date(a.ts || 0).getTime();
+      const db = new Date(b.ts || 0).getTime();
+      return db - da;
+    });
+    return out.slice(0, 28);
+  }, [notifications, feeAlerts, taskReports, isHeadCoachUser, user, clubSeenTick]);
+
+  const markFeeItemSeen = (paymentId) => {
+    if (!user?.id) return;
+    const key = `vp-fee-alerts-seen-${user.id}`;
+    try {
+      const arr = JSON.parse(localStorage.getItem(key) || "[]");
+      const next = Array.from(new Set([...arr.map(Number), Number(paymentId)]));
+      localStorage.setItem(key, JSON.stringify(next));
+      const unread = feeAlerts.filter((x) => !next.includes(Number(x.id))).length;
+      setFeeUnreadCount(unread);
+      setClubSeenTick((x) => x + 1);
+    } catch {
+      // ignore
+    }
+  };
+
+  const markTaskItemSeen = (assignmentId) => {
+    if (!user?.id) return;
+    const key = `vp-task-reports-seen-${user.id}`;
+    try {
+      const arr = JSON.parse(localStorage.getItem(key) || "[]");
+      const next = Array.from(new Set([...arr.map(Number), Number(assignmentId)]));
+      localStorage.setItem(key, JSON.stringify(next));
+      const unread = taskReports.filter((x) => !next.includes(Number(x.id))).length;
+      setTaskReportsUnread(unread);
+      setClubSeenTick((x) => x + 1);
+    } catch {
+      // ignore
+    }
+  };
+
+  const markAllClubFeedSeen = () => {
+    if (!user?.id) return;
+    const feeKey = `vp-fee-alerts-seen-${user.id}`;
+    const taskKey = `vp-task-reports-seen-${user.id}`;
+    try {
+      localStorage.setItem(feeKey, JSON.stringify(feeAlerts.map((x) => x.id)));
+      localStorage.setItem(taskKey, JSON.stringify(taskReports.map((x) => x.id)));
+      setFeeUnreadCount(0);
+      setTaskReportsUnread(0);
+      setClubSeenTick((x) => x + 1);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -101,7 +207,7 @@ export default function Navbar() {
         const items = Array.isArray(res.data?.items) ? res.data.items : [];
         setFeeAlerts(items);
         const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        const unread = items.filter((x) => !seen.includes(x.id)).length;
+        const unread = items.filter((x) => !seen.includes(Number(x.id))).length;
         setFeeUnreadCount(unread);
       } catch {
         if (!cancelled) {
@@ -128,12 +234,12 @@ export default function Navbar() {
     let cancelled = false;
     const loadTaskReports = async () => {
       try {
-        const res = await axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_ACTIVITY, { params: { limit: 12 } });
+        const res = await axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_ACTIVITY, { params: { limit: 24 } });
         if (cancelled) return;
         const items = Array.isArray(res.data?.items) ? res.data.items : [];
         setTaskReports(items);
         const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        const unread = items.filter((x) => !seen.includes(x.id)).length;
+        const unread = items.filter((x) => !seen.includes(Number(x.id))).length;
         setTaskReportsUnread(unread);
       } catch {
         if (!cancelled) {
@@ -239,126 +345,9 @@ export default function Navbar() {
                 )}
               </div>
             )}
-            {isHeadCoachUser && (
-              <div style={{ position: "relative" }}>
-                <button className="navBtnOutline" onClick={() => setTaskReportsOpen((prev) => !prev)}>
-                  Готови задачи ({taskReportsUnread})
-                </button>
-                {taskReportsOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: "calc(100% + 8px)",
-                      width: "min(92vw, 420px)",
-                      background: "#fff",
-                      border: "1px solid #dbe5f2",
-                      borderRadius: 12,
-                      boxShadow: "0 8px 28px rgba(15, 23, 42, 0.14)",
-                      padding: 10,
-                      zIndex: 9999,
-                      display: "grid",
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <strong>Докладвани като готови</strong>
-                      <button
-                        className="navBtnOutline"
-                        onClick={() => {
-                          const key = `vp-task-reports-seen-${user.id}`;
-                          localStorage.setItem(key, JSON.stringify(taskReports.map((x) => x.id)));
-                          setTaskReportsUnread(0);
-                        }}
-                      >
-                        Маркирай прочетени
-                      </button>
-                    </div>
-                    {taskReports.length === 0 && (
-                      <span style={{ color: "#64748b", fontSize: 13 }}>Няма нови докладвани задачи.</span>
-                    )}
-                    {taskReports.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 8,
-                          padding: 8,
-                          background: "#f8fbff",
-                        }}
-                      >
-                        <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
-                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-                          Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`} •{" "}
-                          {item.updated_at ? new Date(item.updated_at).toLocaleString("bg-BG") : "—"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {isHeadCoachUser && (
-              <div style={{ position: "relative" }}>
-                <button className="navBtnOutline" onClick={() => setFeeAlertsOpen((prev) => !prev)}>
-                  Такси ({feeUnreadCount})
-                </button>
-                {feeAlertsOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: "calc(100% + 8px)",
-                      width: "min(92vw, 400px)",
-                      background: "#fff",
-                      border: "1px solid #dbe5f2",
-                      borderRadius: 12,
-                      boxShadow: "0 8px 28px rgba(15, 23, 42, 0.14)",
-                      padding: 10,
-                      zIndex: 9999,
-                      display: "grid",
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <strong>Платени такси (клуб)</strong>
-                      <button
-                        className="navBtnOutline"
-                        onClick={() => {
-                          const key = `vp-fee-alerts-seen-${user.id}`;
-                          localStorage.setItem(key, JSON.stringify(feeAlerts.map((x) => x.id)));
-                          setFeeUnreadCount(0);
-                        }}
-                      >
-                        Маркирай прочетени
-                      </button>
-                    </div>
-                    {feeAlerts.length === 0 && (
-                      <span style={{ color: "#64748b", fontSize: 13 }}>Няма нови плащания.</span>
-                    )}
-                    {feeAlerts.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 8,
-                          padding: 8,
-                          background: "#f8fbff",
-                        }}
-                      >
-                        <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
-                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-                          {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
             <div style={{ position: "relative" }}>
               <button className="navBtnOutline" onClick={() => setNotificationsOpen((prev) => !prev)}>
-                Известия ({unreadCount})
+                Известия ({combinedUnreadCount})
               </button>
               {notificationsOpen && (
                 <div
@@ -366,7 +355,7 @@ export default function Navbar() {
                     position: "absolute",
                     right: 0,
                     top: "calc(100% + 8px)",
-                    width: "min(92vw, 360px)",
+                    width: "min(92vw, 420px)",
                     background: "#fff",
                     border: "1px solid #dbe5f2",
                     borderRadius: 12,
@@ -377,61 +366,138 @@ export default function Navbar() {
                     gap: 8,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <strong>Форум известия</strong>
-                    <button
-                      className="navBtnOutline"
-                      onClick={async () => {
-                        try {
-                          await axiosInstance.post(API_PATHS.FORUM_NOTIFICATIONS_READ_ALL);
-                          setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-                          setUnreadCount(0);
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                    >
-                      Прочети всички
-                    </button>
-                  </div>
-                  {notifications.length === 0 && (
-                    <span style={{ color: "#64748b", fontSize: 13 }}>Няма нови известия.</span>
-                  )}
-                  {notifications.map((item) => (
-                    <Link
-                      key={item.id}
-                      to={`/forum/${item.post_id}`}
-                      onClick={async () => {
-                        try {
-                          if (!item.is_read) {
-                            await axiosInstance.post(API_PATHS.FORUM_NOTIFICATION_READ(item.id));
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <strong>Известия</strong>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      <button
+                        className="navBtnOutline"
+                        onClick={async () => {
+                          try {
+                            await axiosInstance.post(API_PATHS.FORUM_NOTIFICATIONS_READ_ALL);
+                            setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+                            setUnreadCount(0);
+                          } catch {
+                            // ignore
                           }
-                        } catch {
-                          // ignore
-                        } finally {
+                        }}
+                      >
+                        Форум: всички
+                      </button>
+                      {isHeadCoachUser && (
+                        <button type="button" className="navBtnOutline" onClick={markAllClubFeedSeen}>
+                          Клуб: маркирай прочетени
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{ color: "#64748b", fontSize: 12 }}>
+                    {isHeadCoachUser
+                      ? "Форум, платени такси и готови задачи (клуб) на едно място."
+                      : "Форум известия."}
+                  </span>
+                  {unifiedFeedItems.length === 0 && (
+                    <span style={{ color: "#64748b", fontSize: 13 }}>Няма известия.</span>
+                  )}
+                  {unifiedFeedItems.map((row) => {
+                    if (row.kind === "forum") {
+                      const item = row.forum;
+                      return (
+                        <Link
+                          key={row.key}
+                          to={`/forum/${item.post_id}`}
+                          onClick={async () => {
+                            try {
+                              if (!item.is_read) {
+                                await axiosInstance.post(API_PATHS.FORUM_NOTIFICATION_READ(item.id));
+                              }
+                            } catch {
+                              // ignore
+                            } finally {
+                              setNotificationsOpen(false);
+                              setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
+                              setUnreadCount((prev) => Math.max(0, prev - (item.is_read ? 0 : 1)));
+                            }
+                          }}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: 8,
+                            textDecoration: "none",
+                            color: row.unread ? "#0f172a" : "#64748b",
+                            background: row.unread ? "#f8fbff" : "#fff",
+                            fontWeight: row.unread ? 700 : 500,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Форум</div>
+                          <div>{item.message}</div>
+                          <div style={{ marginTop: 4, fontSize: 12 }}>
+                            {new Date(item.created_at || "").toLocaleString("bg-BG")}
+                          </div>
+                        </Link>
+                      );
+                    }
+                    if (row.kind === "fee") {
+                      const item = row.fee;
+                      return (
+                        <Link
+                          key={row.key}
+                          to={`/monthly-fees?athlete_id=${item.athlete_id}`}
+                          onClick={() => {
+                            markFeeItemSeen(item.id);
+                            setNotificationsOpen(false);
+                          }}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: 8,
+                            textDecoration: "none",
+                            color: row.unread ? "#0f172a" : "#64748b",
+                            background: row.unread ? "#f0fdf4" : "#fff",
+                            fontWeight: row.unread ? 700 : 500,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Такса (клуб)</div>
+                          <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
+                          <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                            {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 12 }}>
+                            {item.paid_at ? new Date(item.paid_at).toLocaleString("bg-BG") : "—"}
+                          </div>
+                        </Link>
+                      );
+                    }
+                    const item = row.task;
+                    return (
+                      <Link
+                        key={row.key}
+                        to={`/trainings/${item.training_id}?assignment=${item.id}`}
+                        onClick={() => {
+                          markTaskItemSeen(item.id);
                           setNotificationsOpen(false);
-                          setNotifications((prev) =>
-                            prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
-                          );
-                          setUnreadCount((prev) => Math.max(0, prev - (item.is_read ? 0 : 1)));
-                        }
-                      }}
-                      style={{
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 8,
-                        padding: 8,
-                        textDecoration: "none",
-                        color: item.is_read ? "#64748b" : "#0f172a",
-                        background: item.is_read ? "#fff" : "#f8fbff",
-                        fontWeight: item.is_read ? 500 : 700,
-                      }}
-                    >
-                      <div>{item.message}</div>
-                      <div style={{ marginTop: 4, fontSize: 12 }}>
-                        {new Date(item.created_at || "").toLocaleString("bg-BG")}
-                      </div>
-                    </Link>
-                  ))}
+                        }}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: 8,
+                          textDecoration: "none",
+                          color: row.unread ? "#0f172a" : "#64748b",
+                          background: row.unread ? "#fffbeb" : "#fff",
+                          fontWeight: row.unread ? 700 : 500,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Задача готова</div>
+                        <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                          Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`}
+                          {item.completion_note ? ` • ${item.completion_note}` : ""}
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12 }}>
+                          {item.updated_at ? new Date(item.updated_at).toLocaleString("bg-BG") : "—"}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>

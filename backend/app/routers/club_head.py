@@ -1,11 +1,17 @@
 from datetime import datetime
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+from openpyxl import Workbook
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, AttendanceRecord, Team, TeamSession, Training, User, UserRole
+from app.routers.fees import _ensure_pdf_font, _iter_months
 
 router = APIRouter()
 
@@ -153,3 +159,218 @@ def club_overview(
         "recent_trainings": trainings,
         "generated_at": datetime.utcnow(),
     }
+
+
+def _club_pdf(title: str, lines: list[str]) -> bytes:
+    font_name = _ensure_pdf_font()
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 45
+    c.setFont(font_name, 14)
+    c.drawString(45, y, title)
+    y -= 24
+    c.setLineWidth(0.5)
+    c.line(45, y, width - 45, y)
+    y -= 20
+    c.setFont(font_name, 10)
+    for line in lines:
+        c.drawString(45, y, line[:120])
+        y -= 16
+        if y < 60:
+            c.showPage()
+            c.setFont(font_name, 10)
+            y = height - 50
+    c.save()
+    return buffer.getvalue()
+
+
+def _club_fees_export_rows(
+    db: Session,
+    current_user: User,
+    from_month: str,
+    to_month: str,
+    coach_id: int | None,
+):
+    months = _iter_months(from_month, to_month)
+    q = (
+        db.query(Athlete, User.name)
+        .outerjoin(User, User.id == Athlete.coach_id)
+        .filter(Athlete.club_id == current_user.club_id)
+    )
+    if coach_id:
+        q = q.filter(Athlete.coach_id == int(coach_id))
+    athletes = q.order_by(Athlete.athlete_name.asc()).all()
+    athlete_ids = [a.id for a, _ in athletes]
+    payments = []
+    if athlete_ids:
+        payments = (
+            db.query(AthletePayment)
+            .filter(
+                AthletePayment.athlete_id.in_(athlete_ids),
+                AthletePayment.month_key >= months[0],
+                AthletePayment.month_key <= months[-1],
+            )
+            .all()
+        )
+    by_pair = {(p.athlete_id, p.month_key): p for p in payments}
+    out = []
+    for athlete, coach_name in athletes:
+        for m in months:
+            p = by_pair.get((athlete.id, m))
+            out.append(
+                {
+                    "athlete_name": athlete.athlete_name,
+                    "coach_name": coach_name or "",
+                    "month_key": m,
+                    "paid": "да" if p else "не",
+                    "amount": float(p.amount) if p else "",
+                    "paid_at": p.paid_at.strftime("%d.%m.%Y %H:%M") if p and p.paid_at else "",
+                }
+            )
+    return out
+
+
+@router.get("/club/reports/fees.xlsx")
+def export_club_fees_xlsx(
+    from_month: str = Query(...),
+    to_month: str = Query(...),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    _ensure_head_with_club(current_user)
+    rows = _club_fees_export_rows(db, current_user, from_month, to_month, coach_id)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Такси"
+    ws.append(["Състезател", "Треньор", "Месец", "Платено", "Сума", "Дата на плащане"])
+    for r in rows:
+        ws.append([r["athlete_name"], r["coach_name"], r["month_key"], r["paid"], r["amount"], r["paid_at"]])
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    fname = f"klub_taksi_{from_month}_{to_month}.xlsx"
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.get("/club/reports/fees.pdf")
+def export_club_fees_pdf(
+    from_month: str = Query(...),
+    to_month: str = Query(...),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    _ensure_head_with_club(current_user)
+    rows = _club_fees_export_rows(db, current_user, from_month, to_month, coach_id)
+    lines = [f"Период: {from_month} – {to_month}", f"Редове: {len(rows)}", ""]
+    for r in rows[:400]:
+        lines.append(
+            f"{r['athlete_name']} | {r['coach_name']} | {r['month_key']} | {r['paid']} | {r['amount']} | {r['paid_at']}"
+        )
+    if len(rows) > 400:
+        lines.append("… (съкратено в PDF; използвай Excel за пълния списък)")
+    pdf = _club_pdf("Отчет: месечни такси (клуб)", lines)
+    fname = f"klub_taksi_{from_month}_{to_month}.pdf"
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+def _club_attendance_export_rows(db: Session, current_user: User, from_date: str, to_date: str):
+    if from_date > to_date:
+        raise HTTPException(status_code=422, detail="from_date must be <= to_date")
+    rows = (
+        db.query(
+            TeamSession.date,
+            Team.name,
+            Athlete.athlete_name,
+            AttendanceRecord.status,
+            AttendanceRecord.note,
+            TeamSession.title,
+        )
+        .join(Team, Team.id == TeamSession.team_id)
+        .join(AttendanceRecord, AttendanceRecord.session_id == TeamSession.id)
+        .join(Athlete, Athlete.id == AttendanceRecord.athlete_id)
+        .filter(
+            Team.club_id == current_user.club_id,
+            TeamSession.date >= from_date,
+            TeamSession.date <= to_date,
+        )
+        .order_by(TeamSession.date.desc(), Team.name.asc(), Athlete.athlete_name.asc())
+        .all()
+    )
+    return [
+        {
+            "date": d,
+            "team": tn,
+            "athlete": an,
+            "status": st or "",
+            "note": (note or "")[:500],
+            "title": (ttl or "")[:255],
+        }
+        for d, tn, an, st, note, ttl in rows
+    ]
+
+
+_STATUS_BG = {"present": "присъства", "late": "закъсня", "absent": "отсъства", "excused": "извинен"}
+
+
+@router.get("/club/reports/attendance.xlsx")
+def export_club_attendance_xlsx(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    _ensure_head_with_club(current_user)
+    rows = _club_attendance_export_rows(db, current_user, from_date, to_date)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Присъствие"
+    ws.append(["Дата", "Отбор", "Състезател", "Статус", "Заглавие сесия", "Бележка"])
+    for r in rows:
+        st = str(r["status"]).lower()
+        ws.append(
+            [
+                r["date"],
+                r["team"],
+                r["athlete"],
+                _STATUS_BG.get(st, r["status"]),
+                r["title"],
+                r["note"],
+            ]
+        )
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    fname = f"klub_prisastvie_{from_date}_{to_date}.xlsx"
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.get("/club/reports/attendance.pdf")
+def export_club_attendance_pdf(
+    from_date: str = Query(...),
+    to_date: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    _ensure_head_with_club(current_user)
+    rows = _club_attendance_export_rows(db, current_user, from_date, to_date)
+    lines = [f"Период: {from_date} – {to_date}", f"Редове: {len(rows)}", ""]
+    for r in rows[:500]:
+        st = str(r["status"]).lower()
+        st_label = _STATUS_BG.get(st, r["status"])
+        lines.append(f"{r['date']} | {r['team']} | {r['athlete']} | {st_label}")
+    if len(rows) > 500:
+        lines.append("… (съкратено в PDF; използвай Excel за пълния списък)")
+    pdf = _club_pdf("Отчет: присъствие (клуб)", lines)
+    fname = f"klub_prisastvie_{from_date}_{to_date}.pdf"
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})

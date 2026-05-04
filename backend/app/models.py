@@ -565,6 +565,7 @@ class TrainingAssignment(Base):
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(String(20), nullable=False, default="new")  # new | in_progress | done
     note = Column(Text, nullable=True)
+    completion_note = Column(Text, nullable=True)
     due_date = Column(String(10), nullable=True)  # YYYY-MM-DD
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

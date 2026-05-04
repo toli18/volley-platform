@@ -16,6 +16,14 @@ const normalizeError = (err, fallback = "Грешка при работа с п�
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+const shortStatusLabel = (value) => {
+  if (value === "present") return "Тук";
+  if (value === "late") return "Закъсня";
+  if (value === "absent") return "Няма";
+  if (value === "excused") return "Извинен";
+  return value || "";
+};
+
 export default function TeamAttendance() {
   const { teamId } = useParams();
   const toast = useToast();
@@ -120,55 +128,55 @@ export default function TeamAttendance() {
       />
 
       <Card title="Маркиране на присъствие">
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
-          <Input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
-          <Input placeholder="Заглавие на тренировка (по желание)" value={attendanceTitle} onChange={(e) => setAttendanceTitle(e.target.value)} />
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-            <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>Запази присъствие</Button>
+        <div className="teamAttendanceSticky">
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <Input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
+            <Button size="sm" variant="secondary" type="button" onClick={() => setAttendanceDate(todayKey())}>
+              Днес
+            </Button>
+            <Button size="sm" type="button" onClick={() => quickSetAllAttendance("present")}>
+              Всички: присъстват
+            </Button>
+            <Button size="sm" variant="secondary" type="button" onClick={() => quickSetAllAttendance("absent")}>
+              Всички: отсъстват
+            </Button>
+            <Button size="sm" disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
+              Запази
+            </Button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <Button size="sm" onClick={() => quickSetAllAttendance("present")}>Бързо: всички присъстват</Button>
-          <Button size="sm" variant="secondary" onClick={() => quickSetAllAttendance("absent")}>Бързо: всички отсъстват</Button>
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
+          <Input placeholder="Заглавие на тренировка (по желание)" value={attendanceTitle} onChange={(e) => setAttendanceTitle(e.target.value)} />
+          <div className="teamAttendanceDesktop" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+            <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
+              Запази присъствие
+            </Button>
+          </div>
         </div>
 
         {attendanceRows.length === 0 ? (
           <EmptyState title="Няма избрани състезатели" description="Добави състезатели в отбора, за да отбелязваш присъствие." />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Бележка</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="teamAttendanceMobile">
               {attendanceRows.map((row) => (
-                <TableRow key={row.athlete_id}>
-                  <TableCell>{row.athlete_name}</TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <select
-                        className="uiInput"
-                        value={row.status || "present"}
-                        onChange={(e) =>
-                          setAttendanceRows((prev) =>
-                            prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, status: e.target.value } : x))
-                          )
-                        }
+                <div key={row.athlete_id} className="teamAttendanceCard">
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{row.athlete_name}</div>
+                  <div className="teamAttendanceQuickRow">
+                    {(["present", "late", "absent", "excused"]).map((st) => (
+                      <Button
+                        key={st}
+                        size="sm"
+                        variant={String(row.status || "present") === st ? "primary" : "secondary"}
+                        type="button"
+                        onClick={() => quickToggleRow(row.athlete_id, st)}
                       >
-                        <option value="present">Присъства</option>
-                        <option value="late">Закъсня</option>
-                        <option value="absent">Отсъства</option>
-                        <option value="excused">Извинен</option>
-                      </select>
-                      <Button size="sm" variant="ghost" onClick={() => quickToggleRow(row.athlete_id, "present")}>+ Присъства</Button>
-                      <Button size="sm" variant="ghost" onClick={() => quickToggleRow(row.athlete_id, "absent")}>+ Отсъства</Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
+                        {shortStatusLabel(st)}
+                      </Button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
                     <Input
                       placeholder="Бележка"
                       value={row.note || ""}
@@ -178,11 +186,64 @@ export default function TeamAttendance() {
                         )
                       }
                     />
-                  </TableCell>
-                </TableRow>
+                  </div>
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="teamAttendanceDesktop">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Състезател</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Бележка</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attendanceRows.map((row) => (
+                    <TableRow key={row.athlete_id}>
+                      <TableCell>{row.athlete_name}</TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <select
+                            className="uiInput"
+                            value={row.status || "present"}
+                            onChange={(e) =>
+                              setAttendanceRows((prev) =>
+                                prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, status: e.target.value } : x))
+                              )
+                            }
+                          >
+                            <option value="present">Присъства</option>
+                            <option value="late">Закъсня</option>
+                            <option value="absent">Отсъства</option>
+                            <option value="excused">Извинен</option>
+                          </select>
+                          <Button size="sm" variant="ghost" type="button" onClick={() => quickToggleRow(row.athlete_id, "present")}>
+                            + Присъства
+                          </Button>
+                          <Button size="sm" variant="ghost" type="button" onClick={() => quickToggleRow(row.athlete_id, "absent")}>
+                            + Отсъства
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          placeholder="Бележка"
+                          value={row.note || ""}
+                          onChange={(e) =>
+                            setAttendanceRows((prev) =>
+                              prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, note: e.target.value } : x))
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </Card>
     </div>

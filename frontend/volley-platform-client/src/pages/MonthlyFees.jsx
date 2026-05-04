@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -33,6 +34,7 @@ const lastMonths = (count = 3) => {
 
 export default function MonthlyFees() {
   const { user } = useAuth();
+  const location = useLocation();
   const toast = useToast();
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +82,7 @@ export default function MonthlyFees() {
   const [periodReport, setPeriodReport] = useState(null);
   const [transferAthlete, setTransferAthlete] = useState(null);
   const [targetCoachId, setTargetCoachId] = useState("");
+  const [highlightAthleteId, setHighlightAthleteId] = useState(null);
   const isHeadCoach = user?.role === "club_head_coach";
 
   const loadAthletes = async (search = query, selectedCoach = coachFilter) => {
@@ -100,6 +103,28 @@ export default function MonthlyFees() {
   useEffect(() => {
     loadAthletes("");
   }, []);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search || "");
+    const raw = sp.get("athlete_id");
+    const aid = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(aid) || aid <= 0) {
+      setHighlightAthleteId(null);
+      return;
+    }
+    setHighlightAthleteId(aid);
+    setQuery("");
+    if (isHeadCoach) setCoachFilter("");
+    loadAthletes("", "");
+  }, [location.search, isHeadCoach]);
+
+  useEffect(() => {
+    if (!highlightAthleteId || loading) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(`fees-athlete-${highlightAthleteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [highlightAthleteId, loading, athletes]);
 
   useEffect(() => {
     if (!isHeadCoach) return;
@@ -551,7 +576,11 @@ export default function MonthlyFees() {
             </TableHeader>
             <TableBody>
               {athletes.map((a) => (
-                <TableRow key={a.id}>
+                <TableRow
+                  key={a.id}
+                  id={`fees-athlete-${a.id}`}
+                  className={highlightAthleteId === a.id ? "feesAthleteRow--highlight" : undefined}
+                >
                   <TableCell>
                     <strong>{a.athlete_name}</strong>
                     <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>

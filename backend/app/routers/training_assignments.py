@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -80,6 +82,7 @@ def assign_training(
             item.note = note
             item.due_date = due_date
             item.status = "new"
+            item.completion_note = None
         else:
             db.add(
                 TrainingAssignment(
@@ -98,18 +101,40 @@ def assign_training(
 
 @router.get("/club/training-assignments")
 def list_club_assignments(
+    assigned_to: int | None = Query(default=None),
+    status: str | None = Query(default=None),
+    updated_from: str | None = Query(default=None, description="YYYY-MM-DD inclusive"),
+    updated_to: str | None = Query(default=None, description="YYYY-MM-DD inclusive"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
     _ensure_head(current_user)
-    rows = (
+    q = (
         db.query(TrainingAssignment, Training.title, User.name)
         .join(Training, Training.id == TrainingAssignment.training_id)
         .join(User, User.id == TrainingAssignment.assigned_to)
         .filter(Training.club_id == current_user.club_id)
-        .order_by(TrainingAssignment.created_at.desc())
-        .all()
     )
+    if assigned_to:
+        q = q.filter(TrainingAssignment.assigned_to == int(assigned_to))
+    if status:
+        st = str(status).strip().lower()
+        if st not in ASSIGNMENT_STATUSES:
+            raise HTTPException(status_code=422, detail="Invalid assignment status filter")
+        q = q.filter(TrainingAssignment.status == st)
+    if updated_from:
+        try:
+            d0 = datetime.strptime(updated_from.strip(), "%Y-%m-%d")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="updated_from must be YYYY-MM-DD") from exc
+        q = q.filter(TrainingAssignment.updated_at >= d0)
+    if updated_to:
+        try:
+            d1 = datetime.strptime(updated_to.strip(), "%Y-%m-%d") + timedelta(days=1)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="updated_to must be YYYY-MM-DD") from exc
+        q = q.filter(TrainingAssignment.updated_at < d1)
+    rows = q.order_by(TrainingAssignment.updated_at.desc()).all()
     return [
         {
             "id": a.id,
@@ -120,6 +145,7 @@ def list_club_assignments(
             "assigned_by": a.assigned_by,
             "status": a.status,
             "note": a.note,
+            "completion_note": getattr(a, "completion_note", None),
             "due_date": a.due_date,
             "created_at": a.created_at,
             "updated_at": a.updated_at,
@@ -150,6 +176,7 @@ def my_assignments(
             "assigned_by_name": assigner_name,
             "status": a.status,
             "note": a.note,
+            "completion_note": getattr(a, "completion_note", None),
             "due_date": a.due_date,
             "created_at": a.created_at,
             "updated_at": a.updated_at,
@@ -176,6 +203,13 @@ def update_assignment_status(
     if status not in ASSIGNMENT_STATUSES:
         raise HTTPException(status_code=422, detail="Invalid assignment status")
     item.status = status
+    if status == "done":
+        raw_cn = payload.get("completion_note")
+        if raw_cn is not None:
+            cn = str(raw_cn).strip()
+            item.completion_note = cn or None
+    else:
+        item.completion_note = None
     db.commit()
     db.refresh(item)
     return item
@@ -264,12 +298,15 @@ def assigned_training_details(
 
 @router.get("/club/training-assignments/activity")
 def club_assignment_activity(
-    limit: int = Query(default=12, ge=1, le=50),
+    limit: int = Query(default=12, ge=1, le=200),
+    assigned_to: int | None = Query(default=None),
+    updated_from: str | None = Query(default=None),
+    updated_to: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
     _ensure_head(current_user)
-    rows = (
+    q = (
         db.query(TrainingAssignment, Training.title, User.name)
         .join(Training, Training.id == TrainingAssignment.training_id)
         .join(User, User.id == TrainingAssignment.assigned_to)
@@ -278,10 +315,22 @@ def club_assignment_activity(
             Training.club_id == current_user.club_id,
             TrainingAssignment.status == "done",
         )
-        .order_by(TrainingAssignment.updated_at.desc())
-        .limit(limit)
-        .all()
     )
+    if assigned_to:
+        q = q.filter(TrainingAssignment.assigned_to == int(assigned_to))
+    if updated_from:
+        try:
+            d0 = datetime.strptime(updated_from.strip(), "%Y-%m-%d")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="updated_from must be YYYY-MM-DD") from exc
+        q = q.filter(TrainingAssignment.updated_at >= d0)
+    if updated_to:
+        try:
+            d1 = datetime.strptime(updated_to.strip(), "%Y-%m-%d") + timedelta(days=1)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="updated_to must be YYYY-MM-DD") from exc
+        q = q.filter(TrainingAssignment.updated_at < d1)
+    rows = q.order_by(TrainingAssignment.updated_at.desc()).limit(limit).all()
     return {
         "items": [
             {
@@ -291,6 +340,7 @@ def club_assignment_activity(
                 "assigned_to": a.assigned_to,
                 "assigned_to_name": assignee_name,
                 "status": a.status,
+                "completion_note": getattr(a, "completion_note", None),
                 "updated_at": a.updated_at,
             }
             for a, title, assignee_name in rows
