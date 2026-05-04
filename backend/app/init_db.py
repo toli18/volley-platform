@@ -52,6 +52,21 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables ensured (create_all)")
 
+    # PostgreSQL: Alembic often не се пуска на Railway — добавяме липсващи колони идемпотентно.
+    db_url = (settings.database_url or "").lower()
+    if "postgres" in db_url:
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE training_assignments "
+                        "ADD COLUMN IF NOT EXISTS completion_note TEXT"
+                    )
+                )
+            print("✅ PostgreSQL: training_assignments.completion_note ensured")
+        except Exception as exc:
+            print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
+
     # SQLite-only compatibility patching.
     # On PostgreSQL we rely on Alembic migrations and skip PRAGMA-based checks.
     if settings.database_url.startswith("sqlite"):
