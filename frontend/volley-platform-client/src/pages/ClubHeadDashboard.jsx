@@ -293,7 +293,7 @@ export default function ClubHeadDashboard() {
       {tab === "athletes" && (
         <>
           <Card title="Филтри и обновяване">
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <div className="clubHeadFilterGrid">
               <Input
                 placeholder="Търсене по име..."
                 value={athleteQuery}
@@ -307,8 +307,10 @@ export default function ClubHeadDashboard() {
                   </option>
                 ))}
               </Input>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                <Button onClick={load} disabled={busy}>{busy ? "Обновяване..." : "Обнови"}</Button>
+              <div className="clubHeadFilterActions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                <Button onClick={load} disabled={busy} className="clubHeadRefreshBtn">
+                  {busy ? "Обновяване..." : "Обнови"}
+                </Button>
               </div>
             </div>
           </Card>

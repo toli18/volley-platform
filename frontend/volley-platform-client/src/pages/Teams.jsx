@@ -128,45 +128,82 @@ export default function Teams() {
         {teams.length === 0 ? (
           <EmptyState title="Няма създадени отбори" description="Създай първия отбор от формата по-долу." />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Име</TableHead>
-                <TableHead>Група</TableHead>
-                <TableHead>Сезон</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="teamsMobileList" aria-label="Отбори (мобилен изглед)">
               {teams.map((team) => (
-                <TableRow key={team.id}>
-                  <TableCell><strong>{team.name}</strong></TableCell>
-                  <TableCell>{team.age_group || "-"}</TableCell>
-                  <TableCell>{team.season || "-"}</TableCell>
-                  <TableCell>
+                <article key={`m-${team.id}`} className="teamsMobileCard">
+                  <h3 className="teamsMobileCardTitle">{team.name}</h3>
+                  <div className="teamsMobileMeta">
+                    <span>Група: {team.age_group || "—"}</span>
+                    <span>Сезон: {team.season || "—"}</span>
                     <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
                       {team.is_active ? "Активен" : "Неактивен"}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <Link to={`/teams/${team.id}`}>
-                        <Button size="sm">Отвори</Button>
-                      </Link>
-                      <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>Редактирай</Button>
-                      <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>Изтрий</Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  <div className="teamsMobileActions">
+                    <Link to={`/teams/${team.id}`} style={{ display: "block" }}>
+                      <Button size="sm" block>
+                        Отвори
+                      </Button>
+                    </Link>
+                    <Button size="sm" variant="secondary" block onClick={() => openEditTeam(team)}>
+                      Редактирай
+                    </Button>
+                    <Button size="sm" variant="danger" block onClick={() => deleteTeam(team)}>
+                      Изтрий
+                    </Button>
+                  </div>
+                </article>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="teamsDesktopTable">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Име</TableHead>
+                    <TableHead>Група</TableHead>
+                    <TableHead>Сезон</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teams.map((team) => (
+                    <TableRow key={team.id}>
+                      <TableCell>
+                        <strong>{team.name}</strong>
+                      </TableCell>
+                      <TableCell>{team.age_group || "-"}</TableCell>
+                      <TableCell>{team.season || "-"}</TableCell>
+                      <TableCell>
+                        <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
+                          {team.is_active ? "Активен" : "Неактивен"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Link to={`/teams/${team.id}`}>
+                            <Button size="sm">Отвори</Button>
+                          </Link>
+                          <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>
+                            Редактирай
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>
+                            Изтрий
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </Card>
 
       <Card title="Нов отбор">
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <div className="feesFormGrid">
           <Input placeholder="Име на отбор" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
           <Input placeholder="Възрастова група (пример: U14)" value={teamForm.age_group} onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))} />
           <Input placeholder="Сезон (пример: 2025/2026)" value={teamForm.season} onChange={(e) => setTeamForm((p) => ({ ...p, season: e.target.value }))} />
@@ -174,8 +211,10 @@ export default function Teams() {
             <input type="checkbox" checked={teamForm.is_active} onChange={(e) => setTeamForm((p) => ({ ...p, is_active: e.target.checked }))} />
             Активен отбор
           </label>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <Button disabled={busy} onClick={createTeam}>Създай отбор</Button>
+          <div className="teamsCreateActions">
+            <Button disabled={busy} onClick={createTeam} block className="teamsCreateBtn">
+              Създай отбор
+            </Button>
           </div>
         </div>
       </Card>

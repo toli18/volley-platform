@@ -1,5 +1,5 @@
 // src/Navbar.jsx
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./auth/AuthContext";
 import axiosInstance from "./utils/apiClient";
@@ -8,6 +8,7 @@ import { API_PATHS } from "./utils/apiPaths";
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [logoError, setLogoError] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -20,6 +21,9 @@ export default function Navbar() {
   const [taskReports, setTaskReports] = useState([]);
   const [taskReportsUnread, setTaskReportsUnread] = useState(0);
   const [clubSeenTick, setClubSeenTick] = useState(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const closeMobileNav = () => setMobileNavOpen(false);
 
   const onLogout = () => {
     logout();
@@ -38,6 +42,19 @@ export default function Navbar() {
   const isCoachUser = userRoleNorm === "coach" || userRoleNorm === "club_head_coach";
   const isHeadCoachUser = userRoleNorm === "club_head_coach";
   const isPlatformAdmin = user?.role === "platform_admin";
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
 
   const combinedUnreadCount = useMemo(() => {
     let n = Number(unreadCount) || 0;
@@ -285,6 +302,54 @@ export default function Navbar() {
       window.clearInterval(timer);
     };
   }, [isCoachUser, user]);
+
+  const mainNavItems = useMemo(() => {
+    const items = [{ to: "/drills", label: "Упражнения" }];
+    if (!user) {
+      items.push({ to: "/generator", label: "Генератор" });
+      return items;
+    }
+    if (isCoachUser) {
+      items.push({
+        to: "/my-trainings",
+        label: `Моите тренировки${newTaskCount > 0 ? ` (${newTaskCount})` : ""}`,
+      });
+      items.push({ to: "/my-drills", label: "Моите упражнения" });
+    }
+    items.push({ to: "/forum", label: "Форум" });
+    if (isCoachUser) {
+      items.push({ to: "/monthly-fees", label: "Месечни Такси" });
+      items.push({ to: "/teams", label: "Отбори" });
+    }
+    if (isHeadCoachUser) {
+      items.push({ to: "/club-head", label: "Главен треньор" });
+    }
+    items.push({ to: "/articles", label: "Статии" });
+    if (isCoachUser) {
+      items.push({ to: "/articles/my", label: "Моите статии" });
+    }
+    items.push({ to: "/generator", label: "Генератор" });
+    if (isCoachUser) {
+      items.push({ to: "/ai-generator", label: "AI Генератор" });
+    }
+    return items;
+  }, [user, isCoachUser, isHeadCoachUser, newTaskCount]);
+
+  const adminNavItems = useMemo(() => {
+    if (!isAdminUser) return [];
+    const items = [
+      { to: "/admin", label: "Админ" },
+      { to: "/admin/drills", label: "Всички упражнения" },
+      { to: "/admin/coaches", label: "Треньори" },
+      { to: "/admin/clubs", label: "Клубове" },
+      { to: "/admin/pending", label: "Чакащи упражнения" },
+    ];
+    if (isPlatformAdmin) {
+      items.push({ to: "/admin/articles/pending", label: "Чакащи статии" });
+      items.push({ to: "/admin/articles", label: "Всички статии" });
+    }
+    return items;
+  }, [isAdminUser, isPlatformAdmin]);
 
   return (
     <header className="appHeader">
@@ -546,98 +611,71 @@ export default function Navbar() {
             </div>
           </div>
         </Link>
+
+        <button
+          type="button"
+          className="navBurger"
+          aria-label={mobileNavOpen ? "Затвори менюто" : "Отвори менюто"}
+          aria-expanded={mobileNavOpen}
+          onClick={() => setMobileNavOpen((v) => !v)}
+        >
+          <span className="navBurgerLines" aria-hidden>
+            <span className="navBurgerBar" />
+            <span className="navBurgerBar" />
+            <span className="navBurgerBar" />
+          </span>
+          <span className="navBurgerLabel">Меню</span>
+        </button>
       </div>
 
-      <nav className="appNav">
-        <Link className="appNavLink" to="/drills">
-          Упражнения
-        </Link>
-
-        {user && (
-          <>
-            {isCoachUser && (
-              <Link className="appNavLink" to="/my-trainings">
-                Моите тренировки{newTaskCount > 0 ? ` (${newTaskCount})` : ""}
-              </Link>
-            )}
-            {isCoachUser && (
-              <Link className="appNavLink" to="/my-drills">
-                Моите упражнения
-              </Link>
-            )}
-            <Link className="appNavLink" to="/forum">
-              Форум
-            </Link>
-            {isCoachUser && (
-              <Link className="appNavLink" to="/monthly-fees">
-                Месечни Такси
-              </Link>
-            )}
-            {isCoachUser && (
-              <Link className="appNavLink" to="/teams">
-                Отбори
-              </Link>
-            )}
-            {isHeadCoachUser && (
-              <Link className="appNavLink" to="/club-head">
-                Главен треньор
-              </Link>
-            )}
-            <Link className="appNavLink" to="/articles">
-              Статии
-            </Link>
-            {isCoachUser && (
-              <Link className="appNavLink" to="/articles/my">
-                Моите статии
-              </Link>
-            )}
-            <Link className="appNavLink" to="/generator">
-              Генератор
-            </Link>
-            {isCoachUser && (
-              <Link className="appNavLink" to="/ai-generator">
-                AI Генератор
-              </Link>
-            )}
-          </>
-        )}
-        {!user && (
-          <Link className="appNavLink" to="/generator">
-            Генератор
+      <nav className="appNav appNav--desktop" aria-label="Основна навигация">
+        {mainNavItems.map((item) => (
+          <Link key={item.to} className="appNavLink" to={item.to}>
+            {item.label}
           </Link>
-        )}
-
-        {isAdminUser && (
+        ))}
+        {adminNavItems.length > 0 && (
           <>
             <span className="appNavDivider" />
-            <Link className="appNavLink" to="/admin">
-              Админ
-            </Link>
-            <Link className="appNavLink" to="/admin/drills">
-              Всички упражнения
-            </Link>
-            <Link className="appNavLink" to="/admin/coaches">
-              Треньори
-            </Link>
-            <Link className="appNavLink" to="/admin/clubs">
-              Клубове
-            </Link>
-            <Link className="appNavLink" to="/admin/pending">
-              Чакащи упражнения
-            </Link>
-            {isPlatformAdmin && (
-              <Link className="appNavLink" to="/admin/articles/pending">
-                Чакащи статии
+            {adminNavItems.map((item) => (
+              <Link key={item.to} className="appNavLink" to={item.to}>
+                {item.label}
               </Link>
-            )}
-            {isPlatformAdmin && (
-              <Link className="appNavLink" to="/admin/articles">
-                Всички статии
-              </Link>
-            )}
+            ))}
           </>
         )}
       </nav>
+
+      {mobileNavOpen ? (
+        <div className="navMobileRoot" role="dialog" aria-modal="true" aria-label="Меню">
+          <button type="button" className="navMobileBackdrop" aria-label="Затвори" onClick={closeMobileNav} />
+          <div className="navMobileSheet">
+            <div className="navMobileSheetHeader">
+              <span className="navMobileSheetTitle">Навигация</span>
+              <button type="button" className="navMobileClose" onClick={closeMobileNav}>
+                Затвори
+              </button>
+            </div>
+            <div className="navMobileLinks">
+              {mainNavItems.map((item) => (
+                <Link key={`m-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
+                  {item.label}
+                </Link>
+              ))}
+              {adminNavItems.length > 0 && (
+                <>
+                  <div className="navMobileSectionLabel">Администрация</div>
+                  {adminNavItems.map((item) => (
+                    <Link key={`ma-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
+                      {item.label}
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

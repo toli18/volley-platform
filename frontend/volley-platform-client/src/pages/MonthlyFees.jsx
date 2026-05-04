@@ -121,7 +121,12 @@ export default function MonthlyFees() {
   useEffect(() => {
     if (!highlightAthleteId || loading) return;
     const t = window.setTimeout(() => {
-      document.getElementById(`fees-athlete-${highlightAthleteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const id = highlightAthleteId;
+      const mobileEl = document.querySelector(`.feesMobileList [data-athlete-scroll="${id}"]`);
+      const desktopEl = document.querySelector(`.feesDesktopTable [data-athlete-scroll="${id}"]`);
+      const preferMobile = window.matchMedia("(max-width: 720px)").matches;
+      const el = preferMobile ? mobileEl || desktopEl : desktopEl || mobileEl;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 200);
     return () => window.clearTimeout(t);
   }, [highlightAthleteId, loading, athletes]);
@@ -452,7 +457,7 @@ export default function MonthlyFees() {
       />
 
       <Card title="Нов състезател">
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <div className="feesFormGrid" style={{ gap: 8 }}>
           <Input
             placeholder="Име на състезател"
             value={athleteForm.athlete_name}
@@ -494,11 +499,11 @@ export default function MonthlyFees() {
             />
             Активен състезател
           </label>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <Button disabled={busy} onClick={saveAthlete}>
+          <div className="feesFormActions">
+            <Button disabled={busy} onClick={saveAthlete} block className="feesFormPrimaryBtn">
               Създай състезател
             </Button>
-            <Button variant="secondary" onClick={resetAthleteForm}>
+            <Button variant="secondary" onClick={resetAthleteForm} block className="feesFormSecondaryBtn">
               Изчисти
             </Button>
           </div>
@@ -509,8 +514,8 @@ export default function MonthlyFees() {
         <div style={{ marginBottom: 8 }}>
           <span className="uiBadge uiBadge--info">Общо в списъка: {athletes.length}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="feesToolbar">
+          <div className="feesToolbarInner">
             <Input placeholder="Бързо търсене..." value={query} onChange={(e) => setQuery(e.target.value)} />
             {isHeadCoach && (
               <select className="uiInput" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
@@ -564,96 +569,184 @@ export default function MonthlyFees() {
         {loading && <p>Зареждане...</p>}
         {!loading && athletes.length === 0 && <EmptyState title="Няма състезатели" description="Добави първия състезател или импортирай списък." />}
         {!loading && athletes.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Контакти</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Последни 3 месеца</TableHead>
-                <TableHead>Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="feesMobileList" aria-label="Състезатели (мобилен изглед)">
               {athletes.map((a) => (
-                <TableRow
-                  key={a.id}
-                  id={`fees-athlete-${a.id}`}
-                  className={highlightAthleteId === a.id ? "feesAthleteRow--highlight" : undefined}
+                <article
+                  key={`m-${a.id}`}
+                  data-athlete-scroll={a.id}
+                  className={`feesAthleteCard${highlightAthleteId === a.id ? " feesAthleteCard--highlight" : ""}`}
                 >
-                  <TableCell>
-                    <strong>{a.athlete_name}</strong>
-                    <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div>Родител: {a.parent_name || "-"}</div>
-                    <div>Тел. състезател: {a.athlete_phone || "-"}</div>
-                    <div>Тел. родител: {a.parent_phone || "-"}</div>
-                  </TableCell>
-                  <TableCell>
+                  <div>
+                    <h3 className="feesAthleteCardName">{a.athlete_name}</h3>
+                    <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "—"}</div>
+                  </div>
+                  <div className="feesAthleteCardRow">
+                    <div>Родител: {a.parent_name || "—"}</div>
+                    <div>Тел. състезател: {a.athlete_phone || "—"}</div>
+                    <div>Тел. родител: {a.parent_phone || "—"}</div>
+                  </div>
+                  <div>
                     <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
                       {a.is_active ? "Активен" : "Неактивен"}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {lastMonths(3).map((monthKey) => {
-                        const paid = (a.recent_payments || []).find((p) => p.month_key === monthKey);
-                        return (
-                          <span key={`${a.id}-${monthKey}`} className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                            {paid ? `${monthKey}: платено` : `${monthKey}: липсва`}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <Button onClick={() => { setPayAthlete(a); setPayForm((p) => ({ ...p, month_key: currentMonthKey() })); }} size="sm">
-                        Плати
-                      </Button>
+                  </div>
+                  <div className="feesAthleteCardMonths">
+                    {lastMonths(3).map((monthKey) => {
+                      const paid = (a.recent_payments || []).find((p) => p.month_key === monthKey);
+                      return (
+                        <span key={`${a.id}-${monthKey}`} className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                          {paid ? `${monthKey}: платено` : `${monthKey}: липсва`}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div className="feesAthleteCardActions">
+                    <Button
+                      block
+                      size="sm"
+                      onClick={() => {
+                        setPayAthlete(a);
+                        setPayForm((p) => ({ ...p, month_key: currentMonthKey() }));
+                      }}
+                    >
+                      Плати
+                    </Button>
+                    <Button
+                      block
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setEditAthlete(a);
+                        setEditForm({
+                          athlete_name: a.athlete_name || "",
+                          athlete_phone: a.athlete_phone || "",
+                          parent_name: a.parent_name || "",
+                          parent_phone: a.parent_phone || "",
+                          birth_year: a.birth_year || "",
+                          notes: a.notes || "",
+                          is_active: Boolean(a.is_active),
+                        });
+                      }}
+                    >
+                      Редактирай
+                    </Button>
+                    <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                      Изтрий
+                    </Button>
+                    <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
+                      Отчет
+                    </Button>
+                    {isHeadCoach && (
                       <Button
+                        block
                         variant="secondary"
                         size="sm"
                         onClick={() => {
-                          setEditAthlete(a);
-                          setEditForm({
-                            athlete_name: a.athlete_name || "",
-                            athlete_phone: a.athlete_phone || "",
-                            parent_name: a.parent_name || "",
-                            parent_phone: a.parent_phone || "",
-                            birth_year: a.birth_year || "",
-                            notes: a.notes || "",
-                            is_active: Boolean(a.is_active),
-                          });
+                          setTransferAthlete(a);
+                          setTargetCoachId("");
                         }}
                       >
-                        Редактирай
+                        Прехвърли
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                        Изтрий
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
-                        Отчет
-                      </Button>
-                      {isHeadCoach && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            setTransferAthlete(a);
-                            setTargetCoachId("");
-                          }}
-                        >
-                          Прехвърли
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    )}
+                  </div>
+                </article>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="feesDesktopTable">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Състезател</TableHead>
+                    <TableHead>Контакти</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Последни 3 месеца</TableHead>
+                    <TableHead>Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {athletes.map((a) => (
+                    <TableRow
+                      key={a.id}
+                      data-athlete-scroll={a.id}
+                      className={highlightAthleteId === a.id ? "feesAthleteRow--highlight" : undefined}
+                    >
+                      <TableCell>
+                        <strong>{a.athlete_name}</strong>
+                        <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div>Родител: {a.parent_name || "-"}</div>
+                        <div>Тел. състезател: {a.athlete_phone || "-"}</div>
+                        <div>Тел. родител: {a.parent_phone || "-"}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
+                          {a.is_active ? "Активен" : "Неактивен"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {lastMonths(3).map((monthKey) => {
+                            const paid = (a.recent_payments || []).find((p) => p.month_key === monthKey);
+                            return (
+                              <span key={`${a.id}-${monthKey}`} className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                                {paid ? `${monthKey}: платено` : `${monthKey}: липсва`}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Button onClick={() => { setPayAthlete(a); setPayForm((p) => ({ ...p, month_key: currentMonthKey() })); }} size="sm">
+                            Плати
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setEditAthlete(a);
+                              setEditForm({
+                                athlete_name: a.athlete_name || "",
+                                athlete_phone: a.athlete_phone || "",
+                                parent_name: a.parent_name || "",
+                                parent_phone: a.parent_phone || "",
+                                birth_year: a.birth_year || "",
+                                notes: a.notes || "",
+                                is_active: Boolean(a.is_active),
+                              });
+                            }}
+                          >
+                            Редактирай
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                            Изтрий
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
+                            Отчет
+                          </Button>
+                          {isHeadCoach && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setTransferAthlete(a);
+                                setTargetCoachId("");
+                              }}
+                            >
+                              Прехвърли
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </Card>
 
