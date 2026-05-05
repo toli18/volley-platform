@@ -362,6 +362,11 @@
   flex: 1;
 }
 
+.appContent--immersive {
+  max-width: 100%;
+  padding: 8px 8px 10px;
+}
+
 .appFooter {
   margin-top: 16px;
   border-top: 1px solid var(--border-subtle);
@@ -482,5 +487,9 @@
 
   .appContent {
     padding: 10px 10px 18px;
+  }
+
+  .appContent--immersive {
+    padding: 4px 4px 8px;
   }
 }

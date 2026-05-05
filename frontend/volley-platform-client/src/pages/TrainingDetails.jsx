@@ -43,6 +43,13 @@ export default function TrainingDetails() {
   const [speechListening, setSpeechListening] = useState(false);
   const [swipeEnabled, setSwipeEnabled] = useState(true);
   const [storyMapOpen, setStoryMapOpen] = useState(false);
+  const [paymentAthlete, setPaymentAthlete] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    month_key: new Date().toISOString().slice(0, 7),
+    amount: "",
+    note: "",
+  });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const SECTIONS = useMemo(
     () => [
@@ -290,6 +297,33 @@ export default function TrainingDetails() {
     }
   };
 
+  const saveQuickPayment = async () => {
+    if (!paymentAthlete) return;
+    const amount = Number(paymentForm.amount);
+    if (!paymentForm.month_key || !Number.isFinite(amount) || amount <= 0) {
+      toast.error("Въведи валиден месец и сума.");
+      return;
+    }
+    try {
+      setSavingPayment(true);
+      await apiJson(API_PATHS.FEES_PAYMENT_SAVE(paymentAthlete.athlete_id), {
+        method: "POST",
+        data: {
+          month_key: paymentForm.month_key,
+          amount,
+          note: String(paymentForm.note || "").trim() || null,
+        },
+      });
+      toast.success(`Таксата е записана за ${paymentAthlete.athlete_name}.`);
+      setPaymentAthlete(null);
+      setPaymentForm((prev) => ({ ...prev, amount: "", note: "" }));
+    } catch (e) {
+      toast.error(e?.message || "Неуспешно записване на такса.");
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   const saveQuickNote = () => {
     if (!step) return;
     const key = `${step.sectionKey}:${step.drillId}:${currentStep}`;
@@ -423,6 +457,10 @@ export default function TrainingDetails() {
           .storyMapCard{width:min(640px,96vw); max-height:78vh; overflow:auto; background:#fff; border-radius:14px; border:1px solid #d8e1ec; padding:12px;}
           .storyMapRow{display:flex; gap:8px; align-items:center; justify-content:space-between; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; margin-bottom:7px;}
           .storyMapRow .go{border:1px solid #d1dbe8; background:#fff; border-radius:9px; padding:6px 8px; font-weight:800; cursor:pointer;}
+          .payModal{position:fixed; inset:0; z-index:1400; background:rgba(15,23,42,.55); display:grid; place-items:center; padding:12px;}
+          .payModalCard{width:min(430px,96vw); background:#fff; border:1px solid #d8e1ec; border-radius:14px; padding:12px; display:grid; gap:10px;}
+          .payGrid{display:grid; gap:8px;}
+          .payInput{width:100%; border:1px solid #d1dbe8; border-radius:10px; padding:9px 10px;}
           @media (max-width:700px){ .fieldDrillTitle{font-size:20px;} .timerValue{font-size:24px;} }
         `}</style>
 
@@ -604,7 +642,15 @@ export default function TrainingDetails() {
                         <button
                           className="iconBtn"
                           title="Бързо плащане"
-                          onClick={() => navigate(`/monthly-fees?athlete_id=${m.athlete_id}&focus=pay`)}
+                          onClick={() => {
+                            setPaymentAthlete(m);
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              month_key: new Date().toISOString().slice(0, 7),
+                              amount: "",
+                              note: "",
+                            }));
+                          }}
                         >
                           💰
                         </button>
@@ -668,6 +714,57 @@ export default function TrainingDetails() {
                 </div>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {paymentAthlete ? (
+          <div className="payModal" onClick={() => !savingPayment && setPaymentAthlete(null)}>
+            <section className="payModalCard" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <strong>Бързо плащане</strong>
+                <button className="fieldBtn" onClick={() => setPaymentAthlete(null)} disabled={savingPayment}>
+                  Затвори
+                </button>
+              </div>
+              <div style={{ fontSize: 13, color: "#475569" }}>
+                Състезател: <strong>{paymentAthlete.athlete_name}</strong>
+              </div>
+              <div className="payGrid">
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>Месец</label>
+                <input
+                  type="month"
+                  className="payInput"
+                  value={paymentForm.month_key}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, month_key: e.target.value }))}
+                />
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>Сума</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="payInput"
+                  placeholder="30.00"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, amount: e.target.value }))}
+                />
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>Бележка (по желание)</label>
+                <textarea
+                  className="payInput"
+                  rows={3}
+                  placeholder="Бележка към плащането..."
+                  value={paymentForm.note}
+                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, note: e.target.value }))}
+                />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button className="fieldBtn" onClick={() => setPaymentAthlete(null)} disabled={savingPayment}>
+                  Отказ
+                </button>
+                <button className="fieldBtnPrimary" onClick={saveQuickPayment} disabled={savingPayment}>
+                  {savingPayment ? "Запис..." : "Запази такса"}
+                </button>
+              </div>
+            </section>
           </div>
         ) : null}
 
