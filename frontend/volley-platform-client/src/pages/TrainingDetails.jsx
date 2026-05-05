@@ -39,6 +39,10 @@ export default function TrainingDetails() {
   const [quickNotes, setQuickNotes] = useState({});
   const [savedNotes, setSavedNotes] = useState([]);
   const touchStartX = useRef(null);
+  const speechRef = useRef(null);
+  const [speechListening, setSpeechListening] = useState(false);
+  const [swipeEnabled, setSwipeEnabled] = useState(true);
+  const [storyMapOpen, setStoryMapOpen] = useState(false);
 
   const SECTIONS = useMemo(
     () => [
@@ -111,6 +115,18 @@ export default function TrainingDetails() {
   }, [running]);
 
   useEffect(() => {
+    return () => {
+      try {
+        if (speechRef.current && typeof speechRef.current.stop === "function") {
+          speechRef.current.stop();
+        }
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!fieldMode) return;
     let cancelled = false;
     (async () => {
@@ -128,6 +144,26 @@ export default function TrainingDetails() {
       cancelled = true;
     };
   }, [fieldMode]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    try {
+      const raw = localStorage.getItem(`vp-field-notes-${data.id}`);
+      const arr = JSON.parse(raw || "[]");
+      if (Array.isArray(arr)) setSavedNotes(arr);
+    } catch {
+      setSavedNotes([]);
+    }
+  }, [data?.id]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    try {
+      localStorage.setItem(`vp-field-notes-${data.id}`, JSON.stringify(savedNotes.slice(0, 300)));
+    } catch {
+      // ignore
+    }
+  }, [savedNotes, data?.id]);
 
   useEffect(() => {
     if (!selectedTeamId) {
@@ -193,6 +229,31 @@ export default function TrainingDetails() {
   const step = fieldSteps[currentStep] || null;
   const canPrev = currentStep > 0;
   const canNext = currentStep < fieldSteps.length - 1;
+  const phaseMeta = useMemo(() => {
+    const meta = [];
+    let offset = 0;
+    SECTIONS.forEach((s) => {
+      const count = (Array.isArray(plan[s.key]) ? plan[s.key] : []).length;
+      if (!count) return;
+      meta.push({
+        key: s.key,
+        label: s.label,
+        count,
+        start: offset,
+        end: offset + count - 1,
+      });
+      offset += count;
+    });
+    return meta;
+  }, [SECTIONS, plan]);
+  const activePhase = useMemo(
+    () => phaseMeta.find((p) => currentStep >= p.start && currentStep <= p.end) || null,
+    [phaseMeta, currentStep]
+  );
+  const speechSupported = useMemo(
+    () => typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
+    []
+  );
   const fmtTime = (sec) => {
     const s = Math.max(0, Number(sec) || 0);
     const mm = String(Math.floor(s / 60)).padStart(2, "0");
@@ -248,6 +309,64 @@ export default function TrainingDetails() {
     toast.success("Наблюдението е записано локално.");
   };
 
+  const appendQuickNote = (text) => {
+    if (!step) return;
+    const key = `${step.sectionKey}:${step.drillId}:${currentStep}`;
+    const line = String(text || "").trim();
+    if (!line) return;
+    setQuickNotes((prev) => ({
+      ...prev,
+      [key]: prev[key] ? `${prev[key]}\n${line}` : line,
+    }));
+  };
+
+  const startVoiceNote = () => {
+    if (!speechSupported) {
+      toast.info("Гласовият запис не се поддържа на това устройство/браузър.");
+      return;
+    }
+    if (speechListening) {
+      try {
+        if (speechRef.current?.stop) speechRef.current.stop();
+      } catch {
+        // ignore
+      }
+      setSpeechListening(false);
+      return;
+    }
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) {
+      toast.info("Гласовият запис не е наличен.");
+      return;
+    }
+    const recognition = new Ctor();
+    recognition.lang = "bg-BG";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript || "";
+      if (String(transcript).trim()) {
+        appendQuickNote(transcript);
+        toast.success("Гласовата бележка е добавена.");
+      }
+    };
+    recognition.onerror = () => {
+      toast.error("Неуспешен гласов запис.");
+      setSpeechListening(false);
+    };
+    recognition.onend = () => {
+      setSpeechListening(false);
+    };
+    speechRef.current = recognition;
+    setSpeechListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setSpeechListening(false);
+      toast.error("Не може да се стартира микрофон.");
+    }
+  };
+
   const openFieldMode = () => {
     const sp = new URLSearchParams(location.search);
     sp.set("mode", "field");
@@ -273,6 +392,12 @@ export default function TrainingDetails() {
           .fieldTitle{margin:0; font-size:18px; font-weight:900;}
           .fieldMeta{font-size:12px; color:#64748b;}
           .fieldCard{border:1px solid #dbe7f5; border-radius:16px; background:linear-gradient(180deg,#fff,#f8fbff); padding:14px; min-height:52vh; display:grid; gap:10px;}
+          .storyStrip{display:flex; gap:6px; overflow:auto; padding-bottom:4px; margin-bottom:6px;}
+          .storyChip{border:1px solid #d7e2ef; border-radius:999px; padding:6px 10px; background:#fff; font-weight:800; font-size:12px; cursor:pointer; white-space:nowrap;}
+          .storyChip.active{background:#0b5cff; color:#fff; border-color:#0b5cff;}
+          .storyProgress{display:flex; gap:4px; margin-bottom:4px;}
+          .storyProgress div{height:4px; flex:1; border-radius:999px; background:#dbe7f5;}
+          .storyProgress div.on{background:#0b5cff;}
           .fieldStep{font-size:12px; font-weight:800; color:#475569; letter-spacing:.03em;}
           .fieldDrillTitle{font-size:24px; line-height:1.15; margin:0; font-weight:950;}
           .fieldDrillMeta{font-size:13px; color:#64748b;}
@@ -294,6 +419,10 @@ export default function TrainingDetails() {
           .iconBtn.on{background:#e8f8ee; border-color:#9ed6b1;}
           .drawerFoot{padding:12px; border-top:1px solid #e2e8f0; display:flex; gap:8px;}
           .backdrop{position:fixed; inset:0; background:rgba(15,23,42,.35); z-index:1100;}
+          .storyMap{position:fixed; inset:0; z-index:1300; background:rgba(15,23,42,.55); display:grid; place-items:center; padding:14px;}
+          .storyMapCard{width:min(640px,96vw); max-height:78vh; overflow:auto; background:#fff; border-radius:14px; border:1px solid #d8e1ec; padding:12px;}
+          .storyMapRow{display:flex; gap:8px; align-items:center; justify-content:space-between; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; margin-bottom:7px;}
+          .storyMapRow .go{border:1px solid #d1dbe8; background:#fff; border-radius:9px; padding:6px 8px; font-weight:800; cursor:pointer;}
           @media (max-width:700px){ .fieldDrillTitle{font-size:20px;} .timerValue{font-size:24px;} }
         `}</style>
 
@@ -312,12 +441,31 @@ export default function TrainingDetails() {
           <EmptyState title="Няма упражнения в плана" description="Добави упражнения в тренировката и опитай отново." />
         ) : (
           <>
+            <div className="storyProgress">
+              {phaseMeta.map((p) => (
+                <div key={p.key} className={currentStep >= p.start ? "on" : ""} />
+              ))}
+            </div>
+            <div className="storyStrip" aria-label="Фази (story навигация)">
+              {phaseMeta.map((p) => (
+                <button
+                  key={p.key}
+                  className={`storyChip ${activePhase?.key === p.key ? "active" : ""}`}
+                  onClick={() => setCurrentStep(p.start)}
+                  title={`${p.label} (${p.count})`}
+                >
+                  {p.label} ({p.count})
+                </button>
+              ))}
+            </div>
             <section
               className="fieldCard"
               onTouchStart={(e) => {
+                if (!swipeEnabled) return;
                 touchStartX.current = e.touches?.[0]?.clientX ?? null;
               }}
               onTouchEnd={(e) => {
+                if (!swipeEnabled) return;
                 const sx = touchStartX.current;
                 const ex = e.changedTouches?.[0]?.clientX ?? null;
                 touchStartX.current = null;
@@ -352,15 +500,21 @@ export default function TrainingDetails() {
                   placeholder="Наблюдение за това упражнение..."
                   style={{ width: "100%", minHeight: 72, borderRadius: 10, border: "1px solid #d8e1ec", padding: 10 }}
                 />
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button className="fieldBtn" onClick={saveQuickNote}>💬 Запиши наблюдение</button>
+                  <button className="fieldBtn" onClick={startVoiceNote} title="Speech-to-text">
+                    {speechListening ? "🛑 Спри запис" : "🎙️ Гласова бележка"}
+                  </button>
+                  {!speechSupported ? <span style={{ fontSize: 12, color: "#64748b" }}>Гласовият запис не се поддържа тук.</span> : null}
                 </div>
               </div>
               <div className="fieldNav">
                 <button className="fieldBtn" disabled={!canPrev} onClick={() => setCurrentStep((p) => Math.max(0, p - 1))}>
                   ← Предишно
                 </button>
-                <span style={{ fontSize: 12, color: "#64748b", textAlign: "center" }}>Swipe ← →</span>
+                <span style={{ fontSize: 12, color: "#64748b", textAlign: "center" }}>
+                  {swipeEnabled ? "Swipe ← →" : "Swipe е изключен"}
+                </span>
                 <button
                   className="fieldBtnPrimary"
                   disabled={!canNext}
@@ -378,6 +532,10 @@ export default function TrainingDetails() {
                   <div className="timerValue">{fmtTime(secondsLeft)}</div>
                 </div>
                 <div className="controls">
+                  <button className="fieldBtn" onClick={() => setSwipeEnabled((v) => !v)}>
+                    {swipeEnabled ? "🔒 Lock swipe" : "🔓 Unlock swipe"}
+                  </button>
+                  <button className="fieldBtn" onClick={() => setStoryMapOpen(true)}>🗺️ Story карта</button>
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12, color: "#475569" }}>Мин:</span>
                     <input
@@ -475,6 +633,38 @@ export default function TrainingDetails() {
                     {new Date(n.at).toLocaleString("bg-BG")} • {n.sectionLabel} • {n.stepTitle}
                   </div>
                   <div style={{ fontSize: 14, marginTop: 4 }}>{n.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {storyMapOpen ? (
+          <div className="storyMap" onClick={() => setStoryMapOpen(false)}>
+            <div className="storyMapCard" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <strong>Story карта на тренировката</strong>
+                <button className="fieldBtn" onClick={() => setStoryMapOpen(false)}>Затвори</button>
+              </div>
+              {fieldSteps.map((st, idx) => (
+                <div key={`${st.sectionKey}-${st.drillId}-${idx}`} className="storyMapRow">
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>
+                      {idx + 1}/{fieldSteps.length} • {st.sectionLabel}
+                    </div>
+                    <div style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {st.drill?.title || `Упражнение #${st.drillId}`}
+                    </div>
+                  </div>
+                  <button
+                    className="go"
+                    onClick={() => {
+                      setCurrentStep(idx);
+                      setStoryMapOpen(false);
+                    }}
+                  >
+                    Отвори
+                  </button>
                 </div>
               ))}
             </div>
