@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -35,6 +35,7 @@ const lastMonths = (count = 3) => {
 export default function MonthlyFees() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const toast = useToast();
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +131,48 @@ export default function MonthlyFees() {
     }, 200);
     return () => window.clearTimeout(t);
   }, [highlightAthleteId, loading, athletes]);
+
+  useEffect(() => {
+    if (loading || athletes.length === 0) return;
+    const sp = new URLSearchParams(location.search || "");
+    if (sp.get("focus") !== "edit") return;
+    const raw = sp.get("athlete_id");
+    const aid = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(aid)) return;
+    const a = athletes.find((x) => Number(x.id) === aid);
+    if (!a) return;
+    setEditAthlete(a);
+    setEditForm({
+      athlete_name: a.athlete_name || "",
+      athlete_phone: a.athlete_phone || "",
+      parent_name: a.parent_name || "",
+      parent_phone: a.parent_phone || "",
+      birth_year: a.birth_year || "",
+      notes: a.notes || "",
+      is_active: Boolean(a.is_active),
+    });
+    const next = new URLSearchParams(sp);
+    next.delete("focus");
+    const qs = next.toString();
+    navigate(`${location.pathname}${qs ? `?${qs}` : ""}`, { replace: true });
+  }, [loading, athletes, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (loading || athletes.length === 0) return;
+    const sp = new URLSearchParams(location.search || "");
+    if (sp.get("focus") !== "pay") return;
+    const raw = sp.get("athlete_id");
+    const aid = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(aid)) return;
+    const a = athletes.find((x) => Number(x.id) === aid);
+    if (!a) return;
+    setPayAthlete(a);
+    setPayForm((p) => ({ ...p, month_key: currentMonthKey() }));
+    const next = new URLSearchParams(sp);
+    next.delete("focus");
+    const qs = next.toString();
+    navigate(`${location.pathname}${qs ? `?${qs}` : ""}`, { replace: true });
+  }, [loading, athletes, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!isHeadCoach) return;

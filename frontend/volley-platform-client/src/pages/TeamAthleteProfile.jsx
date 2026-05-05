@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -14,12 +14,18 @@ const normalizeError = (err) => {
   return "Грешка при зареждане на профила.";
 };
 
+const fmtMissing = (value) => {
+  if (value == null || value === "") return "няма данни";
+  const s = String(value).trim();
+  return s.length ? s : "няма данни";
+};
+
 const statusLabel = (value) => {
   if (value === "present") return "Присъства";
   if (value === "late") return "Закъсня";
   if (value === "absent") return "Отсъства";
   if (value === "excused") return "Извинен";
-  return value || "-";
+  return value || "няма данни";
 };
 
 const statusBadgeClass = (value) => {
@@ -30,6 +36,12 @@ const statusBadgeClass = (value) => {
   return "uiBadge--secondary";
 };
 
+const ageFromBirthYear = (year) => {
+  const y = Number(year);
+  if (!Number.isFinite(y) || y < 1900 || y > 2100) return null;
+  return new Date().getFullYear() - y;
+};
+
 export default function TeamAthleteProfile() {
   const { athleteId } = useParams();
   const location = useLocation();
@@ -37,6 +49,28 @@ export default function TeamAthleteProfile() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const fromPath = new URLSearchParams(location.search).get("from") || "/teams";
+
+  const feesHref = useMemo(() => {
+    const id = profile?.athlete_id;
+    if (!id) return "/monthly-fees";
+    return `/monthly-fees?athlete_id=${encodeURIComponent(id)}`;
+  }, [profile?.athlete_id]);
+
+  const feesEditHref = useMemo(() => {
+    const id = profile?.athlete_id;
+    if (!id) return "/monthly-fees";
+    return `/monthly-fees?athlete_id=${encodeURIComponent(id)}&focus=edit`;
+  }, [profile?.athlete_id]);
+
+  const feesPayHref = useMemo(() => {
+    const id = profile?.athlete_id;
+    if (!id) return "/monthly-fees";
+    return `/monthly-fees?athlete_id=${encodeURIComponent(id)}&focus=pay`;
+  }, [profile?.athlete_id]);
+
+  const scrollToHistory = () => {
+    document.getElementById("athlete-history")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -74,36 +108,90 @@ export default function TeamAthleteProfile() {
     );
   }
 
+  const birthYearVal = profile.birth_year ?? null;
+  const ageYears = ageFromBirthYear(birthYearVal);
+
+  const paymentPaid = (row) => {
+    if (row.paid === false) return false;
+    if (row.paid === true) return true;
+    return Boolean(row.paid_at);
+  };
+
   return (
     <div className="uiPage">
       <PageHero
         title={`Профил: ${profile.athlete_name}`}
-        subtitle="Присъствие, отбори и последни плащания на едно място."
+        subtitle="Присъствие, отбори, такси и история на едно място."
         actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button as={Link} to={`/monthly-fees?athlete_id=${profile.athlete_id}`} variant="primary">
-              Месечни такси и плащане
+          <div className="athleteProfileHeroActions">
+            <Button as={Link} to={feesEditHref} variant="primary">
+              Редактирай профил
             </Button>
-            <Link to={fromPath}>
-              <Button variant="secondary">Назад към Отбори</Button>
-            </Link>
+            <Button type="button" variant="secondary" onClick={scrollToHistory}>
+              История
+            </Button>
+            <Button as={Link} to={fromPath} variant="secondary">
+              Назад към Отбори
+            </Button>
           </div>
         }
       />
 
       <Card title="Основни данни">
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-          <div><strong>Състезател:</strong> {profile.athlete_name}</div>
-          <div><strong>Родител:</strong> {profile.parent_name || "-"}</div>
-          <div><strong>Телефон родител:</strong> {profile.parent_phone || "-"}</div>
-          <div><strong>Телефон състезател:</strong> {profile.athlete_phone || "-"}</div>
-          <div>
-            <strong>Статус:</strong>{" "}
-            <span className={`uiBadge ${profile.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-              {profile.is_active ? "Активен" : "Неактивен"}
-            </span>
+        <div className="athleteProfileBasicGrid">
+          <div className="athleteProfileBlock">
+            <h4 className="athleteProfileBlockTitle">Лични данни</h4>
+            <dl className="athleteProfileDl">
+              <div>
+                <dt>Състезател</dt>
+                <dd>{fmtMissing(profile.athlete_name)}</dd>
+              </div>
+              <div>
+                <dt>Година на раждане</dt>
+                <dd>{fmtMissing(birthYearVal)}</dd>
+              </div>
+              <div>
+                <dt>Възраст (на база година)</dt>
+                <dd>{ageYears != null ? `${ageYears} г.` : "няма данни"}</dd>
+              </div>
+              <div>
+                <dt>Телефон на състезател</dt>
+                <dd>{fmtMissing(profile.athlete_phone)}</dd>
+              </div>
+            </dl>
           </div>
-          <div><strong>Отбори:</strong> {(profile.teams || []).join(", ") || "-"}</div>
+
+          <div className="athleteProfileBlock">
+            <h4 className="athleteProfileBlockTitle">Родител / контакт</h4>
+            <dl className="athleteProfileDl">
+              <div>
+                <dt>Родител</dt>
+                <dd>{fmtMissing(profile.parent_name)}</dd>
+              </div>
+              <div>
+                <dt>Телефон на родител</dt>
+                <dd>{fmtMissing(profile.parent_phone)}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="athleteProfileBlock athleteProfileBlock--full">
+            <h4 className="athleteProfileBlockTitle">Отбор и статус</h4>
+            <dl className="athleteProfileDl athleteProfileDl--inline">
+              <div>
+                <dt>Отбори</dt>
+                <dd>{(profile.teams || []).filter(Boolean).length ? (profile.teams || []).join(", ") : "няма данни"}</dd>
+              </div>
+              <div>
+                <dt>Статус</dt>
+                <dd>
+                  <span className={`uiBadge ${profile.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
+                    {profile.is_active ? "Активен" : "Неактивен"}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </Card>
 
@@ -132,8 +220,8 @@ export default function TeamAthleteProfile() {
             <TableBody>
               {(profile.last_attendance || []).map((row, idx) => (
                 <TableRow key={`${row.date}-${row.team_name}-${idx}`}>
-                  <TableCell>{row.date || "-"}</TableCell>
-                  <TableCell>{row.team_name || "-"}</TableCell>
+                  <TableCell>{row.date ? fmtMissing(row.date) : "няма данни"}</TableCell>
+                  <TableCell>{fmtMissing(row.team_name)}</TableCell>
                   <TableCell>
                     <span className={`uiBadge ${statusBadgeClass(row.status)}`}>{statusLabel(row.status)}</span>
                   </TableCell>
@@ -144,9 +232,25 @@ export default function TeamAthleteProfile() {
         )}
       </Card>
 
-      <Card title="Последни плащания (Месечни такси)">
+      <Card
+        title="Месечни такси (последни 12 месеца)"
+        subtitle="Зелено: платено. Червено: липсва записано плащане за месеца."
+        actions={
+          <div className="athleteProfileCardActions">
+            <Button as={Link} to={feesPayHref} size="sm">
+              Добави плащане
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={scrollToHistory}>
+              История
+            </Button>
+            <Button as={Link} to={feesHref} variant="secondary" size="sm">
+              Всички такси
+            </Button>
+          </div>
+        }
+      >
         {(profile.monthly_payments || []).length === 0 ? (
-          <EmptyState title="Няма плащания" description="Все още няма записани плащания за този състезател." />
+          <EmptyState title="Няма данни за месеци" description="Няма изчислен прозорец от месеци." />
         ) : (
           <Table>
             <TableHeader>
@@ -154,18 +258,55 @@ export default function TeamAthleteProfile() {
                 <TableHead>Месец</TableHead>
                 <TableHead>Сума</TableHead>
                 <TableHead>Дата на плащане</TableHead>
+                <TableHead>Записал</TableHead>
+                <TableHead>Статус</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(profile.monthly_payments || []).map((row) => (
-                <TableRow key={`${row.month_key}-${row.paid_at || ""}`}>
-                  <TableCell>{row.month_key}</TableCell>
-                  <TableCell>{Number(row.amount || 0).toFixed(2)} лв.</TableCell>
-                  <TableCell>{row.paid_at ? new Date(row.paid_at).toLocaleString("bg-BG") : "-"}</TableCell>
-                </TableRow>
-              ))}
+              {(profile.monthly_payments || []).map((row) => {
+                const paid = paymentPaid(row);
+                return (
+                  <TableRow key={`${row.month_key}-${paid ? row.paid_at || "" : "unpaid"}`}>
+                    <TableCell>{row.month_key}</TableCell>
+                    <TableCell>{paid ? `${Number(row.amount || 0).toFixed(2)} лв.` : "—"}</TableCell>
+                    <TableCell>{row.paid_at ? new Date(row.paid_at).toLocaleString("bg-BG") : "—"}</TableCell>
+                    <TableCell>{paid ? (String(row.recorded_by_name || "").trim() || "—") : "—"}</TableCell>
+                    <TableCell>
+                      <span className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                        {paid ? "Платено" : "Дължи"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
+        )}
+      </Card>
+
+      <Card id="athlete-history" title="История на състезателя" subtitle="Подредено по дата (най-нови отгоре). За редакции без отделен журнал авторът не е наличен.">
+        {!(profile.timeline || []).length ? (
+          <EmptyState title="Няма събития" description="Все още няма събития за тази версия на историята." />
+        ) : (
+          <ul className="athleteTimeline">
+            {(profile.timeline || []).map((ev, i) => {
+              const when = ev.at ? new Date(ev.at).toLocaleString("bg-BG") : "няма данни";
+              const who = ev.actor_name ? ` · ${ev.actor_name}` : "";
+              const detail = ev.detail ? ` · ${ev.detail}` : "";
+              return (
+                <li key={`${ev.kind}-${i}-${when}`}>
+                  <div className="athleteTimelineLine">
+                    <span className="athleteTimelineWhen">{when}</span>
+                    <span className="athleteTimelineLabel">{ev.label || ev.kind}</span>
+                    <span className="athleteTimelineMeta">
+                      {who}
+                      {detail}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </Card>
     </div>

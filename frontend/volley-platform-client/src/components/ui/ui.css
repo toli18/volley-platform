@@ -707,6 +707,144 @@
   background: #f0fdf4 !important;
 }
 
+.athleteProfileHeroActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.athleteProfileCardActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .athleteProfileHeroActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .athleteProfileHeroActions .uiButton {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .athleteProfileCardActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .athleteProfileCardActions .uiButton {
+    flex: 1 1 44%;
+    justify-content: center;
+  }
+}
+
+.athleteProfileBasicGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 28px;
+  align-items: start;
+}
+
+.athleteProfileBlock--full {
+  grid-column: 1 / -1;
+}
+
+.athleteProfileBlockTitle {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.athleteProfileDl {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.athleteProfileDl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.athleteProfileDl dt {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.athleteProfileDl dd {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.athleteProfileDl--inline {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+}
+
+@media (max-width: 760px) {
+  .athleteProfileBasicGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .athleteProfileDl--inline {
+    grid-template-columns: 1fr;
+  }
+
+  .athleteProfileBlock--full {
+    grid-column: auto;
+  }
+}
+
+.athleteTimeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.athleteTimeline li {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.athleteTimelineLine {
+  display: grid;
+  gap: 4px;
+}
+
+.athleteTimelineWhen {
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+}
+
+.athleteTimelineLabel {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.athleteTimelineMeta {
+  font-size: 13px;
+  color: #64748b;
+  word-break: break-word;
+}
+
 .teamAttendanceSticky {
   position: sticky;
   top: 0;

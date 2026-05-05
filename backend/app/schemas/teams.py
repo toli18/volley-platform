@@ -89,23 +89,41 @@ class AthleteAttendanceSummary(BaseModel):
 
 
 class AthletePaymentMini(BaseModel):
+    """Ред за такса по месец (платени и неплатени в последните N месеца)."""
+
     month_key: str
-    amount: float
+    amount: float = 0
     paid_at: Optional[datetime] = None
+    paid: bool = False
+    recorded_by_name: Optional[str] = None
+
+
+class AthleteTimelineEvent(BaseModel):
+    """Събитие за история — сортирани по данни descending в API."""
+
+    at: datetime
+    kind: str
+    label: str
+    detail: Optional[str] = None
+    actor_name: Optional[str] = None
 
 
 class AthleteProfileResponse(BaseModel):
     athlete_id: int
     athlete_name: str
+    birth_year: Optional[int] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     teams: list[str] = Field(default_factory=list)
     attendance_summary: AthleteAttendanceSummary
     last_attendance: list[dict] = Field(default_factory=list)
     monthly_payments: list[AthletePaymentMini] = Field(default_factory=list)
+    timeline: list[AthleteTimelineEvent] = Field(default_factory=list)
 
 
 class TeamAttendanceReportRow(BaseModel):

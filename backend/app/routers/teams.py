@@ -20,6 +20,7 @@ from app.schemas.teams import (
     AthleteAttendanceSummary,
     AthletePaymentMini,
     AthleteProfileResponse,
+    AthleteTimelineEvent,
     AttendanceResponse,
     AttendanceSavePayload,
     TeamCreate,
@@ -36,6 +37,42 @@ router = APIRouter()
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ATTENDANCE_STATUSES = {"present", "late", "absent", "excused"}
+
+
+def _recent_month_keys(count: int = 12) -> list[str]:
+    keys: list[str] = []
+    now = datetime.utcnow()
+    year, month = now.year, now.month
+    for _ in range(count):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    return keys
+
+
+def _dt_from_calendar_date(d: str, *, end_of_day: bool = False) -> datetime:
+    if not d:
+        return datetime.utcnow()
+    hh, mm, ss = (23, 59, 59) if end_of_day else (12, 0, 0)
+    try:
+        y, mo, day = (int(x) for x in str(d).strip().split("-")[:3])
+        return datetime(y, mo, day, hh, mm, ss)
+    except Exception:
+        return datetime.utcnow()
+
+
+def _attendance_status_bg(status: str | None) -> str:
+    if status == "present":
+        return "Присъства"
+    if status == "late":
+        return "Закъсня"
+    if status == "absent":
+        return "Отсъства"
+    if status == "excused":
+        return "Извинен"
+    return status or "—"
 
 
 def _role_value(user: User) -> str:
@@ -401,7 +438,9 @@ def team_attendance_report(
 def athlete_profile(
     athlete_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
 ):
     athlete = (
         db.query(Athlete)
@@ -445,31 +484,139 @@ def athlete_profile(
     total = len(attendance_rows)
     attendance_rate = round(((present + late) / total * 100.0), 1) if total else 0.0
 
-    payments = (
+    month_window = _recent_month_keys(12)
+    payments_in_window = (
         db.query(AthletePayment)
-        .filter(AthletePayment.athlete_id == athlete.id)
-        .order_by(AthletePayment.month_key.desc())
-        .limit(12)
+        .filter(
+            AthletePayment.athlete_id == athlete.id,
+            AthletePayment.month_key.in_(month_window),
+        )
         .all()
     )
-    payment_rows = [
-        AthletePaymentMini(month_key=p.month_key, amount=float(p.amount or 0), paid_at=p.paid_at)
-        for p in payments
-    ]
+    pay_by_month = {p.month_key: p for p in payments_in_window}
+    payer_ids = {p.coach_id for p in payments_in_window}
+    payer_lookup = dict(db.query(User.id, User.name).filter(User.id.in_(payer_ids)).all()) if payer_ids else {}
+
+    payment_rows: list[AthletePaymentMini] = []
+    for mk in month_window:
+        p = pay_by_month.get(mk)
+        if p:
+            payment_rows.append(
+                AthletePaymentMini(
+                    month_key=mk,
+                    amount=float(p.amount or 0),
+                    paid_at=p.paid_at,
+                    paid=True,
+                    recorded_by_name=payer_lookup.get(p.coach_id),
+                )
+            )
+        else:
+            payment_rows.append(AthletePaymentMini(month_key=mk, amount=0, paid_at=None, paid=False))
 
     last_attendance = [
         {"status": status, "date": date, "team_name": team_name}
         for status, date, team_name in attendance_rows[:15]
     ]
 
+    raw_timeline: list[dict] = []
+    coach_name_row = db.query(User.name).filter(User.id == athlete.coach_id).first()
+    primary_coach_name = coach_name_row[0] if coach_name_row else None
+
+    created_at_v = getattr(athlete, "created_at", None)
+    updated_at_v = getattr(athlete, "updated_at", None)
+
+    if created_at_v:
+        raw_timeline.append(
+            {
+                "at": created_at_v,
+                "kind": "created",
+                "label": "Създаване на състезател",
+                "detail": None,
+                "actor_name": primary_coach_name,
+            }
+        )
+
+    create_ts = created_at_v or datetime.utcnow()
+    update_ts = updated_at_v or create_ts
+    if update_ts and create_ts and abs((update_ts - create_ts).total_seconds()) > 120:
+        raw_timeline.append(
+            {
+                "at": update_ts,
+                "kind": "profile_update",
+                "label": "Актуализиран запис",
+                "detail": "Профил, треньор или други данни (няма отделен журнал за типа промяна)",
+                "actor_name": None,
+            }
+        )
+
+    team_visibility = Team.club_id == current_user.club_id if _is_head_coach(current_user) else Team.coach_id == current_user.id
+
+    membership_rows = (
+        db.query(TeamMember, Team.name)
+        .join(Team, Team.id == TeamMember.team_id)
+        .filter(TeamMember.athlete_id == athlete.id, team_visibility)
+        .order_by(TeamMember.joined_at.asc())
+        .limit(80)
+        .all()
+    )
+    for tm, tname in membership_rows:
+        jt = getattr(tm, "joined_at", None)
+        if jt:
+            raw_timeline.append(
+                {
+                    "at": jt,
+                    "kind": "team_join",
+                    "label": "Добавен към отбор",
+                    "detail": tname,
+                    "actor_name": None,
+                }
+            )
+
+    pay_history = (
+        db.query(AthletePayment)
+        .filter(AthletePayment.athlete_id == athlete.id)
+        .order_by(AthletePayment.paid_at.desc())
+        .limit(40)
+        .all()
+    )
+    payer_all = {p.coach_id for p in pay_history}
+    payer_all_names = dict(db.query(User.id, User.name).filter(User.id.in_(payer_all)).all()) if payer_all else {}
+    for p in pay_history:
+        raw_timeline.append(
+            {
+                "at": p.paid_at or p.created_at,
+                "kind": "payment",
+                "label": "Плащане месечна такса",
+                "detail": f"{p.month_key} · {float(p.amount or 0):.2f} лв.",
+                "actor_name": payer_all_names.get(p.coach_id),
+            }
+        )
+
+    for status, session_date, team_name in attendance_rows[:25]:
+        raw_timeline.append(
+            {
+                "at": _dt_from_calendar_date(session_date),
+                "kind": "attendance",
+                "label": f"Присъствие: {_attendance_status_bg(status)}",
+                "detail": team_name or None,
+                "actor_name": None,
+            }
+        )
+
+    raw_timeline.sort(key=lambda row: row["at"], reverse=True)
+    timeline = [AthleteTimelineEvent(**row) for row in raw_timeline[:100]]
+
     return AthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
+        birth_year=athlete.birth_year,
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,
         athlete_phone=athlete.athlete_phone,
         notes=athlete.notes,
         is_active=bool(athlete.is_active),
+        created_at=created_at_v,
+        updated_at=updated_at_v,
         teams=teams,
         attendance_summary=AthleteAttendanceSummary(
             present=present,
@@ -481,4 +628,5 @@ def athlete_profile(
         ),
         last_attendance=last_attendance,
         monthly_payments=payment_rows,
+        timeline=timeline,
     )
