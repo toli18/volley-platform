@@ -162,11 +162,8 @@ export default function TrainingDetails() {
     };
   }, [selectedTeamId]);
 
-  if (loading) return <div className="uiPage">Зареждане…</div>;
-  if (!data) return <EmptyState title="Няма данни" description="Не успяхме да заредим детайлите за тренировката." />;
-
-  const plan = data.plan || {};
-  const drillsMap = data.drills || {};
+  const plan = data?.plan || {};
+  const drillsMap = data?.drills || {};
   const fieldSteps = useMemo(() => {
     const out = [];
     SECTIONS.forEach((s) => {
@@ -263,6 +260,9 @@ export default function TrainingDetails() {
     const q = sp.toString();
     navigate(`/trainings/${id}${q ? `?${q}` : ""}`);
   };
+
+  if (loading) return <div className="uiPage">Зареждане…</div>;
+  if (!data) return <EmptyState title="Няма данни" description="Не успяхме да заредим детайлите за тренировката." />;
 
   if (fieldMode) {
     return (
