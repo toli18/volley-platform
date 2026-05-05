@@ -48,6 +48,9 @@ export default function CoachBoard() {
   const [dragPlayerId, setDragPlayerId] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [showGear, setShowGear] = useState(true);
+  const [activityTick, setActivityTick] = useState(0);
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
 
   const ratio = orientation === "landscape" ? COURT_WIDTH / COURT_HEIGHT : COURT_HEIGHT / COURT_WIDTH;
 
@@ -108,6 +111,15 @@ export default function CoachBoard() {
       // ignore
     }
   }, [strokes, players, orientation]);
+
+  useEffect(() => {
+    if (!showGear && !controlsOpen) return;
+    const t = window.setTimeout(() => {
+      setControlsOpen(false);
+      setShowGear(false);
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [activityTick, showGear, controlsOpen]);
 
   useEffect(() => {
     const canvas = bgCanvasRef.current;
@@ -194,6 +206,11 @@ export default function CoachBoard() {
     setUndoStack((prev) => [...prev.slice(-50), { strokes, players }]);
   };
 
+  const pingActivity = () => {
+    setShowGear(true);
+    setActivityTick((n) => n + 1);
+  };
+
   const undo = () => {
     const last = undoStack[undoStack.length - 1];
     if (!last) return;
@@ -205,6 +222,12 @@ export default function CoachBoard() {
   const clearBoard = () => {
     pushUndo();
     setStrokes([]);
+  };
+
+  const clearLastStroke = () => {
+    if (!strokes.length) return;
+    pushUndo();
+    setStrokes((prev) => prev.slice(0, -1));
   };
 
   const resetPlayers = () => {
@@ -223,6 +246,7 @@ export default function CoachBoard() {
   };
 
   const startDraw = (evt) => {
+    pingActivity();
     if (dragPlayerId) return;
     const p = getPoint(evt);
     if (!p) return;
@@ -281,8 +305,10 @@ export default function CoachBoard() {
   };
 
   const startDragPlayer = (id) => {
+    pingActivity();
     pushUndo();
     setDragPlayerId(id);
+    setSelectedPlayerId(id);
   };
 
   const moveDragPlayer = (evt) => {
@@ -294,67 +320,112 @@ export default function CoachBoard() {
 
   const endDragPlayer = () => setDragPlayerId(null);
 
+  const addPlayer = (team) => {
+    pingActivity();
+    pushUndo();
+    const teamRows = players.filter((p) => p.team === team);
+    const nextNum = teamRows.length ? Math.max(...teamRows.map((p) => Number(p.num) || 0)) + 1 : 1;
+    const id = `${team}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+    const baseX = team === "a" ? Math.round(canvasSize.width * 0.28) : Math.round(canvasSize.width * 0.72);
+    const baseY = Math.round(canvasSize.height * 0.5);
+    const jitter = Math.round((Math.random() - 0.5) * 80);
+    const p = {
+      id,
+      team,
+      num: nextNum,
+      x: Math.max(24, Math.min((canvasSize.width || 1000) - 24, baseX + jitter)),
+      y: Math.max(24, Math.min((canvasSize.height || 560) - 24, baseY + jitter)),
+    };
+    setPlayers((prev) => [...prev, p]);
+    setSelectedPlayerId(id);
+  };
+
+  const removeSelectedPlayer = () => {
+    if (!selectedPlayerId) return;
+    pingActivity();
+    pushUndo();
+    setPlayers((prev) => prev.filter((p) => p.id !== selectedPlayerId));
+    setSelectedPlayerId(null);
+  };
+
   return (
     <div className="uiPage" style={{ minHeight: "100dvh", display: "grid", alignItems: "center" }}>
       <section style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 10, position: "relative" }}>
-        <button
-          type="button"
-          onClick={() => setControlsOpen((v) => !v)}
-          style={{
-            position: "absolute",
-            top: 10,
-            right: 10,
-            zIndex: 5,
-            border: "1px solid #cbd5e1",
-            borderRadius: 10,
-            background: "rgba(255,255,255,.95)",
-            padding: "8px 10px",
-            fontWeight: 800,
-            cursor: "pointer",
-          }}
-          title={controlsOpen ? "Скрий инструментите" : "Покажи инструментите"}
-        >
-          {controlsOpen ? "✖" : "⚙"}
-        </button>
+        {showGear ? (
+          <button
+            type="button"
+            onClick={() => {
+              pingActivity();
+              setControlsOpen((v) => !v);
+            }}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 7,
+              border: "1px solid #cbd5e1",
+              borderRadius: 10,
+              background: "rgba(255,255,255,.95)",
+              padding: "8px 10px",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+            title={controlsOpen ? "Скрий инструментите" : "Покажи инструментите"}
+          >
+            {controlsOpen ? "✖" : "⚙"}
+          </button>
+        ) : null}
 
         {controlsOpen ? (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingRight: 54 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingRight: 54 }} onClick={pingActivity}>
             <Button as={Link} to="/" variant="secondary" size="sm">
               Назад
             </Button>
-          <Button size="sm" variant={tool === "pen" ? "primary" : "secondary"} onClick={() => setTool("pen")}>
-            ✏️ Писалка
-          </Button>
-          <Button size="sm" variant={tool === "eraser" ? "primary" : "secondary"} onClick={() => setTool("eraser")}>
-            🧽 Гума
-          </Button>
-          <Button size="sm" variant="secondary" onClick={undo} disabled={!undoStack.length}>
-            ↶ Undo
-          </Button>
-          <Button size="sm" variant="secondary" onClick={clearBoard} disabled={!strokes.length}>
-            🗑️ Изчисти линии
-          </Button>
-          <Button size="sm" variant="secondary" onClick={resetPlayers}>
-            ♻️ Reset играчи
-          </Button>
-          <Button size="sm" onClick={exportPng}>
-            📤 Export PNG
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setOrientation((v) => (v === "landscape" ? "portrait" : "landscape"))}
-          >
-            🔄 {orientation === "landscape" ? "Портрет" : "Ландшафт"}
-          </Button>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
-            🎨
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={tool === "eraser"} />
-          </label>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
-            Дебелина
-            <input type="range" min={2} max={20} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
-          </label>
+            <Button size="sm" variant={tool === "pen" ? "primary" : "secondary"} onClick={() => setTool("pen")}>
+              ✏️ Писалка
+            </Button>
+            <Button size="sm" variant={tool === "eraser" ? "primary" : "secondary"} onClick={() => setTool("eraser")}>
+              🧽 Гума
+            </Button>
+            <Button size="sm" variant="secondary" onClick={undo} disabled={!undoStack.length}>
+              ↶ Undo
+            </Button>
+            <Button size="sm" variant="secondary" onClick={clearLastStroke} disabled={!strokes.length}>
+              ⌫ Изтрий последна линия
+            </Button>
+            <Button size="sm" variant="secondary" onClick={clearBoard} disabled={!strokes.length}>
+              🗑️ Изчисти линии
+            </Button>
+            <Button size="sm" variant="secondary" onClick={resetPlayers}>
+              ♻️ Reset играчи
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => addPlayer("a")}>
+              ➕ Играч A
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => addPlayer("b")}>
+              ➕ Играч B
+            </Button>
+            <Button size="sm" variant="danger" onClick={removeSelectedPlayer} disabled={!selectedPlayerId}>
+              ➖ Премахни избран
+            </Button>
+            <Button size="sm" onClick={exportPng}>
+              📤 Export PNG
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setOrientation((v) => (v === "landscape" ? "portrait" : "landscape"))}
+            >
+              🔄 {orientation === "landscape" ? "Портрет" : "Ландшафт"}
+            </Button>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
+              🎨
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={tool === "eraser"} />
+            </label>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
+              Дебелина
+              <input type="range" min={2} max={20} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
+            </label>
           </div>
         ) : null}
 
@@ -372,6 +443,8 @@ export default function CoachBoard() {
               border: "1px solid #cbd5e1",
               background: "#fff",
             }}
+            onMouseDown={pingActivity}
+            onTouchStart={pingActivity}
             onMouseMove={moveDragPlayer}
             onMouseUp={endDragPlayer}
             onMouseLeave={endDragPlayer}
@@ -390,11 +463,76 @@ export default function CoachBoard() {
               onTouchMove={moveDraw}
               onTouchEnd={endDraw}
             />
+            {!controlsOpen ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  bottom: 10,
+                  zIndex: 6,
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  maxWidth: "min(96%, 520px)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    pingActivity();
+                    setTool((t) => (t === "eraser" ? "pen" : "eraser"));
+                  }}
+                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
+                >
+                  {tool === "eraser" ? "✏️ Писалка" : "🧽 Гума"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearLastStroke}
+                  disabled={!strokes.length}
+                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
+                >
+                  ⌫
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addPlayer("a")}
+                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
+                >
+                  ➕A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addPlayer("b")}
+                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
+                >
+                  ➕B
+                </button>
+                <button
+                  type="button"
+                  onClick={removeSelectedPlayer}
+                  disabled={!selectedPlayerId}
+                  style={{ border: "1px solid #fca5a5", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800, color: "#b91c1c" }}
+                >
+                  ➖
+                </button>
+              </div>
+            ) : null}
             {players.map((pl) => (
               <button
                 key={pl.id}
                 type="button"
                 title={`Играч ${pl.num}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pingActivity();
+                  setSelectedPlayerId(pl.id);
+                  if (tool === "eraser") {
+                    pushUndo();
+                    setPlayers((prev) => prev.filter((x) => x.id !== pl.id));
+                    setSelectedPlayerId(null);
+                  }
+                }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   startDragPlayer(pl.id);
@@ -410,7 +548,7 @@ export default function CoachBoard() {
                   width: 32,
                   height: 32,
                   borderRadius: 999,
-                  border: "2px solid #fff",
+                  border: selectedPlayerId === pl.id ? "3px solid #facc15" : "2px solid #fff",
                   boxShadow: "0 2px 8px rgba(0,0,0,.25)",
                   background: TEAM_COLORS[pl.team] || "#111827",
                   color: "#fff",
