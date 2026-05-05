@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, PageHero } from "../components/ui";
+import { Button } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
 const BOARD_STORAGE_KEY = "vp-coach-board-v1";
@@ -47,6 +47,7 @@ export default function CoachBoard() {
   const [players, setPlayers] = useState(createInitialPlayers);
   const [dragPlayerId, setDragPlayerId] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
+  const [controlsOpen, setControlsOpen] = useState(false);
 
   const ratio = orientation === "landscape" ? COURT_WIDTH / COURT_HEIGHT : COURT_HEIGHT / COURT_WIDTH;
 
@@ -294,21 +295,33 @@ export default function CoachBoard() {
   const endDragPlayer = () => setDragPlayerId(null);
 
   return (
-    <div className="uiPage">
-      <PageHero
-        title="Тактическа дъска"
-        subtitle="Рисувай, мести играчи и обяснявай схеми в почивките."
-        actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button as={Link} to="/" variant="secondary">
+    <div className="uiPage" style={{ minHeight: "100dvh", display: "grid", alignItems: "center" }}>
+      <section style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 10, position: "relative" }}>
+        <button
+          type="button"
+          onClick={() => setControlsOpen((v) => !v)}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 5,
+            border: "1px solid #cbd5e1",
+            borderRadius: 10,
+            background: "rgba(255,255,255,.95)",
+            padding: "8px 10px",
+            fontWeight: 800,
+            cursor: "pointer",
+          }}
+          title={controlsOpen ? "Скрий инструментите" : "Покажи инструментите"}
+        >
+          {controlsOpen ? "✖" : "⚙"}
+        </button>
+
+        {controlsOpen ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingRight: 54 }}>
+            <Button as={Link} to="/" variant="secondary" size="sm">
               Назад
             </Button>
-          </div>
-        }
-      />
-
-      <section style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 10 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <Button size="sm" variant={tool === "pen" ? "primary" : "secondary"} onClick={() => setTool("pen")}>
             ✏️ Писалка
           </Button>
@@ -342,7 +355,8 @@ export default function CoachBoard() {
             Дебелина
             <input type="range" min={2} max={20} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
           </label>
-        </div>
+          </div>
+        ) : null}
 
         <div ref={containerRef} style={{ width: "100%" }}>
           <div
