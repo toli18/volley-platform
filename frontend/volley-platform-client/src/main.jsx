@@ -33,6 +33,7 @@ const TeamAttendance = React.lazy(() => import("./pages/TeamAttendance.jsx"));
 const TeamAttendanceReport = React.lazy(() => import("./pages/TeamAttendanceReport.jsx"));
 const TeamAthleteProfile = React.lazy(() => import("./pages/TeamAthleteProfile.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
+const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard.jsx"));
 const AdminDrills = React.lazy(() => import("./pages/admin/AdminDrills.jsx"));
@@ -121,6 +122,7 @@ const router = createBrowserRouter([
           { path: "teams/:teamId/report", element: <TeamAttendanceReport /> },
           { path: "teams/athletes/:athleteId", element: <TeamAthleteProfile /> },
           { path: "club-head", element: <ClubHeadDashboard /> },
+          { path: "coach-board", element: <CoachBoard /> },
         ],
       },
       {

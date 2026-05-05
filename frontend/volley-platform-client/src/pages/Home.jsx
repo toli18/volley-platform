@@ -223,6 +223,11 @@ export default function Home() {
       <PageHero
         title="Coach Dashboard"
         subtitle="Най-важното за днес: месечни такси, нови теми във форума и последни статии."
+        actions={
+          <Button as={Link} to="/coach-board">
+            Тактическа дъска
+          </Button>
+        }
       />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
