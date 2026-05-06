@@ -93,7 +93,7 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
 
   return (
     <Card title={title}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 6 }}>
         {options.map((opt) => (
           <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={set.has(opt)} onChange={() => toggle(opt)} />
@@ -368,7 +368,7 @@ export default function AdminPendingDrill() {
             <textarea name="goal" value={form.goal} onChange={onChange} rows={2} style={{ width: "100%", padding: 10 }} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Категория</label>
               <select name="category" value={form.category} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -393,7 +393,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>RPE</label>
               <input name="rpe" value={form.rpe} onChange={onChange} style={{ width: "100%", padding: 10 }} />
@@ -408,7 +408,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Играч/и</label>
               <select name="players" value={form.players} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -433,7 +433,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Age min</label>
               <input name="age_min" value={form.age_min} onChange={onChange} style={{ width: "100%", padding: 10 }} />
@@ -455,7 +455,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Интензивност</label>
               <select name="intensity_type" value={form.intensity_type} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -491,7 +491,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Цел на тренировката</label>
               <select name="training_goal" value={form.training_goal} onChange={onChange} style={{ width: "100%", padding: 10 }}>
@@ -613,7 +613,7 @@ export default function AdminPendingDrill() {
             Медия (по 1 линк на ред)
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             <div>
               <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Image URLs</label>
               <textarea name="image_urls_text" value={form.image_urls_text} onChange={onChange} rows={4} style={{ width: "100%", padding: 10 }} />
@@ -625,7 +625,7 @@ export default function AdminPendingDrill() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
             <Button
               onClick={saveChanges}
               disabled={saving || acting}

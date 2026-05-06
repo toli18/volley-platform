@@ -92,11 +92,12 @@ function Field({ label, children, hint }) {
 }
 
 function Row({ children, cols = 2 }) {
+  const minCol = cols === 3 ? 180 : 240;
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: cols === 3 ? "1fr 1fr 1fr" : "1fr 1fr",
+        gridTemplateColumns: `repeat(auto-fit, minmax(${minCol}px, 1fr))`,
         gap: 12,
       }}
     >
@@ -116,7 +117,7 @@ function CheckboxGroup({ title, options, value, onChange, otherValue, onOtherCha
 
   return (
     <Card title={title}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 6 }}>
         {options.map((opt) => (
           <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={set.has(opt)} onChange={() => toggle(opt)} />
@@ -587,7 +588,7 @@ export default function AdminEditDrill() {
         </Field>
       </Row>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
         <Button
           onClick={save}
           disabled={saving}

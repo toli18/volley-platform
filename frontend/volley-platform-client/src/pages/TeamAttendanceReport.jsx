@@ -83,7 +83,7 @@ export default function TeamAttendanceReport() {
         title={`Отчет присъствие: ${team.name}`}
         subtitle="Отделен екран за анализ по период."
         actions={
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="heroActionsWrap">
             <Link to={`/teams/${teamIdNum}/attendance`}>
               <Button>Към присъствие</Button>
             </Link>
@@ -117,36 +117,59 @@ export default function TeamAttendanceReport() {
         {!attendanceReport || (attendanceReport.rows || []).length === 0 ? (
           <EmptyState title="Няма данни за периода" description="Промени периода или добави присъствия за избрания отбор." />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Присъства</TableHead>
-                <TableHead>Закъсня</TableHead>
-                <TableHead>Отсъства</TableHead>
-                <TableHead>Извинен</TableHead>
-                <TableHead>Общо</TableHead>
-                <TableHead>% посещаемост</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="teamReportDesktop">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Състезател</TableHead>
+                    <TableHead>Присъства</TableHead>
+                    <TableHead>Закъсня</TableHead>
+                    <TableHead>Отсъства</TableHead>
+                    <TableHead>Извинен</TableHead>
+                    <TableHead>Общо</TableHead>
+                    <TableHead>% посещаемост</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(attendanceReport.rows || []).map((row) => (
+                    <TableRow key={row.athlete_id}>
+                      <TableCell>{row.athlete_name}</TableCell>
+                      <TableCell>{row.present}</TableCell>
+                      <TableCell>{row.late}</TableCell>
+                      <TableCell>{row.absent}</TableCell>
+                      <TableCell>{row.excused}</TableCell>
+                      <TableCell>{row.total}</TableCell>
+                      <TableCell>
+                        <span className={`uiBadge ${row.attendance_rate_percent >= 80 ? "uiBadge--success" : row.attendance_rate_percent >= 60 ? "uiBadge--warning" : "uiBadge--danger"}`}>
+                          {row.attendance_rate_percent}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="teamReportMobile">
               {(attendanceReport.rows || []).map((row) => (
-                <TableRow key={row.athlete_id}>
-                  <TableCell>{row.athlete_name}</TableCell>
-                  <TableCell>{row.present}</TableCell>
-                  <TableCell>{row.late}</TableCell>
-                  <TableCell>{row.absent}</TableCell>
-                  <TableCell>{row.excused}</TableCell>
-                  <TableCell>{row.total}</TableCell>
-                  <TableCell>
+                <article key={`mr-${row.athlete_id}`} className="teamReportCard">
+                  <div className="teamReportCardTop">
+                    <strong>{row.athlete_name}</strong>
                     <span className={`uiBadge ${row.attendance_rate_percent >= 80 ? "uiBadge--success" : row.attendance_rate_percent >= 60 ? "uiBadge--warning" : "uiBadge--danger"}`}>
                       {row.attendance_rate_percent}%
                     </span>
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  <div className="teamReportGrid">
+                    <span>Присъства: {row.present}</span>
+                    <span>Закъсня: {row.late}</span>
+                    <span>Отсъства: {row.absent}</span>
+                    <span>Извинен: {row.excused}</span>
+                  </div>
+                  <div className="teamReportTotal">Общо тренировки: {row.total}</div>
+                </article>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
       </Card>
     </div>

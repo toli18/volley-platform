@@ -145,7 +145,7 @@ export default function TeamDetails() {
         title={`Отбор: ${team.name}`}
         subtitle="Отделен екран за състезатели и такси."
         actions={
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="heroActionsWrap">
             <Link to={`/teams/${teamIdNum}/attendance`}>
               <Button>Присъствие</Button>
             </Link>
@@ -163,42 +163,66 @@ export default function TeamDetails() {
         {(memberAthletes || []).length === 0 ? (
           <EmptyState title="Няма добавени състезатели" description="Добави състезатели от търсачката по-долу." />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Родител</TableHead>
-                <TableHead>Телефон</TableHead>
-                <TableHead>Профил</TableHead>
-                <TableHead>Такса</TableHead>
-                <TableHead>Премахни</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="teamMembersDesktop">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Състезател</TableHead>
+                    <TableHead>Родител</TableHead>
+                    <TableHead>Телефон</TableHead>
+                    <TableHead>Профил</TableHead>
+                    <TableHead>Такса</TableHead>
+                    <TableHead>Премахни</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {memberAthletes.map((a) => (
+                    <TableRow key={a.athlete_id}>
+                      <TableCell>
+                        <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 700 }}>
+                          {a.athlete_name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{a.parent_name || "-"}</TableCell>
+                      <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
+                      <TableCell>
+                        <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`}>
+                          <Button size="sm" variant="ghost">Отвори</Button>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="teamMembersMobile">
               {memberAthletes.map((a) => (
-                <TableRow key={a.athlete_id}>
-                  <TableCell>
-                    <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 700 }}>
+                <article key={`m-${a.athlete_id}`} className="teamMembersCard">
+                  <div className="teamMembersCardTop">
+                    <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 800 }}>
                       {a.athlete_name}
                     </Link>
-                  </TableCell>
-                  <TableCell>{a.parent_name || "-"}</TableCell>
-                  <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                  <TableCell>
+                    <span className="uiBadge">{a.parent_phone || a.athlete_phone || "няма телефон"}</span>
+                  </div>
+                  <div className="teamMembersMeta">Родител: {a.parent_name || "няма данни"}</div>
+                  <div className="teamMembersActions">
                     <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`}>
-                      <Button size="sm" variant="ghost">Отвори</Button>
+                      <Button size="sm" variant="ghost">Профил</Button>
                     </Link>
-                  </TableCell>
-                  <TableCell>
                     <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
-                  </TableCell>
-                  <TableCell>
                     <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
-                  </TableCell>
-                </TableRow>
+                  </div>
+                </article>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
       </Card>
 
