@@ -31,8 +31,10 @@ export default function EditArticle() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [addingImageLink, setAddingImageLink] = useState(false);
   const [error, setError] = useState("");
   const [linkPayload, setLinkPayload] = useState({ title: "", url: "" });
+  const [imageLinkPayload, setImageLinkPayload] = useState({ title: "", url: "" });
   const [form, setForm] = useState({
     title: "",
     excerpt: "",
@@ -352,6 +354,36 @@ export default function EditArticle() {
     }
   };
 
+  const onAddImageLink = async () => {
+    if (!canEdit) return;
+    const rawUrl = imageLinkPayload.url.trim();
+    if (!rawUrl) {
+      setError("Линкът към снимка е задължителен.");
+      return;
+    }
+    const embeddable = toEmbeddableImageUrl(rawUrl);
+    if (!embeddable) {
+      setError("Невалиден линк за изображение. Ползвай директен URL или Imgur линк.");
+      return;
+    }
+    try {
+      setAddingImageLink(true);
+      setError("");
+      const title = imageLinkPayload.title.trim() || "Снимка";
+      insertAtCursor(`\n<p><img src="${embeddable}" alt="${title}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`);
+      await axiosInstance.post(`/api/articles/${id}/links`, {
+        title,
+        url: embeddable,
+      });
+      setImageLinkPayload({ title: "", url: "" });
+      await load();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setAddingImageLink(false);
+    }
+  };
+
   const onAddLink = async () => {
     if (!canEdit) return;
     if (!linkPayload.url.trim()) {
@@ -516,12 +548,31 @@ export default function EditArticle() {
       <section style={{ marginTop: 18, border: "1px solid #dbe5f2", borderRadius: 10, padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>Файлове и изображения</h3>
         {canEdit && (
-          <input
-            type="file"
-            onChange={onUploadMedia}
-            disabled={uploading}
-            accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.pptx,.xlsx,.zip"
-          />
+          <div style={{ display: "grid", gap: 10 }}>
+            <input
+              type="file"
+              onChange={onUploadMedia}
+              disabled={uploading}
+              accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.pptx,.xlsx,.zip"
+            />
+            <div style={{ display: "grid", gap: 8 }}>
+              <input
+                placeholder="Заглавие на снимката (по избор)"
+                value={imageLinkPayload.title}
+                onChange={(e) => setImageLinkPayload((prev) => ({ ...prev, title: e.target.value }))}
+              />
+              <input
+                placeholder="https://... (директен image URL или Imgur)"
+                value={imageLinkPayload.url}
+                onChange={(e) => setImageLinkPayload((prev) => ({ ...prev, url: e.target.value }))}
+              />
+              <div>
+                <button onClick={onAddImageLink} disabled={addingImageLink}>
+                  {addingImageLink ? "Добавяне..." : "Добави снимка от линк"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
           {form.media_items.map((m) => (

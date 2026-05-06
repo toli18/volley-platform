@@ -29,11 +29,13 @@ export default function CreateArticle() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
+  const [addingImageLink, setAddingImageLink] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [createdArticleId, setCreatedArticleId] = useState(null);
   const [createdArticle, setCreatedArticle] = useState(null);
   const [linkPayload, setLinkPayload] = useState({ title: "", url: "" });
+  const [imageLinkPayload, setImageLinkPayload] = useState({ title: "", url: "" });
   const [form, setForm] = useState({
     title: "",
     excerpt: "",
@@ -365,6 +367,36 @@ export default function CreateArticle() {
     }
   };
 
+  const onAddImageLink = async () => {
+    if (!createdArticleId) return;
+    const rawUrl = imageLinkPayload.url.trim();
+    if (!rawUrl) {
+      setError("Линкът към снимка е задължителен.");
+      return;
+    }
+    const embeddable = toEmbeddableImageUrl(rawUrl);
+    if (!embeddable) {
+      setError("Невалиден линк за изображение. Ползвай директен URL или Imgur линк.");
+      return;
+    }
+    try {
+      setAddingImageLink(true);
+      setError("");
+      const title = imageLinkPayload.title.trim() || "Снимка";
+      insertAtCursor(`\n<p><img src="${embeddable}" alt="${title}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`);
+      await axiosInstance.post(`/api/articles/${createdArticleId}/links`, {
+        title,
+        url: embeddable,
+      });
+      setImageLinkPayload({ title: "", url: "" });
+      await loadCreatedArticle(createdArticleId);
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setAddingImageLink(false);
+    }
+  };
+
   const imageItems = useMemo(
     () =>
       (Array.isArray(createdArticle?.media_items) ? createdArticle.media_items : []).filter(
@@ -569,6 +601,29 @@ export default function CreateArticle() {
           />
           <div style={{ marginTop: 4, color: "#607693", fontSize: 12 }}>
             Поддържани: JPG, PNG, WEBP, PDF, DOCX, PPTX, XLSX, ZIP (до 50MB).
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontWeight: 800, display: "block", marginBottom: 6 }}>Или добави снимка чрез линк</label>
+          <div style={{ display: "grid", gap: 8 }}>
+            <input
+              placeholder="Заглавие на снимката (по избор)"
+              value={imageLinkPayload.title}
+              onChange={(e) => setImageLinkPayload((prev) => ({ ...prev, title: e.target.value }))}
+              disabled={!createdArticleId}
+            />
+            <input
+              placeholder="https://... (директен image URL или Imgur)"
+              value={imageLinkPayload.url}
+              onChange={(e) => setImageLinkPayload((prev) => ({ ...prev, url: e.target.value }))}
+              disabled={!createdArticleId}
+            />
+            <div>
+              <button onClick={onAddImageLink} disabled={addingImageLink || !createdArticleId}>
+                {addingImageLink ? "Добавяне..." : "Добави снимка от линк"}
+              </button>
+            </div>
           </div>
         </div>
 
