@@ -17,6 +17,7 @@ from sqlalchemy import (
     Index,
     Boolean,
     Float,
+    LargeBinary,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -309,6 +310,23 @@ class ArticleMedia(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     article = relationship("Article", back_populates="media_items")
+    blob = relationship(
+        "ArticleMediaBlob",
+        back_populates="media",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class ArticleMediaBlob(Base):
+    __tablename__ = "article_media_blobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    media_id = Column(Integer, ForeignKey("article_media.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    content = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    media = relationship("ArticleMedia", back_populates="blob")
 
 
 class ArticleLink(Base):

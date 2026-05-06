@@ -8,13 +8,13 @@ try:
     import cloudinary.uploader
 except ModuleNotFoundError:
     cloudinary = None
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_role
-from app.models import ArticleMedia, ArticleMediaType, ArticleStatus, User, UserRole
+from app.models import ArticleMedia, ArticleMediaBlob, ArticleMediaType, ArticleStatus, User, UserRole
 from app.settings import settings
 from app.schemas.article import (
     ArticleCommentCreate,
@@ -158,6 +158,36 @@ def _save_upload(article_id: int, upload: UploadFile) -> tuple[str, str, str, in
     return public_url, safe_name, mime_type, size, media_type
 
 
+def _persist_local_image_blob(db: Session, media: ArticleMedia) -> None:
+    if media.type != ArticleMediaType.IMAGE:
+        return
+    if not str(media.url or "").startswith("/static/uploads/articles/"):
+        return
+
+    local_path = Path(__file__).resolve().parents[1] / str(media.url).lstrip("/")
+    if not local_path.exists():
+        return
+
+    content = local_path.read_bytes()
+    blob = db.query(ArticleMediaBlob).filter(ArticleMediaBlob.media_id == media.id).first()
+    if blob is None:
+        blob = ArticleMediaBlob(media_id=media.id, content=content)
+        db.add(blob)
+    else:
+        blob.content = content
+
+    media.url = f"/api/articles/media/{media.id}/image"
+    db.add(media)
+    db.commit()
+    db.refresh(media)
+
+    try:
+        local_path.unlink()
+    except Exception:
+        # Keep flow resilient even if local cleanup fails.
+        pass
+
+
 @router.get("/articles", response_model=list[ArticleListResponse])
 def list_articles(
     db: Session = Depends(get_db),
@@ -210,7 +240,7 @@ def upload_article_media(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     url, name, mime_type, size_bytes, media_type = _save_upload(article_id, file)
-    return add_article_media(
+    media = add_article_media(
         db=db,
         article_id=article_id,
         user=current_user,
@@ -219,6 +249,32 @@ def upload_article_media(
         name=name,
         mime_type=mime_type,
         size=size_bytes,
+    )
+    _persist_local_image_blob(db, media)
+    return media
+
+
+@router.get("/articles/media/{media_id}/image")
+def serve_article_media_image(
+    media_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    media = db.query(ArticleMedia).filter(ArticleMedia.id == media_id).first()
+    if not media or media.type != ArticleMediaType.IMAGE:
+        raise HTTPException(status_code=404, detail="Image media not found")
+
+    # Reuse article visibility rules before exposing the binary.
+    get_article_by_id(db, media.article_id, current_user)
+
+    blob = db.query(ArticleMediaBlob).filter(ArticleMediaBlob.media_id == media_id).first()
+    if not blob:
+        raise HTTPException(status_code=404, detail="Image binary not found")
+
+    return Response(
+        content=blob.content,
+        media_type=media.mime_type or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
     )
 
 
@@ -231,6 +287,10 @@ def remove_article_media(
 ):
     media = db.query(ArticleMedia).filter(ArticleMedia.id == media_id, ArticleMedia.article_id == article_id).first()
     if media:
+        blob = db.query(ArticleMediaBlob).filter(ArticleMediaBlob.media_id == media.id).first()
+        if blob is not None:
+            db.delete(blob)
+            db.commit()
         if media.url.startswith("/static/"):
             local_path = Path(__file__).resolve().parents[1] / media.url.lstrip("/")
             if local_path.exists():
