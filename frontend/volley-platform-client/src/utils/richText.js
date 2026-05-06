@@ -70,10 +70,10 @@ const normalizeHtmlImageSources = (html) =>
   });
 
 const replaceMarkdownImageTokens = (raw) =>
-  String(raw || "").replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/gi, (_m, altRaw, urlRaw) => {
+  String(raw || "").replace(/!\\?\[(.*?)\\?\]\((https?:\/\/[^\s)]+)\)/gi, (_m, altRaw, urlRaw) => {
     const imageUrl = toEmbeddableImageUrl(urlRaw);
     if (!imageUrl) return _m;
-    const alt = escapeHtml(altRaw || "Снимка");
+    const alt = escapeHtml(String(altRaw || "Снимка").replace(/\\([\[\]\(\)!])/g, "$1"));
     return `<img src="${escapeHtml(imageUrl)}" alt="${alt}" style="max-width:100%;height:auto;border-radius:8px;" />`;
   });
 
