@@ -6,7 +6,7 @@ import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, PageHero } from "../components/ui";
 import { clearDraft, createDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
-import { normalizePastedHtmlFragment, toDisplayHtml } from "../utils/richText";
+import { normalizePastedHtmlFragment, toDisplayHtml, toEmbeddableImageUrl } from "../utils/richText";
 
 const SLASH_COMMANDS = [
   { id: "heading", key: "заглавие", label: "/заглавие", insert: "\n## Заглавие\n" },
@@ -341,6 +341,10 @@ export default function CreateArticle() {
         title: linkPayload.title.trim() || null,
         url: linkPayload.url.trim(),
       });
+      const embeddable = toEmbeddableImageUrl(linkPayload.url.trim());
+      if (embeddable) {
+        insertAtCursor(`\n<p><img src="${embeddable}" alt="${linkPayload.title?.trim() || "Снимка"}" style="max-width:100%;height:auto;border-radius:8px;" /></p>\n`);
+      }
       setLinkPayload({ title: "", url: "" });
       await loadCreatedArticle(createdArticleId);
     } catch (err) {

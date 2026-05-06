@@ -48,14 +48,26 @@ const normalizeImgurUrl = (url) => {
   }
   const short = text.match(/^https?:\/\/(?:www\.)?imgur\.com\/([a-zA-Z0-9]+)(?:\?[^\s]*)?$/i);
   if (short) return `https://i.imgur.com/${short[1]}.jpg`;
+  const gallery = text.match(/^https?:\/\/(?:www\.)?imgur\.com\/gallery\/([a-zA-Z0-9]+)(?:\?[^\s]*)?$/i);
+  if (gallery) return `https://i.imgur.com/${gallery[1]}.jpg`;
   return text;
 };
 
-const asEmbeddableImageUrl = (rawUrl) => {
+export const toEmbeddableImageUrl = (rawUrl) => {
   const normalized = normalizeImgurUrl(rawUrl);
   if (isDirectImageUrl(normalized)) return normalized;
   return null;
 };
+
+const normalizeHtmlImageSources = (html) =>
+  String(html || "").replace(/<img\b([^>]*?)\bsrc=(["'])(.*?)\2([^>]*)>/gi, (_m, before, quote, src, after) => {
+    const rawSrc = String(src || "").trim();
+    if (!rawSrc) return `<img${before}src=${quote}${rawSrc}${quote}${after}>`;
+    if (rawSrc.startsWith("/")) return `<img${before}src=${quote}${rawSrc}${quote}${after}>`;
+    const embeddable = toEmbeddableImageUrl(rawSrc);
+    const finalSrc = embeddable || rawSrc;
+    return `<img${before}src=${quote}${finalSrc}${quote}${after}>`;
+  });
 
 const markdownToHtml = (raw) => {
   const lines = String(raw || "").split("\n");
@@ -98,7 +110,7 @@ const markdownToHtml = (raw) => {
     if (markdownImage) {
       flushList();
       const alt = escapeHtml(markdownImage[1] || "Снимка");
-      const imageUrl = asEmbeddableImageUrl(markdownImage[2]);
+      const imageUrl = toEmbeddableImageUrl(markdownImage[2]);
       if (imageUrl) {
         out.push(
           `<p><img src="${escapeHtml(
@@ -110,7 +122,7 @@ const markdownToHtml = (raw) => {
       }
       continue;
     }
-    const imageOnlyUrl = asEmbeddableImageUrl(trimmed);
+    const imageOnlyUrl = toEmbeddableImageUrl(trimmed);
     if (imageOnlyUrl) {
       flushList();
       out.push(
@@ -131,7 +143,7 @@ const hasHtml = (raw) => /<\/?[a-z][\s\S]*>/i.test(String(raw || ""));
 
 export const toDisplayHtml = (raw) => {
   if (!raw) return "";
-  if (hasHtml(raw)) return withHeadingIds(sanitizeHtml(String(raw)));
+  if (hasHtml(raw)) return withHeadingIds(normalizeHtmlImageSources(sanitizeHtml(String(raw))));
   return withHeadingIds(markdownToHtml(raw));
 };
 
@@ -185,6 +197,6 @@ export const normalizePastedHtmlFragment = (raw) => {
   safe = safe.replace(/<(\/?)h6\b/gi, "<$1h3");
   safe = safe.replace(/<(\/?)div\b/gi, "<$1p");
 
-  return compactWhitespace(safe).trim();
+  return compactWhitespace(normalizeHtmlImageSources(safe)).trim();
 };
 
