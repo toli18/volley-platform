@@ -305,6 +305,61 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.navMobileAccount {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 12px;
+}
+
+.navMobileUser {
+  display: grid;
+  gap: 2px;
+}
+
+.navMobileUserEmail {
+  font-weight: 900;
+  color: #fff;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navMobileUserRole {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(226, 236, 255, 0.7);
+}
+
+.navMobileAccountActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.navMobilePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.navMobilePill--danger {
+  border-color: rgba(255, 84, 96, 0.35);
+  background: rgba(255, 84, 96, 0.12);
+}
+
 .navMobileSheetTitle {
   font-weight: 900;
   font-size: 16px;
@@ -455,6 +510,15 @@
 }
 
 @media (max-width: 520px) {
+  .appHeaderTop {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .accountTopRight {
+    display: none;
+  }
+
   .accountMeta {
     flex: 1 1 100%;
     justify-items: start;

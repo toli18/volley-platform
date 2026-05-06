@@ -656,6 +656,35 @@ export default function Navbar() {
                 Затвори
               </button>
             </div>
+            {user ? (
+              <div className="navMobileAccount">
+                <div className="navMobileUser">
+                  <div className="navMobileUserEmail" title={userLabel}>
+                    {userLabel}
+                  </div>
+                  <div className="navMobileUserRole">{roleLabel}</div>
+                </div>
+                <div className="navMobileAccountActions">
+                  {isCoachUser ? (
+                    <Link to="/my-trainings" className="navMobilePill" onClick={closeMobileNav}>
+                      Задачи ({newTaskCount})
+                    </Link>
+                  ) : null}
+                  <Link to="/forum" className="navMobilePill" onClick={closeMobileNav}>
+                    Известия ({combinedUnreadCount})
+                  </Link>
+                  <button type="button" className="navMobilePill navMobilePill--danger" onClick={onLogout}>
+                    Изход
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="navMobileAccount">
+                <Link to="/login" className="navMobilePill" onClick={closeMobileNav}>
+                  Вход
+                </Link>
+              </div>
+            )}
             <div className="navMobileLinks">
               {mainNavItems.map((item) => (
                 <Link key={`m-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
