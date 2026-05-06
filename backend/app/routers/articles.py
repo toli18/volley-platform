@@ -258,14 +258,10 @@ def upload_article_media(
 def serve_article_media_image(
     media_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     media = db.query(ArticleMedia).filter(ArticleMedia.id == media_id).first()
     if not media or media.type != ArticleMediaType.IMAGE:
         raise HTTPException(status_code=404, detail="Image media not found")
-
-    # Reuse article visibility rules before exposing the binary.
-    get_article_by_id(db, media.article_id, current_user)
 
     blob = db.query(ArticleMediaBlob).filter(ArticleMediaBlob.media_id == media_id).first()
     if not blob:
