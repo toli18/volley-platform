@@ -69,6 +69,14 @@ const normalizeHtmlImageSources = (html) =>
     return `<img${before}src=${quote}${finalSrc}${quote}${after}>`;
   });
 
+const replaceMarkdownImageTokens = (raw) =>
+  String(raw || "").replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/gi, (_m, altRaw, urlRaw) => {
+    const imageUrl = toEmbeddableImageUrl(urlRaw);
+    if (!imageUrl) return _m;
+    const alt = escapeHtml(altRaw || "Снимка");
+    return `<img src="${escapeHtml(imageUrl)}" alt="${alt}" style="max-width:100%;height:auto;border-radius:8px;" />`;
+  });
+
 const markdownToHtml = (raw) => {
   const lines = String(raw || "").split("\n");
   const out = [];
@@ -143,8 +151,11 @@ const hasHtml = (raw) => /<\/?[a-z][\s\S]*>/i.test(String(raw || ""));
 
 export const toDisplayHtml = (raw) => {
   if (!raw) return "";
-  if (hasHtml(raw)) return withHeadingIds(normalizeHtmlImageSources(sanitizeHtml(String(raw))));
-  return withHeadingIds(markdownToHtml(raw));
+  const sourceWithImages = replaceMarkdownImageTokens(String(raw));
+  if (hasHtml(sourceWithImages)) {
+    return withHeadingIds(normalizeHtmlImageSources(sanitizeHtml(sourceWithImages)));
+  }
+  return withHeadingIds(markdownToHtml(sourceWithImages));
 };
 
 export const extractTocItems = (raw) => {
