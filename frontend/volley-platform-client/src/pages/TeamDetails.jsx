@@ -239,28 +239,42 @@ export default function TeamDetails() {
               description={memberSearch.trim() ? "Няма свободни състезатели с това име." : "Всички налични състезатели вече са добавени в отбора."}
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Състезател</TableHead>
-                  <TableHead>Родител</TableHead>
-                  <TableHead>Телефон</TableHead>
-                  <TableHead>Добави</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="teamCandidatesDesktop">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Състезател</TableHead>
+                      <TableHead>Родител</TableHead>
+                      <TableHead>Телефон</TableHead>
+                      <TableHead>Добави</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleCandidates.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell>{a.athlete_name}</TableCell>
+                        <TableCell>{a.parent_name || "-"}</TableCell>
+                        <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
+                        <TableCell>
+                          <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="teamCandidatesMobile">
                 {visibleCandidates.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.athlete_name}</TableCell>
-                    <TableCell>{a.parent_name || "-"}</TableCell>
-                    <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                    <TableCell>
-                      <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>
-                    </TableCell>
-                  </TableRow>
+                  <article key={`c-${a.id}`} className="teamCandidatesCard">
+                    <div style={{ fontWeight: 800 }}>{a.athlete_name}</div>
+                    <div className="teamMembersMeta">Родител: {a.parent_name || "няма данни"}</div>
+                    <div className="teamMembersMeta">Телефон: {a.parent_phone || a.athlete_phone || "няма данни"}</div>
+                    <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </div>
       </Card>

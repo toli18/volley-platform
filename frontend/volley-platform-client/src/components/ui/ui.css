@@ -447,7 +447,7 @@
   }
 
   .uiTable {
-    min-width: 620px;
+    min-width: 0;
   }
 
   .uiTable th,
@@ -475,7 +475,8 @@
   }
 
   .uiTable {
-    min-width: 540px;
+    min-width: 0;
+    width: 100%;
   }
 
   .uiTable thead th {
@@ -502,18 +503,21 @@
   }
 
   .teamMembersDesktop,
-  .teamReportDesktop {
+  .teamReportDesktop,
+  .teamCandidatesDesktop {
     display: none;
   }
 
   .teamMembersMobile,
-  .teamReportMobile {
+  .teamReportMobile,
+  .teamCandidatesMobile {
     display: grid;
     gap: 10px;
   }
 
   .teamMembersCard,
-  .teamReportCard {
+  .teamReportCard,
+  .teamCandidatesCard {
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 10px;
@@ -537,8 +541,12 @@
 
   .teamMembersActions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .teamMembersActions > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .teamMembersActions > * {
@@ -564,7 +572,8 @@
 
 @media (min-width: 561px) {
   .teamMembersMobile,
-  .teamReportMobile {
+  .teamReportMobile,
+  .teamCandidatesMobile {
     display: none;
   }
 }
