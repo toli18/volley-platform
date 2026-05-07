@@ -28,6 +28,7 @@ export default function MyArticles() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [resubmittingId, setResubmittingId] = useState(null);
 
   const load = async () => {
     try {
@@ -57,6 +58,19 @@ export default function MyArticles() {
     }
     return list.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
   }, [items, query, statusFilter]);
+
+  const onResubmit = async (articleId) => {
+    try {
+      setResubmittingId(articleId);
+      setError("");
+      await axiosInstance.post(API_PATHS.ARTICLE_RESUBMIT(articleId));
+      await load();
+    } catch (err) {
+      setError(normalizeError(err));
+    } finally {
+      setResubmittingId(null);
+    }
+  };
 
   return (
     <div className="uiPage">
@@ -101,6 +115,7 @@ export default function MyArticles() {
             const st = statusMeta(article.status);
             const stKey = String(article.status || "").toUpperCase();
             const canEdit = stKey !== "APPROVED";
+            const canResubmit = stKey === "NEEDS_EDIT";
             return (
               <Card key={article.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
@@ -120,6 +135,16 @@ export default function MyArticles() {
                   {canEdit ? (
                     <Button as={Link} to={`/articles/${article.id}/edit`} size="sm">
                       Редакция
+                    </Button>
+                  ) : null}
+                  {canResubmit ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={resubmittingId === article.id}
+                      onClick={() => onResubmit(article.id)}
+                    >
+                      {resubmittingId === article.id ? "Изпращане..." : "Повторно изпращане"}
                     </Button>
                   ) : null}
                 </div>

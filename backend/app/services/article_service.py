@@ -114,6 +114,26 @@ def create_article(db: Session, author: User, payload: ArticleCreate) -> Article
     return get_article_by_id(db, article.id, author)
 
 
+def resubmit_article(db: Session, article_id: int, user: User) -> Article:
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    if not _is_author(article, user):
+        raise HTTPException(status_code=403, detail="Only the author can resubmit this article")
+
+    if article.status != ArticleStatus.NEEDS_EDIT:
+        raise HTTPException(
+            status_code=400,
+            detail="Само статии, върнати за редакция, могат да бъдат изпратени повторно.",
+        )
+
+    article.status = ArticleStatus.PENDING
+    article.updated_at = datetime.utcnow()
+    db.commit()
+    return get_article_by_id(db, article_id, user)
+
+
 def update_article(db: Session, article_id: int, user: User, payload: ArticleUpdate) -> Article:
     article = db.query(Article).filter(Article.id == article_id).first()
     if not article:

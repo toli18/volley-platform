@@ -47,6 +47,7 @@ from app.services.article_service import (
     update_article_comment,
     needs_edit_article,
     reject_article,
+    resubmit_article,
     update_article,
 )
 
@@ -230,6 +231,15 @@ def update_article_endpoint(
     current_user: User = Depends(require_role(UserRole.coach)),
 ):
     return update_article(db, article_id, current_user, payload)
+
+
+@router.post("/articles/{article_id}/resubmit", response_model=ArticleResponse)
+def resubmit_article_endpoint(
+    article_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach)),
+):
+    return resubmit_article(db, article_id, current_user)
 
 
 @router.post("/articles/{article_id}/media", response_model=ArticleMediaResponse, status_code=status.HTTP_201_CREATED)

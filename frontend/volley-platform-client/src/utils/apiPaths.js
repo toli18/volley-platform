@@ -53,6 +53,7 @@ export const API_PATHS = {
   ARTICLE_GET: (id) => `/api/articles/${id}`,
   ARTICLE_CREATE: "/api/articles",
   ARTICLE_UPDATE: (id) => `/api/articles/${id}`,
+  ARTICLE_RESUBMIT: (id) => `/api/articles/${id}/resubmit`,
   ARTICLE_MEDIA_UPLOAD: (id) => `/api/articles/${id}/media`,
   ARTICLE_MEDIA_DELETE: (id, mediaId) => `/api/articles/${id}/media/${mediaId}`,
   ARTICLE_LINK_CREATE: (id) => `/api/articles/${id}/links`,
