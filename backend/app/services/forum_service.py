@@ -31,6 +31,7 @@ def _role_value(user: User) -> str:
 def _can_participate(user: User) -> bool:
     return _role_value(user) in {
         UserRole.coach.value,
+        UserRole.club_head_coach.value,
         UserRole.platform_admin.value,
         UserRole.federation_admin.value,
     }
