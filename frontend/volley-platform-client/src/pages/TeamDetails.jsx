@@ -79,7 +79,18 @@ export default function TeamDetails() {
   const visibleCandidates = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
     if (!q) return nonMembers;
-    return nonMembers.filter((a) => String(a.athlete_name || "").toLowerCase().includes(q));
+    return nonMembers.filter((a) => {
+      const haystack = [
+        a?.athlete_name,
+        a?.parent_name,
+        a?.athlete_phone,
+        a?.parent_phone,
+        a?.birth_year,
+      ]
+        .map((v) => String(v ?? "").toLowerCase())
+        .join(" ");
+      return haystack.includes(q);
+    });
   }, [nonMembers, memberSearch]);
 
   const saveMembers = async (ids) => {
@@ -226,9 +237,9 @@ export default function TeamDetails() {
         )}
       </Card>
 
-      <Card title="Добави състезател по име">
+      <Card title="Добави състезател (име или година)">
         <Input
-          placeholder="Търси по име на състезател"
+          placeholder="Търси по име или година на раждане (напр. 2012)"
           value={memberSearch}
           onChange={(e) => setMemberSearch(e.target.value)}
         />
@@ -236,7 +247,7 @@ export default function TeamDetails() {
           {visibleCandidates.length === 0 ? (
             <EmptyState
               title={memberSearch.trim() ? "Няма резултати" : "Няма свободни състезатели"}
-              description={memberSearch.trim() ? "Няма свободни състезатели с това име." : "Всички налични състезатели вече са добавени в отбора."}
+              description={memberSearch.trim() ? "Няма свободни състезатели с това име/година." : "Всички налични състезатели вече са добавени в отбора."}
             />
           ) : (
             <>
