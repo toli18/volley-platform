@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
+import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeError = (err, fallback = "Грешка при работа с отборите.") => {
@@ -16,12 +17,20 @@ const normalizeError = (err, fallback = "Грешка при работа с о�
 
 export default function Teams() {
   const toast = useToast();
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
 
   const [teams, setTeams] = useState([]);
+  const [coaches, setCoaches] = useState([]);
   const [teamForm, setTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
   const [editTeam, setEditTeam] = useState(null);
   const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
+  const [assignTeam, setAssignTeam] = useState(null);
+  const [assignCoachId, setAssignCoachId] = useState("");
+
+  const roleRaw = user?.role;
+  const roleValue = typeof roleRaw === "object" && roleRaw && "value" in roleRaw ? roleRaw.value : roleRaw;
+  const isHeadCoach = String(roleValue || "").toLowerCase() === "club_head_coach";
 
   const loadTeams = async () => {
     const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
@@ -29,10 +38,20 @@ export default function Teams() {
     setTeams(list);
   };
 
+  const loadCoaches = async () => {
+    const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
+    const list = Array.isArray(res.data) ? res.data : [];
+    setCoaches(list);
+  };
+
   const bootstrap = async () => {
     try {
       setBusy(true);
-      await loadTeams();
+      if (isHeadCoach) {
+        await Promise.all([loadTeams(), loadCoaches()]);
+      } else {
+        await loadTeams();
+      }
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -42,7 +61,7 @@ export default function Teams() {
 
   useEffect(() => {
     bootstrap();
-  }, []);
+  }, [isHeadCoach]);
 
   const createTeam = async () => {
     const payload = {
@@ -117,6 +136,31 @@ export default function Teams() {
     }
   };
 
+  const openAssignCoach = (team) => {
+    setAssignTeam(team);
+    setAssignCoachId(String(team?.coach_id || ""));
+  };
+
+  const saveAssignCoach = async () => {
+    if (!assignTeam) return;
+    const nextCoachId = Number(assignCoachId);
+    if (!Number.isFinite(nextCoachId) || nextCoachId <= 0) {
+      toast.error("Избери треньор.");
+      return;
+    }
+    try {
+      setBusy(true);
+      await axiosInstance.put(API_PATHS.TEAM_ASSIGN_COACH(assignTeam.id), { coach_id: nextCoachId });
+      setAssignTeam(null);
+      await Promise.all([loadTeams(), loadCoaches()]);
+      toast.success("Треньорът на отбора е сменен. Състезателите са прехвърлени към него.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешна смяна на треньор за отбора."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="uiPage">
       <PageHero
@@ -149,6 +193,11 @@ export default function Teams() {
                     <Button size="sm" variant="secondary" block onClick={() => openEditTeam(team)}>
                       Редактирай
                     </Button>
+                    {isHeadCoach ? (
+                      <Button size="sm" variant="secondary" block onClick={() => openAssignCoach(team)}>
+                        Назначи треньор
+                      </Button>
+                    ) : null}
                     <Button size="sm" variant="danger" block onClick={() => deleteTeam(team)}>
                       Изтрий
                     </Button>
@@ -188,6 +237,11 @@ export default function Teams() {
                           <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>
                             Редактирай
                           </Button>
+                          {isHeadCoach ? (
+                            <Button size="sm" variant="secondary" onClick={() => openAssignCoach(team)}>
+                              Назначи треньор
+                            </Button>
+                          ) : null}
                           <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>
                             Изтрий
                           </Button>
@@ -250,6 +304,34 @@ export default function Teams() {
               <div className="uiModalActions">
                 <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
                 <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {assignTeam && (
+        <div onClick={() => !busy && setAssignTeam(null)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Назначи треньор на отбор</h3>
+            <div style={{ color: "#607693", fontSize: 13 }}>
+              Отбор: <strong>{assignTeam.name}</strong>
+            </div>
+            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              <Input as="select" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
+                <option value="">Избери треньор</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name} {c.email ? `(${c.email})` : ""}
+                  </option>
+                ))}
+              </Input>
+              <div style={{ color: "#607693", fontSize: 12 }}>
+                Ще се смени треньорът на отбора и активните състезатели в този отбор ще бъдат прехвърлени към новия треньор.
+              </div>
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={saveAssignCoach}>Запази</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setAssignTeam(null)}>Отказ</Button>
               </div>
             </div>
           </section>

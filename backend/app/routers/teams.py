@@ -24,6 +24,7 @@ from app.schemas.teams import (
     AttendanceResponse,
     AttendanceSavePayload,
     TeamCreate,
+    TeamAssignCoach,
     TeamAttendanceReportResponse,
     TeamAttendanceReportRow,
     TeamMembersResponse,
@@ -159,6 +160,51 @@ def update_team(
     if "is_active" in data:
         team.is_active = bool(data.get("is_active"))
     team.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(team)
+    return team
+
+
+@router.put("/teams/{team_id}/assign-coach", response_model=TeamRead)
+def assign_team_coach(
+    team_id: int,
+    payload: TeamAssignCoach,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    if not _is_head_coach(current_user):
+        raise HTTPException(status_code=403, detail="Only club head coach can assign team coach")
+
+    team = _ensure_team_owner(db, team_id, current_user)
+    target_coach_id = int(payload.coach_id)
+    target_coach = (
+        db.query(User)
+        .filter(
+            User.id == target_coach_id,
+            User.club_id == current_user.club_id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .first()
+    )
+    if not target_coach:
+        raise HTTPException(status_code=422, detail="Selected coach is invalid for this club")
+
+    team.coach_id = target_coach_id
+    team.updated_at = datetime.utcnow()
+
+    active_member_ids = [
+        x.athlete_id
+        for x in db.query(TeamMember)
+        .filter(TeamMember.team_id == team.id, TeamMember.is_active.is_(True))
+        .all()
+    ]
+    if active_member_ids:
+        (
+            db.query(Athlete)
+            .filter(Athlete.id.in_(active_member_ids), Athlete.club_id == current_user.club_id)
+            .update({Athlete.coach_id: target_coach_id}, synchronize_session=False)
+        )
+
     db.commit()
     db.refresh(team)
     return team

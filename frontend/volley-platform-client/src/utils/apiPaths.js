@@ -106,6 +106,7 @@ export const API_PATHS = {
   TEAMS_LIST: "/api/teams",
   TEAM_CREATE: "/api/teams",
   TEAM_UPDATE: (teamId) => `/api/teams/${teamId}`,
+  TEAM_ASSIGN_COACH: (teamId) => `/api/teams/${teamId}/assign-coach`,
   TEAM_DELETE: (teamId) => `/api/teams/${teamId}`,
   TEAM_MEMBERS_GET: (teamId) => `/api/teams/${teamId}/members`,
   TEAM_MEMBERS_SET: (teamId) => `/api/teams/${teamId}/members`,

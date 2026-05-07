@@ -18,6 +18,10 @@ class TeamUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class TeamAssignCoach(BaseModel):
+    coach_id: int
+
+
 class TeamRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
