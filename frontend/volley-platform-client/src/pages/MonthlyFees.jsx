@@ -492,6 +492,20 @@ export default function MonthlyFees() {
     }
   };
 
+  const openAthleteProfile = (athleteId) => {
+    if (!athleteId) return;
+    navigate(`/teams/athletes/${athleteId}`);
+  };
+
+  const onAthleteContainerClick = (event, athleteId) => {
+    const target = event?.target;
+    if (target && typeof target.closest === "function") {
+      const interactive = target.closest("button, a, input, select, textarea, label");
+      if (interactive) return;
+    }
+    openAthleteProfile(athleteId);
+  };
+
   return (
     <div className="uiPage">
       <PageHero
@@ -619,6 +633,8 @@ export default function MonthlyFees() {
                   key={`m-${a.id}`}
                   data-athlete-scroll={a.id}
                   className={`feesAthleteCard${highlightAthleteId === a.id ? " feesAthleteCard--highlight" : ""}`}
+                  onClick={(event) => onAthleteContainerClick(event, a.id)}
+                  style={{ cursor: "pointer" }}
                 >
                   <div>
                     <h3 className="feesAthleteCardName">{a.athlete_name}</h3>
@@ -714,6 +730,8 @@ export default function MonthlyFees() {
                       key={a.id}
                       data-athlete-scroll={a.id}
                       className={highlightAthleteId === a.id ? "feesAthleteRow--highlight" : undefined}
+                      onClick={(event) => onAthleteContainerClick(event, a.id)}
+                      style={{ cursor: "pointer" }}
                     >
                       <TableCell>
                         <strong>{a.athlete_name}</strong>
