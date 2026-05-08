@@ -115,7 +115,7 @@ export default function TeamScheduleCalendar() {
   });
 
   const currentUserId = Number(user?.id || 0);
-  const effectiveCoachFilter = coachFilter || (!isHeadCoach && currentUserId > 0 ? String(currentUserId) : "");
+  const effectiveCoachFilter = coachFilter;
 
   const itemsByDate = useMemo(() => {
     const map = new Map();
@@ -136,9 +136,10 @@ export default function TeamScheduleCalendar() {
   const canEditOccurrence = (it) => isHeadCoach || Number(it.coach_id) === currentUserId;
 
   const loadMeta = async () => {
-    const reqs = [axiosInstance.get(API_PATHS.TEAMS_LIST)];
-    if (isHeadCoach) reqs.push(axiosInstance.get(API_PATHS.FEES_COACHES_LIST));
-    const [teamsRes, coachesRes] = await Promise.all(reqs);
+    const [teamsRes, coachesRes] = await Promise.all([
+      axiosInstance.get(API_PATHS.TEAMS_LIST),
+      axiosInstance.get(API_PATHS.FEES_COACHES_LIST),
+    ]);
     setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
     setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
     setMetaLoaded(true);
@@ -343,7 +344,7 @@ export default function TeamScheduleCalendar() {
               </option>
             ))}
           </Input>
-          {isHeadCoach ? (
+          {coaches.length > 0 ? (
             <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
               <option value="">Всички треньори</option>
               {coaches.map((c) => (
