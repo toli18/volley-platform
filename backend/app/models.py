@@ -459,6 +459,7 @@ class Athlete(Base):
     parent_name = Column(String(255), nullable=True)
     parent_phone = Column(String(50), nullable=True)
     birth_year = Column(Integer, nullable=True)
+    gender = Column(String(16), nullable=True)  # "male" | "female"
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 

@@ -46,6 +46,7 @@ class TeamMemberAthleteRead(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
+    gender: Optional[str] = None
     is_active: bool = True
 
 
@@ -115,6 +116,7 @@ class AthleteTimelineEvent(BaseModel):
 class AthleteProfileResponse(BaseModel):
     athlete_id: int
     athlete_name: str
+    gender: Optional[str] = None
     birth_year: Optional[int] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None

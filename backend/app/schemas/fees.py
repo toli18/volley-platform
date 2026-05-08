@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +10,7 @@ class AthleteCreate(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     birth_year: Optional[int] = None
+    gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
 
@@ -20,6 +21,7 @@ class AthleteUpdate(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     birth_year: Optional[int] = None
+    gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -42,6 +44,7 @@ class AthleteRead(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     birth_year: Optional[int] = None
+    gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)

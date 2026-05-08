@@ -22,6 +22,12 @@ const currentMonthKey = () => {
   return `${year}-${month}`;
 };
 
+const formatGenderLabel = (v) => {
+  if (v === "male") return "Мъж";
+  if (v === "female") return "Жена";
+  return "—";
+};
+
 const lastMonths = (count = 3) => {
   const now = new Date();
   const out = [];
@@ -51,6 +57,7 @@ export default function MonthlyFees() {
     parent_name: "",
     parent_phone: "",
     birth_year: "",
+    gender: "",
     notes: "",
     is_active: true,
   });
@@ -61,6 +68,7 @@ export default function MonthlyFees() {
     parent_name: "",
     parent_phone: "",
     birth_year: "",
+    gender: "",
     notes: "",
     is_active: true,
   });
@@ -148,6 +156,7 @@ export default function MonthlyFees() {
       parent_name: a.parent_name || "",
       parent_phone: a.parent_phone || "",
       birth_year: a.birth_year || "",
+      gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
       notes: a.notes || "",
       is_active: Boolean(a.is_active),
     });
@@ -205,6 +214,7 @@ export default function MonthlyFees() {
       parent_name: "",
       parent_phone: "",
       birth_year: "",
+      gender: "",
       notes: "",
       is_active: true,
     });
@@ -278,12 +288,17 @@ export default function MonthlyFees() {
   }, [payAthlete, payForm.month_key]);
 
   const saveAthlete = async () => {
+    if (!athleteForm.gender) {
+      toast.error("Избери пол на състезателя.");
+      return;
+    }
     const payload = {
       athlete_name: athleteForm.athlete_name.trim(),
       athlete_phone: athleteForm.athlete_phone.trim() || null,
       parent_name: athleteForm.parent_name.trim() || null,
       parent_phone: athleteForm.parent_phone.trim() || null,
       birth_year: athleteForm.birth_year ? Number(athleteForm.birth_year) : null,
+      gender: athleteForm.gender,
       notes: athleteForm.notes.trim() || null,
       is_active: Boolean(athleteForm.is_active),
     };
@@ -303,12 +318,17 @@ export default function MonthlyFees() {
 
   const saveEditedAthlete = async () => {
     if (!editAthlete) return;
+    if (!editForm.gender) {
+      toast.error("Избери пол на състезателя.");
+      return;
+    }
     const payload = {
       athlete_name: editForm.athlete_name.trim(),
       athlete_phone: editForm.athlete_phone.trim() || null,
       parent_name: editForm.parent_name.trim() || null,
       parent_phone: editForm.parent_phone.trim() || null,
       birth_year: editForm.birth_year ? Number(editForm.birth_year) : null,
+      gender: editForm.gender,
       notes: editForm.notes.trim() || null,
       is_active: Boolean(editForm.is_active),
     };
@@ -541,6 +561,15 @@ export default function MonthlyFees() {
             onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
           />
           <Input
+            as="select"
+            value={athleteForm.gender}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
+          >
+            <option value="">Пол</option>
+            <option value="male">Мъж</option>
+            <option value="female">Жена</option>
+          </Input>
+          <Input
             as="textarea"
             rows={2}
             placeholder="Бележка"
@@ -639,6 +668,7 @@ export default function MonthlyFees() {
                   <div>
                     <h3 className="feesAthleteCardName">{a.athlete_name}</h3>
                     <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "—"}</div>
+                    <div style={{ color: "#607693", fontSize: 12 }}>Пол: {formatGenderLabel(a.gender)}</div>
                   </div>
                   <div className="feesAthleteCardRow">
                     <div>Родител: {a.parent_name || "—"}</div>
@@ -683,6 +713,7 @@ export default function MonthlyFees() {
                           parent_name: a.parent_name || "",
                           parent_phone: a.parent_phone || "",
                           birth_year: a.birth_year || "",
+                          gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
                           notes: a.notes || "",
                           is_active: Boolean(a.is_active),
                         });
@@ -736,6 +767,7 @@ export default function MonthlyFees() {
                       <TableCell>
                         <strong>{a.athlete_name}</strong>
                         <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>
+                        <div style={{ color: "#607693", fontSize: 12 }}>Пол: {formatGenderLabel(a.gender)}</div>
                       </TableCell>
                       <TableCell>
                         <div>Родител: {a.parent_name || "-"}</div>
@@ -775,6 +807,7 @@ export default function MonthlyFees() {
                                 parent_name: a.parent_name || "",
                                 parent_phone: a.parent_phone || "",
                                 birth_year: a.birth_year || "",
+                                gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
                                 notes: a.notes || "",
                                 is_active: Boolean(a.is_active),
                               });
@@ -977,6 +1010,15 @@ export default function MonthlyFees() {
                 value={editForm.birth_year}
                 onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
               />
+              <Input
+                as="select"
+                value={editForm.gender}
+                onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
+              >
+                <option value="">Пол</option>
+                <option value="male">Мъж</option>
+                <option value="female">Жена</option>
+              </Input>
               <Input
                 as="textarea"
                 rows={2}

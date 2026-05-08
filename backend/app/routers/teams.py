@@ -243,6 +243,7 @@ def get_team_members(
             parent_name=a.parent_name,
             parent_phone=a.parent_phone,
             athlete_phone=a.athlete_phone,
+            gender=getattr(a, "gender", None),
             is_active=bool(a.is_active),
         )
         for _, a in members
@@ -655,6 +656,7 @@ def athlete_profile(
     return AthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
+        gender=getattr(athlete, "gender", None),
         birth_year=athlete.birth_year,
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,

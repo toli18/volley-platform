@@ -63,7 +63,9 @@ def init_db() -> None:
                         "ADD COLUMN IF NOT EXISTS completion_note TEXT"
                     )
                 )
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
+            print("✅ PostgreSQL: athletes.gender ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
@@ -106,6 +108,12 @@ def init_db() -> None:
             if "is_locked" not in forum_post_col_names:
                 conn.execute(text("ALTER TABLE forum_posts ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT 0"))
                 print("✅ Added forum_posts.is_locked column")
+
+            athlete_cols = conn.execute(text("PRAGMA table_info(athletes)")).fetchall()
+            athlete_col_names = {row[1] for row in athlete_cols}
+            if "gender" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN gender VARCHAR(16)"))
+                print("✅ Added athletes.gender column")
 
     db = SessionLocal()
     try:

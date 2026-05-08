@@ -7,6 +7,12 @@ import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
+const genderSuffix = (g) => {
+  if (g === "male") return " · М";
+  if (g === "female") return " · Ж";
+  return "";
+};
+
 const normalizeError = (err, fallback = "Грешка при работа с отбора.") => {
   const detail = err?.response?.data?.detail;
   if (!detail) return err?.message || fallback;
@@ -86,6 +92,9 @@ export default function TeamDetails() {
         a?.athlete_phone,
         a?.parent_phone,
         a?.birth_year,
+        a?.gender,
+        a?.gender === "male" ? "мъж m" : "",
+        a?.gender === "female" ? "жена f" : "",
       ]
         .map((v) => String(v ?? "").toLowerCase())
         .join(" ");
@@ -193,6 +202,7 @@ export default function TeamDetails() {
                       <TableCell>
                         <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 700 }}>
                           {a.athlete_name}
+                          {genderSuffix(a.gender)}
                         </Link>
                       </TableCell>
                       <TableCell>{a.parent_name || "-"}</TableCell>
@@ -219,6 +229,7 @@ export default function TeamDetails() {
                   <div className="teamMembersCardTop">
                     <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 800 }}>
                       {a.athlete_name}
+                      {genderSuffix(a.gender)}
                     </Link>
                     <span className="uiBadge">{a.parent_phone || a.athlete_phone || "няма телефон"}</span>
                   </div>
@@ -264,7 +275,10 @@ export default function TeamDetails() {
                   <TableBody>
                     {visibleCandidates.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell>{a.athlete_name}</TableCell>
+                        <TableCell>
+                          {a.athlete_name}
+                          {genderSuffix(a.gender)}
+                        </TableCell>
                         <TableCell>{a.parent_name || "-"}</TableCell>
                         <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
                         <TableCell>
@@ -278,7 +292,10 @@ export default function TeamDetails() {
               <div className="teamCandidatesMobile">
                 {visibleCandidates.map((a) => (
                   <article key={`c-${a.id}`} className="teamCandidatesCard">
-                    <div style={{ fontWeight: 800 }}>{a.athlete_name}</div>
+                    <div style={{ fontWeight: 800 }}>
+                      {a.athlete_name}
+                      {genderSuffix(a.gender)}
+                    </div>
                     <div className="teamMembersMeta">Родител: {a.parent_name || "няма данни"}</div>
                     <div className="teamMembersMeta">Телефон: {a.parent_phone || a.athlete_phone || "няма данни"}</div>
                     <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>

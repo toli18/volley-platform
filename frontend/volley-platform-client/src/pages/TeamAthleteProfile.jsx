@@ -42,6 +42,12 @@ const ageFromBirthYear = (year) => {
   return new Date().getFullYear() - y;
 };
 
+const genderLabelBg = (g) => {
+  if (g === "male") return "Мъж";
+  if (g === "female") return "Жена";
+  return "";
+};
+
 export default function TeamAthleteProfile() {
   const { athleteId } = useParams();
   const location = useLocation();
@@ -149,6 +155,10 @@ export default function TeamAthleteProfile() {
               <div>
                 <dt>Година на раждане</dt>
                 <dd>{fmtMissing(birthYearVal)}</dd>
+              </div>
+              <div>
+                <dt>Пол</dt>
+                <dd>{fmtMissing(genderLabelBg(profile.gender))}</dd>
               </div>
               <div>
                 <dt>Възраст (на база година)</dt>

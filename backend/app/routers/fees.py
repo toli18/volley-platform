@@ -112,6 +112,20 @@ def _to_bool(value) -> bool:
     return True
 
 
+def _normalize_gender(value) -> str | None:
+    """Map import/free-text values to Athlete.gender: 'male' | 'female' | None."""
+    if value is None:
+        return None
+    raw = str(value).strip().lower()
+    if not raw:
+        return None
+    if raw in {"m", "male", "м", "мъж", "мж", "man"}:
+        return "male"
+    if raw in {"f", "female", "ж", "жена", "fem", "woman"}:
+        return "female"
+    return None
+
+
 PDF_FONT_NAME = "ReceiptFontBG"
 PDF_FONT_REGISTERED = False
 
@@ -352,6 +366,7 @@ def create_athlete(
         parent_name=(payload.parent_name or "").strip() or None,
         parent_phone=(payload.parent_phone or "").strip() or None,
         birth_year=payload.birth_year,
+        gender=payload.gender,
         notes=(payload.notes or "").strip() or None,
         is_active=bool(payload.is_active),
     )
@@ -444,6 +459,7 @@ def import_athletes(
         birth_year_raw = _extract_column(row, ["birth_year", "year", "година", "година на раждане"])
         notes = str(_extract_column(row, ["notes", "бележка", "бележки"]) or "").strip()
         is_active_raw = _extract_column(row, ["is_active", "active", "активен"])
+        gender_raw = _extract_column(row, ["gender", "sex", "пол"])
 
         birth_year = None
         if str(birth_year_raw).strip():
@@ -466,6 +482,7 @@ def import_athletes(
             parent_name=parent_name or None,
             parent_phone=parent_phone or None,
             birth_year=birth_year,
+            gender=_normalize_gender(gender_raw),
             notes=notes or None,
             is_active=_to_bool(is_active_raw),
         )
@@ -488,8 +505,8 @@ def download_athletes_import_template(
 ):
     _ = current_user
     csv_content = (
-        "име на състезател,телефон състезател,име на родител,телефон родител,година на раждане,бележка,активен\n"
-        "Иван Иванов,0888123456,Петър Иванов,0899123456,2010,Примерен запис,да\n"
+        "име на състезател,телефон състезател,име на родител,телефон родител,година на раждане,пол,бележка,активен\n"
+        "Иван Иванов,0888123456,Петър Иванов,0899123456,2010,м,Примерен запис,да\n"
     )
     data = csv_content.encode("utf-8-sig")
     headers = {
@@ -555,6 +572,8 @@ def update_athlete(
         athlete.parent_phone = (data.get("parent_phone") or "").strip() or None
     if "birth_year" in data:
         athlete.birth_year = data.get("birth_year")
+    if "gender" in data:
+        athlete.gender = data.get("gender")
     if "notes" in data:
         athlete.notes = (data.get("notes") or "").strip() or None
     if "is_active" in data:
