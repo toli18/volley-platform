@@ -165,7 +165,72 @@ def _validate_location_conflicts(
         if not _effective_ranges_overlap(effective_from, effective_to, r.effective_from, r.effective_to):
             continue
         if _rules_overlap(s0, e0, _time_to_minutes(r.start_time), _time_to_minutes(r.end_time)):
-            raise HTTPException(status_code=409, detail="Conflict: another training is scheduled in this location and time")
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Конфликт в графика: зала '{location}' вече е заета в "
+                    f"{r.start_time}-{r.end_time} (ден {int(r.weekday) + 1}). "
+                    "Изберете друга зала или час."
+                ),
+            )
+
+
+def _validate_override_conflicts(
+    db: Session,
+    *,
+    club_id: int,
+    source_rule_id: int,
+    on_date: str,
+    location: str,
+    start_time: str,
+    end_time: str,
+) -> None:
+    d = _parse_date(on_date, "date")
+    weekday = d.weekday()
+    location_norm = _normalize_location(location).lower()
+    start_m = _time_to_minutes(start_time)
+    end_m = _time_to_minutes(end_time)
+
+    rules = (
+        db.query(TrainingScheduleRule)
+        .filter(
+            TrainingScheduleRule.club_id == club_id,
+            TrainingScheduleRule.is_active.is_(True),
+            TrainingScheduleRule.weekday == int(weekday),
+            TrainingScheduleRule.effective_from <= on_date,
+            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= on_date),
+            TrainingScheduleRule.id != int(source_rule_id),
+        )
+        .all()
+    )
+    if not rules:
+        return
+
+    rule_ids = [r.id for r in rules]
+    exc_rows = (
+        db.query(TrainingScheduleException)
+        .filter(TrainingScheduleException.rule_id.in_(rule_ids), TrainingScheduleException.date == on_date)
+        .all()
+    )
+    exc_by_rule_id = {e.rule_id: e for e in exc_rows}
+
+    for r in rules:
+        exc = exc_by_rule_id.get(r.id)
+        if exc and exc.kind == "cancelled":
+            continue
+        other_location = _normalize_location(exc.location) if exc and exc.kind == "override" and exc.location else _normalize_location(r.location)
+        if other_location.lower() != location_norm:
+            continue
+        other_start = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
+        other_end = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+        if _rules_overlap(start_m, end_m, _time_to_minutes(other_start), _time_to_minutes(other_end)):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Конфликт в графика: зала '{location}' е заета на {on_date} "
+                    f"в {other_start}-{other_end}. Изберете друга зала или час."
+                ),
+            )
 
 
 @router.get("/schedule", response_model=ScheduleOccurrencesResponse)
@@ -293,13 +358,18 @@ def list_schedule_rules(
 def create_schedule_rule(
     payload: ScheduleRuleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
     club_id = _ensure_club(current_user)
     _validate_rule_payload(payload)
 
     team = _ensure_team_in_club(db, club_id, payload.team_id)
-    coach = _ensure_coach_in_club(db, club_id, payload.coach_id)
+    if _is_head_coach(current_user):
+        coach = _ensure_coach_in_club(db, club_id, payload.coach_id)
+    else:
+        if int(payload.coach_id) != int(current_user.id):
+            raise HTTPException(status_code=403, detail="Треньорът може да добавя само свои тренировки")
+        coach = current_user
     location = _normalize_location(payload.location)
     if not location:
         raise HTTPException(status_code=422, detail="location is required")
@@ -351,6 +421,8 @@ def update_schedule_rule(
     data = payload.model_dump(exclude_unset=True)
     if not data:
         return rule
+    if not _is_head_coach(current_user) and "coach_id" in data and int(data.get("coach_id")) != int(current_user.id):
+        raise HTTPException(status_code=403, detail="Треньорът може да променя само своите тренировки")
 
     # Apply updates into local candidates for conflict validation.
     weekday = int(data.get("weekday", rule.weekday))
@@ -473,6 +545,16 @@ def create_schedule_exception(
             exc.end_time = payload.end_time
         if exc.start_time and exc.end_time and _time_to_minutes(exc.end_time) <= _time_to_minutes(exc.start_time):
             raise HTTPException(status_code=422, detail="end_time must be after start_time")
+        if exc.location and exc.start_time and exc.end_time:
+            _validate_override_conflicts(
+                db,
+                club_id=club_id,
+                source_rule_id=rule.id,
+                on_date=cur_s,
+                location=exc.location,
+                start_time=exc.start_time,
+                end_time=exc.end_time,
+            )
     else:
         exc.location = None
         exc.coach_id = None

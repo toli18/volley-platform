@@ -183,6 +183,11 @@ export default function Teams() {
       <PageHero
         title="Отбори"
         subtitle="Първо избери отбор, после отвори отделния му екран."
+        actions={
+          <Link to="/teams/schedule">
+            <Button>График</Button>
+          </Link>
+        }
       />
 
       <Card title="Списък отбори">

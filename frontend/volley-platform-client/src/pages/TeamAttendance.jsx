@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -26,11 +26,14 @@ const shortStatusLabel = (value) => {
 
 export default function TeamAttendance() {
   const { teamId } = useParams();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [team, setTeam] = useState(null);
-  const [attendanceDate, setAttendanceDate] = useState(todayKey());
-  const [attendanceTitle, setAttendanceTitle] = useState("");
+  const initialDate = searchParams.get("date") || todayKey();
+  const initialTitle = searchParams.get("title") || "";
+  const [attendanceDate, setAttendanceDate] = useState(initialDate);
+  const [attendanceTitle, setAttendanceTitle] = useState(initialTitle);
   const [attendanceRows, setAttendanceRows] = useState([]);
 
   const teamIdNum = Number(teamId);
