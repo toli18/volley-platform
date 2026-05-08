@@ -64,6 +64,9 @@ def _token_preview(raw: str) -> str:
 
 
 def _build_parent_url(request: Request, token_raw: str) -> str:
+    origin = (request.headers.get("origin") or "").strip().rstrip("/")
+    if origin:
+        return f"{origin}/parent/{token_raw}"
     base = str(request.base_url).rstrip("/")
     return f"{base}/parent/{token_raw}"
 
