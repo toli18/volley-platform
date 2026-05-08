@@ -617,3 +617,47 @@
     padding: 11px 12px;
   }
 }
+
+/* New pages: schedule + parent portal mobile support */
+.teamScheduleCalendarWrap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.teamScheduleCalendarCols {
+  min-width: 760px;
+}
+
+.teamScheduleDayPopover {
+  max-width: 92vw;
+}
+
+.parentPortalTableWrap {
+  overflow-x: auto;
+}
+
+.athleteParentAccessActions {
+  align-items: center;
+}
+
+@media (max-width: 680px) {
+  .teamScheduleCalendarCols {
+    min-width: 700px;
+  }
+
+  .teamScheduleDayPopover {
+    left: auto !important;
+    right: 0;
+    width: min(340px, 92vw) !important;
+  }
+
+  .athleteParentAccessActions .uiButton {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .athleteParentAccessQr svg {
+    width: min(66vw, 170px);
+    height: auto;
+  }
+}

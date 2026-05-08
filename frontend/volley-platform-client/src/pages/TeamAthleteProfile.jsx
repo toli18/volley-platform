@@ -295,8 +295,8 @@ export default function TeamAthleteProfile() {
       </Card>
 
       <Card title="Родителски достъп (QR)">
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="athleteParentAccessBox" style={{ display: "grid", gap: 10 }}>
+          <div className="athleteParentAccessActions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button size="sm" disabled={parentBusy} onClick={createParentLink}>Генерирай QR</Button>
             <Button size="sm" variant="secondary" disabled={parentBusy} onClick={copyParentLink}>Копирай линк</Button>
             <Button size="sm" variant="secondary" disabled={parentBusy} onClick={rotateParentLink}>Регенерирай</Button>
@@ -306,7 +306,7 @@ export default function TeamAthleteProfile() {
             Профилът за родител показва: присъствие, месечен график и такси.
           </div>
           {(parentQrUrl || parentAccess.parent_url) ? (
-            <div style={{ display: "grid", gap: 8, justifyItems: "start" }}>
+            <div className="athleteParentAccessQr" style={{ display: "grid", gap: 8, justifyItems: "start" }}>
               <QRCodeSVG value={parentQrUrl || parentAccess.parent_url} size={168} />
               <div style={{ wordBreak: "break-all", fontSize: 12, color: "#475569" }}>{parentQrUrl || parentAccess.parent_url}</div>
             </div>

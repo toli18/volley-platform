@@ -87,6 +87,7 @@ export default function TeamScheduleCalendar() {
   const [teamFilter, setTeamFilter] = useState("");
   const [coachFilter, setCoachFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [metaLoaded, setMetaLoaded] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -134,28 +135,30 @@ export default function TeamScheduleCalendar() {
 
   const canEditOccurrence = (it) => isHeadCoach || Number(it.coach_id) === currentUserId;
 
-  const loadData = async () => {
+  const loadMeta = async () => {
+    const reqs = [axiosInstance.get(API_PATHS.TEAMS_LIST)];
+    if (isHeadCoach) reqs.push(axiosInstance.get(API_PATHS.FEES_COACHES_LIST));
+    const [teamsRes, coachesRes] = await Promise.all(reqs);
+    setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+    setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
+    setMetaLoaded(true);
+  };
+
+  const loadOccurrences = async () => {
     const { from, to } = monthRange(monthKey);
     const params = { from, to };
     if (effectiveCoachFilter) params.coach_id = Number(effectiveCoachFilter);
     if (teamFilter) params.team_id = Number(teamFilter);
     if (locationFilter.trim()) params.location = locationFilter.trim();
-    const reqs = [
-      axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, { params }),
-      axiosInstance.get(API_PATHS.TEAMS_LIST),
-    ];
-    if (isHeadCoach) reqs.push(axiosInstance.get(API_PATHS.FEES_COACHES_LIST));
-    const [occRes, teamsRes, coachesRes] = await Promise.all(reqs);
+    const occRes = await axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, { params });
     setItems(Array.isArray(occRes.data?.items) ? occRes.data.items : []);
-    setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
-    setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
   };
 
   useEffect(() => {
     const run = async () => {
       try {
         setBusy(true);
-        await loadData();
+        await loadMeta();
       } catch (err) {
         toast.error(normalizeError(err, "Неуспешно зареждане на месечния график."));
       } finally {
@@ -163,7 +166,22 @@ export default function TeamScheduleCalendar() {
       }
     };
     run();
-  }, [monthKey, teamFilter, effectiveCoachFilter, locationFilter, isHeadCoach, currentUserId]);
+  }, [isHeadCoach]);
+
+  useEffect(() => {
+    if (!metaLoaded) return;
+    const run = async () => {
+      try {
+        setBusy(true);
+        await loadOccurrences();
+      } catch (err) {
+        toast.error(normalizeError(err, "Неуспешно зареждане на графика."));
+      } finally {
+        setBusy(false);
+      }
+    };
+    run();
+  }, [metaLoaded, monthKey, teamFilter, effectiveCoachFilter, locationFilter]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -214,7 +232,7 @@ export default function TeamScheduleCalendar() {
       });
       toast.success("Тренировката е коригирана.");
       setEditOcc(null);
-      await loadData();
+      await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна корекция на тренировката."));
     } finally {
@@ -231,7 +249,7 @@ export default function TeamScheduleCalendar() {
         kind: "cancelled",
       });
       toast.success("Тренировката е отменена.");
-      await loadData();
+      await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна отмяна на тренировката."));
     } finally {
@@ -245,7 +263,7 @@ export default function TeamScheduleCalendar() {
       setBusy(true);
       await axiosInstance.delete(API_PATHS.SCHEDULE_EXCEPTION_DELETE(it.exception_id));
       toast.success("Тренировката е възстановена.");
-      await loadData();
+      await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно възстановяване."));
     } finally {
@@ -291,7 +309,7 @@ export default function TeamScheduleCalendar() {
         repeat_weekly: false,
         repeat_to: "",
       });
-      await loadData();
+      await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно добавяне на тренировка."));
     } finally {
@@ -345,15 +363,15 @@ export default function TeamScheduleCalendar() {
         ) : calendarCells.length === 0 ? (
           <EmptyState title="Няма календар за показване" description="Избери валиден месец." />
         ) : (
-          <div ref={calendarWrapRef} style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+          <div ref={calendarWrapRef} className="teamScheduleCalendarWrap" style={{ display: "grid", gap: 10 }}>
+            <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
               {dayNames.map((name) => (
                 <div key={name} style={{ fontWeight: 700, color: "#39516d", fontSize: 13, textAlign: "center" }}>
                   {name}
                 </div>
               ))}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+            <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
               {calendarCells.map((cell, idx) => {
                 if (!cell.isCurrentMonth) {
                   return <div key={`empty-${idx}`} style={{ minHeight: 110, borderRadius: 10, background: "#f5f7fb" }} />;
@@ -409,6 +427,7 @@ export default function TeamScheduleCalendar() {
                     {selectedDate === cell.date ? (
                       <div
                         onClick={(e) => e.stopPropagation()}
+                        className="teamScheduleDayPopover"
                         style={{
                           position: "absolute",
                           top: "calc(100% + 6px)",

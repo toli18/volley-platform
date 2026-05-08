@@ -80,6 +80,7 @@ export default function ParentPortal() {
             {(profile.last_attendance || []).length === 0 ? (
               <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
             ) : (
+              <div className="parentPortalTableWrap">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -100,6 +101,7 @@ export default function ParentPortal() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </Card>
 
@@ -107,6 +109,7 @@ export default function ParentPortal() {
             {(profile.monthly_schedule || []).length === 0 ? (
               <EmptyState title="Няма тренировки за този месец" description="Когато треньорът добави тренировки, ще ги виждате тук." />
             ) : (
+              <div className="parentPortalTableWrap">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -127,10 +130,12 @@ export default function ParentPortal() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </Card>
 
           <Card title="Такси (последни 12 месеца)">
+            <div className="parentPortalTableWrap">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -155,6 +160,7 @@ export default function ParentPortal() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </>
       ) : null}
