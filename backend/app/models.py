@@ -509,6 +509,7 @@ class Team(Base):
     name = Column(String(120), nullable=False)
     age_group = Column(String(80), nullable=True)
     season = Column(String(40), nullable=True)
+    gender = Column(String(16), nullable=True)  # "male" | "female"
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

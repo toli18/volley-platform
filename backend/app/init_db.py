@@ -64,8 +64,10 @@ def init_db() -> None:
                     )
                 )
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender ensured")
+            print("✅ PostgreSQL: teams.gender ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
@@ -114,6 +116,12 @@ def init_db() -> None:
             if "gender" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN gender VARCHAR(16)"))
                 print("✅ Added athletes.gender column")
+
+            team_cols = conn.execute(text("PRAGMA table_info(teams)")).fetchall()
+            team_col_names = {row[1] for row in team_cols}
+            if "gender" not in team_col_names:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN gender VARCHAR(16)"))
+                print("✅ Added teams.gender column")
 
     db = SessionLocal()
     try:

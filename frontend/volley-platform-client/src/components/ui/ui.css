@@ -651,6 +651,16 @@
   gap: 10px;
 }
 
+.teamsMobileCard--male {
+  border-color: #bfd8f2;
+  background: #f4f9ff;
+}
+
+.teamsMobileCard--female {
+  border-color: #f0c8d3;
+  background: #fff6f8;
+}
+
 .teamsMobileCardTitle {
   margin: 0;
   font-size: 17px;
@@ -674,6 +684,14 @@
 
 .teamsMobileActions > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
+}
+
+.teamsRow--male td {
+  background: #f6fbff;
+}
+
+.teamsRow--female td {
+  background: #fff7f9;
 }
 
 @media (max-width: 720px) {
@@ -700,6 +718,16 @@
   gap: 10px;
 }
 
+.feesAthleteCard--male {
+  border-color: #bfd8f2;
+  background: #f4f9ff;
+}
+
+.feesAthleteCard--female {
+  border-color: #f0c8d3;
+  background: #fff6f8;
+}
+
 .feesAthleteCardName {
   margin: 0;
   font-size: 17px;
@@ -722,6 +750,14 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.feesAthleteRow--male td {
+  background: #f6fbff;
+}
+
+.feesAthleteRow--female td {
+  background: #fff7f9;
 }
 
 @media (max-width: 720px) {

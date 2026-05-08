@@ -13,6 +13,12 @@ const genderSuffix = (g) => {
   return "";
 };
 
+const teamGenderLabel = (g) => {
+  if (g === "male") return "Мъжки";
+  if (g === "female") return "Женски";
+  return "—";
+};
+
 const normalizeError = (err, fallback = "Грешка при работа с отбора.") => {
   const detail = err?.response?.data?.detail;
   if (!detail) return err?.message || fallback;
@@ -81,7 +87,16 @@ export default function TeamDetails() {
     run();
   }, [teamIdNum, isHeadCoach, currentUserId]);
 
-  const nonMembers = useMemo(() => athletes.filter((a) => !memberIds.includes(a.id)), [athletes, memberIds]);
+  const nonMembers = useMemo(() => {
+    const teamGender = team?.gender;
+    return athletes.filter((a) => {
+      if (memberIds.includes(a.id)) return false;
+      if (teamGender === "male" || teamGender === "female") {
+        return a?.gender === teamGender;
+      }
+      return true;
+    });
+  }, [athletes, memberIds, team?.gender]);
   const visibleCandidates = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
     if (!q) return nonMembers;
@@ -163,7 +178,7 @@ export default function TeamDetails() {
     <div className="uiPage">
       <PageHero
         title={`Отбор: ${team.name}`}
-        subtitle="Отделен екран за състезатели и такси."
+        subtitle={`Отделен екран за състезатели и такси · Тип: ${teamGenderLabel(team.gender)}`}
         actions={
           <div className="heroActionsWrap">
             <Link to={`/teams/${teamIdNum}/attendance`}>
@@ -258,7 +273,11 @@ export default function TeamDetails() {
           {visibleCandidates.length === 0 ? (
             <EmptyState
               title={memberSearch.trim() ? "Няма резултати" : "Няма свободни състезатели"}
-              description={memberSearch.trim() ? "Няма свободни състезатели с това име/година." : "Всички налични състезатели вече са добавени в отбора."}
+              description={
+                memberSearch.trim()
+                  ? "Няма свободни състезатели с това име/година и съответен пол."
+                  : "Всички налични състезатели със съответния пол вече са добавени в отбора."
+              }
             />
           ) : (
             <>

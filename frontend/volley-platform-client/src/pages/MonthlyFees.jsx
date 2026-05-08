@@ -661,7 +661,7 @@ export default function MonthlyFees() {
                 <article
                   key={`m-${a.id}`}
                   data-athlete-scroll={a.id}
-                  className={`feesAthleteCard${highlightAthleteId === a.id ? " feesAthleteCard--highlight" : ""}`}
+                  className={`feesAthleteCard ${a.gender === "male" ? "feesAthleteCard--male" : a.gender === "female" ? "feesAthleteCard--female" : ""}${highlightAthleteId === a.id ? " feesAthleteCard--highlight" : ""}`}
                   onClick={(event) => onAthleteContainerClick(event, a.id)}
                   style={{ cursor: "pointer" }}
                 >
@@ -760,7 +760,7 @@ export default function MonthlyFees() {
                     <TableRow
                       key={a.id}
                       data-athlete-scroll={a.id}
-                      className={highlightAthleteId === a.id ? "feesAthleteRow--highlight" : undefined}
+                      className={`${a.gender === "male" ? "feesAthleteRow--male" : a.gender === "female" ? "feesAthleteRow--female" : ""}${highlightAthleteId === a.id ? " feesAthleteRow--highlight" : ""}`.trim() || undefined}
                       onClick={(event) => onAthleteContainerClick(event, a.id)}
                       style={{ cursor: "pointer" }}
                     >

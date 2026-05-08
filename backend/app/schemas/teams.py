@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,6 +8,7 @@ class TeamCreate(BaseModel):
     name: str
     age_group: Optional[str] = None
     season: Optional[str] = None
+    gender: Literal["male", "female"]
     is_active: bool = True
 
 
@@ -15,6 +16,7 @@ class TeamUpdate(BaseModel):
     name: Optional[str] = None
     age_group: Optional[str] = None
     season: Optional[str] = None
+    gender: Optional[Literal["male", "female"]] = None
     is_active: Optional[bool] = None
 
 
@@ -31,6 +33,7 @@ class TeamRead(BaseModel):
     name: str
     age_group: Optional[str] = None
     season: Optional[str] = None
+    gender: Optional[Literal["male", "female"]] = None
     is_active: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

@@ -84,6 +84,13 @@ def _is_head_coach(user: User) -> bool:
     return _role_value(user) == UserRole.club_head_coach.value
 
 
+def _normalize_gender(value) -> str | None:
+    raw = str(value or "").strip().lower()
+    if raw in {"male", "female"}:
+        return raw
+    return None
+
+
 def _ensure_team_owner(db: Session, team_id: int, user: User) -> Team:
     q = db.query(Team).filter(Team.id == team_id)
     if _is_head_coach(user):
@@ -131,6 +138,7 @@ def create_team(
         name=name,
         age_group=(payload.age_group or "").strip() or None,
         season=(payload.season or "").strip() or None,
+        gender=_normalize_gender(payload.gender),
         is_active=bool(payload.is_active),
     )
     db.add(team)
@@ -157,6 +165,8 @@ def update_team(
         team.age_group = (data.get("age_group") or "").strip() or None
     if "season" in data:
         team.season = (data.get("season") or "").strip() or None
+    if "gender" in data:
+        team.gender = _normalize_gender(data.get("gender"))
     if "is_active" in data:
         team.is_active = bool(data.get("is_active"))
     team.updated_at = datetime.utcnow()
@@ -260,17 +270,27 @@ def replace_team_members(
 ):
     team = _ensure_team_owner(db, team_id, current_user)
     desired_ids = sorted(set(int(x) for x in (payload.athlete_ids or []) if x))
-    if desired_ids:
-        owned_query = db.query(Athlete).filter(Athlete.id.in_(desired_ids))
+    existing = db.query(TeamMember).filter(TeamMember.team_id == team.id).all()
+    existing_map = {m.athlete_id: m for m in existing}
+    active_existing_ids = {aid for aid, m in existing_map.items() if m.is_active}
+    added_ids = [aid for aid in desired_ids if aid not in active_existing_ids]
+    if added_ids:
+        owned_query = db.query(Athlete).filter(Athlete.id.in_(added_ids))
         if _is_head_coach(current_user):
             owned_query = owned_query.filter(Athlete.club_id == current_user.club_id)
         else:
             owned_query = owned_query.filter(Athlete.coach_id == current_user.id)
-        if owned_query.count() != len(desired_ids):
+        if owned_query.count() != len(added_ids):
             raise HTTPException(status_code=422, detail="One or more athletes are invalid for this club/coach")
-
-    existing = db.query(TeamMember).filter(TeamMember.team_id == team.id).all()
-    existing_map = {m.athlete_id: m for m in existing}
+        team_gender = _normalize_gender(getattr(team, "gender", None))
+        if team_gender:
+            if (
+                db.query(Athlete)
+                .filter(Athlete.id.in_(added_ids), Athlete.gender != team_gender)
+                .count()
+                > 0
+            ):
+                raise HTTPException(status_code=422, detail="Athlete gender does not match team gender")
 
     for athlete_id, member in existing_map.items():
         if athlete_id not in desired_ids and member.is_active:

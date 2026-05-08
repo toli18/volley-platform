@@ -15,6 +15,12 @@ const normalizeError = (err, fallback = "Грешка при работа с о�
   return fallback;
 };
 
+const teamGenderLabel = (gender) => {
+  if (gender === "male") return "Мъжки";
+  if (gender === "female") return "Женски";
+  return "—";
+};
+
 export default function Teams() {
   const toast = useToast();
   const { user } = useAuth();
@@ -22,9 +28,9 @@ export default function Teams() {
 
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
-  const [teamForm, setTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
+  const [teamForm, setTeamForm] = useState({ name: "", age_group: "", season: "", gender: "", is_active: true });
   const [editTeam, setEditTeam] = useState(null);
-  const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", is_active: true });
+  const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", gender: "", is_active: true });
   const [assignTeam, setAssignTeam] = useState(null);
   const [assignCoachId, setAssignCoachId] = useState("");
 
@@ -68,17 +74,22 @@ export default function Teams() {
       name: teamForm.name.trim(),
       age_group: teamForm.age_group.trim() || null,
       season: teamForm.season.trim() || null,
+      gender: teamForm.gender || null,
       is_active: Boolean(teamForm.is_active),
     };
     if (!payload.name) {
       toast.error("Името на отбора е задължително.");
       return;
     }
+    if (!payload.gender) {
+      toast.error("Избери дали отборът е мъжки или женски.");
+      return;
+    }
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.TEAM_CREATE, payload);
       await loadTeams();
-      setTeamForm({ name: "", age_group: "", season: "", is_active: true });
+      setTeamForm({ name: "", age_group: "", season: "", gender: "", is_active: true });
       toast.success("Отборът е създаден.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно създаване на отбор."));
@@ -107,6 +118,7 @@ export default function Teams() {
       name: team.name || "",
       age_group: team.age_group || "",
       season: team.season || "",
+      gender: team.gender || "",
       is_active: Boolean(team.is_active),
     });
   };
@@ -117,10 +129,15 @@ export default function Teams() {
       name: editTeamForm.name.trim(),
       age_group: editTeamForm.age_group.trim() || null,
       season: editTeamForm.season.trim() || null,
+      gender: editTeamForm.gender || null,
       is_active: Boolean(editTeamForm.is_active),
     };
     if (!payload.name) {
       toast.error("Името на отбора е задължително.");
+      return;
+    }
+    if (!payload.gender) {
+      toast.error("Избери дали отборът е мъжки или женски.");
       return;
     }
     try {
@@ -175,11 +192,15 @@ export default function Teams() {
           <>
             <div className="teamsMobileList" aria-label="Отбори (мобилен изглед)">
               {teams.map((team) => (
-                <article key={`m-${team.id}`} className="teamsMobileCard">
+                <article
+                  key={`m-${team.id}`}
+                  className={`teamsMobileCard ${team.gender === "male" ? "teamsMobileCard--male" : team.gender === "female" ? "teamsMobileCard--female" : ""}`}
+                >
                   <h3 className="teamsMobileCardTitle">{team.name}</h3>
                   <div className="teamsMobileMeta">
                     <span>Група: {team.age_group || "—"}</span>
                     <span>Сезон: {team.season || "—"}</span>
+                    <span>Тип: {teamGenderLabel(team.gender)}</span>
                     <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
                       {team.is_active ? "Активен" : "Неактивен"}
                     </span>
@@ -212,18 +233,23 @@ export default function Teams() {
                     <TableHead>Име</TableHead>
                     <TableHead>Група</TableHead>
                     <TableHead>Сезон</TableHead>
+                    <TableHead>Тип</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Действия</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {teams.map((team) => (
-                    <TableRow key={team.id}>
+                    <TableRow
+                      key={team.id}
+                      className={team.gender === "male" ? "teamsRow--male" : team.gender === "female" ? "teamsRow--female" : undefined}
+                    >
                       <TableCell>
                         <strong>{team.name}</strong>
                       </TableCell>
                       <TableCell>{team.age_group || "-"}</TableCell>
                       <TableCell>{team.season || "-"}</TableCell>
+                      <TableCell>{teamGenderLabel(team.gender)}</TableCell>
                       <TableCell>
                         <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
                           {team.is_active ? "Активен" : "Неактивен"}
@@ -261,6 +287,11 @@ export default function Teams() {
           <Input placeholder="Име на отбор" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
           <Input placeholder="Възрастова група (пример: U14)" value={teamForm.age_group} onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))} />
           <Input placeholder="Сезон (пример: 2025/2026)" value={teamForm.season} onChange={(e) => setTeamForm((p) => ({ ...p, season: e.target.value }))} />
+          <Input as="select" value={teamForm.gender} onChange={(e) => setTeamForm((p) => ({ ...p, gender: e.target.value }))}>
+            <option value="">Избери тип на отбора</option>
+            <option value="male">Мъжки</option>
+            <option value="female">Женски</option>
+          </Input>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={teamForm.is_active} onChange={(e) => setTeamForm((p) => ({ ...p, is_active: e.target.checked }))} />
             Активен отбор
@@ -293,6 +324,11 @@ export default function Teams() {
                 value={editTeamForm.season}
                 onChange={(e) => setEditTeamForm((p) => ({ ...p, season: e.target.value }))}
               />
+              <Input as="select" value={editTeamForm.gender} onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}>
+                <option value="">Избери тип на отбора</option>
+                <option value="male">Мъжки</option>
+                <option value="female">Женски</option>
+              </Input>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
