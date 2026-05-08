@@ -474,6 +474,12 @@ class Athlete(Base):
         cascade="all, delete-orphan",
         order_by="AthletePayment.month_key.desc()",
     )
+    parent_access_tokens = relationship(
+        "AthleteParentAccessToken",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+        order_by="AthleteParentAccessToken.created_at.desc()",
+    )
 
 
 class AthletePayment(Base):
@@ -495,6 +501,24 @@ class AthletePayment(Base):
 
     athlete = relationship("Athlete", back_populates="payments")
     coach = relationship("User", foreign_keys=[coach_id])
+
+
+class AthleteParentAccessToken(Base):
+    __tablename__ = "athlete_parent_access_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    token_prefix = Column(String(12), nullable=False, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    athlete = relationship("Athlete", back_populates="parent_access_tokens")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
 # =========================

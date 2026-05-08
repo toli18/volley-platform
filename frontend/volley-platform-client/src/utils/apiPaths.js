@@ -114,6 +114,11 @@ export const API_PATHS = {
   TEAM_ATTENDANCE_SAVE: (teamId) => `/api/teams/${teamId}/attendance`,
   TEAM_ATTENDANCE_REPORT: (teamId) => `/api/teams/${teamId}/attendance/report`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
+  ATHLETE_PARENT_ACCESS_GET: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access`,
+  ATHLETE_PARENT_ACCESS_CREATE: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access`,
+  ATHLETE_PARENT_ACCESS_ROTATE: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access/rotate`,
+  ATHLETE_PARENT_ACCESS_REVOKE: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access`,
+  PARENT_PORTAL_GET: (token) => `/api/parent-portal/${token}`,
 
   // Club head coach
   CLUB_OVERVIEW: "/api/club/overview",

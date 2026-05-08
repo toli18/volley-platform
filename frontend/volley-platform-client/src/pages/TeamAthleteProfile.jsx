@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -54,6 +55,9 @@ export default function TeamAthleteProfile() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [parentAccess, setParentAccess] = useState({ has_active_token: false, parent_url: null, token_preview: null });
+  const [parentQrUrl, setParentQrUrl] = useState("");
+  const [parentBusy, setParentBusy] = useState(false);
   const fromPath = new URLSearchParams(location.search).get("from") || "/teams";
 
   const feesHref = useMemo(() => {
@@ -96,6 +100,81 @@ export default function TeamAthleteProfile() {
       cancelled = true;
     };
   }, [athleteId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadParentAccess = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.ATHLETE_PARENT_ACCESS_GET(athleteId));
+        if (!cancelled) setParentAccess(res.data || { has_active_token: false });
+      } catch {
+        if (!cancelled) setParentAccess({ has_active_token: false, parent_url: null, token_preview: null });
+      }
+    };
+    loadParentAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [athleteId]);
+
+  const createParentLink = async () => {
+    try {
+      setParentBusy(true);
+      const res = await axiosInstance.post(API_PATHS.ATHLETE_PARENT_ACCESS_CREATE(athleteId), {});
+      const data = res.data || {};
+      setParentQrUrl(data.parent_url || "");
+      setParentAccess({ has_active_token: true, parent_url: data.parent_url || null, token_preview: data.token_preview || null });
+      toast.success("Родителският линк е създаден.");
+    } catch (err) {
+      toast.error(normalizeError(err));
+    } finally {
+      setParentBusy(false);
+    }
+  };
+
+  const rotateParentLink = async () => {
+    try {
+      setParentBusy(true);
+      const res = await axiosInstance.post(API_PATHS.ATHLETE_PARENT_ACCESS_ROTATE(athleteId), {});
+      const data = res.data || {};
+      setParentQrUrl(data.parent_url || "");
+      setParentAccess({ has_active_token: true, parent_url: data.parent_url || null, token_preview: data.token_preview || null });
+      toast.success("Родителският линк е обновен.");
+    } catch (err) {
+      toast.error(normalizeError(err));
+    } finally {
+      setParentBusy(false);
+    }
+  };
+
+  const revokeParentLink = async () => {
+    if (!window.confirm("Сигурни ли сте, че искате да спрете родителския достъп?")) return;
+    try {
+      setParentBusy(true);
+      await axiosInstance.delete(API_PATHS.ATHLETE_PARENT_ACCESS_REVOKE(athleteId));
+      setParentAccess({ has_active_token: false, parent_url: null, token_preview: null });
+      setParentQrUrl("");
+      toast.success("Родителският достъп е спрян.");
+    } catch (err) {
+      toast.error(normalizeError(err));
+    } finally {
+      setParentBusy(false);
+    }
+  };
+
+  const copyParentLink = async () => {
+    const link = parentQrUrl || parentAccess.parent_url;
+    if (!link) {
+      toast.error("Няма активен линк за копиране.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Линкът е копиран.");
+    } catch {
+      toast.error("Неуспешно копиране.");
+    }
+  };
 
   if (loading) {
     return (
@@ -212,6 +291,28 @@ export default function TeamAthleteProfile() {
           <span className="uiBadge uiBadge--danger">Отсъства: {profile.attendance_summary?.absent || 0}</span>
           <span className="uiBadge uiBadge--secondary">Извинен: {profile.attendance_summary?.excused || 0}</span>
           <span className="uiBadge uiBadge--info">Процент: {profile.attendance_summary?.attendance_rate_percent || 0}%</span>
+        </div>
+      </Card>
+
+      <Card title="Родителски достъп (QR)">
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button size="sm" disabled={parentBusy} onClick={createParentLink}>Генерирай QR</Button>
+            <Button size="sm" variant="secondary" disabled={parentBusy} onClick={copyParentLink}>Копирай линк</Button>
+            <Button size="sm" variant="secondary" disabled={parentBusy} onClick={rotateParentLink}>Регенерирай</Button>
+            <Button size="sm" variant="danger" disabled={parentBusy} onClick={revokeParentLink}>Спри достъпа</Button>
+          </div>
+          <div style={{ color: "#607693", fontSize: 13 }}>
+            Профилът за родител показва: присъствие, месечен график и такси.
+          </div>
+          {(parentQrUrl || parentAccess.parent_url) ? (
+            <div style={{ display: "grid", gap: 8, justifyItems: "start" }}>
+              <QRCodeSVG value={parentQrUrl || parentAccess.parent_url} size={168} />
+              <div style={{ wordBreak: "break-all", fontSize: 12, color: "#475569" }}>{parentQrUrl || parentAccess.parent_url}</div>
+            </div>
+          ) : (
+            <div className="uiMuted">Няма генериран активен QR линк.</div>
+          )}
         </div>
       </Card>
 

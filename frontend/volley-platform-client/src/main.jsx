@@ -33,6 +33,7 @@ const TeamAttendance = React.lazy(() => import("./pages/TeamAttendance.jsx"));
 const TeamAttendanceReport = React.lazy(() => import("./pages/TeamAttendanceReport.jsx"));
 const TeamAthleteProfile = React.lazy(() => import("./pages/TeamAthleteProfile.jsx"));
 const TeamScheduleCalendar = React.lazy(() => import("./pages/TeamScheduleCalendar.jsx"));
+const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 
@@ -93,6 +94,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
 
       { path: "login", element: <Login /> },
+      { path: "parent/:token", element: <ParentPortal /> },
 
       { path: "drills", element: <Drills /> },
       { path: "articles", element: <Articles /> },
