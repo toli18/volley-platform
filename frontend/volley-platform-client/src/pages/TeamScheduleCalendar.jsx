@@ -10,6 +10,16 @@ import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const monthKeyNow = () => todayKey().slice(0, 7);
 const dayNames = ["Пон", "Вт", "Ср", "Чет", "Пет", "Съб", "Нед"];
+const teamColorPalette = [
+  { bg: "#e0f2fe", border: "#7dd3fc", text: "#0c4a6e" },
+  { bg: "#dcfce7", border: "#86efac", text: "#14532d" },
+  { bg: "#fef3c7", border: "#fcd34d", text: "#78350f" },
+  { bg: "#ede9fe", border: "#c4b5fd", text: "#4c1d95" },
+  { bg: "#fee2e2", border: "#fca5a5", text: "#7f1d1d" },
+  { bg: "#cffafe", border: "#67e8f9", text: "#164e63" },
+  { bg: "#fae8ff", border: "#e879f9", text: "#701a75" },
+  { bg: "#ecfccb", border: "#bef264", text: "#365314" },
+];
 
 const monthRange = (monthKey) => {
   const [y, m] = String(monthKey || "").split("-").map(Number);
@@ -55,6 +65,12 @@ const buildCalendarCells = (monthKey) => {
     cells.push({ isCurrentMonth: true, date, day: dayNum });
   }
   return cells;
+};
+
+const teamColorFor = (teamId) => {
+  const num = Number(teamId || 0);
+  const idx = Math.abs(Number.isFinite(num) ? num : 0) % teamColorPalette.length;
+  return teamColorPalette[idx];
 };
 
 export default function TeamScheduleCalendar() {
@@ -372,8 +388,20 @@ export default function TeamScheduleCalendar() {
                     </div>
                     <div style={{ display: "grid", gap: 4 }}>
                       {dayItems.slice(0, 2).map((it, i) => (
-                        <div key={`${it.rule_id}-${i}`} style={{ fontSize: 11, color: "#38516d", lineHeight: 1.2 }}>
-                          {it.start_time} {it.team_name || `#${it.team_id}`}
+                        <div
+                          key={`${it.rule_id}-${i}`}
+                          style={{
+                            fontSize: 11,
+                            lineHeight: 1.2,
+                            borderRadius: 6,
+                            border: `1px solid ${teamColorFor(it.team_id).border}`,
+                            background: teamColorFor(it.team_id).bg,
+                            color: teamColorFor(it.team_id).text,
+                            padding: "2px 4px",
+                          }}
+                        >
+                          <div>{it.start_time} {it.team_name || `#${it.team_id}`}</div>
+                          <div style={{ opacity: 0.9 }}>{it.location}</div>
                         </div>
                       ))}
                       {dayItems.length > 2 ? <div style={{ fontSize: 11, color: "#0f766e" }}>+{dayItems.length - 2} още</div> : null}
@@ -409,7 +437,20 @@ export default function TeamScheduleCalendar() {
                               <article key={`${it.rule_id}-${it.date}-${i}`} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 8 }}>
                                 <div style={{ fontWeight: 700, fontSize: 12 }}>{it.start_time} - {it.end_time}</div>
                                 <div style={{ color: "#5b6f85", fontSize: 12, marginTop: 2 }}>
-                                  {it.team_name || `Отбор #${it.team_id}`} | {it.location}
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "1px 6px",
+                                      borderRadius: 999,
+                                      border: `1px solid ${teamColorFor(it.team_id).border}`,
+                                      background: teamColorFor(it.team_id).bg,
+                                      color: teamColorFor(it.team_id).text,
+                                      marginRight: 6,
+                                    }}
+                                  >
+                                    {it.team_name || `Отбор #${it.team_id}`}
+                                  </span>
+                                  {it.location}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                                   <Link to={`/teams/${it.team_id}/attendance?date=${it.date}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`}>

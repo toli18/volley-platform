@@ -247,7 +247,7 @@ export default function Home() {
       <Card
         title="График за следващите 7 дни"
         actions={
-          <Button as={Link} to="/club-head" variant="secondary" size="sm">
+          <Button as={Link} to="/teams/schedule" variant="secondary" size="sm">
             Пълен график
           </Button>
         }
