@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -9,6 +9,7 @@ import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const monthKeyNow = () => todayKey().slice(0, 7);
+const dayNames = ["Пон", "Вт", "Ср", "Чет", "Пет", "Съб", "Нед"];
 
 const monthRange = (monthKey) => {
   const [y, m] = String(monthKey || "").split("-").map(Number);
@@ -20,13 +21,6 @@ const monthRange = (monthKey) => {
   const end = new Date(y, m, 0).getDate();
   const to = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(end).padStart(2, "0")}`;
   return { from, to };
-};
-
-const weekdayLabel = (dateIso) => {
-  const d = new Date(`${dateIso}T00:00:00`);
-  const day = d.getDay();
-  const map = ["Нед", "Пон", "Вт", "Ср", "Чет", "Пет", "Съб"];
-  return map[day] || "";
 };
 
 const normalizeError = (err, fallback = "Грешка при работа с графика.") => {
@@ -43,6 +37,26 @@ const roleValue = (user) => {
   return String(r || "").toLowerCase();
 };
 
+const buildCalendarCells = (monthKey) => {
+  const [y, m] = String(monthKey || "").split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return [];
+  const first = new Date(y, m - 1, 1);
+  const lastDate = new Date(y, m, 0).getDate();
+  const firstWeekdayMonday0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
+  const total = Math.ceil((firstWeekdayMonday0 + lastDate) / 7) * 7;
+  const cells = [];
+  for (let i = 0; i < total; i += 1) {
+    const dayNum = i - firstWeekdayMonday0 + 1;
+    if (dayNum < 1 || dayNum > lastDate) {
+      cells.push({ isCurrentMonth: false, date: "", day: "" });
+      continue;
+    }
+    const date = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+    cells.push({ isCurrentMonth: true, date, day: dayNum });
+  }
+  return cells;
+};
+
 export default function TeamScheduleCalendar() {
   const toast = useToast();
   const { user } = useAuth();
@@ -57,6 +71,9 @@ export default function TeamScheduleCalendar() {
   const [teamFilter, setTeamFilter] = useState("");
   const [coachFilter, setCoachFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+
+  const [selectedDate, setSelectedDate] = useState("");
+  const calendarWrapRef = useRef(null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -83,15 +100,21 @@ export default function TeamScheduleCalendar() {
   const currentUserId = Number(user?.id || 0);
   const effectiveCoachFilter = coachFilter || (!isHeadCoach && currentUserId > 0 ? String(currentUserId) : "");
 
-  const groupedByDate = useMemo(() => {
+  const itemsByDate = useMemo(() => {
     const map = new Map();
     for (const it of items) {
       const arr = map.get(it.date) || [];
       arr.push(it);
       map.set(it.date, arr);
     }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    for (const arr of map.values()) {
+      arr.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+    }
+    return map;
   }, [items]);
+
+  const calendarCells = useMemo(() => buildCalendarCells(monthKey), [monthKey]);
+  const selectedDayItems = selectedDate ? (itemsByDate.get(selectedDate) || []) : [];
 
   const canEditOccurrence = (it) => isHeadCoach || Number(it.coach_id) === currentUserId;
 
@@ -126,6 +149,19 @@ export default function TeamScheduleCalendar() {
     run();
   }, [monthKey, teamFilter, effectiveCoachFilter, locationFilter, isHeadCoach, currentUserId]);
 
+  useEffect(() => {
+    if (!selectedDate) return undefined;
+    const onDocPointerDown = (event) => {
+      const root = calendarWrapRef.current;
+      if (!root) return;
+      if (!root.contains(event.target)) {
+        setSelectedDate("");
+      }
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [selectedDate]);
+
   const openEdit = (it) => {
     setEditOcc(it);
     setEditForm({
@@ -136,6 +172,11 @@ export default function TeamScheduleCalendar() {
       start_time: it.start_time || "18:00",
       end_time: it.end_time || "19:30",
     });
+  };
+
+  const openAddForDate = (date) => {
+    setAddForm((p) => ({ ...p, date }));
+    setAddOpen(true);
   };
 
   const saveOverride = async () => {
@@ -207,8 +248,8 @@ export default function TeamScheduleCalendar() {
       return;
     }
     const d = new Date(`${addForm.date}T00:00:00`);
-    const jsDay = d.getDay(); // 0 Sun .. 6 Sat
-    const weekday = jsDay === 0 ? 6 : jsDay - 1; // 0 Mon .. 6 Sun
+    const jsDay = d.getDay();
+    const weekday = jsDay === 0 ? 6 : jsDay - 1;
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.SCHEDULE_RULES_CREATE, {
@@ -246,10 +287,10 @@ export default function TeamScheduleCalendar() {
     <div className="uiPage">
       <PageHero
         title="Месечен график на тренировки"
-        subtitle="Пълен график за избрания месец с действия: Присъствие, Корекция, Отмяна."
+        subtitle="Кликни върху ден за действия: Присъствие, Отмяна, Добавяне и корекции."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button onClick={() => setAddOpen(true)}>+ Добави тренировка</Button>
+            <Button onClick={() => openAddForDate(todayKey())}>+ Добави тренировка</Button>
             <Link to="/teams">
               <Button variant="secondary">Назад към Отбори</Button>
             </Link>
@@ -282,49 +323,119 @@ export default function TeamScheduleCalendar() {
         </div>
       </Card>
 
-      <Card title="Календар (месечен списък)">
+      <Card title="Календар (месечна мрежа)">
         {busy ? (
           <p>Зареждане...</p>
-        ) : groupedByDate.length === 0 ? (
-          <EmptyState title="Няма тренировки за този месец" description="Добави тренировка от бутона по-горе." />
+        ) : calendarCells.length === 0 ? (
+          <EmptyState title="Няма календар за показване" description="Избери валиден месец." />
         ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {groupedByDate.map(([date, dayItems]) => (
-              <section key={date} style={{ border: "1px solid #dbe6f3", borderRadius: 10, padding: 10 }}>
-                <div style={{ fontWeight: 800, marginBottom: 8 }}>
-                  {date} ({weekdayLabel(date)})
+          <div ref={calendarWrapRef} style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+              {dayNames.map((name) => (
+                <div key={name} style={{ fontWeight: 700, color: "#39516d", fontSize: 13, textAlign: "center" }}>
+                  {name}
                 </div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {dayItems.map((it, idx) => (
-                    <article key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{it.start_time} - {it.end_time}</div>
-                          <div style={{ color: "#5b6f85", fontSize: 13 }}>
-                            {it.team_name || `Отбор #${it.team_id}`} | {it.coach_name || `Треньор #${it.coach_id}`} | {it.location}
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+              {calendarCells.map((cell, idx) => {
+                if (!cell.isCurrentMonth) {
+                  return <div key={`empty-${idx}`} style={{ minHeight: 110, borderRadius: 10, background: "#f5f7fb" }} />;
+                }
+                const dayItems = itemsByDate.get(cell.date) || [];
+                return (
+                  <div
+                    key={cell.date}
+                    onClick={() => setSelectedDate(cell.date)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedDate(cell.date);
+                      }
+                    }}
+                    style={{
+                      position: "relative",
+                      minHeight: 110,
+                      borderRadius: 10,
+                      border: selectedDate === cell.date ? "2px solid #0b8f69" : "1px solid #dbe6f3",
+                      background: "#fff",
+                      textAlign: "left",
+                      padding: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <strong>{cell.day}</strong>
+                      <span style={{ fontSize: 11, color: "#6b7f96" }}>{dayItems.length || ""}</span>
+                    </div>
+                    <div style={{ display: "grid", gap: 4 }}>
+                      {dayItems.slice(0, 2).map((it, i) => (
+                        <div key={`${it.rule_id}-${i}`} style={{ fontSize: 11, color: "#38516d", lineHeight: 1.2 }}>
+                          {it.start_time} {it.team_name || `#${it.team_id}`}
+                        </div>
+                      ))}
+                      {dayItems.length > 2 ? <div style={{ fontSize: 11, color: "#0f766e" }}>+{dayItems.length - 2} още</div> : null}
+                    </div>
+                    {selectedDate === cell.date ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 6px)",
+                          left: 0,
+                          zIndex: 20,
+                          width: "min(360px, 92vw)",
+                          border: "1px solid #cbd8e6",
+                          borderRadius: 10,
+                          background: "#ffffff",
+                          boxShadow: "0 10px 26px rgba(15,23,42,0.18)",
+                          padding: 10,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <strong style={{ fontSize: 13 }}>Действия за {cell.date}</strong>
+                          <Button size="sm" variant="secondary" onClick={() => setSelectedDate("")}>Затвори</Button>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                          <Button size="sm" onClick={() => openAddForDate(cell.date)}>Добави тренировка</Button>
+                        </div>
+                        {selectedDayItems.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#64748b" }}>Няма тренировки в този ден.</div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+                            {selectedDayItems.map((it, i) => (
+                              <article key={`${it.rule_id}-${it.date}-${i}`} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 8 }}>
+                                <div style={{ fontWeight: 700, fontSize: 12 }}>{it.start_time} - {it.end_time}</div>
+                                <div style={{ color: "#5b6f85", fontSize: 12, marginTop: 2 }}>
+                                  {it.team_name || `Отбор #${it.team_id}`} | {it.location}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                                  <Link to={`/teams/${it.team_id}/attendance?date=${it.date}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`}>
+                                    <Button size="sm">Присъствие</Button>
+                                  </Link>
+                                  {canEditOccurrence(it) ? (
+                                    <>
+                                      <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
+                                      {it.exception_id ? (
+                                        <Button size="sm" variant="secondary" onClick={() => restoreOccurrence(it)}>Възстанови</Button>
+                                      ) : (
+                                        <Button size="sm" variant="danger" onClick={() => cancelOccurrence(it)}>Отмени</Button>
+                                      )}
+                                    </>
+                                  ) : null}
+                                </div>
+                              </article>
+                            ))}
                           </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Link to={`/teams/${it.team_id}/attendance?date=${it.date}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`}>
-                            <Button size="sm">Присъствие</Button>
-                          </Link>
-                          {canEditOccurrence(it) ? (
-                            <>
-                              <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
-                              {it.exception_id ? (
-                                <Button size="sm" variant="secondary" onClick={() => restoreOccurrence(it)}>Възстанови</Button>
-                              ) : (
-                                <Button size="sm" variant="danger" onClick={() => cancelOccurrence(it)}>Отмени</Button>
-                              )}
-                            </>
-                          ) : null}
-                        </div>
+                        )}
                       </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ))}
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </Card>
