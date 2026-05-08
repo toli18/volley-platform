@@ -133,4 +133,13 @@ export const API_PATHS = {
   MY_TRAINING_ASSIGNMENTS: "/api/trainings/assignments/my",
   TRAINING_ASSIGNMENT_UPDATE: (assignmentId) => `/api/trainings/assignments/${assignmentId}`,
   TRAINING_ASSIGNMENT_DELETE: (assignmentId) => `/api/trainings/assignments/${assignmentId}`,
+
+  // Training schedule calendar
+  SCHEDULE_OCCURRENCES: "/api/schedule",
+  SCHEDULE_RULES_LIST: "/api/schedule/rules",
+  SCHEDULE_RULES_CREATE: "/api/schedule/rules",
+  SCHEDULE_RULE_UPDATE: (ruleId) => `/api/schedule/rules/${ruleId}`,
+  SCHEDULE_RULE_DELETE: (ruleId) => `/api/schedule/rules/${ruleId}`,
+  SCHEDULE_EXCEPTION_CREATE: (ruleId) => `/api/schedule/rules/${ruleId}/exceptions`,
+  SCHEDULE_EXCEPTION_DELETE: (exceptionId) => `/api/schedule/exceptions/${exceptionId}`,
 };

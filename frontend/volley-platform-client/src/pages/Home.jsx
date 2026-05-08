@@ -56,6 +56,7 @@ export default function Home() {
   const [returnedArticles, setReturnedArticles] = useState([]);
   const [activityItems, setActivityItems] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
+  const [scheduleItems, setScheduleItems] = useState([]);
   const [error, setError] = useState("");
 
   const role = String(user?.role || "").toLowerCase();
@@ -80,6 +81,7 @@ export default function Home() {
           myDrillsRes,
           myArticlesRes,
           notificationsRes,
+          scheduleRes,
         ] = await Promise.allSettled([
           axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, {
             params: { from_month: monthKey, to_month: monthKey },
@@ -93,6 +95,12 @@ export default function Home() {
           axiosInstance.get(API_PATHS.DRILLS_MY),
           axiosInstance.get(API_PATHS.ARTICLE_MINE),
           axiosInstance.get(API_PATHS.FORUM_NOTIFICATIONS, { params: { limit: 8 } }),
+          axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, {
+            params: {
+              from: new Date().toISOString().slice(0, 10),
+              to: new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10),
+            },
+          }),
         ]);
 
         const feesRows = feesRes.status === "fulfilled" && Array.isArray(feesRes.value.data?.rows) ? feesRes.value.data.rows : [];
@@ -204,6 +212,10 @@ export default function Home() {
             .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
             .slice(0, 8)
         );
+        const scheduleList = scheduleRes.status === "fulfilled" && Array.isArray(scheduleRes.value.data?.items)
+          ? scheduleRes.value.data.items
+          : [];
+        setScheduleItems(scheduleList.slice(0, 10));
       } catch (e) {
         const detail = e?.response?.data?.detail;
         setError(typeof detail === "string" ? detail : "Грешка при зареждане на началното табло.");
@@ -232,6 +244,32 @@ export default function Home() {
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      <Card
+        title="График за следващите 7 дни"
+        actions={
+          <Button as={Link} to="/club-head" variant="secondary" size="sm">
+            Пълен график
+          </Button>
+        }
+      >
+        {loading ? (
+          <p style={{ marginTop: 10 }}>Зареждане...</p>
+        ) : scheduleItems.length === 0 ? (
+          <EmptyState title="Няма планирани тренировки" description="Главният треньор все още не е попълнил графика." />
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {scheduleItems.map((it, idx) => (
+              <div key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`} style={cardLinkStyle}>
+                <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
+                <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
+                  {it.team_name || `Отбор #${it.team_id}`} · {it.location}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <Card
         title="Твоите последни 5 тренировки"
         actions={

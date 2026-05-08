@@ -597,3 +597,68 @@ class TrainingAssignment(Base):
     training = relationship("Training")
     assigner = relationship("User", foreign_keys=[assigned_by])
     assignee = relationship("User", foreign_keys=[assigned_to])
+
+
+# =========================
+# Training schedule (calendar)
+# =========================
+class TrainingScheduleRule(Base):
+    __tablename__ = "training_schedule_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    location = Column(String(255), nullable=False)
+    weekday = Column(Integer, nullable=False, index=True)  # 0=Mon .. 6=Sun
+    start_time = Column(String(5), nullable=False)  # HH:MM
+    end_time = Column(String(5), nullable=False)  # HH:MM
+
+    effective_from = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    effective_to = Column(String(10), nullable=True, index=True)  # YYYY-MM-DD
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    team = relationship("Team")
+    coach = relationship("User", foreign_keys=[coach_id])
+    exceptions = relationship(
+        "TrainingScheduleException",
+        back_populates="rule",
+        cascade="all, delete-orphan",
+        order_by="TrainingScheduleException.date.asc()",
+    )
+
+    __table_args__ = (
+        Index("ix_schedule_rule_club_weekday", "club_id", "weekday"),
+    )
+
+
+class TrainingScheduleException(Base):
+    __tablename__ = "training_schedule_exceptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rule_id = Column(Integer, ForeignKey("training_schedule_rules.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    kind = Column(String(20), nullable=False)  # cancelled | override
+
+    # Optional overrides (used when kind=override)
+    location = Column(String(255), nullable=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    start_time = Column(String(5), nullable=True)  # HH:MM
+    end_time = Column(String(5), nullable=True)  # HH:MM
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    rule = relationship("TrainingScheduleRule", back_populates="exceptions")
+    coach = relationship("User", foreign_keys=[coach_id])
+    team = relationship("Team", foreign_keys=[team_id])
+
+    __table_args__ = (
+        UniqueConstraint("rule_id", "date", name="uq_schedule_rule_date"),
+    )

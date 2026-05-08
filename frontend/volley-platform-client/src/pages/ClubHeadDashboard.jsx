@@ -12,6 +12,12 @@ const nowMonth = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 const todayDate = () => new Date().toISOString().slice(0, 10);
+const addDays = (isoDate, days) => {
+  const d = new Date(`${isoDate}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+const weekdayLabel = (w) => ["Пон", "Вт", "Ср", "Чет", "Пет", "Съб", "Нед"][Number(w)] || "—";
 
 const monthRangeForKey = (monthKey) => {
   if (!monthKey || typeof monthKey !== "string") return { from_date: todayDate(), to_date: todayDate() };
@@ -72,6 +78,26 @@ export default function ClubHeadDashboard() {
     due_date: "",
     note: "",
   });
+  const [teams, setTeams] = useState([]);
+  const [scheduleRules, setScheduleRules] = useState([]);
+  const [scheduleItems, setScheduleItems] = useState([]);
+  const [scheduleFrom, setScheduleFrom] = useState(todayDate());
+  const [scheduleTo, setScheduleTo] = useState(addDays(todayDate(), 6));
+  const [scheduleCoachFilter, setScheduleCoachFilter] = useState("");
+  const [scheduleTeamFilter, setScheduleTeamFilter] = useState("");
+  const [scheduleLocationFilter, setScheduleLocationFilter] = useState("");
+  const [scheduleForm, setScheduleForm] = useState({
+    team_id: "",
+    coach_id: "",
+    location: "",
+    weekday: "0",
+    start_time: "18:00",
+    end_time: "19:30",
+    effective_from: todayDate(),
+    effective_to: "",
+    is_active: true,
+  });
+  const [scheduleEditRuleId, setScheduleEditRuleId] = useState(null);
 
   const coaches = useMemo(() => overview?.coaches || [], [overview]);
   // Backend transfer endpoint допуска целта да е и "coach", и "club_head_coach"
@@ -103,6 +129,21 @@ export default function ClubHeadDashboard() {
     return (athletes || []).filter((a) => String(a?.athlete_name || "").toLowerCase().includes(q));
   }, [athletes, athleteQuery]);
 
+  const loadSchedule = async () => {
+    const params = { from: scheduleFrom, to: scheduleTo };
+    if (scheduleCoachFilter) params.coach_id = Number(scheduleCoachFilter);
+    if (scheduleTeamFilter) params.team_id = Number(scheduleTeamFilter);
+    if (scheduleLocationFilter.trim()) params.location = scheduleLocationFilter.trim();
+    const [occRes, rulesRes, teamsRes] = await Promise.all([
+      axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, { params }),
+      axiosInstance.get(API_PATHS.SCHEDULE_RULES_LIST),
+      axiosInstance.get(API_PATHS.TEAMS_LIST),
+    ]);
+    setScheduleItems(Array.isArray(occRes.data?.items) ? occRes.data.items : []);
+    setScheduleRules(Array.isArray(rulesRes.data) ? rulesRes.data : []);
+    setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+  };
+
   const load = async () => {
     try {
       setBusy(true);
@@ -122,6 +163,7 @@ export default function ClubHeadDashboard() {
       setOverview(overviewRes.data || null);
       setAthletes(Array.isArray(athletesRes.data) ? athletesRes.data : []);
       setAssignments(Array.isArray(assignmentsRes.data) ? assignmentsRes.data : []);
+      await loadSchedule();
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -253,6 +295,89 @@ export default function ClubHeadDashboard() {
     }
   };
 
+  const saveScheduleRule = async () => {
+    const payload = {
+      team_id: Number(scheduleForm.team_id),
+      coach_id: Number(scheduleForm.coach_id),
+      location: scheduleForm.location.trim(),
+      weekday: Number(scheduleForm.weekday),
+      start_time: scheduleForm.start_time,
+      end_time: scheduleForm.end_time,
+      effective_from: scheduleForm.effective_from,
+      effective_to: scheduleForm.effective_to || null,
+      is_active: Boolean(scheduleForm.is_active),
+    };
+    if (!payload.team_id || !payload.coach_id || !payload.location || !payload.effective_from) {
+      toast.error("Попълни отбор, треньор, зала и начална дата.");
+      return;
+    }
+    try {
+      setBusy(true);
+      if (scheduleEditRuleId) {
+        await axiosInstance.put(API_PATHS.SCHEDULE_RULE_UPDATE(scheduleEditRuleId), payload);
+        toast.success("Графикът е обновен.");
+      } else {
+        await axiosInstance.post(API_PATHS.SCHEDULE_RULES_CREATE, payload);
+        toast.success("Графикът е създаден.");
+      }
+      setScheduleEditRuleId(null);
+      setScheduleForm((prev) => ({ ...prev, location: "", team_id: "", coach_id: "" }));
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при запис на графика."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editScheduleRule = (r) => {
+    setScheduleEditRuleId(r.id);
+    setScheduleForm({
+      team_id: String(r.team_id ?? ""),
+      coach_id: String(r.coach_id ?? ""),
+      location: r.location || "",
+      weekday: String(r.weekday ?? 0),
+      start_time: r.start_time || "18:00",
+      end_time: r.end_time || "19:30",
+      effective_from: r.effective_from || todayDate(),
+      effective_to: r.effective_to || "",
+      is_active: Boolean(r.is_active),
+    });
+  };
+
+  const deleteScheduleRule = async (ruleId) => {
+    if (!window.confirm("Да изтрия ли това правило от графика?")) return;
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.SCHEDULE_RULE_DELETE(ruleId));
+      toast.success("Графикът е изтрит.");
+      if (scheduleEditRuleId === ruleId) {
+        setScheduleEditRuleId(null);
+      }
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при изтриване на графика."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelOccurrence = async (item) => {
+    try {
+      setBusy(true);
+      await axiosInstance.post(API_PATHS.SCHEDULE_EXCEPTION_CREATE(item.rule_id), {
+        date: item.date,
+        kind: "cancelled",
+      });
+      toast.success("Тренировката за избраната дата е отменена.");
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при отмяна на тренировка."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="uiPage">
@@ -285,6 +410,9 @@ export default function ClubHeadDashboard() {
             </Button>
             <Button variant={tab === "tasks" ? "primary" : "secondary"} onClick={() => setTab("tasks")}>
               Задачи
+            </Button>
+            <Button variant={tab === "schedule" ? "primary" : "secondary"} onClick={() => setTab("schedule")}>
+              График
             </Button>
           </div>
         }
@@ -611,6 +739,157 @@ export default function ClubHeadDashboard() {
                       <TableCell>{a.due_date || "-"}</TableCell>
                       <TableCell>{a.note || "-"}</TableCell>
                       <TableCell>{a.completion_note || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </>
+      )}
+
+      {tab === "schedule" && (
+        <>
+          <Card title="Филтри за календара">
+            <div className="clubHeadFilterGrid">
+              <Input type="date" value={scheduleFrom} onChange={(e) => setScheduleFrom(e.target.value)} />
+              <Input type="date" value={scheduleTo} onChange={(e) => setScheduleTo(e.target.value)} />
+              <Input as="select" value={scheduleCoachFilter} onChange={(e) => setScheduleCoachFilter(e.target.value)}>
+                <option value="">Всички треньори</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </Input>
+              <Input as="select" value={scheduleTeamFilter} onChange={(e) => setScheduleTeamFilter(e.target.value)}>
+                <option value="">Всички отбори</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </Input>
+              <Input
+                placeholder="Филтър по зала"
+                value={scheduleLocationFilter}
+                onChange={(e) => setScheduleLocationFilter(e.target.value)}
+              />
+              <div className="clubHeadFilterActions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                <Button variant="secondary" disabled={busy} onClick={loadSchedule}>Покажи</Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card title={scheduleEditRuleId ? "Редакция на правило" : "Ново правило за графика"}>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <Input as="select" value={scheduleForm.team_id} onChange={(e) => setScheduleForm((p) => ({ ...p, team_id: e.target.value }))}>
+                <option value="">Избери отбор</option>
+                {teams.map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+              </Input>
+              <Input as="select" value={scheduleForm.coach_id} onChange={(e) => setScheduleForm((p) => ({ ...p, coach_id: e.target.value }))}>
+                <option value="">Избери треньор</option>
+                {coaches.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+              </Input>
+              <Input placeholder="Зала" value={scheduleForm.location} onChange={(e) => setScheduleForm((p) => ({ ...p, location: e.target.value }))} />
+              <Input as="select" value={scheduleForm.weekday} onChange={(e) => setScheduleForm((p) => ({ ...p, weekday: e.target.value }))}>
+                <option value="0">Понеделник</option>
+                <option value="1">Вторник</option>
+                <option value="2">Сряда</option>
+                <option value="3">Четвъртък</option>
+                <option value="4">Петък</option>
+                <option value="5">Събота</option>
+                <option value="6">Неделя</option>
+              </Input>
+              <Input type="time" value={scheduleForm.start_time} onChange={(e) => setScheduleForm((p) => ({ ...p, start_time: e.target.value }))} />
+              <Input type="time" value={scheduleForm.end_time} onChange={(e) => setScheduleForm((p) => ({ ...p, end_time: e.target.value }))} />
+              <Input type="date" value={scheduleForm.effective_from} onChange={(e) => setScheduleForm((p) => ({ ...p, effective_from: e.target.value }))} />
+              <Input type="date" value={scheduleForm.effective_to} onChange={(e) => setScheduleForm((p) => ({ ...p, effective_to: e.target.value }))} />
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={scheduleForm.is_active}
+                  onChange={(e) => setScheduleForm((p) => ({ ...p, is_active: e.target.checked }))}
+                />
+                Активно правило
+              </label>
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+                <Button onClick={saveScheduleRule} disabled={busy}>{scheduleEditRuleId ? "Запази" : "Създай"}</Button>
+                {scheduleEditRuleId ? (
+                  <Button variant="secondary" onClick={() => setScheduleEditRuleId(null)} disabled={busy}>Отказ</Button>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Календар (occurrences)">
+            {scheduleItems.length === 0 ? (
+              <EmptyState title="Няма тренировки в периода" description="Промени филтъра или създай ново правило." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Дата</TableHead>
+                    <TableHead>Ден</TableHead>
+                    <TableHead>Час</TableHead>
+                    <TableHead>Зала</TableHead>
+                    <TableHead>Треньор</TableHead>
+                    <TableHead>Отбор</TableHead>
+                    <TableHead>Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scheduleItems.map((it) => (
+                    <TableRow key={`${it.rule_id}-${it.date}-${it.start_time}`}>
+                      <TableCell>{it.date}</TableCell>
+                      <TableCell>{weekdayLabel(it.weekday)}</TableCell>
+                      <TableCell>{it.start_time}–{it.end_time}</TableCell>
+                      <TableCell>{it.location}</TableCell>
+                      <TableCell>{it.coach_name || `#${it.coach_id}`}</TableCell>
+                      <TableCell>{it.team_name || `#${it.team_id}`}</TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Button size="sm" variant="secondary" onClick={() => cancelOccurrence(it)} disabled={busy}>Отмени за дата</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+
+          <Card title="Правила (редакция/изтриване)">
+            {scheduleRules.length === 0 ? (
+              <EmptyState title="Няма правила" description="Създай първото правило за графика." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ден</TableHead>
+                    <TableHead>Час</TableHead>
+                    <TableHead>Зала</TableHead>
+                    <TableHead>Отбор</TableHead>
+                    <TableHead>Треньор</TableHead>
+                    <TableHead>Период</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scheduleRules.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{weekdayLabel(r.weekday)}</TableCell>
+                      <TableCell>{r.start_time}–{r.end_time}</TableCell>
+                      <TableCell>{r.location}</TableCell>
+                      <TableCell>{teams.find((t) => Number(t.id) === Number(r.team_id))?.name || `#${r.team_id}`}</TableCell>
+                      <TableCell>{coaches.find((c) => Number(c.id) === Number(r.coach_id))?.name || `#${r.coach_id}`}</TableCell>
+                      <TableCell>{r.effective_from} → {r.effective_to || "без край"}</TableCell>
+                      <TableCell>
+                        <span className={`uiBadge ${r.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>{r.is_active ? "Активно" : "Неактивно"}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Button size="sm" variant="secondary" onClick={() => editScheduleRule(r)}>Редактирай</Button>
+                          <Button size="sm" variant="danger" onClick={() => deleteScheduleRule(r.id)} disabled={busy}>Изтрий</Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

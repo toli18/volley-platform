@@ -21,6 +21,7 @@ from app.routers.teams import router as teams_router
 from app.routers.club_head import router as club_head_router
 from app.routers.training_assignments import router as training_assignments_router
 from app.routers.admin_analytics import router as admin_analytics_router
+from app.routers.schedule import router as schedule_router
 from app.routers import articles
 
 
@@ -71,6 +72,7 @@ app.include_router(fees_router, prefix="/api", tags=["Fees"])
 app.include_router(teams_router, prefix="/api", tags=["Teams"])
 app.include_router(club_head_router, prefix="/api", tags=["Club Head Coach"])
 app.include_router(training_assignments_router, prefix="/api", tags=["Training Assignments"])
+app.include_router(schedule_router, prefix="/api", tags=["Schedule"])
 app.include_router(admin_analytics_router, prefix="/api", tags=["Admin Analytics"])
 
 # --- Root ---
