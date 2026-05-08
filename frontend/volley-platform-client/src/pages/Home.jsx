@@ -236,9 +236,14 @@ export default function Home() {
         title="Coach Dashboard"
         subtitle="Най-важното за днес: месечни такси, нови теми във форума и последни статии."
         actions={
-          <Button as={Link} to="/coach-board">
-            Тактическа дъска
-          </Button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button as={Link} to="/coach-board">
+              Тактическа дъска
+            </Button>
+            <Button as={Link} to="/teams/schedule" variant="secondary">
+              График
+            </Button>
+          </div>
         }
       />
 

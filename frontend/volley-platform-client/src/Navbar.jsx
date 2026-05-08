@@ -304,36 +304,31 @@ export default function Navbar() {
   }, [isCoachUser, user]);
 
   const mainNavItems = useMemo(() => {
-    const items = [{ to: "/drills", label: "Упражнения" }];
+    const items = [];
     if (!user) {
+      items.push({ to: "/", label: "Начало" });
+      items.push({ to: "/drills", label: "Упражнения" });
       items.push({ to: "/generator", label: "Генератор" });
       return items;
     }
     if (isCoachUser) {
-      items.push({
-        to: "/my-trainings",
-        label: `Моите тренировки${newTaskCount > 0 ? ` (${newTaskCount})` : ""}`,
-      });
-      items.push({ to: "/my-drills", label: "Моите упражнения" });
-    }
-    items.push({ to: "/forum", label: "Форум" });
-    if (isCoachUser) {
-      items.push({ to: "/monthly-fees", label: "Месечни Такси" });
+      items.push({ to: "/", label: "Начало" });
+      items.push({ to: "/ai-generator", label: "AI Помощник" });
       items.push({ to: "/teams", label: "Отбори" });
+      items.push({ to: "/monthly-fees", label: "Месечни Такси" });
+      items.push({ to: "/articles", label: "Статии" });
+      items.push({ to: "/forum", label: "Форум" });
+      return items;
     }
+    items.push({ to: "/drills", label: "Упражнения" });
+    items.push({ to: "/forum", label: "Форум" });
     if (isHeadCoachUser) {
       items.push({ to: "/club-head", label: "Главен треньор" });
     }
     items.push({ to: "/articles", label: "Статии" });
-    if (isCoachUser) {
-      items.push({ to: "/articles/my", label: "Моите статии" });
-    }
     items.push({ to: "/generator", label: "Генератор" });
-    if (isCoachUser) {
-      items.push({ to: "/ai-generator", label: "AI Генератор" });
-    }
     return items;
-  }, [user, isCoachUser, isHeadCoachUser, newTaskCount]);
+  }, [user, isCoachUser, isHeadCoachUser]);
 
   const adminNavItems = useMemo(() => {
     if (!isAdminUser) return [];

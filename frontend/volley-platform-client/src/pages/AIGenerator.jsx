@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
-import { PageHero } from "../components/ui";
+import { Button, PageHero } from "../components/ui";
 import { useAuth } from "../auth/AuthContext";
 
 const PERIODS = [
@@ -597,6 +598,16 @@ export default function AIGenerator() {
       <PageHero
         title="AI генератор на тренировки"
         subtitle="Използва само одобрените упражнения в платформата и ги разпределя по логика в 4 части."
+        actions={
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button as={Link} to="/my-trainings" size="sm">Моите тренировки</Button>
+            <Button as={Link} to="/ai-generator" variant="secondary" size="sm">AI Генератор</Button>
+            <Button as={Link} to="/generator" variant="secondary" size="sm">Генератор</Button>
+            <Button as={Link} to="/my-drills" variant="secondary" size="sm">Моите упражнения</Button>
+            <Button as={Link} to="/coach-board" variant="secondary" size="sm">Тактическа дъска</Button>
+            <Button as={Link} to="/teams/schedule" variant="secondary" size="sm">График</Button>
+          </div>
+        }
       />
       <div style={{ border: "1px solid #dce5f2", borderRadius: 14, padding: 12, background: "#f8fafc", marginBottom: 12 }}>
         <div style={{ fontWeight: 900, marginBottom: 8 }}>Параметри, които влияят на AI генератора</div>

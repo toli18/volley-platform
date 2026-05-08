@@ -23,6 +23,11 @@ const normalizeError = (err) => {
 
 export default function Articles() {
   const { user } = useAuth();
+  const roleNorm =
+    typeof user?.role === "object" && user?.role && "value" in user.role
+      ? String(user.role.value).toLowerCase()
+      : String(user?.role || "").toLowerCase();
+  const isCoachUser = roleNorm === "coach" || roleNorm === "club_head_coach";
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -130,8 +135,11 @@ export default function Articles() {
         subtitle="Практически знания, тренировъчни принципи и материали за развитие."
         actions={
           <>
-            {user?.role === "coach" && (
+            {isCoachUser && (
               <Button as={Link} to="/articles/new" size="sm">Нова статия</Button>
+            )}
+            {isCoachUser && (
+              <Button as={Link} to="/articles/my" variant="secondary" size="sm">Моите статии</Button>
             )}
             <Button variant="secondary" size="sm" onClick={loadArticles}>Презареди</Button>
           </>
