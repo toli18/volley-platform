@@ -25,6 +25,12 @@
   color: #991b1b;
 }
 
+.uiAlert--info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
 .uiCard {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;

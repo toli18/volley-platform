@@ -6,8 +6,14 @@ import { isCoach, isAdmin } from "../utils/auth";
 export default function ProtectedRoute({ allowRoles }) {
   const { user, loading } = useAuth();
 
-  // Докато се зарежда auth-а
-  if (loading) return null; // може и loader
+  // Докато се зарежда auth-а — избягваме „бял екран“ и двусмислено състояние при refresh
+  if (loading) {
+    return (
+      <div className="uiPage" style={{ padding: 24 }}>
+        <p className="uiMuted">Проверка на сесията…</p>
+      </div>
+    );
+  }
 
   // Ако не е логнат
   if (!user) {

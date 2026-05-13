@@ -1,17 +1,25 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, Input, PageHero } from "../components/ui";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, login } = useAuth();
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const sessionHint = useMemo(() => {
+    if (searchParams.get("session") === "expired") {
+      return "Сесията е изтекла или достъпът е отказан. Влез отново.";
+    }
+    return "";
+  }, [searchParams]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -47,6 +55,7 @@ export default function Login() {
     <div className="uiPage" style={{ maxWidth: 420, margin: "40px auto" }}>
       <PageHero title="Вход" subtitle="Влез в платформата с твоите данни." />
       <Card title="Вход" subtitle="Влез в платформата с твоите данни.">
+        {sessionHint ? <div className="uiAlert uiAlert--info">{sessionHint}</div> : null}
         {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>

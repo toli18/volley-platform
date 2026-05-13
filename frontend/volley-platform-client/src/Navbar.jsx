@@ -357,11 +357,21 @@ export default function Navbar() {
           <div className="accountArea">
             {isCoachUser && (
               <div style={{ position: "relative" }}>
-                <button className="navBtnOutline" onClick={() => setTasksOpen((prev) => !prev)}>
+                <button
+                  type="button"
+                  className="navBtnOutline"
+                  aria-expanded={tasksOpen}
+                  aria-haspopup="true"
+                  aria-controls="nav-tasks-panel"
+                  onClick={() => setTasksOpen((prev) => !prev)}
+                >
                   Задачи ({newTaskCount})
                 </button>
                 {tasksOpen && (
                   <div
+                    id="nav-tasks-panel"
+                    role="region"
+                    aria-label="Център задачи"
                     style={{
                       position: "absolute",
                       right: 0,
@@ -412,11 +422,21 @@ export default function Navbar() {
               </div>
             )}
             <div style={{ position: "relative" }}>
-              <button className="navBtnOutline" onClick={() => setNotificationsOpen((prev) => !prev)}>
+              <button
+                type="button"
+                className="navBtnOutline"
+                aria-expanded={notificationsOpen}
+                aria-haspopup="true"
+                aria-controls="nav-notifications-panel"
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+              >
                 Известия ({combinedUnreadCount})
               </button>
               {notificationsOpen && (
                 <div
+                  id="nav-notifications-panel"
+                  role="region"
+                  aria-label="Известия"
                   style={{
                     position: "absolute",
                     right: 0,
