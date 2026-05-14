@@ -29,6 +29,7 @@ const cardLinkStyle = {
   padding: 10,
   textDecoration: "none",
   color: "#0f172a",
+  cursor: "pointer",
 };
 
 /** Същата логика като месечния график — стабилен цвят по team_id */
@@ -47,6 +48,12 @@ const teamColorsForId = (teamId) => {
   const n = Number(teamId || 0);
   const idx = Math.abs(Number.isFinite(n) ? n : 0) % teamColorPalette.length;
   return teamColorPalette[idx];
+};
+
+const dashboardScheduleAttendanceTo = (it) => {
+  const title =
+    `${it.start_time}–${it.end_time} ${it.team_name || ""}`.trim() || `Тренировка ${it.start_time}`;
+  return `/teams/${it.team_id}/attendance?date=${encodeURIComponent(it.date)}&title=${encodeURIComponent(title)}`;
 };
 
 const extractDrillIdsFromPlan = (plan) => {
@@ -295,7 +302,11 @@ export default function Home() {
               const tc = teamColorsForId(it.team_id);
               const teamLabel = it.team_name || `Отбор #${it.team_id}`;
               return (
-                <div key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`} style={cardLinkStyle}>
+                <Link
+                  key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`}
+                  to={dashboardScheduleAttendanceTo(it)}
+                  style={{ ...cardLinkStyle, display: "block" }}
+                >
                   <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
                   <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
                     <span
@@ -311,7 +322,7 @@ export default function Home() {
                     </span>
                     <span style={{ color: "#64748b", fontSize: 13 }}>{it.location ? `· ${it.location}` : ""}</span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

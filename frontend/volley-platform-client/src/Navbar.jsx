@@ -1,6 +1,6 @@
 // src/Navbar.jsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "./auth/AuthContext";
 import axiosInstance from "./utils/apiClient";
@@ -23,6 +23,7 @@ export default function Navbar() {
   const [taskReportsUnread, setTaskReportsUnread] = useState(0);
   const [clubSeenTick, setClubSeenTick] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
@@ -46,6 +47,7 @@ export default function Navbar() {
 
   useEffect(() => {
     setMobileNavOpen(false);
+    setMobileNotifOpen(false);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -55,6 +57,10 @@ export default function Navbar() {
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) setMobileNotifOpen(false);
   }, [mobileNavOpen]);
 
   const combinedUnreadCount = useMemo(() => {
@@ -347,6 +353,105 @@ export default function Navbar() {
     return items;
   }, [isAdminUser, isPlatformAdmin]);
 
+  const renderUnifiedNotificationRows = useCallback(
+    (onPanelClose) =>
+      unifiedFeedItems.map((row) => {
+        if (row.kind === "forum") {
+          const item = row.forum;
+          return (
+            <Link
+              key={row.key}
+              to={`/forum/${item.post_id}`}
+              onClick={async () => {
+                try {
+                  if (!item.is_read) {
+                    await axiosInstance.post(API_PATHS.FORUM_NOTIFICATION_READ(item.id));
+                  }
+                } catch {
+                  // ignore
+                } finally {
+                  onPanelClose?.();
+                  setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
+                  setUnreadCount((prev) => Math.max(0, prev - (item.is_read ? 0 : 1)));
+                }
+              }}
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: 8,
+                textDecoration: "none",
+                color: row.unread ? "#0f172a" : "#64748b",
+                background: row.unread ? "#f8fbff" : "#fff",
+                fontWeight: row.unread ? 700 : 500,
+              }}
+            >
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Форум</div>
+              <div>{item.message}</div>
+              <div style={{ marginTop: 4, fontSize: 12 }}>{new Date(item.created_at || "").toLocaleString("bg-BG")}</div>
+            </Link>
+          );
+        }
+        if (row.kind === "fee") {
+          const item = row.fee;
+          return (
+            <Link
+              key={row.key}
+              to={`/monthly-fees?athlete_id=${item.athlete_id}`}
+              onClick={() => {
+                markFeeItemSeen(item.id);
+                onPanelClose?.();
+              }}
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: 8,
+                textDecoration: "none",
+                color: row.unread ? "#0f172a" : "#64748b",
+                background: row.unread ? "#f0fdf4" : "#fff",
+                fontWeight: row.unread ? 700 : 500,
+              }}
+            >
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Такса (клуб)</div>
+              <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+                {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 12 }}>{item.paid_at ? new Date(item.paid_at).toLocaleString("bg-BG") : "—"}</div>
+            </Link>
+          );
+        }
+        const item = row.task;
+        return (
+          <Link
+            key={row.key}
+            to={`/trainings/${item.training_id}?assignment=${item.id}`}
+            onClick={() => {
+              markTaskItemSeen(item.id);
+              onPanelClose?.();
+            }}
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: 8,
+              padding: 8,
+              textDecoration: "none",
+              color: row.unread ? "#0f172a" : "#64748b",
+              background: row.unread ? "#fffbeb" : "#fff",
+              fontWeight: row.unread ? 700 : 500,
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Задача готова</div>
+            <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
+            <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
+              Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`}
+              {item.completion_note ? ` • ${item.completion_note}` : ""}
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12 }}>{item.updated_at ? new Date(item.updated_at).toLocaleString("bg-BG") : "—"}</div>
+          </Link>
+        );
+      }),
+    [unifiedFeedItems, markFeeItemSeen, markTaskItemSeen],
+  );
+
   return (
     <header className="appHeader">
       <div className="accountTopRight">
@@ -485,106 +590,7 @@ export default function Navbar() {
                   {unifiedFeedItems.length === 0 && (
                     <span style={{ color: "#64748b", fontSize: 13 }}>Няма известия.</span>
                   )}
-                  {unifiedFeedItems.map((row) => {
-                    if (row.kind === "forum") {
-                      const item = row.forum;
-                      return (
-                        <Link
-                          key={row.key}
-                          to={`/forum/${item.post_id}`}
-                          onClick={async () => {
-                            try {
-                              if (!item.is_read) {
-                                await axiosInstance.post(API_PATHS.FORUM_NOTIFICATION_READ(item.id));
-                              }
-                            } catch {
-                              // ignore
-                            } finally {
-                              setNotificationsOpen(false);
-                              setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
-                              setUnreadCount((prev) => Math.max(0, prev - (item.is_read ? 0 : 1)));
-                            }
-                          }}
-                          style={{
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 8,
-                            padding: 8,
-                            textDecoration: "none",
-                            color: row.unread ? "#0f172a" : "#64748b",
-                            background: row.unread ? "#f8fbff" : "#fff",
-                            fontWeight: row.unread ? 700 : 500,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Форум</div>
-                          <div>{item.message}</div>
-                          <div style={{ marginTop: 4, fontSize: 12 }}>
-                            {new Date(item.created_at || "").toLocaleString("bg-BG")}
-                          </div>
-                        </Link>
-                      );
-                    }
-                    if (row.kind === "fee") {
-                      const item = row.fee;
-                      return (
-                        <Link
-                          key={row.key}
-                          to={`/monthly-fees?athlete_id=${item.athlete_id}`}
-                          onClick={() => {
-                            markFeeItemSeen(item.id);
-                            setNotificationsOpen(false);
-                          }}
-                          style={{
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 8,
-                            padding: 8,
-                            textDecoration: "none",
-                            color: row.unread ? "#0f172a" : "#64748b",
-                            background: row.unread ? "#f0fdf4" : "#fff",
-                            fontWeight: row.unread ? 700 : 500,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Такса (клуб)</div>
-                          <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
-                          <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-                            {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
-                          </div>
-                          <div style={{ marginTop: 4, fontSize: 12 }}>
-                            {item.paid_at ? new Date(item.paid_at).toLocaleString("bg-BG") : "—"}
-                          </div>
-                        </Link>
-                      );
-                    }
-                    const item = row.task;
-                    return (
-                      <Link
-                        key={row.key}
-                        to={`/trainings/${item.training_id}?assignment=${item.id}`}
-                        onClick={() => {
-                          markTaskItemSeen(item.id);
-                          setNotificationsOpen(false);
-                        }}
-                        style={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 8,
-                          padding: 8,
-                          textDecoration: "none",
-                          color: row.unread ? "#0f172a" : "#64748b",
-                          background: row.unread ? "#fffbeb" : "#fff",
-                          fontWeight: row.unread ? 700 : 500,
-                        }}
-                      >
-                        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Задача готова</div>
-                        <div style={{ fontWeight: 700 }}>{item.training_title || `Тренировка #${item.training_id}`}</div>
-                        <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-                          Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`}
-                          {item.completion_note ? ` • ${item.completion_note}` : ""}
-                        </div>
-                        <div style={{ marginTop: 4, fontSize: 12 }}>
-                          {item.updated_at ? new Date(item.updated_at).toLocaleString("bg-BG") : "—"}
-                        </div>
-                      </Link>
-                    );
-                  })}
+                  {renderUnifiedNotificationRows(() => setNotificationsOpen(false))}
                 </div>
               )}
             </div>
@@ -687,13 +693,88 @@ export default function Navbar() {
                           Задачи ({newTaskCount})
                         </Link>
                       ) : null}
-                      <Link to="/forum" className="navMobilePill" onClick={closeMobileNav}>
+                      <button
+                        type="button"
+                        className="navMobilePill"
+                        aria-expanded={mobileNotifOpen}
+                        onClick={() => setMobileNotifOpen((v) => !v)}
+                      >
                         Известия ({combinedUnreadCount})
-                      </Link>
+                      </button>
                       <button type="button" className="navMobilePill navMobilePill--danger" onClick={onLogout}>
                         Изход
                       </button>
                     </div>
+                    {mobileNotifOpen ? (
+                      <div
+                        className="navMobileNotifPanel"
+                        style={{
+                          gridColumn: "1 / -1",
+                          width: "100%",
+                          marginTop: 4,
+                          padding: 10,
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.22)",
+                          background: "rgba(15, 35, 66, 0.55)",
+                          maxHeight: "min(52vh, 420px)",
+                          overflowY: "auto",
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                          <strong style={{ color: "#fff", fontSize: 14 }}>Известия</strong>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            <button
+                              type="button"
+                              className="navMobilePill"
+                              onClick={async () => {
+                                try {
+                                  await axiosInstance.post(API_PATHS.FORUM_NOTIFICATIONS_READ_ALL);
+                                  setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+                                  setUnreadCount(0);
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                            >
+                              Форум: всички
+                            </button>
+                            {isHeadCoachUser ? (
+                              <button type="button" className="navMobilePill" onClick={markAllClubFeedSeen}>
+                                Клуб: прочетени
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span style={{ color: "rgba(226,236,255,0.85)", fontSize: 12 }}>
+                          {isHeadCoachUser
+                            ? "Форум, такси и задачи (клуб). Натисни ред за подробности."
+                            : "Форум. Натисни ред за подробности."}
+                        </span>
+                        {unifiedFeedItems.length === 0 ? (
+                          <span style={{ color: "rgba(226,236,255,0.75)", fontSize: 13 }}>Няма известия.</span>
+                        ) : (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            {renderUnifiedNotificationRows(() => {
+                              setMobileNotifOpen(false);
+                              closeMobileNav();
+                            })}
+                          </div>
+                        )}
+                        <Link
+                          to="/forum"
+                          className="appNavLink appNavLink--sheet"
+                          style={{ textAlign: "center", justifyContent: "center" }}
+                          onClick={() => {
+                            setMobileNotifOpen(false);
+                            closeMobileNav();
+                          }}
+                        >
+                          Към форума
+                        </Link>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="navMobileAccount">

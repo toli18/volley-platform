@@ -372,6 +372,11 @@
   background: rgba(255, 84, 96, 0.12);
 }
 
+.navMobileNotifPanel a {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
 .navMobileSheetTitle {
   font-weight: 900;
   font-size: 16px;
@@ -629,6 +634,14 @@
 }
 
 /* New pages: schedule + parent portal mobile support */
+.aiGenDetails > summary {
+  list-style: none;
+}
+
+.aiGenDetails > summary::-webkit-details-marker {
+  display: none;
+}
+
 .teamScheduleCalendarWrap {
   overflow-x: auto;
   padding-bottom: 4px;
@@ -655,10 +668,20 @@
     min-width: 700px;
   }
 
+  /* Центриран модал над viewport — иначе popover-ът е absolute в скролваща се мрежа и се изрязва */
   .teamScheduleDayPopover {
-    left: auto !important;
-    right: 0;
-    width: min(340px, 92vw) !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%);
+    width: min(360px, calc(100vw - 24px)) !important;
+    max-width: none !important;
+    max-height: min(480px, 72vh);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 900 !important;
+    box-sizing: border-box;
   }
 
   .athleteParentAccessActions .uiButton {

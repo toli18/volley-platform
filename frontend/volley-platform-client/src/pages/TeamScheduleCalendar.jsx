@@ -73,6 +73,9 @@ const teamColorFor = (teamId) => {
   return teamColorPalette[idx];
 };
 
+const occurrenceAttendanceTo = (it) =>
+  `/teams/${it.team_id}/attendance?date=${encodeURIComponent(it.date)}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`;
+
 export default function TeamScheduleCalendar() {
   const toast = useToast();
   const { user } = useAuth();
@@ -88,6 +91,7 @@ export default function TeamScheduleCalendar() {
   const [coachFilter, setCoachFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [metaLoaded, setMetaLoaded] = useState(false);
+  const [calendarView, setCalendarView] = useState("grid");
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -136,6 +140,14 @@ export default function TeamScheduleCalendar() {
 
   const calendarCells = useMemo(() => buildCalendarCells(monthKey), [monthKey]);
   const selectedDayItems = selectedDate ? (itemsByDate.get(selectedDate) || []) : [];
+
+  const scheduleListSorted = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const c = String(a.date).localeCompare(String(b.date));
+      if (c !== 0) return c;
+      return String(a.start_time).localeCompare(String(b.start_time));
+    });
+  }, [items]);
 
   const canEditOccurrence = (it) => isHeadCoach || Number(it.coach_id) === currentUserId;
 
@@ -187,6 +199,10 @@ export default function TeamScheduleCalendar() {
     };
     run();
   }, [metaLoaded, monthKey, teamFilter, effectiveCoachFilter, locationFilter]);
+
+  useEffect(() => {
+    if (calendarView === "list") setSelectedDate("");
+  }, [calendarView]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -410,7 +426,7 @@ export default function TeamScheduleCalendar() {
     <div className="uiPage">
       <PageHero
         title="Месечен график на тренировки"
-        subtitle="Кликни върху ден за действия: Присъствие, Отмяна, Добавяне и корекции."
+        subtitle="Кликни върху ден за действия. Цветният блок на тренировка отваря директно присъствие за този отбор и дата."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={() => openAddForDate(todayKey())}>+ Добави тренировка</Button>
@@ -446,9 +462,79 @@ export default function TeamScheduleCalendar() {
         </div>
       </Card>
 
-      <Card title="Календар (месечна мрежа)">
+      <Card
+        title="Календар"
+        subtitle={calendarView === "grid" ? "Месечна мрежа за избрания месец" : "Списък по дата и час за избрания месец"}
+        actions={
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Button size="sm" variant={calendarView === "grid" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("grid")}>
+              Мрежа
+            </Button>
+            <Button size="sm" variant={calendarView === "list" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("list")}>
+              Списък
+            </Button>
+          </div>
+        }
+      >
         {busy ? (
           <p>Зареждане...</p>
+        ) : calendarView === "list" ? (
+          scheduleListSorted.length === 0 ? (
+            <EmptyState title="Няма записи" description="Няма тренировки в графика за този месец с текущите филтри." />
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {scheduleListSorted.map((it, i) => (
+                <article
+                  key={`${it.rule_id}-${it.date}-${it.start_time}-${i}`}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 10,
+                    padding: 12,
+                    background: "#fff",
+                  }}
+                >
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>
+                      {it.date} · {it.start_time}–{it.end_time}
+                    </div>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "2px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${teamColorFor(it.team_id).border}`,
+                        background: teamColorFor(it.team_id).bg,
+                        color: teamColorFor(it.team_id).text,
+                        fontWeight: 800,
+                        fontSize: 13,
+                      }}
+                    >
+                      {it.team_name || `Отбор #${it.team_id}`}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
+                    {it.location}
+                    {it.coach_name ? ` · ${it.coach_name}` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    <Link to={occurrenceAttendanceTo(it)}>
+                      <Button size="sm">Присъствие</Button>
+                    </Link>
+                    {canEditOccurrence(it) ? (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
+                        {it.exception_id ? (
+                          <Button size="sm" variant="secondary" onClick={() => restoreOccurrence(it)}>Възстанови</Button>
+                        ) : (
+                          <Button size="sm" variant="danger" onClick={() => cancelOccurrence(it)}>Отмени</Button>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
         ) : calendarCells.length === 0 ? (
           <EmptyState title="Няма календар за показване" description="Избери валиден месец." />
         ) : (
@@ -495,9 +581,13 @@ export default function TeamScheduleCalendar() {
                     </div>
                     <div style={{ display: "grid", gap: 4 }}>
                       {dayItems.slice(0, 2).map((it, i) => (
-                        <div
+                        <Link
                           key={`${it.rule_id}-${i}`}
+                          to={occurrenceAttendanceTo(it)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                           style={{
+                            display: "block",
                             fontSize: 11,
                             lineHeight: 1.2,
                             borderRadius: 6,
@@ -505,11 +595,12 @@ export default function TeamScheduleCalendar() {
                             background: teamColorFor(it.team_id).bg,
                             color: teamColorFor(it.team_id).text,
                             padding: "2px 4px",
+                            textDecoration: "none",
                           }}
                         >
                           <div>{it.start_time} {it.team_name || `#${it.team_id}`}</div>
                           <div style={{ opacity: 0.9 }}>{it.location}</div>
-                        </div>
+                        </Link>
                       ))}
                       {dayItems.length > 2 ? <div style={{ fontSize: 11, color: "#0f766e" }}>+{dayItems.length - 2} още</div> : null}
                     </div>
@@ -561,7 +652,7 @@ export default function TeamScheduleCalendar() {
                                   {it.location}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                                  <Link to={`/teams/${it.team_id}/attendance?date=${it.date}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`}>
+                                  <Link to={occurrenceAttendanceTo(it)}>
                                     <Button size="sm">Присъствие</Button>
                                   </Link>
                                   {canEditOccurrence(it) ? (

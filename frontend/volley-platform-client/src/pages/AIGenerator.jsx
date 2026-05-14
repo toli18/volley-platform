@@ -609,8 +609,11 @@ export default function AIGenerator() {
           </div>
         }
       />
-      <div style={{ border: "1px solid #dce5f2", borderRadius: 14, padding: 12, background: "#f8fafc", marginBottom: 12 }}>
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>Параметри, които влияят на AI генератора</div>
+      <details className="aiGenDetails" style={{ border: "1px solid #dce5f2", borderRadius: 14, background: "#f8fafc", marginBottom: 12 }}>
+        <summary style={{ fontWeight: 900, padding: "12px 14px", cursor: "pointer", listStyle: "none" }}>
+          Параметри, които влияят на AI генератора
+        </summary>
+        <div style={{ padding: "0 12px 12px" }}>
         <div style={{ fontSize: 12, color: "#415472", marginBottom: 8 }}>
           Основни полета: възраст/ниво, фокус, период, време, брой играчи, интензитет, насоченост и вариативност.
         </div>
@@ -730,9 +733,13 @@ export default function AIGenerator() {
           </label>
         )}
         </div>
-      </div>
-      <div style={{ border: "1px solid #dce5f2", borderRadius: 14, padding: 12, background: "#f8fafc", marginBottom: 12 }}>
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>Филтри за преглед на упражнения (не влияят директно на AI)</div>
+        </div>
+      </details>
+      <details className="aiGenDetails" style={{ border: "1px solid #dce5f2", borderRadius: 14, background: "#f8fafc", marginBottom: 12 }}>
+        <summary style={{ fontWeight: 900, padding: "12px 14px", cursor: "pointer", listStyle: "none" }}>
+          Филтри за преглед на упражнения (не влияят директно на AI)
+        </summary>
+        <div style={{ padding: "0 12px 12px" }}>
         <div style={{ fontSize: 12, color: "#415472", marginBottom: 8 }}>
           Тези филтри са за бърз преглед на базата. Може да прехвърлиш ниво и избрани умения към AI.
         </div>
@@ -816,7 +823,8 @@ export default function AIGenerator() {
           <button onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth" })}>Към резултатите</button>
           <button onClick={applyFinderToAI}>Прехвърли ниво и умения към AI</button>
         </div>
-      </div>
+        </div>
+      </details>
 
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <button
