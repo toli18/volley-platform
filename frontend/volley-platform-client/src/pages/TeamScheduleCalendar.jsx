@@ -105,6 +105,8 @@ export default function TeamScheduleCalendar() {
   });
 
   const [editOcc, setEditOcc] = useState(null);
+  /** За PUT на правило: оригинален effective_from и weekday от сървъра */
+  const [editRuleMeta, setEditRuleMeta] = useState(null);
   const [editForm, setEditForm] = useState({
     date: "",
     team_id: "",
@@ -112,6 +114,8 @@ export default function TeamScheduleCalendar() {
     location: "",
     start_time: "",
     end_time: "",
+    repeat_weekly: false,
+    repeat_to: "",
   });
 
   const currentUserId = Number(user?.id || 0);
@@ -197,8 +201,9 @@ export default function TeamScheduleCalendar() {
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [selectedDate]);
 
-  const openEdit = (it) => {
+  const openEdit = async (it) => {
     setEditOcc(it);
+    setEditRuleMeta(null);
     setEditForm({
       date: it.date,
       team_id: String(it.team_id || ""),
@@ -206,7 +211,24 @@ export default function TeamScheduleCalendar() {
       location: it.location || "",
       start_time: it.start_time || "18:00",
       end_time: it.end_time || "19:30",
+      repeat_weekly: false,
+      repeat_to: "",
     });
+    try {
+      const res = await axiosInstance.get(API_PATHS.SCHEDULE_RULES_LIST);
+      const rules = Array.isArray(res.data) ? res.data : [];
+      const r = rules.find((x) => Number(x.id) === Number(it.rule_id));
+      if (r) {
+        setEditRuleMeta({
+          effective_from: r.effective_from || it.date,
+          weekday: Number(r.weekday ?? it.weekday ?? 0),
+        });
+      } else {
+        setEditRuleMeta({ effective_from: it.date, weekday: Number(it.weekday ?? 0) });
+      }
+    } catch {
+      setEditRuleMeta({ effective_from: it.date, weekday: Number(it.weekday ?? 0) });
+    }
   };
 
   const openAddForDate = (date) => {
@@ -220,22 +242,77 @@ export default function TeamScheduleCalendar() {
       toast.error("Попълни отбор, треньор и зала.");
       return;
     }
+    const coachId = isHeadCoach ? Number(editForm.coach_id || 0) : currentUserId;
+    if (!coachId) {
+      toast.error("Избери треньор.");
+      return;
+    }
+    const d = new Date(`${editForm.date}T00:00:00`);
+    const jsDay = d.getDay();
+    const weekday = jsDay === 0 ? 6 : jsDay - 1;
+
+    let repeatRuleUpdate = null;
+    if (editForm.repeat_weekly) {
+      const repeatTo = String(editForm.repeat_to || "").trim();
+      if (!repeatTo) {
+        toast.error("Въведи дата „Повтаряй до“ за повтарящите се тренировки.");
+        return;
+      }
+      const meta = editRuleMeta || { effective_from: editOcc.date, weekday: Number(editOcc.weekday ?? 0) };
+      const oldWd = Number(meta.weekday);
+      let effective_from = String(meta.effective_from || editForm.date);
+      if (weekday !== oldWd) {
+        effective_from = editForm.date;
+      } else if (editForm.date < effective_from) {
+        effective_from = editForm.date;
+      }
+      if (repeatTo < effective_from) {
+        toast.error("Датата „до“ трябва да е след или равна на началото на повторенията.");
+        return;
+      }
+      repeatRuleUpdate = { effective_from, effective_to: repeatTo };
+    }
+
     try {
       setBusy(true);
-      await axiosInstance.post(API_PATHS.SCHEDULE_EXCEPTION_CREATE(editOcc.rule_id), {
-        date: editForm.date,
-        kind: "override",
-        team_id: Number(editForm.team_id),
-        coach_id: Number(editForm.coach_id),
-        location: editForm.location.trim(),
-        start_time: editForm.start_time,
-        end_time: editForm.end_time,
-      });
-      toast.success("Тренировката е коригирана.");
+      if (repeatRuleUpdate) {
+        const { effective_from, effective_to } = repeatRuleUpdate;
+        if (editOcc.exception_id) {
+          await axiosInstance.delete(API_PATHS.SCHEDULE_EXCEPTION_DELETE(editOcc.exception_id));
+        }
+        await axiosInstance.put(API_PATHS.SCHEDULE_RULE_UPDATE(editOcc.rule_id), {
+          team_id: Number(editForm.team_id),
+          coach_id: coachId,
+          location: editForm.location.trim(),
+          weekday,
+          start_time: editForm.start_time,
+          end_time: editForm.end_time,
+          effective_from,
+          effective_to,
+          is_active: true,
+        });
+        toast.success("Графикът е обновен.");
+      } else {
+        await axiosInstance.post(API_PATHS.SCHEDULE_EXCEPTION_CREATE(editOcc.rule_id), {
+          date: editForm.date,
+          kind: "override",
+          team_id: Number(editForm.team_id),
+          coach_id: coachId,
+          location: editForm.location.trim(),
+          start_time: editForm.start_time,
+          end_time: editForm.end_time,
+        });
+        toast.success("Тренировката е коригирана.");
+      }
       setEditOcc(null);
       await loadOccurrences();
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешна корекция на тренировката."));
+      toast.error(
+        normalizeError(
+          err,
+          repeatRuleUpdate ? "Неуспешно обновяване на повтарящото се правило." : "Неуспешна корекция на тренировката.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -285,6 +362,17 @@ export default function TeamScheduleCalendar() {
     const d = new Date(`${addForm.date}T00:00:00`);
     const jsDay = d.getDay();
     const weekday = jsDay === 0 ? 6 : jsDay - 1;
+    if (addForm.repeat_weekly) {
+      const repeatTo = String(addForm.repeat_to || "").trim();
+      if (!repeatTo) {
+        toast.error("Въведи дата „Повтаряй до“ за повтарящите се тренировки.");
+        return;
+      }
+      if (repeatTo < addForm.date) {
+        toast.error("Датата „до“ трябва да е след или равна на датата на тренировката.");
+        return;
+      }
+    }
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.SCHEDULE_RULES_CREATE, {
@@ -295,7 +383,7 @@ export default function TeamScheduleCalendar() {
         start_time: addForm.start_time,
         end_time: addForm.end_time,
         effective_from: addForm.date,
-        effective_to: addForm.repeat_weekly ? (addForm.repeat_to || null) : addForm.date,
+        effective_to: addForm.repeat_weekly ? String(addForm.repeat_to || "").trim() : addForm.date,
         is_active: true,
       });
       toast.success("Тренировката е добавена.");
@@ -574,6 +662,22 @@ export default function TeamScheduleCalendar() {
                 <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((p) => ({ ...p, start_time: e.target.value }))} />
                 <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((p) => ({ ...p, end_time: e.target.value }))} />
               </div>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(editForm.repeat_weekly)}
+                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
+                />
+                Повтаряй всяка седмица
+              </label>
+              {editForm.repeat_weekly ? (
+                <Input
+                  type="date"
+                  value={editForm.repeat_to}
+                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_to: e.target.value }))}
+                  placeholder="Повтаряй до"
+                />
+              ) : null}
               <div className="uiModalActions">
                 <Button disabled={busy} onClick={saveOverride}>Запази корекция</Button>
                 <Button variant="secondary" disabled={busy} onClick={() => setEditOcc(null)}>Отказ</Button>
