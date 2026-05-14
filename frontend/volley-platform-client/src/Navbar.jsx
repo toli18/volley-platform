@@ -1,6 +1,7 @@
 // src/Navbar.jsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "./auth/AuthContext";
 import axiosInstance from "./utils/apiClient";
 import { API_PATHS } from "./utils/apiPaths";
@@ -661,65 +662,68 @@ export default function Navbar() {
         )}
       </nav>
 
-      {mobileNavOpen ? (
-        <div className="navMobileRoot" role="dialog" aria-modal="true" aria-label="Меню">
-          <button type="button" className="navMobileBackdrop" aria-label="Затвори" onClick={closeMobileNav} />
-          <div className="navMobileSheet">
-            <div className="navMobileSheetHeader">
-              <span className="navMobileSheetTitle">Навигация</span>
-              <button type="button" className="navMobileClose" onClick={closeMobileNav}>
-                Затвори
-              </button>
-            </div>
-            {user ? (
-              <div className="navMobileAccount">
-                <div className="navMobileUser">
-                  <div className="navMobileUserEmail" title={userLabel}>
-                    {userLabel}
-                  </div>
-                  <div className="navMobileUserRole">{roleLabel}</div>
-                </div>
-                <div className="navMobileAccountActions">
-                  {isCoachUser ? (
-                    <Link to="/my-trainings" className="navMobilePill" onClick={closeMobileNav}>
-                      Задачи ({newTaskCount})
-                    </Link>
-                  ) : null}
-                  <Link to="/forum" className="navMobilePill" onClick={closeMobileNav}>
-                    Известия ({combinedUnreadCount})
-                  </Link>
-                  <button type="button" className="navMobilePill navMobilePill--danger" onClick={onLogout}>
-                    Изход
+      {mobileNavOpen
+        ? createPortal(
+            <div className="navMobileRoot" role="dialog" aria-modal="true" aria-label="Меню">
+              <button type="button" className="navMobileBackdrop" aria-label="Затвори" onClick={closeMobileNav} />
+              <div className="navMobileSheet">
+                <div className="navMobileSheetHeader">
+                  <span className="navMobileSheetTitle">Навигация</span>
+                  <button type="button" className="navMobileClose" onClick={closeMobileNav}>
+                    Затвори
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="navMobileAccount">
-                <Link to="/login" className="navMobilePill" onClick={closeMobileNav}>
-                  Вход
-                </Link>
-              </div>
-            )}
-            <div className="navMobileLinks">
-              {mainNavItems.map((item) => (
-                <Link key={`m-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
-                  {item.label}
-                </Link>
-              ))}
-              {adminNavItems.length > 0 && (
-                <>
-                  <div className="navMobileSectionLabel">Администрация</div>
-                  {adminNavItems.map((item) => (
-                    <Link key={`ma-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
+                {user ? (
+                  <div className="navMobileAccount">
+                    <div className="navMobileUser">
+                      <div className="navMobileUserEmail" title={userLabel}>
+                        {userLabel}
+                      </div>
+                      <div className="navMobileUserRole">{roleLabel}</div>
+                    </div>
+                    <div className="navMobileAccountActions">
+                      {isCoachUser ? (
+                        <Link to="/my-trainings" className="navMobilePill" onClick={closeMobileNav}>
+                          Задачи ({newTaskCount})
+                        </Link>
+                      ) : null}
+                      <Link to="/forum" className="navMobilePill" onClick={closeMobileNav}>
+                        Известия ({combinedUnreadCount})
+                      </Link>
+                      <button type="button" className="navMobilePill navMobilePill--danger" onClick={onLogout}>
+                        Изход
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="navMobileAccount">
+                    <Link to="/login" className="navMobilePill" onClick={closeMobileNav}>
+                      Вход
+                    </Link>
+                  </div>
+                )}
+                <div className="navMobileLinks">
+                  {mainNavItems.map((item) => (
+                    <Link key={`m-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
                       {item.label}
                     </Link>
                   ))}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+                  {adminNavItems.length > 0 && (
+                    <>
+                      <div className="navMobileSectionLabel">Администрация</div>
+                      {adminNavItems.map((item) => (
+                        <Link key={`ma-${item.to}`} className="appNavLink appNavLink--sheet" to={item.to} onClick={closeMobileNav}>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </header>
   );
 }
