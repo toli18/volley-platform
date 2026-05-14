@@ -584,8 +584,33 @@
   }
 }
 
+/* Toast stack: позицията е само тук — без inline top/right, за да няма конфликт
+   (иначе при max-width 720px остават top + bottom и fixed блокът се разтяга на цял екран). */
 .uiToastStack {
+  position: fixed;
+  z-index: 12000;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
   box-sizing: border-box;
+  top: 14px;
+  right: 14px;
+  max-width: min(92vw, 380px);
+  justify-items: end;
+  align-content: start;
+}
+
+.uiToastItem {
+  pointer-events: auto;
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.13);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 @media (max-width: 720px) {
@@ -595,6 +620,11 @@
     left: 12px;
     right: 12px;
     max-width: none;
+    justify-items: stretch;
+  }
+
+  .uiToastItem {
+    justify-self: stretch;
     width: auto;
   }
 }

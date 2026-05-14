@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from "react";
+import "./ui/ui.css";
 
 const ToastContext = createContext(null);
 
@@ -36,33 +37,17 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div
-        className="uiToastStack"
-        style={{
-          position: "fixed",
-          top: 14,
-          right: 14,
-          zIndex: 12000,
-          display: "grid",
-          gap: 8,
-          pointerEvents: "none",
-          maxWidth: "min(92vw, 380px)",
-        }}
-      >
+      <div className="uiToastStack" aria-live="polite" aria-relevant="additions">
         {toasts.map((toast) => {
           const theme = kinds[toast.type] || kinds.info;
           return (
             <div
               key={toast.id}
+              className="uiToastItem"
               style={{
                 background: theme.bg,
                 border: `1px solid ${theme.border}`,
                 color: theme.color,
-                borderRadius: 10,
-                padding: "10px 12px",
-                boxShadow: "0 10px 28px rgba(15, 23, 42, 0.13)",
-                fontWeight: 600,
-                fontSize: 14,
               }}
             >
               {toast.message}

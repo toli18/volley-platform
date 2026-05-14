@@ -31,6 +31,24 @@ const cardLinkStyle = {
   color: "#0f172a",
 };
 
+/** Същата логика като месечния график — стабилен цвят по team_id */
+const teamColorPalette = [
+  { text: "#0c4a6e", border: "#7dd3fc" },
+  { text: "#14532d", border: "#86efac" },
+  { text: "#78350f", border: "#fcd34d" },
+  { text: "#4c1d95", border: "#c4b5fd" },
+  { text: "#7f1d1d", border: "#fca5a5" },
+  { text: "#164e63", border: "#67e8f9" },
+  { text: "#701a75", border: "#e879f9" },
+  { text: "#365314", border: "#bef264" },
+];
+
+const teamColorsForId = (teamId) => {
+  const n = Number(teamId || 0);
+  const idx = Math.abs(Number.isFinite(n) ? n : 0) % teamColorPalette.length;
+  return teamColorPalette[idx];
+};
+
 const extractDrillIdsFromPlan = (plan) => {
   if (!plan || typeof plan !== "object") return [];
   const out = [];
@@ -61,6 +79,7 @@ export default function Home() {
 
   const role = String(user?.role || "").toLowerCase();
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
+  const isHeadCoach = role === "club_head_coach";
   const monthKey = useMemo(() => currentMonthKey(), []);
 
   useEffect(() => {
@@ -69,6 +88,7 @@ export default function Home() {
         setLoading(false);
         return;
       }
+      const myCoachId = Number(user?.id || 0);
       try {
         setLoading(true);
         setError("");
@@ -99,6 +119,7 @@ export default function Home() {
             params: {
               from: new Date().toISOString().slice(0, 10),
               to: new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10),
+              ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
             },
           }),
         ]);
@@ -215,7 +236,7 @@ export default function Home() {
         const scheduleList = scheduleRes.status === "fulfilled" && Array.isArray(scheduleRes.value.data?.items)
           ? scheduleRes.value.data.items
           : [];
-        setScheduleItems(scheduleList.slice(0, 10));
+        setScheduleItems(scheduleList.slice(0, isHeadCoach ? 48 : 24));
       } catch (e) {
         const detail = e?.response?.data?.detail;
         setError(typeof detail === "string" ? detail : "Грешка при зареждане на началното табло.");
@@ -224,7 +245,7 @@ export default function Home() {
       }
     };
     loadDashboard();
-  }, [monthKey, showCoachDashboard]);
+  }, [monthKey, showCoachDashboard, user?.id, isHeadCoach]);
 
   if (!user || !showCoachDashboard) {
     return <Drills />;
@@ -260,17 +281,39 @@ export default function Home() {
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
         ) : scheduleItems.length === 0 ? (
-          <EmptyState title="Няма планирани тренировки" description="Главният треньор все още не е попълнил графика." />
+          <EmptyState
+            title="Няма планирани тренировки"
+            description={
+              isHeadCoach
+                ? "Няма записи в графика на клуба за следващите 7 дни."
+                : "Няма записи в графика за теб за следващите 7 дни. Провери пълния график на клуба от бутона по-горе."
+            }
+          />
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {scheduleItems.map((it, idx) => (
-              <div key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`} style={cardLinkStyle}>
-                <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
-                <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
-                  {it.team_name || `Отбор #${it.team_id}`} · {it.location}
+            {scheduleItems.map((it, idx) => {
+              const tc = teamColorsForId(it.team_id);
+              const teamLabel = it.team_name || `Отбор #${it.team_id}`;
+              return (
+                <div key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`} style={cardLinkStyle}>
+                  <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
+                  <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
+                    <span
+                      style={{
+                        fontWeight: 800,
+                        fontSize: 16,
+                        color: tc.text,
+                        borderLeft: `3px solid ${tc.border}`,
+                        paddingLeft: 8,
+                      }}
+                    >
+                      {teamLabel}
+                    </span>
+                    <span style={{ color: "#64748b", fontSize: 13 }}>{it.location ? `· ${it.location}` : ""}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
