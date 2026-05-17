@@ -21,65 +21,91 @@ import {
 } from "../../utils/parentPortalSchedule";
 import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 
-function SessionBlock({ row, compact }) {
+function weekdayShortForDate(isoDate) {
+  const d = new Date(`${isoDate}T12:00:00`);
+  return WEEKDAY_HEADERS[(d.getDay() + 6) % 7];
+}
+
+function formatAgendaDayLabel(isoDate) {
+  const [, m, d] = String(isoDate).split("-");
+  return `${weekdayShortForDate(isoDate)} · ${d}.${m}`;
+}
+
+function eventTitle(row) {
+  if (row.is_cancelled) return "Отменена";
+  if (isCompetitionEvent(row)) return competitionKindLabel(row);
+  return row.team_name || "Отбор";
+}
+
+function SessionBlock({ row, variant = "card" }) {
   const isComp = isCompetitionEvent(row);
   const cancelled = Boolean(row.is_cancelled);
   const colors = isComp ? null : teamColorForName(row.team_name);
+  const time = `${row.start_time || "—"} – ${row.end_time || "—"}`;
+  const title = eventTitle(row);
+
+  if (variant === "row") {
+    return (
+      <div
+        className={`parentPortalSchedRow${cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}`}
+        style={
+          isComp
+            ? { ...competitionBlockStyle, borderLeftWidth: 3, borderLeftStyle: "solid" }
+            : { borderLeftColor: colors.border, background: colors.bg, color: colors.text }
+        }
+      >
+        <span className="parentPortalSchedRowTime">{time}</span>
+        <span className="parentPortalSchedRowMain">
+          <span className="parentPortalSchedRowTitle">{title}</span>
+          {row.location ? <span className="parentPortalSchedRowLoc"> · {row.location}</span> : null}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`parentPortalSchedBlock${compact ? " parentPortalSchedBlock--compact" : ""}${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}`}
+      className={`parentPortalSchedBlock${variant === "compact" ? " parentPortalSchedBlock--compact" : ""}${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}`}
       style={
         isComp
           ? competitionBlockStyle
           : { borderColor: colors.border, background: colors.bg, color: colors.text }
       }
     >
-      <div className="parentPortalSchedBlockTeam">
-        {cancelled ? "Отменена · " : ""}
-        {isComp ? competitionKindLabel(row) : row.team_name || "Отбор"}
-      </div>
-      {!isComp && row.team_name ? (
-        <div className="parentPortalSchedBlockMeta" style={{ opacity: 0.85 }}>
-          {row.team_name}
-        </div>
-      ) : null}
+      <div className="parentPortalSchedBlockTime">{time}</div>
+      <div className="parentPortalSchedBlockTeam">{title}</div>
       {row.location ? (
-        <div className="parentPortalSchedBlockMeta">{compact ? row.location : `Място: ${row.location}`}</div>
+        <div className="parentPortalSchedBlockMeta">{variant === "compact" ? row.location : `Място: ${row.location}`}</div>
       ) : null}
     </div>
   );
 }
 
-function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
-  const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
-
+function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyHint = "Няма събития" }) {
   return (
-    <div className="parentPortalWeekMobile">
-      {WEEKDAY_HEADERS.map((name, dayIdx) => {
-        const date = addDaysIso(weekStart, dayIdx);
-        const dayItems = inWeek
-          .filter((it) => it.date === date)
-          .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+    <div className="parentPortalAgendaList">
+      {days.map(({ date, label }) => {
+        const dayItems = (getItemsForDate(date) || []).sort((a, b) =>
+          String(a.start_time).localeCompare(String(b.start_time)),
+        );
+        const isSelected = selectedDate === date;
         return (
           <button
             key={date}
             type="button"
-            className={`parentPortalWeekMobileDay${selectedDate === date ? " is-selected" : ""}`}
+            className={`parentPortalAgendaDay${isSelected ? " is-selected" : ""}${dayItems.length === 0 ? " parentPortalAgendaDay--empty" : ""}`}
             onClick={() => onDayClick(date)}
           >
-            <div className="parentPortalWeekMobileDayHead">
-              <span className="parentPortalWeekMobileWeekday">{name}</span>
-              <span className="parentPortalWeekMobileDate">{formatParentDayLabel(date)}</span>
-              {dayItems.length ? (
-                <span className="parentPortalWeekMobileCount">{dayItems.length}</span>
-              ) : null}
+            <div className="parentPortalAgendaDayHead">
+              <span className="parentPortalAgendaDayLabel">{label || formatAgendaDayLabel(date)}</span>
+              {dayItems.length > 0 ? <span className="parentPortalAgendaDayCount">{dayItems.length}</span> : null}
             </div>
             {dayItems.length === 0 ? (
-              <p className="parentPortalWeekMobileEmpty">Няма събития</p>
+              <p className="parentPortalAgendaEmpty">{emptyHint}</p>
             ) : (
-              <div className="parentPortalWeekMobileEvents">
+              <div className="parentPortalAgendaEvents">
                 {dayItems.map((row, i) => (
-                  <SessionBlock key={`${date}-${i}`} row={row} compact />
+                  <SessionBlock key={`${date}-${row.start_time}-${i}`} row={row} variant="row" />
                 ))}
               </div>
             )}
@@ -87,6 +113,48 @@ function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
         );
       })}
     </div>
+  );
+}
+
+function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
+  const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
+  const days = useMemo(
+    () =>
+      WEEKDAY_HEADERS.map((_, dayIdx) => {
+        const date = addDaysIso(weekStart, dayIdx);
+        return { date, label: formatAgendaDayLabel(date) };
+      }),
+    [weekStart],
+  );
+
+  return (
+    <DayAgendaList
+      days={days}
+      getItemsForDate={(date) => inWeek.filter((it) => it.date === date)}
+      selectedDate={selectedDate}
+      onDayClick={onDayClick}
+    />
+  );
+}
+
+function MonthMobileList({ items, monthKey, selectedDate, onDayClick }) {
+  const cells = useMemo(() => buildMonthCells(monthKey).filter((c) => c.isCurrentMonth), [monthKey]);
+  const byDate = useMemo(() => groupItemsByDate(items), [items]);
+  const days = useMemo(
+    () =>
+      cells
+        .filter((cell) => (byDate.get(cell.date) || []).length > 0)
+        .map((cell) => ({ date: cell.date, label: formatAgendaDayLabel(cell.date) })),
+    [cells, byDate],
+  );
+
+  return (
+    <DayAgendaList
+      days={days}
+      getItemsForDate={(date) => byDate.get(date) || []}
+      selectedDate={selectedDate}
+      onDayClick={onDayClick}
+    />
   );
 }
 
@@ -149,7 +217,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
                   }}
                 >
                   {cellItems.map((row, i) => (
-                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} compact />
+                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} variant="compact" />
                   ))}
                 </div>
               );
@@ -190,12 +258,9 @@ function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
             >
               <div className="parentPortalMonthCellDay">{cell.day}</div>
               <div className="parentPortalMonthCellBody">
-                {dayItems.slice(0, 2).map((row, i) => (
-                  <SessionBlock key={`${cell.date}-${i}`} row={row} compact />
+                {dayItems.map((row, i) => (
+                  <SessionBlock key={`${cell.date}-${i}`} row={row} variant="compact" />
                 ))}
-                {dayItems.length > 2 ? (
-                  <div className="parentPortalMonthMore">+{dayItems.length - 2} още</div>
-                ) : null}
               </div>
             </button>
           );
@@ -341,6 +406,10 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
         )}
       </div>
 
+      <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">
+        Всички събития за деня — с час, отбор и място. Докоснете ред за детайли.
+      </p>
+
       <div className="parentPortalScheduleLegend">
         <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--training">Тренировка</span>
         {hasCompetitions ? (
@@ -374,7 +443,12 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
       ) : monthItems.length === 0 && !loadingMonth ? (
         <EmptyState title="Няма събития" description={`За ${formatMonthKey(monthKey)} няма записани събития.`} />
       ) : (
-        <MonthGrid items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+        <>
+          <div className="parentPortalMonthDesktop">
+            <MonthGrid items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+          </div>
+          <MonthMobileList items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+        </>
       )}
 
       <ParentDayDetailModal
