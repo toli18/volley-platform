@@ -200,7 +200,10 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick }) {
   );
 }
 
-function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
+const DEFAULT_SCHEDULE_HINT =
+  "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.";
+
+function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT }) {
   const slots = useMemo(() => timeSlotsForWeek(items, weekStart), [items, weekStart]);
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
   const byDate = useMemo(() => groupItemsByDate(inWeek), [inWeek]);
@@ -216,9 +219,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
 
   return (
     <div className="parentPortalWeekWrap">
-      {scheduleHint ? (
-        <p className="uiHint parentPortalScheduleHint">{scheduleHint}</p>
-      ) : null}
+      {hint ? <p className="uiHint parentPortalScheduleHint">{hint}</p> : null}
       <div className="parentPortalWeekGrid">
         <div className="parentPortalWeekCorner" />
         {WEEKDAY_HEADERS.map((name, dayIdx) => {
@@ -322,7 +323,7 @@ export default function ParentScheduleViews({
   fetchScheduleMonth,
   initialWeekStart,
   showTeamLegend = true,
-  scheduleHint = "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.",
+  scheduleHint = DEFAULT_SCHEDULE_HINT,
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const defaultMonth = scheduleMonthKey || (initialItems?.[0]?.date ? String(initialItems[0].date).slice(0, 7) : today.slice(0, 7));
@@ -482,9 +483,9 @@ export default function ParentScheduleViews({
         )}
       </div>
 
-      <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">
-        Всички събития за деня — с час, отбор и място. Докоснете ред за детайли.
-      </p>
+      {scheduleHint ? (
+        <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">{scheduleHint}</p>
+      ) : null}
 
       <div className="parentPortalScheduleLegend">
         <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--training">Тренировка</span>
@@ -518,7 +519,13 @@ export default function ParentScheduleViews({
       {view === "week" ? (
         <>
           <div className="parentPortalWeekDesktop">
-            <WeekGrid items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+            <WeekGrid
+              items={filteredWeekItems}
+              weekStart={weekStart}
+              selectedDate={selectedDate}
+              onDayClick={openDay}
+              hint={scheduleHint}
+            />
           </div>
           <WeekMobileList items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
         </>
