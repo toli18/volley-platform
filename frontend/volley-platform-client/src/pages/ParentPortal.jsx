@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import { Card, EmptyState } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 
@@ -71,20 +72,6 @@ function ParentPortalShell({ children }) {
   );
 }
 
-function ScheduleSessionCard({ row }) {
-  return (
-    <article className="parentPortalSessionCard">
-      <div className="parentPortalSessionCardDate">{formatShortDate(row.date)}</div>
-      <div className="parentPortalSessionCardBody">
-        <div className="parentPortalSessionCardTime">
-          {row.start_time} – {row.end_time}
-        </div>
-        {row.team_name ? <div className="parentPortalSessionCardMeta">Отбор: {row.team_name}</div> : null}
-        {row.location ? <div className="parentPortalSessionCardMeta">Зала: {row.location}</div> : null}
-      </div>
-    </article>
-  );
-}
 
 export default function ParentPortal() {
   const { token } = useParams();
@@ -113,18 +100,6 @@ export default function ParentPortal() {
       cancelled = true;
     };
   }, [token]);
-
-  const scheduleByTeam = useMemo(() => {
-    const groups = new Map();
-    for (const row of profile?.monthly_schedule || []) {
-      const key = row.team_name || "Отбор";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(row);
-    }
-    return [...groups.entries()];
-  }, [profile?.monthly_schedule]);
-
-  const useGroupedSchedule = (profile?.teams?.length || 0) > 1 || scheduleByTeam.length > 1;
 
   const feeCoach = profile?.fee_coach || {};
   const currentFee = profile?.current_month_fee;
@@ -228,7 +203,7 @@ export default function ParentPortal() {
               </div>
               {(profile.teams || []).length > 1 ? (
                 <p className="uiHint" style={{ marginTop: 10, marginBottom: 0 }}>
-                  Състезателят тренира в няколко групи — вижте графика по отбор по-долу.
+                  Състезателят тренира в няколко групи — използвайте седмичния или месечния изглед по-долу.
                 </p>
               ) : null}
             </Card>
@@ -263,27 +238,13 @@ export default function ParentPortal() {
               )}
             </Card>
 
-            <Card title={`График — ${formatMonthKey(new Date().toISOString().slice(0, 7))}`}>
-              {(profile.monthly_schedule || []).length === 0 ? (
-                <EmptyState title="Няма тренировки за този месец" description="Когато треньорът добави график, ще го виждате тук." />
-              ) : useGroupedSchedule ? (
-                scheduleByTeam.map(([teamName, rows]) => (
-                  <section key={teamName} className="parentPortalTeamSection">
-                    <h3 className="parentPortalTeamSectionTitle">{teamName}</h3>
-                    <div className="parentPortalCardList">
-                      {rows.map((row, idx) => (
-                        <ScheduleSessionCard key={`${row.date}-${row.start_time}-${idx}`} row={row} />
-                      ))}
-                    </div>
-                  </section>
-                ))
-              ) : (
-                <div className="parentPortalCardList">
-                  {(profile.monthly_schedule || []).map((row, idx) => (
-                    <ScheduleSessionCard key={`${row.date}-${row.start_time}-${idx}`} row={row} />
-                  ))}
-                </div>
-              )}
+            <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
+              <ParentScheduleViews
+                token={token}
+                initialItems={profile.monthly_schedule || []}
+                scheduleMonthKey={profile.schedule_month_key}
+                formatMonthKey={formatMonthKey}
+              />
             </Card>
 
             <Card title="Такси (последни 12 месеца)">

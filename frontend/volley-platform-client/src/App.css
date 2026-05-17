@@ -928,6 +928,239 @@
   }
 }
 
+/* Parent portal — седмичен / месечен график */
+.parentPortalScheduleViews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.parentPortalScheduleToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.parentPortalScheduleViewToggle {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.parentPortalScheduleViewBtn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.parentPortalScheduleViewBtn.is-active {
+  background: #0f4d3a;
+  color: #fff;
+}
+
+.parentPortalScheduleNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.parentPortalScheduleNavLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  min-width: 140px;
+  text-align: center;
+}
+
+.parentPortalScheduleLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parentPortalScheduleLegendItem {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.parentPortalWeekWrap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.parentPortalWeekGrid {
+  display: grid;
+  min-width: 720px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.parentPortalWeekCorner,
+.parentPortalWeekDayHead,
+.parentPortalWeekTime {
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 6px;
+  border-bottom: 1px solid #93c5fd;
+  border-right: 1px solid #93c5fd;
+}
+
+.parentPortalWeekDayHead {
+  text-align: center;
+  font-size: 13px;
+}
+
+.parentPortalWeekTime {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.parentPortalWeekTimeEnd {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.parentPortalWeekCell {
+  min-height: 52px;
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.parentPortalSchedBlock {
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.parentPortalSchedBlock--compact {
+  padding: 3px 5px;
+}
+
+.parentPortalSchedBlockTeam {
+  font-weight: 700;
+}
+
+.parentPortalSchedBlockMeta {
+  margin-top: 2px;
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+.parentPortalMonthWrap {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.parentPortalMonthHeadRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border-bottom: 1px solid #93c5fd;
+}
+
+.parentPortalMonthDayLabel {
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  border-right: 1px solid #93c5fd;
+}
+
+.parentPortalMonthDayLabel:last-child {
+  border-right: none;
+}
+
+.parentPortalMonthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.parentPortalMonthCell {
+  min-height: 88px;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 4px;
+  background: #fafafa;
+}
+
+.parentPortalMonthCell:nth-child(7n) {
+  border-right: none;
+}
+
+.parentPortalMonthCell--empty {
+  background: #f1f5f9;
+}
+
+.parentPortalMonthCellDay {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.parentPortalMonthCellBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.parentPortalMonthMore {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+@media (max-width: 680px) {
+  .parentPortalScheduleToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .parentPortalScheduleNav {
+    justify-content: center;
+  }
+
+  .parentPortalWeekGrid {
+    min-width: 640px;
+  }
+
+  .parentPortalMonthCell {
+    min-height: 72px;
+  }
+}
+
 .athleteParentAccessActions {
   align-items: center;
 }

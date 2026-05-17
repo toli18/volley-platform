@@ -74,5 +74,6 @@ class ParentAthleteProfileResponse(BaseModel):
     next_training: Optional[ParentScheduleItem] = None
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
     last_attendance: list[ParentAttendanceRow] = Field(default_factory=list)
+    schedule_month_key: Optional[str] = None
     monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)
     monthly_payments: list[ParentPaymentRow] = Field(default_factory=list)

@@ -119,6 +119,7 @@ export const API_PATHS = {
   ATHLETE_PARENT_ACCESS_ROTATE: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access/rotate`,
   ATHLETE_PARENT_ACCESS_REVOKE: (athleteId) => `/api/teams/athletes/${athleteId}/parent-access`,
   PARENT_PORTAL_GET: (token) => `/api/parent-portal/${token}`,
+  PARENT_PORTAL_SCHEDULE: (token) => `/api/parent-portal/${token}/schedule`,
 
   // Club head coach
   CLUB_OVERVIEW: "/api/club/overview",

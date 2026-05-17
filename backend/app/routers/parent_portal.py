@@ -4,7 +4,9 @@ import hashlib
 import secrets
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -257,8 +259,10 @@ def revoke_parent_access(
     return None
 
 
-@router.get("/parent-portal/{token}", response_model=ParentAthleteProfileResponse)
-def parent_portal_view(token: str, db: Session = Depends(get_db)):
+_MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+def _resolve_parent_portal_athlete(db: Session, token: str) -> Athlete:
     row = (
         db.query(AthleteParentAccessToken)
         .filter(AthleteParentAccessToken.token_hash == _token_hash(token), AthleteParentAccessToken.is_active.is_(True))
@@ -277,6 +281,35 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
 
     row.last_used_at = datetime.utcnow()
     db.commit()
+    return athlete
+
+
+def _team_ids_for_athlete(db: Session, athlete_id: int) -> list[int]:
+    return [
+        tm.team_id
+        for tm in db.query(TeamMember).filter(TeamMember.athlete_id == athlete_id, TeamMember.is_active.is_(True)).all()
+    ]
+
+
+@router.get("/parent-portal/{token}/schedule", response_model=list[ParentScheduleItem])
+def parent_portal_schedule(
+    token: str,
+    month: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+):
+    if not _MONTH_KEY_RE.match((month or "").strip()):
+        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
+    athlete = _resolve_parent_portal_athlete(db, token)
+    month_key = month.strip()
+    from_date = f"{month_key}-01"
+    to_date = _month_last_day(month_key)
+    team_ids = _team_ids_for_athlete(db, athlete.id)
+    return _build_schedule_for_teams(db, team_ids, from_date, to_date)
+
+
+@router.get("/parent-portal/{token}", response_model=ParentAthleteProfileResponse)
+def parent_portal_view(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
 
     team_rows = (
         db.query(Team.name)
@@ -320,7 +353,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     from_date = f"{this_month}-01"
     to_date = _month_last_day(this_month)
 
-    team_ids = [tm.team_id for tm in db.query(TeamMember).filter(TeamMember.athlete_id == athlete.id, TeamMember.is_active.is_(True)).all()]
+    team_ids = _team_ids_for_athlete(db, athlete.id)
     schedule_items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
 
     today = date.today()
@@ -366,6 +399,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
             attendance_rate_percent=rate,
         ),
         last_attendance=last_attendance,
+        schedule_month_key=this_month,
         monthly_schedule=schedule_items,
         monthly_payments=monthly_payments,
     )
