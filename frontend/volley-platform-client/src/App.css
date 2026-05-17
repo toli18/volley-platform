@@ -1919,3 +1919,144 @@
     height: auto;
   }
 }
+
+/* Team portal — coach + public */
+.teamPortalHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.teamPortalCoachFeed {
+  display: grid;
+  gap: 12px;
+}
+
+.teamPortalCoachFeedItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.teamPortalCoachFeedText {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+.teamPortalCoachFeedImg {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.teamPortalCoachFeedMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.teamPortalInlineLink {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: #1a6b52;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.teamPortalInlineLink--danger {
+  color: #dc2626;
+}
+
+.teamPortalPublicFeed {
+  display: grid;
+  gap: 14px;
+}
+
+.teamPortalPublicFeedItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.teamPortalPublicFeedText {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 15px;
+}
+
+.teamPortalPublicFeedImg {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.teamPortalPublicFeedTime {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.teamPortalScheduleList {
+  display: grid;
+  gap: 10px;
+}
+
+.teamPortalScheduleDay {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.teamPortalScheduleDayLabel {
+  padding: 6px 10px;
+  background: #ecfdf5;
+  font-weight: 800;
+  color: #0f4d3a;
+  font-size: 13px;
+}
+
+.teamPortalScheduleDayEvents {
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.teamPortalScheduleEvent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.teamPortalScheduleEventTime {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.teamPortalScheduleEvent.is-cancelled {
+  opacity: 0.75;
+  text-decoration: line-through;
+}
+
+@media (max-width: 720px) {
+  .teamPortalHeroActions .uiButton {
+    flex: 1 1 auto;
+    min-width: calc(50% - 6px);
+  }
+}

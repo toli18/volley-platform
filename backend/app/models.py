@@ -542,6 +542,59 @@ class Team(Base):
     club = relationship("Club")
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
     sessions = relationship("TeamSession", back_populates="team", cascade="all, delete-orphan")
+    team_access_tokens = relationship(
+        "TeamAccessToken",
+        back_populates="team",
+        cascade="all, delete-orphan",
+        order_by="TeamAccessToken.created_at.desc()",
+    )
+    portal_items = relationship(
+        "TeamPortalItem",
+        back_populates="team",
+        cascade="all, delete-orphan",
+        order_by="TeamPortalItem.created_at.desc()",
+    )
+
+
+class TeamAccessToken(Base):
+    __tablename__ = "team_access_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    token_prefix = Column(String(12), nullable=False, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team", back_populates="team_access_tokens")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
+class TeamPortalItemKind(str, Enum):
+    text = "text"
+    image = "image"
+
+
+class TeamPortalItem(Base):
+    __tablename__ = "team_portal_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(SqlEnum(TeamPortalItemKind), nullable=False, index=True)
+    body = Column(Text, nullable=True)
+    url = Column(String(512), nullable=True)
+    file_name = Column(String(255), nullable=True)
+    mime_type = Column(String(120), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+    team = relationship("Team", back_populates="portal_items")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
 class TeamMember(Base):

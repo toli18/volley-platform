@@ -5,6 +5,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
+import TeamPortalCoachPanel, { TeamPortalHeroActions, useTeamPortalCoach } from "../components/teamPortal/TeamPortalCoachPanel";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER } from "../utils/currency";
 
@@ -86,6 +87,8 @@ export default function TeamDetails() {
   const canRecordFee = (athleteCoachId) => isHeadCoach || Number(athleteCoachId) === currentUserId;
 
   const isTeamCoach = Number(team?.coach_id) === currentUserId;
+  const canManageTeamPortal = isHeadCoach || isTeamCoach;
+  const teamPortalCoach = useTeamPortalCoach(canManageTeamPortal ? teamIdNum : null);
 
   const canManageRoster = useMemo(() => {
     if (isHeadCoach) return true;
@@ -212,6 +215,7 @@ export default function TeamDetails() {
         subtitle={`Отделен екран за състезатели и такси · Тип: ${teamGenderLabel(team.gender)}`}
         actions={
           <div className="heroActionsWrap">
+            {canManageTeamPortal ? <TeamPortalHeroActions coach={teamPortalCoach} /> : null}
             <Link to={`/teams/${teamIdNum}/attendance`}>
               <Button>Присъствие</Button>
             </Link>
@@ -224,6 +228,10 @@ export default function TeamDetails() {
           </div>
         }
       />
+
+      {canManageTeamPortal ? (
+        <TeamPortalCoachPanel teamId={teamIdNum} teamName={team.name} coach={teamPortalCoach} />
+      ) : null}
 
       {(isHeadCoach || isTeamCoach) && (
         <p className="uiHint" style={{ margin: 0 }}>
