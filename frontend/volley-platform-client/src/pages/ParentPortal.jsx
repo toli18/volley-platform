@@ -452,11 +452,6 @@ export default function ParentPortal() {
                   {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
                   {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
                 </div>
-                {(profile.teams || []).length > 1 ? (
-                  <p className="uiHint parentPortalDetailsHint">
-                    Състезателят тренира в няколко групи — използвайте филтъра в графика по отбор.
-                  </p>
-                ) : null}
               </div>
             </details>
           </>

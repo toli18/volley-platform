@@ -73,6 +73,7 @@ function SessionBlock({ row, variant = "card" }) {
         title={gridCellTooltip(row)}
       >
         <span className="parentPortalSchedBlockAbbrev">{gridCellLabel(row)}</span>
+        {row.location ? <span className="parentPortalSchedBlockLoc">{row.location}</span> : null}
       </div>
     );
   }
@@ -208,7 +209,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
   return (
     <div className="parentPortalWeekWrap">
       <p className="uiHint parentPortalScheduleHint">
-        Кратък етикет в клетката — задръжте курсора за място и детайли. Клик за пълен списък.
+        Отбор и зала в клетката. Клик за пълен списък със събитията за деня.
       </p>
       <div className="parentPortalWeekGrid">
         <div className="parentPortalWeekCorner" />

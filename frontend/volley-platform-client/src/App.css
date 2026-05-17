@@ -1459,9 +1459,14 @@
 }
 
 .parentPortalSchedBlock--grid {
-  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 4px;
   text-align: center;
   cursor: default;
+  min-height: 100%;
 }
 
 .parentPortalSchedBlockAbbrev {
@@ -1472,9 +1477,23 @@
   letter-spacing: 0.02em;
 }
 
+.parentPortalSchedBlockLoc {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0.92;
+  word-break: break-word;
+}
+
 .parentPortalSchedBlock--grid .parentPortalSchedBlockTime,
 .parentPortalSchedBlock--grid .parentPortalSchedBlockMeta {
   display: none;
+}
+
+.parentPortalSchedBlock--cancelled .parentPortalSchedBlockLoc {
+  text-decoration: line-through;
+  color: #94a3b8;
 }
 
 .parentPortalSchedBlockTeam {
