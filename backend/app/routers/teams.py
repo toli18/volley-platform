@@ -103,6 +103,41 @@ def _ensure_team_owner(db: Session, team_id: int, user: User) -> Team:
     return team
 
 
+def _can_manage_team_roster(team: Team, user: User) -> bool:
+    """Head coach: any club team. Fee coach: only teams they coach (team.coach_id)."""
+    if _is_head_coach(user):
+        return True
+    return int(team.coach_id) == int(user.id)
+
+
+def _can_remove_athlete_from_team_roster(athlete: Athlete, team: Team, user: User) -> bool:
+    if _is_head_coach(user):
+        return True
+    if int(team.coach_id) != int(user.id):
+        return False
+    return int(athlete.coach_id) == int(user.id)
+
+
+def _get_athlete_for_team_context(db: Session, athlete_id: int, user: User) -> Athlete | None:
+    """Fee coach owns the athlete; team coaches may view roster athletes on their teams."""
+    if _is_head_coach(user):
+        return db.query(Athlete).filter(Athlete.id == athlete_id, Athlete.club_id == user.club_id).first()
+    owned = db.query(Athlete).filter(Athlete.id == athlete_id, Athlete.coach_id == user.id).first()
+    if owned:
+        return owned
+    return (
+        db.query(Athlete)
+        .join(TeamMember, TeamMember.athlete_id == Athlete.id)
+        .join(Team, Team.id == TeamMember.team_id)
+        .filter(
+            Athlete.id == athlete_id,
+            TeamMember.is_active.is_(True),
+            Team.coach_id == user.id,
+        )
+        .first()
+    )
+
+
 def _validate_date(raw: str) -> str:
     value = (raw or "").strip()
     if not DATE_RE.match(value):
@@ -202,19 +237,6 @@ def assign_team_coach(
     team.coach_id = target_coach_id
     team.updated_at = datetime.utcnow()
 
-    active_member_ids = [
-        x.athlete_id
-        for x in db.query(TeamMember)
-        .filter(TeamMember.team_id == team.id, TeamMember.is_active.is_(True))
-        .all()
-    ]
-    if active_member_ids:
-        (
-            db.query(Athlete)
-            .filter(Athlete.id.in_(active_member_ids), Athlete.club_id == current_user.club_id)
-            .update({Athlete.coach_id: target_coach_id}, synchronize_session=False)
-        )
-
     db.commit()
     db.refresh(team)
     return team
@@ -250,6 +272,7 @@ def get_team_members(
         TeamMemberAthleteRead(
             athlete_id=a.id,
             athlete_name=a.athlete_name,
+            fee_coach_id=a.coach_id,
             parent_name=a.parent_name,
             parent_phone=a.parent_phone,
             athlete_phone=a.athlete_phone,
@@ -269,19 +292,47 @@ def replace_team_members(
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
     team = _ensure_team_owner(db, team_id, current_user)
+    if not _can_manage_team_roster(team, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Нямаш право да редактираш състава на този отбор.",
+        )
+
     desired_ids = sorted(set(int(x) for x in (payload.athlete_ids or []) if x))
     existing = db.query(TeamMember).filter(TeamMember.team_id == team.id).all()
     existing_map = {m.athlete_id: m for m in existing}
     active_existing_ids = {aid for aid, m in existing_map.items() if m.is_active}
+
+    if not _is_head_coach(current_user):
+        active_athlete_rows = (
+            db.query(Athlete)
+            .filter(Athlete.id.in_(active_existing_ids))
+            .all()
+            if active_existing_ids
+            else []
+        )
+        protected_ids = {
+            a.id
+            for a in active_athlete_rows
+            if not _can_remove_athlete_from_team_roster(a, team, current_user)
+        }
+        desired_ids = sorted(set(desired_ids) | protected_ids)
+
     added_ids = [aid for aid in desired_ids if aid not in active_existing_ids]
     if added_ids:
         owned_query = db.query(Athlete).filter(Athlete.id.in_(added_ids))
         if _is_head_coach(current_user):
             owned_query = owned_query.filter(Athlete.club_id == current_user.club_id)
         else:
-            owned_query = owned_query.filter(Athlete.coach_id == current_user.id)
+            owned_query = owned_query.filter(
+                Athlete.coach_id == current_user.id,
+                Athlete.club_id == current_user.club_id,
+            )
         if owned_query.count() != len(added_ids):
-            raise HTTPException(status_code=422, detail="One or more athletes are invalid for this club/coach")
+            raise HTTPException(
+                status_code=422,
+                detail="One or more athletes are invalid for this club/coach",
+            )
         team_gender = _normalize_gender(getattr(team, "gender", None))
         if team_gender:
             if (
@@ -291,6 +342,16 @@ def replace_team_members(
                 > 0
             ):
                 raise HTTPException(status_code=422, detail="Athlete gender does not match team gender")
+
+    removed_ids = [aid for aid in active_existing_ids if aid not in desired_ids]
+    if removed_ids:
+        to_remove = db.query(Athlete).filter(Athlete.id.in_(removed_ids)).all()
+        for athlete in to_remove:
+            if not _can_remove_athlete_from_team_roster(athlete, team, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Не можеш да премахнеш състезател, добавен от главния треньор и воден на отчет при друг треньор.",
+                )
 
     for athlete_id, member in existing_map.items():
         if athlete_id not in desired_ids and member.is_active:
@@ -509,14 +570,7 @@ def athlete_profile(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
     ),
 ):
-    athlete = (
-        db.query(Athlete)
-        .filter(
-            Athlete.id == athlete_id,
-            Athlete.club_id == current_user.club_id if _is_head_coach(current_user) else Athlete.coach_id == current_user.id,
-        )
-        .first()
-    )
+    athlete = _get_athlete_for_team_context(db, athlete_id, current_user)
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
 

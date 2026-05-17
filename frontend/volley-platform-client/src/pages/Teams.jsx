@@ -170,7 +170,7 @@ export default function Teams() {
       await axiosInstance.put(API_PATHS.TEAM_ASSIGN_COACH(assignTeam.id), { coach_id: nextCoachId });
       setAssignTeam(null);
       await Promise.all([loadTeams(), loadCoaches()]);
-      toast.success("Треньорът на отбора е сменен. Състезателите са прехвърлени към него.");
+      toast.success("Треньорът на отбора е сменен (график и присъствие). Таксите остават при отговорния треньор на всеки състезател.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна смяна на треньор за отбора."));
     } finally {

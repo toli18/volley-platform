@@ -38,6 +38,7 @@ export default function TeamDetails() {
   const [memberIds, setMemberIds] = useState([]);
   const [memberAthletes, setMemberAthletes] = useState([]);
   const [memberSearch, setMemberSearch] = useState("");
+  const [coaches, setCoaches] = useState([]);
 
   const [payAthlete, setPayAthlete] = useState(null);
   const [payForm, setPayForm] = useState({ month_key: new Date().toISOString().slice(0, 7), amount: "", note: "" });
@@ -58,12 +59,41 @@ export default function TeamDetails() {
 
   const loadAthletes = async () => {
     const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST);
-    const list = (Array.isArray(res.data) ? res.data : []).filter((a) => {
-      if (isHeadCoach) return true;
-      return Number(a?.coach_id) === currentUserId;
-    });
-    setAthletes(list);
+    const list = Array.isArray(res.data) ? res.data : [];
+    setAthletes(isHeadCoach ? list : list.filter((a) => Number(a?.coach_id) === currentUserId));
   };
+
+  const loadCoaches = async () => {
+    try {
+      const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
+      setCoaches(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setCoaches([]);
+    }
+  };
+
+  const coachNameById = useMemo(() => {
+    const map = new Map();
+    for (const c of coaches) {
+      if (c?.id != null) map.set(Number(c.id), c.name || `#${c.id}`);
+    }
+    return map;
+  }, [coaches]);
+
+  const feeCoachLabel = (coachId) => coachNameById.get(Number(coachId)) || `треньор #${coachId}`;
+
+  const canRecordFee = (athleteCoachId) => isHeadCoach || Number(athleteCoachId) === currentUserId;
+
+  const isTeamCoach = Number(team?.coach_id) === currentUserId;
+
+  const canManageRoster = useMemo(() => {
+    if (isHeadCoach) return true;
+    if (!isTeamCoach) return false;
+    return athletes.length > 0;
+  }, [isHeadCoach, isTeamCoach, athletes.length]);
+
+  const canRemoveMember = (feeCoachId) =>
+    isHeadCoach || (isTeamCoach && Number(feeCoachId) === currentUserId);
 
   const loadMembers = async () => {
     if (!teamIdNum) return;
@@ -77,7 +107,7 @@ export default function TeamDetails() {
     const run = async () => {
       try {
         setBusy(true);
-        await Promise.all([loadTeam(), loadAthletes(), loadMembers()]);
+        await Promise.all([loadTeam(), loadAthletes(), loadMembers(), loadCoaches()]);
       } catch (err) {
         toast.error(normalizeError(err));
       } finally {
@@ -194,9 +224,26 @@ export default function TeamDetails() {
         }
       />
 
+      {(isHeadCoach || isTeamCoach) && (
+        <p className="uiHint" style={{ margin: 0 }}>
+          Един състезател може да е в няколко отбора. Таксите се водят при един треньор (Месечни такси → Прехвърли).
+          {isHeadCoach && " Главният треньор управлява състава на всеки отбор."}
+          {canManageRoster && !isHeadCoach && " Можеш да добавяш и махаш само състезатели, които плащат при теб."}
+          {isTeamCoach && !canManageRoster &&
+            " Състезатели, добавени от главния треньор при друг треньор по такси — можеш само да водиш присъствие."}
+        </p>
+      )}
+
       <Card title="Състезатели в отбора">
         {(memberAthletes || []).length === 0 ? (
-          <EmptyState title="Няма добавени състезатели" description="Добави състезатели от търсачката по-долу." />
+          <EmptyState
+            title="Няма добавени състезатели"
+            description={
+              canManageRoster
+                ? "Добави състезатели от търсачката по-долу."
+                : "Съставът се попълва от главния треньор или от треньора по месечните такси."
+            }
+          />
         ) : (
           <>
             <div className="teamMembersDesktop">
@@ -208,17 +255,24 @@ export default function TeamDetails() {
                     <TableHead>Телефон</TableHead>
                     <TableHead>Профил</TableHead>
                     <TableHead>Такса</TableHead>
-                    <TableHead>Премахни</TableHead>
+                    {canManageRoster && <TableHead>Премахни</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {memberAthletes.map((a) => (
+                  {memberAthletes.map((a) => {
+                    const feeCoachId = a.fee_coach_id ?? athletes.find((x) => x.id === a.athlete_id)?.coach_id;
+                    return (
                     <TableRow key={a.athlete_id}>
                       <TableCell>
                         <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`} style={{ fontWeight: 700 }}>
                           {a.athlete_name}
                           {genderSuffix(a.gender)}
                         </Link>
+                        {feeCoachId != null && Number(feeCoachId) !== currentUserId && (
+                          <span className="uiMuted" style={{ fontSize: 12, display: "block", marginTop: 2 }}>
+                            Такси: {feeCoachLabel(feeCoachId)}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{a.parent_name || "-"}</TableCell>
                       <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
@@ -228,13 +282,25 @@ export default function TeamDetails() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
+                        {canRecordFee(feeCoachId) ? (
+                          <Button size="sm" onClick={() => setPayAthlete({ ...a, coach_id: feeCoachId })}>Плати такса</Button>
+                        ) : (
+                          <span className="uiMuted" style={{ fontSize: 12 }}>Такси при {feeCoachLabel(feeCoachId)}</span>
+                        )}
                       </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
-                      </TableCell>
+                      {canManageRoster && canRemoveMember(feeCoachId) && (
+                        <TableCell>
+                          <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
+                        </TableCell>
+                      )}
+                      {canManageRoster && !canRemoveMember(feeCoachId) && (
+                        <TableCell>
+                          <span className="uiMuted" style={{ fontSize: 12 }}>Само присъствие</span>
+                        </TableCell>
+                      )}
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -253,8 +319,12 @@ export default function TeamDetails() {
                     <Link to={`/teams/athletes/${a.athlete_id}?from=/teams/${teamIdNum}`}>
                       <Button size="sm" variant="ghost">Профил</Button>
                     </Link>
-                    <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
-                    <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
+                    {canRecordFee(a.fee_coach_id ?? athletes.find((x) => x.id === a.athlete_id)?.coach_id) ? (
+                      <Button size="sm" onClick={() => setPayAthlete(a)}>Плати такса</Button>
+                    ) : null}
+                    {canManageRoster && canRemoveMember(a.fee_coach_id ?? athletes.find((x) => x.id === a.athlete_id)?.coach_id) && (
+                      <Button size="sm" variant="danger" disabled={busy} onClick={() => removeMember(a.athlete_id)}>Премахни</Button>
+                    )}
                   </div>
                 </article>
               ))}
@@ -263,7 +333,19 @@ export default function TeamDetails() {
         )}
       </Card>
 
+      {isTeamCoach && !canManageRoster && (memberAthletes || []).length > 0 && (
+        <p className="uiHint">
+          В този отбор има състезатели, добавени от главния треньор. Можеш да водиш присъствие; премахване — само от главния или от треньора по таксите.
+        </p>
+      )}
+
+      {canManageRoster && (
       <Card title="Добави състезател (име или година)">
+        {!isHeadCoach && (
+          <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+            Показани са състезателите, които плащат месечната си такса при теб. Можеш да ги разпределяш в своите отбори.
+          </p>
+        )}
         <Input
           placeholder="Търси по име или година на раждане (напр. 2012)"
           value={memberSearch}
@@ -288,6 +370,7 @@ export default function TeamDetails() {
                       <TableHead>Състезател</TableHead>
                       <TableHead>Родител</TableHead>
                       <TableHead>Телефон</TableHead>
+                      {isHeadCoach && <TableHead>Такси при</TableHead>}
                       <TableHead>Добави</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -300,6 +383,7 @@ export default function TeamDetails() {
                         </TableCell>
                         <TableCell>{a.parent_name || "-"}</TableCell>
                         <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
+                        {isHeadCoach && <TableCell>{feeCoachLabel(a.coach_id)}</TableCell>}
                         <TableCell>
                           <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>
                         </TableCell>
@@ -317,6 +401,7 @@ export default function TeamDetails() {
                     </div>
                     <div className="teamMembersMeta">Родител: {a.parent_name || "няма данни"}</div>
                     <div className="teamMembersMeta">Телефон: {a.parent_phone || a.athlete_phone || "няма данни"}</div>
+                    <div className="teamMembersMeta">Такси: {feeCoachLabel(a.coach_id)}</div>
                     <Button size="sm" disabled={busy} onClick={() => addMember(a.id)}>Добави</Button>
                   </article>
                 ))}
@@ -325,6 +410,7 @@ export default function TeamDetails() {
           )}
         </div>
       </Card>
+      )}
 
       {payAthlete && (
         <div onClick={() => !busy && setPayAthlete(null)} className="uiModalOverlay">

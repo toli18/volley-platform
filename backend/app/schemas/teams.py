@@ -46,6 +46,7 @@ class TeamMemberUpdate(BaseModel):
 class TeamMemberAthleteRead(BaseModel):
     athlete_id: int
     athlete_name: str
+    fee_coach_id: Optional[int] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
