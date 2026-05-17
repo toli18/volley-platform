@@ -8,6 +8,7 @@ import { Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 import {
+  filterAttendanceByPeriod,
   formatCompetitionsMonthLabel,
   formatDaysUntil,
   formatFeeDueLabel,
@@ -59,7 +60,14 @@ const formatShortDate = (iso) => {
   return `${d}.${m}.${y}`;
 };
 
-const PARENT_LIST_PERIOD_OPTIONS = [
+const PARENT_ATTENDANCE_PERIOD_OPTIONS = [
+  { value: "3", label: "Последни 3" },
+  { value: "6", label: "Последни 6" },
+  { value: "12", label: "Последни 12" },
+  { value: "30d", label: "Последните 30 дни" },
+];
+
+const PARENT_FEES_PERIOD_OPTIONS = [
   { value: "3", label: "Последни 3" },
   { value: "6", label: "Последни 6" },
   { value: "12", label: "Последни 12" },
@@ -109,7 +117,8 @@ function HighlightEventBlock({ item, variant }) {
   );
 }
 
-function PeriodFilterSelect({ value, onChange, id }) {
+function PeriodFilterSelect({ value, onChange, id, options }) {
+  const periodOptions = options || PARENT_FEES_PERIOD_OPTIONS;
   return (
     <Input
       as="select"
@@ -119,7 +128,7 @@ function PeriodFilterSelect({ value, onChange, id }) {
       onChange={(e) => onChange(e.target.value)}
       aria-label="Период"
     >
-      {PARENT_LIST_PERIOD_OPTIONS.map((opt) => (
+      {periodOptions.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -287,9 +296,6 @@ export default function ParentPortal() {
                           : ""}
                       </p>
                     ) : null}
-                    <p className="parentPortalHighlightMuted parentPortalHighlightMuted--compact">
-                      Свържете се с треньора за уточняване на сумата.
-                    </p>
                   </>
                 )}
                 {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
@@ -347,7 +353,7 @@ export default function ParentPortal() {
             <Card
               title="Присъствие"
               subtitle={
-                allAttendance.length > 3
+                visibleAttendance.length !== allAttendance.length || attendancePeriod === "30d"
                   ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
                   : undefined
               }
@@ -356,6 +362,7 @@ export default function ParentPortal() {
                   id="parent-attendance-period"
                   value={attendancePeriod}
                   onChange={setAttendancePeriod}
+                  options={PARENT_ATTENDANCE_PERIOD_OPTIONS}
                 />
               }
             >
@@ -373,6 +380,11 @@ export default function ParentPortal() {
               ) : null}
               {allAttendance.length === 0 ? (
                 <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
+              ) : visibleAttendance.length === 0 ? (
+                <EmptyState
+                  title="Няма записи за избрания период"
+                  description="Променете филтъра или изчакайте маркиране от треньора."
+                />
               ) : (
                 <div className="parentPortalCardList">
                   {visibleAttendance.map((row, idx) => (
@@ -396,7 +408,12 @@ export default function ParentPortal() {
                   : "История на месечните такси"
               }
               actions={
-                <PeriodFilterSelect id="parent-fees-period" value={feesPeriod} onChange={setFeesPeriod} />
+                <PeriodFilterSelect
+                  id="parent-fees-period"
+                  value={feesPeriod}
+                  onChange={setFeesPeriod}
+                  options={PARENT_FEES_PERIOD_OPTIONS}
+                />
               }
             >
               <div className="parentPortalDesktopTable parentPortalTableWrap">

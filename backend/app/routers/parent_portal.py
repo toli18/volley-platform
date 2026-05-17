@@ -392,13 +392,14 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     )
     teams = [x[0] for x in team_rows]
 
+    attendance_since = (date.today() - timedelta(days=45)).isoformat()
     attendance_rows = (
         db.query(AttendanceRecord.status, TeamSession.date, Team.name)
         .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
         .join(Team, Team.id == TeamSession.team_id)
-        .filter(AttendanceRecord.athlete_id == athlete.id)
+        .filter(AttendanceRecord.athlete_id == athlete.id, TeamSession.date >= attendance_since)
         .order_by(TeamSession.date.desc())
-        .limit(60)
+        .limit(80)
         .all()
     )
     present = sum(1 for s, _, _ in attendance_rows if s == "present")
@@ -407,7 +408,9 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     excused = sum(1 for s, _, _ in attendance_rows if s == "excused")
     total = len(attendance_rows)
     rate = round(((present + late) / total) * 100.0, 1) if total else 0.0
-    last_attendance = [ParentAttendanceRow(status=s or "present", date=d, team_name=tname) for s, d, tname in attendance_rows[:30]]
+    last_attendance = [
+        ParentAttendanceRow(status=s or "present", date=d, team_name=tname) for s, d, tname in attendance_rows
+    ]
 
     mk = _month_window(12)
     pay_rows = db.query(AthletePayment).filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk)).all()

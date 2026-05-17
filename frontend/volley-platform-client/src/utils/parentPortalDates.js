@@ -56,6 +56,27 @@ export function formatFeeDueLabel(dueDay, monthKey) {
   return `Срок до ${day}-и, ${month}${year ? ` ${year}` : ""}`;
 }
 
+const attendanceCutoffIso = (days) => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/** Filter attendance rows for parent portal period (3/6/12 records or 30d). */
+export function filterAttendanceByPeriod(rows, period) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (period === "30d") {
+    const cutoff = attendanceCutoffIso(30);
+    return list.filter((r) => r?.date && String(r.date) >= cutoff);
+  }
+  const n = Number(period) || 3;
+  return list.slice(0, n);
+}
+
 export function formatPaidAtBg(isoOrDate) {
   if (!isoOrDate) return null;
   try {
