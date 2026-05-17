@@ -389,7 +389,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     today = date.today()
     horizon_to = (today + timedelta(days=45)).isoformat()
     upcoming_pool = _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
-    next_training = _pick_next_training(upcoming_pool)
+    next_event = _pick_next_event(upcoming_pool)
 
     current_pay = pay_map.get(this_month)
     current_month_fee = ParentCurrentMonthFee(
