@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 
 const nowMonth = () => {
   const d = new Date();
@@ -449,7 +450,7 @@ export default function ClubHeadDashboard() {
                 <span className="uiBadge">Общо: {overview?.fees?.total_athletes || 0}</span>
                 <span className="uiBadge uiBadge--success">Платили: {overview?.fees?.paid_athletes || 0}</span>
                 <span className="uiBadge uiBadge--danger">Неплатили: {overview?.fees?.unpaid_athletes || 0}</span>
-                <span className="uiBadge uiBadge--info">Сума: {Number(overview?.fees?.total_paid_amount || 0).toFixed(2)} лв.</span>
+                <span className="uiBadge uiBadge--info">Сума: {formatMoney(overview?.fees?.total_paid_amount)}</span>
               </div>
             </Card>
 
@@ -908,7 +909,7 @@ export default function ClubHeadDashboard() {
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Сума"
+                placeholder={AMOUNT_INPUT_PLACEHOLDER}
                 value={payForm.amount}
                 onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
               />

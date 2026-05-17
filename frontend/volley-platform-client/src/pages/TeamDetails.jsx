@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { AMOUNT_INPUT_PLACEHOLDER } from "../utils/currency";
 
 const genderSuffix = (g) => {
   if (g === "male") return " · М";
@@ -418,7 +419,7 @@ export default function TeamDetails() {
             <h3 className="uiModalTitle">Такса: {payAthlete.athlete_name}</h3>
             <div style={{ display: "grid", gap: 8 }}>
               <Input type="month" value={payForm.month_key} onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))} />
-              <Input type="number" step="0.01" placeholder="Сума" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} />
+              <Input type="number" step="0.01" placeholder={AMOUNT_INPUT_PLACEHOLDER} value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} />
               <Input placeholder="Бележка" value={payForm.note} onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))} />
               <div className="uiModalActions">
                 <Button disabled={busy} onClick={saveMemberFee}>Запиши такса</Button>

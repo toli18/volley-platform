@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAuth } from "./auth/AuthContext";
 import axiosInstance from "./utils/apiClient";
 import { API_PATHS } from "./utils/apiPaths";
+import { formatMoney } from "./utils/currency";
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
@@ -414,7 +415,7 @@ export default function Navbar() {
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Такса (клуб)</div>
               <div style={{ fontWeight: 700 }}>{item.athlete_name}</div>
               <div style={{ marginTop: 4, fontSize: 12, color: "#475569" }}>
-                {item.month_key} • {Number(item.amount || 0).toFixed(2)} лв. • от {item.coach_name}
+                {item.month_key} • {formatMoney(item.amount)} • от {item.coach_name}
               </div>
               <div style={{ marginTop: 4, fontSize: 12 }}>{item.paid_at ? new Date(item.paid_at).toLocaleString("bg-BG") : "—"}</div>
             </Link>

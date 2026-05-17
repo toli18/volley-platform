@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
 from app.models import (
     Athlete,
@@ -708,7 +709,7 @@ def athlete_profile(
                 "at": p.paid_at or p.created_at,
                 "kind": "payment",
                 "label": "Плащане месечна такса",
-                "detail": f"{p.month_key} · {float(p.amount or 0):.2f} лв.",
+                "detail": f"{p.month_key} · {format_money_eur(p.amount)}",
                 "actor_name": payer_all_names.get(p.coach_id),
             }
         )

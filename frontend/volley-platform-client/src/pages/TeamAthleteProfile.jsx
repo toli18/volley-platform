@@ -6,6 +6,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { formatMoney } from "../utils/currency";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -379,7 +380,7 @@ export default function TeamAthleteProfile() {
                 return (
                   <TableRow key={`${row.month_key}-${paid ? row.paid_at || "" : "unpaid"}`}>
                     <TableCell>{row.month_key}</TableCell>
-                    <TableCell>{paid ? `${Number(row.amount || 0).toFixed(2)} лв.` : "—"}</TableCell>
+                    <TableCell>{paid ? formatMoney(row.amount) : "—"}</TableCell>
                     <TableCell>{row.paid_at ? new Date(row.paid_at).toLocaleString("bg-BG") : "—"}</TableCell>
                     <TableCell>{paid ? (String(row.recorded_by_name || "").trim() || "—") : "—"}</TableCell>
                     <TableCell>

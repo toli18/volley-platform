@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Card, EmptyState } from "../components/ui";
+import { formatMoney } from "../utils/currency";
 
 const MONTHS_BG = [
   "януари", "февруари", "март", "април", "май", "юни",
@@ -177,7 +178,7 @@ export default function ParentPortal() {
                   <>
                     <p className="parentPortalHighlightMain">Платена</p>
                     <p className="parentPortalHighlightDetail">
-                      {Number(currentFee.amount || 0).toFixed(2)} лв.
+                      {formatMoney(currentFee.amount)}
                       {currentFee.paid_at
                         ? ` · ${new Date(currentFee.paid_at).toLocaleDateString("bg-BG")}`
                         : ""}
@@ -300,7 +301,7 @@ export default function ParentPortal() {
                     {(profile.monthly_payments || []).map((row) => (
                       <tr key={row.month_key}>
                         <td>{formatMonthKey(row.month_key)}</td>
-                        <td>{row.paid ? `${Number(row.amount || 0).toFixed(2)} лв.` : "—"}</td>
+                        <td>{row.paid ? formatMoney(row.amount) : "—"}</td>
                         <td>
                           <span className={`uiBadge ${row.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
                             {row.paid ? "Да" : "Не"}
@@ -318,7 +319,7 @@ export default function ParentPortal() {
                     <div className="parentPortalSessionCardDate">{formatMonthKey(row.month_key)}</div>
                     <div className="parentPortalSessionCardBody">
                       <span className={`uiBadge ${row.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                        {row.paid ? `Платено · ${Number(row.amount || 0).toFixed(2)} лв.` : "Неплатено"}
+                        {row.paid ? `Платено · ${formatMoney(row.amount)}` : "Неплатено"}
                       </span>
                       {row.paid_at ? (
                         <div className="parentPortalSessionCardMeta">

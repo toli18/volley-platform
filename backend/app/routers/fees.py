@@ -18,6 +18,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from app.database import get_db
+from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, User, UserRole
 from app.schemas.fees import (
@@ -821,7 +822,7 @@ def payment_receipt_pdf(
             "",
             f"Период (месец): {payment.month_key}",
             f"Основание: Месечна такса тренировки",
-            f"Платена сума: {payment.amount:.2f} лв.",
+            f"Платена сума: {format_money_eur(payment.amount)}",
         ]
         if payment.note:
             lines.append(f"Бележка: {payment.note}")

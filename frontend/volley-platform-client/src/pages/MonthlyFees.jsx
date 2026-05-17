@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -865,7 +866,7 @@ export default function MonthlyFees() {
 
       {athleteReport && (
         <Card
-          title={`Отчет по месеци: ${athleteReport.athlete?.athlete_name} (Общо платено: ${Number(athleteReport.total_paid || 0).toFixed(2)} лв.)`}
+          title={`Отчет по месеци: ${athleteReport.athlete?.athlete_name} (Общо платено: ${formatMoney(athleteReport.total_paid)})`}
         >
           <Table>
             <TableHeader>
@@ -885,7 +886,7 @@ export default function MonthlyFees() {
                       {m.paid ? "Платено" : "Неплатено"}
                     </span>
                   </TableCell>
-                  <TableCell>{m.paid ? `${Number(m.amount || 0).toFixed(2)} лв.` : "—"}</TableCell>
+                  <TableCell>{m.paid ? formatMoney(m.amount) : "—"}</TableCell>
                   <TableCell>
                     {m.payment_id ? (
                       <Button size="sm" variant="secondary" onClick={() => downloadReceipt(m.payment_id)}>
@@ -922,7 +923,7 @@ export default function MonthlyFees() {
                   </TableCell>
                   <TableCell>{row.paid_months}</TableCell>
                   <TableCell>{row.unpaid_months}</TableCell>
-                  <TableCell>{Number(row.total_paid || 0).toFixed(2)} лв.</TableCell>
+                  <TableCell>{formatMoney(row.total_paid)}</TableCell>
                   <TableCell>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {(row.months || []).map((m) => (
@@ -958,7 +959,7 @@ export default function MonthlyFees() {
               <Input
                 type="number"
                 step="0.01"
-                placeholder="Сума"
+                placeholder={AMOUNT_INPUT_PLACEHOLDER}
                 value={payForm.amount}
                 onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
               />
