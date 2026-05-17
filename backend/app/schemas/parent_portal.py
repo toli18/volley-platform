@@ -48,6 +48,20 @@ class ParentAttendanceSummary(BaseModel):
     attendance_rate_percent: float = 0.0
 
 
+class ParentFeeCoachContact(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    club_name: Optional[str] = None
+    club_phone: Optional[str] = None
+
+
+class ParentCurrentMonthFee(BaseModel):
+    month_key: str
+    paid: bool = False
+    amount: float = 0.0
+    paid_at: Optional[datetime] = None
+
+
 class ParentAthleteProfileResponse(BaseModel):
     athlete_id: int
     athlete_name: str
@@ -55,6 +69,9 @@ class ParentAthleteProfileResponse(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     teams: list[str] = Field(default_factory=list)
+    fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)
+    current_month_fee: ParentCurrentMonthFee
+    next_training: Optional[ParentScheduleItem] = None
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
     last_attendance: list[ParentAttendanceRow] = Field(default_factory=list)
     monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)

@@ -14,6 +14,7 @@ from app.models import (
     AthleteParentAccessToken,
     AthletePayment,
     AttendanceRecord,
+    Club,
     Team,
     TeamMember,
     TeamSession,
@@ -28,6 +29,8 @@ from app.schemas.parent_portal import (
     ParentAthleteProfileResponse,
     ParentAttendanceRow,
     ParentAttendanceSummary,
+    ParentCurrentMonthFee,
+    ParentFeeCoachContact,
     ParentPaymentRow,
     ParentScheduleItem,
 )
@@ -69,6 +72,89 @@ def _build_parent_url(request: Request, token_raw: str) -> str:
         return f"{origin}/parent/{token_raw}"
     base = str(request.base_url).rstrip("/")
     return f"{base}/parent/{token_raw}"
+
+
+def _month_last_day(month_key: str) -> str:
+    y, m = [int(x) for x in month_key.split("-")]
+    last = date(y, m, 1).replace(day=28) + timedelta(days=4)
+    last = (last - timedelta(days=last.day)).day
+    return f"{month_key}-{str(last).zfill(2)}"
+
+
+def _build_schedule_for_teams(
+    db: Session,
+    team_ids: list[int],
+    from_date: str,
+    to_date: str,
+) -> list[ParentScheduleItem]:
+    if not team_ids:
+        return []
+    rules = (
+        db.query(TrainingScheduleRule)
+        .filter(
+            TrainingScheduleRule.team_id.in_(team_ids),
+            TrainingScheduleRule.is_active.is_(True),
+            TrainingScheduleRule.effective_from <= to_date,
+            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= from_date),
+        )
+        .all()
+    )
+    if not rules:
+        return []
+    rule_ids = [r.id for r in rules]
+    exc_rows = (
+        db.query(TrainingScheduleException)
+        .filter(
+            TrainingScheduleException.rule_id.in_(rule_ids),
+            TrainingScheduleException.date >= from_date,
+            TrainingScheduleException.date <= to_date,
+        )
+        .all()
+    )
+    exc_map = {(e.rule_id, e.date): e for e in exc_rows}
+    team_name_map = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all())
+    d0 = datetime.strptime(from_date, "%Y-%m-%d").date()
+    d1 = datetime.strptime(to_date, "%Y-%m-%d").date()
+    days = (d1 - d0).days
+    schedule_items: list[ParentScheduleItem] = []
+    for i in range(days + 1):
+        cur = d0 + timedelta(days=i)
+        cur_s = cur.isoformat()
+        for r in rules:
+            if int(r.weekday) != cur.weekday():
+                continue
+            if r.effective_from > cur_s:
+                continue
+            if r.effective_to and r.effective_to < cur_s:
+                continue
+            exc = exc_map.get((r.id, cur_s))
+            if exc and exc.kind == "cancelled":
+                continue
+            location = exc.location if exc and exc.kind == "override" and exc.location else r.location
+            start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
+            end_t = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+            schedule_items.append(
+                ParentScheduleItem(
+                    date=cur_s,
+                    start_time=start_t,
+                    end_time=end_t,
+                    location=location,
+                    team_name=team_name_map.get(int(r.team_id)),
+                )
+            )
+    schedule_items.sort(key=lambda x: (x.date, x.start_time or ""))
+    return schedule_items
+
+
+def _pick_next_training(items: list[ParentScheduleItem]) -> ParentScheduleItem | None:
+    today_s = date.today().isoformat()
+    now_t = datetime.utcnow().strftime("%H:%M")
+    for item in items:
+        if item.date > today_s:
+            return item
+        if item.date == today_s and (item.start_time or "") >= now_t:
+            return item
+    return None
 
 
 def _ensure_athlete_owned(db: Session, athlete_id: int, current_user: User) -> Athlete:
@@ -232,62 +318,34 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
 
     this_month = _month_key_now()
     from_date = f"{this_month}-01"
-    y, m = [int(x) for x in this_month.split("-")]
-    last_day = date(y, m, 1).replace(day=28) + timedelta(days=4)
-    last_day = (last_day - timedelta(days=last_day.day)).day
-    to_date = f"{this_month}-{str(last_day).zfill(2)}"
+    to_date = _month_last_day(this_month)
 
     team_ids = [tm.team_id for tm in db.query(TeamMember).filter(TeamMember.athlete_id == athlete.id, TeamMember.is_active.is_(True)).all()]
-    schedule_items: list[ParentScheduleItem] = []
-    if team_ids:
-        rules = (
-            db.query(TrainingScheduleRule)
-            .filter(
-                TrainingScheduleRule.team_id.in_(team_ids),
-                TrainingScheduleRule.is_active.is_(True),
-                TrainingScheduleRule.effective_from <= to_date,
-                (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= from_date),
-            )
-            .all()
-        )
-        if rules:
-            rule_ids = [r.id for r in rules]
-            exc_rows = (
-                db.query(TrainingScheduleException)
-                .filter(TrainingScheduleException.rule_id.in_(rule_ids), TrainingScheduleException.date >= from_date, TrainingScheduleException.date <= to_date)
-                .all()
-            )
-            exc_map = {(e.rule_id, e.date): e for e in exc_rows}
-            team_name_map = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all())
-            d0 = datetime.strptime(from_date, "%Y-%m-%d").date()
-            d1 = datetime.strptime(to_date, "%Y-%m-%d").date()
-            days = (d1 - d0).days
-            for i in range(days + 1):
-                cur = d0 + timedelta(days=i)
-                cur_s = cur.isoformat()
-                for r in rules:
-                    if int(r.weekday) != cur.weekday():
-                        continue
-                    if r.effective_from > cur_s:
-                        continue
-                    if r.effective_to and r.effective_to < cur_s:
-                        continue
-                    exc = exc_map.get((r.id, cur_s))
-                    if exc and exc.kind == "cancelled":
-                        continue
-                    location = exc.location if exc and exc.kind == "override" and exc.location else r.location
-                    start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
-                    end_t = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
-                    schedule_items.append(
-                        ParentScheduleItem(
-                            date=cur_s,
-                            start_time=start_t,
-                            end_time=end_t,
-                            location=location,
-                            team_name=team_name_map.get(int(r.team_id)),
-                        )
-                    )
-            schedule_items.sort(key=lambda x: (x.date, x.start_time))
+    schedule_items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+
+    today = date.today()
+    horizon_to = (today + timedelta(days=45)).isoformat()
+    upcoming_pool = _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
+    next_training = _pick_next_training(upcoming_pool)
+
+    current_pay = pay_map.get(this_month)
+    current_month_fee = ParentCurrentMonthFee(
+        month_key=this_month,
+        paid=this_month in pay_map,
+        amount=float(current_pay.amount or 0) if current_pay else 0.0,
+        paid_at=current_pay.paid_at if current_pay else None,
+    )
+
+    fee_coach = ParentFeeCoachContact()
+    coach_row = db.query(User).filter(User.id == athlete.coach_id).first()
+    if coach_row:
+        fee_coach.name = coach_row.name
+        fee_coach.email = coach_row.email
+    if athlete.club_id:
+        club_row = db.query(Club).filter(Club.id == athlete.club_id).first()
+        if club_row:
+            fee_coach.club_name = club_row.name
+            fee_coach.club_phone = club_row.contact_phone
 
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
@@ -296,6 +354,9 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,
         teams=teams,
+        fee_coach=fee_coach,
+        current_month_fee=current_month_fee,
+        next_training=next_training,
         attendance_summary=ParentAttendanceSummary(
             present=present,
             late=late,

@@ -659,6 +659,275 @@
   overflow-x: auto;
 }
 
+/* Parent portal (read-only, mobile-first) */
+.appShell--parentPortal .appContent--parentPortal {
+  padding: 0;
+  max-width: none;
+}
+
+.parentPortalShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #f4f8f6 0%, #eef3f8 48%, #f8fafc 100%);
+}
+
+.parentPortalHeader {
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  padding: 14px 16px;
+  box-shadow: 0 4px 18px rgba(15, 77, 58, 0.18);
+}
+
+.parentPortalHeaderInner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.parentPortalLogo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.parentPortalBrand {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.parentPortalBrandSub {
+  font-size: 12px;
+  opacity: 0.88;
+  margin-top: 2px;
+}
+
+.parentPortalMain {
+  flex: 1;
+  width: 100%;
+}
+
+.parentPortalFooter {
+  padding: 14px 16px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.parentPortalPage {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 14px 28px;
+}
+
+.parentPortalHero {
+  margin-bottom: 14px;
+}
+
+.parentPortalHeroTitle {
+  margin: 0;
+  font-size: clamp(22px, 5vw, 28px);
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.parentPortalHeroSub {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.parentPortalHighlightGrid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 640px) {
+  .parentPortalHighlightGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.parentPortalHighlightCard {
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid rgba(15, 77, 58, 0.12);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.parentPortalHighlightCard--schedule {
+  border-left: 4px solid #1a6b52;
+}
+
+.parentPortalHighlightCard--paid {
+  border-left: 4px solid #16a34a;
+}
+
+.parentPortalHighlightCard--unpaid {
+  border-left: 4px solid #dc2626;
+}
+
+.parentPortalHighlightTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.parentPortalHighlightMain {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.parentPortalHighlightDetail {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.parentPortalHighlightMuted {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.parentPortalContactBox {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.parentPortalContactLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.parentPortalContactLink {
+  color: #1a6b52;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.parentPortalInfoGrid,
+.parentPortalBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parentPortalCardList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.parentPortalSessionCard {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.parentPortalSessionCardDate {
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 13px;
+  color: #1a6b52;
+  min-width: 72px;
+}
+
+.parentPortalSessionCardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.parentPortalSessionCardTime {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.parentPortalSessionCardMeta {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.parentPortalTeamSection {
+  margin-bottom: 16px;
+}
+
+.parentPortalTeamSection:last-child {
+  margin-bottom: 0;
+}
+
+.parentPortalTeamSectionTitle {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #0f4d3a;
+}
+
+.parentPortalTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.parentPortalTable th,
+.parentPortalTable td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parentPortalTable th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.parentPortalMobileOnly {
+  display: none;
+}
+
+.parentPortalDesktopTable {
+  display: block;
+}
+
+@media (max-width: 680px) {
+  .parentPortalMobileOnly {
+    display: grid;
+    margin-top: 12px;
+  }
+
+  .parentPortalDesktopTable {
+    display: none;
+  }
+}
+
 .athleteParentAccessActions {
   align-items: center;
 }

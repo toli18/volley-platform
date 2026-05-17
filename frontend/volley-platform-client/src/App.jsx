@@ -17,15 +17,20 @@ export default function App() {
     return sp.get("mode") === "field";
   }, [location.pathname, location.search]);
 
+  const isParentPortal = useMemo(() => {
+    const path = location.pathname || "";
+    return path === "/parent" || path.startsWith("/parent/");
+  }, [location.pathname]);
+
   return (
-    <div className="appShell bfvTheme">
-      {!isImmersiveMode ? <Navbar /> : null}
-      <main className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""}`.trim()}>
+    <div className={`appShell bfvTheme ${isParentPortal ? "appShell--parentPortal" : ""}`.trim()}>
+      {!isImmersiveMode && !isParentPortal ? <Navbar /> : null}
+      <main className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""} ${isParentPortal ? "appContent--parentPortal" : ""}`.trim()}>
         <Suspense fallback={<div style={{ padding: 24 }}>Зареждане...</div>}>
           <Outlet />
         </Suspense>
       </main>
-      {!isImmersiveMode ? (
+      {!isImmersiveMode && !isParentPortal ? (
         <footer className="appFooter">
           <span>Volley Coach Platform</span>
           <span>Българска федерация по волейбол</span>
