@@ -3,13 +3,16 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState } from "../ui";
+import ParentDayDetailModal from "./ParentDayDetailModal";
 import {
   WEEKDAY_HEADERS,
   addDaysIso,
   buildMonthCells,
+  formatParentDayLabel,
   formatWeekRangeLabel,
   groupItemsByDate,
   itemsInWeek,
+  itemsOnDate,
   mondayOfWeek,
   shiftMonthKey,
   slotKey,
@@ -45,14 +48,15 @@ function SessionBlock({ row, compact }) {
   );
 }
 
-function WeekGrid({ items, weekStart }) {
+function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
   const slots = useMemo(() => timeSlotsForWeek(items, weekStart), [items, weekStart]);
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
+  const byDate = useMemo(() => groupItemsByDate(inWeek), [inWeek]);
 
   if (slots.length === 0) {
     return (
       <EmptyState
-        title="Няма тренировки тази седмица"
+        title="Няма събития тази седмица"
         description="Избери друга седмица или прегледай месечния изглед."
       />
     );
@@ -60,16 +64,27 @@ function WeekGrid({ items, weekStart }) {
 
   return (
     <div className="parentPortalWeekWrap">
+      <p className="uiHint parentPortalScheduleHint">Кликнете върху ден от седмицата или клетка за пълен списък.</p>
       <div
         className="parentPortalWeekGrid"
         style={{ gridTemplateColumns: `72px repeat(7, minmax(88px, 1fr))` }}
       >
         <div className="parentPortalWeekCorner" />
-        {WEEKDAY_HEADERS.map((name) => (
-          <div key={name} className="parentPortalWeekDayHead">
-            {name}
-          </div>
-        ))}
+        {WEEKDAY_HEADERS.map((name, dayIdx) => {
+          const date = addDaysIso(weekStart, dayIdx);
+          const count = (byDate.get(date) || []).length;
+          return (
+            <button
+              key={name}
+              type="button"
+              className={`parentPortalWeekDayHead parentPortalWeekDayHead--btn${selectedDate === date ? " is-selected" : ""}`}
+              onClick={() => onDayClick(date)}
+            >
+              {name}
+              {count ? <span className="parentPortalWeekDayCount">{count}</span> : null}
+            </button>
+          );
+        })}
 
         {slots.map((slot) => (
           <Fragment key={slot.key}>
@@ -81,7 +96,19 @@ function WeekGrid({ items, weekStart }) {
               const date = addDaysIso(weekStart, dayIdx);
               const cellItems = inWeek.filter((it) => it.date === date && slotKey(it) === slot.key);
               return (
-                <div key={`${slot.key}-${date}`} className="parentPortalWeekCell">
+                <div
+                  key={`${slot.key}-${date}`}
+                  className={`parentPortalWeekCell${selectedDate === date ? " parentPortalWeekCell--selected" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDayClick(date)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onDayClick(date);
+                    }
+                  }}
+                >
                   {cellItems.map((row, i) => (
                     <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} compact />
                   ))}
@@ -95,12 +122,13 @@ function WeekGrid({ items, weekStart }) {
   );
 }
 
-function MonthGrid({ items, monthKey }) {
+function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
   const cells = useMemo(() => buildMonthCells(monthKey), [monthKey]);
   const byDate = useMemo(() => groupItemsByDate(items), [items]);
 
   return (
     <div className="parentPortalMonthWrap">
+      <p className="uiHint parentPortalScheduleHint">Кликнете върху ден за пълен списък със събития.</p>
       <div className="parentPortalMonthHeadRow">
         {WEEKDAY_HEADERS.map((name) => (
           <div key={name} className="parentPortalMonthDayLabel">
@@ -115,7 +143,12 @@ function MonthGrid({ items, monthKey }) {
           }
           const dayItems = byDate.get(cell.date) || [];
           return (
-            <div key={cell.date} className="parentPortalMonthCell">
+            <button
+              key={cell.date}
+              type="button"
+              className={`parentPortalMonthCell parentPortalMonthCell--btn${selectedDate === cell.date ? " is-selected" : ""}`}
+              onClick={() => onDayClick(cell.date)}
+            >
               <div className="parentPortalMonthCellDay">{cell.day}</div>
               <div className="parentPortalMonthCellBody">
                 {dayItems.slice(0, 2).map((row, i) => (
@@ -125,7 +158,7 @@ function MonthGrid({ items, monthKey }) {
                   <div className="parentPortalMonthMore">+{dayItems.length - 2} още</div>
                 ) : null}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -142,6 +175,7 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(today));
   const [cache, setCache] = useState(() => ({ [defaultMonth]: initialItems || [] }));
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
   const loadedMonthsRef = useRef(new Set([defaultMonth]));
 
   const weekMonths = useMemo(() => {
@@ -181,6 +215,15 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
     };
   }, [token, monthKey, weekMonths, view]);
 
+  useEffect(() => {
+    if (!selectedDate) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setSelectedDate("");
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectedDate]);
+
   const monthItems = cache[monthKey] || [];
 
   const weekItems = useMemo(() => {
@@ -191,13 +234,23 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
     return merged;
   }, [cache, weekMonths]);
 
+  const activeItems = view === "week" ? weekItems : monthItems;
+  const hasCompetitions = useMemo(() => activeItems.some((it) => isCompetitionEvent(it)), [activeItems]);
+
   const teamsLegend = useMemo(() => {
-    const source = view === "week" ? weekItems : monthItems;
-    return [...new Set(source.map((it) => it.team_name).filter(Boolean))];
-  }, [view, weekItems, monthItems]);
+    return [...new Set(activeItems.map((it) => it.team_name).filter(Boolean))];
+  }, [activeItems]);
+
+  const selectedDayItems = useMemo(() => {
+    if (!selectedDate) return [];
+    if (view === "week") return itemsOnDate(weekItems, selectedDate);
+    return itemsOnDate(monthItems, selectedDate);
+  }, [selectedDate, view, weekItems, monthItems]);
+
+  const openDay = (date) => setSelectedDate(date);
 
   if (!initialItems?.length && !loadingMonth) {
-    return <EmptyState title="Няма тренировки за този месец" description="Когато треньорът добави график, ще го виждате тук." />;
+    return <EmptyState title="Няма събития за този месец" description="Когато треньорът добави график, ще го виждате тук." />;
   }
 
   return (
@@ -207,14 +260,20 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
           <button
             type="button"
             className={`parentPortalScheduleViewBtn${view === "week" ? " is-active" : ""}`}
-            onClick={() => setView("week")}
+            onClick={() => {
+              setView("week");
+              setSelectedDate("");
+            }}
           >
             Седмица
           </button>
           <button
             type="button"
             className={`parentPortalScheduleViewBtn${view === "month" ? " is-active" : ""}`}
-            onClick={() => setView("month")}
+            onClick={() => {
+              setView("month");
+              setSelectedDate("");
+            }}
           >
             Месец
           </button>
@@ -243,32 +302,43 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
         )}
       </div>
 
-      {teamsLegend.length > 1 ? (
-        <div className="parentPortalScheduleLegend">
-          {teamsLegend.map((name) => {
-            const c = teamColorForName(name);
-            return (
-              <span
-                key={name}
-                className="parentPortalScheduleLegendItem"
-                style={{ borderColor: c.border, background: c.bg, color: c.text }}
-              >
-                {name}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
+      <div className="parentPortalScheduleLegend">
+        <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--training">Тренировка</span>
+        {hasCompetitions ? (
+          <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--competition">Състезание</span>
+        ) : null}
+        {teamsLegend.length > 1
+          ? teamsLegend.map((name) => {
+              const c = teamColorForName(name);
+              return (
+                <span
+                  key={name}
+                  className="parentPortalScheduleLegendItem"
+                  style={{ borderColor: c.border, background: c.bg, color: c.text }}
+                >
+                  {name}
+                </span>
+              );
+            })
+          : null}
+      </div>
 
       {loadingMonth ? <p className="uiHint">Зареждане на график...</p> : null}
 
       {view === "week" ? (
-        <WeekGrid items={weekItems} weekStart={weekStart} />
+        <WeekGrid items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
       ) : monthItems.length === 0 && !loadingMonth ? (
-        <EmptyState title="Няма тренировки" description={`За ${formatMonthKey(monthKey)} няма записани тренировки.`} />
+        <EmptyState title="Няма събития" description={`За ${formatMonthKey(monthKey)} няма записани събития.`} />
       ) : (
-        <MonthGrid items={monthItems} monthKey={monthKey} />
+        <MonthGrid items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
       )}
+
+      <ParentDayDetailModal
+        date={selectedDate}
+        items={selectedDayItems}
+        formatDateLabel={formatParentDayLabel}
+        onClose={() => setSelectedDate("")}
+      />
     </div>
   );
 }

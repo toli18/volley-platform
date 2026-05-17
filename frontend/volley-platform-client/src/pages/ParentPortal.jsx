@@ -4,8 +4,9 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
-import { Card, EmptyState } from "../components/ui";
+import { Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
+import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 
 const MONTHS_BG = [
   "януари", "февруари", "март", "април", "май", "юни",
@@ -52,6 +53,31 @@ const formatShortDate = (iso) => {
   return `${d}.${m}.${y}`;
 };
 
+const PARENT_LIST_PERIOD_OPTIONS = [
+  { value: "3", label: "Последни 3" },
+  { value: "6", label: "Последни 6" },
+  { value: "12", label: "Последни 12" },
+];
+
+function PeriodFilterSelect({ value, onChange, id }) {
+  return (
+    <Input
+      as="select"
+      id={id}
+      className="parentPortalPeriodSelect"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Период"
+    >
+      {PARENT_LIST_PERIOD_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </Input>
+  );
+}
+
 function ParentPortalShell({ children }) {
   return (
     <div className="parentPortalShell">
@@ -78,6 +104,8 @@ export default function ParentPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
+  const [attendancePeriod, setAttendancePeriod] = useState("3");
+  const [feesPeriod, setFeesPeriod] = useState("3");
 
   useEffect(() => {
     let cancelled = false;
@@ -103,8 +131,21 @@ export default function ParentPortal() {
 
   const feeCoach = profile?.fee_coach || {};
   const currentFee = profile?.current_month_fee;
-  const next = profile?.next_training;
+  const next = profile?.next_event || profile?.next_training;
   const summary = profile?.attendance_summary;
+
+  const allAttendance = profile?.last_attendance ?? [];
+  const allPayments = profile?.monthly_payments ?? [];
+
+  const visibleAttendance = useMemo(() => {
+    const n = Number(attendancePeriod) || 3;
+    return allAttendance.slice(0, n);
+  }, [profile?.last_attendance, attendancePeriod, allAttendance]);
+
+  const visiblePayments = useMemo(() => {
+    const n = Number(feesPeriod) || 3;
+    return allPayments.slice(0, n);
+  }, [profile?.monthly_payments, feesPeriod, allPayments]);
 
   return (
     <ParentPortalShell>
@@ -130,20 +171,27 @@ export default function ParentPortal() {
           <>
             <div className="parentPortalHighlightGrid">
               <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
-                <h2 className="parentPortalHighlightTitle">Следваща тренировка</h2>
+                <h2 className="parentPortalHighlightTitle">Следващо събитие</h2>
                 {next ? (
                   <>
+                    <p
+                      className={`parentPortalHighlightBadge${isCompetitionEvent(next) ? " parentPortalHighlightBadge--competition" : ""}`}
+                    >
+                      {isCompetitionEvent(next) ? competitionKindLabel(next) : "Тренировка"}
+                    </p>
                     <p className="parentPortalHighlightMain">{formatDateBg(next.date)}</p>
                     <p className="parentPortalHighlightDetail">
                       {next.start_time} – {next.end_time}
                       {next.team_name ? ` · ${next.team_name}` : ""}
                     </p>
                     {next.location ? (
-                      <p className="parentPortalHighlightDetail">Зала: {next.location}</p>
+                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={next.location}>
+                        Място: {next.location}
+                      </p>
                     ) : null}
                   </>
                 ) : (
-                  <p className="parentPortalHighlightMuted">Няма предстояща тренировка в следващите седмици.</p>
+                  <p className="parentPortalHighlightMuted">Няма предстоящи тренировки или състезания в следващите седмици.</p>
                 )}
               </section>
 
@@ -208,7 +256,21 @@ export default function ParentPortal() {
               ) : null}
             </Card>
 
-            <Card title="Присъствие">
+            <Card
+              title="Присъствие"
+              subtitle={
+                allAttendance.length > 3
+                  ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
+                  : undefined
+              }
+              actions={
+                <PeriodFilterSelect
+                  id="parent-attendance-period"
+                  value={attendancePeriod}
+                  onChange={setAttendancePeriod}
+                />
+              }
+            >
               <div className="parentPortalBadgeRow">
                 <span className="uiBadge uiBadge--success">Присъства: {summary?.present || 0}</span>
                 <span className="uiBadge uiBadge--warning">Закъсня: {summary?.late || 0}</span>
@@ -221,11 +283,11 @@ export default function ParentPortal() {
                   Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
                 </p>
               ) : null}
-              {(profile.last_attendance || []).length === 0 ? (
+              {allAttendance.length === 0 ? (
                 <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
               ) : (
                 <div className="parentPortalCardList">
-                  {(profile.last_attendance || []).map((row, idx) => (
+                  {visibleAttendance.map((row, idx) => (
                     <article key={`${row.date}-${idx}`} className="parentPortalSessionCard">
                       <div className="parentPortalSessionCardDate">{formatShortDate(row.date)}</div>
                       <div className="parentPortalSessionCardBody">
@@ -247,7 +309,17 @@ export default function ParentPortal() {
               />
             </Card>
 
-            <Card title="Такси (последни 12 месеца)">
+            <Card
+              title="Такси"
+              subtitle={
+                allPayments.length > 3
+                  ? `Показани ${visiblePayments.length} от ${allPayments.length} месеца`
+                  : "История на месечните такси"
+              }
+              actions={
+                <PeriodFilterSelect id="parent-fees-period" value={feesPeriod} onChange={setFeesPeriod} />
+              }
+            >
               <div className="parentPortalDesktopTable parentPortalTableWrap">
                 <table className="parentPortalTable">
                   <thead>
@@ -259,7 +331,7 @@ export default function ParentPortal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(profile.monthly_payments || []).map((row) => (
+                    {visiblePayments.map((row) => (
                       <tr key={row.month_key}>
                         <td>{formatMonthKey(row.month_key)}</td>
                         <td>{row.paid ? formatMoney(row.amount) : "—"}</td>
@@ -275,7 +347,7 @@ export default function ParentPortal() {
                 </table>
               </div>
               <div className="parentPortalCardList parentPortalMobileOnly">
-                {(profile.monthly_payments || []).map((row) => (
+                {visiblePayments.map((row) => (
                   <article key={row.month_key} className="parentPortalSessionCard">
                     <div className="parentPortalSessionCardDate">{formatMonthKey(row.month_key)}</div>
                     <div className="parentPortalSessionCardBody">

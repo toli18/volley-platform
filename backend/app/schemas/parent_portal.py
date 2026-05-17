@@ -74,7 +74,8 @@ class ParentAthleteProfileResponse(BaseModel):
     teams: list[str] = Field(default_factory=list)
     fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)
     current_month_fee: ParentCurrentMonthFee
-    next_training: Optional[ParentScheduleItem] = None
+    next_event: Optional[ParentScheduleItem] = None
+    next_training: Optional[ParentScheduleItem] = None  # alias of next_event (compat)
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
     last_attendance: list[ParentAttendanceRow] = Field(default_factory=list)
     schedule_month_key: Optional[str] = None

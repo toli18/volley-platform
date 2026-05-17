@@ -103,3 +103,21 @@ export function shiftMonthKey(monthKey, delta) {
   const d = new Date(y, m - 1 + delta, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+export function formatParentDayLabel(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("bg-BG", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+export function itemsOnDate(items, date) {
+  return (items || []).filter((it) => it.date === date);
+}

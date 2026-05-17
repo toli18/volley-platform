@@ -178,7 +178,7 @@ def _build_schedule_for_teams(
     return schedule_items
 
 
-def _pick_next_training(items: list[ParentScheduleItem]) -> ParentScheduleItem | None:
+def _pick_next_event(items: list[ParentScheduleItem]) -> ParentScheduleItem | None:
     today_s = date.today().isoformat()
     now_t = datetime.utcnow().strftime("%H:%M")
     for item in items:
@@ -355,7 +355,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         .join(Team, Team.id == TeamSession.team_id)
         .filter(AttendanceRecord.athlete_id == athlete.id)
         .order_by(TeamSession.date.desc())
-        .limit(30)
+        .limit(60)
         .all()
     )
     present = sum(1 for s, _, _ in attendance_rows if s == "present")
@@ -364,7 +364,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     excused = sum(1 for s, _, _ in attendance_rows if s == "excused")
     total = len(attendance_rows)
     rate = round(((present + late) / total) * 100.0, 1) if total else 0.0
-    last_attendance = [ParentAttendanceRow(status=s or "present", date=d, team_name=tname) for s, d, tname in attendance_rows[:15]]
+    last_attendance = [ParentAttendanceRow(status=s or "present", date=d, team_name=tname) for s, d, tname in attendance_rows[:30]]
 
     mk = _month_window(12)
     pay_rows = db.query(AthletePayment).filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk)).all()
@@ -419,7 +419,8 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         teams=teams,
         fee_coach=fee_coach,
         current_month_fee=current_month_fee,
-        next_training=next_training,
+        next_event=next_event,
+        next_training=next_event,
         attendance_summary=ParentAttendanceSummary(
             present=present,
             late=late,
