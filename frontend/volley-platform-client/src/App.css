@@ -891,6 +891,17 @@
   font-size: 13px;
 }
 
+.parentPortalSessionCard--cancelled {
+  opacity: 0.85;
+  background: #f8fafc;
+}
+
+.parentPortalSessionCard--cancelled .parentPortalSessionCardDate,
+.parentPortalSessionCard--cancelled .parentPortalSessionCardMeta {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
 .parentPortalHighlightMuted {
   margin: 0;
   font-size: 14px;

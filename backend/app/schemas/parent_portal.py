@@ -39,7 +39,9 @@ class ParentPaymentRow(BaseModel):
 class ParentAttendanceRow(BaseModel):
     date: str
     team_name: Optional[str] = None
+    team_id: Optional[int] = None
     status: str
+    is_cancelled: bool = False
 
 
 class ParentAttendanceSummary(BaseModel):

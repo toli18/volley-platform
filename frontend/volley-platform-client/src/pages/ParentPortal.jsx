@@ -13,6 +13,7 @@ import {
   formatDaysUntil,
   formatFeeDueLabel,
   formatPaidAtBg,
+  summarizeAttendanceRows,
 } from "../utils/parentPortalDates";
 
 const MONTHS_BG = [
@@ -20,7 +21,8 @@ const MONTHS_BG = [
   "юли", "август", "септември", "октомври", "ноември", "декември",
 ];
 
-const statusLabel = (value) => {
+const statusLabel = (value, isCancelled) => {
+  if (isCancelled || value === "cancelled") return "Отменена";
   if (value === "present") return "Присъства";
   if (value === "late") return "Закъсня";
   if (value === "absent") return "Отсъства";
@@ -28,7 +30,8 @@ const statusLabel = (value) => {
   return value || "—";
 };
 
-const statusBadgeClass = (value) => {
+const statusBadgeClass = (value, isCancelled) => {
+  if (isCancelled || value === "cancelled") return "uiBadge--secondary";
   if (value === "present") return "uiBadge--success";
   if (value === "late") return "uiBadge--warning";
   if (value === "absent") return "uiBadge--danger";
@@ -192,7 +195,6 @@ export default function ParentPortal() {
   const currentFee = profile?.current_month_fee;
   const nextTraining = profile?.next_training;
   const nextCompetition = profile?.next_competition;
-  const summary = profile?.attendance_summary;
   const scheduleMonthKey = profile?.schedule_month_key || new Date().toISOString().slice(0, 7);
   const competitionsMonthLabel = formatCompetitionsMonthLabel(
     profile?.competitions_this_month ?? 0,
@@ -203,10 +205,15 @@ export default function ParentPortal() {
   const allAttendance = profile?.last_attendance ?? [];
   const allPayments = profile?.monthly_payments ?? [];
 
-  const visibleAttendance = useMemo(() => {
-    const n = Number(attendancePeriod) || 3;
-    return allAttendance.slice(0, n);
-  }, [profile?.last_attendance, attendancePeriod, allAttendance]);
+  const visibleAttendance = useMemo(
+    () => filterAttendanceByPeriod(allAttendance, attendancePeriod),
+    [allAttendance, attendancePeriod],
+  );
+
+  const visibleAttendanceSummary = useMemo(
+    () => summarizeAttendanceRows(visibleAttendance),
+    [visibleAttendance],
+  );
 
   const visiblePayments = useMemo(() => {
     const n = Number(feesPeriod) || 3;
@@ -353,9 +360,11 @@ export default function ParentPortal() {
             <Card
               title="Присъствие"
               subtitle={
-                visibleAttendance.length !== allAttendance.length || attendancePeriod === "30d"
-                  ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
-                  : undefined
+                attendancePeriod === "30d"
+                  ? `Показани ${visibleAttendance.length} записа (последните 30 дни)`
+                  : visibleAttendance.length !== allAttendance.length
+                    ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
+                    : undefined
               }
               actions={
                 <PeriodFilterSelect
@@ -367,13 +376,13 @@ export default function ParentPortal() {
               }
             >
               <div className="parentPortalBadgeRow">
-                <span className="uiBadge uiBadge--success">Присъства: {summary?.present || 0}</span>
-                <span className="uiBadge uiBadge--warning">Закъсня: {summary?.late || 0}</span>
-                <span className="uiBadge uiBadge--danger">Отсъства: {summary?.absent || 0}</span>
-                <span className="uiBadge uiBadge--secondary">Извинен: {summary?.excused || 0}</span>
-                <span className="uiBadge uiBadge--info">Процент: {summary?.attendance_rate_percent || 0}%</span>
+                <span className="uiBadge uiBadge--success">Присъства: {visibleAttendanceSummary.present}</span>
+                <span className="uiBadge uiBadge--warning">Закъсня: {visibleAttendanceSummary.late}</span>
+                <span className="uiBadge uiBadge--danger">Отсъства: {visibleAttendanceSummary.absent}</span>
+                <span className="uiBadge uiBadge--secondary">Извинен: {visibleAttendanceSummary.excused}</span>
+                <span className="uiBadge uiBadge--info">Процент: {visibleAttendanceSummary.attendance_rate_percent}%</span>
               </div>
-              {!summary?.total ? (
+              {!visibleAttendanceSummary.total ? (
                 <p className="parentPortalHighlightMuted" style={{ marginTop: 12 }}>
                   Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
                 </p>
@@ -388,11 +397,16 @@ export default function ParentPortal() {
               ) : (
                 <div className="parentPortalCardList">
                   {visibleAttendance.map((row, idx) => (
-                    <article key={`${row.date}-${idx}`} className="parentPortalSessionCard">
+                    <article
+                      key={`${row.date}-${row.team_id || row.team_name || idx}`}
+                      className={`parentPortalSessionCard${row.is_cancelled ? " parentPortalSessionCard--cancelled" : ""}`}
+                    >
                       <div className="parentPortalSessionCardDate">{formatShortDate(row.date)}</div>
                       <div className="parentPortalSessionCardBody">
                         {row.team_name ? <div className="parentPortalSessionCardMeta">{row.team_name}</div> : null}
-                        <span className={`uiBadge ${statusBadgeClass(row.status)}`}>{statusLabel(row.status)}</span>
+                        <span className={`uiBadge ${statusBadgeClass(row.status, row.is_cancelled)}`}>
+                          {statusLabel(row.status, row.is_cancelled)}
+                        </span>
                       </div>
                     </article>
                   ))}

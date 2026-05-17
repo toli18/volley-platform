@@ -232,6 +232,96 @@ def _pick_next_event(items: list[ParentScheduleItem]) -> ParentScheduleItem | No
     return None
 
 
+def _cancelled_training_keys(
+    db: Session, team_ids: list[int], from_date: str, to_date: str
+) -> set[tuple[str, int]]:
+    if not team_ids:
+        return set()
+    rows = (
+        db.query(TrainingScheduleException.date, TrainingScheduleRule.team_id)
+        .join(TrainingScheduleRule, TrainingScheduleRule.id == TrainingScheduleException.rule_id)
+        .filter(
+            TrainingScheduleRule.team_id.in_(team_ids),
+            TrainingScheduleException.kind == "cancelled",
+            TrainingScheduleException.date >= from_date,
+            TrainingScheduleException.date <= to_date,
+        )
+        .all()
+    )
+    return {(str(d), int(tid)) for d, tid in rows}
+
+
+def _build_parent_attendance_list(
+    db: Session,
+    athlete_id: int,
+    team_ids: list[int],
+    from_date: str,
+    to_date: str,
+) -> list[ParentAttendanceRow]:
+    cancelled_keys = _cancelled_training_keys(db, team_ids, from_date, to_date)
+    attendance_rows = (
+        db.query(AttendanceRecord.status, TeamSession.date, Team.name, Team.id)
+        .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
+        .join(Team, Team.id == TeamSession.team_id)
+        .filter(AttendanceRecord.athlete_id == athlete_id, TeamSession.date >= from_date, TeamSession.date <= to_date)
+        .order_by(TeamSession.date.desc())
+        .limit(120)
+        .all()
+    )
+    covered: set[tuple[str, int]] = set()
+    items: list[ParentAttendanceRow] = []
+    for status, day, team_name, team_id in attendance_rows:
+        key = (str(day), int(team_id))
+        covered.add(key)
+        is_cancelled = key in cancelled_keys
+        items.append(
+            ParentAttendanceRow(
+                status="cancelled" if is_cancelled else (status or "present"),
+                date=str(day),
+                team_name=team_name,
+                team_id=int(team_id),
+                is_cancelled=is_cancelled,
+            )
+        )
+
+    if cancelled_keys:
+        team_name_map = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all())
+        for day_s, tid in sorted(cancelled_keys, key=lambda x: x[0], reverse=True):
+            key = (day_s, tid)
+            if key in covered:
+                continue
+            items.append(
+                ParentAttendanceRow(
+                    status="cancelled",
+                    date=day_s,
+                    team_name=team_name_map.get(tid),
+                    team_id=tid,
+                    is_cancelled=True,
+                )
+            )
+
+    items.sort(key=lambda x: x.date, reverse=True)
+    return items
+
+
+def _attendance_summary_from_rows(rows: list[ParentAttendanceRow]) -> ParentAttendanceSummary:
+    active = [r for r in rows if not r.is_cancelled]
+    present = sum(1 for r in active if r.status == "present")
+    late = sum(1 for r in active if r.status == "late")
+    absent = sum(1 for r in active if r.status == "absent")
+    excused = sum(1 for r in active if r.status == "excused")
+    total = len(active)
+    rate = round(((present + late) / total) * 100.0, 1) if total else 0.0
+    return ParentAttendanceSummary(
+        present=present,
+        late=late,
+        absent=absent,
+        excused=excused,
+        total=total,
+        attendance_rate_percent=rate,
+    )
+
+
 def _ensure_athlete_owned(db: Session, athlete_id: int, current_user: User) -> Athlete:
     q = db.query(Athlete).filter(Athlete.id == int(athlete_id))
     if _is_head_coach(current_user):
@@ -392,25 +482,14 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     )
     teams = [x[0] for x in team_rows]
 
-    attendance_since = (date.today() - timedelta(days=45)).isoformat()
-    attendance_rows = (
-        db.query(AttendanceRecord.status, TeamSession.date, Team.name)
-        .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
-        .join(Team, Team.id == TeamSession.team_id)
-        .filter(AttendanceRecord.athlete_id == athlete.id, TeamSession.date >= attendance_since)
-        .order_by(TeamSession.date.desc())
-        .limit(80)
-        .all()
+    team_ids = _team_ids_for_athlete(db, athlete.id)
+    today_s = date.today().isoformat()
+    attendance_since = (date.today() - timedelta(days=90)).isoformat()
+    attendance_to = (date.today() + timedelta(days=14)).isoformat()
+    last_attendance = _build_parent_attendance_list(db, athlete.id, team_ids, attendance_since, attendance_to)
+    attendance_summary = _attendance_summary_from_rows(
+        [r for r in last_attendance if r.date <= today_s]
     )
-    present = sum(1 for s, _, _ in attendance_rows if s == "present")
-    late = sum(1 for s, _, _ in attendance_rows if s == "late")
-    absent = sum(1 for s, _, _ in attendance_rows if s == "absent")
-    excused = sum(1 for s, _, _ in attendance_rows if s == "excused")
-    total = len(attendance_rows)
-    rate = round(((present + late) / total) * 100.0, 1) if total else 0.0
-    last_attendance = [
-        ParentAttendanceRow(status=s or "present", date=d, team_name=tname) for s, d, tname in attendance_rows
-    ]
 
     mk = _month_window(12)
     pay_rows = db.query(AthletePayment).filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk)).all()
@@ -429,7 +508,6 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     from_date = f"{this_month}-01"
     to_date = _month_last_day(this_month)
 
-    team_ids = _team_ids_for_athlete(db, athlete.id)
     schedule_items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
 
     today = date.today()
@@ -477,14 +555,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         next_event=next_event,
         next_training=next_training_item,
         next_competition=next_competition_item,
-        attendance_summary=ParentAttendanceSummary(
-            present=present,
-            late=late,
-            absent=absent,
-            excused=excused,
-            total=total,
-            attendance_rate_percent=rate,
-        ),
+        attendance_summary=attendance_summary,
         last_attendance=last_attendance,
         schedule_month_key=this_month,
         monthly_schedule=schedule_items,

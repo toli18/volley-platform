@@ -56,6 +56,14 @@ export function formatFeeDueLabel(dueDay, monthKey) {
   return `Срок до ${day}-и, ${month}${year ? ` ${year}` : ""}`;
 }
 
+export function todayIsoLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 const attendanceCutoffIso = (days) => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -66,15 +74,40 @@ const attendanceCutoffIso = (days) => {
   return `${y}-${m}-${day}`;
 };
 
+export function normalizeIsoDate(value) {
+  if (!value) return "";
+  const s = String(value).trim();
+  if (s.length >= 10 && s[4] === "-" && s[7] === "-") return s.slice(0, 10);
+  return s;
+}
+
 /** Filter attendance rows for parent portal period (3/6/12 records or 30d). */
 export function filterAttendanceByPeriod(rows, period) {
   const list = Array.isArray(rows) ? rows : [];
   if (period === "30d") {
     const cutoff = attendanceCutoffIso(30);
-    return list.filter((r) => r?.date && String(r.date) >= cutoff);
+    const today = todayIsoLocal();
+    return list.filter((r) => {
+      const d = normalizeIsoDate(r?.date);
+      return d && d >= cutoff && d <= today;
+    });
   }
   const n = Number(period) || 3;
   return list.slice(0, n);
+}
+
+/** Summary badges for the currently visible attendance rows. */
+export function summarizeAttendanceRows(rows) {
+  const active = (rows || []).filter((r) => !r?.is_cancelled);
+  const present = active.filter((r) => r.status === "present").length;
+  const late = active.filter((r) => r.status === "late").length;
+  const absent = active.filter((r) => r.status === "absent").length;
+  const excused = active.filter((r) => r.status === "excused").length;
+  const total = active.length;
+  const attendance_rate_percent = total
+    ? Math.round(((present + late) / total) * 1000) / 10
+    : 0;
+  return { present, late, absent, excused, total, attendance_rate_percent };
 }
 
 export function formatPaidAtBg(isoOrDate) {
