@@ -7,6 +7,12 @@ import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews"
 import { Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
+import {
+  formatCompetitionsMonthLabel,
+  formatDaysUntil,
+  formatFeeDueLabel,
+  formatPaidAtBg,
+} from "../utils/parentPortalDates";
 
 const MONTHS_BG = [
   "януари", "февруари", "март", "април", "май", "юни",
@@ -58,6 +64,50 @@ const PARENT_LIST_PERIOD_OPTIONS = [
   { value: "6", label: "Последни 6" },
   { value: "12", label: "Последни 12" },
 ];
+
+function HighlightEventBlock({ item, variant }) {
+  const isComp = variant === "competition" || isCompetitionEvent(item);
+  const daysUntil = item ? formatDaysUntil(item.date) : null;
+  if (!item) {
+    return (
+      <p className="parentPortalHighlightMuted parentPortalNextEventEmpty">
+        {isComp ? "Няма предстоящо състезание." : "Няма предстояща тренировка."}
+      </p>
+    );
+  }
+  return (
+    <div className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}`}>
+      <p className={`parentPortalHighlightBadge${isComp ? " parentPortalHighlightBadge--competition" : ""}`}>
+        <span className="parentPortalEventIcon" aria-hidden="true">
+          {isComp ? "🏆" : "🏐"}
+        </span>
+        {isComp ? competitionKindLabel(item) : "Тренировка"}
+      </p>
+      <p className="parentPortalHighlightMain">
+        <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
+          📅
+        </span>{" "}
+        {formatDateBg(item.date)}
+        {daysUntil ? <span className="parentPortalDaysUntil">{daysUntil}</span> : null}
+      </p>
+      <p className="parentPortalHighlightDetail">
+        <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
+          🕐
+        </span>{" "}
+        {item.start_time} – {item.end_time}
+        {item.team_name ? ` · ${item.team_name}` : ""}
+      </p>
+      {item.location ? (
+        <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={item.location}>
+          <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
+            📍
+          </span>{" "}
+          {item.location}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function PeriodFilterSelect({ value, onChange, id }) {
   return (
@@ -131,8 +181,15 @@ export default function ParentPortal() {
 
   const feeCoach = profile?.fee_coach || {};
   const currentFee = profile?.current_month_fee;
-  const next = profile?.next_event || profile?.next_training;
+  const nextTraining = profile?.next_training;
+  const nextCompetition = profile?.next_competition;
   const summary = profile?.attendance_summary;
+  const scheduleMonthKey = profile?.schedule_month_key || new Date().toISOString().slice(0, 7);
+  const competitionsMonthLabel = formatCompetitionsMonthLabel(
+    profile?.competitions_this_month ?? 0,
+    scheduleMonthKey,
+  );
+  const feeDueDay = currentFee?.due_day ?? profile?.fee_due_day ?? 10;
 
   const allAttendance = profile?.last_attendance ?? [];
   const allPayments = profile?.monthly_payments ?? [];
@@ -171,53 +228,75 @@ export default function ParentPortal() {
           <>
             <div className="parentPortalHighlightGrid">
               <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
-                <h2 className="parentPortalHighlightTitle">Следващо събитие</h2>
-                {next ? (
-                  <>
-                    <p
-                      className={`parentPortalHighlightBadge${isCompetitionEvent(next) ? " parentPortalHighlightBadge--competition" : ""}`}
-                    >
-                      {isCompetitionEvent(next) ? competitionKindLabel(next) : "Тренировка"}
-                    </p>
-                    <p className="parentPortalHighlightMain">{formatDateBg(next.date)}</p>
-                    <p className="parentPortalHighlightDetail">
-                      {next.start_time} – {next.end_time}
-                      {next.team_name ? ` · ${next.team_name}` : ""}
-                    </p>
-                    {next.location ? (
-                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={next.location}>
-                        Място: {next.location}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="parentPortalHighlightMuted">Няма предстоящи тренировки или състезания в следващите седмици.</p>
-                )}
+                <h2 className="parentPortalHighlightTitle">Следващи събития</h2>
+                <div className="parentPortalNextEventsStack">
+                  <HighlightEventBlock item={nextTraining} variant="training" />
+                  <div className="parentPortalNextEventDivider" role="presentation" />
+                  <HighlightEventBlock item={nextCompetition} variant="competition" />
+                </div>
+                {competitionsMonthLabel ? (
+                  <p className="parentPortalCompetitionsMonth">
+                    <span className="parentPortalEventIcon" aria-hidden="true">🏆</span>{" "}
+                    {competitionsMonthLabel}
+                  </p>
+                ) : null}
               </section>
 
               <section className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}`}>
-                <h2 className="parentPortalHighlightTitle">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
+                <h2 className="parentPortalHighlightTitle">
+                  <span className="parentPortalEventIcon" aria-hidden="true">💶</span> Такса — {formatMonthKey(currentFee?.month_key)}
+                </h2>
                 {currentFee?.paid ? (
                   <>
-                    <p className="parentPortalHighlightMain">Платена</p>
+                    <p className="parentPortalHighlightMain">
+                      <span className="parentPortalEventIcon" aria-hidden="true">✓</span> Платена
+                    </p>
                     <p className="parentPortalHighlightDetail">
                       {formatMoney(currentFee.amount)}
                       {currentFee.paid_at
                         ? ` · ${new Date(currentFee.paid_at).toLocaleDateString("bg-BG")}`
                         : ""}
                     </p>
+                    {currentFee.last_paid_at &&
+                    currentFee.last_paid_month_key &&
+                    currentFee.last_paid_month_key !== currentFee.month_key ? (
+                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeMeta">
+                        Последно плащане: {formatPaidAtBg(currentFee.last_paid_at)}
+                        {currentFee.last_paid_month_key
+                          ? ` (${formatMonthKey(currentFee.last_paid_month_key)})`
+                          : ""}
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <>
-                    <p className="parentPortalHighlightMain">Неплатена</p>
-                    <p className="parentPortalHighlightDetail">
-                      Свържете се с треньора за уточняване на сумата и плащането.
+                    <p className="parentPortalHighlightMain">
+                      <span className="parentPortalEventIcon" aria-hidden="true">!</span> Неплатена
+                    </p>
+                    <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeDue">
+                      <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
+                        ⏳
+                      </span>{" "}
+                      {formatFeeDueLabel(feeDueDay, currentFee?.month_key)}
+                    </p>
+                    {currentFee?.last_paid_at ? (
+                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeMeta">
+                        Последно плащане: {formatPaidAtBg(currentFee.last_paid_at)}
+                        {currentFee.last_paid_month_key
+                          ? ` (${formatMonthKey(currentFee.last_paid_month_key)})`
+                          : ""}
+                      </p>
+                    ) : null}
+                    <p className="parentPortalHighlightMuted parentPortalHighlightMuted--compact">
+                      Свържете се с треньора за уточняване на сумата.
                     </p>
                   </>
                 )}
                 {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
                   <div className="parentPortalContactBox">
-                    <div className="parentPortalContactLabel">Контакт</div>
+                    <div className="parentPortalContactLabel">
+                      <span className="parentPortalEventIcon" aria-hidden="true">📞</span> Контакт
+                    </div>
                     {feeCoach.name ? <div>{feeCoach.name}</div> : null}
                     {feeCoach.email ? (
                       <a href={`mailto:${feeCoach.email}`} className="parentPortalContactLink">{feeCoach.email}</a>
@@ -254,6 +333,15 @@ export default function ParentPortal() {
                   Състезателят тренира в няколко групи — използвайте седмичния или месечния изглед по-долу.
                 </p>
               ) : null}
+            </Card>
+
+            <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
+              <ParentScheduleViews
+                token={token}
+                initialItems={profile.monthly_schedule || []}
+                scheduleMonthKey={profile.schedule_month_key}
+                formatMonthKey={formatMonthKey}
+              />
             </Card>
 
             <Card
@@ -298,15 +386,6 @@ export default function ParentPortal() {
                   ))}
                 </div>
               )}
-            </Card>
-
-            <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
-              <ParentScheduleViews
-                token={token}
-                initialItems={profile.monthly_schedule || []}
-                scheduleMonthKey={profile.schedule_month_key}
-                formatMonthKey={formatMonthKey}
-              />
             </Card>
 
             <Card

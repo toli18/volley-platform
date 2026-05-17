@@ -63,6 +63,10 @@ class ParentCurrentMonthFee(BaseModel):
     paid: bool = False
     amount: float = 0.0
     paid_at: Optional[datetime] = None
+    due_day: int = 10
+    due_date: Optional[str] = None  # YYYY-MM-DD for current month
+    last_paid_at: Optional[datetime] = None
+    last_paid_month_key: Optional[str] = None
 
 
 class ParentAthleteProfileResponse(BaseModel):
@@ -75,9 +79,12 @@ class ParentAthleteProfileResponse(BaseModel):
     fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)
     current_month_fee: ParentCurrentMonthFee
     next_event: Optional[ParentScheduleItem] = None
-    next_training: Optional[ParentScheduleItem] = None  # alias of next_event (compat)
+    next_training: Optional[ParentScheduleItem] = None
+    next_competition: Optional[ParentScheduleItem] = None
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
     last_attendance: list[ParentAttendanceRow] = Field(default_factory=list)
     schedule_month_key: Optional[str] = None
     monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)
     monthly_payments: list[ParentPaymentRow] = Field(default_factory=list)
+    competitions_this_month: int = 0
+    fee_due_day: int = 10

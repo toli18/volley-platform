@@ -39,6 +39,9 @@ from app.schemas.parent_portal import (
 
 router = APIRouter()
 
+# Day of month when monthly fee is due (shown in parent portal).
+PARENT_FEE_DUE_DAY = 10
+
 
 def _is_head_coach(user: User) -> bool:
     role = user.role.value if hasattr(user.role, "value") else str(user.role)
@@ -178,13 +181,53 @@ def _build_schedule_for_teams(
     return schedule_items
 
 
-def _pick_next_event(items: list[ParentScheduleItem]) -> ParentScheduleItem | None:
+def _is_upcoming_schedule_item(item: ParentScheduleItem, today_s: str, now_t: str) -> bool:
+    if item.date > today_s:
+        return True
+    return item.date == today_s and (item.start_time or "") >= now_t
+
+
+def _pick_next_by_kind(items: list[ParentScheduleItem], *, competition: bool) -> ParentScheduleItem | None:
     today_s = date.today().isoformat()
     now_t = datetime.utcnow().strftime("%H:%M")
     for item in items:
-        if item.date > today_s:
+        is_comp = (item.event_type or "training") == "competition"
+        if competition and not is_comp:
+            continue
+        if not competition and is_comp:
+            continue
+        if _is_upcoming_schedule_item(item, today_s, now_t):
             return item
-        if item.date == today_s and (item.start_time or "") >= now_t:
+    return None
+
+
+def _count_competitions_in_month(items: list[ParentScheduleItem], month_key: str) -> int:
+    prefix = f"{month_key}-"
+    return sum(1 for i in items if (i.event_type or "training") == "competition" and i.date.startswith(prefix))
+
+
+def _last_payment(pay_map: dict[str, AthletePayment]) -> tuple[AthletePayment | None, str | None]:
+    if not pay_map:
+        return None, None
+    best_key = max(pay_map.keys())
+    row = pay_map[best_key]
+    return row, best_key
+
+
+def _fee_due_date_iso(month_key: str, due_day: int = PARENT_FEE_DUE_DAY) -> str:
+    y, m = [int(x) for x in month_key.split("-")]
+    last_dom = _month_last_day(month_key)
+    last_day = int(last_dom.split("-")[2])
+    day = min(max(1, due_day), last_day)
+    return f"{month_key}-{str(day).zfill(2)}"
+
+
+def _pick_next_event(items: list[ParentScheduleItem]) -> ParentScheduleItem | None:
+    """Earliest upcoming item of any kind (legacy compat)."""
+    today_s = date.today().isoformat()
+    now_t = datetime.utcnow().strftime("%H:%M")
+    for item in items:
+        if _is_upcoming_schedule_item(item, today_s, now_t):
             return item
     return None
 
@@ -389,15 +432,24 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     today = date.today()
     horizon_to = (today + timedelta(days=45)).isoformat()
     upcoming_pool = _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
+    next_training_item = _pick_next_by_kind(upcoming_pool, competition=False)
+    next_competition_item = _pick_next_by_kind(upcoming_pool, competition=True)
     next_event = _pick_next_event(upcoming_pool)
 
     current_pay = pay_map.get(this_month)
+    last_pay_row, last_pay_mk = _last_payment(pay_map)
+    due_date_iso = _fee_due_date_iso(this_month, PARENT_FEE_DUE_DAY)
     current_month_fee = ParentCurrentMonthFee(
         month_key=this_month,
         paid=this_month in pay_map,
         amount=float(current_pay.amount or 0) if current_pay else 0.0,
         paid_at=current_pay.paid_at if current_pay else None,
+        due_day=PARENT_FEE_DUE_DAY,
+        due_date=due_date_iso,
+        last_paid_at=last_pay_row.paid_at if last_pay_row else None,
+        last_paid_month_key=last_pay_mk,
     )
+    competitions_this_month = _count_competitions_in_month(schedule_items, this_month)
 
     fee_coach = ParentFeeCoachContact()
     coach_row = db.query(User).filter(User.id == athlete.coach_id).first()
@@ -420,7 +472,8 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         fee_coach=fee_coach,
         current_month_fee=current_month_fee,
         next_event=next_event,
-        next_training=next_event,
+        next_training=next_training_item,
+        next_competition=next_competition_item,
         attendance_summary=ParentAttendanceSummary(
             present=present,
             late=late,
@@ -433,4 +486,6 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         schedule_month_key=this_month,
         monthly_schedule=schedule_items,
         monthly_payments=monthly_payments,
+        competitions_this_month=competitions_this_month,
+        fee_due_day=PARENT_FEE_DUE_DAY,
     )
