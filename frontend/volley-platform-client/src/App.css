@@ -721,9 +721,128 @@
 }
 
 .parentPortalPage {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px 14px 28px;
+}
+
+.parentPortalScheduleSection {
+  margin-bottom: 14px;
+}
+
+.parentPortalScheduleSection .uiCard {
+  max-width: none;
+}
+
+.parentPortalLowerGrid {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 768px) {
+  .parentPortalLowerGrid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.parentPortalDetails {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 14px;
+  margin-bottom: 8px;
+}
+
+.parentPortalDetailsSummary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #0f4d3a;
+  padding: 12px 0;
+  list-style: none;
+}
+
+.parentPortalDetailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.parentPortalDetailsBody {
+  padding-bottom: 14px;
+}
+
+.parentPortalDetailsHint {
+  margin: 10px 0 0;
+}
+
+.parentPortalHighlightMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.parentPortalHighlightMetaRow .parentPortalDaysUntil {
+  margin-left: 0;
+}
+
+.parentPortalHighlightTeam {
+  font-weight: 600;
+}
+
+.parentPortalAgendaRecords {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.parentPortalAgendaRecord {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) minmax(56px, auto) 1fr auto;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.parentPortalAgendaRecord.is-cancelled {
+  opacity: 0.8;
+}
+
+.parentPortalAgendaRecord.is-cancelled .parentPortalAgendaRecordDate,
+.parentPortalAgendaRecord.is-cancelled .parentPortalAgendaRecordMeta {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.parentPortalAgendaRecordDate {
+  font-weight: 800;
+  color: #1a6b52;
+  font-variant-numeric: tabular-nums;
+}
+
+.parentPortalAgendaRecordTime {
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.parentPortalAgendaRecordMeta {
+  min-width: 0;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parentPortalAgendaRecord .uiBadge {
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .parentPortalHero {
@@ -1107,6 +1226,28 @@
   font-weight: 600;
 }
 
+.parentPortalScheduleLegendTeams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.parentPortalScheduleLegendChip {
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.parentPortalScheduleLegendChip.is-off {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
 .parentPortalWeekWrap {
   overflow-x: auto;
   padding-bottom: 4px;
@@ -1283,6 +1424,7 @@
   align-items: center;
   line-height: 1.25;
   white-space: nowrap;
+  border-bottom: 2px solid #cbd5e1;
 }
 
 .parentPortalWeekTimeEnd {
@@ -1292,14 +1434,16 @@
 }
 
 .parentPortalWeekCell {
-  min-height: 52px;
+  min-height: 68px;
   padding: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #cbd5e1;
   border-right: 1px solid #e2e8f0;
   background: #fafafa;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .parentPortalSchedBlock {
@@ -1312,6 +1456,25 @@
 
 .parentPortalSchedBlock--compact {
   padding: 3px 5px;
+}
+
+.parentPortalSchedBlock--grid {
+  padding: 6px 4px;
+  text-align: center;
+  cursor: default;
+}
+
+.parentPortalSchedBlockAbbrev {
+  display: block;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.parentPortalSchedBlock--grid .parentPortalSchedBlockTime,
+.parentPortalSchedBlock--grid .parentPortalSchedBlockMeta {
+  display: none;
 }
 
 .parentPortalSchedBlockTeam {

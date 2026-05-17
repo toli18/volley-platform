@@ -25,6 +25,20 @@ export function teamColorForName(teamName) {
   return TEAM_COLORS[hash];
 }
 
+/** Short label for schedule grid cells (e.g. "M U14/13"). */
+export function abbreviateTeamName(teamName) {
+  const s = String(teamName || "").trim();
+  if (!s) return "—";
+  const ages = [...s.matchAll(/под\s*(\d+)/gi)].map((m) => m[1]);
+  let prefix = "";
+  if (/момичета/i.test(s)) prefix = "F";
+  else if (/момчета/i.test(s)) prefix = "M";
+  if (ages.length >= 2) return `${prefix ? `${prefix} ` : ""}U${ages[0]}/${ages[1]}`.trim();
+  if (ages.length === 1) return `${prefix ? `${prefix} ` : ""}U${ages[0]}`.trim();
+  if (s.length <= 14) return s;
+  return `${s.slice(0, 12)}…`;
+}
+
 export function addDaysIso(isoDate, days) {
   const d = new Date(`${isoDate}T12:00:00`);
   d.setDate(d.getDate() + days);

@@ -7,6 +7,7 @@ import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews"
 import { Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
+import { abbreviateTeamName } from "../utils/parentPortalSchedule";
 import {
   filterAttendanceByPeriod,
   formatCompetitionsMonthLabel,
@@ -88,35 +89,44 @@ function HighlightEventBlock({ item, variant }) {
   }
   return (
     <div className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}`}>
-      <p className={`parentPortalHighlightBadge${isComp ? " parentPortalHighlightBadge--competition" : ""}`}>
-        <span className="parentPortalEventIcon" aria-hidden="true">
-          {isComp ? "🏆" : "🏐"}
+      <p className="parentPortalHighlightMetaRow">
+        <span className={`uiBadge${isComp ? " uiBadge--warning" : " uiBadge--info"}`}>
+          {isComp ? competitionKindLabel(item) : "Тренировка"}
         </span>
-        {isComp ? competitionKindLabel(item) : "Тренировка"}
-      </p>
-      <p className="parentPortalHighlightMain">
-        <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
-          📅
-        </span>{" "}
-        {formatDateBg(item.date)}
         {daysUntil ? <span className="parentPortalDaysUntil">{daysUntil}</span> : null}
       </p>
+      <p className="parentPortalHighlightMain">{formatDateBg(item.date)}</p>
       <p className="parentPortalHighlightDetail">
-        <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
-          🕐
-        </span>{" "}
+        <span className="uiBadge uiBadge--secondary">Час</span>{" "}
         {item.start_time} – {item.end_time}
-        {item.team_name ? ` · ${item.team_name}` : ""}
+        {item.team_name ? (
+          <span className="parentPortalHighlightTeam" title={item.team_name}>
+            {" "}
+            · {abbreviateTeamName(item.team_name)}
+          </span>
+        ) : null}
       </p>
       {item.location ? (
         <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={item.location}>
-          <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
-            📍
-          </span>{" "}
-          {item.location}
+          <span className="uiBadge uiBadge--secondary">Място</span> {item.location}
         </p>
       ) : null}
     </div>
+  );
+}
+
+function ParentAgendaRecord({ date, time, meta, metaTitle, badge, badgeClass, cancelled }) {
+  return (
+    <article className={`parentPortalAgendaRecord${cancelled ? " is-cancelled" : ""}`}>
+      <span className="parentPortalAgendaRecordDate">{date}</span>
+      {time ? <span className="parentPortalAgendaRecordTime">{time}</span> : null}
+      {meta ? (
+        <span className="parentPortalAgendaRecordMeta" title={metaTitle || meta}>
+          {meta}
+        </span>
+      ) : null}
+      <span className={`uiBadge ${badgeClass}`}>{badge}</span>
+    </article>
   );
 }
 
@@ -252,20 +262,17 @@ export default function ParentPortal() {
                 </div>
                 {competitionsMonthLabel ? (
                   <p className="parentPortalCompetitionsMonth">
-                    <span className="parentPortalEventIcon" aria-hidden="true">🏆</span>{" "}
-                    {competitionsMonthLabel}
+                    <span className="uiBadge uiBadge--warning">{competitionsMonthLabel}</span>
                   </p>
                 ) : null}
               </section>
 
               <section className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}`}>
-                <h2 className="parentPortalHighlightTitle">
-                  <span className="parentPortalEventIcon" aria-hidden="true">💶</span> Такса — {formatMonthKey(currentFee?.month_key)}
-                </h2>
+                <h2 className="parentPortalHighlightTitle">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
                 {currentFee?.paid ? (
                   <>
                     <p className="parentPortalHighlightMain">
-                      <span className="parentPortalEventIcon" aria-hidden="true">✓</span> Платена
+                      <span className="uiBadge uiBadge--success">Платена</span>
                     </p>
                     <p className="parentPortalHighlightDetail">
                       {formatMoney(currentFee.amount)}
@@ -287,13 +294,10 @@ export default function ParentPortal() {
                 ) : (
                   <>
                     <p className="parentPortalHighlightMain">
-                      <span className="parentPortalEventIcon" aria-hidden="true">!</span> Неплатена
+                      <span className="uiBadge uiBadge--danger">Неплатена</span>
                     </p>
                     <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeDue">
-                      <span className="parentPortalEventIcon parentPortalEventIcon--inline" aria-hidden="true">
-                        ⏳
-                      </span>{" "}
-                      {formatFeeDueLabel(feeDueDay, currentFee?.month_key)}
+                      <span className="uiBadge uiBadge--warning">Срок</span> {formatFeeDueLabel(feeDueDay, currentFee?.month_key)}
                     </p>
                     {currentFee?.last_paid_at ? (
                       <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeMeta">
@@ -307,9 +311,7 @@ export default function ParentPortal() {
                 )}
                 {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
                   <div className="parentPortalContactBox">
-                    <div className="parentPortalContactLabel">
-                      <span className="parentPortalEventIcon" aria-hidden="true">📞</span> Контакт
-                    </div>
+                    <div className="parentPortalContactLabel">Контакт</div>
                     {feeCoach.name ? <div>{feeCoach.name}</div> : null}
                     {feeCoach.email ? (
                       <a href={`mailto:${feeCoach.email}`} className="parentPortalContactLink">{feeCoach.email}</a>
@@ -323,40 +325,18 @@ export default function ParentPortal() {
               </section>
             </div>
 
-            <Card title="Обща информация">
-              <div className="parentPortalInfoGrid">
-                {profile.birth_year ? (
-                  <span className="uiBadge">Година на раждане: {profile.birth_year}</span>
-                ) : null}
-                {(profile.teams || []).map((t) => (
-                  <span key={t} className="uiBadge uiBadge--info">Отбор: {t}</span>
-                ))}
-                {!(profile.teams || []).length ? (
-                  <span className="uiBadge">Няма активни отбори</span>
-                ) : null}
-                {profile.parent_name ? (
-                  <span className="uiBadge">Родител: {profile.parent_name}</span>
-                ) : null}
-                {profile.parent_phone ? (
-                  <span className="uiBadge">Телефон: {profile.parent_phone}</span>
-                ) : null}
-              </div>
-              {(profile.teams || []).length > 1 ? (
-                <p className="uiHint" style={{ marginTop: 10, marginBottom: 0 }}>
-                  Състезателят тренира в няколко групи — използвайте седмичния или месечния изглед по-долу.
-                </p>
-              ) : null}
-            </Card>
+            <section className="parentPortalScheduleSection">
+              <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
+                <ParentScheduleViews
+                  token={token}
+                  initialItems={profile.monthly_schedule || []}
+                  scheduleMonthKey={profile.schedule_month_key}
+                  formatMonthKey={formatMonthKey}
+                />
+              </Card>
+            </section>
 
-            <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
-              <ParentScheduleViews
-                token={token}
-                initialItems={profile.monthly_schedule || []}
-                scheduleMonthKey={profile.schedule_month_key}
-                formatMonthKey={formatMonthKey}
-              />
-            </Card>
-
+            <div className="parentPortalLowerGrid">
             <Card
               title="Присъствие"
               subtitle={
@@ -395,20 +375,17 @@ export default function ParentPortal() {
                   description="Променете филтъра или изчакайте маркиране от треньора."
                 />
               ) : (
-                <div className="parentPortalCardList">
+                <div className="parentPortalAgendaRecords">
                   {visibleAttendance.map((row, idx) => (
-                    <article
+                    <ParentAgendaRecord
                       key={`${row.date}-${row.team_id || row.team_name || idx}`}
-                      className={`parentPortalSessionCard${row.is_cancelled ? " parentPortalSessionCard--cancelled" : ""}`}
-                    >
-                      <div className="parentPortalSessionCardDate">{formatShortDate(row.date)}</div>
-                      <div className="parentPortalSessionCardBody">
-                        {row.team_name ? <div className="parentPortalSessionCardMeta">{row.team_name}</div> : null}
-                        <span className={`uiBadge ${statusBadgeClass(row.status, row.is_cancelled)}`}>
-                          {statusLabel(row.status, row.is_cancelled)}
-                        </span>
-                      </div>
-                    </article>
+                      date={formatShortDate(row.date)}
+                      meta={row.team_name ? abbreviateTeamName(row.team_name) : null}
+                      metaTitle={row.team_name || undefined}
+                      badge={statusLabel(row.status, row.is_cancelled)}
+                      badgeClass={statusBadgeClass(row.status, row.is_cancelled)}
+                      cancelled={row.is_cancelled}
+                    />
                   ))}
                 </div>
               )}
@@ -430,50 +407,58 @@ export default function ParentPortal() {
                 />
               }
             >
-              <div className="parentPortalDesktopTable parentPortalTableWrap">
-                <table className="parentPortalTable">
-                  <thead>
-                    <tr>
-                      <th>Месец</th>
-                      <th>Сума</th>
-                      <th>Платено</th>
-                      <th>Дата</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visiblePayments.map((row) => (
-                      <tr key={row.month_key}>
-                        <td>{formatMonthKey(row.month_key)}</td>
-                        <td>{row.paid ? formatMoney(row.amount) : "—"}</td>
-                        <td>
-                          <span className={`uiBadge ${row.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                            {row.paid ? "Да" : "Не"}
-                          </span>
-                        </td>
-                        <td>{row.paid_at ? new Date(row.paid_at).toLocaleString("bg-BG") : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="parentPortalCardList parentPortalMobileOnly">
-                {visiblePayments.map((row) => (
-                  <article key={row.month_key} className="parentPortalSessionCard">
-                    <div className="parentPortalSessionCardDate">{formatMonthKey(row.month_key)}</div>
-                    <div className="parentPortalSessionCardBody">
-                      <span className={`uiBadge ${row.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                        {row.paid ? `Платено · ${formatMoney(row.amount)}` : "Неплатено"}
-                      </span>
-                      {row.paid_at ? (
-                        <div className="parentPortalSessionCardMeta">
-                          {new Date(row.paid_at).toLocaleDateString("bg-BG")}
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
+              {visiblePayments.length === 0 ? (
+                <EmptyState title="Няма записани такси" description="Историята ще се появи след първото плащане." />
+              ) : (
+                <div className="parentPortalAgendaRecords">
+                  {visiblePayments.map((row) => (
+                    <ParentAgendaRecord
+                      key={row.month_key}
+                      date={formatMonthKey(row.month_key)}
+                      time={row.paid ? formatMoney(row.amount) : "—"}
+                      meta={
+                        row.paid_at
+                          ? new Date(row.paid_at).toLocaleDateString("bg-BG", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : null
+                      }
+                      badge={row.paid ? "Платено" : "Неплатено"}
+                      badgeClass={row.paid ? "uiBadge--success" : "uiBadge--danger"}
+                    />
+                  ))}
+                </div>
+              )}
             </Card>
+            </div>
+
+            <details className="parentPortalDetails">
+              <summary className="parentPortalDetailsSummary">Данни за състезателя</summary>
+              <div className="parentPortalDetailsBody">
+                <div className="parentPortalInfoGrid">
+                  {profile.birth_year ? (
+                    <span className="uiBadge">Година на раждане: {profile.birth_year}</span>
+                  ) : null}
+                  {(profile.teams || []).map((t) => (
+                    <span key={t} className="uiBadge uiBadge--info">
+                      Отбор: {t}
+                    </span>
+                  ))}
+                  {!(profile.teams || []).length ? (
+                    <span className="uiBadge">Няма активни отбори</span>
+                  ) : null}
+                  {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
+                  {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
+                </div>
+                {(profile.teams || []).length > 1 ? (
+                  <p className="uiHint parentPortalDetailsHint">
+                    Състезателят тренира в няколко групи — използвайте филтъра в графика по отбор.
+                  </p>
+                ) : null}
+              </div>
+            </details>
           </>
         ) : null}
       </div>

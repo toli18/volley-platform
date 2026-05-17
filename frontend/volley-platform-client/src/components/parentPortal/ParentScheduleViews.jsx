@@ -16,6 +16,7 @@ import {
   mondayOfWeek,
   shiftMonthKey,
   slotKey,
+  abbreviateTeamName,
   teamColorForName,
   timeSlotsForWeek,
 } from "../../utils/parentPortalSchedule";
@@ -37,12 +38,44 @@ function eventTitle(row) {
   return row.team_name || "Отбор";
 }
 
+function gridCellLabel(row) {
+  if (row.is_cancelled) return "Отм.";
+  if (isCompetitionEvent(row)) {
+    const k = competitionKindLabel(row);
+    return k.length > 6 ? `${k.slice(0, 5)}.` : k;
+  }
+  return abbreviateTeamName(row.team_name);
+}
+
+function gridCellTooltip(row) {
+  const parts = [eventTitle(row)];
+  if (row.start_time) parts.push(`${row.start_time} – ${row.end_time || ""}`);
+  if (row.location) parts.push(row.location);
+  return parts.filter(Boolean).join(" · ");
+}
+
 function SessionBlock({ row, variant = "card" }) {
   const isComp = isCompetitionEvent(row);
   const cancelled = Boolean(row.is_cancelled);
   const colors = isComp ? null : teamColorForName(row.team_name);
   const time = `${row.start_time || "—"} – ${row.end_time || "—"}`;
   const title = eventTitle(row);
+
+  if (variant === "grid") {
+    return (
+      <div
+        className={`parentPortalSchedBlock parentPortalSchedBlock--grid${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}`}
+        style={
+          isComp
+            ? competitionBlockStyle
+            : { borderColor: colors.border, background: colors.bg, color: colors.text }
+        }
+        title={gridCellTooltip(row)}
+      >
+        <span className="parentPortalSchedBlockAbbrev">{gridCellLabel(row)}</span>
+      </div>
+    );
+  }
 
   if (variant === "row") {
     return (
@@ -174,7 +207,9 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
 
   return (
     <div className="parentPortalWeekWrap">
-      <p className="uiHint parentPortalScheduleHint">Кликнете върху ден от седмицата или клетка за пълен списък.</p>
+      <p className="uiHint parentPortalScheduleHint">
+        Кратък етикет в клетката — задръжте курсора за място и детайли. Клик за пълен списък.
+      </p>
       <div className="parentPortalWeekGrid">
         <div className="parentPortalWeekCorner" />
         {WEEKDAY_HEADERS.map((name, dayIdx) => {
@@ -217,7 +252,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
                   }}
                 >
                   {cellItems.map((row, i) => (
-                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} variant="compact" />
+                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} variant="grid" />
                   ))}
                 </div>
               );
@@ -259,7 +294,7 @@ function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
               <div className="parentPortalMonthCellDay">{cell.day}</div>
               <div className="parentPortalMonthCellBody">
                 {dayItems.map((row, i) => (
-                  <SessionBlock key={`${cell.date}-${i}`} row={row} variant="compact" />
+                  <SessionBlock key={`${cell.date}-${i}`} row={row} variant="grid" />
                 ))}
               </div>
             </button>
@@ -280,7 +315,17 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
   const [cache, setCache] = useState(() => ({ [defaultMonth]: initialItems || [] }));
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
+  const [hiddenTeams, setHiddenTeams] = useState(() => new Set());
   const loadedMonthsRef = useRef(new Set([defaultMonth]));
+
+  const toggleTeamFilter = (teamName) => {
+    setHiddenTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamName)) next.delete(teamName);
+      else next.add(teamName);
+      return next;
+    });
+  };
 
   const weekMonths = useMemo(() => {
     const end = addDaysIso(weekStart, 6);
@@ -344,6 +389,14 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
   const teamsLegend = useMemo(() => {
     return [...new Set(activeItems.map((it) => it.team_name).filter(Boolean))];
   }, [activeItems]);
+
+  const visibleItems = useMemo(() => {
+    if (!hiddenTeams.size) return activeItems;
+    return activeItems.filter((it) => !it.team_name || !hiddenTeams.has(it.team_name));
+  }, [activeItems, hiddenTeams]);
+
+  const filteredWeekItems = view === "week" ? visibleItems : weekItems;
+  const filteredMonthItems = view === "month" ? visibleItems : monthItems;
 
   const selectedDayItems = useMemo(() => {
     if (!selectedDate) return [];
@@ -415,20 +468,26 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
         {hasCompetitions ? (
           <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--competition">Състезание</span>
         ) : null}
-        {teamsLegend.length > 1
-          ? teamsLegend.map((name) => {
+        {teamsLegend.length > 1 ? (
+          <div className="parentPortalScheduleLegendTeams" role="group" aria-label="Филтър по отбор">
+            {teamsLegend.map((name) => {
               const c = teamColorForName(name);
+              const off = hiddenTeams.has(name);
               return (
-                <span
+                <button
                   key={name}
-                  className="parentPortalScheduleLegendItem"
-                  style={{ borderColor: c.border, background: c.bg, color: c.text }}
+                  type="button"
+                  className={`parentPortalScheduleLegendChip${off ? " is-off" : ""}`}
+                  style={{ borderColor: c.border, background: off ? "#f1f5f9" : c.bg, color: off ? "#94a3b8" : c.text }}
+                  title={off ? `Покажи: ${name}` : `Скрий: ${name}`}
+                  onClick={() => toggleTeamFilter(name)}
                 >
-                  {name}
-                </span>
+                  {abbreviateTeamName(name)}
+                </button>
               );
-            })
-          : null}
+            })}
+          </div>
+        ) : null}
       </div>
 
       {loadingMonth ? <p className="uiHint">Зареждане на график...</p> : null}
@@ -436,18 +495,18 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
       {view === "week" ? (
         <>
           <div className="parentPortalWeekDesktop">
-            <WeekGrid items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+            <WeekGrid items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
           </div>
-          <WeekMobileList items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+          <WeekMobileList items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
         </>
       ) : monthItems.length === 0 && !loadingMonth ? (
         <EmptyState title="Няма събития" description={`За ${formatMonthKey(monthKey)} няма записани събития.`} />
       ) : (
         <>
           <div className="parentPortalMonthDesktop">
-            <MonthGrid items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+            <MonthGrid items={filteredMonthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
           </div>
-          <MonthMobileList items={monthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+          <MonthMobileList items={filteredMonthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
         </>
       )}
 
