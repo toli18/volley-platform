@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.parent_portal import ParentScheduleItem
+from app.schemas.parent_portal import ParentAttendanceSummary, ParentScheduleItem
 
 
 class TeamAccessStatusResponse(BaseModel):
@@ -41,5 +41,8 @@ class TeamPortalPublicResponse(BaseModel):
     team_name: str
     club_name: Optional[str] = None
     schedule_month_key: str
+    week_start: str
     monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)
+    attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
+    next_competition: Optional[ParentScheduleItem] = None
     items: list[TeamPortalItemResponse] = Field(default_factory=list)

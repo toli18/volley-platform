@@ -135,3 +135,9 @@ export function formatParentDayLabel(iso) {
 export function itemsOnDate(items, date) {
   return (items || []).filter((it) => it.date === date);
 }
+
+/** Trim trailing dashes from hall/location labels (e.g. "НУПИ-"). */
+export function formatLocationDisplay(loc) {
+  if (!loc) return "";
+  return String(loc).trim().replace(/[-–—]+\s*$/g, "").trim();
+}

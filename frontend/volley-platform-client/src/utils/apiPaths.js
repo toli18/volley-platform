@@ -130,6 +130,7 @@ export const API_PATHS = {
   TEAM_PORTAL_IMAGE_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/image`,
   TEAM_PORTAL_ITEM_DELETE: (teamId, itemId) => `/api/teams/${teamId}/team-portal/items/${itemId}`,
   TEAM_PORTAL_GET: (token) => `/api/team-portal/${token}`,
+  TEAM_PORTAL_SCHEDULE: (token) => `/api/team-portal/${token}/schedule`,
 
   // Club head coach
   CLUB_OVERVIEW: "/api/club/overview",

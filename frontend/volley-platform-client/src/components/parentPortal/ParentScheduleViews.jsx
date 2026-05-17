@@ -19,6 +19,7 @@ import {
   abbreviateTeamName,
   teamColorForName,
   timeSlotsForWeek,
+  formatLocationDisplay,
 } from "../../utils/parentPortalSchedule";
 import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 
@@ -47,10 +48,15 @@ function gridCellLabel(row) {
   return abbreviateTeamName(row.team_name);
 }
 
+function displayLocation(row) {
+  return formatLocationDisplay(row.location);
+}
+
 function gridCellTooltip(row) {
   const parts = [eventTitle(row)];
   if (row.start_time) parts.push(`${row.start_time} – ${row.end_time || ""}`);
-  if (row.location) parts.push(row.location);
+  const loc = displayLocation(row);
+  if (loc) parts.push(loc);
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -73,7 +79,7 @@ function SessionBlock({ row, variant = "card" }) {
         title={gridCellTooltip(row)}
       >
         <span className="parentPortalSchedBlockAbbrev">{gridCellLabel(row)}</span>
-        {row.location ? <span className="parentPortalSchedBlockLoc">{row.location}</span> : null}
+        {displayLocation(row) ? <span className="parentPortalSchedBlockLoc">{displayLocation(row)}</span> : null}
       </div>
     );
   }
@@ -91,7 +97,7 @@ function SessionBlock({ row, variant = "card" }) {
         <span className="parentPortalSchedRowTime">{time}</span>
         <span className="parentPortalSchedRowMain">
           <span className="parentPortalSchedRowTitle">{title}</span>
-          {row.location ? <span className="parentPortalSchedRowLoc"> · {row.location}</span> : null}
+          {displayLocation(row) ? <span className="parentPortalSchedRowLoc"> · {displayLocation(row)}</span> : null}
         </span>
       </div>
     );
@@ -108,8 +114,10 @@ function SessionBlock({ row, variant = "card" }) {
     >
       <div className="parentPortalSchedBlockTime">{time}</div>
       <div className="parentPortalSchedBlockTeam">{title}</div>
-      {row.location ? (
-        <div className="parentPortalSchedBlockMeta">{variant === "compact" ? row.location : `Място: ${row.location}`}</div>
+      {displayLocation(row) ? (
+        <div className="parentPortalSchedBlockMeta">
+          {variant === "compact" ? displayLocation(row) : `Място: ${displayLocation(row)}`}
+        </div>
       ) : null}
     </div>
   );
@@ -208,9 +216,9 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
 
   return (
     <div className="parentPortalWeekWrap">
-      <p className="uiHint parentPortalScheduleHint">
-        Отбор и зала в клетката. Клик за пълен списък със събитията за деня.
-      </p>
+      {scheduleHint ? (
+        <p className="uiHint parentPortalScheduleHint">{scheduleHint}</p>
+      ) : null}
       <div className="parentPortalWeekGrid">
         <div className="parentPortalWeekCorner" />
         {WEEKDAY_HEADERS.map((name, dayIdx) => {
@@ -306,13 +314,22 @@ function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
   );
 }
 
-export default function ParentScheduleViews({ token, initialItems, scheduleMonthKey, formatMonthKey }) {
+export default function ParentScheduleViews({
+  token,
+  initialItems,
+  scheduleMonthKey,
+  formatMonthKey,
+  fetchScheduleMonth,
+  initialWeekStart,
+  showTeamLegend = true,
+  scheduleHint = "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.",
+}) {
   const today = new Date().toISOString().slice(0, 10);
   const defaultMonth = scheduleMonthKey || (initialItems?.[0]?.date ? String(initialItems[0].date).slice(0, 7) : today.slice(0, 7));
 
   const [view, setView] = useState("week");
   const [monthKey, setMonthKey] = useState(defaultMonth);
-  const [weekStart, setWeekStart] = useState(() => mondayOfWeek(today));
+  const [weekStart, setWeekStart] = useState(() => initialWeekStart || mondayOfWeek(today));
   const [cache, setCache] = useState(() => ({ [defaultMonth]: initialItems || [] }));
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
@@ -336,7 +353,7 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
   }, [weekStart]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token && !fetchScheduleMonth) return;
     const needed = view === "month" ? [monthKey] : weekMonths;
     const toFetch = needed.filter((mk) => !loadedMonthsRef.current.has(mk));
     if (!toFetch.length) return;
@@ -348,8 +365,13 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
         for (const mk of toFetch) {
           loadedMonthsRef.current.add(mk);
           try {
-            const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_SCHEDULE(token), { params: { month: mk } });
-            const rows = Array.isArray(res.data) ? res.data : [];
+            let rows = [];
+            if (fetchScheduleMonth) {
+              rows = await fetchScheduleMonth(mk);
+            } else {
+              const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_SCHEDULE(token), { params: { month: mk } });
+              rows = Array.isArray(res.data) ? res.data : [];
+            }
             if (!cancelled) setCache((prev) => ({ ...prev, [mk]: rows }));
           } catch {
             if (!cancelled) setCache((prev) => ({ ...prev, [mk]: [] }));
@@ -363,7 +385,7 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
     return () => {
       cancelled = true;
     };
-  }, [token, monthKey, weekMonths, view]);
+  }, [token, monthKey, weekMonths, view, fetchScheduleMonth]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -469,7 +491,7 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
         {hasCompetitions ? (
           <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--competition">Състезание</span>
         ) : null}
-        {teamsLegend.length > 1 ? (
+        {showTeamLegend && teamsLegend.length > 1 ? (
           <div className="parentPortalScheduleLegendTeams" role="group" aria-label="Филтър по отбор">
             {teamsLegend.map((name) => {
               const c = teamColorForName(name);

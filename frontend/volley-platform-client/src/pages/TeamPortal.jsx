@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { resolveStaticUrl } from "../utils/staticUrl";
-import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
+import { competitionKindLabel } from "../utils/competitionKinds";
+import { formatDaysUntil } from "../utils/parentPortalDates";
+import { formatLocationDisplay } from "../utils/parentPortalSchedule";
 import { Card, EmptyState } from "../components/ui";
 
 const MONTHS_BG = [
@@ -20,10 +23,17 @@ function formatMonthKey(mk) {
   return `${MONTHS_BG[mi]} ${y}`;
 }
 
-function formatShortDate(iso) {
+function formatDateBg(iso) {
   if (!iso) return "—";
-  const [, m, d] = String(iso).split("-");
-  return `${d}.${m}`;
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("bg-BG", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function TeamPortalShell({ children }) {
@@ -42,6 +52,36 @@ function TeamPortalShell({ children }) {
       <footer className="parentPortalFooter">
         <span>Българска федерация по волейбол</span>
       </footer>
+    </div>
+  );
+}
+
+function NextMatchBlock({ item }) {
+  if (!item) {
+    return (
+      <p className="parentPortalHighlightMuted parentPortalNextEventEmpty">
+        Няма предстоящ мач или турнир.
+      </p>
+    );
+  }
+  const daysUntil = formatDaysUntil(item.date);
+  const loc = formatLocationDisplay(item.location);
+  return (
+    <div className="parentPortalNextEventBlock parentPortalNextEventBlock--competition">
+      <p className="parentPortalHighlightMetaRow">
+        <span className="uiBadge uiBadge--warning">{competitionKindLabel(item)}</span>
+        {daysUntil ? <span className="parentPortalDaysUntil">{daysUntil}</span> : null}
+      </p>
+      <p className="parentPortalHighlightMain">{formatDateBg(item.date)}</p>
+      <p className="parentPortalHighlightDetail">
+        <span className="uiBadge uiBadge--secondary">Час</span>{" "}
+        {item.start_time} – {item.end_time}
+      </p>
+      {loc ? (
+        <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={loc}>
+          <span className="uiBadge uiBadge--secondary">Място</span> {loc}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -74,15 +114,18 @@ export default function TeamPortal() {
     };
   }, [token]);
 
-  const scheduleByDate = useMemo(() => {
-    const map = new Map();
-    for (const row of data?.monthly_schedule || []) {
-      const arr = map.get(row.date) || [];
-      arr.push(row);
-      map.set(row.date, arr);
-    }
-    return [...map.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-  }, [data?.monthly_schedule]);
+  const fetchScheduleMonth = useCallback(
+    async (monthKey) => {
+      const res = await axiosInstance.get(API_PATHS.TEAM_PORTAL_SCHEDULE(token), {
+        params: { month: monthKey },
+      });
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    [token],
+  );
+
+  const attendance = data?.attendance_summary;
+  const hasAttendance = (attendance?.total ?? 0) > 0;
 
   return (
     <TeamPortalShell>
@@ -98,6 +141,50 @@ export default function TeamPortal() {
                 График и новини за отбора
               </p>
             </header>
+
+            <section className="parentPortalHighlightGrid" aria-label="Статистика на отбора">
+              <div className="parentPortalHighlightCard">
+                <h2 className="parentPortalHighlightTitle">Присъствие на отбора</h2>
+                {hasAttendance ? (
+                  <>
+                    <p className="parentPortalHighlightMain">
+                      <span className="uiBadge uiBadge--info">{attendance.attendance_rate_percent}%</span>
+                    </p>
+                    <p className="parentPortalHighlightDetail">
+                      Последните 90 дни · {attendance.present + attendance.late} от {attendance.total} записа
+                    </p>
+                    <p className="parentPortalHighlightMuted" style={{ fontSize: "12px", marginTop: "4px" }}>
+                      Присъства: {attendance.present}
+                      {attendance.late ? ` · Закъснели: ${attendance.late}` : ""}
+                      {attendance.absent ? ` · Отсъстващи: ${attendance.absent}` : ""}
+                    </p>
+                  </>
+                ) : (
+                  <p className="parentPortalHighlightMuted">
+                    Още няма достатъчно записи за присъствие.
+                  </p>
+                )}
+              </div>
+              <div className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
+                <h2 className="parentPortalHighlightTitle">Следващ мач</h2>
+                <NextMatchBlock item={data.next_competition} />
+              </div>
+            </section>
+
+            <section className="parentPortalScheduleSection">
+              <Card title="График">
+                <ParentScheduleViews
+                  token={token}
+                  initialItems={data.monthly_schedule}
+                  scheduleMonthKey={data.schedule_month_key}
+                  formatMonthKey={formatMonthKey}
+                  fetchScheduleMonth={fetchScheduleMonth}
+                  initialWeekStart={data.week_start}
+                  showTeamLegend={false}
+                  scheduleHint="Зала и час в клетката. Докоснете ден за детайли."
+                />
+              </Card>
+            </section>
 
             <Card title="Новини">
               {(data.items || []).length === 0 ? (
@@ -120,46 +207,6 @@ export default function TeamPortal() {
                         {item.created_at ? new Date(item.created_at).toLocaleString("bg-BG") : ""}
                       </time>
                     </article>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card title={`График — ${formatMonthKey(data.schedule_month_key)}`}>
-              {scheduleByDate.length === 0 ? (
-                <EmptyState title="Няма събития" description="За този месец няма записан график." />
-              ) : (
-                <div className="teamPortalScheduleList">
-                  {scheduleByDate.map(([date, rows]) => (
-                    <div key={date} className="teamPortalScheduleDay">
-                      <div className="teamPortalScheduleDayLabel">{formatShortDate(date)}</div>
-                      <div className="teamPortalScheduleDayEvents">
-                        {rows
-                          .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
-                          .map((row, i) => {
-                            const isComp = isCompetitionEvent(row);
-                            const label = row.is_cancelled
-                              ? "Отменена"
-                              : isComp
-                                ? competitionKindLabel(row)
-                                : "Тренировка";
-                            return (
-                              <div
-                                key={`${date}-${i}`}
-                                className={`teamPortalScheduleEvent${row.is_cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}`}
-                              >
-                                <span className="teamPortalScheduleEventTime">
-                                  {row.start_time} – {row.end_time}
-                                </span>
-                                <span className="teamPortalScheduleEventMain">
-                                  <span className="uiBadge uiBadge--secondary">{label}</span>
-                                  {row.location ? ` · ${row.location}` : ""}
-                                </span>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
                   ))}
                 </div>
               )}

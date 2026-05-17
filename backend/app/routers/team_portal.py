@@ -1,18 +1,25 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Club, Team, TeamAccessToken, TeamPortalItem, TeamPortalItemKind, User, UserRole
-from app.routers.parent_portal import _build_schedule_for_teams, _month_key_now, _month_last_day
+from app.models import AttendanceRecord, Club, Team, TeamAccessToken, TeamPortalItem, TeamPortalItemKind, TeamSession, User, UserRole
+from app.routers.parent_portal import (
+    _build_schedule_for_teams,
+    _month_key_now,
+    _month_last_day,
+    _pick_next_by_kind,
+)
+from app.schemas.parent_portal import ParentAttendanceSummary, ParentScheduleItem
 from app.routers.teams import _ensure_team_owner
 from app.schemas.team_portal import (
     TeamAccessCreateResponse,
@@ -23,6 +30,10 @@ from app.schemas.team_portal import (
 )
 
 router = APIRouter()
+
+_MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
+_TEAM_ATTENDANCE_DAYS = 90
+_UPCOMING_HORIZON_DAYS = 45
 
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -95,11 +106,69 @@ def _item_to_response(item: TeamPortalItem) -> TeamPortalItemResponse:
     )
 
 
-def _portal_payload(db: Session, team: Team) -> TeamPortalPublicResponse:
-    mk = _month_key_now()
-    from_date = f"{mk}-01"
-    to_date = _month_last_day(mk)
-    schedule = _build_schedule_for_teams(db, [team.id], from_date, to_date)
+def _monday_of_week_iso(iso_date: str | None = None) -> str:
+    d = date.fromisoformat(iso_date or date.today().isoformat())
+    d -= timedelta(days=d.weekday())
+    return d.isoformat()
+
+
+def _team_attendance_summary(db: Session, team_id: int, days: int = _TEAM_ATTENDANCE_DAYS) -> ParentAttendanceSummary:
+    today = date.today()
+    start = (today - timedelta(days=days)).isoformat()
+    end = today.isoformat()
+    session_ids = [
+        sid
+        for (sid,) in db.query(TeamSession.id)
+        .filter(
+            TeamSession.team_id == int(team_id),
+            TeamSession.date >= start,
+            TeamSession.date <= end,
+        )
+        .all()
+    ]
+    present = late = absent = excused = 0
+    if session_ids:
+        for (status,) in db.query(AttendanceRecord.status).filter(AttendanceRecord.session_id.in_(session_ids)).all():
+            st = str(status or "").lower()
+            if st == "present":
+                present += 1
+            elif st == "late":
+                late += 1
+            elif st == "absent":
+                absent += 1
+            elif st == "excused":
+                excused += 1
+    total = present + late + absent + excused
+    rate = round(((present + late) / total) * 100.0, 1) if total else 0.0
+    return ParentAttendanceSummary(
+        present=present,
+        late=late,
+        absent=absent,
+        excused=excused,
+        total=total,
+        attendance_rate_percent=rate,
+    )
+
+
+def _schedule_for_team_month(db: Session, team_id: int, month_key: str) -> list[ParentScheduleItem]:
+    from_date = f"{month_key}-01"
+    to_date = _month_last_day(month_key)
+    return _build_schedule_for_teams(db, [team_id], from_date, to_date)
+
+
+def _portal_payload(db: Session, team: Team, month_key: str | None = None) -> TeamPortalPublicResponse:
+    mk = (month_key or _month_key_now()).strip()
+    if not _MONTH_KEY_RE.match(mk):
+        mk = _month_key_now()
+    schedule = _schedule_for_team_month(db, team.id, mk)
+    today = date.today()
+    upcoming_pool = _build_schedule_for_teams(
+        db,
+        [team.id],
+        today.isoformat(),
+        (today + timedelta(days=_UPCOMING_HORIZON_DAYS)).isoformat(),
+    )
+    next_competition = _pick_next_by_kind(upcoming_pool, competition=True)
     club_name = None
     if team.club_id:
         club = db.query(Club).filter(Club.id == team.club_id).first()
@@ -115,7 +184,10 @@ def _portal_payload(db: Session, team: Team) -> TeamPortalPublicResponse:
         team_name=team.name,
         club_name=club_name,
         schedule_month_key=mk,
+        week_start=_monday_of_week_iso(),
         monthly_schedule=schedule,
+        attendance_summary=_team_attendance_summary(db, team.id),
+        next_competition=next_competition,
         items=[_item_to_response(i) for i in items],
     )
 
@@ -289,7 +361,29 @@ def delete_team_portal_item(
     db.commit()
 
 
-@router.get("/team-portal/{token}", response_model=TeamPortalPublicResponse)
-def team_portal_public(token: str, db: Session = Depends(get_db)):
+@router.get("/team-portal/{token}/schedule", response_model=list[ParentScheduleItem])
+def team_portal_schedule(
+    token: str,
+    month: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+):
+    if not _MONTH_KEY_RE.match((month or "").strip()):
+        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
     team = _resolve_team_from_token(db, token)
-    return _portal_payload(db, team)
+    return _schedule_for_team_month(db, team.id, month.strip())
+
+
+@router.get("/team-portal/{token}", response_model=TeamPortalPublicResponse)
+def team_portal_public(
+    token: str,
+    month: str | None = Query(None, description="YYYY-MM for initial schedule month"),
+    db: Session = Depends(get_db),
+):
+    team = _resolve_team_from_token(db, token)
+    month_key = None
+    if month is not None:
+        mk = month.strip()
+        if not _MONTH_KEY_RE.match(mk):
+            raise HTTPException(status_code=422, detail="month must be YYYY-MM")
+        month_key = mk
+    return _portal_payload(db, team, month_key)
