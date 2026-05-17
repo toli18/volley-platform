@@ -7,6 +7,7 @@ import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
+import { filterFeesAthletes } from "../utils/feesAthleteSearch";
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -95,11 +96,10 @@ export default function MonthlyFees() {
   const [highlightAthleteId, setHighlightAthleteId] = useState(null);
   const isHeadCoach = user?.role === "club_head_coach";
 
-  const loadAthletes = async (search = query, selectedCoach = coachFilter) => {
+  const loadAthletes = async (selectedCoach = coachFilter) => {
     try {
       setLoading(true);
       const params = {};
-      if ((search || "").trim()) params.query = search.trim();
       if (isHeadCoach && selectedCoach) params.coach_id = Number(selectedCoach);
       const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST, { params });
       setAthletes(Array.isArray(res.data) ? res.data : []);
@@ -111,8 +111,10 @@ export default function MonthlyFees() {
   };
 
   useEffect(() => {
-    loadAthletes("");
-  }, []);
+    loadAthletes(coachFilter);
+  }, [coachFilter, isHeadCoach]);
+
+  const filteredAthletes = useMemo(() => filterFeesAthletes(athletes, query), [athletes, query]);
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search || "");
@@ -125,7 +127,7 @@ export default function MonthlyFees() {
     setHighlightAthleteId(aid);
     setQuery("");
     if (isHeadCoach) setCoachFilter("");
-    loadAthletes("", "");
+    loadAthletes("");
   }, [location.search, isHeadCoach]);
 
   useEffect(() => {
@@ -308,7 +310,7 @@ export default function MonthlyFees() {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetAthleteForm();
-      await loadAthletes(query, coachFilter);
+      await loadAthletes(coachFilter);
       toast.success("Състезателят е създаден.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -338,7 +340,7 @@ export default function MonthlyFees() {
       setBusy(true);
       await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(editAthlete.id), payload);
       setEditAthlete(null);
-      await loadAthletes(query, coachFilter);
+      await loadAthletes(coachFilter);
       toast.success("Промените са запазени.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -357,7 +359,7 @@ export default function MonthlyFees() {
         setReportAthlete(null);
         setAthleteReport(null);
       }
-      await loadAthletes(query, coachFilter);
+      await loadAthletes(coachFilter);
       toast.success("Състезателят е изтрит.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -382,7 +384,7 @@ export default function MonthlyFees() {
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_PAYMENT_SAVE(athleteForRefresh.id), payload);
-      await loadAthletes(query, coachFilter);
+      await loadAthletes(coachFilter);
       if (reportAthlete?.id === athleteForRefresh.id) {
         await loadAthleteReport(athleteForRefresh);
       }
@@ -505,7 +507,7 @@ export default function MonthlyFees() {
       toast.success("Състезателят е прехвърлен.");
       setTransferAthlete(null);
       setTargetCoachId("");
-      await loadAthletes(query, coachFilter);
+      await loadAthletes(coachFilter);
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -599,11 +601,20 @@ export default function MonthlyFees() {
 
       <Card title="Списък състезатели">
         <div style={{ marginBottom: 8 }}>
-          <span className="uiBadge uiBadge--info">Общо в списъка: {athletes.length}</span>
+          <span className="uiBadge uiBadge--info">
+            {query.trim()
+              ? `Показани ${filteredAthletes.length} от ${athletes.length}`
+              : `Общо: ${athletes.length}`}
+          </span>
         </div>
         <div className="feesToolbar">
           <div className="feesToolbarInner">
-            <Input placeholder="Бързо търсене..." value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Input
+              placeholder="Търсене: име, отбор, година..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Търсене на състезатели"
+            />
             {isHeadCoach && (
               <select className="uiInput" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
                 <option value="">Всички треньори</option>
@@ -612,18 +623,11 @@ export default function MonthlyFees() {
                 ))}
               </select>
             )}
-            <Button variant="secondary" onClick={() => loadAthletes(query)}>
-              Търси
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setQuery("");
-                loadAthletes("");
-              }}
-            >
-              Изчисти
-            </Button>
+            {query.trim() ? (
+              <Button variant="secondary" type="button" onClick={() => setQuery("")}>
+                Изчисти
+              </Button>
+            ) : null}
             <Input
               ref={importInputRef}
               type="file"
@@ -655,10 +659,13 @@ export default function MonthlyFees() {
         </div>
         {loading && <p>Зареждане...</p>}
         {!loading && athletes.length === 0 && <EmptyState title="Няма състезатели" description="Добави първия състезател или импортирай списък." />}
-        {!loading && athletes.length > 0 && (
+        {!loading && athletes.length > 0 && filteredAthletes.length === 0 && (
+          <EmptyState title="Няма съвпадения" description="Променете търсенето или изчистете полето." />
+        )}
+        {!loading && filteredAthletes.length > 0 && (
           <>
             <div className="feesMobileList" aria-label="Състезатели (мобилен изглед)">
-              {athletes.map((a) => (
+              {filteredAthletes.map((a) => (
                 <article
                   key={`m-${a.id}`}
                   data-athlete-scroll={a.id}
@@ -757,7 +764,7 @@ export default function MonthlyFees() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {athletes.map((a) => (
+                  {filteredAthletes.map((a) => (
                     <TableRow
                       key={a.id}
                       data-athlete-scroll={a.id}

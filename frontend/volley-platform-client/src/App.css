@@ -1114,11 +1114,22 @@
 
 .parentPortalWeekGrid {
   display: grid;
-  min-width: 720px;
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+  min-width: 0;
+  width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
+}
+
+.parentPortalWeekDesktop {
+  display: block;
+}
+
+.parentPortalWeekMobile {
+  display: none;
+  gap: 8px;
 }
 
 .parentPortalWeekCorner,
@@ -1436,22 +1447,206 @@
   word-break: break-word;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 720px) {
+  .parentPortalPage {
+    padding: 12px 10px 24px;
+  }
+
+  .parentPortalHighlightCard {
+    padding: 12px 14px;
+  }
+
+  .parentPortalHighlightMain {
+    font-size: 16px;
+  }
+
+  .parentPortalDaysUntil {
+    display: block;
+    margin: 6px 0 0;
+    margin-left: 0;
+  }
+
+  .parentPortalPeriodSelect {
+    width: 100%;
+    max-width: none;
+  }
+
+  .parentPortalInfoGrid .uiBadge {
+    font-size: 12px;
+  }
+
   .parentPortalScheduleToolbar {
     flex-direction: column;
     align-items: stretch;
   }
 
   .parentPortalScheduleNav {
-    justify-content: center;
+    justify-content: space-between;
+    width: 100%;
   }
 
-  .parentPortalWeekGrid {
-    min-width: 640px;
+  .parentPortalScheduleNavLabel {
+    min-width: 0;
+    flex: 1;
+    font-size: 13px;
+  }
+
+  .parentPortalScheduleViewBtn {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .parentPortalScheduleViewToggle {
+    width: 100%;
+    display: flex;
+  }
+
+  .parentPortalScheduleLegend {
+    gap: 6px;
+  }
+
+  .parentPortalScheduleLegendItem {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  /* Седмица: списък по дни на телефон */
+  .parentPortalWeekDesktop {
+    display: none;
+  }
+
+  .parentPortalWeekMobile {
+    display: grid;
+  }
+
+  .parentPortalWeekMobileDay {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .parentPortalWeekMobileDay.is-selected {
+    border-color: #0f4d3a;
+    box-shadow: inset 0 0 0 1px #0f4d3a;
+    background: #f0fdf4;
+  }
+
+  .parentPortalWeekMobileDayHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    margin-bottom: 8px;
+  }
+
+  .parentPortalWeekMobileWeekday {
+    font-weight: 800;
+    color: #0f4d3a;
+    font-size: 14px;
+  }
+
+  .parentPortalWeekMobileDate {
+    font-size: 13px;
+    color: #64748b;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .parentPortalWeekMobileCount {
+    font-size: 11px;
+    font-weight: 700;
+    background: #e0f2fe;
+    color: #0c4a6e;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .parentPortalWeekMobileEmpty {
+    margin: 0;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+
+  .parentPortalWeekMobileEvents {
+    display: grid;
+    gap: 6px;
+  }
+
+  /* Месец: 7 колони в ширината на екрана */
+  .parentPortalMonthWrap {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .parentPortalMonthHeadRow,
+  .parentPortalMonthGrid {
+    width: 100%;
+  }
+
+  .parentPortalMonthDayLabel {
+    padding: 6px 2px;
+    font-size: 10px;
   }
 
   .parentPortalMonthCell {
-    min-height: 72px;
+    min-height: 54px;
+    padding: 2px;
+  }
+
+  .parentPortalMonthCellDay {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .parentPortalMonthCell .parentPortalSchedBlockMeta {
+    display: none;
+  }
+
+  .parentPortalMonthCell .parentPortalSchedBlockTeam {
+    font-size: 9px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .parentPortalMonthMore {
+    font-size: 9px;
+  }
+
+  .parentPortalSessionCard {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .parentPortalSessionCardDate {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .parentPortalDayModal {
+    width: 100%;
+    max-height: 85vh;
+    padding: 14px;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 900px) {
+  .parentPortalWeekWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .parentPortalWeekGrid {
+    grid-template-columns: 56px repeat(7, minmax(72px, 1fr));
+    min-width: 560px;
   }
 }
 

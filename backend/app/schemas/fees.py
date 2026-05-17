@@ -47,6 +47,7 @@ class AthleteRead(BaseModel):
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
+    team_names: list[str] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

@@ -20,7 +20,7 @@ from reportlab.pdfgen import canvas
 from app.database import get_db
 from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
-from app.models import Athlete, AthletePayment, User, UserRole
+from app.models import Athlete, AthletePayment, Team, TeamMember, User, UserRole
 from app.schemas.fees import (
     AthleteCreate,
     AthleteMonthlyReport,
@@ -77,6 +77,32 @@ def _role_value(user: User) -> str:
 
 def _is_head_coach(user: User) -> bool:
     return _role_value(user) == UserRole.club_head_coach.value
+
+
+def _team_names_by_athlete(db: Session, athlete_ids: list[int]) -> dict[int, list[str]]:
+    if not athlete_ids:
+        return {}
+    rows = (
+        db.query(TeamMember.athlete_id, Team.name)
+        .join(Team, Team.id == TeamMember.team_id)
+        .filter(TeamMember.athlete_id.in_(athlete_ids), TeamMember.is_active.is_(True))
+        .order_by(Team.name.asc())
+        .all()
+    )
+    out: dict[int, list[str]] = {}
+    for athlete_id, team_name in rows:
+        out.setdefault(int(athlete_id), []).append(team_name)
+    return out
+
+
+def _athlete_reads_with_teams(db: Session, athletes: list[Athlete]) -> list[AthleteRead]:
+    team_map = _team_names_by_athlete(db, [a.id for a in athletes])
+    return [
+        AthleteRead.model_validate(athlete).model_copy(
+            update={"team_names": team_map.get(athlete.id, [])}
+        )
+        for athlete in athletes
+    ]
 
 
 def _ensure_athlete_access(db: Session, athlete_id: int, user: User) -> Athlete:
@@ -319,7 +345,10 @@ def list_athletes(
             | (Athlete.parent_name.ilike(search))
             | (Athlete.athlete_phone.ilike(search))
             | (Athlete.parent_phone.ilike(search))
+            | (Athlete.notes.ilike(search))
         )
+        if query.strip().isdigit():
+            q = q.filter(Athlete.birth_year == int(query.strip()))
     athletes = q.all()
     athlete_ids = [a.id for a in athletes]
 
@@ -347,7 +376,30 @@ def list_athletes(
     for athlete in athletes:
         athlete.recent_payments = recent_by_athlete.get(athlete.id, [])
 
-    return athletes
+    reads = _athlete_reads_with_teams(db, athletes)
+    if query and query.strip() and not query.strip().isdigit():
+        needle = query.strip().lower()
+        team_rows = (
+            db.query(TeamMember.athlete_id)
+            .join(Team, Team.id == TeamMember.team_id)
+            .filter(TeamMember.is_active.is_(True), Team.name.ilike(f"%{needle}%"))
+            .distinct()
+            .all()
+        )
+        team_athlete_ids = {int(r[0]) for r in team_rows}
+        if team_athlete_ids:
+            existing_ids = {r.id for r in reads}
+            extra = (
+                q.filter(Athlete.id.in_(team_athlete_ids - existing_ids)).all()
+                if team_athlete_ids - existing_ids
+                else []
+            )
+            for athlete in extra:
+                athlete.recent_payments = recent_by_athlete.get(athlete.id, [])
+            reads.extend(_athlete_reads_with_teams(db, extra))
+            reads.sort(key=lambda x: x.athlete_name.lower())
+
+    return reads
 
 
 @router.post("/fees/athletes", response_model=AthleteRead, status_code=status.HTTP_201_CREATED)

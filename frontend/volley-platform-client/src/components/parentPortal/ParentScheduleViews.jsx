@@ -50,6 +50,46 @@ function SessionBlock({ row, compact }) {
   );
 }
 
+function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
+  const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
+
+  return (
+    <div className="parentPortalWeekMobile">
+      {WEEKDAY_HEADERS.map((name, dayIdx) => {
+        const date = addDaysIso(weekStart, dayIdx);
+        const dayItems = inWeek
+          .filter((it) => it.date === date)
+          .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+        return (
+          <button
+            key={date}
+            type="button"
+            className={`parentPortalWeekMobileDay${selectedDate === date ? " is-selected" : ""}`}
+            onClick={() => onDayClick(date)}
+          >
+            <div className="parentPortalWeekMobileDayHead">
+              <span className="parentPortalWeekMobileWeekday">{name}</span>
+              <span className="parentPortalWeekMobileDate">{formatParentDayLabel(date)}</span>
+              {dayItems.length ? (
+                <span className="parentPortalWeekMobileCount">{dayItems.length}</span>
+              ) : null}
+            </div>
+            {dayItems.length === 0 ? (
+              <p className="parentPortalWeekMobileEmpty">Няма събития</p>
+            ) : (
+              <div className="parentPortalWeekMobileEvents">
+                {dayItems.map((row, i) => (
+                  <SessionBlock key={`${date}-${i}`} row={row} compact />
+                ))}
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
   const slots = useMemo(() => timeSlotsForWeek(items, weekStart), [items, weekStart]);
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
@@ -67,10 +107,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick }) {
   return (
     <div className="parentPortalWeekWrap">
       <p className="uiHint parentPortalScheduleHint">Кликнете върху ден от седмицата или клетка за пълен списък.</p>
-      <div
-        className="parentPortalWeekGrid"
-        style={{ gridTemplateColumns: `72px repeat(7, minmax(88px, 1fr))` }}
-      >
+      <div className="parentPortalWeekGrid">
         <div className="parentPortalWeekCorner" />
         {WEEKDAY_HEADERS.map((name, dayIdx) => {
           const date = addDaysIso(weekStart, dayIdx);
@@ -328,7 +365,12 @@ export default function ParentScheduleViews({ token, initialItems, scheduleMonth
       {loadingMonth ? <p className="uiHint">Зареждане на график...</p> : null}
 
       {view === "week" ? (
-        <WeekGrid items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+        <>
+          <div className="parentPortalWeekDesktop">
+            <WeekGrid items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+          </div>
+          <WeekMobileList items={weekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+        </>
       ) : monthItems.length === 0 && !loadingMonth ? (
         <EmptyState title="Няма събития" description={`За ${formatMonthKey(monthKey)} няма записани събития.`} />
       ) : (
