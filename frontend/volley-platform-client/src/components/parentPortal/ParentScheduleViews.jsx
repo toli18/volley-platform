@@ -23,10 +23,11 @@ import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from 
 
 function SessionBlock({ row, compact }) {
   const isComp = isCompetitionEvent(row);
+  const cancelled = Boolean(row.is_cancelled);
   const colors = isComp ? null : teamColorForName(row.team_name);
   return (
     <div
-      className={`parentPortalSchedBlock${compact ? " parentPortalSchedBlock--compact" : ""}${isComp ? " parentPortalSchedBlock--competition" : ""}`}
+      className={`parentPortalSchedBlock${compact ? " parentPortalSchedBlock--compact" : ""}${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}`}
       style={
         isComp
           ? competitionBlockStyle
@@ -34,6 +35,7 @@ function SessionBlock({ row, compact }) {
       }
     >
       <div className="parentPortalSchedBlockTeam">
+        {cancelled ? "Отменена · " : ""}
         {isComp ? competitionKindLabel(row) : row.team_name || "Отбор"}
       </div>
       {!isComp && row.team_name ? (

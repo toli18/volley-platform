@@ -3,6 +3,8 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { useAuth } from "../auth/AuthContext";
+import TrainingSessionAdjustModal from "../components/schedule/TrainingSessionAdjustModal";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
@@ -24,12 +26,21 @@ const shortStatusLabel = (value) => {
   return value || "";
 };
 
+const roleValue = (user) => {
+  const r = user?.role;
+  if (r && typeof r === "object" && "value" in r) return String(r.value).toLowerCase();
+  return String(r || "").toLowerCase();
+};
+
 export default function TeamAttendance() {
   const { teamId } = useParams();
   const [searchParams] = useSearchParams();
   const toast = useToast();
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [team, setTeam] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+  const [sessionAdjustOpen, setSessionAdjustOpen] = useState(false);
   const initialDate = searchParams.get("date") || todayKey();
   const initialTitle = searchParams.get("title") || "";
   const [attendanceDate, setAttendanceDate] = useState(initialDate);
@@ -37,11 +48,17 @@ export default function TeamAttendance() {
   const [attendanceRows, setAttendanceRows] = useState([]);
 
   const teamIdNum = Number(teamId);
+  const isHeadCoach = roleValue(user) === "club_head_coach";
+  const currentUserId = Number(user?.id || 0);
 
   const loadTeam = async () => {
-    const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
-    const list = Array.isArray(res.data) ? res.data : [];
+    const [teamsRes, coachesRes] = await Promise.all([
+      axiosInstance.get(API_PATHS.TEAMS_LIST),
+      axiosInstance.get(API_PATHS.FEES_COACHES_LIST).catch(() => ({ data: [] })),
+    ]);
+    const list = Array.isArray(teamsRes.data) ? teamsRes.data : [];
     setTeam(list.find((x) => x.id === teamIdNum) || null);
+    setCoaches(Array.isArray(coachesRes.data) ? coachesRes.data : []);
   };
 
   const loadAttendance = async (dateKey) => {
@@ -146,6 +163,15 @@ export default function TeamAttendance() {
             <Button size="sm" disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
               Запази
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              disabled={busy || !attendanceDate}
+              onClick={() => setSessionAdjustOpen(true)}
+            >
+              Отмени / коригирай тренировката
+            </Button>
           </div>
         </div>
 
@@ -249,6 +275,17 @@ export default function TeamAttendance() {
           </>
         )}
       </Card>
+
+      <TrainingSessionAdjustModal
+        open={sessionAdjustOpen}
+        onClose={() => setSessionAdjustOpen(false)}
+        teamId={teamIdNum}
+        date={attendanceDate}
+        isHeadCoach={isHeadCoach}
+        currentUserId={currentUserId}
+        coaches={coaches}
+        onSaved={() => {}}
+      />
     </div>
   );
 }

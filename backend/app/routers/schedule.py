@@ -248,6 +248,7 @@ def list_schedule_occurrences(
     coach_id: int | None = Query(default=None),
     team_id: int | None = Query(default=None),
     location: str | None = Query(default=None),
+    include_cancelled: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)),
 ):
@@ -315,6 +316,24 @@ def list_schedule_occurrences(
                     continue
                 exc = exc_by_key.get((r.id, cur_s))
                 if exc and exc.kind == "cancelled":
+                    if include_cancelled:
+                        items.append(
+                            ScheduleOccurrence(
+                                date=cur_s,
+                                weekday=weekday,
+                                event_type="training",
+                                rule_id=int(r.id),
+                                exception_id=int(exc.id),
+                                is_cancelled=True,
+                                location=_normalize_location(r.location),
+                                start_time=r.start_time,
+                                end_time=r.end_time,
+                                coach_id=int(r.coach_id),
+                                coach_name=coach_names.get(int(r.coach_id)),
+                                team_id=int(r.team_id),
+                                team_name=team_names.get(int(r.team_id)),
+                            )
+                        )
                     continue
 
                 coach_id_v = int(exc.coach_id) if exc and exc.kind == "override" and exc.coach_id else int(r.coach_id)

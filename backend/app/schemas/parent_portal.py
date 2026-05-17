@@ -27,6 +27,7 @@ class ParentScheduleItem(BaseModel):
     event_type: str = "training"
     competition_kind: Optional[str] = None
     competition_kind_label: Optional[str] = None
+    is_cancelled: bool = False
 
 
 class ParentPaymentRow(BaseModel):

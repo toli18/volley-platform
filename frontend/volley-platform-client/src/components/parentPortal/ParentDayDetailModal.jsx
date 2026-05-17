@@ -36,26 +36,34 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
           <ul className="parentPortalDayModalList">
             {sorted.map((row, i) => {
               const isComp = isCompetitionEvent(row);
+              const cancelled = Boolean(row.is_cancelled);
               const colors = isComp ? null : teamColorForName(row.team_name);
               return (
                 <li
                   key={`${row.date}-${row.start_time}-${row.event_type}-${i}`}
-                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}`}
+                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}${cancelled ? " parentPortalDayModalItem--cancelled" : ""}`}
                   style={
                     isComp
                       ? undefined
                       : { borderLeftColor: colors.border, background: colors.bg }
                   }
                 >
-                  <div className="parentPortalDayModalItemType">{eventTypeLabel(row)}</div>
-                  <div className="parentPortalDayModalItemTime">
+                  <div className="parentPortalDayModalItemType">
+                    {cancelled ? "Отменена · " : ""}
+                    {eventTypeLabel(row)}
+                  </div>
+                  <div className={`parentPortalDayModalItemTime${cancelled ? " parentPortalSchedStruck" : ""}`}>
                     {row.start_time} – {row.end_time}
                   </div>
                   {row.team_name ? (
-                    <div className="parentPortalDayModalItemMeta">Отбор: {row.team_name}</div>
+                    <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
+                      Отбор: {row.team_name}
+                    </div>
                   ) : null}
                   {row.location ? (
-                    <div className="parentPortalDayModalItemMeta">Място: {row.location}</div>
+                    <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
+                      Място: {row.location}
+                    </div>
                   ) : null}
                 </li>
               );

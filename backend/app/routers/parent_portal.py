@@ -134,6 +134,17 @@ def _build_schedule_for_teams(
                 continue
             exc = exc_map.get((r.id, cur_s))
             if exc and exc.kind == "cancelled":
+                schedule_items.append(
+                    ParentScheduleItem(
+                        date=cur_s,
+                        start_time=r.start_time,
+                        end_time=r.end_time,
+                        location=r.location or "",
+                        team_name=team_name_map.get(int(r.team_id)),
+                        event_type="training",
+                        is_cancelled=True,
+                    )
+                )
                 continue
             location = exc.location if exc and exc.kind == "override" and exc.location else r.location
             start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
@@ -146,6 +157,7 @@ def _build_schedule_for_teams(
                     location=location,
                     team_name=team_name_map.get(int(r.team_id)),
                     event_type="training",
+                    is_cancelled=False,
                 )
             )
 

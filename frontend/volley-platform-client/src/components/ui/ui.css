@@ -332,6 +332,10 @@
   width: min(560px, 96vw);
 }
 
+.uiModal--wide {
+  width: min(520px, 96vw);
+}
+
 .uiModalTitle {
   margin: 0;
 }
