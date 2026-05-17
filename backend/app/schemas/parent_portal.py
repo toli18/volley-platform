@@ -24,6 +24,9 @@ class ParentScheduleItem(BaseModel):
     end_time: str
     location: str
     team_name: Optional[str] = None
+    event_type: str = "training"
+    competition_kind: Optional[str] = None
+    competition_kind_label: Optional[str] = None
 
 
 class ParentPaymentRow(BaseModel):

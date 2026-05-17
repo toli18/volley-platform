@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 import { createDraftKey, hasMeaningfulDraft, loadDraft } from "../utils/articleDrafts";
 import Drills from "./Drills";
 
@@ -299,29 +300,44 @@ export default function Home() {
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {scheduleItems.map((it, idx) => {
+              const isComp = isCompetitionEvent(it);
               const tc = teamColorsForId(it.team_id);
-              const teamLabel = it.team_name || `Отбор #${it.team_id}`;
-              return (
-                <Link
-                  key={`${it.rule_id}-${it.date}-${it.start_time}-${idx}`}
-                  to={dashboardScheduleAttendanceTo(it)}
-                  style={{ ...cardLinkStyle, display: "block" }}
-                >
+              const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
+              const row = (
+                <>
                   <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
                   <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
                     <span
                       style={{
                         fontWeight: 800,
                         fontSize: 16,
-                        color: tc.text,
-                        borderLeft: `3px solid ${tc.border}`,
+                        color: isComp ? "#9a3412" : tc.text,
+                        borderLeft: `3px solid ${isComp ? "#f59e0b" : tc.border}`,
                         paddingLeft: 8,
                       }}
                     >
                       {teamLabel}
                     </span>
-                    <span style={{ color: "#64748b", fontSize: 13 }}>{it.location ? `· ${it.location}` : ""}</span>
+                    <span style={{ color: "#64748b", fontSize: 13 }}>
+                      {isComp && it.team_name ? `${it.team_name} · ` : ""}
+                      {it.location ? `· ${it.location}` : ""}
+                    </span>
                   </div>
+                </>
+              );
+              const key = isComp
+                ? `comp-${it.competition_id}-${it.date}-${idx}`
+                : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
+              if (isComp) {
+                return (
+                  <div key={key} style={{ ...cardLinkStyle, background: "#fffbeb", borderColor: "#fcd34d" }}>
+                    {row}
+                  </div>
+                );
+              }
+              return (
+                <Link key={key} to={dashboardScheduleAttendanceTo(it)} style={{ ...cardLinkStyle, display: "block" }}>
+                  {row}
                 </Link>
               );
             })}

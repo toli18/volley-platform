@@ -16,20 +16,31 @@ import {
   teamColorForName,
   timeSlotsForWeek,
 } from "../../utils/parentPortalSchedule";
+import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 
 function SessionBlock({ row, compact }) {
-  const colors = teamColorForName(row.team_name);
+  const isComp = isCompetitionEvent(row);
+  const colors = isComp ? null : teamColorForName(row.team_name);
   return (
     <div
-      className={`parentPortalSchedBlock${compact ? " parentPortalSchedBlock--compact" : ""}`}
-      style={{
-        borderColor: colors.border,
-        background: colors.bg,
-        color: colors.text,
-      }}
+      className={`parentPortalSchedBlock${compact ? " parentPortalSchedBlock--compact" : ""}${isComp ? " parentPortalSchedBlock--competition" : ""}`}
+      style={
+        isComp
+          ? competitionBlockStyle
+          : { borderColor: colors.border, background: colors.bg, color: colors.text }
+      }
     >
-      <div className="parentPortalSchedBlockTeam">{row.team_name || "Отбор"}</div>
-      {!compact && row.location ? <div className="parentPortalSchedBlockMeta">Зала: {row.location}</div> : null}
+      <div className="parentPortalSchedBlockTeam">
+        {isComp ? competitionKindLabel(row) : row.team_name || "Отбор"}
+      </div>
+      {!isComp && row.team_name ? (
+        <div className="parentPortalSchedBlockMeta" style={{ opacity: 0.85 }}>
+          {row.team_name}
+        </div>
+      ) : null}
+      {row.location ? (
+        <div className="parentPortalSchedBlockMeta">{compact ? row.location : `Място: ${row.location}`}</div>
+      ) : null}
     </div>
   );
 }

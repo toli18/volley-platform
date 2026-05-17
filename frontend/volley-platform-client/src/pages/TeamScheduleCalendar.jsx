@@ -5,7 +5,14 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
+import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
+import {
+  COMPETITION_KIND_OPTIONS,
+  competitionBlockStyle,
+  competitionKindLabel,
+  isCompetitionEvent,
+} from "../utils/competitionKinds";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const monthKeyNow = () => todayKey().slice(0, 7);
@@ -76,6 +83,22 @@ const teamColorFor = (teamId) => {
 const occurrenceAttendanceTo = (it) =>
   `/teams/${it.team_id}/attendance?date=${encodeURIComponent(it.date)}&title=${encodeURIComponent(`Тренировка ${it.start_time}`)}`;
 
+const defaultCompetitionForm = (date, coachId) => ({
+  team_id: "",
+  coach_id: coachId ? String(coachId) : "",
+  date: date || todayKey(),
+  location: "",
+  start_time: "10:00",
+  end_time: "12:00",
+  competition_kind: COMPETITION_KIND_OPTIONS[0].value,
+  notes: "",
+});
+
+const occurrenceKey = (it, i) =>
+  isCompetitionEvent(it)
+    ? `comp-${it.competition_id}-${it.date}-${i}`
+    : `rule-${it.rule_id}-${it.date}-${it.start_time}-${i}`;
+
 export default function TeamScheduleCalendar() {
   const toast = useToast();
   const { user } = useAuth();
@@ -95,6 +118,10 @@ export default function TeamScheduleCalendar() {
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
+
+  const [compOpen, setCompOpen] = useState(false);
+  const [compEditId, setCompEditId] = useState(null);
+  const [compForm, setCompForm] = useState(() => defaultCompetitionForm(todayKey(), ""));
 
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -149,7 +176,20 @@ export default function TeamScheduleCalendar() {
     });
   }, [items]);
 
-  const canEditOccurrence = (it) => isHeadCoach || Number(it.coach_id) === currentUserId;
+  const myTeamIds = useMemo(
+    () => teams.filter((t) => Number(t.coach_id) === currentUserId).map((t) => Number(t.id)),
+    [teams, currentUserId]
+  );
+  const teamsForCompetition = useMemo(
+    () => (isHeadCoach ? teams : teams.filter((t) => myTeamIds.includes(Number(t.id)))),
+    [teams, isHeadCoach, myTeamIds]
+  );
+  const canEditItem = (it) => {
+    if (isHeadCoach) return true;
+    if (isCompetitionEvent(it)) return myTeamIds.includes(Number(it.team_id));
+    return Number(it.coach_id) === currentUserId;
+  };
+  const canEditOccurrence = (it) => !isCompetitionEvent(it) && canEditItem(it);
 
   const loadMeta = async () => {
     const [teamsRes, coachesRes] = await Promise.all([
@@ -422,14 +462,93 @@ export default function TeamScheduleCalendar() {
     }
   };
 
+  const openCompetitionForDate = (date) => {
+    setCompEditId(null);
+    setCompForm(defaultCompetitionForm(date, isHeadCoach ? "" : currentUserId));
+    setCompOpen(true);
+  };
+
+  const openCompetitionEdit = (it) => {
+    if (!isCompetitionEvent(it)) return;
+    setCompEditId(Number(it.competition_id));
+    setCompForm({
+      team_id: String(it.team_id || ""),
+      coach_id: String(it.coach_id || ""),
+      date: it.date,
+      location: it.location || "",
+      start_time: it.start_time || "10:00",
+      end_time: it.end_time || "12:00",
+      competition_kind: it.competition_kind || COMPETITION_KIND_OPTIONS[0].value,
+      notes: "",
+    });
+    setCompOpen(true);
+  };
+
+  const saveCompetition = async () => {
+    if (!compForm.team_id || !compForm.location.trim()) {
+      toast.error("Попълни отбор и място.");
+      return;
+    }
+    const coachId = isHeadCoach ? Number(compForm.coach_id || 0) : currentUserId;
+    if (!coachId) {
+      toast.error("Избери треньор.");
+      return;
+    }
+    const payload = {
+      team_id: Number(compForm.team_id),
+      coach_id: coachId,
+      date: compForm.date,
+      location: compForm.location.trim(),
+      start_time: compForm.start_time,
+      end_time: compForm.end_time,
+      competition_kind: compForm.competition_kind,
+      notes: compForm.notes.trim() || null,
+    };
+    try {
+      setBusy(true);
+      if (compEditId) {
+        await axiosInstance.put(API_PATHS.SCHEDULE_COMPETITION_UPDATE(compEditId), payload);
+        toast.success("Състезанието е обновено.");
+      } else {
+        await axiosInstance.post(API_PATHS.SCHEDULE_COMPETITION_CREATE, payload);
+        toast.success("Състезанието е добавено.");
+      }
+      setCompOpen(false);
+      setCompEditId(null);
+      await loadOccurrences();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно записване на състезание."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteCompetition = async () => {
+    if (!compEditId) return;
+    if (!window.confirm("Изтриване на състезанието?")) return;
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.SCHEDULE_COMPETITION_DELETE(compEditId));
+      toast.success("Състезанието е изтрито.");
+      setCompOpen(false);
+      setCompEditId(null);
+      await loadOccurrences();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтриване."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="uiPage">
       <PageHero
-        title="Месечен график на тренировки"
-        subtitle="Кликни върху ден за действия. Цветният блок на тренировка отваря директно присъствие за този отбор и дата."
+        title="Месечен график"
+        subtitle="Тренировки и състезания. Тренировките отварят присъствие; състезанията са в оранжево."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button onClick={() => openAddForDate(todayKey())}>+ Добави тренировка</Button>
+            <Button onClick={() => openAddForDate(todayKey())}>+ Тренировка</Button>
+            <Button variant="secondary" onClick={() => openCompetitionForDate(todayKey())}>+ Състезание</Button>
             <Link to="/teams">
               <Button variant="secondary">Назад към Отбори</Button>
             </Link>
@@ -485,7 +604,7 @@ export default function TeamScheduleCalendar() {
             <div style={{ display: "grid", gap: 10 }}>
               {scheduleListSorted.map((it, i) => (
                 <article
-                  key={`${it.rule_id}-${it.date}-${it.start_time}-${i}`}
+                  key={occurrenceKey(it, i)}
                   style={{
                     border: "1px solid #e2e8f0",
                     borderRadius: 10,
@@ -509,17 +628,23 @@ export default function TeamScheduleCalendar() {
                         fontSize: 13,
                       }}
                     >
-                      {it.team_name || `Отбор #${it.team_id}`}
+                      {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
                     </span>
                   </div>
                   <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
+                    {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
                     {it.location}
                     {it.coach_name ? ` · ${it.coach_name}` : ""}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                    <Link to={occurrenceAttendanceTo(it)}>
-                      <Button size="sm">Присъствие</Button>
-                    </Link>
+                    {!isCompetitionEvent(it) ? (
+                      <Link to={occurrenceAttendanceTo(it)}>
+                        <Button size="sm">Присъствие</Button>
+                      </Link>
+                    ) : null}
+                    {isCompetitionEvent(it) && canEditItem(it) ? (
+                      <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
+                    ) : null}
                     {canEditOccurrence(it) ? (
                       <>
                         <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
@@ -582,23 +707,33 @@ export default function TeamScheduleCalendar() {
                     <div style={{ display: "grid", gap: 4 }}>
                       {dayItems.slice(0, 2).map((it, i) => (
                         <Link
-                          key={`${it.rule_id}-${i}`}
-                          to={occurrenceAttendanceTo(it)}
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          style={{
-                            display: "block",
-                            fontSize: 11,
-                            lineHeight: 1.2,
-                            borderRadius: 6,
-                            border: `1px solid ${teamColorFor(it.team_id).border}`,
-                            background: teamColorFor(it.team_id).bg,
-                            color: teamColorFor(it.team_id).text,
-                            padding: "2px 4px",
-                            textDecoration: "none",
+                          key={occurrenceKey(it, i)}
+                          to={isCompetitionEvent(it) ? "#" : occurrenceAttendanceTo(it)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isCompetitionEvent(it)) {
+                              e.preventDefault();
+                              if (canEditItem(it)) openCompetitionEdit(it);
+                            }
                           }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          style={
+                            isCompetitionEvent(it)
+                              ? { ...competitionBlockStyle, display: "block", fontSize: 11, lineHeight: 1.2, borderRadius: 6, padding: "2px 4px", textDecoration: "none" }
+                              : {
+                                  display: "block",
+                                  fontSize: 11,
+                                  lineHeight: 1.2,
+                                  borderRadius: 6,
+                                  border: `1px solid ${teamColorFor(it.team_id).border}`,
+                                  background: teamColorFor(it.team_id).bg,
+                                  color: teamColorFor(it.team_id).text,
+                                  padding: "2px 4px",
+                                  textDecoration: "none",
+                                }
+                          }
                         >
-                          <div>{it.start_time} {it.team_name || `#${it.team_id}`}</div>
+                          <div>{it.start_time} {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}</div>
                           <div style={{ opacity: 0.9 }}>{it.location}</div>
                         </Link>
                       ))}
@@ -626,14 +761,15 @@ export default function TeamScheduleCalendar() {
                           <Button size="sm" variant="secondary" onClick={() => setSelectedDate("")}>Затвори</Button>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                          <Button size="sm" onClick={() => openAddForDate(cell.date)}>Добави тренировка</Button>
+                          <Button size="sm" onClick={() => openAddForDate(cell.date)}>Тренировка</Button>
+                          <Button size="sm" variant="secondary" onClick={() => openCompetitionForDate(cell.date)}>Състезание</Button>
                         </div>
                         {selectedDayItems.length === 0 ? (
-                          <div style={{ fontSize: 12, color: "#64748b" }}>Няма тренировки в този ден.</div>
+                          <div style={{ fontSize: 12, color: "#64748b" }}>Няма събития в този ден.</div>
                         ) : (
                           <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
                             {selectedDayItems.map((it, i) => (
-                              <article key={`${it.rule_id}-${it.date}-${i}`} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 8 }}>
+                              <article key={occurrenceKey(it, i)} style={{ border: isCompetitionEvent(it) ? "1px solid #f59e0b" : "1px solid #e2e8f0", borderRadius: 8, padding: 8, background: isCompetitionEvent(it) ? "#fffbeb" : "#fff" }}>
                                 <div style={{ fontWeight: 700, fontSize: 12 }}>{it.start_time} - {it.end_time}</div>
                                 <div style={{ color: "#5b6f85", fontSize: 12, marginTop: 2 }}>
                                   <span
@@ -647,14 +783,19 @@ export default function TeamScheduleCalendar() {
                                       marginRight: 6,
                                     }}
                                   >
-                                    {it.team_name || `Отбор #${it.team_id}`}
+                                    {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
                                   </span>
                                   {it.location}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                                  <Link to={occurrenceAttendanceTo(it)}>
-                                    <Button size="sm">Присъствие</Button>
-                                  </Link>
+                                  {!isCompetitionEvent(it) ? (
+                                    <Link to={occurrenceAttendanceTo(it)}>
+                                      <Button size="sm">Присъствие</Button>
+                                    </Link>
+                                  ) : null}
+                                  {isCompetitionEvent(it) && canEditItem(it) ? (
+                                    <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
+                                  ) : null}
                                   {canEditOccurrence(it) ? (
                                     <>
                                       <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
@@ -777,6 +918,25 @@ export default function TeamScheduleCalendar() {
           </section>
         </div>
       ) : null}
+
+      <CompetitionEventModal
+        open={compOpen}
+        busy={busy}
+        isHeadCoach={isHeadCoach}
+        teams={teamsForCompetition}
+        coaches={coaches}
+        form={compForm}
+        setForm={setCompForm}
+        editId={compEditId}
+        onClose={() => {
+          if (!busy) {
+            setCompOpen(false);
+            setCompEditId(null);
+          }
+        }}
+        onSave={saveCompetition}
+        onDelete={deleteCompetition}
+      />
     </div>
   );
 }

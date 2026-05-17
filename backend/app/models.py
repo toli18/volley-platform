@@ -686,3 +686,34 @@ class TrainingScheduleException(Base):
     __table_args__ = (
         UniqueConstraint("rule_id", "date", name="uq_schedule_rule_date"),
     )
+
+
+class ClubCompetitionEvent(Base):
+    """One-off competition / match for a team (not a weekly training rule)."""
+
+    __tablename__ = "club_competition_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    start_time = Column(String(5), nullable=False)  # HH:MM
+    end_time = Column(String(5), nullable=False)  # HH:MM
+    location = Column(String(255), nullable=False)
+    # championship | tournament | control | friendly
+    competition_kind = Column(String(32), nullable=False, index=True)
+    notes = Column(Text, nullable=True)
+    is_cancelled = Column(Boolean, nullable=False, default=False, index=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    team = relationship("Team")
+    coach = relationship("User", foreign_keys=[coach_id])
+
+    __table_args__ = (
+        Index("ix_competition_club_date", "club_id", "date"),
+    )

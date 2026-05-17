@@ -1073,6 +1073,7 @@
   margin-top: 2px;
   font-size: 10px;
   opacity: 0.9;
+  word-break: break-word;
 }
 
 .parentPortalMonthWrap {

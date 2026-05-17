@@ -5,8 +5,10 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
+import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
+import { COMPETITION_KIND_OPTIONS, competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 
 const nowMonth = () => {
   const d = new Date();
@@ -99,6 +101,18 @@ export default function ClubHeadDashboard() {
     is_active: true,
   });
   const [scheduleEditRuleId, setScheduleEditRuleId] = useState(null);
+  const [compOpen, setCompOpen] = useState(false);
+  const [compEditId, setCompEditId] = useState(null);
+  const [compForm, setCompForm] = useState({
+    team_id: "",
+    coach_id: "",
+    date: todayDate(),
+    location: "",
+    start_time: "10:00",
+    end_time: "12:00",
+    competition_kind: COMPETITION_KIND_OPTIONS[0].value,
+    notes: "",
+  });
 
   const coaches = useMemo(() => overview?.coaches || [], [overview]);
   // Backend transfer endpoint допуска целта да е и "coach", и "club_head_coach"
@@ -363,7 +377,73 @@ export default function ClubHeadDashboard() {
     }
   };
 
+  const saveCompetition = async () => {
+    if (!compForm.team_id || !compForm.coach_id || !compForm.location.trim()) {
+      toast.error("Попълни отбор, треньор и място.");
+      return;
+    }
+    const payload = {
+      team_id: Number(compForm.team_id),
+      coach_id: Number(compForm.coach_id),
+      date: compForm.date,
+      location: compForm.location.trim(),
+      start_time: compForm.start_time,
+      end_time: compForm.end_time,
+      competition_kind: compForm.competition_kind,
+      notes: compForm.notes.trim() || null,
+    };
+    try {
+      setBusy(true);
+      if (compEditId) {
+        await axiosInstance.put(API_PATHS.SCHEDULE_COMPETITION_UPDATE(compEditId), payload);
+        toast.success("Състезанието е обновено.");
+      } else {
+        await axiosInstance.post(API_PATHS.SCHEDULE_COMPETITION_CREATE, payload);
+        toast.success("Състезанието е добавено.");
+      }
+      setCompOpen(false);
+      setCompEditId(null);
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при запис на състезание."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editCompetitionOccurrence = (it) => {
+    setCompEditId(Number(it.competition_id));
+    setCompForm({
+      team_id: String(it.team_id || ""),
+      coach_id: String(it.coach_id || ""),
+      date: it.date,
+      location: it.location || "",
+      start_time: it.start_time || "10:00",
+      end_time: it.end_time || "12:00",
+      competition_kind: it.competition_kind || COMPETITION_KIND_OPTIONS[0].value,
+      notes: "",
+    });
+    setCompOpen(true);
+  };
+
+  const deleteCompetition = async () => {
+    if (!compEditId || !window.confirm("Да изтрия ли състезанието?")) return;
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.SCHEDULE_COMPETITION_DELETE(compEditId));
+      toast.success("Състезанието е изтрито.");
+      setCompOpen(false);
+      setCompEditId(null);
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при изтриване."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const cancelOccurrence = async (item) => {
+    if (isCompetitionEvent(item)) return;
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.SCHEDULE_EXCEPTION_CREATE(item.rule_id), {
@@ -819,38 +899,72 @@ export default function ClubHeadDashboard() {
             </div>
           </Card>
 
-          <Card title="Календар (occurrences)">
+          <Card
+            title="Състезание"
+            subtitle="Еднократно събитие — първенство, турнир, контролна или приятелска"
+            actions={
+              <Button
+                onClick={() => {
+                  setCompEditId(null);
+                  setCompForm((p) => ({ ...p, date: scheduleFrom, team_id: "", coach_id: "", location: "" }));
+                  setCompOpen(true);
+                }}
+                disabled={busy}
+              >
+                + Ново състезание
+              </Button>
+            }
+          >
+            <p className="uiHint" style={{ margin: 0 }}>
+              Състезанията се виждат в календара по-долу и в родителския портал (оранжеви блокове).
+            </p>
+          </Card>
+
+          <Card title="Календар (тренировки и състезания)">
             {scheduleItems.length === 0 ? (
-              <EmptyState title="Няма тренировки в периода" description="Промени филтъра или създай ново правило." />
+              <EmptyState title="Няма събития в периода" description="Промени филтъра или създай правило / състезание." />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Тип</TableHead>
                     <TableHead>Дата</TableHead>
                     <TableHead>Ден</TableHead>
                     <TableHead>Час</TableHead>
-                    <TableHead>Зала</TableHead>
+                    <TableHead>Място</TableHead>
                     <TableHead>Треньор</TableHead>
-                    <TableHead>Отбор</TableHead>
+                    <TableHead>Отбор / вид</TableHead>
                     <TableHead>Действия</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {scheduleItems.map((it) => (
-                    <TableRow key={`${it.rule_id}-${it.date}-${it.start_time}`}>
-                      <TableCell>{it.date}</TableCell>
-                      <TableCell>{weekdayLabel(it.weekday)}</TableCell>
-                      <TableCell>{it.start_time}–{it.end_time}</TableCell>
-                      <TableCell>{it.location}</TableCell>
-                      <TableCell>{it.coach_name || `#${it.coach_id}`}</TableCell>
-                      <TableCell>{it.team_name || `#${it.team_id}`}</TableCell>
-                      <TableCell>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Button size="sm" variant="secondary" onClick={() => cancelOccurrence(it)} disabled={busy}>Отмени за дата</Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {scheduleItems.map((it, idx) => {
+                    const isComp = isCompetitionEvent(it);
+                    return (
+                      <TableRow key={isComp ? `comp-${it.competition_id}-${idx}` : `${it.rule_id}-${it.date}-${it.start_time}`}>
+                        <TableCell>{isComp ? "Състезание" : "Тренировка"}</TableCell>
+                        <TableCell>{it.date}</TableCell>
+                        <TableCell>{weekdayLabel(it.weekday)}</TableCell>
+                        <TableCell>{it.start_time}–{it.end_time}</TableCell>
+                        <TableCell>{it.location}</TableCell>
+                        <TableCell>{it.coach_name || `#${it.coach_id}`}</TableCell>
+                        <TableCell>{isComp ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}</TableCell>
+                        <TableCell>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {isComp ? (
+                              <Button size="sm" variant="secondary" onClick={() => editCompetitionOccurrence(it)} disabled={busy}>
+                                Редакция
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="secondary" onClick={() => cancelOccurrence(it)} disabled={busy}>
+                                Отмени за дата
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -926,6 +1040,25 @@ export default function ClubHeadDashboard() {
           </section>
         </div>
       )}
+
+      <CompetitionEventModal
+        open={compOpen}
+        busy={busy}
+        isHeadCoach
+        teams={teams}
+        coaches={coaches}
+        form={compForm}
+        setForm={setCompForm}
+        editId={compEditId}
+        onClose={() => {
+          if (!busy) {
+            setCompOpen(false);
+            setCompEditId(null);
+          }
+        }}
+        onSave={saveCompetition}
+        onDelete={deleteCompetition}
+      />
 
       {transferAthlete && (
         <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">

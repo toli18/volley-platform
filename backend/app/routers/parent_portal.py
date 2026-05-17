@@ -101,19 +101,19 @@ def _build_schedule_for_teams(
         )
         .all()
     )
-    if not rules:
-        return []
     rule_ids = [r.id for r in rules]
-    exc_rows = (
-        db.query(TrainingScheduleException)
-        .filter(
-            TrainingScheduleException.rule_id.in_(rule_ids),
-            TrainingScheduleException.date >= from_date,
-            TrainingScheduleException.date <= to_date,
+    exc_map = {}
+    if rule_ids:
+        exc_rows = (
+            db.query(TrainingScheduleException)
+            .filter(
+                TrainingScheduleException.rule_id.in_(rule_ids),
+                TrainingScheduleException.date >= from_date,
+                TrainingScheduleException.date <= to_date,
+            )
+            .all()
         )
-        .all()
-    )
-    exc_map = {(e.rule_id, e.date): e for e in exc_rows}
+        exc_map = {(e.rule_id, e.date): e for e in exc_rows}
     team_name_map = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all())
     d0 = datetime.strptime(from_date, "%Y-%m-%d").date()
     d1 = datetime.strptime(to_date, "%Y-%m-%d").date()
@@ -122,7 +122,7 @@ def _build_schedule_for_teams(
     for i in range(days + 1):
         cur = d0 + timedelta(days=i)
         cur_s = cur.isoformat()
-        for r in rules:
+        for r in rules or []:
             if int(r.weekday) != cur.weekday():
                 continue
             if r.effective_from > cur_s:
@@ -142,8 +142,38 @@ def _build_schedule_for_teams(
                     end_time=end_t,
                     location=location,
                     team_name=team_name_map.get(int(r.team_id)),
+                    event_type="training",
                 )
             )
+
+    from app.competition_kinds import competition_kind_label
+    from app.models import ClubCompetitionEvent
+
+    comp_rows = (
+        db.query(ClubCompetitionEvent)
+        .filter(
+            ClubCompetitionEvent.team_id.in_(team_ids),
+            ClubCompetitionEvent.is_cancelled.is_(False),
+            ClubCompetitionEvent.date >= from_date,
+            ClubCompetitionEvent.date <= to_date,
+        )
+        .all()
+    )
+    for e in comp_rows:
+        kind = str(e.competition_kind)
+        schedule_items.append(
+            ParentScheduleItem(
+                date=e.date,
+                start_time=e.start_time,
+                end_time=e.end_time,
+                location=e.location,
+                team_name=team_name_map.get(int(e.team_id)),
+                event_type="competition",
+                competition_kind=kind,
+                competition_kind_label=competition_kind_label(kind),
+            )
+        )
+
     schedule_items.sort(key=lambda x: (x.date, x.start_time or ""))
     return schedule_items
 

@@ -148,4 +148,8 @@ export const API_PATHS = {
   SCHEDULE_RULE_DELETE: (ruleId) => `/api/schedule/rules/${ruleId}`,
   SCHEDULE_EXCEPTION_CREATE: (ruleId) => `/api/schedule/rules/${ruleId}/exceptions`,
   SCHEDULE_EXCEPTION_DELETE: (exceptionId) => `/api/schedule/exceptions/${exceptionId}`,
+  SCHEDULE_COMPETITIONS_LIST: "/api/schedule/competitions",
+  SCHEDULE_COMPETITION_CREATE: "/api/schedule/competitions",
+  SCHEDULE_COMPETITION_UPDATE: (eventId) => `/api/schedule/competitions/${eventId}`,
+  SCHEDULE_COMPETITION_DELETE: (eventId) => `/api/schedule/competitions/${eventId}`,
 };

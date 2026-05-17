@@ -78,8 +78,12 @@ class ScheduleOccurrence(BaseModel):
     date: str  # YYYY-MM-DD
     weekday: int
 
-    rule_id: int
+    event_type: str = "training"  # training | competition
+    rule_id: Optional[int] = None
     exception_id: Optional[int] = None
+    competition_id: Optional[int] = None
+    competition_kind: Optional[str] = None
+    competition_kind_label: Optional[str] = None
     is_cancelled: bool = False
 
     location: str
