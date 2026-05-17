@@ -13,6 +13,10 @@ const normalizeError = (err, fallback = "Грешка.") => {
   return fallback;
 };
 
+function teamLinkStorageKey(teamId) {
+  return `vcp-team-portal-url-${teamId}`;
+}
+
 export function useTeamPortalCoach(teamId) {
   const toast = useToast();
   const fileRef = useRef(null);
@@ -29,8 +33,15 @@ export function useTeamPortalCoach(teamId) {
       axiosInstance.get(API_PATHS.TEAM_ACCESS_GET(teamId)),
       axiosInstance.get(API_PATHS.TEAM_PORTAL_ITEMS_LIST(teamId)),
     ]);
-    setAccess(accessRes.data || { has_active_token: false });
+    const accessData = accessRes.data || { has_active_token: false };
+    setAccess(accessData);
     setItems(Array.isArray(itemsRes.data) ? itemsRes.data : []);
+    if (accessData.has_active_token) {
+      const saved = sessionStorage.getItem(teamLinkStorageKey(teamId));
+      setLinkUrl(saved || accessData.team_url || "");
+    } else {
+      setLinkUrl("");
+    }
   }, [teamId]);
 
   useEffect(() => {
@@ -54,6 +65,7 @@ export function useTeamPortalCoach(teamId) {
       const res = await axiosInstance.post(API_PATHS.TEAM_ACCESS_CREATE(teamId), {});
       const url = res.data?.team_url || "";
       setLinkUrl(url);
+      if (url) sessionStorage.setItem(teamLinkStorageKey(teamId), url);
       setAccess({
         has_active_token: true,
         team_url: url,
@@ -73,8 +85,9 @@ export function useTeamPortalCoach(teamId) {
       const res = await axiosInstance.post(API_PATHS.TEAM_ACCESS_ROTATE(teamId), {});
       const url = res.data?.team_url || "";
       setLinkUrl(url);
+      if (url) sessionStorage.setItem(teamLinkStorageKey(teamId), url);
       setAccess({ has_active_token: true, team_url: url, token_preview: res.data?.token_preview || null });
-      toast.success("Линкът е обновен.");
+      toast.success("Линкът е обновен — копирайте новия адрес.");
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -89,6 +102,7 @@ export function useTeamPortalCoach(teamId) {
       await axiosInstance.delete(API_PATHS.TEAM_ACCESS_REVOKE(teamId));
       setAccess({ has_active_token: false, team_url: null, token_preview: null });
       setLinkUrl("");
+      sessionStorage.removeItem(teamLinkStorageKey(teamId));
       toast.success("Отборният достъп е спрян.");
     } catch (err) {
       toast.error(normalizeError(err));
@@ -100,7 +114,11 @@ export function useTeamPortalCoach(teamId) {
   const copyLink = async () => {
     const url = linkUrl || access.team_url;
     if (!url) {
-      toast.error("Първо създайте линк.");
+      if (access.has_active_token) {
+        toast.error("Натиснете «Нов линк», за да получите адрес за копиране.");
+      } else {
+        toast.error("Първо създайте отборен линк.");
+      }
       return;
     }
     try {
@@ -167,11 +185,6 @@ export function useTeamPortalCoach(teamId) {
     }
   };
 
-  const onLinkClick = () => {
-    if (access.has_active_token) copyLink();
-    else createLink();
-  };
-
   return {
     busy,
     access,
@@ -190,17 +203,32 @@ export function useTeamPortalCoach(teamId) {
     onPickImage,
     onImageSelected,
     deleteItem,
-    onLinkClick,
   };
 }
 
 export function TeamPortalHeroActions({ coach }) {
-  const { busy, access, onLinkClick, setTextOpen, onPickImage } = coach;
+  const { busy, access, createLink, copyLink, rotateLink, revokeLink, setTextOpen, onPickImage } = coach;
+  const hasActiveLink = Boolean(access.has_active_token);
+
   return (
     <div className="heroActionsWrap teamPortalHeroActions">
-      <Button size="sm" variant="secondary" disabled={busy} onClick={onLinkClick}>
-        {access.has_active_token ? "Копирай отборен линк" : "Отборен линк"}
-      </Button>
+      {!hasActiveLink ? (
+        <Button size="sm" variant="primary" disabled={busy} onClick={createLink}>
+          Създай отборен линк
+        </Button>
+      ) : (
+        <>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={copyLink}>
+            Копирай линк
+          </Button>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={rotateLink}>
+            Нов линк
+          </Button>
+          <Button size="sm" variant="danger" disabled={busy} onClick={revokeLink}>
+            Спри достъпа
+          </Button>
+        </>
+      )}
       <Button size="sm" variant="secondary" disabled={busy} onClick={() => setTextOpen(true)}>
         + Текст
       </Button>
@@ -222,6 +250,7 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
     setTextBody,
     fileRef,
     linkUrl,
+    createLink,
     rotateLink,
     revokeLink,
     copyLink,
@@ -238,25 +267,39 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
         title="Отборна стая"
         subtitle={teamName ? `Публикации за ${teamName}` : "Обявления и снимки"}
       >
-        {access.has_active_token && activeUrl ? (
-          <p className="uiHint" style={{ margin: "0 0 10px" }}>
-            Активен отборен линк — споделете в групата.{" "}
-            <button type="button" className="teamPortalInlineLink" disabled={busy} onClick={copyLink}>
-              Копирай
-            </button>
-            {" · "}
-            <button type="button" className="teamPortalInlineLink" disabled={busy} onClick={rotateLink}>
-              Нов линк
-            </button>
-            {" · "}
-            <button type="button" className="teamPortalInlineLink teamPortalInlineLink--danger" disabled={busy} onClick={revokeLink}>
-              Спри
-            </button>
-          </p>
+        {access.has_active_token ? (
+          <div style={{ margin: "0 0 10px", display: "grid", gap: 8 }}>
+            <p className="uiHint" style={{ margin: 0 }}>
+              Активен отборен линк — споделете в групата на отбора.
+            </p>
+            {activeUrl ? (
+              <div style={{ wordBreak: "break-all", fontSize: 12, color: "#475569" }}>{activeUrl}</div>
+            ) : (
+              <p className="uiHint" style={{ margin: 0 }}>
+                За копиране натиснете <strong>«Нов линк»</strong> в лентата горе.
+              </p>
+            )}
+            <div className="teamPortalCoachLinkActions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={copyLink}>
+                Копирай линк
+              </Button>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={rotateLink}>
+                Нов линк
+              </Button>
+              <Button size="sm" variant="danger" disabled={busy} onClick={revokeLink}>
+                Спри достъпа
+              </Button>
+            </div>
+          </div>
         ) : (
-          <p className="uiHint" style={{ margin: "0 0 10px" }}>
-            Създайте отборен линк от зелената лента („Отборен линк“).
-          </p>
+          <div style={{ margin: "0 0 10px", display: "grid", gap: 8 }}>
+            <p className="uiHint" style={{ margin: 0 }}>
+              Създайте линк към отборната стая — график, статистика и новини за родители и играчи.
+            </p>
+            <Button size="sm" variant="primary" disabled={busy} onClick={createLink}>
+              Създай отборен линк
+            </Button>
+          </div>
         )}
 
         <div className="teamPortalCoachFeed">
@@ -313,3 +356,5 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
     </>
   );
 }
+
+
