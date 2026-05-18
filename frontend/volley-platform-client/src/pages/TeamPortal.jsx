@@ -56,6 +56,54 @@ function TeamPortalShell({ children }) {
   );
 }
 
+function formatFeedTime(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("bg-BG", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function TeamPortalNewsFeed({ items }) {
+  if (!items?.length) {
+    return <EmptyState title="Няма публикации" description="Треньорът ще добави обявления и снимки тук." />;
+  }
+
+  return (
+    <div className="teamPortalPublicFeed">
+      {items.map((item, index) => (
+        <article
+          key={item.id}
+          className={`teamPortalPublicFeedItem${index === 0 ? " teamPortalPublicFeedItem--latest" : ""}`}
+        >
+          {index === 0 ? <div className="teamPortalPublicFeedLatestBadge">Последна публикация</div> : null}
+          {item.kind === "image" && item.url ? (
+            <a href={resolveStaticUrl(item.url)} target="_blank" rel="noreferrer" className="teamPortalPublicFeedImgLink">
+              <img
+                src={resolveStaticUrl(item.url)}
+                alt={item.file_name || "Снимка"}
+                className="teamPortalPublicFeedImg"
+                loading={index === 0 ? "eager" : "lazy"}
+              />
+            </a>
+          ) : (
+            <p className="teamPortalPublicFeedText">{item.body}</p>
+          )}
+          <time className="teamPortalPublicFeedTime" dateTime={item.created_at}>
+            {formatFeedTime(item.created_at)}
+          </time>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function NextMatchBlock({ item }) {
   if (!item) {
     return (
@@ -138,7 +186,7 @@ export default function TeamPortal() {
               <h1 className="parentPortalHeroTitle">{data.team_name}</h1>
               <p className="parentPortalHeroSub">
                 {data.club_name ? `${data.club_name} · ` : ""}
-                График и новини за отбора
+                Новини и график за отбора
               </p>
             </header>
 
@@ -171,7 +219,13 @@ export default function TeamPortal() {
               </div>
             </section>
 
-            <section className="parentPortalScheduleSection">
+            <section id="team-portal-news" className="teamPortalNewsSection" aria-label="Новини">
+              <Card title="Новини">
+                <TeamPortalNewsFeed items={data.items} />
+              </Card>
+            </section>
+
+            <section className="parentPortalScheduleSection" aria-label="График">
               <Card title="График">
                 <ParentScheduleViews
                   token={token}
@@ -185,32 +239,6 @@ export default function TeamPortal() {
                 />
               </Card>
             </section>
-
-            <Card title="Новини">
-              {(data.items || []).length === 0 ? (
-                <EmptyState title="Няма публикации" description="Треньорът ще добави обявления и снимки тук." />
-              ) : (
-                <div className="teamPortalPublicFeed">
-                  {data.items.map((item) => (
-                    <article key={item.id} className="teamPortalPublicFeedItem">
-                      {item.kind === "image" && item.url ? (
-                        <img
-                          src={resolveStaticUrl(item.url)}
-                          alt={item.file_name || "Снимка"}
-                          className="teamPortalPublicFeedImg"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <p className="teamPortalPublicFeedText">{item.body}</p>
-                      )}
-                      <time className="teamPortalPublicFeedTime" dateTime={item.created_at}>
-                        {item.created_at ? new Date(item.created_at).toLocaleString("bg-BG") : ""}
-                      </time>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </Card>
           </>
         ) : null}
       </div>

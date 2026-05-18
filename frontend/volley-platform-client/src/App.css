@@ -1977,6 +1977,10 @@
   color: #dc2626;
 }
 
+.teamPortalNewsSection {
+  margin-bottom: 14px;
+}
+
 .teamPortalPublicFeed {
   display: grid;
   gap: 14px;
@@ -1987,6 +1991,34 @@
   border-radius: 12px;
   padding: 12px;
   background: #fff;
+}
+
+.teamPortalPublicFeedItem--latest {
+  border-color: #86efac;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12);
+}
+
+.teamPortalPublicFeedLatestBadge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #0f4d3a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.teamPortalPublicFeedImgLink {
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.teamPortalPublicFeedImgLink:focus-visible {
+  outline: 2px solid #0f4d3a;
+  outline-offset: 2px;
 }
 
 .teamPortalPublicFeedText {
