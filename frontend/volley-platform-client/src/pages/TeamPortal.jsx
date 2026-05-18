@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
@@ -70,31 +70,53 @@ function formatFeedTime(iso) {
   }
 }
 
-function TeamPortalNewsFeed({ items }) {
+function TeamPortalTextFeed({ items }) {
   if (!items?.length) {
-    return <EmptyState title="Няма публикации" description="Треньорът ще добави обявления и снимки тук." />;
+    return (
+      <EmptyState
+        title="Няма обявления"
+        description="Треньорът ще публикува важни съобщения за отбора тук."
+      />
+    );
   }
 
   return (
-    <div className="teamPortalPublicFeed">
+    <div className="teamPortalPublicFeed teamPortalPublicFeed--text">
       {items.map((item, index) => (
         <article
           key={item.id}
           className={`teamPortalPublicFeedItem${index === 0 ? " teamPortalPublicFeedItem--latest" : ""}`}
         >
-          {index === 0 ? <div className="teamPortalPublicFeedLatestBadge">Последна публикация</div> : null}
-          {item.kind === "image" && item.url ? (
-            <a href={resolveStaticUrl(item.url)} target="_blank" rel="noreferrer" className="teamPortalPublicFeedImgLink">
-              <img
-                src={resolveStaticUrl(item.url)}
-                alt={item.file_name || "Снимка"}
-                className="teamPortalPublicFeedImg"
-                loading={index === 0 ? "eager" : "lazy"}
-              />
-            </a>
-          ) : (
-            <p className="teamPortalPublicFeedText">{item.body}</p>
-          )}
+          {index === 0 ? <div className="teamPortalPublicFeedLatestBadge">Последна обява</div> : null}
+          <p className="teamPortalPublicFeedText">{item.body}</p>
+          <time className="teamPortalPublicFeedTime" dateTime={item.created_at}>
+            {formatFeedTime(item.created_at)}
+          </time>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function TeamPortalGallery({ items }) {
+  if (!items?.length) return null;
+
+  return (
+    <div className="teamPortalPublicFeed teamPortalPublicFeed--gallery">
+      {items.map((item, index) => (
+        <article
+          key={item.id}
+          className={`teamPortalPublicFeedItem teamPortalPublicFeedItem--image${index === 0 ? " teamPortalPublicFeedItem--latest" : ""}`}
+        >
+          {index === 0 ? <div className="teamPortalPublicFeedLatestBadge">Последна снимка</div> : null}
+          <a href={resolveStaticUrl(item.url)} target="_blank" rel="noreferrer" className="teamPortalPublicFeedImgLink">
+            <img
+              src={resolveStaticUrl(item.url)}
+              alt={item.file_name || "Снимка"}
+              className="teamPortalPublicFeedImg"
+              loading={index === 0 ? "eager" : "lazy"}
+            />
+          </a>
           <time className="teamPortalPublicFeedTime" dateTime={item.created_at}>
             {formatFeedTime(item.created_at)}
           </time>
@@ -175,6 +197,14 @@ export default function TeamPortal() {
   const attendance = data?.attendance_summary;
   const hasAttendance = (attendance?.total ?? 0) > 0;
 
+  const { textItems, imageItems } = useMemo(() => {
+    const all = data?.items || [];
+    return {
+      textItems: all.filter((item) => item.kind !== "image"),
+      imageItems: all.filter((item) => item.kind === "image" && item.url),
+    };
+  }, [data?.items]);
+
   return (
     <TeamPortalShell>
       <div className="parentPortalPage teamPortalPage">
@@ -221,7 +251,7 @@ export default function TeamPortal() {
 
             <section id="team-portal-news" className="teamPortalNewsSection" aria-label="Новини">
               <Card title="Новини">
-                <TeamPortalNewsFeed items={data.items} />
+                <TeamPortalTextFeed items={textItems} />
               </Card>
             </section>
 
@@ -239,6 +269,14 @@ export default function TeamPortal() {
                 />
               </Card>
             </section>
+
+            {imageItems.length > 0 ? (
+              <section id="team-portal-gallery" className="teamPortalGallerySection" aria-label="Снимки">
+                <Card title="Снимки">
+                  <TeamPortalGallery items={imageItems} />
+                </Card>
+              </section>
+            ) : null}
           </>
         ) : null}
       </div>

@@ -1981,6 +1981,14 @@
   margin-bottom: 14px;
 }
 
+.teamPortalGallerySection {
+  margin-top: 14px;
+}
+
+.teamPortalPublicFeedItem--image {
+  padding: 10px;
+}
+
 .teamPortalPublicFeed {
   display: grid;
   gap: 14px;
