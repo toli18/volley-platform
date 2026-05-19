@@ -74,6 +74,7 @@ class ParentScheduleItem(BaseModel):
     competition_kind: Optional[str] = None
     competition_kind_label: Optional[str] = None
     is_cancelled: bool = False
+    highlight_change: bool = False
 
 
 class ParentPaymentRow(BaseModel):
@@ -137,3 +138,5 @@ class ParentAthleteProfileResponse(BaseModel):
     monthly_payments: list[ParentPaymentRow] = Field(default_factory=list)
     competitions_this_month: int = 0
     fee_due_day: int = 10
+    pending_schedule_dates: list[str] = Field(default_factory=list)
+    fee_change_highlight: bool = False

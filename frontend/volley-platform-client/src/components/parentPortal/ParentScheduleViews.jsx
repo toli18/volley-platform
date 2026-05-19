@@ -63,6 +63,7 @@ function gridCellTooltip(row) {
 function SessionBlock({ row, variant = "card" }) {
   const isComp = isCompetitionEvent(row);
   const cancelled = Boolean(row.is_cancelled);
+  const isChange = Boolean(row.highlight_change);
   const colors = isComp ? null : teamColorForName(row.team_name);
   const time = `${row.start_time || "—"} – ${row.end_time || "—"}`;
   const title = eventTitle(row);
@@ -70,7 +71,7 @@ function SessionBlock({ row, variant = "card" }) {
   if (variant === "grid") {
     return (
       <div
-        className={`parentPortalSchedBlock parentPortalSchedBlock--grid${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}`}
+        className={`parentPortalSchedBlock parentPortalSchedBlock--grid${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}${isChange ? " parentPortalSchedBlock--change" : ""}`}
         style={
           isComp
             ? competitionBlockStyle
@@ -203,7 +204,8 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick }) {
 const DEFAULT_SCHEDULE_HINT =
   "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.";
 
-function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT }) {
+function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT, highlightDates }) {
+  const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   const slots = useMemo(() => timeSlotsForWeek(items, weekStart), [items, weekStart]);
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
   const byDate = useMemo(() => groupItemsByDate(inWeek), [inWeek]);
@@ -225,11 +227,12 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_S
         {WEEKDAY_HEADERS.map((name, dayIdx) => {
           const date = addDaysIso(weekStart, dayIdx);
           const count = (byDate.get(date) || []).length;
+          const dayHighlight = highlightSet.has(date) || (byDate.get(date) || []).some((r) => r.highlight_change);
           return (
             <button
               key={name}
               type="button"
-              className={`parentPortalWeekDayHead parentPortalWeekDayHead--btn${selectedDate === date ? " is-selected" : ""}`}
+              className={`parentPortalWeekDayHead parentPortalWeekDayHead--btn${selectedDate === date ? " is-selected" : ""}${dayHighlight ? " parentPortalWeekDayHead--change" : ""}`}
               onClick={() => onDayClick(date)}
             >
               {name}
@@ -274,7 +277,8 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_S
   );
 }
 
-function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
+function MonthGrid({ items, monthKey, selectedDate, onDayClick, highlightDates }) {
+  const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   const cells = useMemo(() => buildMonthCells(monthKey), [monthKey]);
   const byDate = useMemo(() => groupItemsByDate(items), [items]);
 
@@ -294,11 +298,12 @@ function MonthGrid({ items, monthKey, selectedDate, onDayClick }) {
             return <div key={`e-${idx}`} className="parentPortalMonthCell parentPortalMonthCell--empty" />;
           }
           const dayItems = byDate.get(cell.date) || [];
+          const dayHighlight = highlightSet.has(cell.date) || dayItems.some((r) => r.highlight_change);
           return (
             <button
               key={cell.date}
               type="button"
-              className={`parentPortalMonthCell parentPortalMonthCell--btn${selectedDate === cell.date ? " is-selected" : ""}`}
+              className={`parentPortalMonthCell parentPortalMonthCell--btn${selectedDate === cell.date ? " is-selected" : ""}${dayHighlight ? " parentPortalMonthCell--change" : ""}`}
               onClick={() => onDayClick(cell.date)}
             >
               <div className="parentPortalMonthCellDay">{cell.day}</div>
@@ -324,7 +329,12 @@ export default function ParentScheduleViews({
   initialWeekStart,
   showTeamLegend = true,
   scheduleHint = DEFAULT_SCHEDULE_HINT,
+  highlightDates,
 }) {
+  const highlightSet = useMemo(
+    () => (highlightDates instanceof Set ? highlightDates : new Set(highlightDates || [])),
+    [highlightDates],
+  );
   const today = new Date().toISOString().slice(0, 10);
   const defaultMonth = scheduleMonthKey || (initialItems?.[0]?.date ? String(initialItems[0].date).slice(0, 7) : today.slice(0, 7));
 
@@ -525,6 +535,7 @@ export default function ParentScheduleViews({
               selectedDate={selectedDate}
               onDayClick={openDay}
               hint={scheduleHint}
+              highlightDates={highlightSet}
             />
           </div>
           <WeekMobileList items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
@@ -534,7 +545,13 @@ export default function ParentScheduleViews({
       ) : (
         <>
           <div className="parentPortalMonthDesktop">
-            <MonthGrid items={filteredMonthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+            <MonthGrid
+              items={filteredMonthItems}
+              monthKey={monthKey}
+              selectedDate={selectedDate}
+              onDayClick={openDay}
+              highlightDates={highlightSet}
+            />
           </div>
           <MonthMobileList items={filteredMonthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
         </>

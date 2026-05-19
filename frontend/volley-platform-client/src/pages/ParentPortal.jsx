@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -89,8 +89,9 @@ function HighlightEventBlock({ item, variant }) {
       </p>
     );
   }
+  const changeClass = item.highlight_change ? " parentPortalNextEventBlock--change" : "";
   return (
-    <div className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}`}>
+    <div className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}${changeClass}`}>
       <p className="parentPortalHighlightMetaRow">
         <span className={`uiBadge${isComp ? " uiBadge--warning" : " uiBadge--info"}`}>
           {isComp ? competitionKindLabel(item) : "Тренировка"}
@@ -184,6 +185,12 @@ export default function ParentPortal() {
   const [profile, setProfile] = useState(null);
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
+  const hadHighlightsRef = useRef(false);
+
+  const highlightDates = useMemo(
+    () => new Set(profile?.pending_schedule_dates || []),
+    [profile?.pending_schedule_dates],
+  );
 
   const fetchScheduleMonth = useCallback(async (mk) => {
     const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_ME_SCHEDULE, { params: { month: mk } });
@@ -233,6 +240,25 @@ export default function ParentPortal() {
       cancelled = true;
     };
   }, [token, isSession, navigate]);
+
+  useEffect(() => {
+    if (!profile) return;
+    hadHighlightsRef.current =
+      Boolean(profile.fee_change_highlight) || (profile.pending_schedule_dates?.length ?? 0) > 0;
+  }, [profile]);
+
+  useEffect(() => {
+    return () => {
+      if (!hadHighlightsRef.current) return;
+      const path = isSession
+        ? API_PATHS.PARENT_PORTAL_ACK_CHANGES_ME
+        : token
+          ? API_PATHS.PARENT_PORTAL_ACK_CHANGES_TOKEN(token)
+          : null;
+      if (!path) return;
+      axiosInstance.post(path).catch(() => {});
+    };
+  }, [isSession, token]);
 
   const feeCoach = profile?.fee_coach || {};
   const currentFee = profile?.current_month_fee;
@@ -308,7 +334,9 @@ export default function ParentPortal() {
                 ) : null}
               </section>
 
-              <section className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}`}>
+              <section
+                className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}${profile.fee_change_highlight ? " parentPortalHighlightCard--change" : ""}`}
+              >
                 <h2 className="parentPortalHighlightTitle">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
                 {currentFee?.paid ? (
                   <>
@@ -374,6 +402,7 @@ export default function ParentPortal() {
                   initialItems={profile.monthly_schedule || []}
                   scheduleMonthKey={profile.schedule_month_key}
                   formatMonthKey={formatMonthKey}
+                  highlightDates={highlightDates}
                 />
               </Card>
             </section>

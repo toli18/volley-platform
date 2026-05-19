@@ -17,7 +17,17 @@ from app.models import (
     UserRole,
 )
 from app.schemas.competitions import CompetitionEventCreate, CompetitionEventRead, CompetitionEventUpdate
-from app.services.parent_push import queue_team_schedule_notification
+from app.services.parent_portal_notify import (
+    CHANGE_COMPETITION_ADDED,
+    CHANGE_COMPETITION_CANCELLED,
+    CHANGE_COMPETITION_CHANGED,
+    CHANGE_COMPETITION_REMOVED,
+    CHANGE_TRAINING_ADDED,
+    CHANGE_TRAINING_CANCELLED,
+    CHANGE_TRAINING_CHANGED,
+    CHANGE_TRAINING_RESTORED,
+    queue_team_change,
+)
 from app.schemas.schedule import (
     ScheduleExceptionCreate,
     ScheduleExceptionRead,
@@ -442,6 +452,7 @@ def create_schedule_rule(
     db.add(rule)
     db.commit()
     db.refresh(rule)
+    queue_team_change(int(team.id), str(rule.effective_from), CHANGE_TRAINING_ADDED, f"rule:{rule.id}")
     return rule
 
 
@@ -564,6 +575,7 @@ def create_schedule_exception(
         .filter(TrainingScheduleException.rule_id == rule.id, TrainingScheduleException.date == cur_s)
         .first()
     )
+    was_new = exc is None
     if not exc:
         exc = TrainingScheduleException(rule_id=rule.id, date=cur_s, kind=kind)
         db.add(exc)
@@ -605,9 +617,13 @@ def create_schedule_exception(
 
     db.commit()
     db.refresh(exc)
-    change_kind = "cancelled" if kind == "cancelled" else "override"
-    # Run in-process so push is not dropped if the worker exits after the HTTP response.
-    queue_team_schedule_notification(int(rule.team_id), cur_s, change_kind)
+    if kind == "cancelled":
+        change_type = CHANGE_TRAINING_CANCELLED
+    elif was_new:
+        change_type = CHANGE_TRAINING_ADDED
+    else:
+        change_type = CHANGE_TRAINING_CHANGED
+    queue_team_change(int(rule.team_id), cur_s, change_type, f"exc:{exc.id}")
     return exc
 
 
@@ -631,9 +647,10 @@ def delete_schedule_exception(
         raise HTTPException(status_code=403, detail="Not enough permissions")
     team_id = int(rule.team_id)
     date_iso = str(exc.date)
+    exc_id = int(exc.id)
     db.delete(exc)
     db.commit()
-    queue_team_schedule_notification(team_id, date_iso, "restored")
+    queue_team_change(team_id, date_iso, CHANGE_TRAINING_RESTORED, f"exc:del:{exc_id}")
     return None
 
 
@@ -749,6 +766,13 @@ def create_competition_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+    queue_team_change(
+        int(event.team_id),
+        str(event.date),
+        CHANGE_COMPETITION_ADDED,
+        f"comp:{event.id}",
+        extra=competition_kind_label(str(event.competition_kind)),
+    )
     return _competition_to_read(db, event)
 
 
@@ -803,6 +827,14 @@ def update_competition_event(
 
     db.commit()
     db.refresh(event)
+    change_type = CHANGE_COMPETITION_CANCELLED if event.is_cancelled else CHANGE_COMPETITION_CHANGED
+    queue_team_change(
+        int(event.team_id),
+        str(event.date),
+        change_type,
+        f"comp:{event.id}",
+        extra=competition_kind_label(str(event.competition_kind)),
+    )
     return _competition_to_read(db, event)
 
 
@@ -818,7 +850,12 @@ def delete_competition_event(
         raise HTTPException(status_code=404, detail="Състезанието не е намерено")
     if not can_edit_competition(db, current_user, event, _is_head_coach(current_user)):
         raise HTTPException(status_code=403, detail="Not enough permissions")
+    team_id = int(event.team_id)
+    date_iso = str(event.date)
+    comp_id = int(event.id)
+    kind_label = competition_kind_label(str(event.competition_kind))
     db.delete(event)
     db.commit()
+    queue_team_change(team_id, date_iso, CHANGE_COMPETITION_REMOVED, f"comp:del:{comp_id}", extra=kind_label)
     return None
 

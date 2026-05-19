@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Athlete, ParentPushSubscription, Team, TeamMember
+from app.models import Athlete, ParentPushSubscription
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -123,58 +123,6 @@ def _athlete_ids_for_team(db: Session, team_id: int) -> list[int]:
         .all()
     )
     return [int(r[0]) for r in rows]
-
-
-def notify_team_schedule_change(
-    *,
-    team_id: int,
-    date_iso: str,
-    change_kind: str,
-    team_name: str | None = None,
-) -> None:
-    """change_kind: cancelled | override | restored"""
-    db = SessionLocal()
-    try:
-        if not team_name:
-            team_name = db.query(Team.name).filter(Team.id == int(team_id)).scalar()
-        team_label = team_name or "отбор"
-        date_label = format_date_bg(date_iso)
-
-        if change_kind == "cancelled":
-            title = "Отменена тренировка"
-            body = f"{team_label} — {date_label}"
-        elif change_kind == "override":
-            title = "Променена тренировка"
-            body = f"{team_label} — {date_label}. Проверете графика."
-        else:
-            title = "Обновен график"
-            body = f"{team_label} — {date_label}"
-
-        athlete_ids = _athlete_ids_for_team(db, team_id)
-        total_sent = 0
-        for aid in athlete_ids:
-            athlete = db.query(Athlete).filter(Athlete.id == aid, Athlete.is_active.is_(True)).first()
-            if athlete:
-                result = notify_athlete(db, aid, title, body)
-                total_sent += int(result.get("sent") or 0)
-        logger.info(
-            "Parent push schedule change team_id=%s date=%s kind=%s athletes=%s sent=%s",
-            team_id,
-            date_iso,
-            change_kind,
-            len(athlete_ids),
-            total_sent,
-        )
-    finally:
-        db.close()
-
-
-def queue_team_schedule_notification(team_id: int, date_iso: str, change_kind: str) -> None:
-    """Fire-and-forget helper for route handlers."""
-    try:
-        notify_team_schedule_change(team_id=team_id, date_iso=date_iso, change_kind=change_kind)
-    except Exception as exc:
-        logger.exception("Parent push notification failed: %s", exc)
 
 
 def send_test_notification(db: Session, athlete_id: int) -> dict:

@@ -21,6 +21,7 @@ from app.database import get_db
 from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, Team, TeamMember, User, UserRole
+from app.services.parent_portal_notify import queue_fee_paid
 from app.schemas.fees import (
     AthleteCreate,
     AthleteMonthlyReport,
@@ -714,6 +715,7 @@ def save_month_payment(
     db.add(payment)
     db.commit()
     db.refresh(payment)
+    queue_fee_paid(athlete.id, month_key, amount)
     return payment
 
 

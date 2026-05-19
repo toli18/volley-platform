@@ -37,6 +37,7 @@ from app.schemas.parent_portal import (
     ParentPushVapidResponse,
     ParentScheduleItem,
 )
+from app.services.parent_portal_notify import clear_markers_for_athlete, get_pending_highlights
 from app.services.parent_push import (
     delete_subscription_for_athlete,
     push_configured,
@@ -355,20 +356,10 @@ def _team_ids_for_athlete(db: Session, athlete_id: int) -> list[int]:
     ]
 
 
-@router.get("/parent-portal/{token}/schedule", response_model=list[ParentScheduleItem])
-def parent_portal_schedule(
-    token: str,
-    month: str = Query(..., description="YYYY-MM"),
-    db: Session = Depends(get_db),
-):
-    if not _MONTH_KEY_RE.match((month or "").strip()):
-        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
-    athlete = _resolve_parent_portal_athlete(db, token)
-    month_key = month.strip()
-    from_date = f"{month_key}-01"
-    to_date = _month_last_day(month_key)
-    team_ids = _team_ids_for_athlete(db, athlete.id)
-    return _build_schedule_for_teams(db, team_ids, from_date, to_date)
+def _apply_schedule_highlights(db: Session, athlete_id: int, items: list[ParentScheduleItem]) -> list[ParentScheduleItem]:
+    pending_dates, _ = get_pending_highlights(db, athlete_id)
+    highlight_set = set(pending_dates)
+    return [item.model_copy(update={"highlight_change": item.date in highlight_set}) for item in items]
 
 
 def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthleteProfileResponse:
@@ -438,6 +429,18 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             fee_coach.club_name = club_row.name
             fee_coach.club_phone = club_row.contact_phone
 
+    pending_dates, fee_highlight = get_pending_highlights(db, athlete.id)
+    highlight_set = set(pending_dates)
+    schedule_items = [
+        item.model_copy(update={"highlight_change": item.date in highlight_set}) for item in schedule_items
+    ]
+    if next_training_item and next_training_item.date in highlight_set:
+        next_training_item = next_training_item.model_copy(update={"highlight_change": True})
+    if next_competition_item and next_competition_item.date in highlight_set:
+        next_competition_item = next_competition_item.model_copy(update={"highlight_change": True})
+    if next_event and next_event.date in highlight_set:
+        next_event = next_event.model_copy(update={"highlight_change": True})
+
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
@@ -457,7 +460,25 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         monthly_payments=monthly_payments,
         competitions_this_month=competitions_this_month,
         fee_due_day=PARENT_FEE_DUE_DAY,
+        pending_schedule_dates=pending_dates,
+        fee_change_highlight=fee_highlight,
     )
+
+
+@router.post("/parent-portal/me/ack-changes", status_code=204)
+def parent_ack_changes_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    clear_markers_for_athlete(db, athlete.id)
+    return None
+
+
+@router.post("/parent-portal/{token}/ack-changes", status_code=204)
+def parent_ack_changes_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    clear_markers_for_athlete(db, athlete.id)
+    return None
 
 
 @router.get("/parent-portal/push/vapid-public-key", response_model=ParentPushVapidResponse)
@@ -595,7 +616,25 @@ def parent_portal_me_schedule(
     from_date = f"{month_key}-01"
     to_date = _month_last_day(month_key)
     team_ids = _team_ids_for_athlete(db, athlete.id)
-    return _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    return _apply_schedule_highlights(db, athlete.id, items)
+
+
+@router.get("/parent-portal/{token}/schedule", response_model=list[ParentScheduleItem])
+def parent_portal_schedule(
+    token: str,
+    month: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+):
+    if not _MONTH_KEY_RE.match((month or "").strip()):
+        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
+    athlete = _resolve_parent_portal_athlete(db, token)
+    month_key = month.strip()
+    from_date = f"{month_key}-01"
+    to_date = _month_last_day(month_key)
+    team_ids = _team_ids_for_athlete(db, athlete.id)
+    items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    return _apply_schedule_highlights(db, athlete.id, items)
 
 
 @router.get("/parent-portal/{token}", response_model=ParentAthleteProfileResponse)

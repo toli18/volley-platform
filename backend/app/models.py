@@ -485,6 +485,26 @@ class Athlete(Base):
         back_populates="athlete",
         cascade="all, delete-orphan",
     )
+    parent_portal_change_markers = relationship(
+        "ParentPortalChangeMarker",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
+
+
+class ParentPortalChangeMarker(Base):
+    __tablename__ = "parent_portal_change_markers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    marker_key = Column(String(120), nullable=False)
+    change_type = Column(String(40), nullable=False, index=True)
+    date_iso = Column(String(10), nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    athlete = relationship("Athlete", back_populates="parent_portal_change_markers")
+
+    __table_args__ = (UniqueConstraint("athlete_id", "marker_key", name="uq_parent_portal_change_marker"),)
 
 
 class ParentPushSubscription(Base):

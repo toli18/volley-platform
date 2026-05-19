@@ -1672,6 +1672,57 @@
   background: #f0fdf4;
 }
 
+.parentPortalMonthCell--change .parentPortalMonthCellDay {
+  position: relative;
+  display: inline-block;
+  padding-right: 2px;
+}
+
+.parentPortalMonthCell--change .parentPortalMonthCellDay::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
+.parentPortalWeekDayHead--change {
+  position: relative;
+}
+
+.parentPortalWeekDayHead--change::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
+.parentPortalSchedBlock--change {
+  box-shadow: 0 0 0 2px #dc2626;
+}
+
+.parentPortalHighlightCard--change {
+  box-shadow: 0 0 0 2px #dc2626;
+}
+
+.parentPortalNextEventBlock--change {
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px #dc2626;
+  padding: 6px 8px;
+  margin: -6px -8px;
+}
+
 .parentPortalScheduleLegendItem--training {
   border: 1px solid #93c5fd;
   background: #e0f2fe;
