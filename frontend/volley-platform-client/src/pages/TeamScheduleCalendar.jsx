@@ -203,7 +203,7 @@ export default function TeamScheduleCalendar() {
 
   const loadOccurrences = async () => {
     const { from, to } = monthRange(monthKey);
-    const params = { from, to };
+    const params = { from, to, include_cancelled: true };
     if (effectiveCoachFilter) params.coach_id = Number(effectiveCoachFilter);
     if (teamFilter) params.team_id = Number(teamFilter);
     if (locationFilter.trim()) params.location = locationFilter.trim();
@@ -375,14 +375,20 @@ export default function TeamScheduleCalendar() {
   };
 
   const cancelOccurrence = async (it) => {
-    if (!window.confirm("Сигурни ли сте, че искате да отмените тази тренировка?")) return;
+    if (
+      !window.confirm(
+        `Да отменя ли тренировката на ${it.date} (${it.start_time}–${it.end_time})?\n\nСамо този ден — седмичното правило остава. Можете да я възстановите по-късно.`,
+      )
+    ) {
+      return;
+    }
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.SCHEDULE_EXCEPTION_CREATE(it.rule_id), {
         date: it.date,
         kind: "cancelled",
       });
-      toast.success("Тренировката е отменена.");
+      toast.success("Тренировката е отменена за този ден.");
       await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна отмяна на тренировката."));
@@ -396,13 +402,67 @@ export default function TeamScheduleCalendar() {
     try {
       setBusy(true);
       await axiosInstance.delete(API_PATHS.SCHEDULE_EXCEPTION_DELETE(it.exception_id));
-      toast.success("Тренировката е възстановена.");
+      toast.success(it.is_cancelled ? "Тренировката е възстановена." : "Корекцията е премахната.");
       await loadOccurrences();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно възстановяване."));
     } finally {
       setBusy(false);
     }
+  };
+
+  const deleteScheduleRule = async (it) => {
+    if (
+      !window.confirm(
+        `Да изтрия ли седмичното правило за „${it.team_name || "отбора"}“ (${it.start_time}–${it.end_time})?\n\nВсички повторения ще изчезнат от графика.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.SCHEDULE_RULE_DELETE(it.rule_id));
+      toast.success("Правилото е изтрито от графика.");
+      setSelectedDate("");
+      await loadOccurrences();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтриване на правилото."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const renderTrainingOccurrenceActions = (it) => {
+    if (!canEditOccurrence(it)) return null;
+    const cancelled = Boolean(it.is_cancelled);
+    return (
+      <>
+        {!cancelled ? (
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => openEdit(it)}>
+            Коригирай
+          </Button>
+        ) : null}
+        {cancelled ? (
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => restoreOccurrence(it)}>
+            Възстанови
+          </Button>
+        ) : (
+          <>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => cancelOccurrence(it)}>
+              Отмени
+            </Button>
+            {it.exception_id ? (
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => restoreOccurrence(it)}>
+                Възстанови оригинала
+              </Button>
+            ) : null}
+          </>
+        )}
+        <Button size="sm" variant="danger" disabled={busy} onClick={() => deleteScheduleRule(it)}>
+          Изтрий
+        </Button>
+      </>
+    );
   };
 
   const addTraining = async () => {
@@ -602,19 +662,23 @@ export default function TeamScheduleCalendar() {
             <EmptyState title="Няма записи" description="Няма тренировки в графика за този месец с текущите филтри." />
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
-              {scheduleListSorted.map((it, i) => (
+              {scheduleListSorted.map((it, i) => {
+                const cancelled = Boolean(it.is_cancelled);
+                return (
                 <article
                   key={occurrenceKey(it, i)}
+                  className={cancelled ? "trainingAdjustCard trainingAdjustCard--cancelled" : undefined}
                   style={{
                     border: "1px solid #e2e8f0",
                     borderRadius: 10,
                     padding: 12,
-                    background: "#fff",
+                    background: cancelled ? undefined : "#fff",
                   }}
                 >
                   <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }} className={cancelled ? "trainingAdjustStruck" : undefined}>
                       {it.date} · {it.start_time}–{it.end_time}
+                      {cancelled ? " · Отменена" : ""}
                     </div>
                     <span
                       style={{
@@ -645,19 +709,11 @@ export default function TeamScheduleCalendar() {
                     {isCompetitionEvent(it) && canEditItem(it) ? (
                       <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
                     ) : null}
-                    {canEditOccurrence(it) ? (
-                      <>
-                        <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
-                        {it.exception_id ? (
-                          <Button size="sm" variant="secondary" onClick={() => restoreOccurrence(it)}>Възстанови</Button>
-                        ) : (
-                          <Button size="sm" variant="danger" onClick={() => cancelOccurrence(it)}>Отмени</Button>
-                        )}
-                      </>
-                    ) : null}
+                    {renderTrainingOccurrenceActions(it)}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )
         ) : calendarCells.length === 0 ? (
@@ -705,7 +761,9 @@ export default function TeamScheduleCalendar() {
                       <span style={{ fontSize: 11, color: "#6b7f96" }}>{dayItems.length || ""}</span>
                     </div>
                     <div style={{ display: "grid", gap: 4 }}>
-                      {dayItems.slice(0, 2).map((it, i) => (
+                      {dayItems.slice(0, 2).map((it, i) => {
+                        const cancelled = Boolean(it.is_cancelled);
+                        return (
                         <Link
                           key={occurrenceKey(it, i)}
                           to={isCompetitionEvent(it) ? "#" : occurrenceAttendanceTo(it)}
@@ -717,6 +775,7 @@ export default function TeamScheduleCalendar() {
                             }
                           }}
                           onKeyDown={(e) => e.stopPropagation()}
+                          className={cancelled ? "trainingAdjustStruck" : undefined}
                           style={
                             isCompetitionEvent(it)
                               ? { ...competitionBlockStyle, display: "block", fontSize: 11, lineHeight: 1.2, borderRadius: 6, padding: "2px 4px", textDecoration: "none" }
@@ -729,14 +788,16 @@ export default function TeamScheduleCalendar() {
                                   background: teamColorFor(it.team_id).bg,
                                   color: teamColorFor(it.team_id).text,
                                   padding: "2px 4px",
-                                  textDecoration: "none",
+                                  textDecoration: cancelled ? "line-through" : "none",
+                                  opacity: cancelled ? 0.72 : 1,
                                 }
                           }
                         >
-                          <div>{it.start_time} {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}</div>
+                          <div>{it.start_time} {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}{cancelled ? " (отм.)" : ""}</div>
                           <div style={{ opacity: 0.9 }}>{it.location}</div>
                         </Link>
-                      ))}
+                        );
+                      })}
                       {dayItems.length > 2 ? <div style={{ fontSize: 11, color: "#0f766e" }}>+{dayItems.length - 2} още</div> : null}
                     </div>
                     {selectedDate === cell.date ? (
@@ -768,9 +829,23 @@ export default function TeamScheduleCalendar() {
                           <div style={{ fontSize: 12, color: "#64748b" }}>Няма събития в този ден.</div>
                         ) : (
                           <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                            {selectedDayItems.map((it, i) => (
-                              <article key={occurrenceKey(it, i)} style={{ border: isCompetitionEvent(it) ? "1px solid #f59e0b" : "1px solid #e2e8f0", borderRadius: 8, padding: 8, background: isCompetitionEvent(it) ? "#fffbeb" : "#fff" }}>
-                                <div style={{ fontWeight: 700, fontSize: 12 }}>{it.start_time} - {it.end_time}</div>
+                            {selectedDayItems.map((it, i) => {
+                              const cancelled = Boolean(it.is_cancelled);
+                              return (
+                              <article
+                                key={occurrenceKey(it, i)}
+                                className={cancelled && !isCompetitionEvent(it) ? "trainingAdjustCard trainingAdjustCard--cancelled" : undefined}
+                                style={{
+                                  border: isCompetitionEvent(it) ? "1px solid #f59e0b" : "1px solid #e2e8f0",
+                                  borderRadius: 8,
+                                  padding: 8,
+                                  background: isCompetitionEvent(it) ? "#fffbeb" : cancelled ? undefined : "#fff",
+                                }}
+                              >
+                                <div style={{ fontWeight: 700, fontSize: 12 }} className={cancelled ? "trainingAdjustStruck" : undefined}>
+                                  {it.start_time} - {it.end_time}
+                                  {cancelled ? " · Отменена" : ""}
+                                </div>
                                 <div style={{ color: "#5b6f85", fontSize: 12, marginTop: 2 }}>
                                   <span
                                     style={{
@@ -796,19 +871,11 @@ export default function TeamScheduleCalendar() {
                                   {isCompetitionEvent(it) && canEditItem(it) ? (
                                     <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
                                   ) : null}
-                                  {canEditOccurrence(it) ? (
-                                    <>
-                                      <Button size="sm" variant="secondary" onClick={() => openEdit(it)}>Коригирай</Button>
-                                      {it.exception_id ? (
-                                        <Button size="sm" variant="secondary" onClick={() => restoreOccurrence(it)}>Възстанови</Button>
-                                      ) : (
-                                        <Button size="sm" variant="danger" onClick={() => cancelOccurrence(it)}>Отмени</Button>
-                                      )}
-                                    </>
-                                  ) : null}
+                                  {renderTrainingOccurrenceActions(it)}
                                 </div>
                               </article>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
