@@ -3,30 +3,26 @@ import { Link, useNavigate } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { parentPortalPath, setParentToken } from "../utils/parentAuth";
+import { parentLoginPath } from "../utils/parentAuth";
+import { setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
 
-function ParentLoginShell({ children }) {
+function TeamRoomLoginShell({ children }) {
   return (
-    <div className="parentPortalShell">
-      <header className="parentPortalHeader">
-        <div className="parentPortalHeaderInner">
-          <img src="/bfvb-logo.png" alt="БФВ" className="parentPortalLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-          <div>
-            <div className="parentPortalBrand">Volley Coach Platform</div>
-            <div className="parentPortalBrandSub">Родителски вход</div>
-          </div>
+    <div className="teamRoomShell teamRoomShell--login">
+      <header className="teamRoomLoginHeader">
+        <img src="/bfvb-logo.png" alt="БФВ" className="teamRoomLoginLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        <div>
+          <div className="teamRoomLoginBrand">Отборна стая</div>
+          <div className="teamRoomLoginBrandSub">Volley Coach Platform</div>
         </div>
       </header>
-      <main className="parentPortalMain">{children}</main>
-      <footer className="parentPortalFooter">
-        <span>Българска федерация по волейбол</span>
-      </footer>
+      <main className="teamRoomMain teamRoomMain--login">{children}</main>
     </div>
   );
 }
 
-export default function ParentLogin() {
+export default function TeamRoomLogin() {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
   const [birthYear, setBirthYear] = useState("");
@@ -38,7 +34,7 @@ export default function ParentLogin() {
     const parent_phone = phone.trim();
     const year = Number(birthYear);
     if (!parent_phone || !Number.isFinite(year) || year < 1990 || year > 2025) {
-      setError("Въведете телефон и година на раждане на детето (4 цифри).");
+      setError("Въведете телефон и година на раждане (4 цифри).");
       return;
     }
     try {
@@ -46,7 +42,7 @@ export default function ParentLogin() {
       setError("");
       const body = { parent_phone, birth_year: year };
       if (athleteId != null) body.athlete_id = athleteId;
-      const res = await axiosInstance.post(API_PATHS.PARENT_AUTH_LOGIN, body);
+      const res = await axiosInstance.post(API_PATHS.ATHLETE_ROOM_AUTH_LOGIN, body);
       const data = res.data || {};
       if (data.needs_selection && Array.isArray(data.candidates) && data.candidates.length) {
         setCandidates(data.candidates);
@@ -56,8 +52,8 @@ export default function ParentLogin() {
         setError("Входът не успя. Проверете данните или се свържете с треньора.");
         return;
       }
-      setParentToken(data.access_token);
-      navigate(parentPortalPath(), { replace: true });
+      setTeamRoomToken(data.access_token);
+      navigate(teamRoomPortalPath(), { replace: true });
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setError(typeof detail === "string" ? detail : "Невалиден телефон или година на раждане.");
@@ -68,14 +64,14 @@ export default function ParentLogin() {
   };
 
   return (
-    <ParentLoginShell>
-      <div className="parentPortalPage parentLoginPage">
-        <header className="parentPortalHero">
-          <h1 className="parentPortalHeroTitle">Родителски профил</h1>
-          <p className="parentPortalHeroSub">Вход с телефон и година на раждане на детето</p>
+    <TeamRoomLoginShell>
+      <div className="teamRoomLoginPage">
+        <header className="teamRoomHero">
+          <h1 className="teamRoomHeroTitle">Вход в отборната стая</h1>
+          <p className="teamRoomHeroSub">Телефон на родител и година на раждане на състезателя</p>
         </header>
 
-        <Card title="Вход">
+        <Card title="Вход" className="teamRoomLoginCard">
           {!candidates ? (
             <form
               className="parentLoginForm"
@@ -84,11 +80,11 @@ export default function ParentLogin() {
                 submit();
               }}
             >
-              <label className="uiLabel" htmlFor="parent-phone">
+              <label className="uiLabel" htmlFor="room-phone">
                 Телефон на родител
               </label>
               <Input
-                id="parent-phone"
+                id="room-phone"
                 type="tel"
                 autoComplete="tel"
                 placeholder="0888 123 456"
@@ -96,11 +92,11 @@ export default function ParentLogin() {
                 onChange={(e) => setPhone(e.target.value)}
               />
 
-              <label className="uiLabel" htmlFor="parent-birth-year" style={{ marginTop: 12 }}>
-                Година на раждане на детето
+              <label className="uiLabel" htmlFor="room-birth-year" style={{ marginTop: 12 }}>
+                Година на раждане
               </label>
               <Input
-                id="parent-birth-year"
+                id="room-birth-year"
                 type="number"
                 inputMode="numeric"
                 min={1990}
@@ -109,25 +105,22 @@ export default function ParentLogin() {
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
               />
-              <p className="uiHint parentLoginHint">
-                Използвайте телефона и годината на раждане, записани при клуба. Телефонът трябва да съвпада с данните при състезателя.
-              </p>
 
               {error ? <p className="uiErrorText">{error}</p> : null}
 
-              <Button type="submit" disabled={busy} style={{ marginTop: 14 }}>
+              <Button type="submit" disabled={busy} className="teamRoomPrimaryBtn" style={{ marginTop: 14 }}>
                 {busy ? "Влизане..." : "Вход"}
               </Button>
             </form>
           ) : (
             <div className="parentLoginSelect">
-              <p className="uiHint">Намерени са няколко деца с тези данни. Изберете отбор:</p>
+              <p className="uiHint">Изберете профил:</p>
               <div className="parentLoginCandidateList">
                 {candidates.map((c) => (
                   <button
                     key={c.athlete_id}
                     type="button"
-                    className="parentLoginCandidateBtn"
+                    className="teamRoomCandidateBtn"
                     disabled={busy}
                     onClick={() => submit(c.athlete_id)}
                   >
@@ -155,13 +148,13 @@ export default function ParentLogin() {
           )}
         </Card>
 
-        <p className="parentLoginAltLink">
-          Отборна стая за състезател?{" "}
-          <Link to={teamRoomLoginPath()} className="parentLoginAltLinkA">
-            Вход в отборната стая
+        <p className="teamRoomAltLogin">
+          Родителски профил?{" "}
+          <Link to={parentLoginPath()} className="teamRoomAltLoginLink">
+            Вход за родители
           </Link>
         </p>
       </div>
-    </ParentLoginShell>
+    </TeamRoomLoginShell>
   );
 }

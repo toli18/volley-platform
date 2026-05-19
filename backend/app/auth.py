@@ -55,6 +55,13 @@ def create_parent_access_token(athlete_id: int) -> str:
     )
 
 
+def create_athlete_room_access_token(athlete_id: int) -> str:
+    return create_access_token(
+        {"sub": f"athlete_room:{int(athlete_id)}", "typ": "athlete_room", "athlete_id": int(athlete_id)},
+        expires_delta=timedelta(days=PARENT_ACCESS_TOKEN_EXPIRE_DAYS),
+    )
+
+
 def decode_jwt_token(token: str) -> Dict[str, Any]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

@@ -2638,3 +2638,331 @@
     min-width: calc(50% - 6px);
   }
 }
+
+/* Athlete team room — dark mobile app */
+.teamRoomShell {
+  min-height: 100dvh;
+  background: #0b1220;
+  color: #e2e8f0;
+}
+
+.teamRoomMain {
+  padding: 12px 14px calc(88px + env(safe-area-inset-bottom, 0px));
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.teamRoomLoginHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.teamRoomLoginLogo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.teamRoomLoginBrand {
+  font-weight: 800;
+  font-size: 16px;
+  color: #34d399;
+}
+
+.teamRoomLoginBrandSub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.teamRoomHeroTitle {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.teamRoomHeroSub {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.teamRoomLoginCard .uiCard {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.teamRoomPrimaryBtn {
+  width: 100%;
+}
+
+.teamRoomCandidateBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.teamRoomAltLogin,
+.parentLoginAltLink {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.teamRoomAltLoginLink,
+.parentLoginAltLinkA {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.teamRoomTopBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.teamRoomTopTitle {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.teamRoomTopSub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.teamRoomSectionTitle {
+  margin: 18px 0 10px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.teamRoomCard {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.teamRoomCardTitle {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.teamRoomMuted {
+  color: #94a3b8;
+  font-size: 14px;
+  margin: 0;
+}
+
+.teamRoomFeedList {
+  display: grid;
+  gap: 12px;
+}
+
+.teamRoomFeedCard {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.teamRoomFeedCardTime {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.teamRoomFeedCardBody {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.teamRoomFeedCardMedia img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+.teamRoomEmojiBar {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #1e293b;
+}
+
+.teamRoomEmojiBtn {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.teamRoomEmojiBtn.is-selected {
+  border-color: #34d399;
+  background: rgba(52, 211, 153, 0.15);
+}
+
+.teamRoomBottomNav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  z-index: 90;
+}
+
+.teamRoomBottomNavBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 10px;
+  min-height: 52px;
+}
+
+.teamRoomBottomNavBtn.is-active {
+  color: #34d399;
+}
+
+.teamRoomBottomNavBtn.is-active .teamRoomBottomNavIcon {
+  stroke: #34d399;
+  fill: rgba(52, 211, 153, 0.2);
+}
+
+.teamRoomBottomNavIconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.teamRoomBottomNavAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.teamRoomBadgeDot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 1.5px solid #0f172a;
+}
+
+.teamRoomTypeChip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-right: 8px;
+}
+
+.teamRoomTypeChip--training {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+}
+
+.teamRoomTypeChip--competition {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fdba74;
+}
+
+.teamRoomNextEvent {
+  margin-bottom: 12px;
+}
+
+.teamRoomNextEventDate {
+  margin: 6px 0 4px;
+  font-weight: 700;
+}
+
+.teamRoomDaysUntil {
+  font-size: 12px;
+  color: #34d399;
+}
+
+.teamRoomProfileDl {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.teamRoomProfileDl dt {
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.teamRoomProfileDl dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.teamRoomStatRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.teamRoomStatPill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.teamRoomStatPill--ok {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+}
+
+.teamRoomShell .parentPortalScheduleViews {
+  color: #e2e8f0;
+}
+
+.teamRoomShell .uiCard,
+.teamRoomShell .uiEmptyState {
+  background: #111827;
+  border-color: #1e293b;
+  color: #e2e8f0;
+}

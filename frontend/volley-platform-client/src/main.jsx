@@ -36,6 +36,8 @@ const TeamScheduleCalendar = React.lazy(() => import("./pages/TeamScheduleCalend
 const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
 const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamPortal = React.lazy(() => import("./pages/TeamPortal.jsx"));
+const TeamRoomLogin = React.lazy(() => import("./pages/TeamRoomLogin.jsx"));
+const TeamRoomPortal = React.lazy(() => import("./pages/TeamRoomPortal.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 
@@ -100,6 +102,9 @@ const router = createBrowserRouter([
       { path: "parent/portal", element: <ParentPortal /> },
       { path: "parent", element: <Navigate to="/parent/login" replace /> },
       { path: "parent/:token", element: <ParentPortal /> },
+      { path: "room/login", element: <TeamRoomLogin /> },
+      { path: "room/portal", element: <TeamRoomPortal /> },
+      { path: "room", element: <Navigate to="/room/login" replace /> },
       { path: "team/:token", element: <TeamPortal /> },
 
       { path: "drills", element: <Drills /> },

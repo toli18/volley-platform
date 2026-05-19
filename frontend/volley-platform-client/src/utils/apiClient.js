@@ -23,6 +23,10 @@ function getParentSessionToken() {
   return localStorage.getItem("parent_access_token");
 }
 
+function getTeamRoomSessionToken() {
+  return localStorage.getItem("athlete_room_access_token");
+}
+
 /** Mirrors utils/auth clearAuth — kept inline to avoid circular imports (auth.js re-exports apiClient). */
 function clearAuthStorage() {
   localStorage.removeItem("access_token");
@@ -42,7 +46,17 @@ axiosInstance.interceptors.request.use((config) => {
     return config;
   }
 
-  if (url.includes("/parent-auth/") || /\/parent-portal\/[^/]+/.test(url)) {
+  if (url.includes("/athlete-room/me")) {
+    const roomToken = getTeamRoomSessionToken();
+    if (roomToken) config.headers.Authorization = `Bearer ${roomToken}`;
+    return config;
+  }
+
+  if (
+    url.includes("/parent-auth/") ||
+    url.includes("/athlete-room-auth/") ||
+    /\/parent-portal\/[^/]+/.test(url)
+  ) {
     return config;
   }
 
@@ -59,12 +73,19 @@ axiosInstance.interceptors.response.use(
     const path = typeof window !== "undefined" ? window.location.pathname || "" : "";
     const isAuthLoginCall = reqUrl.includes("/auth/login");
     const isParentSessionCall = reqUrl.includes("/parent-portal/me");
+    const isTeamRoomSessionCall = reqUrl.includes("/athlete-room/me");
     const isParentPublicPath = path.startsWith("/parent");
+    const isTeamRoomPublicPath = path.startsWith("/room");
     if (status === 401 && typeof window !== "undefined") {
       if (isParentSessionCall || (isParentPublicPath && getParentSessionToken())) {
         localStorage.removeItem("parent_access_token");
         if (path !== "/parent/login") {
           window.location.replace("/parent/login?session=expired");
+        }
+      } else if (isTeamRoomSessionCall || (isTeamRoomPublicPath && getTeamRoomSessionToken())) {
+        localStorage.removeItem("athlete_room_access_token");
+        if (path !== "/room/login") {
+          window.location.replace("/room/login?session=expired");
         }
       } else if (getStoredToken() && !isAuthLoginCall && path !== "/login") {
         clearAuthStorage();

@@ -4,6 +4,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { resolveStaticUrl } from "../../utils/staticUrl";
 import { useToast } from "../ToastProvider";
+import { teamRoomLoginUrl } from "../../utils/teamRoomAuth";
 import { Button, Card, EmptyState, Input } from "../ui";
 
 const normalizeError = (err, fallback = "Грешка.") => {
@@ -301,6 +302,13 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
             </Button>
           </div>
         )}
+
+        <p className="uiHint" style={{ margin: "12px 0 0", fontSize: 12 }}>
+          Личен вход за състезатели (телефон + година на раждане):{" "}
+          <a href={teamRoomLoginUrl()} target="_blank" rel="noreferrer" style={{ wordBreak: "break-all" }}>
+            {teamRoomLoginUrl()}
+          </a>
+        </p>
 
         <div className="teamPortalCoachFeed">
           {items.length === 0 ? (
