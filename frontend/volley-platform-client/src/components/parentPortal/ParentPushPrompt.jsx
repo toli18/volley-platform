@@ -5,6 +5,7 @@ import {
   disableParentPushNotifications,
   enableParentPushNotifications,
   fetchParentPushStatus,
+  pushSetupHint,
   pushSupported,
   sendParentPushTest,
 } from "../../utils/parentPush";
@@ -30,6 +31,8 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       cancelled = true;
     };
   }, [isSession, legacyToken]);
+
+  const setupHint = pushSetupHint();
 
   if (status.loading || !pushSupported()) return null;
   if (!status.push_available) return null;
@@ -106,15 +109,20 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
           <p className="parentPushPromptText">
             Включете известия, за да научавате веднага при промяна или отмяна на тренировка.
           </p>
+          {setupHint ? (
+            <p className="uiHint parentPushPromptHint parentPushPromptHint--warn">{setupHint}</p>
+          ) : null}
           <Button type="button" size="sm" disabled={busy} onClick={onEnable}>
             {busy ? "Моля, изчакайте..." : "Включи известия"}
           </Button>
         </>
       )}
       {error ? <p className="uiErrorText parentPushPromptError">{error}</p> : null}
-      <p className="uiHint parentPushPromptHint">
-        На iPhone: отворете в Safari и при нужда „Добави на началния екран“, след това разрешете известията.
-      </p>
+      {!setupHint ? (
+        <p className="uiHint parentPushPromptHint">
+          На iPhone: Safari → Сподели → „Добави на началния екран“, после включете известия от иконата.
+        </p>
+      ) : null}
     </Card>
   );
 }

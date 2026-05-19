@@ -21,10 +21,9 @@ self.addEventListener("notificationclick", (event) => {
   const target = event.notification.data?.url || "/parent/portal";
   const url = target.startsWith("http") ? target : new URL(target, self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
         if (client.url && "focus" in client) {
-          client.navigate(url);
           return client.focus();
         }
       }

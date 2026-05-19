@@ -1978,6 +1978,11 @@
   margin-bottom: 0;
 }
 
+.parentPushPromptHint--warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
 @media (max-width: 680px) {
   .teamScheduleCalendarCols {
     min-width: 700px;
