@@ -2157,6 +2157,259 @@
   }
 }
 
+/* Parent portal — mobile-first tabs, FAB, icons */
+.parentPortalTypeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.parentPortalTypeChip--training {
+  background: #e0f2fe;
+  color: #0c4a6e;
+  border: 1px solid #7dd3fc;
+}
+
+.parentPortalTypeChip--competition {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.parentPortalInlineIcon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.parentPortalHighlightDetail--iconRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.parentPortalUnreadDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px #dc2626;
+  flex-shrink: 0;
+}
+
+.parentPortalUnreadDot--inline {
+  margin-left: 6px;
+}
+
+.parentPortalRefreshBtnWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.parentPortalRefreshBtn.is-spinning .parentPortalRefreshIcon,
+.parentPortalFab.is-spinning svg {
+  animation: parentPortalSpin 0.85s linear infinite;
+}
+
+.parentPortalFab {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 90;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(15, 77, 58, 0.35);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.parentPortalFab:disabled {
+  opacity: 0.65;
+}
+
+.parentPortalUnreadDot--fab {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.parentPortalBottomNav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 85;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+}
+
+.parentPortalBottomNavBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 10px;
+  min-height: 48px;
+}
+
+.parentPortalBottomNavBtn.is-active {
+  color: #0f4d3a;
+  background: #ecfdf5;
+}
+
+.parentPortalBottomNavIconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.parentPortalUnreadDot--nav {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+}
+
+.parentPortalHighlightFoldLead {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.parentPortalHighlightFoldSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.parentPortalHighlightDesktopOnly {
+  display: none;
+}
+
+.parentPortalHighlightTitle--desktop {
+  display: none;
+}
+
+.parentPortalScheduleViews .parentPortalScheduleToolbar {
+  gap: 10px;
+}
+
+@media (max-width: 767px) {
+  .parentPortalPage {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .parentPortalBottomNav {
+    display: flex;
+  }
+
+  .parentPortalFab {
+    display: flex;
+  }
+
+  .parentPortalHeaderRefresh {
+    display: none;
+  }
+
+  .parentPortalTabPanel {
+    display: none;
+  }
+
+  .parentPortalTabPanel.is-active {
+    display: block;
+  }
+
+  .parentPortalScheduleToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .parentPortalScheduleViewToggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .parentPortalScheduleViewToggle .parentPortalScheduleViewBtn {
+    width: 100%;
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  .parentPortalScheduleNav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .parentPortalScheduleNav .uiBtn {
+    min-height: 48px;
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .parentPortalScheduleNavLabel {
+    text-align: center;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 768px) {
+  .parentPortalTabPanel {
+    display: block !important;
+    margin-bottom: 14px;
+  }
+
+  .parentPortalTabPanel[hidden] {
+    display: block !important;
+  }
+
+  .parentPortalBottomNav,
+  .parentPortalFab {
+    display: none !important;
+  }
+
+  .parentPortalHighlightFold {
+    display: none;
+  }
+
+  .parentPortalHighlightDesktopOnly {
+    display: block;
+  }
+
+  .parentPortalHighlightTitle--desktop {
+    display: block;
+  }
+
+  .parentPortalHighlightGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 680px) {
   .parentPortalHeaderActions .uiBtn {
     min-height: 44px;

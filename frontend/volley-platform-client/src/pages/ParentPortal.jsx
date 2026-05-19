@@ -4,25 +4,16 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { clearParentToken, getParentToken, parentLoginPath } from "../utils/parentAuth";
-import ParentPushPrompt from "../components/parentPortal/ParentPushPrompt";
-import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
-import { Button, Card, EmptyState, Input } from "../components/ui";
-import { formatMoney } from "../utils/currency";
-import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
-import { abbreviateTeamName } from "../utils/parentPortalSchedule";
+import ParentPortalBottomNav from "../components/parentPortal/ParentPortalBottomNav";
+import ParentPortalLayout from "../components/parentPortal/ParentPortalLayout";
+import ParentPortalProfileContent from "../components/parentPortal/ParentPortalProfileContent";
+import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
+import { Button, Card, EmptyState } from "../components/ui";
 import {
   ackParentPortalChange,
   patchProfileAfterScheduleAck,
 } from "../utils/parentPortalAck";
 import { consumeSwRefreshSearchParam, listenParentPortalRefresh } from "../utils/parentPortalRefresh";
-import {
-  filterAttendanceByPeriod,
-  formatCompetitionsMonthLabel,
-  formatDaysUntil,
-  formatFeeDueLabel,
-  formatPaidAtBg,
-  summarizeAttendanceRows,
-} from "../utils/parentPortalDates";
 
 const MONTHS_BG = [
   "януари", "февруари", "март", "април", "май", "юни",
@@ -84,124 +75,6 @@ const PARENT_FEES_PERIOD_OPTIONS = [
   { value: "12", label: "Последни 12" },
 ];
 
-function HighlightEventBlock({ item, variant, onAckChange }) {
-  const isComp = variant === "competition" || isCompetitionEvent(item);
-  const daysUntil = item ? formatDaysUntil(item.date) : null;
-  if (!item) {
-    return (
-      <p className="parentPortalHighlightMuted parentPortalNextEventEmpty">
-        {isComp ? "Няма предстоящо състезание." : "Няма предстояща тренировка."}
-      </p>
-    );
-  }
-  const changeClass = item.highlight_change ? " parentPortalNextEventBlock--change parentPortalNextEventBlock--ackBtn" : "";
-  const handleAck = () => {
-    if (!item.highlight_change || !onAckChange) return;
-    onAckChange({
-      markerKey: item.change_marker_key || null,
-      date: item.date,
-    });
-  };
-  return (
-    <div
-      role={item.highlight_change ? "button" : undefined}
-      tabIndex={item.highlight_change ? 0 : undefined}
-      onClick={item.highlight_change ? handleAck : undefined}
-      onKeyDown={
-        item.highlight_change
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleAck();
-              }
-            }
-          : undefined
-      }
-      className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}${changeClass}`}
-    >
-      <p className="parentPortalHighlightMetaRow">
-        <span className={`uiBadge${isComp ? " uiBadge--warning" : " uiBadge--info"}`}>
-          {isComp ? competitionKindLabel(item) : "Тренировка"}
-        </span>
-        {daysUntil ? <span className="parentPortalDaysUntil">{daysUntil}</span> : null}
-      </p>
-      <p className="parentPortalHighlightMain">{formatDateBg(item.date)}</p>
-      <p className="parentPortalHighlightDetail">
-        <span className="uiBadge uiBadge--secondary">Час</span>{" "}
-        {item.start_time} – {item.end_time}
-        {item.team_name ? (
-          <span className="parentPortalHighlightTeam" title={item.team_name}>
-            {" "}
-            · {abbreviateTeamName(item.team_name)}
-          </span>
-        ) : null}
-      </p>
-      {item.location ? (
-        <p className="parentPortalHighlightDetail parentPortalHighlightDetail--location" title={item.location}>
-          <span className="uiBadge uiBadge--secondary">Място</span> {item.location}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function ParentAgendaRecord({ date, time, meta, metaTitle, badge, badgeClass, cancelled }) {
-  return (
-    <article className={`parentPortalAgendaRecord${cancelled ? " is-cancelled" : ""}`}>
-      <span className="parentPortalAgendaRecordDate">{date}</span>
-      {time ? <span className="parentPortalAgendaRecordTime">{time}</span> : null}
-      {meta ? (
-        <span className="parentPortalAgendaRecordMeta" title={metaTitle || meta}>
-          {meta}
-        </span>
-      ) : null}
-      <span className={`uiBadge ${badgeClass}`}>{badge}</span>
-    </article>
-  );
-}
-
-function PeriodFilterSelect({ value, onChange, id, options }) {
-  const periodOptions = options || PARENT_FEES_PERIOD_OPTIONS;
-  return (
-    <Input
-      as="select"
-      id={id}
-      className="parentPortalPeriodSelect"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label="Период"
-    >
-      {periodOptions.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </Input>
-  );
-}
-
-function ParentPortalShell({ children, headerActions }) {
-  return (
-    <div className="parentPortalShell">
-      <header className="parentPortalHeader">
-        <div className="parentPortalHeaderInner">
-          <img src="/bfvb-logo.png" alt="БФВ" className="parentPortalLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-          <div>
-            <div className="parentPortalBrand">Volley Coach Platform</div>
-            <div className="parentPortalBrandSub">Родителски профил</div>
-          </div>
-          {headerActions ? <div className="parentPortalHeaderActions">{headerActions}</div> : null}
-        </div>
-      </header>
-      <main className="parentPortalMain">{children}</main>
-      <footer className="parentPortalFooter">
-        <span>Българска федерация по волейбол</span>
-      </footer>
-    </div>
-  );
-}
-
-
 export default function ParentPortal() {
   const { token } = useParams();
   const location = useLocation();
@@ -214,6 +87,7 @@ export default function ParentPortal() {
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
+  const [activeTab, setActiveTab] = useState("home");
 
   const highlightDates = useMemo(
     () => new Set(profile?.pending_schedule_dates || []),
@@ -286,7 +160,7 @@ export default function ParentPortal() {
       try {
         await ackParentPortalChange({ isSession, token, ...payload });
       } catch {
-        /* keep UI responsive even if ack fails */
+        /* ignore */
       }
       setProfile((prev) => patchProfileAfterScheduleAck(prev, payload));
     },
@@ -303,34 +177,16 @@ export default function ParentPortal() {
     setProfile((prev) => (prev ? { ...prev, fee_change_highlight: false } : prev));
   }, [isSession, token, profile?.fee_change_highlight]);
 
-  const feeCoach = profile?.fee_coach || {};
-  const currentFee = profile?.current_month_fee;
-  const nextTraining = profile?.next_training;
-  const nextCompetition = profile?.next_competition;
-  const scheduleMonthKey = profile?.schedule_month_key || new Date().toISOString().slice(0, 7);
-  const competitionsMonthLabel = formatCompetitionsMonthLabel(
-    profile?.competitions_this_month ?? 0,
-    scheduleMonthKey,
-  );
-  const feeDueDay = currentFee?.due_day ?? profile?.fee_due_day ?? 10;
+  const hasUnreadChanges = useMemo(() => {
+    if (!profile) return false;
+    if (profile.fee_change_highlight) return true;
+    if ((profile.pending_schedule_dates?.length ?? 0) > 0) return true;
+    if (profile.monthly_schedule?.some((i) => i.highlight_change)) return true;
+    if (profile.next_training?.highlight_change || profile.next_competition?.highlight_change) return true;
+    return false;
+  }, [profile]);
 
-  const allAttendance = profile?.last_attendance ?? [];
-  const allPayments = profile?.monthly_payments ?? [];
-
-  const visibleAttendance = useMemo(
-    () => filterAttendanceByPeriod(allAttendance, attendancePeriod),
-    [allAttendance, attendancePeriod],
-  );
-
-  const visibleAttendanceSummary = useMemo(
-    () => summarizeAttendanceRows(visibleAttendance),
-    [visibleAttendance],
-  );
-
-  const visiblePayments = useMemo(() => {
-    const n = Number(feesPeriod) || 3;
-    return allPayments.slice(0, n);
-  }, [profile?.monthly_payments, feesPeriod, allPayments]);
+  const handleRefresh = () => loadProfile({ silent: Boolean(profile) });
 
   const headerActions = (
     <div className="parentPortalHeaderActions">
@@ -338,16 +194,17 @@ export default function ParentPortal() {
         type="button"
         variant="secondary"
         size="sm"
-        className={`parentPortalRefreshBtn${refreshing ? " is-spinning" : ""}`}
-        onClick={() => loadProfile({ silent: Boolean(profile) })}
+        className={`parentPortalRefreshBtn parentPortalHeaderRefresh${refreshing ? " is-spinning" : ""}`}
+        onClick={handleRefresh}
         disabled={refreshing || loading}
         aria-label="Обнови страницата"
         title="Обнови данните"
       >
-        <span className="parentPortalRefreshIcon" aria-hidden>
-          ↻
+        <span className="parentPortalRefreshBtnWrap">
+          <IconRefresh className="parentPortalRefreshIcon" size={18} />
+          {hasUnreadChanges ? <span className="parentPortalUnreadDot" aria-label="Има нови промени" /> : null}
         </span>
-        {refreshing ? "Обновяване…" : "Обнови"}
+        <span className="parentPortalHeaderRefreshLabel">{refreshing ? "Обновяване…" : "Обнови"}</span>
       </Button>
       {isSession ? (
         <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
@@ -357,262 +214,64 @@ export default function ParentPortal() {
     </div>
   );
 
+  const fab = profile ? (
+    <button
+      type="button"
+      className={`parentPortalFab${refreshing ? " is-spinning" : ""}`}
+      onClick={handleRefresh}
+      disabled={refreshing || loading}
+      aria-label="Обнови данните"
+    >
+      <IconRefresh size={24} />
+      {hasUnreadChanges ? <span className="parentPortalUnreadDot parentPortalUnreadDot--fab" aria-hidden /> : null}
+    </button>
+  ) : null;
+
+  const bottomNav = profile ? (
+    <ParentPortalBottomNav activeTab={activeTab} onChange={setActiveTab} scheduleDot={hasUnreadChanges} />
+  ) : null;
+
   return (
-    <ParentPortalShell headerActions={headerActions}>
+    <ParentPortalLayout headerActions={headerActions} fab={fab} bottomNav={bottomNav}>
       <div className="parentPortalPage">
         <header className="parentPortalHero">
-          <h1 className="parentPortalHeroTitle">
-            {profile ? profile.athlete_name : "Родителски профил"}
-          </h1>
-          <p className="parentPortalHeroSub">
-            Присъствие, график и месечни такси
-          </p>
+          <h1 className="parentPortalHeroTitle">{profile ? profile.athlete_name : "Родителски профил"}</h1>
+          <p className="parentPortalHeroSub">Присъствие, график и месечни такси</p>
         </header>
 
         {loading ? (
-          <Card title="Зареждане..."><p>Моля, изчакай...</p></Card>
+          <Card title="Зареждане...">
+            <p>Моля, изчакай...</p>
+          </Card>
         ) : null}
 
-        {!loading && error ? (
-          <EmptyState title="Достъпът е отказан" description={error} />
-        ) : null}
+        {!loading && error ? <EmptyState title="Достъпът е отказан" description={error} /> : null}
 
         {!loading && !error && profile ? (
-          <>
-            <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
-
-            <div className="parentPortalHighlightGrid">
-              <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
-                <h2 className="parentPortalHighlightTitle">Следващи събития</h2>
-                <div className="parentPortalNextEventsStack">
-                  <HighlightEventBlock
-                    item={nextTraining}
-                    variant="training"
-                    onAckChange={handleAckScheduleChange}
-                  />
-                  <div className="parentPortalNextEventDivider" role="presentation" />
-                  <HighlightEventBlock
-                    item={nextCompetition}
-                    variant="competition"
-                    onAckChange={handleAckScheduleChange}
-                  />
-                </div>
-                {competitionsMonthLabel ? (
-                  <p className="parentPortalCompetitionsMonth">
-                    <span className="uiBadge uiBadge--warning">{competitionsMonthLabel}</span>
-                  </p>
-                ) : null}
-              </section>
-
-              <section
-                role={profile.fee_change_highlight ? "button" : undefined}
-                tabIndex={profile.fee_change_highlight ? 0 : undefined}
-                onClick={profile.fee_change_highlight ? handleAckFeeHighlight : undefined}
-                onKeyDown={
-                  profile.fee_change_highlight
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleAckFeeHighlight();
-                        }
-                      }
-                    : undefined
-                }
-                className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}${profile.fee_change_highlight ? " parentPortalHighlightCard--change parentPortalHighlightCard--ackBtn" : ""}`}
-              >
-                <h2 className="parentPortalHighlightTitle">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
-                {currentFee?.paid ? (
-                  <>
-                    <p className="parentPortalHighlightMain">
-                      <span className="uiBadge uiBadge--success">Платена</span>
-                    </p>
-                    <p className="parentPortalHighlightDetail">
-                      {formatMoney(currentFee.amount)}
-                      {currentFee.paid_at
-                        ? ` · ${new Date(currentFee.paid_at).toLocaleDateString("bg-BG")}`
-                        : ""}
-                    </p>
-                    {currentFee.last_paid_at &&
-                    currentFee.last_paid_month_key &&
-                    currentFee.last_paid_month_key !== currentFee.month_key ? (
-                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeMeta">
-                        Последно плащане: {formatPaidAtBg(currentFee.last_paid_at)}
-                        {currentFee.last_paid_month_key
-                          ? ` (${formatMonthKey(currentFee.last_paid_month_key)})`
-                          : ""}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <p className="parentPortalHighlightMain">
-                      <span className="uiBadge uiBadge--danger">Неплатена</span>
-                    </p>
-                    <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeDue">
-                      <span className="uiBadge uiBadge--warning">Срок</span> {formatFeeDueLabel(feeDueDay, currentFee?.month_key)}
-                    </p>
-                    {currentFee?.last_paid_at ? (
-                      <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeMeta">
-                        Последно плащане: {formatPaidAtBg(currentFee.last_paid_at)}
-                        {currentFee.last_paid_month_key
-                          ? ` (${formatMonthKey(currentFee.last_paid_month_key)})`
-                          : ""}
-                      </p>
-                    ) : null}
-                  </>
-                )}
-                {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
-                  <div className="parentPortalContactBox">
-                    <div className="parentPortalContactLabel">Контакт</div>
-                    {feeCoach.name ? <div>{feeCoach.name}</div> : null}
-                    {feeCoach.email ? (
-                      <a href={`mailto:${feeCoach.email}`} className="parentPortalContactLink">{feeCoach.email}</a>
-                    ) : null}
-                    {feeCoach.club_name ? <div className="parentPortalHighlightMuted">{feeCoach.club_name}</div> : null}
-                    {feeCoach.club_phone ? (
-                      <a href={`tel:${feeCoach.club_phone}`} className="parentPortalContactLink">{feeCoach.club_phone}</a>
-                    ) : null}
-                  </div>
-                ) : null}
-              </section>
-            </div>
-
-            <section className="parentPortalScheduleSection">
-              <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
-                <ParentScheduleViews
-                  key={scheduleRefreshKey}
-                  token={isSession ? undefined : token}
-                  fetchScheduleMonth={isSession ? fetchScheduleMonth : undefined}
-                  initialItems={profile.monthly_schedule || []}
-                  scheduleMonthKey={profile.schedule_month_key}
-                  formatMonthKey={formatMonthKey}
-                  highlightDates={highlightDates}
-                  onAckScheduleChange={handleAckScheduleChange}
-                />
-              </Card>
-            </section>
-
-            <div className="parentPortalLowerGrid">
-            <Card
-              title="Присъствие"
-              subtitle={
-                attendancePeriod === "30d"
-                  ? `Показани ${visibleAttendance.length} записа (последните 30 дни)`
-                  : visibleAttendance.length !== allAttendance.length
-                    ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
-                    : undefined
-              }
-              actions={
-                <PeriodFilterSelect
-                  id="parent-attendance-period"
-                  value={attendancePeriod}
-                  onChange={setAttendancePeriod}
-                  options={PARENT_ATTENDANCE_PERIOD_OPTIONS}
-                />
-              }
-            >
-              <div className="parentPortalBadgeRow">
-                <span className="uiBadge uiBadge--success">Присъства: {visibleAttendanceSummary.present}</span>
-                <span className="uiBadge uiBadge--warning">Закъсня: {visibleAttendanceSummary.late}</span>
-                <span className="uiBadge uiBadge--danger">Отсъства: {visibleAttendanceSummary.absent}</span>
-                <span className="uiBadge uiBadge--secondary">Извинен: {visibleAttendanceSummary.excused}</span>
-                <span className="uiBadge uiBadge--info">Процент: {visibleAttendanceSummary.attendance_rate_percent}%</span>
-              </div>
-              {!visibleAttendanceSummary.total ? (
-                <p className="parentPortalHighlightMuted" style={{ marginTop: 12 }}>
-                  Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
-                </p>
-              ) : null}
-              {allAttendance.length === 0 ? (
-                <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
-              ) : visibleAttendance.length === 0 ? (
-                <EmptyState
-                  title="Няма записи за избрания период"
-                  description="Променете филтъра или изчакайте маркиране от треньора."
-                />
-              ) : (
-                <div className="parentPortalAgendaRecords">
-                  {visibleAttendance.map((row, idx) => (
-                    <ParentAgendaRecord
-                      key={`${row.date}-${row.team_id || row.team_name || idx}`}
-                      date={formatShortDate(row.date)}
-                      meta={row.team_name ? abbreviateTeamName(row.team_name) : null}
-                      metaTitle={row.team_name || undefined}
-                      badge={statusLabel(row.status, row.is_cancelled)}
-                      badgeClass={statusBadgeClass(row.status, row.is_cancelled)}
-                      cancelled={row.is_cancelled}
-                    />
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card
-              title="Такси"
-              subtitle={
-                allPayments.length > 3
-                  ? `Показани ${visiblePayments.length} от ${allPayments.length} месеца`
-                  : "История на месечните такси"
-              }
-              actions={
-                <PeriodFilterSelect
-                  id="parent-fees-period"
-                  value={feesPeriod}
-                  onChange={setFeesPeriod}
-                  options={PARENT_FEES_PERIOD_OPTIONS}
-                />
-              }
-            >
-              {visiblePayments.length === 0 ? (
-                <EmptyState title="Няма записани такси" description="Историята ще се появи след първото плащане." />
-              ) : (
-                <div className="parentPortalAgendaRecords">
-                  {visiblePayments.map((row) => (
-                    <ParentAgendaRecord
-                      key={row.month_key}
-                      date={formatMonthKey(row.month_key)}
-                      time={row.paid ? formatMoney(row.amount) : "—"}
-                      meta={
-                        row.paid_at
-                          ? new Date(row.paid_at).toLocaleDateString("bg-BG", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : null
-                      }
-                      badge={row.paid ? "Платено" : "Неплатено"}
-                      badgeClass={row.paid ? "uiBadge--success" : "uiBadge--danger"}
-                    />
-                  ))}
-                </div>
-              )}
-            </Card>
-            </div>
-
-            <details className="parentPortalDetails">
-              <summary className="parentPortalDetailsSummary">Данни за състезателя</summary>
-              <div className="parentPortalDetailsBody">
-                <div className="parentPortalInfoGrid">
-                  {profile.birth_year ? (
-                    <span className="uiBadge">Година на раждане: {profile.birth_year}</span>
-                  ) : null}
-                  {(profile.teams || []).map((t) => (
-                    <span key={t} className="uiBadge uiBadge--info">
-                      Отбор: {t}
-                    </span>
-                  ))}
-                  {!(profile.teams || []).length ? (
-                    <span className="uiBadge">Няма активни отбори</span>
-                  ) : null}
-                  {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
-                  {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
-                </div>
-              </div>
-            </details>
-          </>
+          <ParentPortalProfileContent
+            profile={profile}
+            activeTab={activeTab}
+            isSession={isSession}
+            token={token}
+            scheduleRefreshKey={scheduleRefreshKey}
+            highlightDates={highlightDates}
+            fetchScheduleMonth={fetchScheduleMonth}
+            formatMonthKey={formatMonthKey}
+            formatDateBg={formatDateBg}
+            formatShortDate={formatShortDate}
+            onAckScheduleChange={handleAckScheduleChange}
+            onAckFeeHighlight={handleAckFeeHighlight}
+            attendancePeriod={attendancePeriod}
+            setAttendancePeriod={setAttendancePeriod}
+            feesPeriod={feesPeriod}
+            setFeesPeriod={setFeesPeriod}
+            attendanceOptions={PARENT_ATTENDANCE_PERIOD_OPTIONS}
+            feesOptions={PARENT_FEES_PERIOD_OPTIONS}
+            statusLabel={statusLabel}
+            statusBadgeClass={statusBadgeClass}
+          />
         ) : null}
       </div>
-    </ParentPortalShell>
+    </ParentPortalLayout>
   );
 }

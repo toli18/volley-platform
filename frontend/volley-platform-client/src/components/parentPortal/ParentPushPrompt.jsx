@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui";
 import {
@@ -9,23 +9,16 @@ import {
   pushSupported,
   sendParentPushTest,
 } from "../../utils/parentPush";
-
-function BellIcon() {
-  return (
-    <svg className="parentPortalPushIconSvg" viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm7-6.6V11a7 7 0 0 0-5-6.7V3.4a2 2 0 1 0-4 0v1.3a7 7 0 0 0-5 6.7v4.4L4 17.4h16l-1-2Z"
-      />
-    </svg>
-  );
-}
+import { markPushHintSeen, shouldAutoOpenPushHint } from "../../utils/parentPortalPushHint";
+import { IconBell } from "./parentPortalIcons";
 
 export default function ParentPushPrompt({ isSession, legacyToken }) {
   const [status, setStatus] = useState({ subscribed: false, push_available: false, loading: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [testMsg, setTestMsg] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const autoOpenedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +35,14 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       cancelled = true;
     };
   }, [isSession, legacyToken]);
+
+  useEffect(() => {
+    if (status.loading || status.subscribed || autoOpenedRef.current) return;
+    if (!shouldAutoOpenPushHint(isSession, legacyToken)) return;
+    autoOpenedRef.current = true;
+    setExpanded(true);
+    markPushHintSeen(isSession, legacyToken);
+  }, [status.loading, status.subscribed, isSession, legacyToken]);
 
   const setupHint = pushSetupHint();
 
@@ -95,10 +96,14 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
   };
 
   return (
-    <details className="parentPortalDetails parentPortalPushDetails">
+    <details
+      className="parentPortalDetails parentPortalPushDetails"
+      open={expanded}
+      onToggle={(e) => setExpanded(e.currentTarget.open)}
+    >
       <summary className="parentPortalDetailsSummary parentPortalPushSummary">
         <span className="parentPortalPushSummaryLead">
-          <BellIcon />
+          <IconBell className="parentPortalPushIconSvg" />
           <span>Известия на телефона</span>
         </span>
         <span className={`uiBadge ${status.subscribed ? "uiBadge--success" : "uiBadge--warning"}`}>
