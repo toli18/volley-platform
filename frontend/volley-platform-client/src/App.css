@@ -3362,3 +3362,352 @@
   gap: 8px;
   align-items: flex-end;
 }
+
+/* Coach mobile shell (light theme) */
+.appShell--coachMobile .appContent--coachMobile {
+  padding: 0;
+  max-width: none;
+}
+
+.coachMobileShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #f4f8f6 0%, #eef3f8 48%, #f8fafc 100%);
+}
+
+.coachMobileTopBar {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(15, 77, 58, 0.18);
+}
+
+.coachMobileTopTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.coachMobileTopSpacer {
+  width: 44px;
+}
+
+.coachMobileBackBtn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.coachMobileMain {
+  flex: 1;
+  padding: 14px 14px calc(92px + env(safe-area-inset-bottom, 0px));
+}
+
+.coachMobileBottomNav {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 85;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+}
+
+.coachMobileBottomNavBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 10px;
+  min-height: 48px;
+}
+
+.coachMobileBottomNavBtn.is-active {
+  color: #0f4d3a;
+  background: #ecfdf5;
+}
+
+.coachMobileBottomNavIcon {
+  display: block;
+}
+
+.coachMobilePage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.coachMobileMuted {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.coachMobileGreeting {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coachMobileGreetingSub {
+  margin-top: -6px;
+}
+
+.coachMobileSectionTitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.coachMobileCard {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.coachMobileEventCard + .coachMobileEventCard {
+  margin-top: 8px;
+}
+
+.coachMobileEventDate {
+  margin: 4px 0 0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coachMobileEventHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.coachMobileChip {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.coachMobileChip--train {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.coachMobileChip--comp {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.coachMobileChip--soon {
+  background: #ecfdf5;
+  color: #0f4d3a;
+}
+
+.coachMobileQuickGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.coachMobileQuickBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
+
+.coachMobileTeamList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coachMobileTeamCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+}
+
+.coachMobileTeamName {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coachMobileTeamChevron {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: #94a3b8;
+  font-size: 22px;
+}
+
+.coachMobileHubTeamName {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.coachMobileSubNav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+}
+
+.coachMobileSubNavBtn {
+  flex: 0 0 auto;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coachMobileSubNavBtn.is-active {
+  background: #0f4d3a;
+  border-color: #0f4d3a;
+  color: #fff;
+}
+
+.coachMobileHubSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coachMobileHubSection--chat .uiCard {
+  margin: 0;
+}
+
+.coachMobileHubLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coachMobileRosterList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.coachMobileRosterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-decoration: none;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.coachMobileMenuGroup {
+  margin-bottom: 8px;
+}
+
+.coachMobileMenuList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.coachMobileMenuRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  text-decoration: none;
+  color: #0f172a;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coachMobileMenuList li:last-child .coachMobileMenuRow {
+  border-bottom: none;
+}
+
+.coachMobileMenuLabel {
+  display: block;
+  font-weight: 700;
+}
+
+.coachMobileMenuHint {
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.coachMobilePage--schedule .uiPageHero {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .coachMobileBottomNav {
+    display: none;
+  }
+
+  .coachMobileMain {
+    padding-bottom: 24px;
+  }
+}

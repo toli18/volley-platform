@@ -27,15 +27,29 @@ export default function App() {
     );
   }, [location.pathname]);
 
+  const isCoachMobile = useMemo(() => {
+    const path = location.pathname || "";
+    return path === "/coach" || path.startsWith("/coach/");
+  }, [location.pathname]);
+
+  const hideAppChrome = isPublicPortal || isCoachMobile;
+  const shellClass = isPublicPortal
+    ? "appShell--parentPortal"
+    : isCoachMobile
+      ? "appShell--coachMobile"
+      : "";
+
   return (
-    <div className={`appShell bfvTheme ${isPublicPortal ? "appShell--parentPortal" : ""}`.trim()}>
-      {!isImmersiveMode && !isPublicPortal ? <Navbar /> : null}
-      <main className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""} ${isPublicPortal ? "appContent--parentPortal" : ""}`.trim()}>
+    <div className={`appShell bfvTheme ${shellClass}`.trim()}>
+      {!isImmersiveMode && !hideAppChrome ? <Navbar /> : null}
+      <main
+        className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""} ${isPublicPortal ? "appContent--parentPortal" : ""} ${isCoachMobile ? "appContent--coachMobile" : ""}`.trim()}
+      >
         <Suspense fallback={<div style={{ padding: 24 }}>Зареждане...</div>}>
           <Outlet />
         </Suspense>
       </main>
-      {!isImmersiveMode && !isPublicPortal ? (
+      {!isImmersiveMode && !hideAppChrome ? (
         <footer className="appFooter">
           <span>Volley Coach Platform</span>
           <span>Българска федерация по волейбол</span>

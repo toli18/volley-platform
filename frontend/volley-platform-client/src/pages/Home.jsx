@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -72,6 +72,7 @@ const extractDrillIdsFromPlan = (plan) => {
 
 export default function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [feesSummary, setFeesSummary] = useState({ total: 0, paid: 0, unpaid: 0 });
   const [forumItems, setForumItems] = useState([]);
@@ -89,6 +90,17 @@ export default function Home() {
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
   const isHeadCoach = role === "club_head_coach";
   const monthKey = useMemo(() => currentMonthKey(), []);
+
+  useEffect(() => {
+    if (!showCoachDashboard) return undefined;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const go = () => {
+      if (mq.matches) navigate("/coach/today", { replace: true });
+    };
+    go();
+    mq.addEventListener("change", go);
+    return () => mq.removeEventListener("change", go);
+  }, [showCoachDashboard, navigate]);
 
   useEffect(() => {
     const loadDashboard = async () => {

@@ -3,11 +3,11 @@ import { Link } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { resolveStaticUrl } from "../../utils/staticUrl";
 import { useToast } from "../ToastProvider";
 import { teamRoomLoginPath, teamRoomLoginUrl } from "../../utils/teamRoomAuth";
 import TeamPortalCoachChat from "./TeamPortalCoachChat";
-import { Button, Card, EmptyState, Input } from "../ui";
+import TeamPortalCoachNews from "./TeamPortalCoachNews";
+import { Button, Card, Input } from "../ui";
 
 const normalizeError = (err, fallback = "Грешка.") => {
   const detail = err?.response?.data?.detail;
@@ -160,13 +160,13 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
           <Link to="/parent/login">родителския портал</Link>.
         </p>
 
-        <CoachFeed items={items} busy={busy} deleteItem={deleteItem} />
+        <TeamPortalCoachNews items={items} busy={busy} deleteItem={deleteItem} />
       </Card>
 
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={onImageSelected} />
 
       {textOpen ? (
-        <TextModal
+        <TeamPortalTextModal
           busy={busy}
           textBody={textBody}
           setTextBody={setTextBody}
@@ -180,43 +180,7 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
   );
 }
 
-function CoachFeed({ items, busy, deleteItem }) {
-  return (
-    <div className="teamPortalCoachFeed">
-      {items.length === 0 ? (
-        <EmptyState title="Няма публикации" description="Добавете текст или снимка от бутоните в лентата." />
-      ) : (
-        items.map((item) => (
-          <article key={item.id} className="teamPortalCoachFeedItem">
-            {item.kind === "image" && item.url ? (
-              <a href={resolveStaticUrl(item.url)} target="_blank" rel="noreferrer">
-                <img src={resolveStaticUrl(item.url)} alt={item.file_name || "Снимка"} className="teamPortalCoachFeedImg" />
-              </a>
-            ) : (
-              <p className="teamPortalCoachFeedText">{item.body}</p>
-            )}
-            <FeedMeta item={item} busy={busy} deleteItem={deleteItem} />
-          </article>
-        ))
-      )}
-    </div>
-  );
-}
-
-function FeedMeta({ item, busy, deleteItem }) {
-  return (
-    <div className="teamPortalCoachFeedMeta">
-      <span className="uiMuted" style={{ fontSize: 12 }}>
-        {item.created_at ? new Date(item.created_at).toLocaleString("bg-BG") : ""}
-      </span>
-      <Button size="sm" variant="danger" disabled={busy} onClick={() => deleteItem(item.id)}>
-        Изтрий
-      </Button>
-    </div>
-  );
-}
-
-function TextModal({ busy, textBody, setTextBody, postText, setTextOpen }) {
+export function TeamPortalTextModal({ busy, textBody, setTextBody, postText, setTextOpen }) {
   return (
     <div className="uiModalOverlay" onClick={() => !busy && setTextOpen(false)} role="presentation">
       <section className="uiModal uiModal--compact" onClick={(e) => e.stopPropagation()} role="dialog">
