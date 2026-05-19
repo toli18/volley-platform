@@ -1,12 +1,15 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { parseVideoUrl } from "../../utils/drillVideo";
 
 const EMBED_ALLOW =
   "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 
 function EmbedFrame({ src, title }) {
+  if (!src) return null;
   return (
     <div className="drillVideoFrame">
-      <div className="drillVideoFrameAspect">
+      <div className="drillVideoFrameAspect drillVideoFrameAspect--tall">
         <iframe
           title={title || "Видео"}
           src={src}
@@ -21,11 +24,95 @@ function EmbedFrame({ src, title }) {
   );
 }
 
-function OpenVideoLink({ href, label = "Отвори видеото" }) {
+function StreamVideo({ sources, onExhausted }) {
+  const [index, setIndex] = useState(0);
+  const src = sources[index];
+
+  useEffect(() => {
+    if (sources.length === 0) onExhausted?.();
+  }, [sources.length, onExhausted]);
+
+  if (!src) return null;
+
+  const handleError = () => {
+    if (index < sources.length - 1) {
+      setIndex((i) => i + 1);
+    } else {
+      onExhausted?.();
+    }
+  };
+
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="drillVideoOpenBtn">
-      {label}
-    </a>
+    <video
+      key={src}
+      controls
+      playsInline
+      preload="metadata"
+      className="drillVideoNative"
+      onError={handleError}
+    >
+      <source src={src} type="video/mp4" />
+      <source src={src} />
+      Вашият браузър не поддържа вграждано видео.
+    </video>
+  );
+}
+
+function AdaptivePlayer({ parsed, compact }) {
+  const streamSrcs = parsed.streamSrcs || [];
+  const embedCandidates = useMemo(() => {
+    if (Array.isArray(parsed.embedCandidates) && parsed.embedCandidates.length > 0) {
+      return parsed.embedCandidates;
+    }
+    const list = [];
+    if (parsed.embedSrc) list.push(parsed.embedSrc);
+    if (parsed.original && !list.includes(parsed.original)) list.push(parsed.original);
+    return list;
+  }, [parsed.embedCandidates, parsed.embedSrc, parsed.original]);
+
+  const [embedIndex, setEmbedIndex] = useState(0);
+  // Drive: Google preview iframe is the most reliable inline player (shared link).
+  const preferEmbedFirst = parsed.kind === "drive";
+  const [mode, setMode] = useState(() => {
+    if (preferEmbedFirst && embedCandidates.length > 0) return "embed";
+    return streamSrcs.length > 0 ? "stream" : "embed";
+  });
+
+  const embedSrc = embedCandidates[embedIndex] || null;
+
+  const tryNextEmbed = () => {
+    if (embedIndex < embedCandidates.length - 1) {
+      setEmbedIndex((i) => i + 1);
+    }
+  };
+
+  return (
+    <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
+      {mode === "stream" ? (
+        <StreamVideo sources={streamSrcs} onExhausted={() => setMode("embed")} />
+      ) : embedSrc ? (
+        <div className="drillVideoFrame">
+          <div className="drillVideoFrameAspect drillVideoFrameAspect--tall">
+            <iframe
+              title={parsed.label || "Видео"}
+              src={embedSrc}
+              className="drillVideoIframe"
+              allow={EMBED_ALLOW}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              onError={tryNextEmbed}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {parsed.kind === "drive" && mode === "embed" ? (
+        <p className="drillVideoHint">
+          Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -33,64 +120,13 @@ export default function DrillVideoPlayer({ url, compact = false }) {
   const parsed = parseVideoUrl(url);
   if (!parsed) return null;
 
-  const openLink = (
-    <p className="drillVideoFallback">
-      <OpenVideoLink href={parsed.original} label="Отвори в нов прозорец" />
-    </p>
-  );
-
   if (parsed.kind === "youtube" || parsed.kind === "vimeo") {
     return (
       <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
         <EmbedFrame src={parsed.embedSrc} title={parsed.label} />
-        {openLink}
       </div>
     );
   }
 
-  if (parsed.kind === "file") {
-    return (
-      <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
-        <video controls playsInline preload="metadata" className="drillVideoNative">
-          <source src={parsed.embedSrc} />
-          Вашият браузър не поддържа вграждано видео.
-        </video>
-        {openLink}
-      </div>
-    );
-  }
-
-  if (parsed.kind === "drive") {
-    return (
-      <div className={`drillVideoPlayer drillVideoPlayer--drive${compact ? " drillVideoPlayer--compact" : ""}`}>
-        <div className="drillVideoDriveCard">
-          <p className="drillVideoDriveText">
-            Видеото е в Google Drive. На телефон най-надеждно е да се отвори в браузъра.
-          </p>
-          <OpenVideoLink href={parsed.original} label="Отвори в Google Drive" />
-        </div>
-        <div className="drillVideoDriveEmbed">
-          <EmbedFrame src={parsed.embedSrc} title="Google Drive" />
-        </div>
-      </div>
-    );
-  }
-
-  if (parsed.kind === "dropbox" && parsed.embedSrc) {
-    return (
-      <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
-        <EmbedFrame src={parsed.embedSrc} title="Dropbox" />
-        {openLink}
-      </div>
-    );
-  }
-
-  return (
-    <div className={`drillVideoPlayer drillVideoPlayer--external${compact ? " drillVideoPlayer--compact" : ""}`}>
-      <p className="drillVideoDriveText">
-        Този линк не може да се вгради надеждно в страницата (ограничение от сайта източник).
-      </p>
-      <OpenVideoLink href={parsed.original} />
-    </div>
-  );
+  return <AdaptivePlayer parsed={parsed} compact={compact} />;
 }

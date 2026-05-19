@@ -3925,48 +3925,26 @@
   color: #5b6a82;
 }
 
-.drillVideoOpenBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #0f4d3a;
-  color: #fff;
-  font-weight: 800;
-  text-decoration: none;
-  font-size: 14px;
+.drillVideoFrameAspect--tall {
+  padding-top: 62%;
+  min-height: 220px;
 }
 
-.drillVideoOpenBtn:hover {
-  background: #1a6b52;
-  color: #fff;
-}
-
-.drillVideoDriveCard {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
-}
-
-.drillVideoDriveText {
+.drillVideoHint {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.45;
-  color: #475569;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
 }
 
-.drillVideoDriveEmbed {
-  display: none;
+.drillVideoFallback a {
+  color: #0b5cff;
+  font-weight: 700;
+  text-decoration: none;
 }
 
-@media (min-width: 768px) {
-  .drillVideoPlayer--drive .drillVideoDriveEmbed {
-    display: block;
-  }
+.drillVideoFallback a:hover {
+  text-decoration: underline;
 }
 
 .dmpPlayerBox .drillVideoPlayer {

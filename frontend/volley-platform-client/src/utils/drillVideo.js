@@ -88,6 +88,27 @@ export function getGoogleDrivePreviewUrl(url) {
   return id ? `https://drive.google.com/file/d/${id}/preview` : null;
 }
 
+export function getGoogleDriveEmbedCandidates(fileId, originalUrl) {
+  if (!fileId) return [];
+  const preview = getGoogleDrivePreviewUrl(originalUrl);
+  const candidates = [
+    preview,
+    `https://drive.google.com/file/d/${fileId}/view`,
+    originalUrl,
+  ].filter(Boolean);
+  return [...new Set(candidates)];
+}
+
+/** Direct stream candidates for HTML5 video (file must be shared: anyone with the link). */
+export function getGoogleDriveStreamUrls(fileId) {
+  if (!fileId) return [];
+  return [
+    `https://drive.google.com/uc?export=download&id=${fileId}`,
+    `https://drive.google.com/uc?export=preview&id=${fileId}`,
+    `https://drive.google.com/uc?id=${fileId}&export=download&confirm=t`,
+  ];
+}
+
 export function normalizeDropboxUrl(url) {
   try {
     const urlObj = new URL(url);
@@ -100,40 +121,65 @@ export function normalizeDropboxUrl(url) {
   }
 }
 
-/** @returns {{ kind: 'youtube'|'vimeo'|'file'|'drive'|'dropbox'|'external', label: string, embedSrc: string|null, original: string }} */
+/**
+ * @returns {{
+ *   kind: string,
+ *   label: string,
+ *   embedSrc: string|null,
+ *   streamSrcs: string[],
+ *   original: string
+ * }}
+ */
 export function parseVideoUrl(rawUrl) {
   const original = resolveMediaUrl(rawUrl);
   if (!original) return null;
 
   const yt = getYoutubeEmbedUrl(original);
   if (yt) {
-    return { kind: "youtube", label: "YouTube", embedSrc: yt, original };
+    return { kind: "youtube", label: "YouTube", embedSrc: yt, streamSrcs: [], original };
   }
 
   const vm = getVimeoEmbedUrl(original);
   if (vm) {
-    return { kind: "vimeo", label: "Vimeo", embedSrc: vm, original };
+    return { kind: "vimeo", label: "Vimeo", embedSrc: vm, streamSrcs: [], original };
   }
 
   if (isDirectVideoUrl(original)) {
-    return { kind: "file", label: "Видео файл", embedSrc: original, original };
+    return { kind: "file", label: "Видео файл", embedSrc: original, streamSrcs: [original], original };
   }
 
-  const drivePreview = getGoogleDrivePreviewUrl(original);
+  const driveId = getGoogleDriveFileId(original);
+  const drivePreview = driveId ? getGoogleDrivePreviewUrl(original) : null;
   if (drivePreview) {
-    return { kind: "drive", label: "Google Drive", embedSrc: drivePreview, original };
-  }
-
-  if (original.includes("dropbox.com")) {
+    const embedCandidates = getGoogleDriveEmbedCandidates(driveId, original);
     return {
-      kind: "dropbox",
-      label: "Dropbox",
-      embedSrc: normalizeDropboxUrl(original),
+      kind: "drive",
+      label: "Google Drive",
+      embedSrc: embedCandidates[0],
+      embedCandidates,
+      streamSrcs: getGoogleDriveStreamUrls(driveId),
       original,
     };
   }
 
-  return { kind: "external", label: "Видео линк", embedSrc: null, original };
+  if (original.includes("dropbox.com")) {
+    const direct = normalizeDropboxUrl(original);
+    return {
+      kind: "dropbox",
+      label: "Dropbox",
+      embedSrc: direct,
+      streamSrcs: [direct],
+      original,
+    };
+  }
+
+  return {
+    kind: "external",
+    label: "Видео линк",
+    embedSrc: original,
+    streamSrcs: [original],
+    original,
+  };
 }
 
 function collectFieldArray(drill, keys) {
