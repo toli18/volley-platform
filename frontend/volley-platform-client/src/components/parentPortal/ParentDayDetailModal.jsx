@@ -37,11 +37,12 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
             {sorted.map((row, i) => {
               const isComp = isCompetitionEvent(row);
               const cancelled = Boolean(row.is_cancelled);
+              const isChange = Boolean(row.highlight_change);
               const colors = isComp ? null : teamColorForName(row.team_name);
               return (
                 <li
                   key={`${row.date}-${row.start_time}-${row.event_type}-${i}`}
-                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}${cancelled ? " parentPortalDayModalItem--cancelled" : ""}`}
+                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}${cancelled ? " parentPortalDayModalItem--cancelled" : ""}${isChange ? " parentPortalDayModalItem--change" : ""}`}
                   style={
                     isComp
                       ? undefined

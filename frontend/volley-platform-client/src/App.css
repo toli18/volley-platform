@@ -1325,9 +1325,28 @@
 }
 
 .parentPortalAgendaDayLabel {
+  position: relative;
+  display: inline-block;
   font-weight: 800;
   color: #0f4d3a;
   font-size: 14px;
+}
+
+.parentPortalAgendaDay--change {
+  box-shadow: 0 0 0 2px #dc2626;
+}
+
+.parentPortalAgendaDay--change .parentPortalAgendaDayLabel::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px #dc2626;
 }
 
 .parentPortalAgendaDayCount {
@@ -1388,6 +1407,14 @@
   font-weight: 500;
   font-size: 11px;
   opacity: 0.9;
+}
+
+.parentPortalSchedRow--change {
+  box-shadow: 0 0 0 2px #dc2626;
+}
+
+.parentPortalDayModalItem--change {
+  box-shadow: 0 0 0 2px #dc2626;
 }
 
 .parentPortalSchedRow.is-cancelled .parentPortalSchedRowTime,

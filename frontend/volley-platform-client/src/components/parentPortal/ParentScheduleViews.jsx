@@ -88,7 +88,7 @@ function SessionBlock({ row, variant = "card" }) {
   if (variant === "row") {
     return (
       <div
-        className={`parentPortalSchedRow${cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}`}
+        className={`parentPortalSchedRow${cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}${isChange ? " parentPortalSchedRow--change" : ""}`}
         style={
           isComp
             ? { ...competitionBlockStyle, borderLeftWidth: 3, borderLeftStyle: "solid" }
@@ -124,7 +124,8 @@ function SessionBlock({ row, variant = "card" }) {
   );
 }
 
-function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyHint = "Няма събития" }) {
+function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyHint = "Няма събития", highlightDates }) {
+  const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   return (
     <div className="parentPortalAgendaList">
       {days.map(({ date, label }) => {
@@ -132,11 +133,12 @@ function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyH
           String(a.start_time).localeCompare(String(b.start_time)),
         );
         const isSelected = selectedDate === date;
+        const dayHighlight = highlightSet.has(date) || dayItems.some((r) => r.highlight_change);
         return (
           <button
             key={date}
             type="button"
-            className={`parentPortalAgendaDay${isSelected ? " is-selected" : ""}${dayItems.length === 0 ? " parentPortalAgendaDay--empty" : ""}`}
+            className={`parentPortalAgendaDay${isSelected ? " is-selected" : ""}${dayItems.length === 0 ? " parentPortalAgendaDay--empty" : ""}${dayHighlight ? " parentPortalAgendaDay--change" : ""}`}
             onClick={() => onDayClick(date)}
           >
             <div className="parentPortalAgendaDayHead">
@@ -159,7 +161,7 @@ function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyH
   );
 }
 
-function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
+function WeekMobileList({ items, weekStart, selectedDate, onDayClick, highlightDates }) {
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
   const days = useMemo(
     () =>
@@ -176,11 +178,12 @@ function WeekMobileList({ items, weekStart, selectedDate, onDayClick }) {
       getItemsForDate={(date) => inWeek.filter((it) => it.date === date)}
       selectedDate={selectedDate}
       onDayClick={onDayClick}
+      highlightDates={highlightDates}
     />
   );
 }
 
-function MonthMobileList({ items, monthKey, selectedDate, onDayClick }) {
+function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightDates }) {
   const cells = useMemo(() => buildMonthCells(monthKey).filter((c) => c.isCurrentMonth), [monthKey]);
   const byDate = useMemo(() => groupItemsByDate(items), [items]);
   const days = useMemo(
@@ -197,6 +200,7 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick }) {
       getItemsForDate={(date) => byDate.get(date) || []}
       selectedDate={selectedDate}
       onDayClick={onDayClick}
+      highlightDates={highlightDates}
     />
   );
 }
@@ -538,7 +542,13 @@ export default function ParentScheduleViews({
               highlightDates={highlightSet}
             />
           </div>
-          <WeekMobileList items={filteredWeekItems} weekStart={weekStart} selectedDate={selectedDate} onDayClick={openDay} />
+          <WeekMobileList
+            items={filteredWeekItems}
+            weekStart={weekStart}
+            selectedDate={selectedDate}
+            onDayClick={openDay}
+            highlightDates={highlightSet}
+          />
         </>
       ) : monthItems.length === 0 && !loadingMonth ? (
         <EmptyState title="Няма събития" description={`За ${formatMonthKey(monthKey)} няма записани събития.`} />
@@ -553,7 +563,13 @@ export default function ParentScheduleViews({
               highlightDates={highlightSet}
             />
           </div>
-          <MonthMobileList items={filteredMonthItems} monthKey={monthKey} selectedDate={selectedDate} onDayClick={openDay} />
+          <MonthMobileList
+            items={filteredMonthItems}
+            monthKey={monthKey}
+            selectedDate={selectedDate}
+            onDayClick={openDay}
+            highlightDates={highlightSet}
+          />
         </>
       )}
 
