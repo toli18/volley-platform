@@ -20,6 +20,19 @@ CHANGE_COMPETITION_CHANGED = "competition_changed"
 CHANGE_COMPETITION_CANCELLED = "competition_cancelled"
 CHANGE_COMPETITION_REMOVED = "competition_removed"
 CHANGE_FEE_PAID = "fee_paid"
+CHANGE_FEED_POST = "feed_post"
+CHANGE_CHAT_MESSAGE = "chat_message"
+
+_SCHEDULE_CHANGE_TYPES = {
+    CHANGE_TRAINING_CANCELLED,
+    CHANGE_TRAINING_ADDED,
+    CHANGE_TRAINING_CHANGED,
+    CHANGE_TRAINING_RESTORED,
+    CHANGE_COMPETITION_ADDED,
+    CHANGE_COMPETITION_CHANGED,
+    CHANGE_COMPETITION_CANCELLED,
+    CHANGE_COMPETITION_REMOVED,
+}
 
 
 def _message_for(change_type: str, team_label: str, date_iso: str, extra: str | None = None) -> tuple[str, str]:
@@ -37,10 +50,18 @@ def _message_for(change_type: str, team_label: str, date_iso: str, extra: str | 
         CHANGE_COMPETITION_CANCELLED: "Отменено състезание",
         CHANGE_COMPETITION_REMOVED: "Премахнато състезание",
         CHANGE_FEE_PAID: "Платена такса",
+        CHANGE_FEED_POST: "Нова новина от треньора",
+        CHANGE_CHAT_MESSAGE: "Ново съобщение в чата",
     }
     title = titles.get(change_type, "Обновен график")
     if change_type == CHANGE_FEE_PAID:
         return title, extra or "Месечната такса е отбелязана като платена."
+    if change_type == CHANGE_FEED_POST:
+        return title, extra or "Има ново съобщение в отборната стая."
+    if change_type == CHANGE_CHAT_MESSAGE:
+        if extra:
+            return title, f"{extra} · Отворете чата."
+        return title, "Отворете чата, за да прочетете съобщението."
     if change_type == CHANGE_TRAINING_CHANGED:
         return title, f"{base}. Проверете час или зала."
     return title, base
@@ -81,7 +102,9 @@ def get_pending_marker_state(db: Session, athlete_id: int) -> tuple[set[str], li
         .all()
     )
     marker_keys = {str(r.marker_key) for r in rows if r.marker_key}
-    schedule_dates = sorted({r.date_iso for r in rows if r.change_type != CHANGE_FEE_PAID and r.date_iso})
+    schedule_dates = sorted(
+        {r.date_iso for r in rows if r.change_type in _SCHEDULE_CHANGE_TYPES and r.date_iso}
+    )
     fee_highlight = any(r.change_type == CHANGE_FEE_PAID for r in rows)
     return marker_keys, schedule_dates, fee_highlight
 
@@ -205,6 +228,57 @@ def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marke
         db.close()
 
 
+def _team_id_from_marker(marker_key: str) -> int | None:
+    parts = (marker_key or "").split(":")
+    if len(parts) >= 2 and parts[0] in ("feed", "chat") and parts[1].isdigit():
+        return int(parts[1])
+    return None
+
+
+def _target_tab_for_change(change_type: str) -> str:
+    if change_type == CHANGE_FEE_PAID:
+        return "home"
+    if change_type == CHANGE_FEED_POST:
+        return "home"
+    if change_type == CHANGE_CHAT_MESSAGE:
+        return "messages"
+    if change_type in _SCHEDULE_CHANGE_TYPES:
+        return "schedule"
+    return "schedule"
+
+
+def build_home_notifications(db: Session, athlete_id: int) -> list[dict]:
+    rows = (
+        db.query(ParentPortalChangeMarker)
+        .filter(ParentPortalChangeMarker.athlete_id == int(athlete_id))
+        .order_by(ParentPortalChangeMarker.created_at.desc())
+        .all()
+    )
+    team_names: dict[int, str] = {}
+    out: list[dict] = []
+    for row in rows:
+        team_id = _team_id_from_marker(row.marker_key)
+        team_label = ""
+        if team_id is not None:
+            if team_id not in team_names:
+                team_names[team_id] = db.query(Team.name).filter(Team.id == team_id).scalar() or "отбор"
+            team_label = team_names[team_id]
+        extra = team_label if team_label else None
+        title, body = _message_for(row.change_type, team_label or "отбор", row.date_iso, extra)
+        out.append(
+            {
+                "marker_key": row.marker_key,
+                "change_type": row.change_type,
+                "title": title,
+                "body": body,
+                "target_tab": _target_tab_for_change(row.change_type),
+                "date_iso": row.date_iso,
+                "team_id": team_id,
+            }
+        )
+    return out
+
+
 def queue_team_chat_message(
     team_id: int,
     team_name: str,
@@ -218,9 +292,12 @@ def queue_team_chat_message(
         athlete_ids = _athlete_ids_for_team(db, team_id)
         title = f"Чат — {team_name}"
         body = f"{sender_label}: {(preview or '').strip()[:200]}"
+        today = date.today().isoformat()
+        marker_key = f"chat:{int(team_id)}"
         for aid in athlete_ids:
             if exclude_athlete_id is not None and int(aid) == int(exclude_athlete_id):
                 continue
+            add_marker(db, aid, CHANGE_CHAT_MESSAGE, today, marker_key)
             notify_athlete(db, aid, title, body)
         db.commit()
         logger.info("Team chat notify team=%s athletes=%s", team_id, len(athlete_ids))
@@ -236,7 +313,10 @@ def queue_team_feed_post(team_id: int, preview: str) -> None:
         athlete_ids = _athlete_ids_for_team(db, team_id)
         title = "Нова новина от отбора"
         body = (preview or "Има ново съобщение в отборната стая.").strip()[:240]
+        today = date.today().isoformat()
+        marker_key = f"feed:{int(team_id)}"
         for aid in athlete_ids:
+            add_marker(db, aid, CHANGE_FEED_POST, today, marker_key)
             notify_athlete(db, aid, title, body)
         db.commit()
         logger.info("Team feed notify team=%s athletes=%s", team_id, len(athlete_ids))

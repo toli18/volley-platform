@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Athlete, AthleteTeamChatRead, Team, TeamChatMessage, TeamChatSenderKind, TeamMember, User
+from app.services.parent_portal_notify import clear_marker_for_athlete
 
 CHAT_RETENTION_DAYS = 15
 _MAX_BODY_LEN = 2000
@@ -81,6 +82,7 @@ def mark_chat_read(db: Session, athlete_id: int, team_id: int) -> None:
         row.last_read_at = now
     else:
         db.add(AthleteTeamChatRead(athlete_id=int(athlete_id), team_id=int(team_id), last_read_at=now))
+    clear_marker_for_athlete(db, athlete_id, f"chat:{int(team_id)}")
     db.commit()
 
 

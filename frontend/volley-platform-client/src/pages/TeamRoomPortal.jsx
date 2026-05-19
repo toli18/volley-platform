@@ -5,6 +5,7 @@ import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews"
 import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
 import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
 import TeamRoomChat from "../components/teamRoom/TeamRoomChat";
+import TeamRoomHomeAlerts from "../components/teamRoom/TeamRoomHomeAlerts";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
@@ -101,6 +102,7 @@ export default function TeamRoomPortal() {
   const [activeTab, setActiveTab] = useState("home");
   const [feedSeenAt, setFeedSeenAt] = useState(() => localStorage.getItem("team_room_feed_seen_at") || "");
   const [liveChatUnread, setLiveChatUnread] = useState(null);
+  const [pendingChatTeamId, setPendingChatTeamId] = useState(null);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!getTeamRoomToken()) {
@@ -148,6 +150,56 @@ export default function TeamRoomPortal() {
     setData((prev) => patchProfileAfterScheduleAck(prev, payload));
   }, []);
 
+  const markFeedSeen = useCallback(() => {
+    const now = new Date().toISOString();
+    localStorage.setItem("team_room_feed_seen_at", now);
+    setFeedSeenAt(now);
+  }, []);
+
+  const handleOpenHomeNotification = useCallback(
+    async (notification) => {
+      if (!notification) return;
+      try {
+        if (notification.change_type === "fee_paid") {
+          await ackAthleteRoomChange({ scope: "fee" });
+        } else {
+          await ackAthleteRoomChange({ markerKey: notification.marker_key });
+        }
+      } catch {
+        /* ignore */
+      }
+
+      setData((prev) => {
+        if (!prev) return prev;
+        let next = {
+          ...prev,
+          home_notifications: (prev.home_notifications || []).filter(
+            (n) => n.marker_key !== notification.marker_key,
+          ),
+        };
+        if (notification.change_type === "fee_paid") {
+          next = { ...next, fee_change_highlight: false };
+        }
+        if (notification.target_tab === "schedule") {
+          next = patchProfileAfterScheduleAck(next, {
+            markerKey: notification.marker_key,
+            date: notification.date_iso,
+          });
+        }
+        return next;
+      });
+
+      if (notification.target_tab === "messages" && notification.team_id) {
+        setPendingChatTeamId(notification.team_id);
+      }
+      if (notification.change_type === "feed_post") {
+        markFeedSeen();
+      }
+      setActiveTab(notification.target_tab || "home");
+    },
+    [markFeedSeen],
+  );
+
   const handleAckFeeHighlight = useCallback(async () => {
     if (!data?.fee_change_highlight) return;
     try {
@@ -162,18 +214,6 @@ export default function TeamRoomPortal() {
     clearTeamRoomToken();
     navigate(teamRoomLoginPath(), { replace: true });
   };
-
-  const markFeedSeen = useCallback(() => {
-    const now = new Date().toISOString();
-    localStorage.setItem("team_room_feed_seen_at", now);
-    setFeedSeenAt(now);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "home" && data?.items?.length) {
-      markFeedSeen();
-    }
-  }, [activeTab, data?.items?.length, markFeedSeen]);
 
   useEffect(() => {
     if (activeTab !== "messages") {
@@ -198,15 +238,18 @@ export default function TeamRoomPortal() {
   const badges = useMemo(() => {
     const items = data?.items || [];
     const latest = items[0]?.created_at;
+    const hasHomeAlerts = (data?.home_notifications?.length ?? 0) > 0;
     const homeUnread =
-      (latest && (!feedSeenAt || new Date(latest) > new Date(feedSeenAt))) || hasUnreadChanges;
+      hasHomeAlerts ||
+      (latest && (!feedSeenAt || new Date(latest) > new Date(feedSeenAt))) ||
+      hasUnreadChanges;
     const chatUnread = liveChatUnread ?? data?.chat_unread_count ?? 0;
     return {
       home: homeUnread,
       schedule: hasUnreadChanges,
       messages: chatUnread > 0,
     };
-  }, [data?.items, data?.chat_unread_count, feedSeenAt, hasUnreadChanges, liveChatUnread]);
+  }, [data?.home_notifications, data?.items, data?.chat_unread_count, feedSeenAt, hasUnreadChanges, liveChatUnread]);
 
   const attendance = data?.attendance_summary;
   const teamLabel = (data?.teams || []).join(", ") || "—";
@@ -253,6 +296,10 @@ export default function TeamRoomPortal() {
 
             <TabPanel id="home" activeTab={activeTab}>
               <TeamRoomPushPrompt />
+              <TeamRoomHomeAlerts
+                notifications={data.home_notifications}
+                onOpen={handleOpenHomeNotification}
+              />
               <TeamRoomFeeStatus
                 fee={data.current_month_fee}
                 formatMonthKey={formatMonthKey}
@@ -298,6 +345,8 @@ export default function TeamRoomPortal() {
               <TeamRoomChat
                 active={activeTab === "messages"}
                 onUnreadChange={setLiveChatUnread}
+                openTeamId={pendingChatTeamId}
+                onOpenTeamConsumed={() => setPendingChatTeamId(null)}
               />
             </TabPanel>
 

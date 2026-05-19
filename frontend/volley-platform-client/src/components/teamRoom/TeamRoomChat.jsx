@@ -155,7 +155,7 @@ function MessagesList({ listRef, messages }) {
   );
 }
 
-export default function TeamRoomChat({ active, onUnreadChange }) {
+export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpenTeamConsumed }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [channels, setChannels] = useState([]);
@@ -207,6 +207,12 @@ export default function TeamRoomChat({ active, onUnreadChange }) {
       /* keep previous messages */
     }
   }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (!active || !openTeamId) return;
+    setSelectedTeamId(openTeamId);
+    onOpenTeamConsumed?.();
+  }, [active, openTeamId, onOpenTeamConsumed]);
 
   useEffect(() => {
     if (!active) return undefined;

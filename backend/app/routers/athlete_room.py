@@ -27,9 +27,9 @@ from app.routers.parent_portal import (
 from app.schemas.parent_portal import ParentCurrentMonthFee, ParentPortalAckBody, ParentPushStatusResponse
 from app.schemas.parent_portal import ParentPushSubscribeRequest, ParentPushTestResponse, ParentPushVapidResponse
 from app.routers.team_portal import _item_to_response, _monday_of_week_iso
-from app.schemas.athlete_room import AthleteRoomMeResponse
+from app.schemas.athlete_room import AthleteRoomHomeNotification, AthleteRoomMeResponse
 from app.schemas.parent_portal import ParentScheduleItem
-from app.services.parent_portal_notify import get_pending_marker_state
+from app.services.parent_portal_notify import build_home_notifications, get_pending_marker_state
 from app.services.team_chat import total_unread_for_athlete
 from app.services.parent_push import (
     PORTAL_ATHLETE_ROOM,
@@ -161,6 +161,9 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         fee_change_highlight=fee_highlight,
         avatar_url=None,
         chat_unread_count=total_unread_for_athlete(db, athlete.id),
+        home_notifications=[
+            AthleteRoomHomeNotification(**n) for n in build_home_notifications(db, athlete.id)
+        ],
     )
 
 

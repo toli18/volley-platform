@@ -7,6 +7,17 @@ from app.schemas.parent_portal import ParentAttendanceSummary, ParentCurrentMont
 from app.schemas.team_portal import TeamPortalItemResponse
 
 
+class AthleteRoomHomeNotification(BaseModel):
+    marker_key: str
+    change_type: str
+    title: str
+    body: str
+    target_tab: str
+    date_iso: Optional[str] = None
+    team_id: Optional[int] = None
+
+
+
 class AthleteRoomMeResponse(BaseModel):
     athlete_id: int
     athlete_name: str
@@ -25,3 +36,4 @@ class AthleteRoomMeResponse(BaseModel):
     fee_change_highlight: bool = False
     avatar_url: Optional[str] = None
     chat_unread_count: int = 0
+    home_notifications: list[AthleteRoomHomeNotification] = Field(default_factory=list)

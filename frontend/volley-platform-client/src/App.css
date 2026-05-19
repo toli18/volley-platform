@@ -3041,6 +3041,74 @@
   color: #e2e8f0;
 }
 
+.teamRoomHomeAlerts {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teamRoomHomeAlertBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #422006 0%, #1e293b 100%);
+  color: #fef3c7;
+  text-align: left;
+  cursor: pointer;
+}
+
+.teamRoomHomeAlertBtn:active {
+  background: #422006;
+}
+
+.teamRoomHomeAlertIcon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #1c1917;
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teamRoomHomeAlertText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.teamRoomHomeAlertTitle {
+  font-weight: 700;
+  font-size: 14px;
+  color: #fde68a;
+}
+
+.teamRoomHomeAlertBody {
+  font-size: 12px;
+  color: #fcd34d;
+  line-height: 1.35;
+}
+
+.teamRoomHomeAlertChevron {
+  flex-shrink: 0;
+  font-size: 22px;
+  color: #fbbf24;
+  line-height: 1;
+}
+
 .teamRoomChat {
   display: flex;
   flex-direction: column;
