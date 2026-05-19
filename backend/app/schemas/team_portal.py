@@ -3,22 +3,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.parent_portal import ParentAttendanceSummary, ParentScheduleItem
-
-
-class TeamAccessStatusResponse(BaseModel):
-    has_active_token: bool = False
-    token_preview: Optional[str] = None
-    team_url: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    last_used_at: Optional[datetime] = None
-
-
-class TeamAccessCreateResponse(BaseModel):
-    team_url: str
-    token_preview: str
-    expires_at: Optional[datetime] = None
-
 
 class TeamPortalTextCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=4000)
@@ -35,14 +19,3 @@ class TeamPortalItemResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class TeamPortalPublicResponse(BaseModel):
-    team_name: str
-    club_name: Optional[str] = None
-    schedule_month_key: str
-    week_start: str
-    monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)
-    attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
-    next_competition: Optional[ParentScheduleItem] = None
-    items: list[TeamPortalItemResponse] = Field(default_factory=list)

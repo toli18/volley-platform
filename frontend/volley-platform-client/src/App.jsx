@@ -22,8 +22,6 @@ export default function App() {
     return (
       path === "/parent" ||
       path.startsWith("/parent/") ||
-      path === "/team" ||
-      path.startsWith("/team/") ||
       path === "/room" ||
       path.startsWith("/room/")
     );

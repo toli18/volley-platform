@@ -145,16 +145,10 @@ export const API_PATHS = {
   PARENT_PORTAL_GET: (token) => `/api/parent-portal/${token}`,
   PARENT_PORTAL_SCHEDULE: (token) => `/api/parent-portal/${token}/schedule`,
 
-  TEAM_ACCESS_GET: (teamId) => `/api/teams/${teamId}/team-access`,
-  TEAM_ACCESS_CREATE: (teamId) => `/api/teams/${teamId}/team-access`,
-  TEAM_ACCESS_ROTATE: (teamId) => `/api/teams/${teamId}/team-access/rotate`,
-  TEAM_ACCESS_REVOKE: (teamId) => `/api/teams/${teamId}/team-access`,
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,
   TEAM_PORTAL_IMAGE_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/image`,
   TEAM_PORTAL_ITEM_DELETE: (teamId, itemId) => `/api/teams/${teamId}/team-portal/items/${itemId}`,
-  TEAM_PORTAL_GET: (token) => `/api/team-portal/${token}`,
-  TEAM_PORTAL_SCHEDULE: (token) => `/api/team-portal/${token}/schedule`,
 
   // Club head coach
   CLUB_OVERVIEW: "/api/club/overview",
