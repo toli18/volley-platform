@@ -42,7 +42,11 @@ axiosInstance.interceptors.request.use((config) => {
 
   if (url.includes("/parent-portal/me")) {
     const parentToken = getParentSessionToken();
-    if (parentToken) config.headers.Authorization = `Bearer ${parentToken}`;
+    if (parentToken) {
+      config.headers.Authorization = `Bearer ${parentToken}`;
+    } else {
+      delete config.headers.Authorization;
+    }
     return config;
   }
 

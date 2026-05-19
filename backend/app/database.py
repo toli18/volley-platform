@@ -17,10 +17,11 @@ else:
     engine = create_engine(
         settings.database_url,
         pool_pre_ping=True,
-        pool_size=int(os.getenv("DB_POOL_SIZE", "3")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "7")),
-        pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30")),
+        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
+        pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "60")),
         pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "300")),
+        pool_reset_on_return="rollback",
     )
 
 # Session factory

@@ -14,7 +14,7 @@ from ..auth import (
     decode_jwt_token,
     verify_password,
 )
-from ..database import SessionLocal
+from ..database import get_db
 from ..models import User, UserRole, Club
 
 router = APIRouter()
@@ -42,14 +42,6 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 async def authenticate_user(db: Session, email: str, password: str) -> User:
