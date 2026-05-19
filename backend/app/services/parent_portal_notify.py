@@ -70,20 +70,51 @@ def add_marker(db: Session, athlete_id: int, change_type: str, date_iso: str, ma
 
 
 def get_pending_highlights(db: Session, athlete_id: int) -> tuple[list[str], bool]:
+    _, schedule_dates, fee_highlight = get_pending_marker_state(db, athlete_id)
+    return schedule_dates, fee_highlight
+
+
+def get_pending_marker_state(db: Session, athlete_id: int) -> tuple[set[str], list[str], bool]:
     rows = (
         db.query(ParentPortalChangeMarker)
         .filter(ParentPortalChangeMarker.athlete_id == int(athlete_id))
         .all()
     )
+    marker_keys = {str(r.marker_key) for r in rows if r.marker_key}
     schedule_dates = sorted({r.date_iso for r in rows if r.change_type != CHANGE_FEE_PAID and r.date_iso})
     fee_highlight = any(r.change_type == CHANGE_FEE_PAID for r in rows)
-    return schedule_dates, fee_highlight
+    return marker_keys, schedule_dates, fee_highlight
 
 
 def clear_markers_for_athlete(db: Session, athlete_id: int) -> None:
     db.query(ParentPortalChangeMarker).filter(ParentPortalChangeMarker.athlete_id == int(athlete_id)).delete(
         synchronize_session=False
     )
+    db.commit()
+
+
+def clear_fee_markers_for_athlete(db: Session, athlete_id: int) -> None:
+    db.query(ParentPortalChangeMarker).filter(
+        ParentPortalChangeMarker.athlete_id == int(athlete_id),
+        ParentPortalChangeMarker.change_type == CHANGE_FEE_PAID,
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+def clear_marker_for_athlete(db: Session, athlete_id: int, marker_key: str) -> None:
+    db.query(ParentPortalChangeMarker).filter(
+        ParentPortalChangeMarker.athlete_id == int(athlete_id),
+        ParentPortalChangeMarker.marker_key == marker_key,
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+def clear_schedule_markers_for_date(db: Session, athlete_id: int, date_iso: str) -> None:
+    db.query(ParentPortalChangeMarker).filter(
+        ParentPortalChangeMarker.athlete_id == int(athlete_id),
+        ParentPortalChangeMarker.date_iso == date_iso,
+        ParentPortalChangeMarker.change_type != CHANGE_FEE_PAID,
+    ).delete(synchronize_session=False)
     db.commit()
 
 

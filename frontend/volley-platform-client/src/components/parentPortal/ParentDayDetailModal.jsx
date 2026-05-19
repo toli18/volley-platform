@@ -6,7 +6,7 @@ function eventTypeLabel(row) {
   return isCompetitionEvent(row) ? competitionKindLabel(row) : "Тренировка";
 }
 
-export default function ParentDayDetailModal({ date, items, formatDateLabel, onClose }) {
+export default function ParentDayDetailModal({ date, items, formatDateLabel, onClose, onAckChange }) {
   if (!date) return null;
 
   const sorted = [...(items || [])].sort((a, b) =>
@@ -39,10 +39,31 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
               const cancelled = Boolean(row.is_cancelled);
               const isChange = Boolean(row.highlight_change);
               const colors = isComp ? null : teamColorForName(row.team_name);
+              const handleAck = (event) => {
+                if (!isChange || !onAckChange) return;
+                event.stopPropagation();
+                onAckChange({
+                  markerKey: row.change_marker_key || null,
+                  date: row.date,
+                });
+              };
               return (
                 <li
                   key={`${row.date}-${row.start_time}-${row.event_type}-${i}`}
-                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}${cancelled ? " parentPortalDayModalItem--cancelled" : ""}${isChange ? " parentPortalDayModalItem--change" : ""}`}
+                  role={isChange ? "button" : undefined}
+                  tabIndex={isChange ? 0 : undefined}
+                  onClick={isChange ? handleAck : undefined}
+                  onKeyDown={
+                    isChange
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleAck(e);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`parentPortalDayModalItem${isComp ? " parentPortalDayModalItem--competition" : ""}${cancelled ? " parentPortalDayModalItem--cancelled" : ""}${isChange ? " parentPortalDayModalItem--change parentPortalDayModalItem--ackBtn" : ""}`}
                   style={
                     isComp
                       ? undefined

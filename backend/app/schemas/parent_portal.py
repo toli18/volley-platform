@@ -75,6 +75,13 @@ class ParentScheduleItem(BaseModel):
     competition_kind_label: Optional[str] = None
     is_cancelled: bool = False
     highlight_change: bool = False
+    change_marker_key: Optional[str] = None
+
+
+class ParentPortalAckBody(BaseModel):
+    marker_key: Optional[str] = None
+    date: Optional[str] = None
+    scope: Optional[str] = None  # fee | all
 
 
 class ParentPaymentRow(BaseModel):

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -10,6 +10,10 @@ import { Button, Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 import { abbreviateTeamName } from "../utils/parentPortalSchedule";
+import {
+  ackParentPortalChange,
+  patchProfileAfterScheduleAck,
+} from "../utils/parentPortalAck";
 import {
   filterAttendanceByPeriod,
   formatCompetitionsMonthLabel,
@@ -79,7 +83,7 @@ const PARENT_FEES_PERIOD_OPTIONS = [
   { value: "12", label: "Последни 12" },
 ];
 
-function HighlightEventBlock({ item, variant }) {
+function HighlightEventBlock({ item, variant, onAckChange }) {
   const isComp = variant === "competition" || isCompetitionEvent(item);
   const daysUntil = item ? formatDaysUntil(item.date) : null;
   if (!item) {
@@ -89,9 +93,31 @@ function HighlightEventBlock({ item, variant }) {
       </p>
     );
   }
-  const changeClass = item.highlight_change ? " parentPortalNextEventBlock--change" : "";
+  const changeClass = item.highlight_change ? " parentPortalNextEventBlock--change parentPortalNextEventBlock--ackBtn" : "";
+  const handleAck = () => {
+    if (!item.highlight_change || !onAckChange) return;
+    onAckChange({
+      markerKey: item.change_marker_key || null,
+      date: item.date,
+    });
+  };
   return (
-    <div className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}${changeClass}`}>
+    <div
+      role={item.highlight_change ? "button" : undefined}
+      tabIndex={item.highlight_change ? 0 : undefined}
+      onClick={item.highlight_change ? handleAck : undefined}
+      onKeyDown={
+        item.highlight_change
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleAck();
+              }
+            }
+          : undefined
+      }
+      className={`parentPortalNextEventBlock${isComp ? " parentPortalNextEventBlock--competition" : ""}${changeClass}`}
+    >
       <p className="parentPortalHighlightMetaRow">
         <span className={`uiBadge${isComp ? " uiBadge--warning" : " uiBadge--info"}`}>
           {isComp ? competitionKindLabel(item) : "Тренировка"}
@@ -185,7 +211,6 @@ export default function ParentPortal() {
   const [profile, setProfile] = useState(null);
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
-  const hadHighlightsRef = useRef(false);
 
   const highlightDates = useMemo(
     () => new Set(profile?.pending_schedule_dates || []),
@@ -241,24 +266,27 @@ export default function ParentPortal() {
     };
   }, [token, isSession, navigate]);
 
-  useEffect(() => {
-    if (!profile) return;
-    hadHighlightsRef.current =
-      Boolean(profile.fee_change_highlight) || (profile.pending_schedule_dates?.length ?? 0) > 0;
-  }, [profile]);
+  const handleAckScheduleChange = useCallback(
+    async (payload) => {
+      try {
+        await ackParentPortalChange({ isSession, token, ...payload });
+      } catch {
+        /* keep UI responsive even if ack fails */
+      }
+      setProfile((prev) => patchProfileAfterScheduleAck(prev, payload));
+    },
+    [isSession, token],
+  );
 
-  useEffect(() => {
-    return () => {
-      if (!hadHighlightsRef.current) return;
-      const path = isSession
-        ? API_PATHS.PARENT_PORTAL_ACK_CHANGES_ME
-        : token
-          ? API_PATHS.PARENT_PORTAL_ACK_CHANGES_TOKEN(token)
-          : null;
-      if (!path) return;
-      axiosInstance.post(path).catch(() => {});
-    };
-  }, [isSession, token]);
+  const handleAckFeeHighlight = useCallback(async () => {
+    if (!profile?.fee_change_highlight) return;
+    try {
+      await ackParentPortalChange({ isSession, token, scope: "fee" });
+    } catch {
+      /* ignore */
+    }
+    setProfile((prev) => (prev ? { ...prev, fee_change_highlight: false } : prev));
+  }, [isSession, token, profile?.fee_change_highlight]);
 
   const feeCoach = profile?.fee_coach || {};
   const currentFee = profile?.current_month_fee;
@@ -323,9 +351,17 @@ export default function ParentPortal() {
               <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
                 <h2 className="parentPortalHighlightTitle">Следващи събития</h2>
                 <div className="parentPortalNextEventsStack">
-                  <HighlightEventBlock item={nextTraining} variant="training" />
+                  <HighlightEventBlock
+                    item={nextTraining}
+                    variant="training"
+                    onAckChange={handleAckScheduleChange}
+                  />
                   <div className="parentPortalNextEventDivider" role="presentation" />
-                  <HighlightEventBlock item={nextCompetition} variant="competition" />
+                  <HighlightEventBlock
+                    item={nextCompetition}
+                    variant="competition"
+                    onAckChange={handleAckScheduleChange}
+                  />
                 </div>
                 {competitionsMonthLabel ? (
                   <p className="parentPortalCompetitionsMonth">
@@ -335,7 +371,20 @@ export default function ParentPortal() {
               </section>
 
               <section
-                className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}${profile.fee_change_highlight ? " parentPortalHighlightCard--change" : ""}`}
+                role={profile.fee_change_highlight ? "button" : undefined}
+                tabIndex={profile.fee_change_highlight ? 0 : undefined}
+                onClick={profile.fee_change_highlight ? handleAckFeeHighlight : undefined}
+                onKeyDown={
+                  profile.fee_change_highlight
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleAckFeeHighlight();
+                        }
+                      }
+                    : undefined
+                }
+                className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}${profile.fee_change_highlight ? " parentPortalHighlightCard--change parentPortalHighlightCard--ackBtn" : ""}`}
               >
                 <h2 className="parentPortalHighlightTitle">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
                 {currentFee?.paid ? (
@@ -403,6 +452,7 @@ export default function ParentPortal() {
                   scheduleMonthKey={profile.schedule_month_key}
                   formatMonthKey={formatMonthKey}
                   highlightDates={highlightDates}
+                  onAckScheduleChange={handleAckScheduleChange}
                 />
               </Card>
             </section>

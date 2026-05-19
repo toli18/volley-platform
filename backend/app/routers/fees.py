@@ -32,7 +32,9 @@ from app.schemas.fees import (
     MonthStatusRow,
     PeriodAthleteReportRow,
     PeriodReportResponse,
+    FeeReminderResponse,
 )
+from app.services.parent_push import notify_athlete
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -329,7 +331,9 @@ def list_athletes(
     query: str | None = Query(default=None),
     coach_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
 ):
     q = db.query(Athlete)
     if _is_head_coach(current_user):
@@ -401,6 +405,62 @@ def list_athletes(
             reads.sort(key=lambda x: x.athlete_name.lower())
 
     return reads
+
+
+@router.post("/fees/remind-unpaid", response_model=FeeReminderResponse)
+def remind_unpaid_fees(
+    month_key: str = Query(..., description="YYYY-MM"),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    month_key = _validate_month_key(month_key)
+    q = db.query(Athlete).filter(Athlete.is_active.is_(True))
+    if _is_head_coach(current_user):
+        if not current_user.club_id:
+            raise HTTPException(status_code=403, detail="Club is required")
+        q = q.filter(Athlete.club_id == current_user.club_id)
+        if coach_id is not None:
+            q = q.filter(Athlete.coach_id == int(coach_id))
+    else:
+        q = q.filter(Athlete.coach_id == current_user.id)
+
+    athletes = q.order_by(Athlete.athlete_name.asc()).all()
+    if not athletes:
+        return FeeReminderResponse(month_key=month_key)
+
+    athlete_ids = [int(a.id) for a in athletes]
+    paid_rows = (
+        db.query(AthletePayment.athlete_id)
+        .filter(AthletePayment.athlete_id.in_(athlete_ids), AthletePayment.month_key == month_key)
+        .all()
+    )
+    paid_ids = {int(r[0]) for r in paid_rows}
+    unpaid = [a for a in athletes if int(a.id) not in paid_ids]
+
+    notified = 0
+    skipped_no_push = 0
+    errors: list[str] = []
+    title = "Напомняне за месечна такса"
+    body = f"Таксата за {month_key} не е отбелязана като платена. Моля, проверете родителския профил."
+
+    for athlete in unpaid:
+        result = notify_athlete(db, int(athlete.id), title, body)
+        if int(result.get("sent") or 0) > 0:
+            notified += 1
+        elif int(result.get("subscriptions") or 0) == 0:
+            skipped_no_push += 1
+        for err in result.get("errors") or []:
+            if err and err not in errors:
+                errors.append(str(err))
+
+    return FeeReminderResponse(
+        month_key=month_key,
+        targeted=len(unpaid),
+        notified=notified,
+        skipped_no_push=skipped_no_push,
+        errors=errors[:20],
+    )
 
 
 @router.post("/fees/athletes", response_model=AthleteRead, status_code=status.HTTP_201_CREATED)

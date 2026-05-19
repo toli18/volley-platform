@@ -1413,6 +1413,14 @@
   box-shadow: 0 0 0 2px #dc2626;
 }
 
+.parentPortalSchedBlock--ackBtn,
+.parentPortalSchedRow--ackBtn,
+.parentPortalDayModalItem--ackBtn,
+.parentPortalNextEventBlock--ackBtn,
+.parentPortalHighlightCard--ackBtn {
+  cursor: pointer;
+}
+
 .parentPortalDayModalItem--change {
   box-shadow: 0 0 0 2px #dc2626;
 }

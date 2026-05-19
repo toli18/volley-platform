@@ -22,6 +22,7 @@ import {
   formatLocationDisplay,
 } from "../../utils/parentPortalSchedule";
 import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
+import { applyAckToScheduleItems } from "../../utils/parentPortalAck";
 
 function weekdayShortForDate(isoDate) {
   const d = new Date(`${isoDate}T12:00:00`);
@@ -60,7 +61,14 @@ function gridCellTooltip(row) {
   return parts.filter(Boolean).join(" · ");
 }
 
-function SessionBlock({ row, variant = "card" }) {
+function ackPayloadForRow(row) {
+  return {
+    markerKey: row.change_marker_key || null,
+    date: row.date,
+  };
+}
+
+function SessionBlock({ row, variant = "card", onAckChange }) {
   const isComp = isCompetitionEvent(row);
   const cancelled = Boolean(row.is_cancelled);
   const isChange = Boolean(row.highlight_change);
@@ -68,16 +76,35 @@ function SessionBlock({ row, variant = "card" }) {
   const time = `${row.start_time || "—"} – ${row.end_time || "—"}`;
   const title = eventTitle(row);
 
+  const handleAckClick = (event) => {
+    if (!isChange || !onAckChange) return;
+    event.stopPropagation();
+    onAckChange(ackPayloadForRow(row));
+  };
+
   if (variant === "grid") {
     return (
       <div
-        className={`parentPortalSchedBlock parentPortalSchedBlock--grid${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}${isChange ? " parentPortalSchedBlock--change" : ""}`}
+        role={isChange ? "button" : undefined}
+        tabIndex={isChange ? 0 : undefined}
+        onClick={isChange ? handleAckClick : undefined}
+        onKeyDown={
+          isChange
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleAckClick(e);
+                }
+              }
+            : undefined
+        }
+        className={`parentPortalSchedBlock parentPortalSchedBlock--grid${isComp ? " parentPortalSchedBlock--competition" : ""}${cancelled ? " parentPortalSchedBlock--cancelled" : ""}${isChange ? " parentPortalSchedBlock--change parentPortalSchedBlock--ackBtn" : ""}`}
         style={
           isComp
             ? competitionBlockStyle
             : { borderColor: colors.border, background: colors.bg, color: colors.text }
         }
-        title={gridCellTooltip(row)}
+        title={isChange ? `${gridCellTooltip(row)} · Клик за премахване на маркера` : gridCellTooltip(row)}
       >
         <span className="parentPortalSchedBlockAbbrev">{gridCellLabel(row)}</span>
         {displayLocation(row) ? <span className="parentPortalSchedBlockLoc">{displayLocation(row)}</span> : null}
@@ -88,7 +115,20 @@ function SessionBlock({ row, variant = "card" }) {
   if (variant === "row") {
     return (
       <div
-        className={`parentPortalSchedRow${cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}${isChange ? " parentPortalSchedRow--change" : ""}`}
+        role={isChange ? "button" : undefined}
+        tabIndex={isChange ? 0 : undefined}
+        onClick={isChange ? handleAckClick : undefined}
+        onKeyDown={
+          isChange
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleAckClick(e);
+                }
+              }
+            : undefined
+        }
+        className={`parentPortalSchedRow${cancelled ? " is-cancelled" : ""}${isComp ? " is-competition" : ""}${isChange ? " parentPortalSchedRow--change parentPortalSchedRow--ackBtn" : ""}`}
         style={
           isComp
             ? { ...competitionBlockStyle, borderLeftWidth: 3, borderLeftStyle: "solid" }
@@ -124,7 +164,7 @@ function SessionBlock({ row, variant = "card" }) {
   );
 }
 
-function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyHint = "Няма събития", highlightDates }) {
+function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyHint = "Няма събития", highlightDates, onAckChange }) {
   const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   return (
     <div className="parentPortalAgendaList">
@@ -150,7 +190,7 @@ function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyH
             ) : (
               <div className="parentPortalAgendaEvents">
                 {dayItems.map((row, i) => (
-                  <SessionBlock key={`${date}-${row.start_time}-${i}`} row={row} variant="row" />
+                  <SessionBlock key={`${date}-${row.start_time}-${i}`} row={row} variant="row" onAckChange={onAckChange} />
                 ))}
               </div>
             )}
@@ -161,7 +201,7 @@ function DayAgendaList({ days, getItemsForDate, selectedDate, onDayClick, emptyH
   );
 }
 
-function WeekMobileList({ items, weekStart, selectedDate, onDayClick, highlightDates }) {
+function WeekMobileList({ items, weekStart, selectedDate, onDayClick, highlightDates, onAckChange }) {
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
   const days = useMemo(
     () =>
@@ -179,11 +219,12 @@ function WeekMobileList({ items, weekStart, selectedDate, onDayClick, highlightD
       selectedDate={selectedDate}
       onDayClick={onDayClick}
       highlightDates={highlightDates}
+      onAckChange={onAckChange}
     />
   );
 }
 
-function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightDates }) {
+function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightDates, onAckChange }) {
   const cells = useMemo(() => buildMonthCells(monthKey).filter((c) => c.isCurrentMonth), [monthKey]);
   const byDate = useMemo(() => groupItemsByDate(items), [items]);
   const days = useMemo(
@@ -201,6 +242,7 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightD
       selectedDate={selectedDate}
       onDayClick={onDayClick}
       highlightDates={highlightDates}
+      onAckChange={onAckChange}
     />
   );
 }
@@ -208,7 +250,7 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightD
 const DEFAULT_SCHEDULE_HINT =
   "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.";
 
-function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT, highlightDates }) {
+function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT, highlightDates, onAckChange }) {
   const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   const slots = useMemo(() => timeSlotsForWeek(items, weekStart), [items, weekStart]);
   const inWeek = useMemo(() => itemsInWeek(items, weekStart), [items, weekStart]);
@@ -269,7 +311,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_S
                   }}
                 >
                   {cellItems.map((row, i) => (
-                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} variant="grid" />
+                    <SessionBlock key={`${date}-${slot.key}-${i}`} row={row} variant="grid" onAckChange={onAckChange} />
                   ))}
                 </div>
               );
@@ -281,7 +323,7 @@ function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_S
   );
 }
 
-function MonthGrid({ items, monthKey, selectedDate, onDayClick, highlightDates }) {
+function MonthGrid({ items, monthKey, selectedDate, onDayClick, highlightDates, onAckChange }) {
   const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
   const cells = useMemo(() => buildMonthCells(monthKey), [monthKey]);
   const byDate = useMemo(() => groupItemsByDate(items), [items]);
@@ -313,7 +355,7 @@ function MonthGrid({ items, monthKey, selectedDate, onDayClick, highlightDates }
               <div className="parentPortalMonthCellDay">{cell.day}</div>
               <div className="parentPortalMonthCellBody">
                 {dayItems.map((row, i) => (
-                  <SessionBlock key={`${cell.date}-${i}`} row={row} variant="grid" />
+                  <SessionBlock key={`${cell.date}-${i}`} row={row} variant="grid" onAckChange={onAckChange} />
                 ))}
               </div>
             </button>
@@ -334,6 +376,7 @@ export default function ParentScheduleViews({
   showTeamLegend = true,
   scheduleHint = DEFAULT_SCHEDULE_HINT,
   highlightDates,
+  onAckScheduleChange,
 }) {
   const highlightSet = useMemo(
     () => (highlightDates instanceof Set ? highlightDates : new Set(highlightDates || [])),
@@ -444,6 +487,19 @@ export default function ParentScheduleViews({
 
   const openDay = (date) => setSelectedDate(date);
 
+  const handleAckChange = async (payload) => {
+    if (onAckScheduleChange) {
+      await onAckScheduleChange(payload);
+    }
+    setCache((prev) => {
+      const next = { ...prev };
+      for (const mk of Object.keys(next)) {
+        next[mk] = applyAckToScheduleItems(next[mk], payload);
+      }
+      return next;
+    });
+  };
+
   if (!initialItems?.length && !loadingMonth) {
     return <EmptyState title="Няма събития за този месец" description="Когато треньорът добави график, ще го виждате тук." />;
   }
@@ -540,6 +596,7 @@ export default function ParentScheduleViews({
               onDayClick={openDay}
               hint={scheduleHint}
               highlightDates={highlightSet}
+              onAckChange={handleAckChange}
             />
           </div>
           <WeekMobileList
@@ -548,6 +605,7 @@ export default function ParentScheduleViews({
             selectedDate={selectedDate}
             onDayClick={openDay}
             highlightDates={highlightSet}
+            onAckChange={handleAckChange}
           />
         </>
       ) : monthItems.length === 0 && !loadingMonth ? (
@@ -561,6 +619,7 @@ export default function ParentScheduleViews({
               selectedDate={selectedDate}
               onDayClick={openDay}
               highlightDates={highlightSet}
+              onAckChange={handleAckChange}
             />
           </div>
           <MonthMobileList
@@ -569,6 +628,7 @@ export default function ParentScheduleViews({
             selectedDate={selectedDate}
             onDayClick={openDay}
             highlightDates={highlightSet}
+            onAckChange={handleAckChange}
           />
         </>
       )}
@@ -578,6 +638,7 @@ export default function ParentScheduleViews({
         items={selectedDayItems}
         formatDateLabel={formatParentDayLabel}
         onClose={() => setSelectedDate("")}
+        onAckChange={handleAckChange}
       />
     </div>
   );

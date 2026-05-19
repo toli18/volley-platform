@@ -34,10 +34,18 @@ from app.schemas.parent_portal import (
     ParentPushStatusResponse,
     ParentPushSubscribeRequest,
     ParentPushTestResponse,
+    ParentPortalAckBody,
     ParentPushVapidResponse,
     ParentScheduleItem,
 )
-from app.services.parent_portal_notify import clear_markers_for_athlete, get_pending_highlights
+from app.services.parent_portal_notify import (
+    clear_fee_markers_for_athlete,
+    clear_marker_for_athlete,
+    clear_markers_for_athlete,
+    clear_schedule_markers_for_date,
+    get_pending_highlights,
+    get_pending_marker_state,
+)
 from app.services.parent_push import (
     delete_subscription_for_athlete,
     push_configured,
@@ -133,12 +141,14 @@ def _build_schedule_for_teams(
                         team_name=team_name_map.get(int(r.team_id)),
                         event_type="training",
                         is_cancelled=True,
+                        change_marker_key=f"exc:{exc.id}",
                     )
                 )
                 continue
             location = exc.location if exc and exc.kind == "override" and exc.location else r.location
             start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
             end_t = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+            marker_key = f"exc:{exc.id}" if exc else (f"rule:{r.id}" if cur_s == r.effective_from else None)
             schedule_items.append(
                 ParentScheduleItem(
                     date=cur_s,
@@ -148,6 +158,7 @@ def _build_schedule_for_teams(
                     team_name=team_name_map.get(int(r.team_id)),
                     event_type="training",
                     is_cancelled=False,
+                    change_marker_key=marker_key,
                 )
             )
 
@@ -176,6 +187,7 @@ def _build_schedule_for_teams(
                 event_type="competition",
                 competition_kind=kind,
                 competition_kind_label=competition_kind_label(kind),
+                change_marker_key=f"comp:{e.id}",
             )
         )
 
@@ -356,10 +368,38 @@ def _team_ids_for_athlete(db: Session, athlete_id: int) -> list[int]:
     ]
 
 
+def _item_has_highlight(item: ParentScheduleItem, marker_keys: set[str], pending_dates: set[str]) -> bool:
+    if item.change_marker_key and item.change_marker_key in marker_keys:
+        return True
+    return item.date in pending_dates
+
+
 def _apply_schedule_highlights(db: Session, athlete_id: int, items: list[ParentScheduleItem]) -> list[ParentScheduleItem]:
-    pending_dates, _ = get_pending_highlights(db, athlete_id)
-    highlight_set = set(pending_dates)
-    return [item.model_copy(update={"highlight_change": item.date in highlight_set}) for item in items]
+    marker_keys, pending_dates, _ = get_pending_marker_state(db, athlete_id)
+    date_set = set(pending_dates)
+    return [
+        item.model_copy(update={"highlight_change": _item_has_highlight(item, marker_keys, date_set)})
+        for item in items
+    ]
+
+
+def _apply_ack_body(db: Session, athlete_id: int, body: ParentPortalAckBody) -> None:
+    scope = (body.scope or "").strip().lower()
+    if scope == "all":
+        clear_markers_for_athlete(db, athlete_id)
+        return
+    if scope == "fee":
+        clear_fee_markers_for_athlete(db, athlete_id)
+        return
+    marker_key = (body.marker_key or "").strip()
+    if marker_key:
+        clear_marker_for_athlete(db, athlete_id, marker_key)
+        return
+    date_iso = (body.date or "").strip()
+    if date_iso:
+        clear_schedule_markers_for_date(db, athlete_id, date_iso)
+        return
+    raise HTTPException(status_code=422, detail="Provide marker_key, date, or scope (fee|all).")
 
 
 def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthleteProfileResponse:
@@ -398,7 +438,9 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
 
     today = date.today()
     horizon_to = (today + timedelta(days=45)).isoformat()
-    upcoming_pool = _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
+    upcoming_pool = _apply_schedule_highlights(
+        db, athlete.id, _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
+    )
     next_training_item = _pick_next_by_kind(upcoming_pool, competition=False)
     next_competition_item = _pick_next_by_kind(upcoming_pool, competition=True)
     next_event = _pick_next_event(upcoming_pool)
@@ -429,17 +471,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             fee_coach.club_name = club_row.name
             fee_coach.club_phone = club_row.contact_phone
 
-    pending_dates, fee_highlight = get_pending_highlights(db, athlete.id)
-    highlight_set = set(pending_dates)
-    schedule_items = [
-        item.model_copy(update={"highlight_change": item.date in highlight_set}) for item in schedule_items
-    ]
-    if next_training_item and next_training_item.date in highlight_set:
-        next_training_item = next_training_item.model_copy(update={"highlight_change": True})
-    if next_competition_item and next_competition_item.date in highlight_set:
-        next_competition_item = next_competition_item.model_copy(update={"highlight_change": True})
-    if next_event and next_event.date in highlight_set:
-        next_event = next_event.model_copy(update={"highlight_change": True})
+    _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
+    schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
 
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
@@ -463,6 +496,23 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
     )
+
+
+@router.post("/parent-portal/me/ack-change", status_code=204)
+def parent_ack_change_me(
+    body: ParentPortalAckBody,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    _apply_ack_body(db, athlete.id, body)
+    return None
+
+
+@router.post("/parent-portal/{token}/ack-change", status_code=204)
+def parent_ack_change_token(token: str, body: ParentPortalAckBody, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    _apply_ack_body(db, athlete.id, body)
+    return None
 
 
 @router.post("/parent-portal/me/ack-changes", status_code=204)

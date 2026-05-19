@@ -80,6 +80,14 @@ class MonthStatusRow(BaseModel):
     paid_at: Optional[datetime] = None
 
 
+class FeeReminderResponse(BaseModel):
+    month_key: str
+    targeted: int = 0
+    notified: int = 0
+    skipped_no_push: int = 0
+    errors: list[str] = Field(default_factory=list)
+
+
 class AthleteMonthlyReport(BaseModel):
     athlete: AthleteRead
     months: list[MonthStatusRow] = Field(default_factory=list)

@@ -94,6 +94,7 @@ export default function MonthlyFees() {
   const [transferAthlete, setTransferAthlete] = useState(null);
   const [targetCoachId, setTargetCoachId] = useState("");
   const [highlightAthleteId, setHighlightAthleteId] = useState(null);
+  const [remindMonth, setRemindMonth] = useState(() => currentMonthKey());
   const isHeadCoach = user?.role === "club_head_coach";
 
   const loadAthletes = async (selectedCoach = coachFilter) => {
@@ -520,6 +521,30 @@ export default function MonthlyFees() {
     navigate(`/teams/athletes/${athleteId}`);
   };
 
+  const remindUnpaidFees = async () => {
+    const monthLabel = remindMonth;
+    const scopeLabel = isHeadCoach
+      ? coachFilter
+        ? `неплатилите при избрания треньор за ${monthLabel}`
+        : `всички неплатили в клуба за ${monthLabel}`
+      : `вашите неплатили състезатели за ${monthLabel}`;
+    if (!window.confirm(`Изпратите push напомняне до ${scopeLabel}?`)) return;
+    try {
+      setBusy(true);
+      const params = { month_key: remindMonth };
+      if (isHeadCoach && coachFilter) params.coach_id = Number(coachFilter);
+      const res = await axiosInstance.post(API_PATHS.FEES_REMIND_UNPAID, null, { params });
+      const data = res.data || {};
+      toast.success(
+        `Готово за ${monthLabel}: насочени ${data.targeted ?? 0}, изпратени ${data.notified ?? 0}, без push ${data.skipped_no_push ?? 0}.`,
+      );
+    } catch (err) {
+      toast.error(normalizeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onAthleteContainerClick = (event, athleteId) => {
     const target = event?.target;
     if (target && typeof target.closest === "function") {
@@ -628,6 +653,24 @@ export default function MonthlyFees() {
                 Изчисти
               </Button>
             ) : null}
+            <Input
+              type="month"
+              className="uiInput feesRemindMonth"
+              value={remindMonth}
+              onChange={(e) => setRemindMonth(e.target.value)}
+              aria-label="Месец за напомняне"
+              title="Месец за напомняне"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              title="Push напомняне до родители с неплатена такса за избрания месец"
+              onClick={remindUnpaidFees}
+            >
+              Напомни неплатили
+            </Button>
             <Input
               ref={importInputRef}
               type="file"
