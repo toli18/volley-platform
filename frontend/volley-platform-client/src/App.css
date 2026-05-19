@@ -1961,6 +1961,23 @@
   color: #64748b;
 }
 
+.parentPushPromptText {
+  margin: 0 0 12px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.parentPushPromptError {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.parentPushPromptHint {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
 @media (max-width: 680px) {
   .teamScheduleCalendarCols {
     min-width: 700px;

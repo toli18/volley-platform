@@ -480,6 +480,28 @@ class Athlete(Base):
         cascade="all, delete-orphan",
         order_by="AthleteParentAccessToken.created_at.desc()",
     )
+    parent_push_subscriptions = relationship(
+        "ParentPushSubscription",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
+
+
+class ParentPushSubscription(Base):
+    __tablename__ = "parent_push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    endpoint = Column(Text, nullable=False)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(255), nullable=False)
+    user_agent = Column(String(512), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    athlete = relationship("Athlete", back_populates="parent_push_subscriptions")
+
+    __table_args__ = (UniqueConstraint("endpoint", name="uq_parent_push_endpoint"),)
 
 
 class AthletePayment(Base):

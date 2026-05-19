@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     cloudinary_api_key: Optional[str] = Field(default=None, env="CLOUDINARY_API_KEY")
     cloudinary_api_secret: Optional[str] = Field(default=None, env="CLOUDINARY_API_SECRET")
 
+    # Web Push (parent portal notifications) — generate with: python -m py_vapid --applicationServerKey
+    vapid_public_key: Optional[str] = Field(default=None, env="VAPID_PUBLIC_KEY")
+    vapid_private_key: Optional[str] = Field(default=None, env="VAPID_PRIVATE_KEY")
+    vapid_subject: str = Field(default="mailto:support@volley-platform.local", env="VAPID_SUBJECT")
+    parent_portal_public_url: Optional[str] = Field(
+        default=None,
+        env="PARENT_PORTAL_PUBLIC_URL",
+        description="Base URL for links in push notifications (e.g. https://volley-platform.vercel.app)",
+    )
+
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":
         url = (self.database_url or "").strip()

@@ -117,6 +117,11 @@ export const API_PATHS = {
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",
   PARENT_PORTAL_ME: "/api/parent-portal/me",
   PARENT_PORTAL_ME_SCHEDULE: "/api/parent-portal/me/schedule",
+  PARENT_PUSH_VAPID: "/api/parent-portal/push/vapid-public-key",
+  PARENT_PUSH_STATUS_ME: "/api/parent-portal/me/push-status",
+  PARENT_PUSH_SUBSCRIBE_ME: "/api/parent-portal/me/push-subscription",
+  PARENT_PUSH_STATUS_TOKEN: (token) => `/api/parent-portal/${token}/push-status`,
+  PARENT_PUSH_SUBSCRIBE_TOKEN: (token) => `/api/parent-portal/${token}/push-subscription`,
   PARENT_PORTAL_GET: (token) => `/api/parent-portal/${token}`,
   PARENT_PORTAL_SCHEDULE: (token) => `/api/parent-portal/${token}/schedule`,
 

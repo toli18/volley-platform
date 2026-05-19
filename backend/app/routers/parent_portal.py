@@ -16,6 +16,7 @@ from app.models import (
     AthletePayment,
     AttendanceRecord,
     Club,
+    ParentPushSubscription,
     Team,
     TeamMember,
     TeamSession,
@@ -30,8 +31,17 @@ from app.schemas.parent_portal import (
     ParentCurrentMonthFee,
     ParentFeeCoachContact,
     ParentPaymentRow,
+    ParentPushStatusResponse,
+    ParentPushSubscribeRequest,
+    ParentPushVapidResponse,
     ParentScheduleItem,
 )
+from app.services.parent_push import (
+    delete_subscription_for_athlete,
+    push_configured,
+    upsert_subscription,
+)
+from app.settings import settings
 
 router = APIRouter()
 
@@ -446,6 +456,95 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         competitions_this_month=competitions_this_month,
         fee_due_day=PARENT_FEE_DUE_DAY,
     )
+
+
+@router.get("/parent-portal/push/vapid-public-key", response_model=ParentPushVapidResponse)
+def parent_push_vapid_public_key():
+    key = (settings.vapid_public_key or "").strip()
+    if not push_configured():
+        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+    return ParentPushVapidResponse(public_key=key, configured=True)
+
+
+def _parent_push_status(db: Session, athlete_id: int) -> ParentPushStatusResponse:
+    count = (
+        db.query(ParentPushSubscription)
+        .filter(ParentPushSubscription.athlete_id == int(athlete_id))
+        .count()
+    )
+    return ParentPushStatusResponse(subscribed=count > 0, push_available=push_configured())
+
+
+@router.get("/parent-portal/me/push-status", response_model=ParentPushStatusResponse)
+def parent_push_status_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _parent_push_status(db, athlete.id)
+
+
+@router.post("/parent-portal/me/push-subscription", status_code=204)
+def parent_push_subscribe_me(
+    payload: ParentPushSubscribeRequest,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    if not push_configured():
+        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+    upsert_subscription(
+        db,
+        athlete.id,
+        payload.endpoint.strip(),
+        payload.keys.p256dh.strip(),
+        payload.keys.auth.strip(),
+    )
+    return None
+
+
+@router.delete("/parent-portal/me/push-subscription", status_code=204)
+def parent_push_unsubscribe_me(
+    endpoint: str | None = Query(None),
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    delete_subscription_for_athlete(db, athlete.id, endpoint.strip() if endpoint else None)
+    return None
+
+
+@router.get("/parent-portal/{token}/push-status", response_model=ParentPushStatusResponse)
+def parent_push_status_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _parent_push_status(db, athlete.id)
+
+
+@router.post("/parent-portal/{token}/push-subscription", status_code=204)
+def parent_push_subscribe_token(
+    token: str,
+    payload: ParentPushSubscribeRequest,
+    db: Session = Depends(get_db),
+):
+    if not push_configured():
+        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+    athlete = _resolve_parent_portal_athlete(db, token)
+    upsert_subscription(
+        db,
+        athlete.id,
+        payload.endpoint.strip(),
+        payload.keys.p256dh.strip(),
+        payload.keys.auth.strip(),
+    )
+    return None
+
+
+@router.delete("/parent-portal/{token}/push-subscription", status_code=204)
+def parent_push_unsubscribe_token(
+    token: str,
+    endpoint: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    delete_subscription_for_athlete(db, athlete.id, endpoint.strip() if endpoint else None)
+    return None
 
 
 @router.get("/parent-portal/me", response_model=ParentAthleteProfileResponse)

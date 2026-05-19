@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,6 +17,7 @@ from app.models import (
     UserRole,
 )
 from app.schemas.competitions import CompetitionEventCreate, CompetitionEventRead, CompetitionEventUpdate
+from app.services.parent_push import queue_team_schedule_notification
 from app.schemas.schedule import (
     ScheduleExceptionCreate,
     ScheduleExceptionRead,
@@ -537,6 +538,7 @@ def delete_schedule_rule(
 def create_schedule_exception(
     rule_id: int,
     payload: ScheduleExceptionCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
@@ -604,12 +606,15 @@ def create_schedule_exception(
 
     db.commit()
     db.refresh(exc)
+    change_kind = "cancelled" if kind == "cancelled" else "override"
+    background_tasks.add_task(queue_team_schedule_notification, int(rule.team_id), cur_s, change_kind)
     return exc
 
 
 @router.delete("/schedule/exceptions/{exception_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_schedule_exception(
     exception_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
@@ -625,8 +630,11 @@ def delete_schedule_exception(
     rule = db.query(TrainingScheduleRule).filter(TrainingScheduleRule.id == exc.rule_id).first()
     if not rule or not _can_edit_rule(current_user, rule):
         raise HTTPException(status_code=403, detail="Not enough permissions")
+    team_id = int(rule.team_id)
+    date_iso = str(exc.date)
     db.delete(exc)
     db.commit()
+    background_tasks.add_task(queue_team_schedule_notification, team_id, date_iso, "restored")
     return None
 
 

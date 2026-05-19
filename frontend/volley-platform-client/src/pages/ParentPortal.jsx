@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { clearParentToken, getParentToken, parentLoginPath } from "../utils/parentAuth";
+import ParentPushPrompt from "../components/parentPortal/ParentPushPrompt";
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import { Button, Card, EmptyState, Input } from "../components/ui";
 import { formatMoney } from "../utils/currency";
@@ -290,6 +291,8 @@ export default function ParentPortal() {
 
         {!loading && !error && profile ? (
           <>
+            <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
+
             <div className="parentPortalHighlightGrid">
               <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
                 <h2 className="parentPortalHighlightTitle">Следващи събития</h2>

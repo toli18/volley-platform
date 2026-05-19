@@ -37,6 +37,26 @@ class ParentLoginResponse(BaseModel):
     candidates: list[ParentLoginCandidate] = Field(default_factory=list)
 
 
+class ParentPushVapidResponse(BaseModel):
+    public_key: str
+    configured: bool = True
+
+
+class ParentPushKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class ParentPushSubscribeRequest(BaseModel):
+    endpoint: str = Field(..., min_length=8)
+    keys: ParentPushKeys
+
+
+class ParentPushStatusResponse(BaseModel):
+    subscribed: bool = False
+    push_available: bool = False
+
+
 class ParentScheduleItem(BaseModel):
     date: str
     start_time: str
