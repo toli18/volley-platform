@@ -13,6 +13,7 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
   const [status, setStatus] = useState({ subscribed: false, push_available: false, loading: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [testMsg, setTestMsg] = useState("");
 
   useEffect(() => {
     let cancelled = false;
