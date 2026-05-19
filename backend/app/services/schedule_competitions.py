@@ -141,9 +141,9 @@ def append_competitions_to_parent_schedule(
         schedule_items.append(
             ParentScheduleItem(
                 date=e.date,
-                start_time=e.start_time,
-                end_time=e.end_time,
-                location=e.location,
+                start_time=e.start_time or "00:00",
+                end_time=e.end_time or "00:00",
+                location=(e.location or "").strip(),
                 team_name=team_name_map.get(int(e.team_id)),
                 event_type="competition",
                 competition_kind=kind,

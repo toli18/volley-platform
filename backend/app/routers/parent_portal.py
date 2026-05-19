@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import date, datetime, timedelta
 
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.dependencies.parent_auth import get_current_parent_athlete
@@ -59,6 +63,10 @@ router = APIRouter()
 
 # Day of month when monthly fee is due (shown in parent portal).
 PARENT_FEE_DUE_DAY = 10
+
+
+def _schedule_text(value: str | None, fallback: str = "") -> str:
+    return str(value).strip() if value is not None else fallback
 
 
 def _month_key_now() -> str:
@@ -136,9 +144,9 @@ def _build_schedule_for_teams(
                 schedule_items.append(
                     ParentScheduleItem(
                         date=cur_s,
-                        start_time=r.start_time,
-                        end_time=r.end_time,
-                        location=r.location or "",
+                        start_time=_schedule_text(r.start_time, "00:00"),
+                        end_time=_schedule_text(r.end_time, "00:00"),
+                        location=_schedule_text(r.location),
                         team_name=team_name_map.get(int(r.team_id)),
                         event_type="training",
                         is_cancelled=True,
@@ -153,9 +161,9 @@ def _build_schedule_for_teams(
             schedule_items.append(
                 ParentScheduleItem(
                     date=cur_s,
-                    start_time=start_t,
-                    end_time=end_t,
-                    location=location,
+                    start_time=_schedule_text(start_t, "00:00"),
+                    end_time=_schedule_text(end_t, "00:00"),
+                    location=_schedule_text(location),
                     team_name=team_name_map.get(int(r.team_id)),
                     event_type="training",
                     is_cancelled=False,
@@ -166,24 +174,29 @@ def _build_schedule_for_teams(
     from app.competition_kinds import competition_kind_label
     from app.models import ClubCompetitionEvent
 
-    comp_rows = (
-        db.query(ClubCompetitionEvent)
-        .filter(
-            ClubCompetitionEvent.team_id.in_(team_ids),
-            ClubCompetitionEvent.is_cancelled.is_(False),
-            ClubCompetitionEvent.date >= from_date,
-            ClubCompetitionEvent.date <= to_date,
+    try:
+        comp_rows = (
+            db.query(ClubCompetitionEvent)
+            .filter(
+                ClubCompetitionEvent.team_id.in_(team_ids),
+                ClubCompetitionEvent.is_cancelled.is_(False),
+                ClubCompetitionEvent.date >= from_date,
+                ClubCompetitionEvent.date <= to_date,
+            )
+            .all()
         )
-        .all()
-    )
+    except SQLAlchemyError as exc:
+        logger.warning("Competition schedule query failed: %s", exc)
+        comp_rows = []
+
     for e in comp_rows:
-        kind = str(e.competition_kind)
+        kind = str(e.competition_kind or "friendly")
         schedule_items.append(
             ParentScheduleItem(
-                date=e.date,
-                start_time=e.start_time,
-                end_time=e.end_time,
-                location=e.location,
+                date=_schedule_text(e.date),
+                start_time=_schedule_text(e.start_time, "00:00"),
+                end_time=_schedule_text(e.end_time, "00:00"),
+                location=_schedule_text(e.location),
                 team_name=team_name_map.get(int(e.team_id)),
                 event_type="competition",
                 competition_kind=kind,
@@ -376,12 +389,21 @@ def _item_has_highlight(item: ParentScheduleItem, marker_keys: set[str], pending
 
 
 def _apply_schedule_highlights(db: Session, athlete_id: int, items: list[ParentScheduleItem]) -> list[ParentScheduleItem]:
-    marker_keys, pending_dates, _ = get_pending_marker_state(db, athlete_id)
+    try:
+        marker_keys, pending_dates, _ = get_pending_marker_state(db, athlete_id)
+    except SQLAlchemyError as exc:
+        logger.warning("Pending marker state failed for athlete %s: %s", athlete_id, exc)
+        marker_keys, pending_dates = set(), []
     date_set = set(pending_dates)
-    return [
-        item.model_copy(update={"highlight_change": _item_has_highlight(item, marker_keys, date_set)})
-        for item in items
-    ]
+    out: list[ParentScheduleItem] = []
+    for item in items:
+        highlighted = _item_has_highlight(item, marker_keys, date_set)
+        if hasattr(item, "model_copy"):
+            out.append(item.model_copy(update={"highlight_change": highlighted}))
+        else:
+            item.highlight_change = highlighted
+            out.append(item)
+    return out
 
 
 def _apply_ack_body(db: Session, athlete_id: int, body: ParentPortalAckBody) -> None:
@@ -472,7 +494,12 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             fee_coach.club_name = club_row.name
             fee_coach.club_phone = club_row.contact_phone
 
-    _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
+    try:
+        _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
+    except SQLAlchemyError as exc:
+        logger.warning("Pending markers for parent profile athlete %s: %s", athlete.id, exc)
+        pending_dates, fee_highlight = [], False
+
     schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
 
     return ParentAthleteProfileResponse(
