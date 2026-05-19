@@ -6,6 +6,7 @@ import {
   enableParentPushNotifications,
   fetchParentPushStatus,
   pushSupported,
+  sendParentPushTest,
 } from "../../utils/parentPush";
 
 export default function ParentPushPrompt({ isSession, legacyToken }) {
@@ -65,9 +66,39 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
           <p className="parentPushPromptText">
             Ще получавате известие при отменена или променена тренировка (като от Facebook).
           </p>
-          <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={onDisable}>
-            Изключи известията
-          </Button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={async () => {
+                try {
+                  setBusy(true);
+                  setTestMsg("");
+                  setError("");
+                  const data = await sendParentPushTest(isSession, legacyToken);
+                  if (data.sent > 0) {
+                    setTestMsg("Тестовото известие е изпратено — проверете телефона.");
+                  } else {
+                    setError(
+                      data.errors?.[0]
+                        || "Изпращането не успя. Натиснете „Изключи“, после „Включи“ отново."
+                    );
+                  }
+                } catch (err) {
+                  setError(err?.message || "Тестът не успя.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Тестово известие
+            </Button>
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={onDisable}>
+              Изключи известията
+            </Button>
+          </div>
+          {testMsg ? <p className="uiHint parentPushPromptHint">{testMsg}</p> : null}
         </>
       ) : (
         <>

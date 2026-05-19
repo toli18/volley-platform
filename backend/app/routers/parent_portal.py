@@ -33,12 +33,14 @@ from app.schemas.parent_portal import (
     ParentPaymentRow,
     ParentPushStatusResponse,
     ParentPushSubscribeRequest,
+    ParentPushTestResponse,
     ParentPushVapidResponse,
     ParentScheduleItem,
 )
 from app.services.parent_push import (
     delete_subscription_for_athlete,
     push_configured,
+    send_test_notification,
     upsert_subscription,
 )
 from app.settings import settings
@@ -501,6 +503,20 @@ def parent_push_subscribe_me(
     return None
 
 
+@router.post("/parent-portal/me/push-test", response_model=ParentPushTestResponse)
+def parent_push_test_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    result = send_test_notification(db, athlete.id)
+    return ParentPushTestResponse(
+        sent=result.get("sent", 0),
+        subscriptions=result.get("subscriptions", 0),
+        configured=push_configured(),
+        errors=result.get("errors") or [],
+    )
+
+
 @router.delete("/parent-portal/me/push-subscription", status_code=204)
 def parent_push_unsubscribe_me(
     endpoint: str | None = Query(None),
@@ -534,6 +550,18 @@ def parent_push_subscribe_token(
         payload.keys.auth.strip(),
     )
     return None
+
+
+@router.post("/parent-portal/{token}/push-test", response_model=ParentPushTestResponse)
+def parent_push_test_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    result = send_test_notification(db, athlete.id)
+    return ParentPushTestResponse(
+        sent=result.get("sent", 0),
+        subscriptions=result.get("subscriptions", 0),
+        configured=push_configured(),
+        errors=result.get("errors") or [],
+    )
 
 
 @router.delete("/parent-portal/{token}/push-subscription", status_code=204)

@@ -35,15 +35,19 @@ def portal_url_for_athlete(athlete_id: int) -> str:
     return "/parent/portal"
 
 
-def _send_web_push(sub: ParentPushSubscription, payload: dict) -> str:
-    """Returns 'ok', 'stale' (remove subscription), or 'fail'."""
+def _send_web_push(sub: ParentPushSubscription, payload: dict) -> tuple[str, str | None]:
+    """Returns (status, error_detail) where status is 'ok', 'stale', or 'fail'."""
     if not push_configured():
-        return "fail"
+        return "fail", "VAPID keys not configured on server"
     try:
         from pywebpush import WebPushException, webpush
     except ImportError:
         logger.warning("pywebpush not installed")
-        return "fail"
+        return "fail", "pywebpush not installed"
+
+    private_key = (settings.vapid_private_key or "").strip()
+    subject = (settings.vapid_subject or "mailto:support@volley-platform.local").strip()
+    claims = {"sub": subject}
 
     try:
         webpush(
@@ -52,46 +56,64 @@ def _send_web_push(sub: ParentPushSubscription, payload: dict) -> str:
                 "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
             },
             data=json.dumps(payload, ensure_ascii=False),
-            vapid_private_key=settings.vapid_private_key,
-            vapid_claims={"sub": settings.vapid_subject},
+            vapid_private_key=private_key,
+            vapid_claims=claims,
+            ttl=86400,
         )
-        return "ok"
+        return "ok", None
     except WebPushException as exc:
         status = getattr(getattr(exc, "response", None), "status_code", None)
+        body = ""
+        try:
+            body = (exc.response.text or "")[:300] if exc.response is not None else ""
+        except Exception:
+            body = ""
+        detail = f"HTTP {status}: {body or str(exc)}".strip()
         if status in (404, 410):
-            return "stale"
-        logger.warning("Web push failed for subscription %s: %s", sub.id, exc)
-        return "fail"
+            return "stale", detail
+        logger.warning("Web push failed sub=%s %s", sub.id, detail)
+        return "fail", detail
     except Exception as exc:
-        logger.warning("Web push error for subscription %s: %s", sub.id, exc)
-        return "fail"
+        logger.warning("Web push error sub=%s: %s", sub.id, exc)
+        return "fail", str(exc)
 
 
-def notify_athlete(db: Session, athlete_id: int, title: str, body: str, url: str | None = None) -> int:
+def notify_athlete(
+    db: Session,
+    athlete_id: int,
+    title: str,
+    body: str,
+    url: str | None = None,
+) -> dict:
     if not push_configured():
-        return 0
+        return {"sent": 0, "subscriptions": 0, "errors": ["VAPID keys not configured on server"]}
     subs = (
         db.query(ParentPushSubscription)
         .filter(ParentPushSubscription.athlete_id == int(athlete_id))
         .all()
     )
     if not subs:
-        return 0
+        return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this athlete"]}
     target_url = url or portal_url_for_athlete(athlete_id)
     payload = {"title": title, "body": body, "url": target_url}
     sent = 0
     stale: list[ParentPushSubscription] = []
+    errors: list[str] = []
     for sub in subs:
-        result = _send_web_push(sub, payload)
+        result, detail = _send_web_push(sub, payload)
         if result == "ok":
             sent += 1
         elif result == "stale":
             stale.append(sub)
+            if detail:
+                errors.append(detail)
+        elif detail:
+            errors.append(detail)
     for sub in stale:
         db.delete(sub)
     if stale:
         db.commit()
-    return sent
+    return {"sent": sent, "subscriptions": len(subs), "errors": errors}
 
 
 def _athlete_ids_for_team(db: Session, team_id: int) -> list[int]:
@@ -129,10 +151,20 @@ def notify_team_schedule_change(
             body = f"{team_label} — {date_label}"
 
         athlete_ids = _athlete_ids_for_team(db, team_id)
+        total_sent = 0
         for aid in athlete_ids:
             athlete = db.query(Athlete).filter(Athlete.id == aid, Athlete.is_active.is_(True)).first()
             if athlete:
-                notify_athlete(db, aid, title, body)
+                result = notify_athlete(db, aid, title, body)
+                total_sent += int(result.get("sent") or 0)
+        logger.info(
+            "Parent push schedule change team_id=%s date=%s kind=%s athletes=%s sent=%s",
+            team_id,
+            date_iso,
+            change_kind,
+            len(athlete_ids),
+            total_sent,
+        )
     finally:
         db.close()
 
@@ -143,6 +175,15 @@ def queue_team_schedule_notification(team_id: int, date_iso: str, change_kind: s
         notify_team_schedule_change(team_id=team_id, date_iso=date_iso, change_kind=change_kind)
     except Exception as exc:
         logger.exception("Parent push notification failed: %s", exc)
+
+
+def send_test_notification(db: Session, athlete_id: int) -> dict:
+    return notify_athlete(
+        db,
+        athlete_id,
+        "Тестово известие",
+        "Ако виждате това, известията работят.",
+    )
 
 
 def upsert_subscription(

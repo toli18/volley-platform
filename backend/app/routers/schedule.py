@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -538,7 +538,6 @@ def delete_schedule_rule(
 def create_schedule_exception(
     rule_id: int,
     payload: ScheduleExceptionCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
@@ -607,14 +606,14 @@ def create_schedule_exception(
     db.commit()
     db.refresh(exc)
     change_kind = "cancelled" if kind == "cancelled" else "override"
-    background_tasks.add_task(queue_team_schedule_notification, int(rule.team_id), cur_s, change_kind)
+    # Run in-process so push is not dropped if the worker exits after the HTTP response.
+    queue_team_schedule_notification(int(rule.team_id), cur_s, change_kind)
     return exc
 
 
 @router.delete("/schedule/exceptions/{exception_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_schedule_exception(
     exception_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
@@ -634,7 +633,7 @@ def delete_schedule_exception(
     date_iso = str(exc.date)
     db.delete(exc)
     db.commit()
-    background_tasks.add_task(queue_team_schedule_notification, team_id, date_iso, "restored")
+    queue_team_schedule_notification(team_id, date_iso, "restored")
     return None
 
 

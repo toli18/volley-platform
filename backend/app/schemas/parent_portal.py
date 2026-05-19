@@ -57,6 +57,13 @@ class ParentPushStatusResponse(BaseModel):
     push_available: bool = False
 
 
+class ParentPushTestResponse(BaseModel):
+    sent: int = 0
+    subscriptions: int = 0
+    configured: bool = False
+    errors: list[str] = Field(default_factory=list)
+
+
 class ParentScheduleItem(BaseModel):
     date: str
     start_time: str

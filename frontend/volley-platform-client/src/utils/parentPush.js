@@ -59,13 +59,19 @@ export async function enableParentPushNotifications(isSession, legacyToken) {
   const registration = await navigator.serviceWorker.register("/sw.js");
   await navigator.serviceWorker.ready;
 
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    try {
+      await existing.unsubscribe();
+    } catch {
+      /* ignore */
+    }
   }
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
 
   const json = subscription.toJSON();
   await axiosInstance.post(subscribePath(isSession, legacyToken), {
@@ -77,6 +83,16 @@ export async function enableParentPushNotifications(isSession, legacyToken) {
   });
 
   return true;
+}
+
+function testPath(isSession, legacyToken) {
+  if (isSession) return API_PATHS.PARENT_PUSH_TEST_ME;
+  return API_PATHS.PARENT_PUSH_TEST_TOKEN(legacyToken);
+}
+
+export async function sendParentPushTest(isSession, legacyToken) {
+  const res = await axiosInstance.post(testPath(isSession, legacyToken));
+  return res.data || { sent: 0, subscriptions: 0, errors: [] };
 }
 
 export async function disableParentPushNotifications(isSession, legacyToken) {
