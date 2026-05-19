@@ -36,8 +36,8 @@ export default function CoachMenu() {
     <div className="coachMobilePage">
       <MenuGroup title="Работа">
         <MenuLink to="/monthly-fees" label="Месечни такси" />
-        <MenuLink to="/my-trainings" label="Моите задачи" />
-        <MenuLink to="/ai-generator" label="AI помощник" />
+        <MenuLink to="/coach/trainings" label="Моите тренировки" hint="Списък и нова тренировка" />
+        <MenuLink to="/coach-board" label="Тактическа дъска" />
       </MenuGroup>
 
       <MenuGroup title="Съдържание">
@@ -46,11 +46,6 @@ export default function CoachMenu() {
         <MenuLink to="/forum" label="Форум" />
         <MenuLink to="/drills" label="Упражнения" />
         <MenuLink to="/my-drills" label="Моите упражнения" />
-      </MenuGroup>
-
-      <MenuGroup title="Инструменти">
-        <MenuLink to="/coach-board" label="Тактическа дъска" />
-        <MenuLink to="/generator" label="Генератор" />
       </MenuGroup>
 
       {isHeadCoach ? (

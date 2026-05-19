@@ -45,6 +45,8 @@ const CoachTeamsList = React.lazy(() => import("./pages/coach/CoachTeamsList.jsx
 const CoachTeamHub = React.lazy(() => import("./pages/coach/CoachTeamHub.jsx"));
 const CoachSchedule = React.lazy(() => import("./pages/coach/CoachSchedule.jsx"));
 const CoachMenu = React.lazy(() => import("./pages/coach/CoachMenu.jsx"));
+const CoachAthleteProfile = React.lazy(() => import("./pages/coach/CoachAthleteProfile.jsx"));
+const CoachMyTrainings = React.lazy(() => import("./pages/coach/CoachMyTrainings.jsx"));
 
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard.jsx"));
 const AdminDrills = React.lazy(() => import("./pages/admin/AdminDrills.jsx"));
@@ -154,6 +156,8 @@ const router = createBrowserRouter([
               { path: "teams/:teamId", element: <CoachTeamHub /> },
               { path: "schedule", element: <CoachSchedule /> },
               { path: "menu", element: <CoachMenu /> },
+              { path: "trainings", element: <CoachMyTrainings /> },
+              { path: "athletes/:athleteId", element: <CoachAthleteProfile /> },
             ],
           },
         ],
