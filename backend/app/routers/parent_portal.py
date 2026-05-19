@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-import secrets
 from datetime import date, datetime, timedelta
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.roles import require_role
+from app.dependencies.parent_auth import get_current_parent_athlete
 from app.models import (
     Athlete,
     AthleteParentAccessToken,
@@ -23,11 +22,8 @@ from app.models import (
     TrainingScheduleException,
     TrainingScheduleRule,
     User,
-    UserRole,
 )
 from app.schemas.parent_portal import (
-    ParentAccessCreateResponse,
-    ParentAccessStatusResponse,
     ParentAthleteProfileResponse,
     ParentAttendanceRow,
     ParentAttendanceSummary,
@@ -41,11 +37,6 @@ router = APIRouter()
 
 # Day of month when monthly fee is due (shown in parent portal).
 PARENT_FEE_DUE_DAY = 10
-
-
-def _is_head_coach(user: User) -> bool:
-    role = user.role.value if hasattr(user.role, "value") else str(user.role)
-    return role == UserRole.club_head_coach.value
 
 
 def _month_key_now() -> str:
@@ -63,20 +54,6 @@ def _month_window(count: int = 12) -> list[str]:
 
 def _token_hash(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def _token_preview(raw: str) -> str:
-    if len(raw) <= 10:
-        return raw
-    return f"{raw[:6]}...{raw[-4:]}"
-
-
-def _build_parent_url(request: Request, token_raw: str) -> str:
-    origin = (request.headers.get("origin") or "").strip().rstrip("/")
-    if origin:
-        return f"{origin}/parent/{token_raw}"
-    base = str(request.base_url).rstrip("/")
-    return f"{base}/parent/{token_raw}"
 
 
 def _month_last_day(month_key: str) -> str:
@@ -334,106 +311,6 @@ def _attendance_summary_from_rows(rows: list[ParentAttendanceRow]) -> ParentAtte
     )
 
 
-def _ensure_athlete_owned(db: Session, athlete_id: int, current_user: User) -> Athlete:
-    q = db.query(Athlete).filter(Athlete.id == int(athlete_id))
-    if _is_head_coach(current_user):
-        q = q.filter(Athlete.club_id == current_user.club_id)
-    else:
-        q = q.filter(Athlete.coach_id == current_user.id)
-    athlete = q.first()
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
-    return athlete
-
-
-def _get_active_token(db: Session, athlete_id: int) -> AthleteParentAccessToken | None:
-    now = datetime.utcnow()
-    row = (
-        db.query(AthleteParentAccessToken)
-        .filter(
-            AthleteParentAccessToken.athlete_id == int(athlete_id),
-            AthleteParentAccessToken.is_active.is_(True),
-        )
-        .order_by(AthleteParentAccessToken.created_at.desc())
-        .first()
-    )
-    if not row:
-        return None
-    if row.expires_at and row.expires_at < now:
-        row.is_active = False
-        db.commit()
-        return None
-    return row
-
-
-@router.get("/teams/athletes/{athlete_id}/parent-access", response_model=ParentAccessStatusResponse)
-def parent_access_status(
-    athlete_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
-):
-    athlete = _ensure_athlete_owned(db, athlete_id, current_user)
-    token_row = _get_active_token(db, athlete.id)
-    if not token_row:
-        return ParentAccessStatusResponse(has_active_token=False)
-    return ParentAccessStatusResponse(
-        has_active_token=True,
-        token_preview=f"{token_row.token_prefix}...",
-        parent_url=None,
-        expires_at=token_row.expires_at,
-        last_used_at=token_row.last_used_at,
-    )
-
-
-@router.post("/teams/athletes/{athlete_id}/parent-access", response_model=ParentAccessCreateResponse)
-def create_parent_access(
-    athlete_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
-):
-    athlete = _ensure_athlete_owned(db, athlete_id, current_user)
-    db.query(AthleteParentAccessToken).filter(AthleteParentAccessToken.athlete_id == athlete.id).update(
-        {AthleteParentAccessToken.is_active: False}, synchronize_session=False
-    )
-    raw = secrets.token_urlsafe(32)
-    row = AthleteParentAccessToken(
-        athlete_id=athlete.id,
-        token_hash=_token_hash(raw),
-        token_prefix=raw[:10],
-        created_by_user_id=current_user.id,
-        is_active=True,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return ParentAccessCreateResponse(parent_url=_build_parent_url(request, raw), token_preview=_token_preview(raw), expires_at=row.expires_at)
-
-
-@router.post("/teams/athletes/{athlete_id}/parent-access/rotate", response_model=ParentAccessCreateResponse)
-def rotate_parent_access(
-    athlete_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
-):
-    return create_parent_access(athlete_id=athlete_id, request=request, db=db, current_user=current_user)
-
-
-@router.delete("/teams/athletes/{athlete_id}/parent-access", status_code=204)
-def revoke_parent_access(
-    athlete_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
-):
-    athlete = _ensure_athlete_owned(db, athlete_id, current_user)
-    db.query(AthleteParentAccessToken).filter(AthleteParentAccessToken.athlete_id == athlete.id).update(
-        {AthleteParentAccessToken.is_active: False}, synchronize_session=False
-    )
-    db.commit()
-    return None
-
-
 _MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
@@ -482,10 +359,7 @@ def parent_portal_schedule(
     return _build_schedule_for_teams(db, team_ids, from_date, to_date)
 
 
-@router.get("/parent-portal/{token}", response_model=ParentAthleteProfileResponse)
-def parent_portal_view(token: str, db: Session = Depends(get_db)):
-    athlete = _resolve_parent_portal_athlete(db, token)
-
+def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthleteProfileResponse:
     team_rows = (
         db.query(Team.name)
         .join(TeamMember, TeamMember.team_id == Team.id)
@@ -499,9 +373,7 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     attendance_since = (date.today() - timedelta(days=90)).isoformat()
     attendance_to = (date.today() + timedelta(days=14)).isoformat()
     last_attendance = _build_parent_attendance_list(db, athlete.id, team_ids, attendance_since, attendance_to)
-    attendance_summary = _attendance_summary_from_rows(
-        [r for r in last_attendance if r.date <= today_s]
-    )
+    attendance_summary = _attendance_summary_from_rows([r for r in last_attendance if r.date <= today_s])
 
     mk = _month_window(12)
     pay_rows = db.query(AthletePayment).filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk)).all()
@@ -519,7 +391,6 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
     this_month = _month_key_now()
     from_date = f"{this_month}-01"
     to_date = _month_last_day(this_month)
-
     schedule_items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
 
     today = date.today()
@@ -575,3 +446,32 @@ def parent_portal_view(token: str, db: Session = Depends(get_db)):
         competitions_this_month=competitions_this_month,
         fee_due_day=PARENT_FEE_DUE_DAY,
     )
+
+
+@router.get("/parent-portal/me", response_model=ParentAthleteProfileResponse)
+def parent_portal_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _build_parent_athlete_profile(db, athlete)
+
+
+@router.get("/parent-portal/me/schedule", response_model=list[ParentScheduleItem])
+def parent_portal_me_schedule(
+    month: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    if not _MONTH_KEY_RE.match((month or "").strip()):
+        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
+    month_key = month.strip()
+    from_date = f"{month_key}-01"
+    to_date = _month_last_day(month_key)
+    team_ids = _team_ids_for_athlete(db, athlete.id)
+    return _build_schedule_for_teams(db, team_ids, from_date, to_date)
+
+
+@router.get("/parent-portal/{token}", response_model=ParentAthleteProfileResponse)
+def parent_portal_view(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _build_parent_athlete_profile(db, athlete)

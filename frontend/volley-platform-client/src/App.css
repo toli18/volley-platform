@@ -685,6 +685,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.parentPortalHeaderActions {
+  margin-left: auto;
 }
 
 .parentPortalLogo {
@@ -1885,7 +1890,75 @@
 }
 
 .athleteParentAccessActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
+  margin-top: 12px;
+}
+
+.athleteParentAccessIntro {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.athleteParentAccessHint {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.athleteParentAccessUrl {
+  word-break: break-all;
+}
+
+.athleteParentAccessWarn {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.parentLoginForm {
+  display: grid;
+  gap: 0;
+}
+
+.parentLoginHint {
+  margin-top: 8px;
+}
+
+.parentLoginCandidateList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.parentLoginCandidateBtn {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d5e3dc;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.parentLoginCandidateBtn:hover:not(:disabled) {
+  border-color: #1a6b52;
+  background: #f4faf7;
+}
+
+.parentLoginCandidateName {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.parentLoginCandidateTeams {
+  font-size: 13px;
+  color: #64748b;
 }
 
 @media (max-width: 680px) {

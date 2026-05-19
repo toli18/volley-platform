@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { parentLoginPath, parentLoginUrl } from "../utils/parentAuth";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { formatMoney } from "../utils/currency";
@@ -56,9 +56,6 @@ export default function TeamAthleteProfile() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const [parentAccess, setParentAccess] = useState({ has_active_token: false, parent_url: null, token_preview: null });
-  const [parentQrUrl, setParentQrUrl] = useState("");
-  const [parentBusy, setParentBusy] = useState(false);
   const fromPath = new URLSearchParams(location.search).get("from") || "/teams";
 
   const feesHref = useMemo(() => {
@@ -102,76 +99,11 @@ export default function TeamAthleteProfile() {
     };
   }, [athleteId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadParentAccess = async () => {
-      try {
-        const res = await axiosInstance.get(API_PATHS.ATHLETE_PARENT_ACCESS_GET(athleteId));
-        if (!cancelled) setParentAccess(res.data || { has_active_token: false });
-      } catch {
-        if (!cancelled) setParentAccess({ has_active_token: false, parent_url: null, token_preview: null });
-      }
-    };
-    loadParentAccess();
-    return () => {
-      cancelled = true;
-    };
-  }, [athleteId]);
-
-  const createParentLink = async () => {
+  const copyParentLoginUrl = async () => {
+    const url = parentLoginUrl();
     try {
-      setParentBusy(true);
-      const res = await axiosInstance.post(API_PATHS.ATHLETE_PARENT_ACCESS_CREATE(athleteId), {});
-      const data = res.data || {};
-      setParentQrUrl(data.parent_url || "");
-      setParentAccess({ has_active_token: true, parent_url: data.parent_url || null, token_preview: data.token_preview || null });
-      toast.success("Родителският линк е създаден.");
-    } catch (err) {
-      toast.error(normalizeError(err));
-    } finally {
-      setParentBusy(false);
-    }
-  };
-
-  const rotateParentLink = async () => {
-    try {
-      setParentBusy(true);
-      const res = await axiosInstance.post(API_PATHS.ATHLETE_PARENT_ACCESS_ROTATE(athleteId), {});
-      const data = res.data || {};
-      setParentQrUrl(data.parent_url || "");
-      setParentAccess({ has_active_token: true, parent_url: data.parent_url || null, token_preview: data.token_preview || null });
-      toast.success("Родителският линк е обновен.");
-    } catch (err) {
-      toast.error(normalizeError(err));
-    } finally {
-      setParentBusy(false);
-    }
-  };
-
-  const revokeParentLink = async () => {
-    if (!window.confirm("Сигурни ли сте, че искате да спрете родителския достъп?")) return;
-    try {
-      setParentBusy(true);
-      await axiosInstance.delete(API_PATHS.ATHLETE_PARENT_ACCESS_REVOKE(athleteId));
-      setParentAccess({ has_active_token: false, parent_url: null, token_preview: null });
-      setParentQrUrl("");
-      toast.success("Родителският достъп е спрян.");
-    } catch (err) {
-      toast.error(normalizeError(err));
-    } finally {
-      setParentBusy(false);
-    }
-  };
-
-  const copyParentLink = async () => {
-    const link = parentQrUrl || parentAccess.parent_url;
-    if (!link) {
-      toast.error("Няма активен линк за копиране.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success("Линкът е копиран.");
+      await navigator.clipboard.writeText(url);
+      toast.success("Адресът за родителски вход е копиран.");
     } catch {
       toast.error("Неуспешно копиране.");
     }
@@ -295,26 +227,28 @@ export default function TeamAthleteProfile() {
         </div>
       </Card>
 
-      <Card title="Родителски достъп (QR)">
-        <div className="athleteParentAccessBox" style={{ display: "grid", gap: 10 }}>
-          <div className="athleteParentAccessActions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button size="sm" disabled={parentBusy} onClick={createParentLink}>Генерирай QR</Button>
-            <Button size="sm" variant="secondary" disabled={parentBusy} onClick={copyParentLink}>Копирай линк</Button>
-            <Button size="sm" variant="secondary" disabled={parentBusy} onClick={rotateParentLink}>Регенерирай</Button>
-            <Button size="sm" variant="danger" disabled={parentBusy} onClick={revokeParentLink}>Спри достъпа</Button>
-          </div>
-          <div style={{ color: "#607693", fontSize: 13 }}>
-            Профилът за родител показва: присъствие, месечен график и такси.
-          </div>
-          {(parentQrUrl || parentAccess.parent_url) ? (
-            <div className="athleteParentAccessQr" style={{ display: "grid", gap: 8, justifyItems: "start" }}>
-              <QRCodeSVG value={parentQrUrl || parentAccess.parent_url} size={168} />
-              <div style={{ wordBreak: "break-all", fontSize: 12, color: "#475569" }}>{parentQrUrl || parentAccess.parent_url}</div>
-            </div>
-          ) : (
-            <div className="uiMuted">Няма генериран активен QR линк.</div>
-          )}
+      <Card title="Родителски достъп">
+        <p className="athleteParentAccessIntro">
+          Родителите влизат с телефон на родителя и година на раждане на детето (като ПИН).
+          Профилът показва присъствие, график и месечни такси.
+        </p>
+        <div className="athleteParentAccessActions">
+          <Button as={Link} to={parentLoginPath()} size="sm" target="_blank" rel="noopener noreferrer">
+            Отвори родителски вход
+          </Button>
+          <Button size="sm" variant="secondary" onClick={copyParentLoginUrl}>
+            Копирай адрес
+          </Button>
         </div>
+        <p className="uiHint athleteParentAccessHint">
+          Адрес: <span className="athleteParentAccessUrl">{parentLoginUrl()}</span>
+        </p>
+        {!profile.parent_phone || !birthYearVal ? (
+          <p className="uiErrorText athleteParentAccessWarn">
+            {!profile.parent_phone ? "Липсва телефон на родител — попълнете го в профила. " : ""}
+            {!birthYearVal ? "Липсва година на раждане — родителят няма да може да влезе." : ""}
+          </p>
+        ) : null}
       </Card>
 
       <Card title="Последни присъствия">

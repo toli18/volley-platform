@@ -18,6 +18,25 @@ class ParentAccessCreateResponse(BaseModel):
     expires_at: Optional[datetime] = None
 
 
+class ParentLoginRequest(BaseModel):
+    parent_phone: str = Field(..., min_length=6, max_length=32)
+    birth_year: int = Field(..., ge=1990, le=2025, description="Year of birth (PIN)")
+    athlete_id: Optional[int] = None
+
+
+class ParentLoginCandidate(BaseModel):
+    athlete_id: int
+    athlete_name: str
+    teams: list[str] = Field(default_factory=list)
+    birth_year: Optional[int] = None
+
+
+class ParentLoginResponse(BaseModel):
+    access_token: Optional[str] = None
+    needs_selection: bool = False
+    candidates: list[ParentLoginCandidate] = Field(default_factory=list)
+
+
 class ParentScheduleItem(BaseModel):
     date: str
     start_time: str

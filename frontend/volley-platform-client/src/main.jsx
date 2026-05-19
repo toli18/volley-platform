@@ -1,7 +1,7 @@
 // src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import "./index.css";
 
 import App from "./App.jsx";
@@ -34,6 +34,7 @@ const TeamAttendanceReport = React.lazy(() => import("./pages/TeamAttendanceRepo
 const TeamAthleteProfile = React.lazy(() => import("./pages/TeamAthleteProfile.jsx"));
 const TeamScheduleCalendar = React.lazy(() => import("./pages/TeamScheduleCalendar.jsx"));
 const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
+const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamPortal = React.lazy(() => import("./pages/TeamPortal.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
@@ -95,6 +96,9 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
 
       { path: "login", element: <Login /> },
+      { path: "parent/login", element: <ParentLogin /> },
+      { path: "parent/portal", element: <ParentPortal /> },
+      { path: "parent", element: <Navigate to="/parent/login" replace /> },
       { path: "parent/:token", element: <ParentPortal /> },
       { path: "team/:token", element: <TeamPortal /> },
 
