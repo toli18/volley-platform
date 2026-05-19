@@ -26,7 +26,7 @@ from app.routers.parent_portal import (
 )
 from app.schemas.parent_portal import ParentCurrentMonthFee, ParentPortalAckBody, ParentPushStatusResponse
 from app.schemas.parent_portal import ParentPushSubscribeRequest, ParentPushTestResponse, ParentPushVapidResponse
-from app.routers.team_portal import _item_to_response, _monday_of_week_iso
+from app.routers.team_portal import _item_to_response
 from app.schemas.athlete_room import AthleteRoomHomeNotification, AthleteRoomMeResponse
 from app.schemas.parent_portal import ParentScheduleItem
 from app.services.parent_portal_notify import build_home_notifications, get_pending_marker_state
@@ -42,6 +42,13 @@ from app.services.parent_push import (
 from app.settings import settings
 
 router = APIRouter()
+
+
+def _monday_of_week_iso(iso_date: str | None = None) -> str:
+    d = date.fromisoformat(iso_date or date.today().isoformat())
+    d -= timedelta(days=d.weekday())
+    return d.isoformat()
+
 
 _MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
 _UPCOMING_HORIZON_DAYS = 45
