@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
+import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
@@ -481,9 +482,14 @@ export default function ClubHeadDashboard() {
 
   return (
     <div className="uiPage">
+      <header className="portalShellHeader portalShellHeader--embedded">
+        <div className="portalShellHeaderInner">
+          <PlatformBrandBlock subtitle="Главен треньор" />
+        </div>
+      </header>
       <PageHero
-        title="Главен треньор"
-        subtitle="Клубен контролен панел: състезатели, такси, присъствие и тренировки."
+        title="Клубен панел"
+        subtitle="Състезатели, такси, присъствие и тренировки."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button variant={tab === "athletes" ? "primary" : "secondary"} onClick={() => setTab("athletes")}>

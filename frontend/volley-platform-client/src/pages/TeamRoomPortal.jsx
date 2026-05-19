@@ -263,8 +263,15 @@ export default function TeamRoomPortal() {
     />
   ) : null;
 
+  const headerActions =
+    !loading && !error && data ? (
+      <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
+        Изход
+      </Button>
+    ) : null;
+
   return (
-    <TeamRoomLayout bottomNav={bottomNav}>
+    <TeamRoomLayout bottomNav={bottomNav} headerActions={headerActions}>
       <div className="teamRoomPage">
         {loading ? <p className="teamRoomMuted">Зареждане...</p> : null}
         {!loading && error ? (
@@ -281,17 +288,12 @@ export default function TeamRoomPortal() {
 
         {!loading && !error && data ? (
           <>
-            <header className="teamRoomTopBar">
-              <div>
-                <h1 className="teamRoomTopTitle">{data.athlete_name}</h1>
-                <p className="teamRoomTopSub">
-                  {data.club_name ? `${data.club_name} · ` : ""}
-                  {teamLabel}
-                </p>
-              </div>
-              <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
-                Изход
-              </Button>
+            <header className="teamRoomAthleteHero">
+              <h1 className="teamRoomTopTitle">{data.athlete_name}</h1>
+              <p className="teamRoomTopSub">
+                {data.club_name ? `${data.club_name} · ` : ""}
+                {teamLabel}
+              </p>
             </header>
 
             <TabPanel id="home" activeTab={activeTab}>

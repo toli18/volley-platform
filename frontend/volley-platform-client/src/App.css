@@ -672,6 +672,80 @@
   background: linear-gradient(180deg, #f4f8f6 0%, #eef3f8 48%, #f8fafc 100%);
 }
 
+/* Shared portal branding (parent, coach mobile, team room, club head) */
+.portalShellHeader {
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  padding: 14px 16px;
+  box-shadow: 0 4px 18px rgba(15, 77, 58, 0.18);
+}
+
+.portalShellHeaderInner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.portalShellHeader--embedded {
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.platformBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platformBrandLogo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.portalShellHeader .platformBrandLogo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.platformBrandText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.platformBrandName {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.portalShellHeader .platformBrandName {
+  font-size: 15px;
+}
+
+.platformBrandSub {
+  font-size: 11px;
+  opacity: 0.88;
+  margin-top: 2px;
+}
+
+.portalShellHeader .platformBrandSub {
+  font-size: 12px;
+}
+
 .parentPortalHeader {
   background: linear-gradient(135deg, #0f4d3a, #1a6b52);
   color: #fff;
@@ -2724,6 +2798,14 @@
   font-weight: 700;
 }
 
+.teamRoomPortalHeaderInner > .uiBtn {
+  margin-left: auto;
+}
+
+.teamRoomAthleteHero {
+  margin-bottom: 16px;
+}
+
 .teamRoomTopBar {
   display: flex;
   align-items: flex-start;
@@ -3394,42 +3476,8 @@
   text-align: center;
 }
 
-.coachMobileTopBrand {
-  display: flex;
-  align-items: center;
+.coachMobileTopBar .platformBrand.coachMobileTopBrand {
   justify-content: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.coachMobileTopBrandLogo {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 8px;
-  padding: 2px;
-}
-
-.coachMobileTopBrandText {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  text-align: left;
-}
-
-.coachMobileTopBrandName {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.15;
-}
-
-.coachMobileTopBrandSub {
-  font-size: 11px;
-  opacity: 0.88;
-  margin-top: 2px;
 }
 
 .coachMobileProfileCard {

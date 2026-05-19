@@ -59,7 +59,9 @@ export default function CoachTeamsList() {
   }
 
   return (
-    <ul className="coachMobileTeamList">
+    <>
+      <h2 className="coachMobileSectionTitle">Отбори</h2>
+      <ul className="coachMobileTeamList">
       {activeTeams.map((team) => (
         <li key={team.id}>
           <Link to={`/coach/teams/${team.id}`} className="coachMobileTeamCard">
@@ -74,5 +76,6 @@ export default function CoachTeamsList() {
         </li>
       ))}
     </ul>
+    </>
   );
 }

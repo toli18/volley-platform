@@ -1,24 +1,16 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import PlatformBrandBlock from "../shared/PlatformBrandBlock";
 import CoachBottomNav from "./CoachBottomNav";
 import { Button } from "../ui";
-
-function titleForPath(pathname) {
-  if (pathname.startsWith("/coach/athletes/")) return "Състезател";
-  if (pathname.startsWith("/coach/teams/")) return "Отбор";
-  if (pathname === "/coach/teams") return "Отбори";
-  if (pathname.startsWith("/coach/trainings")) return "Тренировки";
-  if (pathname.startsWith("/coach/schedule")) return "График";
-  if (pathname.startsWith("/coach/menu")) return "Меню";
-  return "Днес";
-}
 
 export default function CoachMobileLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const isMenu = pathname === "/coach/menu";
+  const { user, logout } = useAuth();
+  const role = String(user?.role || "").toLowerCase();
+  const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
   const showBack =
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") || pathname.startsWith("/coach/athletes/");
 
@@ -29,7 +21,7 @@ export default function CoachMobileLayout() {
 
   return (
     <div className="coachMobileShell">
-      <header className="coachMobileTopBar">
+      <header className="coachMobileTopBar portalShellHeader">
         {showBack ? (
           <button
             type="button"
@@ -42,24 +34,7 @@ export default function CoachMobileLayout() {
         ) : (
           <span className="coachMobileTopSpacer" aria-hidden />
         )}
-        {isMenu ? (
-          <div className="coachMobileTopBrand">
-            <img
-              src="/bfvb-logo.png"
-              alt="БФВ"
-              className="coachMobileTopBrandLogo"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-            <div className="coachMobileTopBrandText">
-              <span className="coachMobileTopBrandName">Volley Coach Platform</span>
-              <span className="coachMobileTopBrandSub">Треньорски профил</span>
-            </div>
-          </div>
-        ) : (
-          <h1 className="coachMobileTopTitle">{titleForPath(pathname)}</h1>
-        )}
+        <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
         <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
           Изход
         </Button>
