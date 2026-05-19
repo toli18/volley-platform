@@ -2098,6 +2098,81 @@
   font-weight: 600;
 }
 
+.parentPortalPushDetails {
+  margin-bottom: 12px;
+}
+
+.parentPortalPushSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.parentPortalPushSummaryLead {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.parentPortalPushIconSvg {
+  flex-shrink: 0;
+  color: #0f4d3a;
+}
+
+.parentPortalPushSummary::after {
+  content: "▾";
+  margin-left: 4px;
+  font-size: 12px;
+  color: #64748b;
+  transition: transform 0.15s ease;
+}
+
+.parentPortalPushDetails[open] .parentPortalPushSummary::after {
+  transform: rotate(180deg);
+}
+
+.parentPortalPushBody .parentPortalPushActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.parentPortalTouchBtn {
+  min-height: 44px;
+}
+
+@media (min-width: 520px) {
+  .parentPortalPushBody .parentPortalPushActions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .parentPortalPushBody .parentPortalPushActions .parentPortalTouchBtn {
+    flex: 1 1 auto;
+    min-width: 10rem;
+  }
+}
+
+@media (max-width: 680px) {
+  .parentPortalHeaderActions .uiBtn {
+    min-height: 44px;
+  }
+
+  .parentPortalScheduleViewBtn {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .parentPortalScheduleNav .uiBtn {
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 680px) {
   .teamScheduleCalendarCols {
     min-width: 700px;
