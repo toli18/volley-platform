@@ -597,6 +597,12 @@ class Team(Base):
         cascade="all, delete-orphan",
         order_by="TeamPortalItem.created_at.desc()",
     )
+    chat_messages = relationship(
+        "TeamChatMessage",
+        back_populates="team",
+        cascade="all, delete-orphan",
+        order_by="TeamChatMessage.created_at.asc()",
+    )
 
 
 class TeamAccessToken(Base):
@@ -638,6 +644,40 @@ class TeamPortalItem(Base):
 
     team = relationship("Team", back_populates="portal_items")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
+class TeamChatSenderKind(str, Enum):
+    coach = "coach"
+    athlete = "athlete"
+
+
+class TeamChatMessage(Base):
+    __tablename__ = "team_chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_kind = Column(SqlEnum(TeamChatSenderKind), nullable=False, index=True)
+    coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+    team = relationship("Team", back_populates="chat_messages")
+    coach = relationship("User", foreign_keys=[coach_user_id])
+    athlete = relationship("Athlete", foreign_keys=[athlete_id])
+
+    __table_args__ = (Index("ix_team_chat_team_created", "team_id", "created_at"),)
+
+
+class AthleteTeamChatRead(Base):
+    __tablename__ = "athlete_team_chat_reads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    last_read_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("athlete_id", "team_id", name="uq_athlete_team_chat_read"),)
 
 
 class TeamMember(Base):

@@ -205,6 +205,31 @@ def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marke
         db.close()
 
 
+def queue_team_chat_message(
+    team_id: int,
+    team_name: str,
+    sender_label: str,
+    preview: str,
+    *,
+    exclude_athlete_id: int | None = None,
+) -> None:
+    db = SessionLocal()
+    try:
+        athlete_ids = _athlete_ids_for_team(db, team_id)
+        title = f"Чат — {team_name}"
+        body = f"{sender_label}: {(preview or '').strip()[:200]}"
+        for aid in athlete_ids:
+            if exclude_athlete_id is not None and int(aid) == int(exclude_athlete_id):
+                continue
+            notify_athlete(db, aid, title, body)
+        db.commit()
+        logger.info("Team chat notify team=%s athletes=%s", team_id, len(athlete_ids))
+    except Exception as exc:
+        logger.exception("Team chat notify failed: %s", exc)
+    finally:
+        db.close()
+
+
 def queue_team_feed_post(team_id: int, preview: str) -> None:
     db = SessionLocal()
     try:

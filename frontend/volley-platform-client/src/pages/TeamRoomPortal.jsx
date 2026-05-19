@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
 import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
+import TeamRoomChat from "../components/teamRoom/TeamRoomChat";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
@@ -99,6 +100,7 @@ export default function TeamRoomPortal() {
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState("home");
   const [feedSeenAt, setFeedSeenAt] = useState(() => localStorage.getItem("team_room_feed_seen_at") || "");
+  const [liveChatUnread, setLiveChatUnread] = useState(null);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!getTeamRoomToken()) {
@@ -173,6 +175,12 @@ export default function TeamRoomPortal() {
     }
   }, [activeTab, data?.items?.length, markFeedSeen]);
 
+  useEffect(() => {
+    if (activeTab !== "messages") {
+      setLiveChatUnread(null);
+    }
+  }, [activeTab]);
+
   const highlightDates = useMemo(
     () => new Set(data?.pending_schedule_dates || []),
     [data?.pending_schedule_dates],
@@ -192,11 +200,13 @@ export default function TeamRoomPortal() {
     const latest = items[0]?.created_at;
     const homeUnread =
       (latest && (!feedSeenAt || new Date(latest) > new Date(feedSeenAt))) || hasUnreadChanges;
+    const chatUnread = liveChatUnread ?? data?.chat_unread_count ?? 0;
     return {
       home: homeUnread,
       schedule: hasUnreadChanges,
+      messages: chatUnread > 0,
     };
-  }, [data?.items, feedSeenAt, hasUnreadChanges]);
+  }, [data?.items, data?.chat_unread_count, feedSeenAt, hasUnreadChanges, liveChatUnread]);
 
   const attendance = data?.attendance_summary;
   const teamLabel = (data?.teams || []).join(", ") || "—";
@@ -284,9 +294,10 @@ export default function TeamRoomPortal() {
             </TabPanel>
 
             <TabPanel id="messages" activeTab={activeTab}>
-              <EmptyState
-                title="Чатовете идват скоро"
-                description="Общи канали и съобщения с треньора ще се появят в следваща версия."
+              <h2 className="teamRoomSectionTitle">Отборни чатове</h2>
+              <TeamRoomChat
+                active={activeTab === "messages"}
+                onUnreadChange={setLiveChatUnread}
               />
             </TabPanel>
 

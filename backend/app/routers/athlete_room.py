@@ -30,6 +30,7 @@ from app.routers.team_portal import _item_to_response, _monday_of_week_iso
 from app.schemas.athlete_room import AthleteRoomMeResponse
 from app.schemas.parent_portal import ParentScheduleItem
 from app.services.parent_portal_notify import get_pending_marker_state
+from app.services.team_chat import total_unread_for_athlete
 from app.services.parent_push import (
     PORTAL_ATHLETE_ROOM,
     delete_subscription_for_athlete,
@@ -159,6 +160,7 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
         avatar_url=None,
+        chat_unread_count=total_unread_for_athlete(db, athlete.id),
     )
 
 

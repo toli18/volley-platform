@@ -5,6 +5,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { resolveStaticUrl } from "../../utils/staticUrl";
 import { useToast } from "../ToastProvider";
 import { teamRoomLoginUrl } from "../../utils/teamRoomAuth";
+import TeamPortalCoachChat from "./TeamPortalCoachChat";
 import { Button, Card, EmptyState, Input } from "../ui";
 
 const normalizeError = (err, fallback = "Грешка.") => {
@@ -361,6 +362,8 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
           </section>
         </div>
       ) : null}
+
+      <TeamPortalCoachChat teamId={teamId} />
     </>
   );
 }
