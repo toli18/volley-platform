@@ -1,181 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { axiosInstance } from "../utils/apiClient";
 
-function normalizeToArray(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.map(String).map((s) => s.trim()).filter(Boolean);
+import DrillVideoPlayer from "./drills/DrillVideoPlayer";
+import { collectDrillMedia, getDrillPrimaryMedia } from "../utils/drillVideo";
 
-  if (typeof value === "string") {
-    const t = value.trim();
-    if (!t) return [];
-    const lower = t.toLowerCase();
-    if (lower === "няма данни" || lower === "n/a" || lower === "none") return [];
-    if ((t.startsWith("[") && t.endsWith("]")) || (t.startsWith("{") && t.endsWith("}"))) {
-      try {
-        const parsed = JSON.parse(t);
-        if (Array.isArray(parsed)) return parsed.map(String).map((s) => s.trim()).filter(Boolean);
-      } catch {
-        // ignore, continue with string parsing
-      }
-    }
-    if (t.includes("\n")) return t.split("\n").map((s) => s.trim()).filter(Boolean);
-    if (t.includes(",")) return t.split(",").map((s) => s.trim()).filter(Boolean);
-    return [t];
-  }
-  return [];
-}
-
-function isProbablyUrl(s) {
-  const t = String(s || "").trim();
-  if (!t) return false;
-  if (t.toLowerCase() === "няма данни") return false;
-  if (t.startsWith("http://") || t.startsWith("https://")) return true;
-  if (t.startsWith("/")) return true;
-  return false;
-}
-
-function resolveMediaUrl(url) {
-  const u = String(url || "").trim();
-  if (!u) return null;
-  if (u.toLowerCase() === "няма данни") return null;
-  if (u.startsWith("/")) {
-    const base = axiosInstance?.defaults?.baseURL || "";
-    return `${base}${u}`;
-  }
-  return u;
-}
-
-function isVideoFileUrl(url) {
-  return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
-}
-
-function isImageUrl(url) {
-  return /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(String(url || ""));
-}
-
-function youtubeEmbed(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.replace("/", "").trim();
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function vimeoEmbed(url) {
-  try {
-    const u = new URL(url);
-    if (!u.hostname.includes("vimeo.com")) return null;
-    const parts = u.pathname.split("/").filter(Boolean);
-    const id = parts[0];
-    return id ? `https://player.vimeo.com/video/${id}` : null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeEmbedUrl(rawUrl) {
-  const u = String(rawUrl || "").trim();
-  if (!u) return "";
-
-  if (u.includes("drive.google.com")) {
-    const mFile = u.match(/\/file\/d\/([^/]+)/);
-    if (mFile?.[1]) return `https://drive.google.com/file/d/${mFile[1]}/preview`;
-    const mOpen = u.match(/[?&]id=([^&]+)/);
-    if (mOpen?.[1]) return `https://drive.google.com/file/d/${mOpen[1]}/preview`;
-  }
-
-  if (u.includes("dropbox.com")) {
-    try {
-      const urlObj = new URL(u);
-      urlObj.searchParams.delete("dl");
-      urlObj.searchParams.set("raw", "1");
-      return urlObj.toString();
-    } catch {
-      // ignore
-    }
-  }
-
-  return u;
-}
-
-function collectFieldArray(drill, keys) {
-  const out = [];
-  for (const key of keys) {
-    out.push(...normalizeToArray(drill?.[key]));
-  }
-  return out;
-}
-
-function collectDrillMedia(drill) {
-  const imageCandidates = collectFieldArray(drill, [
-    "image_urls",
-    "images",
-    "image_url",
-    "image",
-    "thumbnail_url",
-  ]);
-  const videoCandidates = collectFieldArray(drill, [
-    "video_urls",
-    "videos",
-    "video_url",
-    "video",
-    "media_url",
-    "media_urls",
-  ]);
-
-  const images = imageCandidates
-    .filter(isProbablyUrl)
-    .map(resolveMediaUrl)
-    .filter((x) => !isVideoFileUrl(x))
-    .filter(Boolean);
-
-  const videosRaw = videoCandidates
-    .filter(isProbablyUrl)
-    .map(resolveMediaUrl)
-    .filter((x) => !isImageUrl(x))
-    .filter(Boolean);
-
-  const videoItems = [];
-  for (const url of videosRaw) {
-    const yt = youtubeEmbed(url);
-    if (yt) {
-      videoItems.push({ kind: "embed", src: yt, original: url, label: "YouTube" });
-      continue;
-    }
-    const vm = vimeoEmbed(url);
-    if (vm) {
-      videoItems.push({ kind: "embed", src: vm, original: url, label: "Vimeo" });
-      continue;
-    }
-    if (isVideoFileUrl(url)) {
-      videoItems.push({ kind: "file", src: url, original: url, label: "Видео файл" });
-      continue;
-    }
-    // fallback за Drive/Dropbox/други embed линкове
-    videoItems.push({ kind: "embed", src: normalizeEmbedUrl(url), original: url, label: "Видео" });
-  }
-
-  const seen = new Set();
-  const dedupedVideos = videoItems.filter((x) => (seen.has(x.src) ? false : (seen.add(x.src), true)));
-
-  return { images, videoItems: dedupedVideos };
-}
-
-export function getDrillPrimaryMedia(drill) {
-  const { images, videoItems } = collectDrillMedia(drill || {});
-  if (images.length > 0) return { type: "image", src: images[0] };
-  if (videoItems.length > 0) return { type: "video", src: videoItems[0].src };
-  return null;
-}
+export { getDrillPrimaryMedia };
 
 function ImageLightbox({ src, alt, onClose }) {
   const [scale, setScale] = useState(1);
@@ -274,29 +102,7 @@ export default function DrillMediaPreviewModal({ drill, onClose }) {
       const v = videoItems[main.index];
       return (
         <div className="dmpPlayerBox">
-          {v.kind === "embed" ? (
-            <>
-              <iframe
-                src={v.src}
-                title={v.original}
-                className="dmpIframe"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-              <div className="dmpEmbedFallback">
-                Ако видеото не се зарежда, отвори директно:{" "}
-                <a href={v.original} target="_blank" rel="noreferrer">
-                  линк към видеото
-                </a>
-              </div>
-            </>
-          ) : (
-            <video controls className="dmpVideo">
-              <source src={v.src} />
-              Вашият браузър не поддържа video tag.
-            </video>
-          )}
+          <DrillVideoPlayer url={v.original} />
           <div className="dmpPlayerCaption">
             Видео: <span className="dmpMutedSmall">{v.label}</span>
           </div>
@@ -392,15 +198,15 @@ export default function DrillMediaPreviewModal({ drill, onClose }) {
 
         <div className="dmpMainArea">{renderMainView()}</div>
 
-        {(videoItems.length > 0 || images.length > 0) && (
+        {(videoItems.length > 1 || images.length > 1) && (
           <div className="dmpPickers">
-            {videoItems.length > 0 && (
+            {videoItems.length > 1 && (
               <div className="dmpPickerBlock">
                 <div className="dmpPickerTitle">Видео</div>
                 <div className="dmpThumbRow">
                   {videoItems.map((v, i) => (
                     <button
-                      key={v.src}
+                      key={v.original}
                       className={`dmpThumbBtn ${main.type === "video" && main.index === i ? "active" : ""}`}
                       onClick={() => setMain({ type: "video", index: i })}
                       title={v.original}

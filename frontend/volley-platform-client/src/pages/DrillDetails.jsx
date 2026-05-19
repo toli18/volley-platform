@@ -1,21 +1,22 @@
-// src/pages/DrillDetails.jsx
+﻿// src/pages/DrillDetails.jsx
+import DrillVideoPlayer from "../components/drills/DrillVideoPlayer";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 
-/** ---------- Грешки от FastAPI ---------- */
+/** ---------- Р“СЂРµС€РєРё РѕС‚ FastAPI ---------- */
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Възникна грешка при заявката.";
+  if (!detail) return err?.message || "Р’СЉР·РЅРёРєРЅР° РіСЂРµС€РєР° РїСЂРё Р·Р°СЏРІРєР°С‚Р°.";
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Възникна грешка при заявката.";
+  if (Array.isArray(detail)) return detail?.[0]?.msg || "РќРµРІР°Р»РёРґРЅРё РґР°РЅРЅРё (422).";
+  return "Р’СЉР·РЅРёРєРЅР° РіСЂРµС€РєР° РїСЂРё Р·Р°СЏРІРєР°С‚Р°.";
 };
 
-/** ---------- Форматиране ---------- */
+/** ---------- Р¤РѕСЂРјР°С‚РёСЂР°РЅРµ ---------- */
 const fmtDateTime = (value) => {
-  if (!value) return "—";
+  if (!value) return "вЂ”";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString("bg-BG");
@@ -24,46 +25,46 @@ const fmtDateTime = (value) => {
 const mapStatusBg = (status) => {
   const s = String(status || "").toLowerCase();
   const map = {
-    draft: "чернова",
-    pending: "чака одобрение",
-    approved: "одобрено",
-    rejected: "отхвърлено",
+    draft: "С‡РµСЂРЅРѕРІР°",
+    pending: "С‡Р°РєР° РѕРґРѕР±СЂРµРЅРёРµ",
+    approved: "РѕРґРѕР±СЂРµРЅРѕ",
+    rejected: "РѕС‚С…РІСЉСЂР»РµРЅРѕ",
   };
-  return map[s] || (status ? String(status) : "—");
+  return map[s] || (status ? String(status) : "вЂ”");
 };
 
-/** По желание: превод на типични тагове, ако в базата са на английски */
+/** РџРѕ Р¶РµР»Р°РЅРёРµ: РїСЂРµРІРѕРґ РЅР° С‚РёРїРёС‡РЅРё С‚Р°РіРѕРІРµ, Р°РєРѕ РІ Р±Р°Р·Р°С‚Р° СЃР° РЅР° Р°РЅРіР»РёР№СЃРєРё */
 const tagBg = (t) => {
   const x = String(t || "").trim();
   if (!x) return "";
   const k = x.toLowerCase();
 
   const dict = {
-    // Фази
-    serve: "сервис",
-    service: "сервис",
-    receive: "посрещане",
-    reception: "посрещане",
-    setting: "разпределяне",
-    set: "разпределяне",
-    attack: "атака",
-    block: "блокада",
-    defense: "защита",
-    transition: "преход",
+    // Р¤Р°Р·Рё
+    serve: "СЃРµСЂРІРёСЃ",
+    service: "СЃРµСЂРІРёСЃ",
+    receive: "РїРѕСЃСЂРµС‰Р°РЅРµ",
+    reception: "РїРѕСЃСЂРµС‰Р°РЅРµ",
+    setting: "СЂР°Р·РїСЂРµРґРµР»СЏРЅРµ",
+    set: "СЂР°Р·РїСЂРµРґРµР»СЏРЅРµ",
+    attack: "Р°С‚Р°РєР°",
+    block: "Р±Р»РѕРєР°РґР°",
+    defense: "Р·Р°С‰РёС‚Р°",
+    transition: "РїСЂРµС…РѕРґ",
 
-    // Технически
-    pass: "пас",
-    spike: "нападение",
-    hit: "нападение",
-    dig: "защита (диг)",
+    // РўРµС…РЅРёС‡РµСЃРєРё
+    pass: "РїР°СЃ",
+    spike: "РЅР°РїР°РґРµРЅРёРµ",
+    hit: "РЅР°РїР°РґРµРЅРёРµ",
+    dig: "Р·Р°С‰РёС‚Р° (РґРёРі)",
 
-    // Домейни
-    technique: "техника",
-    tactics: "тактика",
-    communication: "комуникация",
-    psychology: "психология",
-    physical: "физическа подготовка",
-    coordination: "координация",
+    // Р”РѕРјРµР№РЅРё
+    technique: "С‚РµС…РЅРёРєР°",
+    tactics: "С‚Р°РєС‚РёРєР°",
+    communication: "РєРѕРјСѓРЅРёРєР°С†РёСЏ",
+    psychology: "РїСЃРёС…РѕР»РѕРіРёСЏ",
+    physical: "С„РёР·РёС‡РµСЃРєР° РїРѕРґРіРѕС‚РѕРІРєР°",
+    coordination: "РєРѕРѕСЂРґРёРЅР°С†РёСЏ",
   };
 
   return dict[k] || x;
@@ -74,7 +75,7 @@ function InfoRow({ label, value }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 36%) 1fr", gap: 12, padding: "7px 0", borderBottom: "1px solid #eef3fa" }}>
       <div style={{ color: "#5b6f8d", fontSize: 13 }}>{label}</div>
-      <div style={{ fontWeight: 600, fontSize: 14, color: v ? "#0f172a" : "#777" }}>{v || "—"}</div>
+      <div style={{ fontWeight: 600, fontSize: 14, color: v ? "#0f172a" : "#777" }}>{v || "вЂ”"}</div>
     </div>
   );
 }
@@ -87,7 +88,7 @@ function Chips({ label, items }) {
     <div style={{ padding: "6px 0" }}>
       <div style={{ color: "#444", marginBottom: 6 }}>{label}</div>
       {shown.length === 0 ? (
-        <div style={{ color: "#777", fontWeight: 700 }}>—</div>
+        <div style={{ color: "#777", fontWeight: 700 }}>вЂ”</div>
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {shown.map((x, idx) => (
@@ -104,139 +105,14 @@ function TextBlock({ title, text }) {
     <div>
       <div style={{ fontWeight: 900, marginBottom: 6 }}>{title}</div>
       <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5, color: text ? "#111" : "#777" }}>
-        {text || "—"}
+        {text || "вЂ”"}
       </div>
     </div>
   );
 }
 
-/** ---------- Медия помощни ---------- */
-const isImageUrl = (url) => /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(String(url || ""));
-const isDirectVideoUrl = (url) => /\.(mp4|webm|ogg)(\?.*)?$/i.test(String(url || ""));
 
-const getYoutubeId = (url) => {
-  const u = String(url || "");
-  // youtu.be/ID
-  const m1 = u.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-  if (m1?.[1]) return m1[1];
-  // youtube.com/watch?v=ID
-  const m2 = u.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
-  if (m2?.[1]) return m2[1];
-  // youtube.com/embed/ID
-  const m3 = u.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
-  if (m3?.[1]) return m3[1];
-  return null;
-};
-
-const getVimeoId = (url) => {
-  const u = String(url || "");
-  // vimeo.com/12345678
-  const m = u.match(/vimeo\.com\/(\d{6,})/);
-  return m?.[1] || null;
-};
-
-/** ---------- ВАЖНО: нормализация за embed (Drive/Dropbox/OneDrive) ---------- */
-const normalizeEmbedUrl = (rawUrl) => {
-  const u = String(rawUrl || "").trim();
-  if (!u) return "";
-
-  // Google Drive: share link -> /preview
-  // Примери:
-  // https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-  // https://drive.google.com/open?id=FILE_ID
-  // https://drive.google.com/uc?id=FILE_ID&export=download
-  if (u.includes("drive.google.com")) {
-    const mFile = u.match(/\/file\/d\/([^/]+)/);
-    if (mFile?.[1]) return `https://drive.google.com/file/d/${mFile[1]}/preview`;
-
-    const mOpen = u.match(/[?&]id=([^&]+)/);
-    if (mOpen?.[1]) return `https://drive.google.com/file/d/${mOpen[1]}/preview`;
-  }
-
-  // Dropbox: www.dropbox.com/... -> dl.dropboxusercontent.com/... или ?raw=1
-  if (u.includes("dropbox.com")) {
-    try {
-      const urlObj = new URL(u);
-      urlObj.searchParams.delete("dl");
-      urlObj.searchParams.set("raw", "1");
-      return urlObj.toString();
-    } catch {
-      // ignore
-    }
-  }
-
-  // OneDrive (прост вариант): често дава "embed" параметри, тук само връщаме линка
-  // (ако имаш конкретни OneDrive формати, ще го донастроим)
-  return u;
-};
-
-/** ---------- Видео плеър (вграден прозорец, без препращане) ---------- */
-function VideoPlayer({ url }) {
-  const safeUrl = String(url || "").trim();
-  if (!safeUrl) return null;
-
-  const frameBox = (src, allow) => (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", background: "#000" }}>
-      <div style={{ position: "relative", paddingTop: "56.25%" }}>
-        <iframe
-          title="Видео"
-          src={src}
-          allow={allow}
-          allowFullScreen
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-        />
-      </div>
-    </div>
-  );
-
-  // YouTube
-  const yt = getYoutubeId(safeUrl);
-  if (yt) {
-    const src = `https://www.youtube.com/embed/${yt}`;
-    return frameBox(
-      src,
-      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    );
-  }
-
-  // Vimeo
-  const vimeo = getVimeoId(safeUrl);
-  if (vimeo) {
-    const src = `https://player.vimeo.com/video/${vimeo}`;
-    return frameBox(src, "autoplay; fullscreen; picture-in-picture");
-  }
-
-  // Direct mp4/webm/ogg
-  if (isDirectVideoUrl(safeUrl)) {
-    return (
-      <video
-        controls
-        playsInline
-        style={{ width: "100%", maxHeight: 520, borderRadius: 12, border: "1px solid #ddd", background: "#000" }}
-      >
-        <source src={safeUrl} />
-        Вашият браузър не поддържа видео.
-      </video>
-    );
-  }
-
-  // Universal iframe embed (Drive/Dropbox/etc.)
-  const embedUrl = normalizeEmbedUrl(safeUrl);
-
-  return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {frameBox(embedUrl, "autoplay; fullscreen; picture-in-picture")}
-      <div style={{ color: "#444", fontWeight: 700 }}>
-        Ако видеото не се показва, сайтът вероятно забранява вграждане (X-Frame-Options/CSP). Резервен линк:{" "}
-        <a href={safeUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 900 }}>
-          Отвори видеото
-        </a>
-      </div>
-    </div>
-  );
-}
-
-/** ---------- Снимка + увеличение ---------- */
+/** ---------- РЎРЅРёРјРєР° + СѓРІРµР»РёС‡РµРЅРёРµ ---------- */
 function ImagePreview({ url, alt }) {
   const [open, setOpen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -294,7 +170,7 @@ function ImagePreview({ url, alt }) {
         <div style={{ width: "100%", maxHeight: 520, display: "grid", placeItems: "center" }}>
           <img
             src={safeUrl}
-            alt={alt || "Снимка"}
+            alt={alt || "РЎРЅРёРјРєР°"}
             style={{
               width: "100%",
               height: "auto",
@@ -310,11 +186,11 @@ function ImagePreview({ url, alt }) {
 
         <div style={{ padding: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <Button type="button" onClick={openModal} variant="secondary" size="sm">
-            🔍 Увеличи
+            рџ”Ќ РЈРІРµР»РёС‡Рё
           </Button>
 
           <a href={safeUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
-            Отвори снимката в нов прозорец
+            РћС‚РІРѕСЂРё СЃРЅРёРјРєР°С‚Р° РІ РЅРѕРІ РїСЂРѕР·РѕСЂРµС†
           </a>
         </div>
       </div>
@@ -358,7 +234,7 @@ function ImagePreview({ url, alt }) {
               }}
             >
               <Button type="button" onClick={zoomOut} variant="secondary" size="sm">
-                −
+                в€’
               </Button>
 
               <Button type="button" onClick={zoomIn} variant="secondary" size="sm">
@@ -366,17 +242,17 @@ function ImagePreview({ url, alt }) {
               </Button>
 
               <Button type="button" onClick={reset} variant="secondary" size="sm">
-                Побиране
+                РџРѕР±РёСЂР°РЅРµ
               </Button>
 
               <div style={{ color: "#fff", fontWeight: 800, marginLeft: 6, opacity: 0.9 }}>
-                Мащаб: {fit ? "побиране" : `${Math.round(scale * 100)}%`}
+                РњР°С‰Р°Р±: {fit ? "РїРѕР±РёСЂР°РЅРµ" : `${Math.round(scale * 100)}%`}
               </div>
 
               <div style={{ flex: 1 }} />
 
               <Button type="button" onClick={closeModal} variant="secondary" size="sm">
-                ✕ Затвори
+                вњ• Р—Р°С‚РІРѕСЂРё
               </Button>
             </div>
 
@@ -394,7 +270,7 @@ function ImagePreview({ url, alt }) {
             >
               <img
                 src={safeUrl}
-                alt={alt || "Снимка"}
+                alt={alt || "РЎРЅРёРјРєР°"}
                 draggable={false}
                 style={{
                   position: "absolute",
@@ -419,7 +295,7 @@ function ImagePreview({ url, alt }) {
   );
 }
 
-/** ---------- Главен компонент ---------- */
+/** ---------- Р“Р»Р°РІРµРЅ РєРѕРјРїРѕРЅРµРЅС‚ ---------- */
 export default function DrillDetails() {
   const { id } = useParams();
   const drillId = useMemo(() => Number(id), [id]);
@@ -430,7 +306,7 @@ export default function DrillDetails() {
 
   const load = async () => {
     if (!Number.isFinite(drillId)) {
-      setError("Невалиден идентификатор на упражнение.");
+      setError("РќРµРІР°Р»РёРґРµРЅ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РЅР° СѓРїСЂР°Р¶РЅРµРЅРёРµ.");
       setLoading(false);
       return;
     }
@@ -452,16 +328,16 @@ export default function DrillDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillId]);
 
-  if (loading) return <div className="uiPage">Зареждане…</div>;
+  if (loading) return <div className="uiPage">Р—Р°СЂРµР¶РґР°РЅРµвЂ¦</div>;
 
   if (error) {
     return (
       <div className="uiPage">
         <Button as={Link} to="/drills" variant="secondary" size="sm">
-          ← Назад към упражненията
+          в†ђ РќР°Р·Р°Рґ РєСЉРј СѓРїСЂР°Р¶РЅРµРЅРёСЏС‚Р°
         </Button>
         <div className="uiAlert uiAlert--danger">
-          <strong>Грешка:</strong> {error}
+          <strong>Р“СЂРµС€РєР°:</strong> {error}
         </div>
       </div>
     );
@@ -471,14 +347,14 @@ export default function DrillDetails() {
     return (
       <div className="uiPage">
         <Button as={Link} to="/drills" variant="secondary" size="sm">
-          ← Назад към упражненията
+          в†ђ РќР°Р·Р°Рґ РєСЉРј СѓРїСЂР°Р¶РЅРµРЅРёСЏС‚Р°
         </Button>
-        <EmptyState title="Няма данни за това упражнение" description="Провери дали упражнението съществува." />
+        <EmptyState title="РќСЏРјР° РґР°РЅРЅРё Р·Р° С‚РѕРІР° СѓРїСЂР°Р¶РЅРµРЅРёРµ" description="РџСЂРѕРІРµСЂРё РґР°Р»Рё СѓРїСЂР°Р¶РЅРµРЅРёРµС‚Рѕ СЃСЉС‰РµСЃС‚РІСѓРІР°." />
       </div>
     );
   }
 
-  // Логика: ВИДЕО > СНИМКА > НИЩО
+  // Р›РѕРіРёРєР°: Р’РР”Р•Рћ > РЎРќРРњРљРђ > РќРР©Рћ
   const videoUrl = Array.isArray(drill.video_urls) ? (drill.video_urls.find(Boolean) || "") : "";
   const imageUrl = Array.isArray(drill.image_urls) ? (drill.image_urls.find(Boolean) || "") : "";
 
@@ -488,95 +364,95 @@ export default function DrillDetails() {
   return (
     <div className="uiPage" style={{ maxWidth: 1040 }}>
       <PageHero
-        title={drill?.title || "Детайли за упражнение"}
-        subtitle="Подробен преглед на методика, медия и практически детайли."
-        actions={<Button as={Link} to="/drills" variant="secondary" size="sm">← Назад към упражненията</Button>}
+        title={drill?.title || "Р”РµС‚Р°Р№Р»Рё Р·Р° СѓРїСЂР°Р¶РЅРµРЅРёРµ"}
+        subtitle="РџРѕРґСЂРѕР±РµРЅ РїСЂРµРіР»РµРґ РЅР° РјРµС‚РѕРґРёРєР°, РјРµРґРёСЏ Рё РїСЂР°РєС‚РёС‡РµСЃРєРё РґРµС‚Р°Р№Р»Рё."
+        actions={<Button as={Link} to="/drills" variant="secondary" size="sm">в†ђ РќР°Р·Р°Рґ РєСЉРј СѓРїСЂР°Р¶РЅРµРЅРёСЏС‚Р°</Button>}
       />
 
-      <Card title="Обобщение" className="uiPage">
-        <InfoRow label="Номер" value={drill.id != null ? String(drill.id) : ""} />
-        <InfoRow label="Статус" value={mapStatusBg(drill.status)} />
+      <Card title="РћР±РѕР±С‰РµРЅРёРµ" className="uiPage">
+        <InfoRow label="РќРѕРјРµСЂ" value={drill.id != null ? String(drill.id) : ""} />
+        <InfoRow label="РЎС‚Р°С‚СѓСЃ" value={mapStatusBg(drill.status)} />
 
-        <InfoRow label="Категория" value={drill.category} />
-        <InfoRow label="Ниво" value={drill.level} />
-        <InfoRow label="Фокус на умението" value={drill.skill_focus} />
+        <InfoRow label="РљР°С‚РµРіРѕСЂРёСЏ" value={drill.category} />
+        <InfoRow label="РќРёРІРѕ" value={drill.level} />
+        <InfoRow label="Р¤РѕРєСѓСЃ РЅР° СѓРјРµРЅРёРµС‚Рѕ" value={drill.skill_focus} />
 
-        <InfoRow label="Субективна трудност (RPE 0–10)" value={drill.rpe != null ? String(drill.rpe) : ""} />
+        <InfoRow label="РЎСѓР±РµРєС‚РёРІРЅР° С‚СЂСѓРґРЅРѕСЃС‚ (RPE 0вЂ“10)" value={drill.rpe != null ? String(drill.rpe) : ""} />
 
-        <InfoRow label="Тип интензивност" value={drill.intensity_type} />
-        <InfoRow label="Ниво на сложност" value={drill.complexity_level} />
-        <InfoRow label="Ниво на вземане на решения" value={drill.decision_level} />
+        <InfoRow label="РўРёРї РёРЅС‚РµРЅР·РёРІРЅРѕСЃС‚" value={drill.intensity_type} />
+        <InfoRow label="РќРёРІРѕ РЅР° СЃР»РѕР¶РЅРѕСЃС‚" value={drill.complexity_level} />
+        <InfoRow label="РќРёРІРѕ РЅР° РІР·РµРјР°РЅРµ РЅР° СЂРµС€РµРЅРёСЏ" value={drill.decision_level} />
 
-        <InfoRow label="Възраст – минимум" value={drill.age_min != null ? String(drill.age_min) : ""} />
-        <InfoRow label="Възраст – максимум" value={drill.age_max != null ? String(drill.age_max) : ""} />
+        <InfoRow label="Р’СЉР·СЂР°СЃС‚ вЂ“ РјРёРЅРёРјСѓРј" value={drill.age_min != null ? String(drill.age_min) : ""} />
+        <InfoRow label="Р’СЉР·СЂР°СЃС‚ вЂ“ РјР°РєСЃРёРјСѓРј" value={drill.age_max != null ? String(drill.age_max) : ""} />
 
-        <InfoRow label="Брой/състав играчи" value={drill.players} />
-        <InfoRow label="Оборудване" value={drill.equipment} />
+        <InfoRow label="Р‘СЂРѕР№/СЃСЉСЃС‚Р°РІ РёРіСЂР°С‡Рё" value={drill.players} />
+        <InfoRow label="РћР±РѕСЂСѓРґРІР°РЅРµ" value={drill.equipment} />
 
         <InfoRow
-          label="Продължителност (минути) – минимум"
+          label="РџСЂРѕРґСЉР»Р¶РёС‚РµР»РЅРѕСЃС‚ (РјРёРЅСѓС‚Рё) вЂ“ РјРёРЅРёРјСѓРј"
           value={drill.duration_min != null ? String(drill.duration_min) : ""}
         />
         <InfoRow
-          label="Продължителност (минути) – максимум"
+          label="РџСЂРѕРґСЉР»Р¶РёС‚РµР»РЅРѕСЃС‚ (РјРёРЅСѓС‚Рё) вЂ“ РјР°РєСЃРёРјСѓРј"
           value={drill.duration_max != null ? String(drill.duration_max) : ""}
         />
 
-        <InfoRow label="Основна цел на тренировката" value={drill.training_goal} />
-        <InfoRow label="Вид упражнение" value={drill.type_of_drill} />
+        <InfoRow label="РћСЃРЅРѕРІРЅР° С†РµР» РЅР° С‚СЂРµРЅРёСЂРѕРІРєР°С‚Р°" value={drill.training_goal} />
+        <InfoRow label="Р’РёРґ СѓРїСЂР°Р¶РЅРµРЅРёРµ" value={drill.type_of_drill} />
 
-        <InfoRow label="Създадено на" value={fmtDateTime(drill.created_at)} />
-        <InfoRow label="Последна промяна" value={fmtDateTime(drill.updated_at)} />
+        <InfoRow label="РЎСЉР·РґР°РґРµРЅРѕ РЅР°" value={fmtDateTime(drill.created_at)} />
+        <InfoRow label="РџРѕСЃР»РµРґРЅР° РїСЂРѕРјСЏРЅР°" value={fmtDateTime(drill.updated_at)} />
 
         {String(drill.status || "").toLowerCase() === "rejected" && (
-          <InfoRow label="Причина за отхвърляне" value={drill.rejection_reason} />
+          <InfoRow label="РџСЂРёС‡РёРЅР° Р·Р° РѕС‚С…РІСЉСЂР»СЏРЅРµ" value={drill.rejection_reason} />
         )}
       </Card>
 
-      <Card title="Описание и цел">
-        <InfoRow label="Цел" value={drill.goal} />
+      <Card title="РћРїРёСЃР°РЅРёРµ Рё С†РµР»">
+        <InfoRow label="Р¦РµР»" value={drill.goal} />
         <div style={{ marginTop: 8, whiteSpace: "pre-wrap", lineHeight: 1.5, color: drill.description ? "#111" : "#777" }}>
-          {drill.description || "—"}
+          {drill.description || "вЂ”"}
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <TextBlock title="Вариации" text={drill.variations} />
+          <TextBlock title="Р’Р°СЂРёР°С†РёРё" text={drill.variations} />
         </div>
       </Card>
 
-      <Card title="Етикети за генератора">
-        <Chips label="Домейни на умения" items={drill.skill_domains} />
-        <Chips label="Фази на играта" items={drill.game_phases} />
-        <Chips label="Тактически акцент" items={drill.tactical_focus} />
-        <Chips label="Технически акцент" items={drill.technical_focus} />
-        <Chips label="Позиционен акцент" items={drill.position_focus} />
-        <Chips label="Зонов акцент" items={drill.zone_focus} />
+      <Card title="Р•С‚РёРєРµС‚Рё Р·Р° РіРµРЅРµСЂР°С‚РѕСЂР°">
+        <Chips label="Р”РѕРјРµР№РЅРё РЅР° СѓРјРµРЅРёСЏ" items={drill.skill_domains} />
+        <Chips label="Р¤Р°Р·Рё РЅР° РёРіСЂР°С‚Р°" items={drill.game_phases} />
+        <Chips label="РўР°РєС‚РёС‡РµСЃРєРё Р°РєС†РµРЅС‚" items={drill.tactical_focus} />
+        <Chips label="РўРµС…РЅРёС‡РµСЃРєРё Р°РєС†РµРЅС‚" items={drill.technical_focus} />
+        <Chips label="РџРѕР·РёС†РёРѕРЅРµРЅ Р°РєС†РµРЅС‚" items={drill.position_focus} />
+        <Chips label="Р—РѕРЅРѕРІ Р°РєС†РµРЅС‚" items={drill.zone_focus} />
       </Card>
 
-      <Card title="Методика">
+      <Card title="РњРµС‚РѕРґРёРєР°">
         <div style={{ display: "grid", gap: 12 }}>
-          <TextBlock title="Подготовка и организация" text={drill.setup} />
-          <TextBlock title="Инструкции към играчите" text={drill.instructions} />
-          <TextBlock title="Ключови треньорски насоки" text={drill.coaching_points} />
-          <TextBlock title="Чести грешки" text={drill.common_mistakes} />
-          <TextBlock title="Прогресии (надграждане)" text={drill.progressions} />
-          <TextBlock title="Регресии (улесняване)" text={drill.regressions} />
+          <TextBlock title="РџРѕРґРіРѕС‚РѕРІРєР° Рё РѕСЂРіР°РЅРёР·Р°С†РёСЏ" text={drill.setup} />
+          <TextBlock title="РРЅСЃС‚СЂСѓРєС†РёРё РєСЉРј РёРіСЂР°С‡РёС‚Рµ" text={drill.instructions} />
+          <TextBlock title="РљР»СЋС‡РѕРІРё С‚СЂРµРЅСЊРѕСЂСЃРєРё РЅР°СЃРѕРєРё" text={drill.coaching_points} />
+          <TextBlock title="Р§РµСЃС‚Рё РіСЂРµС€РєРё" text={drill.common_mistakes} />
+          <TextBlock title="РџСЂРѕРіСЂРµСЃРёРё (РЅР°РґРіСЂР°Р¶РґР°РЅРµ)" text={drill.progressions} />
+          <TextBlock title="Р РµРіСЂРµСЃРёРё (СѓР»РµСЃРЅСЏРІР°РЅРµ)" text={drill.regressions} />
         </div>
       </Card>
 
-      <Card title="Медиен материал">
+      <Card title="РњРµРґРёРµРЅ РјР°С‚РµСЂРёР°Р»">
         {hasVideo ? (
           <>
-            <div style={{ marginBottom: 10, color: "#444", fontWeight: 800 }}>Видео</div>
-            <VideoPlayer url={videoUrl} />
+            <div style={{ marginBottom: 10, color: "#444", fontWeight: 800 }}>Р’РёРґРµРѕ</div>
+            <DrillVideoPlayer url={videoUrl} />
           </>
         ) : hasImage ? (
           <>
-            <div style={{ marginBottom: 10, color: "#444", fontWeight: 800 }}>Снимка</div>
-            <ImagePreview url={imageUrl} alt={drill.title || "Снимка"} />
+            <div style={{ marginBottom: 10, color: "#444", fontWeight: 800 }}>РЎРЅРёРјРєР°</div>
+            <ImagePreview url={imageUrl} alt={drill.title || "РЎРЅРёРјРєР°"} />
           </>
         ) : (
-          <EmptyState title="Няма добавено видео или снимка" description="Добави медия към упражнението при редакция." />
+          <EmptyState title="РќСЏРјР° РґРѕР±Р°РІРµРЅРѕ РІРёРґРµРѕ РёР»Рё СЃРЅРёРјРєР°" description="Р”РѕР±Р°РІРё РјРµРґРёСЏ РєСЉРј СѓРїСЂР°Р¶РЅРµРЅРёРµС‚Рѕ РїСЂРё СЂРµРґР°РєС†РёСЏ." />
         )}
       </Card>
     </div>

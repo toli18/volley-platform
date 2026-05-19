@@ -3882,3 +3882,93 @@
     padding-bottom: 24px;
   }
 }
+
+/* Drill video player */
+.drillVideoPlayer {
+  display: grid;
+  gap: 10px;
+}
+
+.drillVideoFrame {
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b1220;
+}
+
+.drillVideoFrameAspect {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+}
+
+.drillVideoIframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.drillVideoNative {
+  width: 100%;
+  max-height: min(56vh, 520px);
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  background: #0b1220;
+  display: block;
+}
+
+.drillVideoFallback {
+  margin: 0;
+  font-size: 13px;
+  color: #5b6a82;
+}
+
+.drillVideoOpenBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #0f4d3a;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.drillVideoOpenBtn:hover {
+  background: #1a6b52;
+  color: #fff;
+}
+
+.drillVideoDriveCard {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.drillVideoDriveText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.drillVideoDriveEmbed {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .drillVideoPlayer--drive .drillVideoDriveEmbed {
+    display: block;
+  }
+}
+
+.dmpPlayerBox .drillVideoPlayer {
+  margin-bottom: 4px;
+}
