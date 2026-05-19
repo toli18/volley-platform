@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { parentPortalPath, setParentToken } from "../utils/parentAuth";
+import { teamRoomLoginPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
 
 function ParentLoginShell({ children }) {
