@@ -19,11 +19,26 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data?.url || "/parent/portal";
-  const url = target.startsWith("http") ? target : new URL(target, self.location.origin).href;
+  const base = target.startsWith("http") ? new URL(target) : new URL(target, self.location.origin);
+  base.searchParams.set("_sw_refresh", String(Date.now()));
+  const url = base.href;
+
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url && "focus" in client) {
+        if (!client.url || !client.url.includes("/parent")) continue;
+        try {
+          client.postMessage({ type: "PARENT_PORTAL_REFRESH" });
+        } catch {
+          /* ignore */
+        }
+        if ("navigate" in client) {
+          return client
+            .navigate(url)
+            .then(() => ("focus" in client ? client.focus() : undefined))
+            .catch(() => ("focus" in client ? client.focus() : undefined));
+        }
+        if ("focus" in client) {
           return client.focus();
         }
       }

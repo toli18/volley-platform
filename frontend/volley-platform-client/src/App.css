@@ -690,6 +690,35 @@
 
 .parentPortalHeaderActions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.parentPortalRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.parentPortalRefreshIcon {
+  display: inline-block;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.parentPortalRefreshBtn.is-spinning .parentPortalRefreshIcon {
+  animation: parentPortalSpin 0.8s linear infinite;
+}
+
+@keyframes parentPortalSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .parentPortalLogo {

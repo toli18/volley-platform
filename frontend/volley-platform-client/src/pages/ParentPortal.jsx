@@ -14,6 +14,7 @@ import {
   ackParentPortalChange,
   patchProfileAfterScheduleAck,
 } from "../utils/parentPortalAck";
+import { consumeSwRefreshSearchParam, listenParentPortalRefresh } from "../utils/parentPortalRefresh";
 import {
   filterAttendanceByPeriod,
   formatCompetitionsMonthLabel,
@@ -209,6 +210,8 @@ export default function ParentPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
 
@@ -227,27 +230,27 @@ export default function ParentPortal() {
     navigate(parentLoginPath(), { replace: true });
   };
 
-  useEffect(() => {
-    if (isSession && !getParentToken()) {
-      navigate(parentLoginPath(), { replace: true });
-      return undefined;
-    }
-    if (!isSession && !token) {
-      setLoading(false);
-      setError("Линкът е невалиден или изтекъл.");
-      return undefined;
-    }
+  const loadProfile = useCallback(
+    async ({ silent = false } = {}) => {
+      if (isSession && !getParentToken()) {
+        navigate(parentLoginPath(), { replace: true });
+        return;
+      }
+      if (!isSession && !token) {
+        setLoading(false);
+        setError("Линкът е невалиден или изтекъл.");
+        return;
+      }
 
-    let cancelled = false;
-    const run = async () => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
+        setRefreshing(true);
         setError("");
         const path = isSession ? API_PATHS.PARENT_PORTAL_ME : API_PATHS.PARENT_PORTAL_GET(token);
         const res = await axiosInstance.get(path);
-        if (!cancelled) setProfile(res.data || null);
+        setProfile(res.data || null);
+        setScheduleRefreshKey((k) => k + 1);
       } catch (err) {
-        if (cancelled) return;
         const detail = err?.response?.data?.detail;
         setError(
           typeof detail === "string"
@@ -257,14 +260,26 @@ export default function ParentPortal() {
               : "Линкът е невалиден или изтекъл.",
         );
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!silent) setLoading(false);
+        setRefreshing(false);
       }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, isSession, navigate]);
+    },
+    [isSession, token, navigate],
+  );
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() => {
+    return listenParentPortalRefresh(() => loadProfile({ silent: true }));
+  }, [loadProfile]);
+
+  useEffect(() => {
+    const nextSearch = consumeSwRefreshSearchParam(location.search, () => loadProfile({ silent: true }));
+    if (nextSearch === null) return;
+    navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+  }, [location.search, location.pathname, loadProfile, navigate]);
 
   const handleAckScheduleChange = useCallback(
     async (payload) => {
@@ -317,11 +332,30 @@ export default function ParentPortal() {
     return allPayments.slice(0, n);
   }, [profile?.monthly_payments, feesPeriod, allPayments]);
 
-  const headerActions = isSession ? (
-    <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
-      Изход
-    </Button>
-  ) : null;
+  const headerActions = (
+    <div className="parentPortalHeaderActions">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className={`parentPortalRefreshBtn${refreshing ? " is-spinning" : ""}`}
+        onClick={() => loadProfile({ silent: Boolean(profile) })}
+        disabled={refreshing || loading}
+        aria-label="Обнови страницата"
+        title="Обнови данните"
+      >
+        <span className="parentPortalRefreshIcon" aria-hidden>
+          ↻
+        </span>
+        {refreshing ? "Обновяване…" : "Обнови"}
+      </Button>
+      {isSession ? (
+        <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
+          Изход
+        </Button>
+      ) : null}
+    </div>
+  );
 
   return (
     <ParentPortalShell headerActions={headerActions}>
@@ -446,6 +480,7 @@ export default function ParentPortal() {
             <section className="parentPortalScheduleSection">
               <Card title={`График — ${formatMonthKey(profile.schedule_month_key || new Date().toISOString().slice(0, 7))}`}>
                 <ParentScheduleViews
+                  key={scheduleRefreshKey}
                   token={isSession ? undefined : token}
                   fetchScheduleMonth={isSession ? fetchScheduleMonth : undefined}
                   initialItems={profile.monthly_schedule || []}
