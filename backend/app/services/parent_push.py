@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import ParentPushSubscription, TeamMember
+from app.models import ParentPushSubscription
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,27 @@ def portal_url_for_athlete(athlete_id: int) -> str:
     return portal_url_for_portal(PORTAL_PARENT)
 
 
-def _send_web_push(sub: ParentPushSubscription, payload: dict) -> tuple[str, str | None]:
+@dataclass(frozen=True)
+class _PushSubInfo:
+    id: int
+    endpoint: str
+    p256dh: str
+    auth: str
+    portal: str
+
+
+def _push_sub_info(sub: ParentPushSubscription) -> _PushSubInfo:
+    portal = (sub.portal or PORTAL_PARENT).strip() or PORTAL_PARENT
+    return _PushSubInfo(
+        id=int(sub.id),
+        endpoint=sub.endpoint,
+        p256dh=sub.p256dh,
+        auth=sub.auth,
+        portal=portal,
+    )
+
+
+def _send_web_push(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
     if not push_configured():
         return "fail", "VAPID keys not configured on server"
     try:
@@ -146,6 +167,7 @@ def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PA
     )
     if not subs:
         return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this portal"]}
+    subs_info = [_push_sub_info(s) for s in subs]
     target_url = portal_url_for_portal(portal)
     payload = {
         "title": "Тестово известие",
@@ -153,23 +175,24 @@ def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PA
         "url": target_url,
     }
     sent = 0
-    stale: list[ParentPushSubscription] = []
+    stale_ids: list[int] = []
     errors: list[str] = []
-    for sub in subs:
+    for sub in subs_info:
         result, detail = _send_web_push(sub, payload)
         if result == "ok":
             sent += 1
         elif result == "stale":
-            stale.append(sub)
+            stale_ids.append(sub.id)
             if detail:
                 errors.append(detail)
         elif detail:
             errors.append(detail)
-    for sub in stale:
-        db.delete(sub)
-    if stale:
+    if stale_ids:
+        db.query(ParentPushSubscription).filter(ParentPushSubscription.id.in_(stale_ids)).delete(
+            synchronize_session=False
+        )
         db.commit()
-    return {"sent": sent, "subscriptions": len(subs), "errors": errors}
+    return {"sent": sent, "subscriptions": len(subs_info), "errors": errors}
 
 
 def push_status_for_portal(db: Session, athlete_id: int, portal: str) -> int:

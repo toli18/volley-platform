@@ -224,7 +224,7 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
   useEffect(() => {
     if (!active || !selectedTeamId) return undefined;
     loadMessages();
-    const id = setInterval(loadMessages, 5000);
+    const id = setInterval(loadMessages, 10000);
     return () => clearInterval(id);
   }, [active, selectedTeamId, loadMessages]);
 

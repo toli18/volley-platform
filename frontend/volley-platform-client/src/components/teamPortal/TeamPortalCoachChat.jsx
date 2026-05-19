@@ -35,7 +35,7 @@ export default function TeamPortalCoachChat({ teamId }) {
   useEffect(() => {
     if (!teamId) return undefined;
     load().catch(() => {});
-    const id = setInterval(() => load().catch(() => {}), 8000);
+    const id = setInterval(() => load().catch(() => {}), 12000);
     return () => clearInterval(id);
   }, [teamId, load]);
 

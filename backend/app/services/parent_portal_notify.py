@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,11 @@ from app.models import Athlete, ParentPortalChangeMarker, Team, TeamMember
 from app.services.parent_push import format_date_bg, notify_athlete
 
 logger = logging.getLogger(__name__)
+
+
+def _run_in_background(fn, *args, **kwargs) -> None:
+    threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
+
 
 CHANGE_TRAINING_CANCELLED = "training_cancelled"
 CHANGE_TRAINING_ADDED = "training_added"
@@ -165,13 +171,16 @@ def emit_team_change(
     team_label = team_name or "отбор"
     title, body = _message_for(change_type, team_label, date_iso, extra)
     athlete_ids = _athlete_ids_for_team(db, team_id)
+    notify_ids: list[int] = []
     for aid in athlete_ids:
         athlete = db.query(Athlete).filter(Athlete.id == aid, Athlete.is_active.is_(True)).first()
         if not athlete:
             continue
         add_marker(db, aid, change_type, date_iso, marker_key)
-        notify_athlete(db, aid, title, body)
+        notify_ids.append(aid)
     db.commit()
+    for aid in notify_ids:
+        notify_athlete(db, aid, title, body)
     logger.info("Parent notify team=%s date=%s type=%s athletes=%s", team_id, date_iso, change_type, len(athlete_ids))
 
 
@@ -194,7 +203,13 @@ def emit_athlete_change(
     db.commit()
 
 
-def queue_team_change(team_id: int, date_iso: str, change_type: str, marker_key: str, extra: str | None = None) -> None:
+def _queue_team_change_sync(
+    team_id: int,
+    date_iso: str,
+    change_type: str,
+    marker_key: str,
+    extra: str | None = None,
+) -> None:
     db = SessionLocal()
     try:
         emit_team_change(
@@ -211,7 +226,17 @@ def queue_team_change(team_id: int, date_iso: str, change_type: str, marker_key:
         db.close()
 
 
-def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marker_key: str, extra: str | None = None) -> None:
+def queue_team_change(team_id: int, date_iso: str, change_type: str, marker_key: str, extra: str | None = None) -> None:
+    _run_in_background(_queue_team_change_sync, team_id, date_iso, change_type, marker_key, extra=extra)
+
+
+def _queue_athlete_change_sync(
+    athlete_id: int,
+    date_iso: str,
+    change_type: str,
+    marker_key: str,
+    extra: str | None = None,
+) -> None:
     db = SessionLocal()
     try:
         emit_athlete_change(
@@ -226,6 +251,10 @@ def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marke
         logger.exception("Parent portal athlete notify failed: %s", exc)
     finally:
         db.close()
+
+
+def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marker_key: str, extra: str | None = None) -> None:
+    _run_in_background(_queue_athlete_change_sync, athlete_id, date_iso, change_type, marker_key, extra=extra)
 
 
 def _team_id_from_marker(marker_key: str) -> int | None:
@@ -279,7 +308,7 @@ def build_home_notifications(db: Session, athlete_id: int) -> list[dict]:
     return out
 
 
-def queue_team_chat_message(
+def _queue_team_chat_message_sync(
     team_id: int,
     team_name: str,
     sender_label: str,
@@ -298,8 +327,11 @@ def queue_team_chat_message(
             if exclude_athlete_id is not None and int(aid) == int(exclude_athlete_id):
                 continue
             add_marker(db, aid, CHANGE_CHAT_MESSAGE, today, marker_key)
-            notify_athlete(db, aid, title, body)
         db.commit()
+        for aid in athlete_ids:
+            if exclude_athlete_id is not None and int(aid) == int(exclude_athlete_id):
+                continue
+            notify_athlete(db, aid, title, body)
         logger.info("Team chat notify team=%s athletes=%s", team_id, len(athlete_ids))
     except Exception as exc:
         logger.exception("Team chat notify failed: %s", exc)
@@ -307,7 +339,25 @@ def queue_team_chat_message(
         db.close()
 
 
-def queue_team_feed_post(team_id: int, preview: str) -> None:
+def queue_team_chat_message(
+    team_id: int,
+    team_name: str,
+    sender_label: str,
+    preview: str,
+    *,
+    exclude_athlete_id: int | None = None,
+) -> None:
+    _run_in_background(
+        _queue_team_chat_message_sync,
+        team_id,
+        team_name,
+        sender_label,
+        preview,
+        exclude_athlete_id=exclude_athlete_id,
+    )
+
+
+def _queue_team_feed_post_sync(team_id: int, preview: str) -> None:
     db = SessionLocal()
     try:
         athlete_ids = _athlete_ids_for_team(db, team_id)
@@ -317,13 +367,18 @@ def queue_team_feed_post(team_id: int, preview: str) -> None:
         marker_key = f"feed:{int(team_id)}"
         for aid in athlete_ids:
             add_marker(db, aid, CHANGE_FEED_POST, today, marker_key)
-            notify_athlete(db, aid, title, body)
         db.commit()
+        for aid in athlete_ids:
+            notify_athlete(db, aid, title, body)
         logger.info("Team feed notify team=%s athletes=%s", team_id, len(athlete_ids))
     except Exception as exc:
         logger.exception("Team feed notify failed: %s", exc)
     finally:
         db.close()
+
+
+def queue_team_feed_post(team_id: int, preview: str) -> None:
+    _run_in_background(_queue_team_feed_post_sync, team_id, preview)
 
 
 def queue_fee_paid(athlete_id: int, month_key: str, amount: float) -> None:
