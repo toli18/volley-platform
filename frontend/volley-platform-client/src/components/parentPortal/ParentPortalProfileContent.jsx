@@ -256,7 +256,7 @@ export default function ParentPortalProfileContent({
         <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
 
         <div className="parentPortalHighlightGrid">
-          <details className="parentPortalDetails parentPortalHighlightFold">
+          <details className="parentPortalDetails parentPortalHighlightFold" open>
             <summary className="parentPortalDetailsSummary parentPortalHighlightFoldSummary">
               <span className="parentPortalHighlightFoldLead">
                 <IconCalendar className="parentPortalInlineIcon" size={20} />

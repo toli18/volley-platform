@@ -31,9 +31,16 @@ export default function CoachMenu() {
   const { user } = useAuth();
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
+  const displayName = user?.name || user?.email || "Треньор";
 
   return (
     <div className="coachMobilePage">
+      <section className="coachMobileProfileCard" aria-label="Треньор">
+        <p className="coachMobileProfileGreeting">
+          Здравей, <strong>{displayName}</strong>
+        </p>
+        <p className="coachMobileMuted">Меню и бърз достъп до инструментите</p>
+      </section>
       <MenuGroup title="Работа">
         <MenuLink to="/monthly-fees" label="Месечни такси" />
         <MenuLink to="/coach/trainings" label="Моите тренировки" hint="Списък и нова тренировка" />

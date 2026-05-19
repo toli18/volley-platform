@@ -18,6 +18,7 @@ export default function CoachMobileLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const isMenu = pathname === "/coach/menu";
   const showBack =
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") || pathname.startsWith("/coach/athletes/");
 
@@ -41,7 +42,24 @@ export default function CoachMobileLayout() {
         ) : (
           <span className="coachMobileTopSpacer" aria-hidden />
         )}
-        <h1 className="coachMobileTopTitle">{titleForPath(pathname)}</h1>
+        {isMenu ? (
+          <div className="coachMobileTopBrand">
+            <img
+              src="/bfvb-logo.png"
+              alt="БФВ"
+              className="coachMobileTopBrandLogo"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            <div className="coachMobileTopBrandText">
+              <span className="coachMobileTopBrandName">Volley Coach Platform</span>
+              <span className="coachMobileTopBrandSub">Треньорски профил</span>
+            </div>
+          </div>
+        ) : (
+          <h1 className="coachMobileTopTitle">{titleForPath(pathname)}</h1>
+        )}
         <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
           Изход
         </Button>

@@ -300,12 +300,6 @@ export default function TeamRoomPortal() {
                 notifications={data.home_notifications}
                 onOpen={handleOpenHomeNotification}
               />
-              <TeamRoomFeeStatus
-                fee={data.current_month_fee}
-                formatMonthKey={formatMonthKey}
-                feeChangeHighlight={data.fee_change_highlight}
-                onAckFeeHighlight={handleAckFeeHighlight}
-              />
               <div className="teamRoomHomeGrid">
                 <section className="teamRoomCard teamRoomCard--compact" aria-label="Следващи събития">
                   <h2 className="teamRoomCardTitle">Предстои</h2>
@@ -321,6 +315,12 @@ export default function TeamRoomPortal() {
                   />
                 </section>
               </div>
+              <TeamRoomFeeStatus
+                fee={data.current_month_fee}
+                formatMonthKey={formatMonthKey}
+                feeChangeHighlight={data.fee_change_highlight}
+                onAckFeeHighlight={handleAckFeeHighlight}
+              />
               <h2 className="teamRoomSectionTitle">Новини</h2>
               <TeamRoomFeed items={data.items} />
             </TabPanel>
