@@ -5,11 +5,27 @@ import { parseVideoUrl } from "../../utils/drillVideo";
 const EMBED_ALLOW =
   "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 
-function EmbedFrame({ src, title }) {
+function useIsMobileViewport() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return mobile;
+}
+
+function EmbedFrame({ src, title, drive = false }) {
   if (!src) return null;
   return (
-    <div className="drillVideoFrame">
-      <div className="drillVideoFrameAspect drillVideoFrameAspect--tall">
+    <div className={`drillVideoFrame${drive ? " drillVideoFrame--drive" : ""}`}>
+      <div className="drillVideoFrameAspect">
         <iframe
           title={title || "Видео"}
           src={src}
@@ -58,7 +74,18 @@ function StreamVideo({ sources, onExhausted }) {
   );
 }
 
+function resolveInitialMode(parsed, isMobile, embedCandidates, streamSrcs) {
+  if (parsed.kind === "drive") {
+    // Drive iframe breaks on short mobile boxes; native video controls center correctly.
+    if (isMobile && streamSrcs.length > 0) return "stream";
+    if (embedCandidates.length > 0) return "embed";
+    return streamSrcs.length > 0 ? "stream" : "embed";
+  }
+  return streamSrcs.length > 0 ? "stream" : "embed";
+}
+
 function AdaptivePlayer({ parsed, compact }) {
+  const isMobile = useIsMobileViewport();
   const streamSrcs = parsed.streamSrcs || [];
   const embedCandidates = useMemo(() => {
     if (Array.isArray(parsed.embedCandidates) && parsed.embedCandidates.length > 0) {
@@ -70,44 +97,31 @@ function AdaptivePlayer({ parsed, compact }) {
     return list;
   }, [parsed.embedCandidates, parsed.embedSrc, parsed.original]);
 
+  const initialMode = useMemo(
+    () => resolveInitialMode(parsed, isMobile, embedCandidates, streamSrcs),
+    [parsed, isMobile, embedCandidates, streamSrcs]
+  );
+
   const [embedIndex, setEmbedIndex] = useState(0);
-  // Drive: Google preview iframe is the most reliable inline player (shared link).
-  const preferEmbedFirst = parsed.kind === "drive";
-  const [mode, setMode] = useState(() => {
-    if (preferEmbedFirst && embedCandidates.length > 0) return "embed";
-    return streamSrcs.length > 0 ? "stream" : "embed";
-  });
+  const [mode, setMode] = useState(initialMode);
+
+  useEffect(() => {
+    setMode(initialMode);
+    setEmbedIndex(0);
+  }, [parsed.original, initialMode]);
 
   const embedSrc = embedCandidates[embedIndex] || null;
-
-  const tryNextEmbed = () => {
-    if (embedIndex < embedCandidates.length - 1) {
-      setEmbedIndex((i) => i + 1);
-    }
-  };
+  const isDrive = parsed.kind === "drive";
 
   return (
     <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
       {mode === "stream" ? (
         <StreamVideo sources={streamSrcs} onExhausted={() => setMode("embed")} />
       ) : embedSrc ? (
-        <div className="drillVideoFrame">
-          <div className="drillVideoFrameAspect drillVideoFrameAspect--tall">
-            <iframe
-              title={parsed.label || "Видео"}
-              src={embedSrc}
-              className="drillVideoIframe"
-              allow={EMBED_ALLOW}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-              onError={tryNextEmbed}
-            />
-          </div>
-        </div>
+        <EmbedFrame src={embedSrc} title={parsed.label} drive={isDrive} />
       ) : null}
 
-      {parsed.kind === "drive" && mode === "embed" ? (
+      {isDrive && mode === "embed" ? (
         <p className="drillVideoHint">
           Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
         </p>

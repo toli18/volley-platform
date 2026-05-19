@@ -3886,11 +3886,13 @@
 /* Drill video player */
 .drillVideoPlayer {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  justify-items: stretch;
 }
 
 .drillVideoFrame {
-  border: 1px solid #dbe3ef;
+  width: 100%;
   border-radius: 12px;
   overflow: hidden;
   background: #0b1220;
@@ -3899,7 +3901,14 @@
 .drillVideoFrameAspect {
   position: relative;
   width: 100%;
-  padding-top: 56.25%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+}
+
+.drillVideoFrame--drive .drillVideoFrameAspect {
+  aspect-ratio: auto;
+  min-height: min(52vh, 420px);
+  height: min(52vh, 420px);
 }
 
 .drillVideoIframe {
@@ -3908,26 +3917,18 @@
   width: 100%;
   height: 100%;
   border: 0;
+  display: block;
 }
 
 .drillVideoNative {
   width: 100%;
+  aspect-ratio: 16 / 9;
   max-height: min(56vh, 520px);
+  object-fit: contain;
   border-radius: 12px;
-  border: 1px solid #dbe3ef;
   background: #0b1220;
   display: block;
-}
-
-.drillVideoFallback {
-  margin: 0;
-  font-size: 13px;
-  color: #5b6a82;
-}
-
-.drillVideoFrameAspect--tall {
-  padding-top: 62%;
-  min-height: 220px;
+  margin: 0 auto;
 }
 
 .drillVideoHint {
@@ -3935,18 +3936,24 @@
   font-size: 12px;
   line-height: 1.4;
   color: #64748b;
-}
-
-.drillVideoFallback a {
-  color: #0b5cff;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.drillVideoFallback a:hover {
-  text-decoration: underline;
+  text-align: center;
 }
 
 .dmpPlayerBox .drillVideoPlayer {
-  margin-bottom: 4px;
+  margin-bottom: 0;
+}
+
+.dmpPlayerBox .drillVideoFrame {
+  border: none;
+}
+
+.dmpPlayerBox .drillVideoNative {
+  border: none;
+}
+
+@media (min-width: 769px) {
+  .drillVideoFrame--drive .drillVideoFrameAspect {
+    min-height: 360px;
+    height: 360px;
+  }
 }

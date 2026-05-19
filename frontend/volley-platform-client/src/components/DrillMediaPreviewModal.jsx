@@ -102,7 +102,7 @@ export default function DrillMediaPreviewModal({ drill, onClose }) {
       const v = videoItems[main.index];
       return (
         <div className="dmpPlayerBox">
-          <DrillVideoPlayer url={v.original} />
+          <DrillVideoPlayer key={v.original} url={v.original} />
           <div className="dmpPlayerCaption">
             Видео: <span className="dmpMutedSmall">{v.label}</span>
           </div>

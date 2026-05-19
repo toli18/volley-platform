@@ -103,6 +103,7 @@ export function getGoogleDriveEmbedCandidates(fileId, originalUrl) {
 export function getGoogleDriveStreamUrls(fileId) {
   if (!fileId) return [];
   return [
+    `https://drive.google.com/uc?export=view&id=${fileId}`,
     `https://drive.google.com/uc?export=download&id=${fileId}`,
     `https://drive.google.com/uc?export=preview&id=${fileId}`,
     `https://drive.google.com/uc?id=${fileId}&export=download&confirm=t`,
