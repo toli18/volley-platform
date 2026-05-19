@@ -14,7 +14,7 @@ function TeamRoomLoginShell({ children }) {
         <img src="/bfvb-logo.png" alt="БФВ" className="teamRoomLoginLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
         <div>
           <div className="teamRoomLoginBrand">Отборна стая</div>
-          <div className="teamRoomLoginBrandSub">Volley Coach Platform</div>
+          <div className="teamRoomLoginBrandSub">Българска федерация по волейбол</div>
         </div>
       </header>
       <main className="teamRoomMain teamRoomMain--login">{children}</main>

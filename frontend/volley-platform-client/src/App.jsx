@@ -19,7 +19,14 @@ export default function App() {
 
   const isPublicPortal = useMemo(() => {
     const path = location.pathname || "";
-    return path === "/parent" || path.startsWith("/parent/") || path === "/team" || path.startsWith("/team/");
+    return (
+      path === "/parent" ||
+      path.startsWith("/parent/") ||
+      path === "/team" ||
+      path.startsWith("/team/") ||
+      path === "/room" ||
+      path.startsWith("/room/")
+    );
   }, [location.pathname]);
 
   return (

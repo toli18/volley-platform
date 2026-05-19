@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.parent_portal import ParentAttendanceSummary, ParentScheduleItem
+from app.schemas.parent_portal import ParentAttendanceSummary, ParentCurrentMonthFee, ParentScheduleItem
 from app.schemas.team_portal import TeamPortalItemResponse
 
 
@@ -20,4 +20,5 @@ class AthleteRoomMeResponse(BaseModel):
     next_competition: Optional[ParentScheduleItem] = None
     items: list[TeamPortalItemResponse] = Field(default_factory=list)
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
+    current_month_fee: ParentCurrentMonthFee
     avatar_url: Optional[str] = None

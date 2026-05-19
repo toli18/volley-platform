@@ -2767,6 +2767,47 @@
   letter-spacing: 0.04em;
 }
 
+.teamRoomFeeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.teamRoomFeeHeader .teamRoomCardTitle {
+  margin: 0;
+}
+
+.teamRoomFeeBadge {
+  display: inline-flex;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.teamRoomFeeBadge--paid {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+
+.teamRoomFeeBadge--unpaid {
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.teamRoomCard--feePaid {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.teamRoomCard--feeUnpaid {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
 .teamRoomMuted {
   color: #94a3b8;
   font-size: 14px;

@@ -8,16 +8,21 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.athlete_room_auth import get_current_athlete_room_athlete
-from app.models import Athlete, Club, Team, TeamMember, TeamPortalItem
+from app.models import Athlete, AthletePayment, Club, Team, TeamMember, TeamPortalItem
 from app.routers.parent_portal import (
+    PARENT_FEE_DUE_DAY,
     _attendance_summary_from_rows,
     _build_parent_attendance_list,
     _build_schedule_for_teams,
+    _fee_due_date_iso,
+    _last_payment,
     _month_key_now,
     _month_last_day,
+    _month_window,
     _pick_next_by_kind,
     _team_ids_for_athlete,
 )
+from app.schemas.parent_portal import ParentCurrentMonthFee
 from app.routers.team_portal import _item_to_response, _monday_of_week_iso
 from app.schemas.athlete_room import AthleteRoomMeResponse
 from app.schemas.parent_portal import ParentScheduleItem
@@ -65,6 +70,28 @@ def _feed_items(db: Session, team_ids: list[int]) -> list:
     return [_item_to_response(i) for i in items]
 
 
+def _current_month_fee(db: Session, athlete: Athlete) -> ParentCurrentMonthFee:
+    mk = _month_key_now()
+    pay_rows = (
+        db.query(AthletePayment)
+        .filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(_month_window(12)))
+        .all()
+    )
+    pay_map = {p.month_key: p for p in pay_rows}
+    current_pay = pay_map.get(mk)
+    last_pay_row, last_pay_mk = _last_payment(pay_map)
+    return ParentCurrentMonthFee(
+        month_key=mk,
+        paid=mk in pay_map,
+        amount=float(current_pay.amount or 0) if current_pay else 0.0,
+        paid_at=current_pay.paid_at if current_pay else None,
+        due_day=PARENT_FEE_DUE_DAY,
+        due_date=_fee_due_date_iso(mk, PARENT_FEE_DUE_DAY),
+        last_paid_at=last_pay_row.paid_at if last_pay_row else None,
+        last_paid_month_key=last_pay_mk,
+    )
+
+
 def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> AthleteRoomMeResponse:
     teams = _team_names(db, athlete.id)
     team_ids = _team_ids_for_athlete(db, athlete.id)
@@ -106,6 +133,7 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         next_competition=next_competition,
         items=_feed_items(db, team_ids),
         attendance_summary=attendance_summary,
+        current_month_fee=_current_month_fee(db, athlete),
         avatar_url=None,
     )
 

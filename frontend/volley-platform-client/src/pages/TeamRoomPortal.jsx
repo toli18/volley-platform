@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
+import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import axiosInstance from "../utils/apiClient";
@@ -171,6 +172,7 @@ export default function TeamRoomPortal() {
             </header>
 
             <TabPanel id="home" activeTab={activeTab}>
+              <TeamRoomFeeStatus fee={data.current_month_fee} formatMonthKey={formatMonthKey} />
               <div className="teamRoomHomeGrid">
                 <section className="teamRoomCard teamRoomCard--compact" aria-label="Следващи събития">
                   <h2 className="teamRoomCardTitle">Предстои</h2>
@@ -203,6 +205,7 @@ export default function TeamRoomPortal() {
             </TabPanel>
 
             <TabPanel id="profile" activeTab={activeTab}>
+              <TeamRoomFeeStatus fee={data.current_month_fee} formatMonthKey={formatMonthKey} />
               <section className="teamRoomCard">
                 <h2 className="teamRoomCardTitle">Моят профил</h2>
                 <dl className="teamRoomProfileDl">
