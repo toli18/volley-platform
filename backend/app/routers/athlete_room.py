@@ -11,6 +11,8 @@ from app.dependencies.athlete_room_auth import get_current_athlete_room_athlete
 from app.models import Athlete, AthletePayment, Club, Team, TeamMember, TeamPortalItem
 from app.routers.parent_portal import (
     PARENT_FEE_DUE_DAY,
+    _apply_ack_body,
+    _apply_schedule_highlights,
     _attendance_summary_from_rows,
     _build_parent_attendance_list,
     _build_schedule_for_teams,
@@ -22,10 +24,21 @@ from app.routers.parent_portal import (
     _pick_next_by_kind,
     _team_ids_for_athlete,
 )
-from app.schemas.parent_portal import ParentCurrentMonthFee
+from app.schemas.parent_portal import ParentCurrentMonthFee, ParentPortalAckBody, ParentPushStatusResponse
+from app.schemas.parent_portal import ParentPushSubscribeRequest, ParentPushTestResponse, ParentPushVapidResponse
 from app.routers.team_portal import _item_to_response, _monday_of_week_iso
 from app.schemas.athlete_room import AthleteRoomMeResponse
 from app.schemas.parent_portal import ParentScheduleItem
+from app.services.parent_portal_notify import get_pending_marker_state
+from app.services.parent_push import (
+    PORTAL_ATHLETE_ROOM,
+    delete_subscription_for_athlete,
+    push_configured,
+    push_status_for_portal,
+    send_test_notification,
+    upsert_subscription,
+)
+from app.settings import settings
 
 router = APIRouter()
 
@@ -102,14 +115,23 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
     schedule: list[ParentScheduleItem] = []
     next_training = None
     next_competition = None
+    _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
     if team_ids:
-        schedule = _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk))
-        today = date.today()
-        upcoming = _build_schedule_for_teams(
+        schedule = _apply_schedule_highlights(
             db,
-            team_ids,
-            today.isoformat(),
-            (today + timedelta(days=_UPCOMING_HORIZON_DAYS)).isoformat(),
+            athlete.id,
+            _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk)),
+        )
+        today = date.today()
+        upcoming = _apply_schedule_highlights(
+            db,
+            athlete.id,
+            _build_schedule_for_teams(
+                db,
+                team_ids,
+                today.isoformat(),
+                (today + timedelta(days=_UPCOMING_HORIZON_DAYS)).isoformat(),
+            ),
         )
         next_training = _pick_next_by_kind(upcoming, competition=False)
         next_competition = _pick_next_by_kind(upcoming, competition=True)
@@ -134,6 +156,8 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         items=_feed_items(db, team_ids),
         attendance_summary=attendance_summary,
         current_month_fee=_current_month_fee(db, athlete),
+        pending_schedule_dates=pending_dates,
+        fee_change_highlight=fee_highlight,
         avatar_url=None,
     )
 
@@ -165,4 +189,77 @@ def athlete_room_schedule(
     if not team_ids:
         return []
     mk = month.strip()
-    return _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk))
+    items = _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk))
+    return _apply_schedule_highlights(db, athlete.id, items)
+
+
+@router.post("/athlete-room/me/ack-change", status_code=204)
+def athlete_room_ack_change_me(
+    body: ParentPortalAckBody,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    _apply_ack_body(db, athlete.id, body)
+    return None
+
+
+@router.get("/athlete-room/push/vapid-public-key", response_model=ParentPushVapidResponse)
+def athlete_room_push_vapid_public_key():
+    key = (settings.vapid_public_key or "").strip()
+    if not push_configured():
+        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+    return ParentPushVapidResponse(public_key=key, configured=True)
+
+
+@router.get("/athlete-room/me/push-status", response_model=ParentPushStatusResponse)
+def athlete_room_push_status_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    count = push_status_for_portal(db, athlete.id, PORTAL_ATHLETE_ROOM)
+    return ParentPushStatusResponse(subscribed=count > 0, push_available=push_configured())
+
+
+@router.post("/athlete-room/me/push-subscription", status_code=204)
+def athlete_room_push_subscribe_me(
+    payload: ParentPushSubscribeRequest,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    if not push_configured():
+        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+    upsert_subscription(
+        db,
+        athlete.id,
+        payload.endpoint.strip(),
+        payload.keys.p256dh.strip(),
+        payload.keys.auth.strip(),
+        portal=PORTAL_ATHLETE_ROOM,
+    )
+    return None
+
+
+@router.post("/athlete-room/me/push-test", response_model=ParentPushTestResponse)
+def athlete_room_push_test_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    result = send_test_notification(db, athlete.id, portal=PORTAL_ATHLETE_ROOM)
+    return ParentPushTestResponse(
+        sent=result.get("sent", 0),
+        subscriptions=result.get("subscriptions", 0),
+        configured=push_configured(),
+        errors=result.get("errors") or [],
+    )
+
+
+@router.delete("/athlete-room/me/push-subscription", status_code=204)
+def athlete_room_push_unsubscribe_me(
+    endpoint: str | None = Query(None),
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    delete_subscription_for_athlete(
+        db, athlete.id, endpoint.strip() if endpoint else None, portal=PORTAL_ATHLETE_ROOM
+    )
+    return None

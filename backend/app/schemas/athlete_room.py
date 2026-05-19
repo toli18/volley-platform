@@ -21,4 +21,6 @@ class AthleteRoomMeResponse(BaseModel):
     items: list[TeamPortalItemResponse] = Field(default_factory=list)
     attendance_summary: ParentAttendanceSummary = Field(default_factory=ParentAttendanceSummary)
     current_month_fee: ParentCurrentMonthFee
+    pending_schedule_dates: list[str] = Field(default_factory=list)
+    fee_change_highlight: bool = False
     avatar_url: Optional[str] = None

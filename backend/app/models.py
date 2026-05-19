@@ -516,6 +516,7 @@ class ParentPushSubscription(Base):
     p256dh = Column(String(255), nullable=False)
     auth = Column(String(255), nullable=False)
     user_agent = Column(String(512), nullable=True)
+    portal = Column(String(32), nullable=False, default="parent", index=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

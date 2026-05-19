@@ -47,6 +47,7 @@ from app.services.parent_portal_notify import (
     get_pending_marker_state,
 )
 from app.services.parent_push import (
+    PORTAL_PARENT,
     delete_subscription_for_athlete,
     push_configured,
     send_test_notification,
@@ -540,11 +541,9 @@ def parent_push_vapid_public_key():
 
 
 def _parent_push_status(db: Session, athlete_id: int) -> ParentPushStatusResponse:
-    count = (
-        db.query(ParentPushSubscription)
-        .filter(ParentPushSubscription.athlete_id == int(athlete_id))
-        .count()
-    )
+    from app.services.parent_push import PORTAL_PARENT, push_status_for_portal
+
+    count = push_status_for_portal(db, athlete_id, PORTAL_PARENT)
     return ParentPushStatusResponse(subscribed=count > 0, push_available=push_configured())
 
 
@@ -570,6 +569,7 @@ def parent_push_subscribe_me(
         payload.endpoint.strip(),
         payload.keys.p256dh.strip(),
         payload.keys.auth.strip(),
+        portal=PORTAL_PARENT,
     )
     return None
 
@@ -579,7 +579,7 @@ def parent_push_test_me(
     db: Session = Depends(get_db),
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
-    result = send_test_notification(db, athlete.id)
+    result = send_test_notification(db, athlete.id, portal=PORTAL_PARENT)
     return ParentPushTestResponse(
         sent=result.get("sent", 0),
         subscriptions=result.get("subscriptions", 0),
@@ -594,7 +594,9 @@ def parent_push_unsubscribe_me(
     db: Session = Depends(get_db),
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
-    delete_subscription_for_athlete(db, athlete.id, endpoint.strip() if endpoint else None)
+    delete_subscription_for_athlete(
+        db, athlete.id, endpoint.strip() if endpoint else None, portal=PORTAL_PARENT
+    )
     return None
 
 
@@ -619,6 +621,7 @@ def parent_push_subscribe_token(
         payload.endpoint.strip(),
         payload.keys.p256dh.strip(),
         payload.keys.auth.strip(),
+        portal=PORTAL_PARENT,
     )
     return None
 
@@ -626,7 +629,7 @@ def parent_push_subscribe_token(
 @router.post("/parent-portal/{token}/push-test", response_model=ParentPushTestResponse)
 def parent_push_test_token(token: str, db: Session = Depends(get_db)):
     athlete = _resolve_parent_portal_athlete(db, token)
-    result = send_test_notification(db, athlete.id)
+    result = send_test_notification(db, athlete.id, portal=PORTAL_PARENT)
     return ParentPushTestResponse(
         sent=result.get("sent", 0),
         subscriptions=result.get("subscriptions", 0),
@@ -642,7 +645,9 @@ def parent_push_unsubscribe_token(
     db: Session = Depends(get_db),
 ):
     athlete = _resolve_parent_portal_athlete(db, token)
-    delete_subscription_for_athlete(db, athlete.id, endpoint.strip() if endpoint else None)
+    delete_subscription_for_athlete(
+        db, athlete.id, endpoint.strip() if endpoint else None, portal=PORTAL_PARENT
+    )
     return None
 
 

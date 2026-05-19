@@ -2808,6 +2808,32 @@
   border-color: rgba(248, 113, 113, 0.35);
 }
 
+.teamRoomCard--change {
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
+}
+
+.teamRoomFeeBadgeWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.teamRoomBadgeDot--inline {
+  position: static;
+  margin-left: 6px;
+}
+
+.teamRoomPushDetails {
+  margin-bottom: 12px;
+}
+
+.teamRoomPushDetails .parentPortalDetailsSummary,
+.teamRoomPushDetails .parentPortalDetailsBody {
+  background: #111827;
+  border-color: #1e293b;
+  color: #e2e8f0;
+}
+
 .teamRoomMuted {
   color: #94a3b8;
   font-size: 14px;
@@ -2950,6 +2976,13 @@
 
 .teamRoomNextEvent {
   margin-bottom: 12px;
+}
+
+.teamRoomNextEvent--change {
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.35);
 }
 
 .teamRoomNextEventDate {

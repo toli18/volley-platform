@@ -21,6 +21,7 @@ from app.routers.parent_portal import (
 )
 from app.schemas.parent_portal import ParentAttendanceSummary, ParentScheduleItem
 from app.routers.teams import _ensure_team_owner
+from app.services.parent_portal_notify import queue_team_feed_post
 from app.schemas.team_portal import (
     TeamAccessCreateResponse,
     TeamAccessStatusResponse,
@@ -295,6 +296,7 @@ def create_team_portal_text(
     db.add(item)
     db.commit()
     db.refresh(item)
+    queue_team_feed_post(team_id, body)
     return _item_to_response(item)
 
 

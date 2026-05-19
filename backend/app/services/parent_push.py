@@ -6,11 +6,13 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
-from app.models import Athlete, ParentPushSubscription
+from app.models import ParentPushSubscription, TeamMember
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
+
+PORTAL_PARENT = "parent"
+PORTAL_ATHLETE_ROOM = "athlete_room"
 
 _WEEKDAYS_BG = ["понеделник", "вторник", "сряда", "четвъртък", "петък", "събота", "неделя"]
 
@@ -28,15 +30,28 @@ def format_date_bg(iso_date: str) -> str:
         return iso_date
 
 
-def portal_url_for_athlete(athlete_id: int) -> str:
-    base = (settings.parent_portal_public_url or "").strip().rstrip("/")
+def _public_base() -> str:
+    return (settings.parent_portal_public_url or "").strip().rstrip("/")
+
+
+def portal_url_for_portal(portal: str) -> str:
+    base = _public_base()
+    if portal == PORTAL_ATHLETE_ROOM:
+        if base.endswith("/parent/portal"):
+            return base.replace("/parent/portal", "/room/portal")
+        if base:
+            return f"{base}/room/portal"
+        return "/room/portal"
     if base:
-        return f"{base}/parent/portal"
+        return f"{base}/parent/portal" if not base.endswith("/parent/portal") else base
     return "/parent/portal"
 
 
+def portal_url_for_athlete(athlete_id: int) -> str:
+    return portal_url_for_portal(PORTAL_PARENT)
+
+
 def _send_web_push(sub: ParentPushSubscription, payload: dict) -> tuple[str, str | None]:
-    """Returns (status, error_detail) where status is 'ok', 'stale', or 'fail'."""
     if not push_configured():
         return "fail", "VAPID keys not configured on server"
     try:
@@ -85,6 +100,7 @@ def notify_athlete(
     body: str,
     url: str | None = None,
 ) -> dict:
+    """Send push to all subscriptions for this athlete (parent + athlete room devices)."""
     if not push_configured():
         return {"sent": 0, "subscriptions": 0, "errors": ["VAPID keys not configured on server"]}
     subs = (
@@ -94,8 +110,48 @@ def notify_athlete(
     )
     if not subs:
         return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this athlete"]}
-    target_url = url or portal_url_for_athlete(athlete_id)
-    payload = {"title": title, "body": body, "url": target_url}
+    sent = 0
+    stale: list[ParentPushSubscription] = []
+    errors: list[str] = []
+    for sub in subs:
+        portal = (sub.portal or PORTAL_PARENT).strip() or PORTAL_PARENT
+        target_url = url or portal_url_for_portal(portal)
+        payload = {"title": title, "body": body, "url": target_url}
+        result, detail = _send_web_push(sub, payload)
+        if result == "ok":
+            sent += 1
+        elif result == "stale":
+            stale.append(sub)
+            if detail:
+                errors.append(detail)
+        elif detail:
+            errors.append(detail)
+    for sub in stale:
+        db.delete(sub)
+    if stale:
+        db.commit()
+    return {"sent": sent, "subscriptions": len(subs), "errors": errors}
+
+
+def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PARENT) -> dict:
+    if not push_configured():
+        return {"sent": 0, "subscriptions": 0, "errors": ["VAPID keys not configured on server"]}
+    subs = (
+        db.query(ParentPushSubscription)
+        .filter(
+            ParentPushSubscription.athlete_id == int(athlete_id),
+            ParentPushSubscription.portal == portal,
+        )
+        .all()
+    )
+    if not subs:
+        return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this portal"]}
+    target_url = portal_url_for_portal(portal)
+    payload = {
+        "title": "Тестово известие",
+        "body": "Ако виждате това, известията работят.",
+        "url": target_url,
+    }
     sent = 0
     stale: list[ParentPushSubscription] = []
     errors: list[str] = []
@@ -116,21 +172,14 @@ def notify_athlete(
     return {"sent": sent, "subscriptions": len(subs), "errors": errors}
 
 
-def _athlete_ids_for_team(db: Session, team_id: int) -> list[int]:
-    rows = (
-        db.query(TeamMember.athlete_id)
-        .filter(TeamMember.team_id == int(team_id), TeamMember.is_active.is_(True))
-        .all()
-    )
-    return [int(r[0]) for r in rows]
-
-
-def send_test_notification(db: Session, athlete_id: int) -> dict:
-    return notify_athlete(
-        db,
-        athlete_id,
-        "Тестово известие",
-        "Ако виждате това, известията работят.",
+def push_status_for_portal(db: Session, athlete_id: int, portal: str) -> int:
+    return (
+        db.query(ParentPushSubscription)
+        .filter(
+            ParentPushSubscription.athlete_id == int(athlete_id),
+            ParentPushSubscription.portal == portal,
+        )
+        .count()
     )
 
 
@@ -141,6 +190,7 @@ def upsert_subscription(
     p256dh: str,
     auth: str,
     user_agent: str | None = None,
+    portal: str = PORTAL_PARENT,
 ) -> ParentPushSubscription:
     row = db.query(ParentPushSubscription).filter(ParentPushSubscription.endpoint == endpoint).first()
     if row:
@@ -148,6 +198,7 @@ def upsert_subscription(
         row.p256dh = p256dh
         row.auth = auth
         row.user_agent = user_agent
+        row.portal = portal
     else:
         row = ParentPushSubscription(
             athlete_id=int(athlete_id),
@@ -155,6 +206,7 @@ def upsert_subscription(
             p256dh=p256dh,
             auth=auth,
             user_agent=user_agent,
+            portal=portal,
         )
         db.add(row)
     db.commit()
@@ -162,10 +214,17 @@ def upsert_subscription(
     return row
 
 
-def delete_subscription_for_athlete(db: Session, athlete_id: int, endpoint: str | None = None) -> int:
+def delete_subscription_for_athlete(
+    db: Session,
+    athlete_id: int,
+    endpoint: str | None = None,
+    portal: str | None = None,
+) -> int:
     q = db.query(ParentPushSubscription).filter(ParentPushSubscription.athlete_id == int(athlete_id))
     if endpoint:
         q = q.filter(ParentPushSubscription.endpoint == endpoint)
+    if portal:
+        q = q.filter(ParentPushSubscription.portal == portal)
     count = q.count()
     q.delete(synchronize_session=False)
     db.commit()

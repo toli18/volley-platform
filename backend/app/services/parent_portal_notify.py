@@ -205,6 +205,22 @@ def queue_athlete_change(athlete_id: int, date_iso: str, change_type: str, marke
         db.close()
 
 
+def queue_team_feed_post(team_id: int, preview: str) -> None:
+    db = SessionLocal()
+    try:
+        athlete_ids = _athlete_ids_for_team(db, team_id)
+        title = "Нова новина от отбора"
+        body = (preview or "Има ново съобщение в отборната стая.").strip()[:240]
+        for aid in athlete_ids:
+            notify_athlete(db, aid, title, body)
+        db.commit()
+        logger.info("Team feed notify team=%s athletes=%s", team_id, len(athlete_ids))
+    except Exception as exc:
+        logger.exception("Team feed notify failed: %s", exc)
+    finally:
+        db.close()
+
+
 def queue_fee_paid(athlete_id: int, month_key: str, amount: float) -> None:
     today = date.today().isoformat()
     extra = f"Месец {month_key} · {amount:.2f} €"

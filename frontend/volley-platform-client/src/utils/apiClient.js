@@ -46,7 +46,7 @@ axiosInstance.interceptors.request.use((config) => {
     return config;
   }
 
-  if (url.includes("/athlete-room/me")) {
+  if (url.includes("/athlete-room/me") || url.includes("/athlete-room/push/")) {
     const roomToken = getTeamRoomSessionToken();
     if (roomToken) config.headers.Authorization = `Bearer ${roomToken}`;
     return config;

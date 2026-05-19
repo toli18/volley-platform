@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
 import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
 import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
+import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 import { formatDaysUntil } from "../utils/parentPortalDates";
+import {
+  ackAthleteRoomChange,
+  patchProfileAfterScheduleAck,
+} from "../utils/teamRoomAck";
+import { consumeSwRefreshSearchParam, listenTeamRoomRefresh } from "../utils/teamRoomPortalRefresh";
 import { clearTeamRoomToken, getTeamRoomToken, teamRoomLoginPath } from "../utils/teamRoomAuth";
 import { Button, EmptyState } from "../components/ui";
 
@@ -39,14 +45,34 @@ function formatDateBg(iso) {
   }
 }
 
-function NextEventChip({ item, label }) {
+function NextEventChip({ item, label, onAckChange }) {
   if (!item) {
     return <p className="teamRoomMuted">{label}</p>;
   }
   const isComp = isCompetitionEvent(item);
   const daysUntil = formatDaysUntil(item.date);
+  const changeClass = item.highlight_change ? " teamRoomNextEvent--change" : "";
+  const handleAck = () => {
+    if (!item.highlight_change || !onAckChange) return;
+    onAckChange({ markerKey: item.change_marker_key || null, date: item.date });
+  };
   return (
-    <div className="teamRoomNextEvent">
+    <div
+      role={item.highlight_change ? "button" : undefined}
+      tabIndex={item.highlight_change ? 0 : undefined}
+      onClick={item.highlight_change ? handleAck : undefined}
+      onKeyDown={
+        item.highlight_change
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleAck();
+              }
+            }
+          : undefined
+      }
+      className={`teamRoomNextEvent${changeClass}`}
+    >
       <span className={`teamRoomTypeChip teamRoomTypeChip--${isComp ? "competition" : "training"}`}>
         {isComp ? competitionKindLabel(item) : "Тренировка"}
       </span>
@@ -67,19 +93,20 @@ function TabPanel({ id, activeTab, children }) {
 
 export default function TeamRoomPortal() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState("home");
   const [feedSeenAt, setFeedSeenAt] = useState(() => localStorage.getItem("team_room_feed_seen_at") || "");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     if (!getTeamRoomToken()) {
       navigate(teamRoomLoginPath(), { replace: true });
       return;
     }
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const res = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_ME);
       setData(res.data || null);
@@ -87,7 +114,7 @@ export default function TeamRoomPortal() {
       const detail = err?.response?.data?.detail;
       setError(typeof detail === "string" ? detail : "Сесията е изтекла. Влезте отново.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [navigate]);
 
@@ -95,10 +122,39 @@ export default function TeamRoomPortal() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    return listenTeamRoomRefresh(() => load({ silent: true }));
+  }, [load]);
+
+  useEffect(() => {
+    const nextSearch = consumeSwRefreshSearchParam(location.search, () => load({ silent: true }));
+    if (nextSearch === null) return;
+    navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+  }, [location.search, location.pathname, load, navigate]);
+
   const fetchScheduleMonth = useCallback(async (monthKey) => {
     const res = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_ME_SCHEDULE, { params: { month: monthKey } });
     return Array.isArray(res.data) ? res.data : [];
   }, []);
+
+  const handleAckScheduleChange = useCallback(async (payload) => {
+    try {
+      await ackAthleteRoomChange(payload);
+    } catch {
+      /* ignore */
+    }
+    setData((prev) => patchProfileAfterScheduleAck(prev, payload));
+  }, []);
+
+  const handleAckFeeHighlight = useCallback(async () => {
+    if (!data?.fee_change_highlight) return;
+    try {
+      await ackAthleteRoomChange({ scope: "fee" });
+    } catch {
+      /* ignore */
+    }
+    setData((prev) => (prev ? { ...prev, fee_change_highlight: false } : prev));
+  }, [data?.fee_change_highlight]);
 
   const handleLogout = () => {
     clearTeamRoomToken();
@@ -117,16 +173,30 @@ export default function TeamRoomPortal() {
     }
   }, [activeTab, data?.items?.length, markFeedSeen]);
 
+  const highlightDates = useMemo(
+    () => new Set(data?.pending_schedule_dates || []),
+    [data?.pending_schedule_dates],
+  );
+
+  const hasUnreadChanges = useMemo(() => {
+    if (!data) return false;
+    if (data.fee_change_highlight) return true;
+    if ((data.pending_schedule_dates?.length ?? 0) > 0) return true;
+    if (data.monthly_schedule?.some((i) => i.highlight_change)) return true;
+    if (data.next_training?.highlight_change || data.next_competition?.highlight_change) return true;
+    return false;
+  }, [data]);
+
   const badges = useMemo(() => {
     const items = data?.items || [];
-    if (!items.length) return {};
     const latest = items[0]?.created_at;
-    const homeUnread = latest && (!feedSeenAt || new Date(latest) > new Date(feedSeenAt));
+    const homeUnread =
+      (latest && (!feedSeenAt || new Date(latest) > new Date(feedSeenAt))) || hasUnreadChanges;
     return {
       home: homeUnread,
-      messages: true,
+      schedule: hasUnreadChanges,
     };
-  }, [data?.items, feedSeenAt]);
+  }, [data?.items, feedSeenAt, hasUnreadChanges]);
 
   const attendance = data?.attendance_summary;
   const teamLabel = (data?.teams || []).join(", ") || "—";
@@ -172,12 +242,26 @@ export default function TeamRoomPortal() {
             </header>
 
             <TabPanel id="home" activeTab={activeTab}>
-              <TeamRoomFeeStatus fee={data.current_month_fee} formatMonthKey={formatMonthKey} />
+              <TeamRoomPushPrompt />
+              <TeamRoomFeeStatus
+                fee={data.current_month_fee}
+                formatMonthKey={formatMonthKey}
+                feeChangeHighlight={data.fee_change_highlight}
+                onAckFeeHighlight={handleAckFeeHighlight}
+              />
               <div className="teamRoomHomeGrid">
                 <section className="teamRoomCard teamRoomCard--compact" aria-label="Следващи събития">
                   <h2 className="teamRoomCardTitle">Предстои</h2>
-                  <NextEventChip item={data.next_training} label="Няма предстояща тренировка." />
-                  <NextEventChip item={data.next_competition} label="Няма предстоящо състезание." />
+                  <NextEventChip
+                    item={data.next_training}
+                    label="Няма предстояща тренировка."
+                    onAckChange={handleAckScheduleChange}
+                  />
+                  <NextEventChip
+                    item={data.next_competition}
+                    label="Няма предстоящо състезание."
+                    onAckChange={handleAckScheduleChange}
+                  />
                 </section>
               </div>
               <h2 className="teamRoomSectionTitle">Новини</h2>
@@ -193,7 +277,9 @@ export default function TeamRoomPortal() {
                 formatMonthKey={formatMonthKey}
                 initialWeekStart={data.week_start}
                 showTeamLegend
-                scheduleHint="Докоснете ден за детайли."
+                highlightDates={highlightDates}
+                onAckScheduleChange={handleAckScheduleChange}
+                scheduleHint="Докоснете ден за детайли. Червените дни имат промяна."
               />
             </TabPanel>
 
@@ -205,7 +291,12 @@ export default function TeamRoomPortal() {
             </TabPanel>
 
             <TabPanel id="profile" activeTab={activeTab}>
-              <TeamRoomFeeStatus fee={data.current_month_fee} formatMonthKey={formatMonthKey} />
+              <TeamRoomFeeStatus
+                fee={data.current_month_fee}
+                formatMonthKey={formatMonthKey}
+                feeChangeHighlight={data.fee_change_highlight}
+                onAckFeeHighlight={handleAckFeeHighlight}
+              />
               <section className="teamRoomCard">
                 <h2 className="teamRoomCardTitle">Моят профил</h2>
                 <dl className="teamRoomProfileDl">

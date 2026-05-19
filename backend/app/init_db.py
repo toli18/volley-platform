@@ -65,6 +65,12 @@ def init_db() -> None:
                 )
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
                 conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE parent_push_subscriptions "
+                        "ADD COLUMN IF NOT EXISTS portal VARCHAR(32) NOT NULL DEFAULT 'parent'"
+                    )
+                )
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender ensured")
             print("✅ PostgreSQL: teams.gender ensured")
@@ -122,6 +128,14 @@ def init_db() -> None:
             if "gender" not in team_col_names:
                 conn.execute(text("ALTER TABLE teams ADD COLUMN gender VARCHAR(16)"))
                 print("✅ Added teams.gender column")
+
+            push_cols = conn.execute(text("PRAGMA table_info(parent_push_subscriptions)")).fetchall()
+            push_col_names = {row[1] for row in push_cols}
+            if push_cols and "portal" not in push_col_names:
+                conn.execute(
+                    text("ALTER TABLE parent_push_subscriptions ADD COLUMN portal VARCHAR(32) NOT NULL DEFAULT 'parent'")
+                )
+                print("✅ Added parent_push_subscriptions.portal column")
 
     db = SessionLocal()
     try:

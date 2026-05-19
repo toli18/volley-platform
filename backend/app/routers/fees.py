@@ -442,7 +442,7 @@ def remind_unpaid_fees(
     skipped_no_push = 0
     errors: list[str] = []
     title = "Напомняне за месечна такса"
-    body = f"Таксата за {month_key} не е отбелязана като платена. Моля, проверете родителския профил."
+    body = f"Таксата за {month_key} не е отбелязана като платена. Проверете родителския профил или отборната стая."
 
     for athlete in unpaid:
         result = notify_athlete(db, int(athlete.id), title, body)
