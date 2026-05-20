@@ -1039,6 +1039,345 @@
   margin-bottom: 10px;
 }
 
+/* Coach mobile — athlete profile */
+.athleteProfileCoachPage {
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.athleteProfileHead {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.athleteProfileHeadTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.athleteProfileBackLink {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.athleteProfileHeadText {
+  flex: 1;
+  min-width: 0;
+}
+
+.athleteProfileHeadName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.athleteProfileHeadMeta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.athleteProfileHeadActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.athleteProfileHeadActions .uiButton {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+}
+
+.athleteProfileMenuBtn {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
+  color: #475569;
+  cursor: pointer;
+}
+
+.athleteProfileSwipeArea {
+  touch-action: pan-y;
+}
+
+.athleteProfileTab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.athleteProfileCard {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.athleteProfileCard--compact {
+  padding: 10px 12px;
+}
+
+.athleteProfileCardTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.athleteProfileSummaryLine {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.athleteProfileCollapseHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.athleteProfileCollapseBody {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.athleteProfileContactRow {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f4d3a;
+  text-decoration: none;
+}
+
+.athleteProfilePortalHint {
+  margin: 0 0 8px !important;
+  font-size: 13px;
+}
+
+.athleteProfileTeamsHint {
+  margin: 0 0 10px !important;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.athleteProfileInlineActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.athleteProfileBadgeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.athleteProfileAttList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.athleteProfileAttRow {
+  display: grid;
+  grid-template-columns: 52px 44px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 13px;
+}
+
+.athleteProfileAttDate {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.athleteProfileAttTeam {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.athleteProfileAttStatus {
+  text-align: right;
+  font-weight: 600;
+  color: #475569;
+}
+
+.athleteProfileAttStatus.is-ok {
+  color: #0a7a2f;
+}
+
+.athleteProfileTab--fees {
+  gap: 8px;
+}
+
+.athleteProfileFeesSticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0 10px;
+  background: linear-gradient(180deg, #f1f5f9 85%, rgba(241, 245, 249, 0));
+}
+
+.athleteProfileMonthInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.athleteProfileFeesList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.athleteProfileFeesRow {
+  display: grid;
+  grid-template-columns: 88px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.athleteProfileFeesMonth {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.athleteProfileFeesAllLink {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f4d3a;
+}
+
+.athleteProfileHistoryFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.athleteProfileFilterChip {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.athleteProfileFilterChip.is-active {
+  background: #0f4d3a;
+  border-color: #0f4d3a;
+  color: #fff;
+}
+
+.athleteProfileTimeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.athleteProfileTimelineCard {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.athleteProfileTimelineWhen {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.athleteProfileTimelineLabel {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.athleteProfileTimelineMeta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.athleteProfileMoreBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.athleteProfileMoreSheet .uiModalTitle {
+  margin-bottom: 10px;
+}
+
 .athleteProfileHeroActions {
   display: flex;
   gap: 8px;

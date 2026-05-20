@@ -188,7 +188,11 @@ export default function MonthlyFees() {
     const a = athletes.find((x) => Number(x.id) === aid);
     if (!a) return;
     setPayAthlete(a);
-    setPayForm((p) => ({ ...p, month_key: currentMonthKey() }));
+    const monthFromUrl = sp.get("month_key");
+    setPayForm((p) => ({
+      ...p,
+      month_key: monthFromUrl && /^\d{4}-\d{2}$/.test(monthFromUrl) ? monthFromUrl : currentMonthKey(),
+    }));
     const next = new URLSearchParams(sp);
     next.delete("focus");
     const qs = next.toString();

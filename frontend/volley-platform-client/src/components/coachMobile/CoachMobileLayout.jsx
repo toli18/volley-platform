@@ -18,14 +18,9 @@ export default function CoachMobileLayout() {
     isFeesPage ||
     isAttendanceHub ||
     isAttendanceMonth ||
-    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") ||
-    pathname.startsWith("/coach/athletes/");
+    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams");
 
   const handleBack = () => {
-    if (pathname.startsWith("/coach/athletes/")) {
-      navigate(-1);
-      return;
-    }
     if (isFeesPage) {
       navigate("/coach/menu");
       return;

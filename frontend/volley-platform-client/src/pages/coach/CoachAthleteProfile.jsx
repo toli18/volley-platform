@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { parentLoginUrl } from "../../utils/parentAuth";
 import { useToast } from "../../components/ToastProvider";
-import { Button, EmptyState } from "../../components/ui";
+import { EmptyState } from "../../components/ui";
+import AthleteProfileCoachMobile from "./AthleteProfileCoachMobile";
 
 const normalizeError = (err, fallback = "Грешка.") => {
   const detail = err?.response?.data?.detail;
@@ -17,12 +19,17 @@ const normalizeError = (err, fallback = "Грешка.") => {
 
 export default function CoachAthleteProfile() {
   const { athleteId } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
   const athleteIdNum = Number(athleteId);
 
   const from = searchParams.get("from") || "/coach/teams";
+  const tab = ["overview", "attendance", "fees", "history"].includes(searchParams.get("tab") || "")
+    ? searchParams.get("tab")
+    : "overview";
+  const setTab = (id) => setSearchParams({ tab: id, from }, { replace: true });
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -34,6 +41,21 @@ export default function CoachAthleteProfile() {
   const [coachTeams, setCoachTeams] = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState(() => new Set());
   const [initialTeamIds, setInitialTeamIds] = useState(() => new Set());
+
+  const feesAllHref = useMemo(() => {
+    if (!profile?.athlete_id) return "/coach/fees";
+    return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}`;
+  }, [profile?.athlete_id]);
+
+  const feesEditHref = useMemo(() => {
+    if (!profile?.athlete_id) return "/coach/fees";
+    return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}&focus=edit`;
+  }, [profile?.athlete_id]);
+
+  const feesPayHref = useMemo(() => {
+    if (!profile?.athlete_id) return "/coach/fees";
+    return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}&focus=pay`;
+  }, [profile?.athlete_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +107,7 @@ export default function CoachAthleteProfile() {
     };
   }, [athleteIdNum, isHeadCoach, currentUserId, toast]);
 
-  const hasChanges = useMemo(() => {
+  const hasTeamChanges = useMemo(() => {
     if (selectedTeamIds.size !== initialTeamIds.size) return true;
     for (const id of selectedTeamIds) {
       if (!initialTeamIds.has(id)) return true;
@@ -103,7 +125,7 @@ export default function CoachAthleteProfile() {
   };
 
   const saveTeams = async () => {
-    if (!hasChanges) {
+    if (!hasTeamChanges) {
       toast.success("Няма промени за запазване.");
       return;
     }
@@ -131,15 +153,22 @@ export default function CoachAthleteProfile() {
       }
 
       setInitialTeamIds(new Set(selectedTeamIds));
-      if (changedNames.length) {
-        toast.success(`Отборите са запазени: ${changedNames.join(", ")}.`);
-      } else {
-        toast.success("Промените са запазени.");
-      }
+      const profileRes = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteIdNum));
+      setProfile(profileRes.data || null);
+      toast.success(changedNames.length ? "Отборите са запазени." : "Промените са запазени.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно запазване на отборите."));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const copyParentLoginUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(parentLoginUrl());
+      toast.success("Адресът за родителски вход е копиран.");
+    } catch {
+      toast.error("Неуспешно копиране.");
     }
   };
 
@@ -152,67 +181,22 @@ export default function CoachAthleteProfile() {
   }
 
   return (
-    <div className="coachMobilePage">
-      <h2 className="coachMobileHubTeamName">{profile.athlete_name}</h2>
-      <p className="coachMobileMuted">
-        {profile.birth_year ? `Година ${profile.birth_year}` : ""}
-        {profile.athlete_phone ? ` · ${profile.athlete_phone}` : ""}
-      </p>
-
-      <section className="coachMobileCard">
-        <h3 className="coachMobileSectionTitle">Отбори</h3>
-        <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-          Изберете в кои отбори участва състезателят. Натиснете „Запази“, за да приложите промените.
-        </p>
-        {coachTeams.length === 0 ? (
-          <p className="coachMobileMuted">Нямате отбори за управление.</p>
-        ) : (
-          <ul className="coachMobileTeamPickList">
-            {coachTeams.map((team) => (
-              <li key={team.id}>
-                <label className="coachMobileTeamPickRow">
-                  <input
-                    type="checkbox"
-                    checked={selectedTeamIds.has(team.id)}
-                    onChange={() => toggleTeam(team.id)}
-                    disabled={saving}
-                  />
-                  <span>
-                    <span className="coachMobileMenuLabel">{team.name}</span>
-                    {team.age_group ? (
-                      <span className="coachMobileMuted coachMobileMenuHint">{team.age_group}</span>
-                    ) : null}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="coachMobileHubLinks" style={{ marginTop: 12 }}>
-          <Button type="button" disabled={saving || !hasChanges} onClick={saveTeams}>
-            {saving ? "Запазване..." : "Запази отбори"}
-          </Button>
-        </div>
-      </section>
-
-      <section className="coachMobileCard">
-        <h3 className="coachMobileSectionTitle">Присъствие</h3>
-        <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-          Процент: {profile.attendance_summary?.attendance_rate_percent ?? 0}% · Присъства:{" "}
-          {profile.attendance_summary?.present ?? 0}
-        </p>
-      </section>
-
-      <Link to={from} className="coachMobileQuickBtn" style={{ display: "inline-flex", marginTop: 4 }}>
-        ← Назад
-      </Link>
-      <Link
-        to={`/teams/athletes/${athleteIdNum}?from=${encodeURIComponent(from)}`}
-        className="coachMobileMuted"
-        style={{ display: "block", marginTop: 8, fontSize: 13 }}
-      >
-        Пълен профил (десктоп)
-      </Link>
-    </div>
+    <AthleteProfileCoachMobile
+      profile={profile}
+      tab={tab}
+      setTab={setTab}
+      from={from}
+      feesPayHref={feesPayHref}
+      feesEditHref={feesEditHref}
+      feesAllHref={feesAllHref}
+      coachTeams={coachTeams}
+      selectedTeamIds={selectedTeamIds}
+      savingTeams={saving}
+      hasTeamChanges={hasTeamChanges}
+      onToggleTeam={toggleTeam}
+      onSaveTeams={saveTeams}
+      onCopyParentUrl={copyParentLoginUrl}
+      onBack={() => navigate(from)}
+    />
   );
 }
