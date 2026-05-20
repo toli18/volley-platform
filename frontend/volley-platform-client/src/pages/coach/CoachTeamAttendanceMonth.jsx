@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { loadTeamAttendanceMatrix } from "../../utils/teamAttendanceMatrix";
 import { Button, EmptyState } from "../../components/ui";
 
 const monthKeyNow = () => {
@@ -24,6 +25,7 @@ export default function CoachTeamAttendanceMonth() {
   const [monthKey, setMonthKey] = useState(monthKeyNow());
   const [teamName, setTeamName] = useState("");
   const [matrix, setMatrix] = useState(null);
+  const [usedFallback, setUsedFallback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,20 +35,25 @@ export default function CoachTeamAttendanceMonth() {
       try {
         setLoading(true);
         setError("");
-        const [teamsRes, matrixRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.TEAMS_LIST),
-          axiosInstance.get(API_PATHS.TEAM_ATTENDANCE_MATRIX(teamIdNum), { params: { month: monthKey } }),
-        ]);
+        const teamsRes = await axiosInstance.get(API_PATHS.TEAMS_LIST);
+        const { matrix: data, usedFallback: fallback, error: loadError } = await loadTeamAttendanceMatrix(
+          axiosInstance,
+          teamIdNum,
+          monthKey
+        );
         if (!alive) return;
         const teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
         const team = teams.find((t) => t.id === teamIdNum);
         setTeamName(team?.name || `Отбор #${teamIdNum}`);
-        setMatrix(matrixRes.data || null);
+        setMatrix(data);
+        setUsedFallback(Boolean(fallback));
+        setError(loadError || "");
       } catch (err) {
         if (!alive) return;
         const detail = err?.response?.data?.detail;
         setError(typeof detail === "string" ? detail : "Грешка при зареждане на присъствието.");
         setMatrix(null);
+        setUsedFallback(false);
       } finally {
         if (alive) setLoading(false);
       }
@@ -87,6 +94,12 @@ export default function CoachTeamAttendanceMonth() {
           <input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
         </label>
       </div>
+
+      {usedFallback ? (
+        <p className="coachMobileMuted coachAttMatrixFallbackNote">
+          Прегледът е събран от дневните записи. След обновяване на сървъра таблицата ще се зарежда по-бързо.
+        </p>
+      ) : null}
 
       <div className="coachAttMatrixLegend">
         <span className="coachAttMatrixLegendItem coachAttMatrixCell--present">✓ Присъства</span>

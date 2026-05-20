@@ -11,8 +11,29 @@ export default function CoachMobileLayout() {
   const { user, logout } = useAuth();
   const role = String(user?.role || "").toLowerCase();
   const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
+  const isAttendanceHub = pathname === "/coach/attendance";
+  const isAttendanceMonth = pathname.includes("/attendance-month");
   const showBack =
-    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") || pathname.startsWith("/coach/athletes/");
+    isAttendanceHub ||
+    isAttendanceMonth ||
+    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") ||
+    pathname.startsWith("/coach/athletes/");
+
+  const handleBack = () => {
+    if (pathname.startsWith("/coach/athletes/")) {
+      navigate(-1);
+      return;
+    }
+    if (isAttendanceMonth) {
+      navigate("/coach/attendance");
+      return;
+    }
+    if (isAttendanceHub) {
+      navigate("/coach/today");
+      return;
+    }
+    navigate("/coach/teams");
+  };
 
   const handleLogout = () => {
     logout();
@@ -26,7 +47,7 @@ export default function CoachMobileLayout() {
           <button
             type="button"
             className="coachMobileBackBtn"
-            onClick={() => navigate(pathname.startsWith("/coach/athletes/") ? -1 : "/coach/teams")}
+            onClick={handleBack}
             aria-label="Назад"
           >
             ←

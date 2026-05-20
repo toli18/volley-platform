@@ -4452,6 +4452,16 @@
   font-size: 16px;
 }
 
+.coachAttMatrixFallbackNote {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef9c3;
+  color: #713f12;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .coachAttMatrixLegend {
   display: flex;
   flex-wrap: wrap;

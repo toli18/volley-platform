@@ -10,6 +10,7 @@ const TABS = [
 ];
 
 function activeTabForPath(pathname) {
+  if (pathname === "/coach/attendance" || pathname.includes("/attendance-month")) return "today";
   if (pathname.startsWith("/coach/teams")) return "teams";
   if (pathname.startsWith("/coach/schedule")) return "schedule";
   if (pathname.startsWith("/coach/menu")) return "menu";
