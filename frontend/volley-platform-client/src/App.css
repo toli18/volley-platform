@@ -4061,3 +4061,292 @@
     height: 360px;
   }
 }
+
+/* Drill list */
+.drillListFilters {
+  margin-bottom: 12px;
+}
+
+.drillListFiltersGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .drillListFiltersGrid {
+    grid-template-columns: 1fr 1fr 1fr auto;
+    align-items: end;
+  }
+}
+
+.drillListFilter {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.drillListFilter--check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.drillListFilterInput {
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.drillListFilterCount {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.drillListCards {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.drillListTableWrap {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .drillListCards {
+    display: none;
+  }
+
+  .drillListTableWrap {
+    display: block;
+  }
+}
+
+.drillListCard {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.drillListCardPreview {
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  background: #0b1220;
+}
+
+.drillListThumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  display: block;
+}
+
+.drillListMediaBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.drillListMediaBadge--video {
+  background: linear-gradient(145deg, #0b5cff, #1d4ed8);
+}
+
+.drillListMediaBadge--empty {
+  background: #334155;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.drillListCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.drillListCardTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: #0f172a;
+  text-decoration: none;
+  line-height: 1.25;
+}
+
+.drillListCardMeta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.drillListCardDesc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #334155;
+}
+
+.drillListCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.drillListTableMediaBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Drill detail page */
+.drillDetailPage {
+  max-width: 1040px;
+}
+
+.drillDetailCard {
+  margin-bottom: 12px;
+}
+
+.drillDetailCard--flat .uiCardBody {
+  padding-top: 4px;
+}
+
+.drillDetailRow {
+  display: grid;
+  grid-template-columns: minmax(100px, 34%) 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #eef3fa;
+}
+
+.drillDetailRowLabel {
+  color: #5b6f8d;
+  font-size: 13px;
+}
+
+.drillDetailRowValue {
+  font-weight: 600;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.drillDetailRowValue--empty {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.drillDetailDescription {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.drillDetailKeyGrid {
+  display: grid;
+  gap: 0;
+}
+
+.drillDetailStatusRow {
+  margin-top: 8px;
+}
+
+.drillDetailAccordion {
+  border-top: 1px solid #eef3fa;
+  padding: 4px 0;
+}
+
+.drillDetailAccordionSummary {
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 12px 4px;
+  list-style: none;
+}
+
+.drillDetailAccordionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.drillDetailAccordionBody {
+  padding: 0 4px 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.drillDetailTextBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.drillDetailTextTitle {
+  font-weight: 800;
+  font-size: 13px;
+  color: #334155;
+}
+
+.drillDetailTextBody {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.drillDetailChips {
+  padding: 4px 0;
+}
+
+.drillDetailChipsLabel {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.drillDetailChipsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drillDetailImageWrap {
+  display: grid;
+  gap: 8px;
+}
+
+.drillDetailImage {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #0b1220;
+}
+
+.drillDetailImageLink {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b5cff;
+  text-decoration: none;
+}

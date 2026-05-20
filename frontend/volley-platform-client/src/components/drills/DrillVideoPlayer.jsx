@@ -56,7 +56,7 @@ function EmbedFrame({ src, title, drive = false }) {
 }
 
 /** HTML5 video with controls in a bar below the picture (nothing overlaid on the video). */
-function StreamVideo({ sources, onExhausted, openExternal }) {
+function StreamVideo({ sources, onExhausted, openExternal, onPlaying }) {
   const videoRef = useRef(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -131,8 +131,14 @@ function StreamVideo({ sources, onExhausted, openExternal }) {
               setDuration(videoRef.current?.duration || 0);
               setFailed(false);
             }}
-            onLoadedData={() => setFailed(false)}
-            onPlay={() => setPlaying(true)}
+            onLoadedData={() => {
+              setFailed(false);
+              if ((videoRef.current?.duration || 0) > 0) onPlaying?.();
+            }}
+            onPlay={() => {
+              setPlaying(true);
+              onPlaying?.();
+            }}
             onPause={() => setPlaying(false)}
             onEnded={() => setPlaying(false)}
           />
@@ -212,10 +218,12 @@ function AdaptivePlayer({ parsed, compact }) {
 
   const [embedIndex, setEmbedIndex] = useState(0);
   const [mode, setMode] = useState(initialMode);
+  const [hideDriveHint, setHideDriveHint] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
     setEmbedIndex(0);
+    setHideDriveHint(false);
   }, [parsed.original, initialMode]);
 
   const embedSrc = embedCandidates[embedIndex] || null;
@@ -235,18 +243,13 @@ function AdaptivePlayer({ parsed, compact }) {
           sources={streamSrcs}
           onExhausted={handleStreamExhausted}
           openExternal={parsed.original}
+          onPlaying={() => setHideDriveHint(true)}
         />
       ) : showEmbed ? (
         <EmbedFrame src={embedSrc} title={parsed.label} drive={isDrive} />
       ) : null}
 
-      {isDrive && !showEmbed ? (
-        <p className="drillVideoHint">
-          Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
-        </p>
-      ) : null}
-
-      {isDrive && showEmbed ? (
+      {isDrive && !hideDriveHint && !showEmbed ? (
         <p className="drillVideoHint">
           Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
         </p>

@@ -1,9 +1,31 @@
-// src/pages/Drills.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+
+import DrillMediaPreviewModal from "../components/DrillMediaPreviewModal";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import {
+  displayValue,
+  drillFirstImageUrl,
+  drillHasVideo,
+  drillStatusClass,
+  mapDrillStatus,
+  truncateText,
+  uniqueSorted,
+} from "../utils/drillDisplayUtils";
+import { resolveMediaUrl } from "../utils/drillVideo";
+import {
+  Button,
+  Card,
+  EmptyState,
+  PageHero,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui";
 
 const normalizeFastApiError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -19,7 +41,6 @@ async function getWithFallback(primaryPath, aliasPath) {
     const res = await axiosInstance.get(primaryPath);
     return res.data;
   } catch (e) {
-    // ако primary path не съществува, пробваме alias
     const status = e?.response?.status;
     if (aliasPath && (status === 404 || status === 405)) {
       const res2 = await axiosInstance.get(aliasPath);
@@ -29,21 +50,77 @@ async function getWithFallback(primaryPath, aliasPath) {
   }
 }
 
+function DrillMediaBadge({ drill }) {
+  const imageUrl = resolveMediaUrl(drillFirstImageUrl(drill));
+  const hasVideo = drillHasVideo(drill);
+  const hasImage = Boolean(imageUrl);
+
+  if (hasImage) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="drillListThumb"
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+        }}
+      />
+    );
+  }
+  if (hasVideo) {
+    return <span className="drillListMediaBadge drillListMediaBadge--video" aria-hidden>▶</span>;
+  }
+  return <span className="drillListMediaBadge drillListMediaBadge--empty">—</span>;
+}
+
+function DrillCard({ drill, onPreview }) {
+  const title = drill.title || drill.name || "Няма заглавие";
+  const desc = truncateText(drill.description, 100) || "Няма описание";
+
+  return (
+    <article className="drillListCard">
+      <button type="button" className="drillListCardPreview" onClick={() => onPreview(drill)}>
+        <DrillMediaBadge drill={drill} />
+      </button>
+      <div className="drillListCardBody">
+        <div className="drillListCardTop">
+          <Link to={`/drills/${drill.id}`} className="drillListCardTitle">
+            {title}
+          </Link>
+          <span className={drillStatusClass(drill.status)}>{mapDrillStatus(drill.status)}</span>
+        </div>
+        <p className="drillListCardMeta">
+          #{drill.id} · {displayValue(drill.category)} · {displayValue(drill.level)}
+        </p>
+        <p className="drillListCardDesc">{desc}</p>
+        <div className="drillListCardActions">
+          <Button type="button" variant="secondary" size="sm" onClick={() => onPreview(drill)}>
+            Бърз преглед
+          </Button>
+          <Button as={Link} to={`/drills/${drill.id}`} variant="ghost" size="sm">
+            Детайли
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function Drills() {
   const [drills, setDrills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [level, setLevel] = useState("");
+  const [onlyWithVideo, setOnlyWithVideo] = useState(false);
+  const [previewDrill, setPreviewDrill] = useState(null);
 
   const load = async () => {
     try {
       setLoading(true);
       setError("");
-
-      const data = await getWithFallback(
-        API_PATHS.DRILLS_LIST,
-        API_PATHS.DRILLS_LIST_ALIAS
-      );
-
+      const data = await getWithFallback(API_PATHS.DRILLS_LIST, API_PATHS.DRILLS_LIST_ALIAS);
       setDrills(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(normalizeFastApiError(e));
@@ -53,133 +130,154 @@ export default function Drills() {
   };
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      await load();
-      if (!alive) return;
-    })();
-    return () => {
-      alive = false;
-    };
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const categories = useMemo(
+    () => uniqueSorted(drills.map((d) => d.category)),
+    [drills]
+  );
+  const levels = useMemo(() => uniqueSorted(drills.map((d) => d.level)), [drills]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return drills.filter((drill) => {
+      if (category && String(drill.category || "") !== category) return false;
+      if (level && String(drill.level || "") !== level) return false;
+      if (onlyWithVideo && !drillHasVideo(drill)) return false;
+      if (!q) return true;
+      const title = String(drill.title || drill.name || "").toLowerCase();
+      const desc = String(drill.description || "").toLowerCase();
+      return title.includes(q) || desc.includes(q) || String(drill.id).includes(q);
+    });
+  }, [drills, query, category, level, onlyWithVideo]);
+
   return (
-    <div className="uiPage">
+    <div className="uiPage drillListPage">
       <PageHero
         title="Упражнения"
         subtitle="Каталог с одобрени упражнения за преглед и практическа употреба."
-        actions={<Button variant="secondary" onClick={load}>⟳ Презареди</Button>}
+        actions={
+          <Button variant="secondary" onClick={load}>
+            ⟳ Презареди
+          </Button>
+        }
       />
 
-      {error && (
-        <div className="uiAlert uiAlert--danger">
-          Грешка: {error}
+      <Card className="drillListFilters">
+        <div className="drillListFiltersGrid">
+          <label className="drillListFilter">
+            <span>Търсене</span>
+            <input
+              type="search"
+              className="drillListFilterInput"
+              placeholder="Заглавие, описание, ID…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <label className="drillListFilter">
+            <span>Категория</span>
+            <select className="drillListFilterInput" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">Всички</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="drillListFilter">
+            <span>Ниво</span>
+            <select className="drillListFilterInput" value={level} onChange={(e) => setLevel(e.target.value)}>
+              <option value="">Всички</option>
+              {levels.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="drillListFilter drillListFilter--check">
+            <input
+              type="checkbox"
+              checked={onlyWithVideo}
+              onChange={(e) => setOnlyWithVideo(e.target.checked)}
+            />
+            <span>Само с видео</span>
+          </label>
         </div>
+        <p className="drillListFilterCount">
+          Показани: <strong>{filtered.length}</strong> от {drills.length}
+        </p>
+      </Card>
+
+      {error && (
+        <div className="uiAlert uiAlert--danger">Грешка: {error}</div>
       )}
 
       {loading && <p>Зареждане…</p>}
 
-      {!loading && !error && drills.length === 0 && (
-        <EmptyState title="Няма упражнения" description="Добави ново упражнение или презареди по-късно." />
+      {!loading && !error && filtered.length === 0 && (
+        <EmptyState title="Няма упражнения" description="Промени филтрите или презареди." />
       )}
 
-      {!loading && !error && drills.length > 0 && (
-        <Card padded={false}>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Заглавие</TableHead>
-              <TableHead>Описание</TableHead>
-              <TableHead>Медия</TableHead>
-              <TableHead>Статус</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {drills.map((drill) => {
-              let imageUrl = null;
+      {!loading && !error && filtered.length > 0 && (
+        <>
+          <div className="drillListCards">
+            {filtered.map((drill) => (
+              <DrillCard key={drill.id} drill={drill} onPreview={setPreviewDrill} />
+            ))}
+          </div>
 
-              if (drill.image_urls) {
-                if (Array.isArray(drill.image_urls) && drill.image_urls.length > 0) {
-                  imageUrl = drill.image_urls[0];
-                } else if (
-                  typeof drill.image_urls === "string" &&
-                  drill.image_urls.trim()
-                ) {
-                  imageUrl = drill.image_urls.trim();
-                }
-              }
-
-              const hasImage = !!(imageUrl && typeof imageUrl === "string" && imageUrl.trim());
-
-              const hasVideo =
-                drill.video_urls &&
-                ((Array.isArray(drill.video_urls) && drill.video_urls.length > 0) ||
-                  (typeof drill.video_urls === "string" && drill.video_urls.trim()));
-
-              const title = drill.title || drill.name || "няма заглавие";
-
-              const status = String(drill.status || "").toLowerCase();
-              const statusLabel =
-                status === "approved"
-                  ? "Одобрено"
-                  : status === "pending"
-                  ? "Чака одобрение"
-                  : status === "rejected"
-                  ? "Отказано"
-                  : drill.status || "няма статус";
-              const statusClass =
-                status === "approved"
-                  ? "uiBadge uiBadge--success"
-                  : status === "rejected"
-                  ? "uiBadge uiBadge--danger"
-                  : "uiBadge";
-
-              return (
-                <TableRow key={drill.id}>
-                  <TableCell>{drill.id}</TableCell>
-
-                  <TableCell>
-                    <Button as={Link} to={`/drills/${drill.id}`} variant="ghost" size="sm">
-                      {title}
-                    </Button>
-                  </TableCell>
-
-                  <TableCell>{drill.description || "няма описание"}</TableCell>
-
-                  <TableCell>
-                    {hasImage ? (
-                      <img
-                        src={imageUrl}
-                        alt={title}
-                        style={{
-                          maxWidth: 100,
-                          maxHeight: 60,
-                          objectFit: "cover",
-                          border: "1px solid #ddd",
-                          borderRadius: 4,
-                        }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : hasVideo ? (
-                      <span style={{ color: "#0066cc", fontSize: 12 }}>📹 Видео</span>
-                    ) : (
-                      <span style={{ color: "#999", fontSize: 12 }}>—</span>
-                    )}
-                  </TableCell>
-
-                  <TableCell>
-                    <span className={statusClass}>{statusLabel}</span>
-                  </TableCell>
+          <Card padded={false} className="drillListTableWrap">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Заглавие</TableHead>
+                  <TableHead>Описание</TableHead>
+                  <TableHead>Медия</TableHead>
+                  <TableHead>Статус</TableHead>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((drill) => {
+                  const title = drill.title || drill.name || "Няма заглавие";
+                  return (
+                    <TableRow key={drill.id}>
+                      <TableCell>{drill.id}</TableCell>
+                      <TableCell>
+                        <Button as={Link} to={`/drills/${drill.id}`} variant="ghost" size="sm">
+                          {title}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{truncateText(drill.description, 80) || "Няма описание"}</TableCell>
+                      <TableCell>
+                        <button
+                          type="button"
+                          className="drillListTableMediaBtn"
+                          onClick={() => setPreviewDrill(drill)}
+                          title="Бърз преглед"
+                        >
+                          <DrillMediaBadge drill={drill} />
+                        </button>
+                      </TableCell>
+                      <TableCell>
+                        <span className={drillStatusClass(drill.status)}>{mapDrillStatus(drill.status)}</span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
+      )}
+
+      {previewDrill && (
+        <DrillMediaPreviewModal drill={previewDrill} onClose={() => setPreviewDrill(null)} />
       )}
     </div>
   );
