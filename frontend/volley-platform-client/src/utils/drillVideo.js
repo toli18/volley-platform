@@ -99,15 +99,34 @@ export function getGoogleDriveEmbedCandidates(fileId, originalUrl) {
   return [...new Set(candidates)];
 }
 
+/** Backend proxy — reliable embedded playback for Drive/Dropbox on mobile. */
+export function getVideoProxyStreamUrl(originalUrl) {
+  const base = (axiosInstance?.defaults?.baseURL || "").replace(/\/$/, "");
+  if (!base || !originalUrl) return null;
+  return `${base}/drills/video/stream?url=${encodeURIComponent(originalUrl)}`;
+}
+
+function uniqueUrls(list) {
+  const out = [];
+  const seen = new Set();
+  for (const u of list) {
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
 /** Direct stream candidates for HTML5 video (file must be shared: anyone with the link). */
-export function getGoogleDriveStreamUrls(fileId) {
+export function getGoogleDriveStreamUrls(fileId, originalUrl) {
   if (!fileId) return [];
-  return [
+  return uniqueUrls([
+    originalUrl ? getVideoProxyStreamUrl(originalUrl) : null,
     `https://drive.google.com/uc?export=view&id=${fileId}`,
     `https://drive.google.com/uc?export=download&id=${fileId}`,
     `https://drive.google.com/uc?export=preview&id=${fileId}`,
     `https://drive.google.com/uc?id=${fileId}&export=download&confirm=t`,
-  ];
+  ]);
 }
 
 export function normalizeDropboxUrl(url) {
@@ -158,7 +177,7 @@ export function parseVideoUrl(rawUrl) {
       label: "Google Drive",
       embedSrc: embedCandidates[0],
       embedCandidates,
-      streamSrcs: getGoogleDriveStreamUrls(driveId),
+      streamSrcs: getGoogleDriveStreamUrls(driveId, original),
       original,
     };
   }
@@ -169,7 +188,7 @@ export function parseVideoUrl(rawUrl) {
       kind: "dropbox",
       label: "Dropbox",
       embedSrc: direct,
-      streamSrcs: [direct],
+      streamSrcs: uniqueUrls([getVideoProxyStreamUrl(original), direct]),
       original,
     };
   }
@@ -178,7 +197,7 @@ export function parseVideoUrl(rawUrl) {
     kind: "external",
     label: "Видео линк",
     embedSrc: original,
-    streamSrcs: [original],
+    streamSrcs: uniqueUrls([getVideoProxyStreamUrl(original), original]),
     original,
   };
 }

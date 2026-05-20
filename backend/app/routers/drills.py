@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any
 from datetime import datetime
 
+import httpx
+
 from ..database import get_db
 from ..models import Drill, UserRole
 from ..dependencies.roles import require_role
+from ..services.external_video import is_allowed_video_url, resolve_stream_target
 
 router = APIRouter()
 
@@ -317,6 +321,72 @@ def admin_delete_drill(
     db.delete(drill)
     db.commit()
     return None
+
+
+# ========================
+# Embedded video stream (Google Drive proxy)
+# ========================
+
+
+@router.get("/video/stream")
+async def stream_drill_video(request: Request, url: str):
+    """
+    Proxy a publicly shared external video for in-app HTML5 playback.
+    Supports Google Drive (anyone-with-link), Dropbox raw links, and direct video URLs.
+    """
+    if not url or not is_allowed_video_url(url):
+        raise HTTPException(status_code=400, detail="Invalid or unsupported video URL")
+
+    try:
+        target = await resolve_stream_target(url)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid or unsupported video URL")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not resolve video from source")
+
+    forward_headers: dict[str, str] = {}
+    range_header = request.headers.get("range")
+    if range_header:
+        forward_headers["Range"] = range_header
+
+    client = httpx.AsyncClient(follow_redirects=True, timeout=120.0)
+    try:
+        req = client.build_request("GET", target, headers=forward_headers)
+        upstream = await client.send(req, stream=True)
+    except Exception:
+        await client.aclose()
+        raise HTTPException(status_code=502, detail="Upstream video unavailable")
+
+    if upstream.status_code >= 400:
+        await upstream.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=502, detail="Upstream video unavailable")
+
+    out_headers = {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=3600",
+    }
+    if upstream.headers.get("content-type"):
+        out_headers["Content-Type"] = upstream.headers.get("content-type")
+    if upstream.headers.get("content-length"):
+        out_headers["Content-Length"] = upstream.headers.get("content-length")
+    if upstream.headers.get("content-range"):
+        out_headers["Content-Range"] = upstream.headers.get("content-range")
+
+    async def body_iter():
+        try:
+            async for chunk in upstream.aiter_bytes(65536):
+                yield chunk
+        finally:
+            await upstream.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        body_iter(),
+        status_code=upstream.status_code,
+        headers=out_headers,
+        media_type=upstream.headers.get("content-type", "video/mp4"),
+    )
 
 
 # ========================

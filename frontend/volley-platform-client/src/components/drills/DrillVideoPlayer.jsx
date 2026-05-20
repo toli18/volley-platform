@@ -127,7 +127,11 @@ function StreamVideo({ sources, onExhausted, openExternal }) {
             className="drillVideoNative drillVideoNative--bare"
             onError={handleError}
             onTimeUpdate={() => setCurrent(videoRef.current?.currentTime || 0)}
-            onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+            onLoadedMetadata={() => {
+              setDuration(videoRef.current?.duration || 0);
+              setFailed(false);
+            }}
+            onLoadedData={() => setFailed(false)}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             onEnded={() => setPlaying(false)}
