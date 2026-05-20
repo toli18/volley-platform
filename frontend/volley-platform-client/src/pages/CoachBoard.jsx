@@ -6,11 +6,33 @@ import { useToast } from "../components/ToastProvider";
 const BOARD_STORAGE_KEY = "vp-coach-board-v1";
 const COURT_WIDTH = 1000;
 const COURT_HEIGHT = 560;
+const MOBILE_BREAKPOINT = 768;
 
 const TEAM_COLORS = {
   a: "#2563eb",
   b: "#dc2626",
 };
+
+function getInitialOrientation() {
+  if (typeof window === "undefined") return "landscape";
+  try {
+    const raw = localStorage.getItem(BOARD_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.orientation === "landscape" || parsed?.orientation === "portrait") {
+        return parsed.orientation;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return window.innerWidth < MOBILE_BREAKPOINT ? "portrait" : "landscape";
+}
+
+function getViewportHeight() {
+  if (typeof window === "undefined") return 800;
+  return window.visualViewport?.height ?? window.innerHeight;
+}
 
 function createInitialPlayers() {
   const left = [
@@ -37,13 +59,14 @@ export default function CoachBoard() {
   const containerRef = useRef(null);
   const bgCanvasRef = useRef(null);
   const drawCanvasRef = useRef(null);
+  const lastCanvasRef = useRef({ w: 0, h: 0, orientation: getInitialOrientation() });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [strokes, setStrokes] = useState([]);
   const [activeStroke, setActiveStroke] = useState(null);
   const [color, setColor] = useState("#111827");
   const [lineWidth, setLineWidth] = useState(4);
-  const [tool, setTool] = useState("pen"); // pen | eraser
-  const [orientation, setOrientation] = useState("landscape"); // landscape | portrait
+  const [tool, setTool] = useState("pen");
+  const [orientation, setOrientation] = useState(getInitialOrientation);
   const [players, setPlayers] = useState(createInitialPlayers);
   const [dragPlayerId, setDragPlayerId] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
@@ -51,6 +74,10 @@ export default function CoachBoard() {
   const [showGear, setShowGear] = useState(true);
   const [activityTick, setActivityTick] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < MOBILE_BREAKPOINT : false,
+  );
 
   const ratio = orientation === "landscape" ? COURT_WIDTH / COURT_HEIGHT : COURT_HEIGHT / COURT_WIDTH;
 
@@ -60,15 +87,29 @@ export default function CoachBoard() {
       width: Number(lineWidth) || 4,
       eraser: tool === "eraser",
     }),
-    [tool, color, lineWidth]
+    [tool, color, lineWidth],
   );
 
+  const showRotateBanner = isMobile && orientation === "landscape";
+
   useEffect(() => {
-    const onResize = () => {
+    const onResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const fitCourt = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const maxW = Math.max(280, rect.width - 2);
-      const maxH = Math.max(260, window.innerHeight - 260);
+      const vh = getViewportHeight();
+      const dockH = isMobile ? 64 : controlsOpen ? 88 : 56;
+      const topBarH = controlsOpen && !isMobile ? 52 : showRotateBanner ? 48 : 8;
+      const pagePad = fullscreen ? 12 : isMobile ? 8 : 24;
+      const maxW = Math.max(280, rect.width);
+      const maxH = Math.max(280, vh - dockH - topBarH - pagePad);
+
       let width = maxW;
       let height = Math.round(width / ratio);
       if (height > maxH) {
@@ -77,10 +118,35 @@ export default function CoachBoard() {
       }
       setCanvasSize({ width, height });
     };
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [ratio]);
+
+    fitCourt();
+    window.addEventListener("resize", fitCourt);
+    window.visualViewport?.addEventListener("resize", fitCourt);
+    return () => {
+      window.removeEventListener("resize", fitCourt);
+      window.visualViewport?.removeEventListener("resize", fitCourt);
+    };
+  }, [ratio, controlsOpen, fullscreen, isMobile, showRotateBanner]);
+
+  useEffect(() => {
+    const last = lastCanvasRef.current;
+    if (
+      last.w &&
+      last.h &&
+      canvasSize.width &&
+      canvasSize.height &&
+      last.orientation !== orientation
+    ) {
+      setPlayers((prev) =>
+        prev.map((pl) => ({
+          ...pl,
+          x: Math.max(20, Math.min(canvasSize.width - 20, Math.round((pl.x / last.w) * canvasSize.width))),
+          y: Math.max(20, Math.min(canvasSize.height - 20, Math.round((pl.y / last.h) * canvasSize.height))),
+        })),
+      );
+    }
+    lastCanvasRef.current = { w: canvasSize.width, h: canvasSize.height, orientation };
+  }, [canvasSize.width, canvasSize.height, orientation]);
 
   useEffect(() => {
     try {
@@ -105,7 +171,7 @@ export default function CoachBoard() {
           strokes: strokes.slice(-300),
           players,
           orientation,
-        })
+        }),
       );
     } catch {
       // ignore
@@ -113,13 +179,13 @@ export default function CoachBoard() {
   }, [strokes, players, orientation]);
 
   useEffect(() => {
-    if (!showGear && !controlsOpen) return;
+    if (isMobile || (!showGear && !controlsOpen)) return;
     const t = window.setTimeout(() => {
       setControlsOpen(false);
       setShowGear(false);
-    }, 3000);
+    }, 4000);
     return () => window.clearTimeout(t);
-  }, [activityTick, showGear, controlsOpen]);
+  }, [activityTick, showGear, controlsOpen, isMobile]);
 
   useEffect(() => {
     const canvas = bgCanvasRef.current;
@@ -148,13 +214,11 @@ export default function CoachBoard() {
     ctx.lineWidth = Math.max(2, Math.round(Math.min(W, H) * 0.007));
     ctx.strokeRect(pad, pad, cW, cH);
 
-    // Center line (net)
     ctx.beginPath();
     ctx.moveTo(pad + cW / 2, pad);
     ctx.lineTo(pad + cW / 2, pad + cH);
     ctx.stroke();
 
-    // 3m lines
     const threeM = cW * 0.25;
     ctx.beginPath();
     ctx.moveTo(pad + threeM, pad);
@@ -163,7 +227,6 @@ export default function CoachBoard() {
     ctx.lineTo(pad + cW - threeM, pad + cH);
     ctx.stroke();
 
-    // dashed attack helper outside
     ctx.setLineDash([8, 8]);
     ctx.lineWidth = Math.max(1, Math.round(Math.min(W, H) * 0.004));
     ctx.beginPath();
@@ -235,6 +298,43 @@ export default function CoachBoard() {
     setPlayers(createInitialPlayers());
   };
 
+  const setPortraitCourt = () => {
+    pingActivity();
+    if (orientation !== "portrait") setOrientation("portrait");
+  };
+
+  const toggleOrientation = () => {
+    pingActivity();
+    setOrientation((v) => (v === "landscape" ? "portrait" : "landscape"));
+  };
+
+  const toggleFullscreen = async () => {
+    pingActivity();
+    if (!fullscreen) {
+      setFullscreen(true);
+      try {
+        await document.documentElement.requestFullscreen?.();
+      } catch {
+        // CSS fullscreen still works
+      }
+      return;
+    }
+    setFullscreen(false);
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen?.();
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   const getPoint = (evt) => {
     const canvas = drawCanvasRef.current;
     if (!canvas) return null;
@@ -242,7 +342,12 @@ export default function CoachBoard() {
     const isTouch = evt.touches && evt.touches[0];
     const clientX = isTouch ? evt.touches[0].clientX : evt.clientX;
     const clientY = isTouch ? evt.touches[0].clientY : evt.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
   };
 
   const startDraw = (evt) => {
@@ -287,10 +392,10 @@ export default function CoachBoard() {
     players.forEach((pl) => {
       ctx.beginPath();
       ctx.fillStyle = TEAM_COLORS[pl.team] || "#111827";
-      ctx.arc(pl.x, pl.y, 16, 0, Math.PI * 2);
+      ctx.arc(pl.x, pl.y, 18, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 13px sans-serif";
+      ctx.font = "bold 14px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(pl.num), pl.x, pl.y);
@@ -348,27 +453,18 @@ export default function CoachBoard() {
     setSelectedPlayerId(null);
   };
 
+  const backTo = isMobile ? "/coach/menu" : "/";
+
   return (
-    <div className="uiPage" style={{ minHeight: "100dvh", display: "grid", alignItems: "center" }}>
-      <section style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", padding: 10, position: "relative" }}>
-        {showGear ? (
+    <div className={`coachBoardPage${fullscreen ? " coachBoardPage--fullscreen" : ""}`}>
+      <section className="coachBoardShell">
+        {showGear && !isMobile ? (
           <button
             type="button"
+            className="coachBoardGearBtn"
             onClick={() => {
               pingActivity();
               setControlsOpen((v) => !v);
-            }}
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              zIndex: 7,
-              border: "1px solid #cbd5e1",
-              borderRadius: 10,
-              background: "rgba(255,255,255,.95)",
-              padding: "8px 10px",
-              fontWeight: 800,
-              cursor: "pointer",
             }}
             title={controlsOpen ? "Скрий инструментите" : "Покажи инструментите"}
           >
@@ -376,50 +472,57 @@ export default function CoachBoard() {
           </button>
         ) : null}
 
+        {showRotateBanner ? (
+          <div className="coachBoardRotateBanner">
+            <span>На телефон игрището е по-голямо вертикално.</span>
+            <button type="button" className="coachBoardDockBtn coachBoardDockBtn--active" onClick={setPortraitCourt}>
+              Вертикално
+            </button>
+          </div>
+        ) : null}
+
         {controlsOpen ? (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingRight: 54 }} onClick={pingActivity}>
-            <Button as={Link} to="/" variant="secondary" size="sm">
+          <div className="coachBoardTopBar" onClick={pingActivity}>
+            <Button as={Link} to={backTo} variant="secondary" size="sm">
               Назад
             </Button>
             <Button size="sm" variant={tool === "pen" ? "primary" : "secondary"} onClick={() => setTool("pen")}>
-              ✏️ Писалка
+              Писалка
             </Button>
             <Button size="sm" variant={tool === "eraser" ? "primary" : "secondary"} onClick={() => setTool("eraser")}>
-              🧽 Гума
+              Гума
             </Button>
             <Button size="sm" variant="secondary" onClick={undo} disabled={!undoStack.length}>
-              ↶ Undo
+              Undo
             </Button>
             <Button size="sm" variant="secondary" onClick={clearLastStroke} disabled={!strokes.length}>
-              ⌫ Изтрий последна линия
+              ⌫ Линия
             </Button>
             <Button size="sm" variant="secondary" onClick={clearBoard} disabled={!strokes.length}>
-              🗑️ Изчисти линии
+              Изчисти
             </Button>
             <Button size="sm" variant="secondary" onClick={resetPlayers}>
-              ♻️ Reset играчи
+              Reset
             </Button>
             <Button size="sm" variant="secondary" onClick={() => addPlayer("a")}>
-              ➕ Играч A
+              +A
             </Button>
             <Button size="sm" variant="secondary" onClick={() => addPlayer("b")}>
-              ➕ Играч B
+              +B
             </Button>
             <Button size="sm" variant="danger" onClick={removeSelectedPlayer} disabled={!selectedPlayerId}>
-              ➖ Премахни избран
+              −
             </Button>
             <Button size="sm" onClick={exportPng}>
-              📤 Export PNG
+              PNG
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setOrientation((v) => (v === "landscape" ? "portrait" : "landscape"))}
-            >
-              🔄 {orientation === "landscape" ? "Портрет" : "Ландшафт"}
+            <Button size="sm" variant="secondary" onClick={toggleOrientation}>
+              {orientation === "landscape" ? "Вертикално" : "Хоризонтално"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={toggleFullscreen}>
+              {fullscreen ? "Изход FS" : "Цял екран"}
             </Button>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
-              🎨
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={tool === "eraser"} />
             </label>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #e2e8f0", borderRadius: 10, padding: "6px 8px" }}>
@@ -429,19 +532,12 @@ export default function CoachBoard() {
           </div>
         ) : null}
 
-        <div ref={containerRef} style={{ width: "100%" }}>
+        <div ref={containerRef} className="coachBoardCourtWrap">
           <div
+            className="coachBoardCourt"
             style={{
-              position: "relative",
               width: canvasSize.width || "100%",
               height: canvasSize.height || 360,
-              maxWidth: "100%",
-              borderRadius: 12,
-              overflow: "hidden",
-              touchAction: "none",
-              margin: "0 auto",
-              border: "1px solid #cbd5e1",
-              background: "#fff",
             }}
             onMouseDown={pingActivity}
             onTouchStart={pingActivity}
@@ -451,10 +547,9 @@ export default function CoachBoard() {
             onTouchMove={moveDragPlayer}
             onTouchEnd={endDragPlayer}
           >
-            <canvas ref={bgCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+            <canvas ref={bgCanvasRef} />
             <canvas
               ref={drawCanvasRef}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
               onMouseDown={startDraw}
               onMouseMove={moveDraw}
               onMouseUp={endDraw}
@@ -463,66 +558,74 @@ export default function CoachBoard() {
               onTouchMove={moveDraw}
               onTouchEnd={endDraw}
             />
-            {!controlsOpen ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  bottom: 10,
-                  zIndex: 6,
-                  display: "flex",
-                  gap: 6,
-                  flexWrap: "wrap",
-                  maxWidth: "min(96%, 520px)",
+            <div className="coachBoardDock">
+              {isMobile ? (
+                <Button as={Link} to={backTo} variant="secondary" size="sm">
+                  ←
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={`coachBoardDockBtn${tool === "pen" ? " coachBoardDockBtn--active" : ""}`}
+                onClick={() => {
+                  pingActivity();
+                  setTool("pen");
                 }}
               >
+                ✏️
+              </button>
+              <button
+                type="button"
+                className={`coachBoardDockBtn${tool === "eraser" ? " coachBoardDockBtn--active" : ""}`}
+                onClick={() => {
+                  pingActivity();
+                  setTool("eraser");
+                }}
+              >
+                🧽
+              </button>
+              <button type="button" className="coachBoardDockBtn" onClick={clearLastStroke} disabled={!strokes.length}>
+                ⌫
+              </button>
+              <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("a")}>
+                +A
+              </button>
+              <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("b")}>
+                +B
+              </button>
+              <button
+                type="button"
+                className="coachBoardDockBtn coachBoardDockBtn--danger"
+                onClick={removeSelectedPlayer}
+                disabled={!selectedPlayerId}
+              >
+                −
+              </button>
+              <button type="button" className="coachBoardDockBtn" onClick={toggleOrientation}>
+                {orientation === "landscape" ? "↕" : "↔"}
+              </button>
+              <button type="button" className="coachBoardDockBtn" onClick={toggleFullscreen}>
+                ⛶
+              </button>
+              {isMobile ? (
                 <button
                   type="button"
+                  className="coachBoardDockBtn"
                   onClick={() => {
                     pingActivity();
-                    setTool((t) => (t === "eraser" ? "pen" : "eraser"));
+                    setControlsOpen((v) => !v);
                   }}
-                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
                 >
-                  {tool === "eraser" ? "✏️ Писалка" : "🧽 Гума"}
+                  ⚙
                 </button>
-                <button
-                  type="button"
-                  onClick={clearLastStroke}
-                  disabled={!strokes.length}
-                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
-                >
-                  ⌫
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addPlayer("a")}
-                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
-                >
-                  ➕A
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addPlayer("b")}
-                  style={{ border: "1px solid #cbd5e1", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800 }}
-                >
-                  ➕B
-                </button>
-                <button
-                  type="button"
-                  onClick={removeSelectedPlayer}
-                  disabled={!selectedPlayerId}
-                  style={{ border: "1px solid #fca5a5", borderRadius: 9, background: "rgba(255,255,255,.95)", padding: "7px 9px", fontWeight: 800, color: "#b91c1c" }}
-                >
-                  ➖
-                </button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             {players.map((pl) => (
               <button
                 key={pl.id}
                 type="button"
                 title={`Играч ${pl.num}`}
+                className={`coachBoardPlayerBtn${selectedPlayerId === pl.id ? " coachBoardPlayerBtn--selected" : ""}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   pingActivity();
@@ -542,19 +645,9 @@ export default function CoachBoard() {
                   startDragPlayer(pl.id);
                 }}
                 style={{
-                  position: "absolute",
-                  left: pl.x - 16,
-                  top: pl.y - 16,
-                  width: 32,
-                  height: 32,
-                  borderRadius: 999,
-                  border: selectedPlayerId === pl.id ? "3px solid #facc15" : "2px solid #fff",
-                  boxShadow: "0 2px 8px rgba(0,0,0,.25)",
+                  left: pl.x - 18,
+                  top: pl.y - 18,
                   background: TEAM_COLORS[pl.team] || "#111827",
-                  color: "#fff",
-                  fontWeight: 900,
-                  fontSize: 12,
-                  cursor: "grab",
                 }}
               >
                 {pl.num}

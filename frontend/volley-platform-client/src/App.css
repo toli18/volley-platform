@@ -5242,3 +5242,202 @@
   color: #0b5cff;
   text-decoration: none;
 }
+
+/* Tactical board — mobile-first court */
+.coachBoardPage {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+}
+
+.coachBoardPage--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.coachBoardShell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+  position: relative;
+}
+
+.coachBoardPage--fullscreen .coachBoardShell {
+  border-radius: 0;
+  border: none;
+  padding: 4px;
+}
+
+.coachBoardTopBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding-right: 44px;
+}
+
+.coachBoardTopBar--hidden {
+  display: none;
+}
+
+.coachBoardGearBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 7;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 11px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.coachBoardCourtWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+}
+
+.coachBoardCourt {
+  position: relative;
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: none;
+  margin: 0 auto;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+}
+
+.coachBoardCourt canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.coachBoardRotateBanner {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  font-size: 13px;
+  color: #14532d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coachBoardDock {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 6;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+.coachBoardDockBtn {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.coachBoardDockBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.coachBoardDockBtn--danger {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.coachBoardDockBtn--active {
+  background: #0f4d3a;
+  border-color: #0f4d3a;
+  color: #fff;
+}
+
+.coachBoardPlayerBtn {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: grab;
+  padding: 0;
+}
+
+.coachBoardPlayerBtn--selected {
+  border-width: 3px;
+  border-color: #facc15;
+}
+
+@media (max-width: 767px) {
+  .appContent--immersive {
+    padding: 0;
+  }
+
+  .coachBoardPage {
+    min-height: calc(100dvh - 8px);
+  }
+
+  .coachBoardShell {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    padding: 6px 4px 4px;
+  }
+
+  .coachBoardDock {
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    gap: 4px;
+  }
+
+  .coachBoardDockBtn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+}
