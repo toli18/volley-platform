@@ -182,8 +182,8 @@ export default function CoachTeamHub() {
             <>
               <TeamPortalHeroActions coach={portalCoach} />
               <div className="coachMobileHubLinks">
-                <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/teams/${teamIdNum}/attendance`)}>
-                  Присъствие
+                <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/coach/teams/${teamIdNum}/attendance-month`)}>
+                  Присъствие (месец)
                 </Button>
                 <Link to={`/teams/${teamIdNum}`} className="coachMobileQuickBtn" style={{ display: "inline-flex", alignItems: "center" }}>
                   Пълен профил (десктоп)

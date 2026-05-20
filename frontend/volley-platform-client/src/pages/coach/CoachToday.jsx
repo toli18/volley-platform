@@ -148,19 +148,22 @@ export default function CoachToday() {
             </>
           ) : null}
 
-          <h2 className="coachMobileSectionTitle">Бързи действия</h2>
+          <h2 className="coachMobileSectionTitle">Още</h2>
+          <p className="coachMobileMuted" style={{ marginTop: 0, marginBottom: 10 }}>
+            Отбори и график са в долната лента.
+          </p>
           <div className="coachMobileQuickGrid">
-            <Link to="/coach/teams" className="coachMobileQuickBtn">
-              Отбори
-            </Link>
-            <Link to="/coach/schedule" className="coachMobileQuickBtn">
-              График
+            <Link to="/coach/trainings" className="coachMobileQuickBtn">
+              Моите тренировки
             </Link>
             <Link to="/monthly-fees" className="coachMobileQuickBtn">
               Такси
             </Link>
-            <Link to="/coach/trainings" className="coachMobileQuickBtn">
-              Тренировки
+            <Link to="/coach/attendance" className="coachMobileQuickBtn">
+              Присъствие
+            </Link>
+            <Link to="/ai-generator" className="coachMobileQuickBtn">
+              AI генератор
             </Link>
           </div>
         </>

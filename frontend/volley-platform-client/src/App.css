@@ -4420,6 +4420,149 @@
   display: none;
 }
 
+/* Coach — monthly attendance matrix */
+.coachMobilePage--attMatrix {
+  padding-bottom: 24px;
+}
+
+.coachAttMatrixHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.coachAttMatrixBack {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+.coachAttMatrixMonth {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coachAttMatrixMonth input[type="month"] {
+  min-height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+
+.coachAttMatrixLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.coachAttMatrixLegendItem {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+}
+
+.coachAttMatrixWrap {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  max-height: min(70vh, 520px);
+}
+
+.coachAttMatrixTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  min-width: max-content;
+}
+
+.coachAttMatrixTable th,
+.coachAttMatrixTable td {
+  border-bottom: 1px solid #eef2f7;
+  border-right: 1px solid #eef2f7;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.coachAttMatrixStickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f8fafc;
+  min-width: 120px;
+  max-width: 140px;
+  padding: 8px 10px !important;
+  text-align: left;
+  font-weight: 700;
+}
+
+.coachAttMatrixAthleteName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coachAttMatrixSessionCol {
+  min-width: 52px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.coachAttMatrixSessionBtn {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f4ea8;
+  padding: 8px 4px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.coachAttMatrixCell {
+  display: block;
+  width: 100%;
+  min-width: 44px;
+  min-height: 40px;
+  border: none;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #fff;
+}
+
+.coachAttMatrixCell--present {
+  background: #ecfdf3;
+  color: #0a7a2f;
+}
+
+.coachAttMatrixCell--late {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.coachAttMatrixCell--absent {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.coachAttMatrixCell--excused {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.coachAttMatrixCell--empty {
+  background: #f8fafc;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
 .coachMobileTeamPickList {
   list-style: none;
   margin: 10px 0 0;

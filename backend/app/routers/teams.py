@@ -1,4 +1,5 @@
 import re
+from calendar import monthrange
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -26,6 +27,10 @@ from app.schemas.teams import (
     AttendanceSavePayload,
     TeamCreate,
     TeamAssignCoach,
+    TeamAttendanceMatrixAthlete,
+    TeamAttendanceMatrixCell,
+    TeamAttendanceMatrixResponse,
+    TeamAttendanceMatrixSession,
     TeamAttendanceReportResponse,
     TeamAttendanceReportRow,
     TeamMembersResponse,
@@ -137,6 +142,14 @@ def _get_athlete_for_team_context(db: Session, athlete_id: int, user: User) -> A
         )
         .first()
     )
+
+
+def _month_bounds(month_key: str) -> tuple[str, str]:
+    if not re.match(r"^\d{4}-\d{2}$", month_key or ""):
+        raise HTTPException(status_code=422, detail="month must be YYYY-MM")
+    year, month = map(int, month_key.split("-"))
+    last_day = monthrange(year, month)[1]
+    return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
 
 
 def _validate_date(raw: str) -> str:
@@ -560,6 +573,77 @@ def team_attendance_report(
         to_date=end,
         sessions_count=len(sessions),
         rows=out_rows,
+    )
+
+
+@router.get("/teams/{team_id}/attendance/matrix", response_model=TeamAttendanceMatrixResponse)
+def team_attendance_matrix(
+    team_id: int,
+    month: str = Query(..., description="Month key YYYY-MM"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    team = _ensure_team_owner(db, team_id, current_user)
+    start = _validate_date(_month_bounds(month)[0])
+    end = _validate_date(_month_bounds(month)[1])
+
+    members = (
+        db.query(TeamMember, Athlete)
+        .join(Athlete, Athlete.id == TeamMember.athlete_id)
+        .filter(TeamMember.team_id == team.id, TeamMember.is_active.is_(True))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    athletes = [
+        TeamAttendanceMatrixAthlete(athlete_id=athlete.id, athlete_name=athlete.athlete_name)
+        for _, athlete in members
+    ]
+
+    sessions = (
+        db.query(TeamSession)
+        .filter(
+            TeamSession.team_id == team.id,
+            TeamSession.date >= start,
+            TeamSession.date <= end,
+        )
+        .order_by(TeamSession.date.asc(), TeamSession.id.asc())
+        .all()
+    )
+
+    session_models = []
+    for s in sessions:
+        day = str(s.date)
+        short = day[8:10] + "." + day[5:7] if len(day) >= 10 else day
+        title = (s.title or "").strip()
+        label = f"{short} {title}".strip() if title else short
+        session_models.append(
+            TeamAttendanceMatrixSession(session_id=s.id, date=day, label=label)
+        )
+
+    cells: list[TeamAttendanceMatrixCell] = []
+    if sessions:
+        session_ids = [s.id for s in sessions]
+        records = db.query(AttendanceRecord).filter(AttendanceRecord.session_id.in_(session_ids)).all()
+        for rec in records:
+            st = str(rec.status or "").strip().lower()
+            if st not in ATTENDANCE_STATUSES:
+                continue
+            cells.append(
+                TeamAttendanceMatrixCell(
+                    athlete_id=rec.athlete_id,
+                    session_id=rec.session_id,
+                    status=st,
+                )
+            )
+
+    return TeamAttendanceMatrixResponse(
+        team_id=team.id,
+        month_key=month,
+        from_date=start,
+        to_date=end,
+        athletes=athletes,
+        sessions=session_models,
+        cells=cells,
     )
 
 

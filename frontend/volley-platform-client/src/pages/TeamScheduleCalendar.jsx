@@ -114,7 +114,7 @@ export default function TeamScheduleCalendar() {
   const [coachFilter, setCoachFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [metaLoaded, setMetaLoaded] = useState(false);
-  const [calendarView, setCalendarView] = useState("grid");
+  const [calendarView, setCalendarView] = useState("list");
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -646,11 +646,11 @@ export default function TeamScheduleCalendar() {
         subtitle={calendarView === "grid" ? "Месечна мрежа за избрания месец" : "Списък по дата и час за избрания месец"}
         actions={
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <Button size="sm" variant={calendarView === "grid" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("grid")}>
-              Мрежа
-            </Button>
             <Button size="sm" variant={calendarView === "list" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("list")}>
               Списък
+            </Button>
+            <Button size="sm" variant={calendarView === "grid" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("grid")}>
+              Мрежа
             </Button>
           </div>
         }

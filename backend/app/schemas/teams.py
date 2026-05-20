@@ -153,3 +153,30 @@ class TeamAttendanceReportResponse(BaseModel):
     to_date: str
     sessions_count: int
     rows: list[TeamAttendanceReportRow] = Field(default_factory=list)
+
+
+class TeamAttendanceMatrixSession(BaseModel):
+    session_id: int
+    date: str
+    label: str
+
+
+class TeamAttendanceMatrixAthlete(BaseModel):
+    athlete_id: int
+    athlete_name: str
+
+
+class TeamAttendanceMatrixCell(BaseModel):
+    athlete_id: int
+    session_id: int
+    status: Optional[str] = None
+
+
+class TeamAttendanceMatrixResponse(BaseModel):
+    team_id: int
+    month_key: str
+    from_date: str
+    to_date: str
+    athletes: list[TeamAttendanceMatrixAthlete] = Field(default_factory=list)
+    sessions: list[TeamAttendanceMatrixSession] = Field(default_factory=list)
+    cells: list[TeamAttendanceMatrixCell] = Field(default_factory=list)
