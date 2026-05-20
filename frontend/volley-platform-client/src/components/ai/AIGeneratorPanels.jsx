@@ -1,19 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import AiGenDrillCard from "./AiGenDrillCard";
 
-function FocusPickerSheet({ open, title, value, options, toBgLabel, onClose, onSelect }) {
+function FocusPickerSheet({ open, title, value, options, toBgLabel, matchSkillQuery, onClose, onSelect }) {
   const [q, setQ] = useState("");
   useEffect(() => {
     if (open) setQ("");
   }, [open]);
 
   const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
+    const qq = q.trim();
     if (!qq) return options;
-    return options.filter(
-      (o) => String(o).toLowerCase().includes(qq) || toBgLabel(o).toLowerCase().includes(qq)
-    );
-  }, [options, q, toBgLabel]);
+    return options.filter((o) => (matchSkillQuery ? matchSkillQuery(o, qq) : String(o).toLowerCase().includes(qq.toLowerCase())));
+  }, [options, q, matchSkillQuery]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +65,7 @@ function FocusPickerSheet({ open, title, value, options, toBgLabel, onClose, onS
   );
 }
 
-function FocusPickerField({ label, value, options, excludeOther, toBgLabel, onChange }) {
+function FocusPickerField({ label, value, options, excludeOther, toBgLabel, matchSkillQuery, onChange }) {
   const [open, setOpen] = useState(false);
   const displayOptions = useMemo(() => {
     if (!excludeOther || options.length <= 1) return options;
@@ -88,6 +86,7 @@ function FocusPickerField({ label, value, options, excludeOther, toBgLabel, onCh
         value={value}
         options={displayOptions}
         toBgLabel={toBgLabel}
+        matchSkillQuery={matchSkillQuery}
         onClose={() => setOpen(false)}
         onSelect={onChange}
       />
@@ -108,6 +107,7 @@ export function AIGeneratorSettingsPanel({
   ORIENTATION_OPTIONS,
   VARIABILITY_OPTIONS,
   toBgLabel,
+  matchSkillQuery,
 }) {
   return (
     <section className="aiGenPanel">
@@ -152,6 +152,7 @@ export function AIGeneratorSettingsPanel({
           value={form.mainFocus}
           options={options.skills}
           toBgLabel={toBgLabel}
+          matchSkillQuery={matchSkillQuery}
           onChange={(v) => setForm((p) => ({ ...p, mainFocus: v }))}
         />
         <FocusPickerField
@@ -160,6 +161,7 @@ export function AIGeneratorSettingsPanel({
           excludeOther={form.mainFocus}
           options={options.skills}
           toBgLabel={toBgLabel}
+          matchSkillQuery={matchSkillQuery}
           onChange={(v) => setForm((p) => ({ ...p, secondaryFocus: v }))}
         />
         <label className="aiGenField">

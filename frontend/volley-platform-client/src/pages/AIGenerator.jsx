@@ -11,6 +11,12 @@ import {
 } from "../components/ai/AIGeneratorPanels";
 import { Button, PageHero } from "../components/ui";
 import { useAuth } from "../auth/AuthContext";
+import {
+  buildSelectableSkills,
+  getDrillCanonicalSkills,
+  matchSkillQuery,
+  resolveToSelectableSkill,
+} from "../utils/skillCanonical";
 
 const PERIODS = [
   { value: "prep", label: "Подготовителен период" },
@@ -279,11 +285,7 @@ export default function AIGenerator() {
     const levels = uniq(drills.map((d) => String(d.level || "").trim()));
     const domains = uniq(drills.flatMap((d) => parseList(d.skill_domains)));
     const phases = uniq(drills.flatMap((d) => parseList(d.game_phases)));
-    const skills = uniq([
-      ...drills.flatMap((d) => parseList(d.skill_focus)),
-      ...drills.flatMap((d) => parseList(d.technical_focus)),
-      ...drills.flatMap((d) => parseList(d.tactical_focus)),
-    ]);
+    const skills = buildSelectableSkills(drills);
     return { levels, domains, phases, skills };
   }, [drills]);
 
@@ -312,14 +314,7 @@ export default function AIGenerator() {
     };
     const skillCounts = {};
     drills.forEach((d) => {
-      const skillSet = new Set([
-        ...parseList(d?.skill_domains),
-        ...parseList(d?.skill_focus),
-        ...parseList(d?.technical_focus),
-        ...parseList(d?.tactical_focus),
-      ]);
-      skillSet.forEach((s) => {
-        if (!s) return;
+      getDrillCanonicalSkills(d).forEach((s) => {
         skillCounts[s] = (skillCounts[s] || 0) + 1;
       });
     });
@@ -398,20 +393,14 @@ export default function AIGenerator() {
   useEffect(() => {
     if (!options.skills.length) return;
     setForm((prev) => {
-      const skillSet = new Set(options.skills);
-      const resolve = (v) => {
-        if (v && skillSet.has(v)) return v;
-        if (v) {
-          for (const part of parseList(v)) {
-            if (skillSet.has(part)) return part;
-          }
-        }
-        return null;
-      };
-      let main = resolve(prev.mainFocus) ?? options.skills[0];
-      let sec = resolve(prev.secondaryFocus) ?? options.skills[1] ?? options.skills[0];
-      if (main === sec && options.skills.length > 1) {
-        sec = options.skills.find((s) => s !== main) ?? sec;
+      const selectable = options.skills;
+      let main = resolveToSelectableSkill(prev.mainFocus, selectable) || selectable[0];
+      let sec =
+        resolveToSelectableSkill(prev.secondaryFocus, selectable) ||
+        selectable.find((s) => s !== main) ||
+        selectable[0];
+      if (main === sec && selectable.length > 1) {
+        sec = selectable.find((s) => s !== main) ?? sec;
       }
       if (main === prev.mainFocus && sec === prev.secondaryFocus) return prev;
       return { ...prev, mainFocus: main, secondaryFocus: sec };
@@ -482,8 +471,12 @@ export default function AIGenerator() {
     setForm((p) => ({
       ...p,
       level: finder.level === "all" ? p.level : finder.level,
-      mainFocus: finder.skills.length ? finder.skills[0] : p.mainFocus,
-      secondaryFocus: finder.skills.length > 1 ? finder.skills[1] : p.secondaryFocus,
+      mainFocus: finder.skills.length
+        ? resolveToSelectableSkill(finder.skills[0], options.skills) || finder.skills[0]
+        : p.mainFocus,
+      secondaryFocus: finder.skills.length > 1
+        ? resolveToSelectableSkill(finder.skills[1], options.skills) || finder.skills[1]
+        : p.secondaryFocus,
     }));
   };
 
@@ -705,6 +698,7 @@ export default function AIGenerator() {
           ORIENTATION_OPTIONS={ORIENTATION_OPTIONS}
           VARIABILITY_OPTIONS={VARIABILITY_OPTIONS}
           toBgLabel={toBgLabel}
+          matchSkillQuery={matchSkillQuery}
         />
       ) : null}
 
