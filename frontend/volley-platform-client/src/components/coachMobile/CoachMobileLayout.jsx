@@ -13,7 +13,9 @@ export default function CoachMobileLayout() {
   const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
   const isAttendanceHub = pathname === "/coach/attendance";
   const isAttendanceMonth = pathname.includes("/attendance-month");
+  const isFeesPage = pathname.startsWith("/coach/fees");
   const showBack =
+    isFeesPage ||
     isAttendanceHub ||
     isAttendanceMonth ||
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams") ||
@@ -22,6 +24,10 @@ export default function CoachMobileLayout() {
   const handleBack = () => {
     if (pathname.startsWith("/coach/athletes/")) {
       navigate(-1);
+      return;
+    }
+    if (isFeesPage) {
+      navigate("/coach/menu");
       return;
     }
     if (isAttendanceMonth) {

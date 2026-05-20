@@ -156,7 +156,7 @@ export default function CoachToday() {
             <Link to="/coach/trainings" className="coachMobileQuickBtn">
               Моите тренировки
             </Link>
-            <Link to="/monthly-fees" className="coachMobileQuickBtn">
+            <Link to="/coach/fees" className="coachMobileQuickBtn">
               Такси
             </Link>
             <Link to="/coach/attendance" className="coachMobileQuickBtn">

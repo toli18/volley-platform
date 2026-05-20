@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+
+import MonthlyFeesCoachView from "./coach/MonthlyFeesCoachView";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -44,7 +46,12 @@ export default function MonthlyFees() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
+  const isCoachShell = location.pathname.startsWith("/coach/fees");
+  const feesPath = isCoachShell ? "/coach/fees" : "/monthly-fees";
+  const coachTab = searchParams.get("tab") === "add" ? "add" : "list";
+  const setCoachTab = (tab) => setSearchParams({ tab }, { replace: true });
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -135,14 +142,15 @@ export default function MonthlyFees() {
     if (!highlightAthleteId || loading) return;
     const t = window.setTimeout(() => {
       const id = highlightAthleteId;
+      const coachEl = document.querySelector(`.feesCoachAthleteList [data-athlete-scroll="${id}"]`);
       const mobileEl = document.querySelector(`.feesMobileList [data-athlete-scroll="${id}"]`);
       const desktopEl = document.querySelector(`.feesDesktopTable [data-athlete-scroll="${id}"]`);
-      const preferMobile = window.matchMedia("(max-width: 720px)").matches;
-      const el = preferMobile ? mobileEl || desktopEl : desktopEl || mobileEl;
+      const preferMobile = isCoachShell || window.matchMedia("(max-width: 720px)").matches;
+      const el = coachEl || (preferMobile ? mobileEl || desktopEl : desktopEl || mobileEl);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 200);
     return () => window.clearTimeout(t);
-  }, [highlightAthleteId, loading, athletes]);
+  }, [highlightAthleteId, loading, athletes, isCoachShell]);
 
   useEffect(() => {
     if (loading || athletes.length === 0) return;
@@ -167,8 +175,8 @@ export default function MonthlyFees() {
     const next = new URLSearchParams(sp);
     next.delete("focus");
     const qs = next.toString();
-    navigate(`${location.pathname}${qs ? `?${qs}` : ""}`, { replace: true });
-  }, [loading, athletes, location.pathname, location.search, navigate]);
+    navigate(`${feesPath}${qs ? `?${qs}` : ""}`, { replace: true });
+  }, [loading, athletes, feesPath, location.search, navigate]);
 
   useEffect(() => {
     if (loading || athletes.length === 0) return;
@@ -184,8 +192,8 @@ export default function MonthlyFees() {
     const next = new URLSearchParams(sp);
     next.delete("focus");
     const qs = next.toString();
-    navigate(`${location.pathname}${qs ? `?${qs}` : ""}`, { replace: true });
-  }, [loading, athletes, location.pathname, location.search, navigate]);
+    navigate(`${feesPath}${qs ? `?${qs}` : ""}`, { replace: true });
+  }, [loading, athletes, feesPath, location.search, navigate]);
 
   useEffect(() => {
     if (!isHeadCoach) return;
@@ -313,6 +321,7 @@ export default function MonthlyFees() {
       resetAthleteForm();
       await loadAthletes(coachFilter);
       toast.success("Състезателят е създаден.");
+      if (isCoachShell) setCoachTab("list");
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -518,6 +527,10 @@ export default function MonthlyFees() {
 
   const openAthleteProfile = (athleteId) => {
     if (!athleteId) return;
+    if (isCoachShell) {
+      navigate(`/coach/athletes/${athleteId}?from=${encodeURIComponent(feesPath)}`);
+      return;
+    }
     navigate(`/teams/athletes/${athleteId}`);
   };
 
@@ -553,6 +566,208 @@ export default function MonthlyFees() {
     }
     openAthleteProfile(athleteId);
   };
+
+  const feesModals = (
+    <>
+      {payAthlete && (
+        <div onClick={closePayModal} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Плащане: {selectedAthleteName}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input
+                type="month"
+                value={payForm.month_key}
+                onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
+              />
+              {checkingMonthPaid && <small className="uiFieldHint">Проверка за съществуващо плащане...</small>}
+              {monthAlreadyPaid && (
+                <small className="uiFieldError">
+                  За този месец вече е отбелязано плащане. Не може дублиране.
+                </small>
+              )}
+              <Input
+                type="number"
+                step="0.01"
+                placeholder={AMOUNT_INPUT_PLACEHOLDER}
+                value={payForm.amount}
+                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+              />
+              <Input
+                placeholder="Бележка (по желание)"
+                value={payForm.note}
+                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
+              />
+              <div className="uiModalActions">
+                <Button disabled={busy || monthAlreadyPaid || checkingMonthPaid} onClick={savePayment}>
+                  Запиши плащане
+                </Button>
+                <Button variant="secondary" disabled={busy} onClick={closePayModal}>
+                  Затвори
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {editAthlete && (
+        <div onClick={closeEditModal} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal">
+            <h3 className="uiModalTitle">Редакция: {editAthlete.athlete_name}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input
+                placeholder="Име на състезател"
+                value={editForm.athlete_name}
+                onChange={(e) => setEditForm((p) => ({ ...p, athlete_name: e.target.value }))}
+              />
+              <Input
+                placeholder="Телефон на състезател"
+                value={editForm.athlete_phone}
+                onChange={(e) => setEditForm((p) => ({ ...p, athlete_phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Име на родител"
+                value={editForm.parent_name}
+                onChange={(e) => setEditForm((p) => ({ ...p, parent_name: e.target.value }))}
+              />
+              <Input
+                placeholder="Телефон на родител"
+                value={editForm.parent_phone}
+                onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Година на раждане"
+                value={editForm.birth_year}
+                onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
+              />
+              <Input
+                as="select"
+                value={editForm.gender}
+                onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
+              >
+                <option value="">Пол</option>
+                <option value="male">Мъж</option>
+                <option value="female">Жена</option>
+              </Input>
+              <Input
+                as="textarea"
+                rows={2}
+                placeholder="Бележка"
+                value={editForm.notes}
+                onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={editForm.is_active}
+                  onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
+                />
+                Активен състезател
+              </label>
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={saveEditedAthlete}>
+                  Запази промените
+                </Button>
+                <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
+                  Затвори
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {transferAthlete && (
+        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <select className="uiInput" value={targetCoachId} onChange={(e) => setTargetCoachId(e.target.value)}>
+                <option value="">Избери треньор</option>
+                {clubCoaches
+                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+              <div className="uiModalActions">
+                <Button disabled={busy || !targetCoachId} onClick={transferToCoach}>
+                  Прехвърли
+                </Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>
+                  Отказ
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+
+  if (isCoachShell) {
+    return (
+      <>
+        <MonthlyFeesCoachView
+          tab={coachTab}
+          setTab={setCoachTab}
+          athletesCount={athletes.length}
+          filteredCount={filteredAthletes.length}
+          query={query}
+          setQuery={setQuery}
+          remindMonth={remindMonth}
+          setRemindMonth={setRemindMonth}
+          loading={loading}
+          filteredAthletes={filteredAthletes}
+          highlightAthleteId={highlightAthleteId}
+          athleteForm={athleteForm}
+          setAthleteForm={setAthleteForm}
+          busy={busy}
+          isHeadCoach={isHeadCoach}
+          coachFilter={coachFilter}
+          setCoachFilter={setCoachFilter}
+          clubCoaches={clubCoaches}
+          importInputRef={importInputRef}
+          onImportFile={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            await importAthletes(file);
+          }}
+          onSaveAthlete={saveAthlete}
+          onResetForm={resetAthleteForm}
+          onRemind={remindUnpaidFees}
+          onTemplate={downloadImportTemplate}
+          onAthleteOpen={onAthleteContainerClick}
+          onPay={(a) => {
+            setPayAthlete(a);
+            setPayForm((p) => ({ ...p, month_key: remindMonth || currentMonthKey() }));
+          }}
+          onEdit={(a) => {
+            setEditAthlete(a);
+            setEditForm({
+              athlete_name: a.athlete_name || "",
+              athlete_phone: a.athlete_phone || "",
+              parent_name: a.parent_name || "",
+              parent_phone: a.parent_phone || "",
+              birth_year: a.birth_year || "",
+              gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
+              notes: a.notes || "",
+              is_active: Boolean(a.is_active),
+            });
+          }}
+          onDelete={removeAthlete}
+          onReport={loadAthleteReport}
+          onTransfer={(a) => {
+            setTransferAthlete(a);
+            setTargetCoachId("");
+          }}
+        />
+        {feesModals}
+      </>
+    );
+  }
 
   return (
     <div className="uiPage">
@@ -990,135 +1205,7 @@ export default function MonthlyFees() {
         </Card>
       )}
 
-      {payAthlete && (
-        <div onClick={closePayModal} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Плащане: {selectedAthleteName}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                type="month"
-                value={payForm.month_key}
-                onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
-              />
-              {checkingMonthPaid && <small className="uiFieldHint">Проверка за съществуващо плащане...</small>}
-              {monthAlreadyPaid && (
-                <small className="uiFieldError">
-                  За този месец вече е отбелязано плащане. Не може дублиране.
-                </small>
-              )}
-              <Input
-                type="number"
-                step="0.01"
-                placeholder={AMOUNT_INPUT_PLACEHOLDER}
-                value={payForm.amount}
-                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
-              />
-              <Input
-                placeholder="Бележка (по желание)"
-                value={payForm.note}
-                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
-              />
-              <div className="uiModalActions">
-                <Button disabled={busy || monthAlreadyPaid || checkingMonthPaid} onClick={savePayment}>
-                  Запиши плащане
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={closePayModal}>
-                  Затвори
-                </Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {editAthlete && (
-        <div onClick={closeEditModal} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal">
-            <h3 className="uiModalTitle">Редакция: {editAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                placeholder="Име на състезател"
-                value={editForm.athlete_name}
-                onChange={(e) => setEditForm((p) => ({ ...p, athlete_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на състезател"
-                value={editForm.athlete_phone}
-                onChange={(e) => setEditForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Име на родител"
-                value={editForm.parent_name}
-                onChange={(e) => setEditForm((p) => ({ ...p, parent_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на родител"
-                value={editForm.parent_phone}
-                onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Година на раждане"
-                value={editForm.birth_year}
-                onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
-              />
-              <Input
-                as="select"
-                value={editForm.gender}
-                onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
-              >
-                <option value="">Пол</option>
-                <option value="male">Мъж</option>
-                <option value="female">Жена</option>
-              </Input>
-              <Input
-                as="textarea"
-                rows={2}
-                placeholder="Бележка"
-                value={editForm.notes}
-                onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-              />
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={editForm.is_active}
-                  onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
-                />
-                Активен състезател
-              </label>
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveEditedAthlete}>
-                  Запази промените
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
-                  Затвори
-                </Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {transferAthlete && (
-        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <select className="uiInput" value={targetCoachId} onChange={(e) => setTargetCoachId(e.target.value)}>
-                <option value="">Избери треньор</option>
-                {clubCoaches
-                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-              </select>
-              <div className="uiModalActions">
-                <Button disabled={busy || !targetCoachId} onClick={transferToCoach}>Прехвърли</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
+      {feesModals}
     </div>
   );
 }

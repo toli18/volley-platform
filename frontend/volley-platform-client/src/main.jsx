@@ -160,6 +160,7 @@ const router = createBrowserRouter([
               { path: "attendance", element: <CoachAttendanceTeams /> },
               { path: "schedule", element: <CoachSchedule /> },
               { path: "menu", element: <CoachMenu /> },
+              { path: "fees", element: <MonthlyFees /> },
               { path: "trainings", element: <CoachMyTrainings /> },
               { path: "athletes/:athleteId", element: <CoachAthleteProfile /> },
             ],

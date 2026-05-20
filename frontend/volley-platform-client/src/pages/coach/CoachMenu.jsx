@@ -42,7 +42,7 @@ export default function CoachMenu() {
         <p className="coachMobileMuted">Меню и бърз достъп до инструментите</p>
       </section>
       <MenuGroup title="Работа">
-        <MenuLink to="/monthly-fees" label="Месечни такси" />
+        <MenuLink to="/coach/fees" label="Месечни такси" />
         <MenuLink to="/coach/trainings" label="Моите тренировки" hint="Списък и нова тренировка" />
         <MenuLink to="/coach-board" label="Тактическа дъска" />
       </MenuGroup>
