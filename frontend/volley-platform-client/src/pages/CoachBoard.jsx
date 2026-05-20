@@ -34,7 +34,95 @@ function getViewportHeight() {
   return window.visualViewport?.height ?? window.innerHeight;
 }
 
-function createInitialPlayers() {
+/** Рисува волейболно игрище: мрежа + 3m линии според ориентацията на canvas-а. */
+function drawVolleyballCourt(ctx, W, H, orientation) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#2456a5";
+  ctx.fillRect(0, 0, W, H);
+
+  const pad = Math.round(Math.min(W, H) * 0.06);
+  const cW = W - pad * 2;
+  const cH = H - pad * 2;
+
+  ctx.fillStyle = "#f6be72";
+  ctx.fillRect(pad, pad, cW, cH);
+
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = Math.max(2, Math.round(Math.min(W, H) * 0.007));
+  ctx.strokeRect(pad, pad, cW, cH);
+
+  if (orientation === "portrait") {
+    const netY = pad + cH / 2;
+    ctx.beginPath();
+    ctx.moveTo(pad, netY);
+    ctx.lineTo(pad + cW, netY);
+    ctx.stroke();
+
+    const threeM = cH * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad + threeM);
+    ctx.lineTo(pad + cW, pad + threeM);
+    ctx.moveTo(pad, pad + cH - threeM);
+    ctx.lineTo(pad + cW, pad + cH - threeM);
+    ctx.stroke();
+
+    ctx.setLineDash([8, 8]);
+    ctx.lineWidth = Math.max(1, Math.round(Math.min(W, H) * 0.004));
+    ctx.beginPath();
+    ctx.moveTo(0, pad + threeM);
+    ctx.lineTo(W, pad + threeM);
+    ctx.moveTo(0, pad + cH - threeM);
+    ctx.lineTo(W, pad + cH - threeM);
+    ctx.stroke();
+  } else {
+    const netX = pad + cW / 2;
+    ctx.beginPath();
+    ctx.moveTo(netX, pad);
+    ctx.lineTo(netX, pad + cH);
+    ctx.stroke();
+
+    const threeM = cW * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(pad + threeM, pad);
+    ctx.lineTo(pad + threeM, pad + cH);
+    ctx.moveTo(pad + cW - threeM, pad);
+    ctx.lineTo(pad + cW - threeM, pad + cH);
+    ctx.stroke();
+
+    ctx.setLineDash([8, 8]);
+    ctx.lineWidth = Math.max(1, Math.round(Math.min(W, H) * 0.004));
+    ctx.beginPath();
+    ctx.moveTo(pad + threeM, 0);
+    ctx.lineTo(pad + threeM, H);
+    ctx.moveTo(pad + cW - threeM, 0);
+    ctx.lineTo(pad + cW - threeM, H);
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+}
+
+function createInitialPlayers(orientation = "landscape") {
+  if (orientation === "portrait") {
+    const top = [
+      { id: "a1", team: "a", num: 1, x: 280, y: 140 },
+      { id: "a2", team: "a", num: 2, x: 220, y: 260 },
+      { id: "a3", team: "a", num: 3, x: 340, y: 360 },
+      { id: "a4", team: "a", num: 4, x: 140, y: 200 },
+      { id: "a5", team: "a", num: 5, x: 420, y: 200 },
+      { id: "a6", team: "a", num: 6, x: 280, y: 420 },
+    ];
+    const bottom = [
+      { id: "b1", team: "b", num: 1, x: 280, y: 860 },
+      { id: "b2", team: "b", num: 2, x: 220, y: 740 },
+      { id: "b3", team: "b", num: 3, x: 340, y: 640 },
+      { id: "b4", team: "b", num: 4, x: 140, y: 800 },
+      { id: "b5", team: "b", num: 5, x: 420, y: 800 },
+      { id: "b6", team: "b", num: 6, x: 280, y: 580 },
+    ];
+    return [...top, ...bottom];
+  }
+
   const left = [
     { id: "a1", team: "a", num: 1, x: 170, y: 120 },
     { id: "a2", team: "a", num: 2, x: 310, y: 220 },
@@ -69,7 +157,7 @@ export default function CoachBoard() {
   const [lineWidth, setLineWidth] = useState(4);
   const [tool, setTool] = useState("pen");
   const [orientation, setOrientation] = useState(getInitialOrientation);
-  const [players, setPlayers] = useState(createInitialPlayers);
+  const [players, setPlayers] = useState(() => createInitialPlayers(getInitialOrientation()));
   const [dragPlayerId, setDragPlayerId] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [controlsOpen, setControlsOpen] = useState(false);
@@ -211,46 +299,7 @@ export default function CoachBoard() {
     canvas.width = canvasSize.width;
     canvas.height = canvasSize.height;
 
-    const W = canvas.width;
-    const H = canvas.height;
-    ctx.clearRect(0, 0, W, H);
-
-    ctx.fillStyle = "#2456a5";
-    ctx.fillRect(0, 0, W, H);
-
-    const pad = Math.round(Math.min(W, H) * 0.06);
-    const cW = W - pad * 2;
-    const cH = H - pad * 2;
-
-    ctx.fillStyle = "#f6be72";
-    ctx.fillRect(pad, pad, cW, cH);
-
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(2, Math.round(Math.min(W, H) * 0.007));
-    ctx.strokeRect(pad, pad, cW, cH);
-
-    ctx.beginPath();
-    ctx.moveTo(pad + cW / 2, pad);
-    ctx.lineTo(pad + cW / 2, pad + cH);
-    ctx.stroke();
-
-    const threeM = cW * 0.25;
-    ctx.beginPath();
-    ctx.moveTo(pad + threeM, pad);
-    ctx.lineTo(pad + threeM, pad + cH);
-    ctx.moveTo(pad + cW - threeM, pad);
-    ctx.lineTo(pad + cW - threeM, pad + cH);
-    ctx.stroke();
-
-    ctx.setLineDash([8, 8]);
-    ctx.lineWidth = Math.max(1, Math.round(Math.min(W, H) * 0.004));
-    ctx.beginPath();
-    ctx.moveTo(pad + threeM, 0);
-    ctx.lineTo(pad + threeM, H);
-    ctx.moveTo(pad + cW - threeM, 0);
-    ctx.lineTo(pad + cW - threeM, H);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    drawVolleyballCourt(ctx, canvas.width, canvas.height, orientation);
   }, [canvasSize, orientation]);
 
   useEffect(() => {
@@ -294,7 +343,7 @@ export default function CoachBoard() {
     if (!last) return;
     setUndoStack((prev) => prev.slice(0, -1));
     setStrokes(last.strokes || []);
-    setPlayers(last.players || createInitialPlayers());
+    setPlayers(last.players || createInitialPlayers(orientation));
   };
 
   const clearBoard = () => {
@@ -310,7 +359,7 @@ export default function CoachBoard() {
 
   const resetPlayers = () => {
     pushUndo();
-    setPlayers(createInitialPlayers());
+    setPlayers(createInitialPlayers(orientation));
   };
 
   const setPortraitCourt = () => {
@@ -446,15 +495,23 @@ export default function CoachBoard() {
     const teamRows = players.filter((p) => p.team === team);
     const nextNum = teamRows.length ? Math.max(...teamRows.map((p) => Number(p.num) || 0)) + 1 : 1;
     const id = `${team}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-    const baseX = team === "a" ? Math.round(canvasSize.width * 0.28) : Math.round(canvasSize.width * 0.72);
-    const baseY = Math.round(canvasSize.height * 0.5);
-    const jitter = Math.round((Math.random() - 0.5) * 80);
+    const baseX = Math.round(canvasSize.width * 0.5);
+    const baseY =
+      orientation === "portrait"
+        ? team === "a"
+          ? Math.round(canvasSize.height * 0.28)
+          : Math.round(canvasSize.height * 0.72)
+        : Math.round(canvasSize.height * 0.5);
+    const jitterX =
+      orientation === "portrait" ? Math.round((Math.random() - 0.5) * 80) : Math.round((Math.random() - 0.5) * 80);
+    const jitterY =
+      orientation === "portrait" ? Math.round((Math.random() - 0.5) * 40) : Math.round((Math.random() - 0.5) * 80);
     const p = {
       id,
       team,
       num: nextNum,
-      x: Math.max(24, Math.min((canvasSize.width || 1000) - 24, baseX + jitter)),
-      y: Math.max(24, Math.min((canvasSize.height || 560) - 24, baseY + jitter)),
+      x: Math.max(24, Math.min((canvasSize.width || 1000) - 24, baseX + jitterX)),
+      y: Math.max(24, Math.min((canvasSize.height || 560) - 24, baseY + jitterY)),
     };
     setPlayers((prev) => [...prev, p]);
     setSelectedPlayerId(id);
