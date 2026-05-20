@@ -81,9 +81,12 @@ function ChannelListBody({ channels, retentionDays, onPick }) {
   );
 }
 
-function ChatBubble({ msg }) {
+function ChatBubble({ msg, bubbleRef }) {
   return (
     <div
+      ref={bubbleRef}
+      data-message-id={msg.id}
+      data-sender-kind={msg.sender_kind}
       className={`teamRoomChatBubble${msg.is_mine ? " teamRoomChatBubble--mine" : ""}${
         msg.sender_kind === "coach" ? " teamRoomChatBubble--coach" : ""
       }`}
@@ -109,6 +112,7 @@ function ThreadView({
   sending,
   onBack,
   onSend,
+  onCoachBubbleRef,
 }) {
   return (
     <div className="teamRoomChat teamRoomChat--thread">
@@ -124,7 +128,7 @@ function ThreadView({
         История {retentionDays} дни · общ канал на отбора
       </p>
       {error ? <p className="teamRoomChatError">{error}</p> : null}
-      <MessagesList listRef={listRef} messages={messages} />
+      <MessagesList listRef={listRef} messages={messages} onCoachBubbleRef={handleCoachBubbleRef} />
       <form className="teamRoomChatComposer" onSubmit={onSend}>
         <input
           type="text"
@@ -143,13 +147,19 @@ function ThreadView({
   );
 }
 
-function MessagesList({ listRef, messages }) {
+function MessagesList({ listRef, messages, onCoachBubbleRef }) {
   return (
     <div className="teamRoomChatMessages" ref={listRef}>
       {messages.length === 0 ? (
         <p className="teamRoomMuted teamRoomChatEmpty">Първо съобщение — поздравете отбора.</p>
       ) : (
-        messages.map((msg) => <ChatBubble key={msg.id} msg={msg} />)
+        messages.map((msg) => (
+          <ChatBubble
+            key={msg.id}
+            msg={msg}
+            bubbleRef={msg.sender_kind === "coach" ? (el) => onCoachBubbleRef?.(msg.id, el) : undefined}
+          />
+        ))
       )}
     </div>
   );
@@ -165,6 +175,8 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef(null);
+  const markedReadRef = useRef(new Set());
+  const bubbleRefsRef = useRef(new Map());
 
   const totalUnread = channels.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
@@ -194,19 +206,43 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
     }
   }, [active]);
 
+  const markCoachMessagesRead = useCallback(
+    async (messageIds) => {
+      if (!selectedTeamId) return;
+      const fresh = messageIds.filter((id) => id && !markedReadRef.current.has(id));
+      if (!fresh.length) return;
+      fresh.forEach((id) => markedReadRef.current.add(id));
+      try {
+        await axiosInstance.post(API_PATHS.ATHLETE_ROOM_CHAT_MESSAGES_READ(selectedTeamId), {
+          message_ids: fresh,
+        });
+        const chRes = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_CHAT_CHANNELS);
+        const list = Array.isArray(chRes.data?.channels) ? chRes.data.channels : [];
+        const row = list.find((c) => c.team_id === selectedTeamId);
+        if (row) {
+          setChannels((prev) =>
+            prev.map((c) => (c.team_id === selectedTeamId ? { ...c, unread_count: row.unread_count } : c)),
+          );
+        }
+      } catch {
+        fresh.forEach((id) => markedReadRef.current.delete(id));
+      }
+    },
+    [selectedTeamId]
+  );
+
   const loadMessages = useCallback(async () => {
     if (!selectedTeamId) return;
     try {
       const res = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_CHAT_MESSAGES(selectedTeamId));
-      setMessages(Array.isArray(res.data) ? res.data : []);
-      await axiosInstance.post(API_PATHS.ATHLETE_ROOM_CHAT_READ(selectedTeamId));
-      setChannels((prev) =>
-        prev.map((c) => (c.team_id === selectedTeamId ? { ...c, unread_count: 0 } : c)),
-      );
+      const list = Array.isArray(res.data) ? res.data : [];
+      setMessages(list);
+      const coachIds = list.filter((m) => m.sender_kind === "coach").map((m) => m.id);
+      await markCoachMessagesRead(coachIds);
     } catch {
       /* keep previous messages */
     }
-  }, [selectedTeamId]);
+  }, [selectedTeamId, markCoachMessagesRead]);
 
   useEffect(() => {
     if (!active || !openTeamId) return;
@@ -223,10 +259,42 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
 
   useEffect(() => {
     if (!active || !selectedTeamId) return undefined;
+    markedReadRef.current = new Set();
+    bubbleRefsRef.current = new Map();
     loadMessages();
     const id = setInterval(loadMessages, 10000);
     return () => clearInterval(id);
   }, [active, selectedTeamId, loadMessages]);
+
+  const handleCoachBubbleRef = useCallback((messageId, el) => {
+    if (!el) {
+      bubbleRefsRef.current.delete(messageId);
+      return;
+    }
+    bubbleRefsRef.current.set(messageId, el);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTeamId || typeof IntersectionObserver === "undefined") return undefined;
+    const root = listRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const ids = entries
+          .filter((e) => e.isIntersecting && e.target.dataset.senderKind === "coach")
+          .map((e) => Number(e.target.dataset.messageId))
+          .filter((id) => id > 0);
+        if (ids.length) markCoachMessagesRead(ids);
+      },
+      { root: root || null, threshold: 0.55 }
+    );
+    const frameId = window.requestAnimationFrame(() => {
+      bubbleRefsRef.current.forEach((el) => observer.observe(el));
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [messages, selectedTeamId, markCoachMessagesRead]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -260,6 +328,8 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
     setSelectedTeamId(teamId);
     setMessages([]);
     setError("");
+    markedReadRef.current = new Set();
+    bubbleRefsRef.current = new Map();
   };
 
   const handleBack = () => {
@@ -318,6 +388,7 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
       sending={sending}
       onBack={handleBack}
       onSend={handleSend}
+      onCoachBubbleRef={handleCoachBubbleRef}
     />
   );
 }

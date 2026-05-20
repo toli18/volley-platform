@@ -4050,6 +4050,56 @@
   border-color: #93c5fd;
 }
 
+.teamPortalCoachChatMetaActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.coachChatReadBtn {
+  border: none;
+  background: rgba(15, 77, 58, 0.12);
+  color: #0f4d3a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.teamPortalCoachChatBubble--mine .coachChatReadBtn {
+  background: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.coachChatReadSheet .coachChatReadBlock {
+  margin-top: 12px;
+}
+
+.coachChatReadHeading {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coachChatReadList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coachChatReadList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
 .teamPortalCoachChatMeta {
   font-size: 11px;
   color: #64748b;
@@ -4419,6 +4469,11 @@
   font-size: 12px;
   color: #64748b;
   text-decoration: underline;
+}
+
+.coachMobileHubSwipeArea {
+  touch-action: pan-y;
+  min-height: 120px;
 }
 
 .coachMobileRosterList {

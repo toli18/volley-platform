@@ -5,6 +5,7 @@ import TeamPortalCoachChat from "../../components/teamPortal/TeamPortalCoachChat
 import TeamPortalCoachNews from "../../components/teamPortal/TeamPortalCoachNews";
 import { TeamPortalHeroActions, TeamPortalTextModal, useTeamPortalCoach } from "../../components/teamPortal/TeamPortalCoachPanel";
 import CoachTeamHubOverview from "./CoachTeamHubOverview";
+import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -143,6 +144,13 @@ export default function CoachTeamHub() {
 
   const validSection = useMemo(() => SECTIONS.some((s) => s.id === section) ? section : "overview", [section]);
 
+  const swipeTabIds = useMemo(() => {
+    if (canManage) return SECTIONS.map((s) => s.id);
+    return SECTIONS.filter((s) => s.id === "overview" || s.id === "roster").map((s) => s.id);
+  }, [canManage]);
+
+  const swipeHandlers = useHorizontalSwipeTabs(validSection, setSection, swipeTabIds);
+
   if (loadError) {
     return <EmptyState title="Отбор" description={loadError} />;
   }
@@ -168,6 +176,7 @@ export default function CoachTeamHub() {
         ))}
       </nav>
 
+      <div className="coachMobileHubSwipeArea" {...swipeHandlers}>
       {validSection === "overview" ? (
         <CoachTeamHubOverview
           team={team}
@@ -278,6 +287,7 @@ export default function CoachTeamHub() {
       {!canManage && validSection !== "roster" ? (
         <p className="coachMobileMuted">Нямате права за тази секция.</p>
       ) : null}
+      </div>
     </div>
   );
 }

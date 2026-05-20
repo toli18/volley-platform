@@ -127,6 +127,8 @@ export const API_PATHS = {
   ATHLETE_ROOM_CHAT_CHANNELS: "/api/athlete-room/me/chat/channels",
   ATHLETE_ROOM_CHAT_MESSAGES: (teamId) => `/api/athlete-room/me/chat/${teamId}/messages`,
   ATHLETE_ROOM_CHAT_READ: (teamId) => `/api/athlete-room/me/chat/${teamId}/read`,
+  ATHLETE_ROOM_CHAT_MESSAGES_READ: (teamId) => `/api/athlete-room/me/chat/${teamId}/messages/read`,
+  TEAM_CHAT_MESSAGE_READS: (teamId, messageId) => `/api/teams/${teamId}/chat/messages/${messageId}/reads`,
   TEAM_CHAT_MESSAGES: (teamId) => `/api/teams/${teamId}/chat/messages`,
   TEAM_CHAT_MESSAGE_DELETE: (teamId, messageId) => `/api/teams/${teamId}/chat/messages/${messageId}`,
   PARENT_PORTAL_ME: "/api/parent-portal/me",

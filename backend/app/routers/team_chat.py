@@ -13,15 +13,18 @@ from app.schemas.team_chat import (
     TeamChatChannelsResponse,
     TeamChatMessageCreate,
     TeamChatMessageResponse,
+    TeamChatMessagesReadPayload,
 )
 from app.services.parent_portal_notify import queue_team_chat_message
 from app.services.team_chat import (
     CHAT_RETENTION_DAYS,
     delete_message,
+    get_message_read_detail,
     list_channels_for_athlete,
     list_messages_for_athlete,
     list_messages_for_coach,
     mark_chat_read,
+    mark_messages_read,
     post_athlete_message,
     post_coach_message,
 )
@@ -100,6 +103,22 @@ def athlete_chat_read(
     return None
 
 
+@router.post("/athlete-room/me/chat/{team_id}/messages/read", status_code=204)
+def athlete_chat_messages_read(
+    team_id: int,
+    payload: TeamChatMessagesReadPayload,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    try:
+        mark_messages_read(db, athlete.id, team_id, payload.message_ids or [])
+    except ValueError as exc:
+        if str(exc) == "not_a_member":
+            raise HTTPException(status_code=403, detail="Not a member of this team") from exc
+        raise
+    return None
+
+
 @router.get("/teams/{team_id}/chat/messages", response_model=list[TeamChatMessageResponse])
 def coach_chat_messages(
     team_id: int,
@@ -130,6 +149,20 @@ def coach_chat_post(
     from app.services.team_chat import message_to_dict
 
     return TeamChatMessageResponse(**message_to_dict(db, msg, None))
+
+
+@router.get("/teams/{team_id}/chat/messages/{message_id}/reads")
+def coach_chat_message_reads(
+    team_id: int,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    _ensure_team_owner(db, team_id, current_user)
+    detail = get_message_read_detail(db, team_id, message_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return detail
 
 
 @router.delete("/teams/{team_id}/chat/messages/{message_id}", status_code=204)

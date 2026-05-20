@@ -8,6 +8,16 @@ class TeamChatMessageCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=2000)
 
 
+class TeamChatMessagesReadPayload(BaseModel):
+    message_ids: list[int] = Field(default_factory=list, max_length=300)
+
+
+class TeamChatMessageReadAthlete(BaseModel):
+    athlete_id: int
+    athlete_name: str
+    read_at: datetime
+
+
 class TeamChatMessageResponse(BaseModel):
     id: int
     team_id: int
@@ -16,6 +26,9 @@ class TeamChatMessageResponse(BaseModel):
     body: str
     created_at: datetime
     is_mine: bool = False
+    read_count: int = 0
+    roster_count: int = 0
+    read_by: list[TeamChatMessageReadAthlete] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

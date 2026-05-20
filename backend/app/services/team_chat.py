@@ -2,10 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Athlete, AthleteTeamChatRead, Team, TeamChatMessage, TeamChatSenderKind, TeamMember, User
+from app.models import (
+    Athlete,
+    AthleteTeamChatRead,
+    Team,
+    TeamChatMessage,
+    TeamChatMessageRead,
+    TeamChatSenderKind,
+    TeamMember,
+    User,
+)
 from app.services.parent_portal_notify import clear_marker_for_athlete
 
 CHAT_RETENTION_DAYS = 15
@@ -39,6 +47,17 @@ def _athlete_team_ids(db: Session, athlete_id: int) -> list[tuple[int, str]]:
     return [(int(r[0]), r[1]) for r in rows if r[0]]
 
 
+def _active_roster(db: Session, team_id: int) -> list[tuple[int, str]]:
+    rows = (
+        db.query(Athlete.id, Athlete.athlete_name)
+        .join(TeamMember, TeamMember.athlete_id == Athlete.id)
+        .filter(TeamMember.team_id == int(team_id), TeamMember.is_active.is_(True))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    return [(int(aid), name) for aid, name in rows]
+
+
 def _ensure_athlete_on_team(db: Session, athlete_id: int, team_id: int) -> Team:
     row = (
         db.query(Team)
@@ -67,8 +86,7 @@ def _last_read_at(db: Session, athlete_id: int, team_id: int) -> datetime | None
     return row.last_read_at if row else None
 
 
-def mark_chat_read(db: Session, athlete_id: int, team_id: int) -> None:
-    _ensure_athlete_on_team(db, athlete_id, team_id)
+def _touch_channel_read(db: Session, athlete_id: int, team_id: int) -> None:
     now = datetime.utcnow()
     row = (
         db.query(AthleteTeamChatRead)
@@ -83,22 +101,108 @@ def mark_chat_read(db: Session, athlete_id: int, team_id: int) -> None:
     else:
         db.add(AthleteTeamChatRead(athlete_id=int(athlete_id), team_id=int(team_id), last_read_at=now))
     clear_marker_for_athlete(db, athlete_id, f"chat:{int(team_id)}")
+
+
+def _coach_message_ids_for_team(db: Session, team_id: int, message_ids: list[int] | None = None) -> list[int]:
+    cutoff = _retention_cutoff()
+    q = db.query(TeamChatMessage.id).filter(
+        TeamChatMessage.team_id == int(team_id),
+        TeamChatMessage.sender_kind == TeamChatSenderKind.coach,
+        TeamChatMessage.created_at >= cutoff,
+    )
+    if message_ids:
+        q = q.filter(TeamChatMessage.id.in_([int(x) for x in message_ids if x]))
+    return [int(r[0]) for r in q.all()]
+
+
+def mark_messages_read(db: Session, athlete_id: int, team_id: int, message_ids: list[int]) -> int:
+    """Record per-message read receipts for coach messages (idempotent)."""
+    _ensure_athlete_on_team(db, athlete_id, team_id)
+    valid_ids = _coach_message_ids_for_team(db, team_id, message_ids)
+    if not valid_ids:
+        _touch_channel_read(db, athlete_id, team_id)
+        db.commit()
+        return 0
+
+    existing = {
+        int(r[0])
+        for r in db.query(TeamChatMessageRead.message_id)
+        .filter(
+            TeamChatMessageRead.athlete_id == int(athlete_id),
+            TeamChatMessageRead.message_id.in_(valid_ids),
+        )
+        .all()
+    }
+    now = datetime.utcnow()
+    added = 0
+    for mid in valid_ids:
+        if mid in existing:
+            continue
+        db.add(
+            TeamChatMessageRead(
+                message_id=mid,
+                athlete_id=int(athlete_id),
+                read_at=now,
+            )
+        )
+        added += 1
+    _touch_channel_read(db, athlete_id, team_id)
     db.commit()
+    return added
+
+
+def mark_chat_read(db: Session, athlete_id: int, team_id: int) -> None:
+    """Mark all coach messages in the channel as read (e.g. on open)."""
+    ids = _coach_message_ids_for_team(db, team_id, None)
+    mark_messages_read(db, athlete_id, team_id, ids)
 
 
 def _unread_count(db: Session, athlete_id: int, team_id: int) -> int:
     cutoff = _retention_cutoff()
-    last_read = _last_read_at(db, athlete_id, team_id)
-    q = db.query(func.count(TeamChatMessage.id)).filter(
-        TeamChatMessage.team_id == int(team_id),
-        TeamChatMessage.created_at >= cutoff,
+    coach_ids = [
+        int(r[0])
+        for r in db.query(TeamChatMessage.id)
+        .filter(
+            TeamChatMessage.team_id == int(team_id),
+            TeamChatMessage.created_at >= cutoff,
+            TeamChatMessage.sender_kind == TeamChatSenderKind.coach,
+        )
+        .all()
+    ]
+    if not coach_ids:
+        return 0
+    read_ids = {
+        int(r[0])
+        for r in db.query(TeamChatMessageRead.message_id)
+        .filter(
+            TeamChatMessageRead.athlete_id == int(athlete_id),
+            TeamChatMessageRead.message_id.in_(coach_ids),
+        )
+        .all()
+    }
+    return len(coach_ids) - len(read_ids)
+
+
+def _reads_by_message_ids(db: Session, message_ids: list[int]) -> dict[int, list[dict]]:
+    if not message_ids:
+        return {}
+    rows = (
+        db.query(TeamChatMessageRead, Athlete.athlete_name)
+        .join(Athlete, Athlete.id == TeamChatMessageRead.athlete_id)
+        .filter(TeamChatMessageRead.message_id.in_(message_ids))
+        .order_by(TeamChatMessageRead.read_at.asc())
+        .all()
     )
-    if last_read:
-        q = q.filter(TeamChatMessage.created_at > last_read)
-    q = q.filter(
-        (TeamChatMessage.athlete_id.is_(None)) | (TeamChatMessage.athlete_id != int(athlete_id))
-    )
-    return int(q.scalar() or 0)
+    out: dict[int, list[dict]] = {}
+    for rec, name in rows:
+        out.setdefault(int(rec.message_id), []).append(
+            {
+                "athlete_id": int(rec.athlete_id),
+                "athlete_name": name or f"Състезател #{rec.athlete_id}",
+                "read_at": rec.read_at,
+            }
+        )
+    return out
 
 
 def list_channels_for_athlete(db: Session, athlete: Athlete) -> list[dict]:
@@ -143,12 +247,20 @@ def _sender_label(db: Session, msg: TeamChatMessage) -> str:
     return "Състезател"
 
 
-def message_to_dict(db: Session, msg: TeamChatMessage, viewer_athlete_id: int | None) -> dict:
+def message_to_dict(
+    db: Session,
+    msg: TeamChatMessage,
+    viewer_athlete_id: int | None,
+    *,
+    roster_count: int = 0,
+    read_by: list[dict] | None = None,
+) -> dict:
     is_mine = (
         viewer_athlete_id is not None
         and msg.sender_kind == TeamChatSenderKind.athlete
         and int(msg.athlete_id or 0) == int(viewer_athlete_id)
     )
+    read_list = read_by or []
     return {
         "id": msg.id,
         "team_id": msg.team_id,
@@ -157,6 +269,9 @@ def message_to_dict(db: Session, msg: TeamChatMessage, viewer_athlete_id: int | 
         "body": msg.body,
         "created_at": msg.created_at,
         "is_mine": is_mine,
+        "read_count": len(read_list),
+        "roster_count": roster_count if msg.sender_kind == TeamChatSenderKind.coach else 0,
+        "read_by": read_list,
     }
 
 
@@ -220,7 +335,49 @@ def list_messages_for_coach(db: Session, team_id: int, limit: int = 150) -> list
         .limit(min(limit, 300))
         .all()
     )
-    return [message_to_dict(db, m, None) for m in rows]
+    roster = _active_roster(db, team_id)
+    roster_count = len(roster)
+    coach_ids = [m.id for m in rows if m.sender_kind == TeamChatSenderKind.coach]
+    reads_map = _reads_by_message_ids(db, coach_ids)
+    roster_ids = {aid for aid, _ in roster}
+
+    result = []
+    for m in rows:
+        read_by = reads_map.get(m.id, [])
+        if m.sender_kind == TeamChatSenderKind.coach:
+            read_by = [r for r in read_by if r["athlete_id"] in roster_ids]
+        result.append(
+            message_to_dict(
+                db,
+                m,
+                None,
+                roster_count=roster_count,
+                read_by=read_by if m.sender_kind == TeamChatSenderKind.coach else [],
+            )
+        )
+    return result
+
+
+def get_message_read_detail(db: Session, team_id: int, message_id: int) -> dict | None:
+    msg = (
+        db.query(TeamChatMessage)
+        .filter(TeamChatMessage.id == int(message_id), TeamChatMessage.team_id == int(team_id))
+        .first()
+    )
+    if not msg or msg.sender_kind != TeamChatSenderKind.coach:
+        return None
+    roster = _active_roster(db, team_id)
+    roster_count = len(roster)
+    read_by = _reads_by_message_ids(db, [msg.id]).get(msg.id, [])
+    read_ids = {r["athlete_id"] for r in read_by}
+    unread = [{"athlete_id": aid, "athlete_name": name} for aid, name in roster if aid not in read_ids]
+    return {
+        "message_id": msg.id,
+        "read_by": read_by,
+        "unread": unread,
+        "read_count": len(read_by),
+        "roster_count": roster_count,
+    }
 
 
 def delete_message(db: Session, team_id: int, message_id: int) -> bool:

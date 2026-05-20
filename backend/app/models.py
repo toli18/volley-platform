@@ -665,8 +665,32 @@ class TeamChatMessage(Base):
     team = relationship("Team", back_populates="chat_messages")
     coach = relationship("User", foreign_keys=[coach_user_id])
     athlete = relationship("Athlete", foreign_keys=[athlete_id])
+    read_receipts = relationship(
+        "TeamChatMessageRead",
+        back_populates="message",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (Index("ix_team_chat_team_created", "team_id", "created_at"),)
+
+
+class TeamChatMessageRead(Base):
+    __tablename__ = "team_chat_message_reads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(
+        Integer,
+        ForeignKey("team_chat_messages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    read_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    message = relationship("TeamChatMessage", back_populates="read_receipts")
+    athlete = relationship("Athlete", foreign_keys=[athlete_id])
+
+    __table_args__ = (UniqueConstraint("message_id", "athlete_id", name="uq_team_chat_message_read"),)
 
 
 class AthleteTeamChatRead(Base):
