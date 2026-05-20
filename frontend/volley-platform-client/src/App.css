@@ -642,6 +642,482 @@
   display: none;
 }
 
+/* AI Generator — mobile-first tabs & layout */
+.aiGenPage {
+  padding: 16px;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.aiGenTabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0 14px;
+  padding-bottom: 4px;
+}
+
+.aiGenTab {
+  flex: 0 0 auto;
+  border: 1px solid #dce5f2;
+  background: #fff;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aiGenTab--active {
+  background: #0f4ea8;
+  border-color: #0f4ea8;
+  color: #fff;
+}
+
+.aiGenTabBadge {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
+.aiGenTab--active .aiGenTabBadge {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.aiGenPanel {
+  margin-bottom: 12px;
+}
+
+.aiGenPanel--empty {
+  text-align: center;
+  padding: 28px 16px;
+  border: 1px dashed #9cb4d8;
+  border-radius: 14px;
+  background: #f6f9ff;
+}
+
+.aiGenHint {
+  font-size: 13px;
+  color: #415472;
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+
+.aiGenGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .aiGenGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .aiGenGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.aiGenField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.aiGenField span {
+  font-weight: 700;
+}
+
+.aiGenField input,
+.aiGenField select {
+  width: 100%;
+  min-height: 40px;
+}
+
+.aiGenField--wide {
+  grid-column: 1 / -1;
+}
+
+.aiGenField--invalid input {
+  border-color: #dc2626;
+}
+
+.aiGenError {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.aiGenSuccess,
+.aiGenSuccessInline {
+  color: #0a6b1f;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.aiGenWarn {
+  color: #8a5300;
+  background: #fff4d9;
+  border: 1px solid #ffd27d;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.aiGenSkillsBox {
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  margin-top: 10px;
+}
+
+.aiGenSkillsTitle {
+  font-weight: 800;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.aiGenSkillsList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  max-height: 200px;
+  overflow: auto;
+}
+
+@media (min-width: 640px) {
+  .aiGenSkillsList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.aiGenSkillCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.aiGenTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.aiGenTag {
+  background: #111827;
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.aiGenToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aiGenResultsMeta {
+  font-size: 13px;
+  color: #64748b;
+  margin: 14px 0 8px;
+}
+
+.aiGenDrillGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 560px) {
+  .aiGenDrillGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .aiGenDrillGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.aiGenDrillCard {
+  display: flex;
+  gap: 10px;
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.aiGenDrillCardMedia {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b1c34;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.aiGenDrillCardImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aiGenDrillCardPlay {
+  color: #fff;
+  font-size: 22px;
+}
+
+.aiGenDrillCardEmpty {
+  color: #94a3b8;
+  font-size: 18px;
+}
+
+.aiGenDrillCardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.aiGenDrillCardMeta {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  margin: 0 0 4px;
+}
+
+.aiGenDrillCardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.aiGenDrillCardDesc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.aiGenCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.aiGenCardSelect {
+  flex: 1;
+  min-width: 0;
+  max-width: 140px;
+  font-size: 12px;
+}
+
+.aiGenBlock {
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
+.aiGenBlockTitle {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.aiGenBlockTitle span {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.aiGenPlanMeta {
+  font-size: 13px;
+  color: #415472;
+  margin: 0 0 10px;
+}
+
+.aiGenPlanRow {
+  background: #f8fbff;
+  border: 1px solid #ebf1f7;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.aiGenPlanRowHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.aiGenPlanRowHead strong {
+  font-size: 14px;
+}
+
+.aiGenPlanRowHead span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.aiGenPlanRowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.aiGenMoveLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.aiGenMoveLabel select {
+  max-width: 130px;
+}
+
+.aiGenWhyList {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.aiGenAssignBox {
+  margin-top: 16px;
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.aiGenAssignTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.aiGenCoachList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.aiGenCoachCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.aiGenBtn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.aiGenBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aiGenBtn--primary {
+  background: #0f4ea8;
+  color: #fff;
+}
+
+.aiGenBtn--save {
+  background: #0a7a2f;
+  color: #fff;
+}
+
+.aiGenBtn--ghost {
+  background: #eef2f7;
+  color: #1e293b;
+}
+
+.aiGenBtn--danger {
+  background: #fef2f2;
+  color: #9f1239;
+}
+
+.aiGenLinkBtn {
+  border: none;
+  background: none;
+  color: #0f4ea8;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.aiGenStickyBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #dce5f2;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+}
+
+.aiGenStickyBar .aiGenBtn {
+  flex: 1;
+  min-height: 44px;
+}
+
 .teamScheduleCalendarWrap {
   overflow-x: auto;
   padding-bottom: 4px;

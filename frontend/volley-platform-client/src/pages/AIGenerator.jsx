@@ -1,22 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import DrillMediaPreviewModal from "../components/DrillMediaPreviewModal";
+import {
+  AIGeneratorLibraryPanel,
+  AIGeneratorPlanPanel,
+  AIGeneratorSavePanel,
+  AIGeneratorSettingsPanel,
+} from "../components/ai/AIGeneratorPanels";
 import { Button, PageHero } from "../components/ui";
 import { useAuth } from "../auth/AuthContext";
 
 const PERIODS = [
-  { value: "prep", label: "Подготовителен период" },
-  { value: "inseason", label: "Състезателен период" },
-  { value: "taper", label: "Пикова форма" },
-  { value: "offseason", label: "Преходен период" },
+  { value: "prep", label: "РџРѕРґРіРѕС‚РѕРІРёС‚РµР»РµРЅ РїРµСЂРёРѕРґ" },
+  { value: "inseason", label: "РЎСЉСЃС‚РµР·Р°С‚РµР»РµРЅ РїРµСЂРёРѕРґ" },
+  { value: "taper", label: "РџРёРєРѕРІР° С„РѕСЂРјР°" },
+  { value: "offseason", label: "РџСЂРµС…РѕРґРµРЅ РїРµСЂРёРѕРґ" },
 ];
 
 const INTENSITIES = [
-  { value: "low", label: "Нисък" },
-  { value: "medium", label: "Среден" },
-  { value: "high", label: "Висок" },
+  { value: "low", label: "РќРёСЃСЉРє" },
+  { value: "medium", label: "РЎСЂРµРґРµРЅ" },
+  { value: "high", label: "Р’РёСЃРѕРє" },
 ];
 
 const DURATION_OPTIONS = [60, 75, 90, 105, 120];
@@ -24,16 +30,16 @@ const PLAYERS_OPTIONS = [6, 8, 10, 12, 14, 16, 18];
 const AGE_OPTIONS = Array.from({ length: 15 }, (_, i) => i + 10);
 const SEED_OPTIONS = [7, 42, 99, 2026];
 const ORIENTATION_OPTIONS = [
-  { value: "balanced", label: "Балансирана" },
-  { value: "serve_receive", label: "Сервис / Посрещане" },
-  { value: "attack_block", label: "Атака / Блок" },
-  { value: "defense_transition", label: "Защита / Преход" },
-  { value: "game_tactics", label: "Игрово-тактическа" },
-  { value: "physical", label: "Физическа насоченост" },
+  { value: "balanced", label: "Р‘Р°Р»Р°РЅСЃРёСЂР°РЅР°" },
+  { value: "serve_receive", label: "РЎРµСЂРІРёСЃ / РџРѕСЃСЂРµС‰Р°РЅРµ" },
+  { value: "attack_block", label: "РђС‚Р°РєР° / Р‘Р»РѕРє" },
+  { value: "defense_transition", label: "Р—Р°С‰РёС‚Р° / РџСЂРµС…РѕРґ" },
+  { value: "game_tactics", label: "РРіСЂРѕРІРѕ-С‚Р°РєС‚РёС‡РµСЃРєР°" },
+  { value: "physical", label: "Р¤РёР·РёС‡РµСЃРєР° РЅР°СЃРѕС‡РµРЅРѕСЃС‚" },
 ];
 const VARIABILITY_OPTIONS = [
-  { value: "stable", label: "Стабилен (по-повтаряем)" },
-  { value: "varied", label: "Вариативен (по-различни планове)" },
+  { value: "stable", label: "РЎС‚Р°Р±РёР»РµРЅ (РїРѕ-РїРѕРІС‚Р°СЂСЏРµРј)" },
+  { value: "varied", label: "Р’Р°СЂРёР°С‚РёРІРµРЅ (РїРѕ-СЂР°Р·Р»РёС‡РЅРё РїР»Р°РЅРѕРІРµ)" },
 ];
 
 function parseList(raw) {
@@ -64,27 +70,27 @@ function chooseByKeywords(options, keywords, fallbackCount = 2) {
 }
 
 const BG_TOKEN_MAP = {
-  attack: "Атака",
-  defense: "Защита",
-  defence: "Защита",
-  receive: "Посрещане",
-  reception: "Посрещане",
-  "serve receive": "Посрещане",
-  serve: "Сервис",
-  service: "Сервис",
-  block: "Блок",
-  setting: "Разпределение",
-  set: "Разпределение",
-  pass: "Разпределение",
-  passing: "Разпределение",
-  transition: "Преход",
-  counter: "Контраатака",
-  rally: "Разиграване",
-  game: "Игра",
-  "break point": "Брейк точка",
-  break_point: "Брейк точка",
-  indoor: "Зала",
-  outdoor: "Открито",
+  attack: "РђС‚Р°РєР°",
+  defense: "Р—Р°С‰РёС‚Р°",
+  defence: "Р—Р°С‰РёС‚Р°",
+  receive: "РџРѕСЃСЂРµС‰Р°РЅРµ",
+  reception: "РџРѕСЃСЂРµС‰Р°РЅРµ",
+  "serve receive": "РџРѕСЃСЂРµС‰Р°РЅРµ",
+  serve: "РЎРµСЂРІРёСЃ",
+  service: "РЎРµСЂРІРёСЃ",
+  block: "Р‘Р»РѕРє",
+  setting: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
+  set: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
+  pass: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
+  passing: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
+  transition: "РџСЂРµС…РѕРґ",
+  counter: "РљРѕРЅС‚СЂР°Р°С‚Р°РєР°",
+  rally: "Р Р°Р·РёРіСЂР°РІР°РЅРµ",
+  game: "РРіСЂР°",
+  "break point": "Р‘СЂРµР№Рє С‚РѕС‡РєР°",
+  break_point: "Р‘СЂРµР№Рє С‚РѕС‡РєР°",
+  indoor: "Р—Р°Р»Р°",
+  outdoor: "РћС‚РєСЂРёС‚Рѕ",
 };
 
 function toBgLabel(raw) {
@@ -105,7 +111,8 @@ function toBgLabel(raw) {
 export default function AIGenerator() {
   const { user } = useAuth();
   const isHeadCoachUser = String(user?.role || "").toLowerCase() === "club_head_coach";
-  const resultsRef = useRef(null);
+  const planRef = useRef(null);
+  const [activeTab, setActiveTab] = useState("settings");
   const [drills, setDrills] = useState([]);
   const [metaLoading, setMetaLoading] = useState(true);
   const [previewDrill, setPreviewDrill] = useState(null);
@@ -140,7 +147,7 @@ export default function AIGenerator() {
   const [err, setErr] = useState("");
   const [savedTraining, setSavedTraining] = useState(null);
   const [editableBlocks, setEditableBlocks] = useState([]);
-  const [targetBlockType, setTargetBlockType] = useState("Интеграция");
+  const [targetBlockType, setTargetBlockType] = useState("РРЅС‚РµРіСЂР°С†РёСЏ");
   const [cardTargetByDrill, setCardTargetByDrill] = useState({});
   const [assignCoaches, setAssignCoaches] = useState([]);
   const [assignDueDate, setAssignDueDate] = useState("");
@@ -195,6 +202,26 @@ export default function AIGenerator() {
     if (editableBlocks.length) return editableBlocks;
     return result?.session?.blocks || result?.blocks || [];
   }, [editableBlocks, result]);
+
+  const drillById = useMemo(() => {
+    const map = {};
+    drills.forEach((d) => {
+      if (d?.id != null) map[Number(d.id)] = d;
+    });
+    return map;
+  }, [drills]);
+
+  const goToPlan = () => {
+    setActiveTab("plan");
+    requestAnimationFrame(() => {
+      planRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const toggleAssignCoach = (id) => {
+    const key = String(id);
+    setAssignCoaches((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
+  };
 
   useEffect(() => {
     let alive = true;
@@ -264,7 +291,7 @@ export default function AIGenerator() {
     const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "bg"));
     const inferLocation = (d) => {
       const text = `${d?.setup || ""} ${d?.description || ""}`.toLowerCase();
-      if (text.includes("outdoor") || text.includes("навън") || text.includes("открит")) return "Outdoor";
+      if (text.includes("outdoor") || text.includes("РЅР°РІСЉРЅ") || text.includes("РѕС‚РєСЂРёС‚")) return "Outdoor";
       return "Indoor";
     };
     const parsePlayers = (raw) => {
@@ -352,12 +379,12 @@ export default function AIGenerator() {
 
   const activeFinderTags = useMemo(() => {
     const tags = [];
-    if (finder.level !== "all") tags.push({ key: "level", label: `Ниво: ${finder.level}` });
-    if (finder.location !== "all") tags.push({ key: "location", label: `Локация: ${toBgLabel(finder.location)}` });
-    if (finder.playersBucket !== "all") tags.push({ key: "playersBucket", label: `Играчи: ${finder.playersBucket}` });
-    if (finder.trainingPhase !== "all") tags.push({ key: "trainingPhase", label: `Фаза: ${toBgLabel(finder.trainingPhase)}` });
-    if (finder.gameForm !== "all") tags.push({ key: "gameForm", label: `Форма: ${toBgLabel(finder.gameForm)}` });
-    finder.skills.forEach((s) => tags.push({ key: `skill:${s}`, label: `Умение: ${toBgLabel(s)}` }));
+    if (finder.level !== "all") tags.push({ key: "level", label: `РќРёРІРѕ: ${finder.level}` });
+    if (finder.location !== "all") tags.push({ key: "location", label: `Р›РѕРєР°С†РёСЏ: ${toBgLabel(finder.location)}` });
+    if (finder.playersBucket !== "all") tags.push({ key: "playersBucket", label: `РРіСЂР°С‡Рё: ${finder.playersBucket}` });
+    if (finder.trainingPhase !== "all") tags.push({ key: "trainingPhase", label: `Р¤Р°Р·Р°: ${toBgLabel(finder.trainingPhase)}` });
+    if (finder.gameForm !== "all") tags.push({ key: "gameForm", label: `Р¤РѕСЂРјР°: ${toBgLabel(finder.gameForm)}` });
+    finder.skills.forEach((s) => tags.push({ key: `skill:${s}`, label: `РЈРјРµРЅРёРµ: ${toBgLabel(s)}` }));
     return tags;
   }, [finder]);
 
@@ -387,15 +414,15 @@ export default function AIGenerator() {
       focusSkills: [form.mainFocus, form.secondaryFocus].filter(Boolean),
       focusDomains:
         form.orientation === "serve_receive"
-          ? chooseByKeywords(options.domains, ["прием", "посрещ", "service", "serve"], 3)
+          ? chooseByKeywords(options.domains, ["РїСЂРёРµРј", "РїРѕСЃСЂРµС‰", "service", "serve"], 3)
           : form.orientation === "attack_block"
-            ? chooseByKeywords(options.domains, ["атака", "attack", "блок", "block"], 3)
+            ? chooseByKeywords(options.domains, ["Р°С‚Р°РєР°", "attack", "Р±Р»РѕРє", "block"], 3)
             : form.orientation === "defense_transition"
-              ? chooseByKeywords(options.domains, ["защ", "defense", "dig", "transition"], 3)
+              ? chooseByKeywords(options.domains, ["Р·Р°С‰", "defense", "dig", "transition"], 3)
               : form.orientation === "game_tactics"
-                ? chooseByKeywords(options.domains, ["тактик", "system", "rotation", "игра"], 3)
+                ? chooseByKeywords(options.domains, ["С‚Р°РєС‚РёРє", "system", "rotation", "РёРіСЂР°"], 3)
                 : form.orientation === "physical"
-                  ? chooseByKeywords(options.domains, ["физ", "conditioning", "speed", "jump", "сил"], 3)
+                  ? chooseByKeywords(options.domains, ["С„РёР·", "conditioning", "speed", "jump", "СЃРёР»"], 3)
                   : options.domains.slice(0, Math.min(3, options.domains.length)),
       focusGamePhases:
         form.orientation === "serve_receive"
@@ -507,12 +534,12 @@ export default function AIGenerator() {
         if ((b.drills || []).some((d) => Number(d.drillId) === drillId)) return b;
         const added = {
           drillId,
-          name: drill?.title || drill?.name || `Упражнение #${drillId}`,
+          name: drill?.title || drill?.name || `РЈРїСЂР°Р¶РЅРµРЅРёРµ #${drillId}`,
           minutes: 0,
           intensity_type: String(drill?.intensity_type || "medium"),
           rpe: drill?.rpe ?? null,
           category: String(drill?.category || ""),
-          why: ["Добавено ръчно от треньора след генериране."],
+          why: ["Р”РѕР±Р°РІРµРЅРѕ СЂСЉС‡РЅРѕ РѕС‚ С‚СЂРµРЅСЊРѕСЂР° СЃР»РµРґ РіРµРЅРµСЂРёСЂР°РЅРµ."],
           score: 0,
         };
         return rebalanceBlockMinutes({ ...b, drills: [...(b.drills || []), added] });
@@ -538,8 +565,9 @@ export default function AIGenerator() {
       setEditableBlocks(blocks);
       if (blocks.length) setTargetBlockType(blocks[0].blockType);
       setCardTargetByDrill({});
+      goToPlan();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Грешка при генериране.");
+      setErr(e?.response?.data?.detail || e?.message || "Р“СЂРµС€РєР° РїСЂРё РіРµРЅРµСЂРёСЂР°РЅРµ.");
     } finally {
       setLoading(false);
     }
@@ -550,7 +578,7 @@ export default function AIGenerator() {
     setErr("");
     const customTitle = form.trainingTitle?.trim();
     if (!customTitle) {
-      setErr("Моля, въведете име на тренировката преди запис.");
+      setErr("РњРѕР»СЏ, РІСЉРІРµРґРµС‚Рµ РёРјРµ РЅР° С‚СЂРµРЅРёСЂРѕРІРєР°С‚Р° РїСЂРµРґРё Р·Р°РїРёСЃ.");
       setSaving(false);
       return;
     }
@@ -565,7 +593,7 @@ export default function AIGenerator() {
           ...payload,
           randomSeed: effectiveSeed,
           trainingTitle: customTitle,
-          trainingStatus: "чернова",
+          trainingStatus: "С‡РµСЂРЅРѕРІР°",
           editedBlocks: editableBlocks.length ? editableBlocks : undefined,
         },
       });
@@ -575,6 +603,7 @@ export default function AIGenerator() {
       if (blocks.length) setTargetBlockType(blocks[0].blockType);
       setCardTargetByDrill({});
       setSavedTraining(data?.training || null);
+      setActiveTab("save");
       if (isHeadCoachUser && (assignCoaches || []).length > 0 && data?.training?.id) {
         await apiClient(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_CREATE, {
           method: "POST",
@@ -587,422 +616,163 @@ export default function AIGenerator() {
         });
       }
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Грешка при generate-and-save.");
+      setErr(e?.response?.data?.detail || e?.message || "Р“СЂРµС€РєР° РїСЂРё generate-and-save.");
     } finally {
       setSaving(false);
     }
   };
 
+  const tabs = [
+    { id: "settings", label: "РќР°СЃС‚СЂРѕР№РєРё" },
+    { id: "library", label: "Р‘Р°Р·Р° СѓРїСЂР°Р¶РЅРµРЅРёСЏ" },
+    { id: "plan", label: "РџР»Р°РЅ", badge: planBlocks.length || null },
+    { id: "save", label: "Р—Р°РїРёСЃ" },
+  ];
+
+  const openDrillPreview = (drillOrId) => {
+    if (!drillOrId) return;
+    if (typeof drillOrId === "object") {
+      setPreviewDrill(drillOrId);
+      return;
+    }
+    const full = drillById[Number(drillOrId)];
+    if (full) setPreviewDrill(full);
+    else setPreviewDrill({ id: drillOrId, title: `РЈРїСЂР°Р¶РЅРµРЅРёРµ #${drillOrId}` });
+  };
+
   return (
-    <div style={{ padding: 16 }}>
+    <div className="aiGenPage">
       <PageHero
-        title="AI генератор на тренировки"
-        subtitle="Използва само одобрените упражнения в платформата и ги разпределя по логика в 4 части."
+        title="AI РіРµРЅРµСЂР°С‚РѕСЂ РЅР° С‚СЂРµРЅРёСЂРѕРІРєРё"
+        subtitle="РР·РїРѕР»Р·РІР° РѕРґРѕР±СЂРµРЅРёС‚Рµ СѓРїСЂР°Р¶РЅРµРЅРёСЏ Рё РіРё СЂР°Р·РїСЂРµРґРµР»СЏ РІ 4 С‡Р°СЃС‚Рё РЅР° С‚СЂРµРЅРёСЂРѕРІРєР°С‚Р°."
         actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button as={Link} to="/my-trainings" size="sm">Моите тренировки</Button>
-            <Button as={Link} to="/ai-generator" variant="secondary" size="sm">AI Генератор</Button>
-            <Button as={Link} to="/generator" variant="secondary" size="sm">Генератор</Button>
-            <Button as={Link} to="/my-drills" variant="secondary" size="sm">Моите упражнения</Button>
-            <Button as={Link} to="/coach-board" variant="secondary" size="sm">Тактическа дъска</Button>
-            <Button as={Link} to="/teams/schedule" variant="secondary" size="sm">График</Button>
-          </div>
+          <Button as={Link} to="/my-trainings" size="sm" variant="secondary">
+            в†ђ РњРѕРёС‚Рµ С‚СЂРµРЅРёСЂРѕРІРєРё
+          </Button>
         }
       />
-      <details className="aiGenDetails" style={{ border: "1px solid #dce5f2", borderRadius: 14, background: "#f8fafc", marginBottom: 12 }}>
-        <summary style={{ fontWeight: 900, padding: "12px 14px", cursor: "pointer", listStyle: "none" }}>
-          Параметри, които влияят на AI генератора
-        </summary>
-        <div style={{ padding: "0 12px 12px" }}>
-        <div style={{ fontSize: 12, color: "#415472", marginBottom: 8 }}>
-          Основни полета: възраст/ниво, фокус, период, време, брой играчи, интензитет, насоченост и вариативност.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-        <label>
-          <div>Име на тренировка (при запис)</div>
-          <input
-            value={form.trainingTitle}
-            placeholder="Напр. U18 - Сервис и посрещане"
-            onChange={(e) => setForm((p) => ({ ...p, trainingTitle: e.target.value }))}
-            style={{
-              border:
-                err && !form.trainingTitle?.trim()
-                  ? "1px solid #dc2626"
-                  : undefined,
-            }}
-          />
-        </label>
-        <label>
-          <div>Възрастов диапазон</div>
-          <select value={form.ageRange} onChange={(e) => setForm((p) => ({ ...p, ageRange: e.target.value }))}>
-            <option value="">По конкретна възраст</option>
-            <option value="12-14">12-14</option>
-            <option value="14-16">14-16</option>
-            <option value="16-18">16-18</option>
-            <option value="18-22">18-22</option>
-          </select>
-        </label>
-        <label>
-          <div>Възраст (ако няма диапазон)</div>
-          <select value={form.age} onChange={(e) => setForm((p) => ({ ...p, age: Number(e.target.value) }))}>
-            {AGE_OPTIONS.map((x) => (
-              <option key={x} value={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Ниво</div>
-          <select value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))}>
-            {options.levels.map((x) => (
-              <option key={x} value={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Основен фокус</div>
-          <select value={form.mainFocus} onChange={(e) => setForm((p) => ({ ...p, mainFocus: e.target.value }))}>
-            {options.skills.map((x) => (
-              <option key={x} value={x}>{toBgLabel(x)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Вторичен фокус</div>
-          <select value={form.secondaryFocus} onChange={(e) => setForm((p) => ({ ...p, secondaryFocus: e.target.value }))}>
-            {options.skills.map((x) => (
-              <option key={x} value={x}>{toBgLabel(x)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Период</div>
-          <select value={form.periodPhase} onChange={(e) => setForm((p) => ({ ...p, periodPhase: e.target.value }))}>
-            {PERIODS.map((x) => (
-              <option key={x.value} value={x.value}>{x.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Обща продължителност (мин)</div>
-          <select value={form.durationTotalMin} onChange={(e) => setForm((p) => ({ ...p, durationTotalMin: Number(e.target.value) }))}>
-            {DURATION_OPTIONS.map((x) => (
-              <option key={x} value={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Брой играчи</div>
-          <select value={form.playersCount} onChange={(e) => setForm((p) => ({ ...p, playersCount: Number(e.target.value) }))}>
-            {PLAYERS_OPTIONS.map((x) => (
-              <option key={x} value={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Интензитет</div>
-          <select value={form.intensityTarget} onChange={(e) => setForm((p) => ({ ...p, intensityTarget: e.target.value }))}>
-            {INTENSITIES.map((x) => (
-              <option key={x.value} value={x.value}>{x.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Насоченост</div>
-          <select value={form.orientation} onChange={(e) => setForm((p) => ({ ...p, orientation: e.target.value }))}>
-            {ORIENTATION_OPTIONS.map((x) => (
-              <option key={x.value} value={x.value}>{x.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div>Вариативност</div>
-          <select value={form.variability} onChange={(e) => setForm((p) => ({ ...p, variability: e.target.value }))}>
-            {VARIABILITY_OPTIONS.map((x) => (
-              <option key={x.value} value={x.value}>{x.label}</option>
-            ))}
-          </select>
-        </label>
-        {form.variability === "stable" && (
-          <label>
-            <div>Фиксиран seed</div>
-            <select value={form.randomSeed} onChange={(e) => setForm((p) => ({ ...p, randomSeed: Number(e.target.value) }))}>
-              {SEED_OPTIONS.map((x) => (
-                <option key={x} value={x}>{x}</option>
-              ))}
-            </select>
-          </label>
-        )}
-        </div>
-        </div>
-      </details>
-      <details className="aiGenDetails" style={{ border: "1px solid #dce5f2", borderRadius: 14, background: "#f8fafc", marginBottom: 12 }}>
-        <summary style={{ fontWeight: 900, padding: "12px 14px", cursor: "pointer", listStyle: "none" }}>
-          Филтри за преглед на упражнения (не влияят директно на AI)
-        </summary>
-        <div style={{ padding: "0 12px 12px" }}>
-        <div style={{ fontSize: 12, color: "#415472", marginBottom: 8 }}>
-          Тези филтри са за бърз преглед на базата. Може да прехвърлиш ниво и избрани умения към AI.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-          <label>
-            <div>Търсене по име</div>
-            <input
-              value={finder.search}
-              placeholder="Въведи ключови думи"
-              onChange={(e) => setFinder((p) => ({ ...p, search: e.target.value }))}
-            />
-          </label>
-          <label>
-            <div>Ниво</div>
-            <select value={finder.level} onChange={(e) => setFinder((p) => ({ ...p, level: e.target.value }))}>
-              {finderOptions.levels.map((x) => (
-                <option key={x} value={x}>{x === "all" ? "Всички" : x}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <div>Локация</div>
-            <select value={finder.location} onChange={(e) => setFinder((p) => ({ ...p, location: e.target.value }))}>
-              {finderOptions.locations.map((x) => (
-                <option key={x} value={x}>{x === "all" ? "Всички" : toBgLabel(x)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <div>Брой играчи</div>
-            <select value={finder.playersBucket} onChange={(e) => setFinder((p) => ({ ...p, playersBucket: e.target.value }))}>
-              <option value="all">Всички</option>
-              <option value="<=8">&lt;=8</option>
-              <option value="9-12">9-12</option>
-              <option value="13+">13+</option>
-            </select>
-          </label>
-          <label>
-            <div>Фаза на тренировка</div>
-            <select value={finder.trainingPhase} onChange={(e) => setFinder((p) => ({ ...p, trainingPhase: e.target.value }))}>
-              {finderOptions.phases.map((x) => (
-                <option key={x} value={x}>{x === "all" ? "Всички" : toBgLabel(x)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <div>Игрови форми</div>
-            <select value={finder.gameForm} onChange={(e) => setFinder((p) => ({ ...p, gameForm: e.target.value }))}>
-              {finderOptions.gameForms.map((x) => (
-                <option key={x} value={x}>{x === "all" ? "Всички" : toBgLabel(x)}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div style={{ marginTop: 8, border: "1px solid #dce5f2", borderRadius: 10, padding: 8, background: "#fff" }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Умения</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, maxHeight: 170, overflow: "auto" }}>
-            {finderOptions.skills.map((s) => (
-              <label key={s.name} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <input
-                  type="checkbox"
-                  checked={finder.skills.includes(s.name)}
-                  onChange={() => setFinder((p) => ({ ...p, skills: toggleInArray(p.skills, s.name) }))}
-                />
-                <span>{toBgLabel(s.name)} ({s.count})</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        {activeFinderTags.length > 0 && (
-          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {activeFinderTags.map((t) => (
-              <span key={t.key} style={{ background: "#111827", color: "#fff", borderRadius: 999, padding: "6px 10px", fontSize: 12 }}>
-                {t.label}
-              </span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button onClick={resetFinder}>Изчисти филтри</button>
-          <button onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth" })}>Към резултатите</button>
-          <button onClick={applyFinderToAI}>Прехвърли ниво и умения към AI</button>
-        </div>
-        </div>
-      </details>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <nav className="aiGenTabs" aria-label="РЎРµРєС†РёРё РЅР° РіРµРЅРµСЂР°С‚РѕСЂР°">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`aiGenTab${activeTab === t.id ? " aiGenTab--active" : ""}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+            {t.badge ? <span className="aiGenTabBadge">{t.badge}</span> : null}
+          </button>
+        ))}
+      </nav>
+
+      {err ? <div className="aiGenError">{String(err)}</div> : null}
+      {savedTraining?.id ? (
+        <div className="aiGenSuccess">
+          Р—Р°РїРёСЃР°РЅРѕ РєР°С‚Рѕ С‚СЂРµРЅРёСЂРѕРІРєР° #{savedTraining.id}: {savedTraining.title}
+          {isHeadCoachUser && assignCoaches.length > 0 ? " вЂў Р’СЉР·Р»РѕР¶РµРЅР° РєР°С‚Рѕ Р·Р°РґР°С‡Р°." : ""}
+        </div>
+      ) : null}
+
+      {activeTab === "settings" ? (
+        <AIGeneratorSettingsPanel
+          form={form}
+          setForm={setForm}
+          options={options}
+          PERIODS={PERIODS}
+          INTENSITIES={INTENSITIES}
+          DURATION_OPTIONS={DURATION_OPTIONS}
+          PLAYERS_OPTIONS={PLAYERS_OPTIONS}
+          AGE_OPTIONS={AGE_OPTIONS}
+          SEED_OPTIONS={SEED_OPTIONS}
+          ORIENTATION_OPTIONS={ORIENTATION_OPTIONS}
+          VARIABILITY_OPTIONS={VARIABILITY_OPTIONS}
+          toBgLabel={toBgLabel}
+        />
+      ) : null}
+
+      {activeTab === "library" ? (
+        <AIGeneratorLibraryPanel
+          finder={finder}
+          setFinder={setFinder}
+          finderOptions={finderOptions}
+          activeFinderTags={activeFinderTags}
+          filteredFinderDrills={filteredFinderDrills}
+          planBlocks={planBlocks}
+          cardTargetByDrill={cardTargetByDrill}
+          setCardTargetByDrill={setCardTargetByDrill}
+          targetBlockType={targetBlockType}
+          toggleInArray={toggleInArray}
+          toBgLabel={toBgLabel}
+          resetFinder={resetFinder}
+          applyFinderToAI={() => {
+            applyFinderToAI();
+            setActiveTab("settings");
+          }}
+          setActiveTab={setActiveTab}
+          onPreview={openDrillPreview}
+          addFilteredDrillToBlock={(d, block) => {
+            addFilteredDrillToBlock(d, block);
+            setActiveTab("plan");
+          }}
+        />
+      ) : null}
+
+      {activeTab === "plan" ? (
+        <AIGeneratorPlanPanel
+          planRef={planRef}
+          result={result}
+          planBlocks={planBlocks}
+          minTwoPerBlockOk={minTwoPerBlockOk}
+          openDrillPreview={openDrillPreview}
+          moveDrillInsideBlock={moveDrillInsideBlock}
+          removeDrillFromBlock={removeDrillFromBlock}
+          moveDrillToBlock={moveDrillToBlock}
+          onGenerate={onGenerate}
+          loading={loading}
+          metaLoading={metaLoading}
+        />
+      ) : null}
+
+      {activeTab === "save" ? (
+        <AIGeneratorSavePanel
+          form={form}
+          setForm={setForm}
+          err={err}
+          isHeadCoachUser={isHeadCoachUser}
+          clubCoaches={clubCoaches}
+          assignCoaches={assignCoaches}
+          toggleAssignCoach={toggleAssignCoach}
+          assignDueDate={assignDueDate}
+          setAssignDueDate={setAssignDueDate}
+          assignNote={assignNote}
+          setAssignNote={setAssignNote}
+          savedTraining={savedTraining}
+          planBlocks={planBlocks}
+          setActiveTab={setActiveTab}
+        />
+      ) : null}
+
+      <div className="aiGenStickyBar" role="toolbar" aria-label="Р”РµР№СЃС‚РІРёСЏ">
+        {(activeTab === "settings" || activeTab === "plan") && (
+          <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={onGenerate} disabled={loading || saving || metaLoading}>
+            {loading ? "Р“РµРЅРµСЂРёСЂР°РЅРµ..." : "Р“РµРЅРµСЂРёСЂР°Р№"}
+          </button>
+        )}
         <button
-          onClick={onGenerate}
+          type="button"
+          className="aiGenBtn aiGenBtn--save"
+          onClick={() => {
+            if (!form.trainingTitle?.trim()) setActiveTab("save");
+            onGenerateAndSave();
+          }}
           disabled={loading || saving || metaLoading}
-          style={{ fontSize: 16, fontWeight: 800, padding: "12px 20px", background: "#0f4ea8", color: "#fff", border: "none", borderRadius: 10 }}
         >
-          {loading ? "Генериране..." : "Генерирай"}
-        </button>
-        <button
-          onClick={onGenerateAndSave}
-          disabled={loading || saving || metaLoading}
-          style={{ fontSize: 16, fontWeight: 800, padding: "12px 20px", background: "#0a7a2f", color: "#fff", border: "none", borderRadius: 10 }}
-        >
-          {saving ? "Запис..." : "Запази"}
+          {saving ? "Р—Р°РїРёСЃ..." : "Р—Р°РїР°Р·Рё"}
         </button>
       </div>
 
-      {err && <div style={{ color: "crimson", marginTop: 10 }}>{String(err)}</div>}
-      {savedTraining?.id && (
-        <div style={{ marginTop: 8, color: "#0a6b1f", fontWeight: 700 }}>
-          Записано като тренировка #{savedTraining.id}: {savedTraining.title}
-          {isHeadCoachUser && assignCoaches.length > 0 ? " • Възложена като задача." : ""}
-        </div>
-      )}
-
-      {isHeadCoachUser && (
-        <div style={{ marginTop: 10, border: "1px solid #dce5f2", borderRadius: 12, padding: 10, background: "#f8fbff" }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Директно възлагане след запис</div>
-          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-            <label>
-              <div>Към треньори</div>
-              <select
-                multiple
-                value={assignCoaches}
-                onChange={(e) => setAssignCoaches(Array.from(e.target.selectedOptions).map((x) => x.value))}
-              >
-                {clubCoaches.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <div>Краен срок</div>
-              <input type="date" value={assignDueDate} onChange={(e) => setAssignDueDate(e.target.value)} />
-            </label>
-            <label>
-              <div>Бележка</div>
-              <input value={assignNote} onChange={(e) => setAssignNote(e.target.value)} placeholder="Бележка към задачата" />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {result && (
-        <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-          <div style={{ border: "1px dashed #9cb4d8", borderRadius: 10, padding: 8, background: "#f6f9ff" }}>
-            <b>Ръчна редакция след генериране:</b> може да местиш, премахваш и добавяш упражнения от картите по-долу.
-          </div>
-          {result?.фокус?.основен && (
-            <div>
-              <b>Фокус:</b> основен <b>{result.фокус.основен}</b>, вторичен <b>{result.фокус.вторичен || "—"}</b>
-            </div>
-          )}
-          <div>
-            <b>Общо минути:</b> {(result?.session?.totalMinutes ?? result.totalMinutes)} | <b>Време ОК:</b> {String(result?.session?.checks?.minutesOk ?? result?.checks?.minutesOk)} |{" "}
-            <b>Покритие на основния фокус:</b> {String(result?.session?.checks?.primaryFocusRatio ?? "—")}
-          </div>
-          {!minTwoPerBlockOk && (
-            <div style={{ color: "#8a5300", background: "#fff4d9", border: "1px solid #ffd27d", borderRadius: 10, padding: 8 }}>
-              Внимание: в някоя част има под 2 упражнения. Използвай друга насоченост/вариативност и генерирай отново.
-            </div>
-          )}
-          {planBlocks.map((b) => (
-            <div key={b.blockType} style={{ border: "1px solid #dce5f2", borderRadius: 12, padding: 10, background: "#fff" }}>
-              <div style={{ fontWeight: 900 }}>{b.blockType} ({b.targetMinutes} мин)</div>
-              <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-                {b.drills?.map((d, idx) => (
-                  <div key={`${b.blockType}-${d.drillId}`} style={{ background: "#f8fbff", border: "1px solid #ebf1f7", borderRadius: 10, padding: 8 }}>
-                    <div style={{ fontWeight: 800 }}>
-                      #{d.drillId} {d.name} — {d.minutes} мин
-                    </div>
-                    <div style={{ fontSize: 13, color: "#415472" }}>
-                      интензитет: {d.intensity_type} | оценка: {d.score}
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => moveDrillInsideBlock(b.blockType, idx, "up")} disabled={idx === 0}>Нагоре</button>
-                      <button onClick={() => moveDrillInsideBlock(b.blockType, idx, "down")} disabled={idx === (b.drills?.length || 0) - 1}>Надолу</button>
-                      <button onClick={() => removeDrillFromBlock(b.blockType, d.drillId)} style={{ color: "#9f1239" }}>Премахни</button>
-                      <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span>Премести в:</span>
-                        <select
-                          defaultValue={b.blockType}
-                          onChange={(e) => moveDrillToBlock(b.blockType, e.target.value, d.drillId)}
-                        >
-                          {planBlocks.map((target) => (
-                            <option key={target.blockType} value={target.blockType}>{target.blockType}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                      {(d.why || []).map((w, i) => (
-                        <li key={i}>{w}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div ref={resultsRef} style={{ marginTop: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <h3 style={{ margin: 0 }}>Резултати от филтъра</h3>
-          <label>
-            <span style={{ marginRight: 6 }}>Сортиране</span>
-            <select value={finder.sorting} onChange={(e) => setFinder((p) => ({ ...p, sorting: e.target.value }))}>
-              <option value="name_asc">Име А-Я</option>
-              <option value="name_desc">Име Я-А</option>
-              <option value="level">Ниво</option>
-              <option value="newest">Най-нови</option>
-            </select>
-          </label>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
-          {filteredFinderDrills.slice(0, 60).map((d) => {
-            const media = getDrillPrimaryMedia(d);
-            return (
-              <div key={d.id} style={{ borderRadius: 14, overflow: "hidden", border: "1px solid #dce5f2", background: "#fff" }}>
-                <button onClick={() => setPreviewDrill(d)} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#0b1c34" }}>
-                  {media?.type === "image" ? (
-                    <img src={media.src} alt={d.title || d.name} style={{ width: "100%", height: 180, objectFit: "cover", opacity: 0.82 }} />
-                  ) : (
-                    <div style={{ width: "100%", height: 180, display: "grid", placeItems: "center", color: "#fff" }}>ПРЕГЛЕД</div>
-                  )}
-                </button>
-                <div style={{ padding: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#b45309" }}>
-                    {d.level || "Всички нива"}{d.category ? `, ${d.category}` : ""}
-                  </div>
-                  <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1 }}>{d.title || d.name}</div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button onClick={() => setPreviewDrill(d)}>Преглед</button>
-                    {planBlocks.length > 0 && (
-                      <>
-                        <select
-                          value={cardTargetByDrill[d.id] || targetBlockType}
-                          onChange={(e) =>
-                            setCardTargetByDrill((prev) => ({
-                              ...prev,
-                              [d.id]: e.target.value,
-                            }))
-                          }
-                        >
-                          {planBlocks.map((b) => (
-                            <option key={b.blockType} value={b.blockType}>
-                              {b.blockType}
-                            </option>
-                          ))}
-                        </select>
-                        <button onClick={() => addFilteredDrillToBlock(d, cardTargetByDrill[d.id] || targetBlockType)}>
-                          Добави в
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      {previewDrill && <DrillMediaPreviewModal drill={previewDrill} onClose={() => setPreviewDrill(null)} />}
+      {previewDrill ? <DrillMediaPreviewModal drill={previewDrill} onClose={() => setPreviewDrill(null)} /> : null}
     </div>
   );
 }
-
