@@ -6,16 +6,24 @@ const EMBED_ALLOW =
   "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 
 function useIsMobileViewport() {
-  const [mobile, setMobile] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
-  );
+  const query = () => {
+    if (typeof window === "undefined") return false;
+    const narrow = window.matchMedia("(max-width: 900px)").matches;
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    return narrow || touch;
+  };
+
+  const [mobile, setMobile] = useState(query);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const onChange = () => setMobile(mq.matches);
+    const mqs = [
+      window.matchMedia("(max-width: 900px)"),
+      window.matchMedia("(pointer: coarse)"),
+    ];
+    const onChange = () => setMobile(query());
+    mqs.forEach((mq) => mq.addEventListener("change", onChange));
     onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return () => mqs.forEach((mq) => mq.removeEventListener("change", onChange));
   }, []);
 
   return mobile;
@@ -62,6 +70,7 @@ function StreamVideo({ sources, onExhausted }) {
     <video
       key={src}
       controls
+      controlsList="nodownload"
       playsInline
       preload="metadata"
       className="drillVideoNative"
@@ -74,12 +83,22 @@ function StreamVideo({ sources, onExhausted }) {
   );
 }
 
+function MobileDriveFallback({ original }) {
+  return (
+    <div className="drillVideoMobileFallback">
+      <p>Вграденият Drive плеър показва прекалено големи бутони на телефона.</p>
+      <a href={original} target="_blank" rel="noopener noreferrer">
+        Отвори видеото
+      </a>
+    </div>
+  );
+}
+
 function resolveInitialMode(parsed, isMobile, embedCandidates, streamSrcs) {
   if (parsed.kind === "drive") {
-    // Drive iframe breaks on short mobile boxes; native video controls center correctly.
-    if (isMobile && streamSrcs.length > 0) return "stream";
-    if (embedCandidates.length > 0) return "embed";
-    return streamSrcs.length > 0 ? "stream" : "embed";
+    if (streamSrcs.length > 0) return "stream";
+    if (!isMobile && embedCandidates.length > 0) return "embed";
+    return "stream";
   }
   return streamSrcs.length > 0 ? "stream" : "embed";
 }
@@ -104,24 +123,45 @@ function AdaptivePlayer({ parsed, compact }) {
 
   const [embedIndex, setEmbedIndex] = useState(0);
   const [mode, setMode] = useState(initialMode);
+  const [mobileStreamFailed, setMobileStreamFailed] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
     setEmbedIndex(0);
+    setMobileStreamFailed(false);
   }, [parsed.original, initialMode]);
 
   const embedSrc = embedCandidates[embedIndex] || null;
   const isDrive = parsed.kind === "drive";
+  const blockDriveEmbed = isMobile && isDrive;
+
+  const handleStreamExhausted = () => {
+    if (blockDriveEmbed) {
+      setMobileStreamFailed(true);
+      return;
+    }
+    setMode("embed");
+  };
+
+  const showEmbed = mode === "embed" && embedSrc && !blockDriveEmbed;
 
   return (
     <div className={`drillVideoPlayer${compact ? " drillVideoPlayer--compact" : ""}`}>
-      {mode === "stream" ? (
-        <StreamVideo sources={streamSrcs} onExhausted={() => setMode("embed")} />
-      ) : embedSrc ? (
+      {mobileStreamFailed ? (
+        <MobileDriveFallback original={parsed.original} />
+      ) : mode === "stream" ? (
+        <StreamVideo sources={streamSrcs} onExhausted={handleStreamExhausted} />
+      ) : showEmbed ? (
         <EmbedFrame src={embedSrc} title={parsed.label} drive={isDrive} />
       ) : null}
 
-      {isDrive && mode === "embed" ? (
+      {isDrive && mode === "stream" && !mobileStreamFailed && !isMobile ? (
+        <p className="drillVideoHint">
+          Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
+        </p>
+      ) : null}
+
+      {isDrive && showEmbed ? (
         <p className="drillVideoHint">
           Видеото трябва да е споделено в Drive като „Всеки с линка“ (най-добре MP4).
         </p>

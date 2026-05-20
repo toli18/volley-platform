@@ -3939,6 +3939,38 @@
   text-align: center;
 }
 
+.drillVideoMobileFallback {
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.drillVideoMobileFallback p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.drillVideoMobileFallback a {
+  color: #0b5cff;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.drillVideoMobileFallback a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  .drillVideoFrame--drive {
+    display: none;
+  }
+}
+
 .dmpPlayerBox .drillVideoPlayer {
   margin-bottom: 0;
 }
