@@ -5348,20 +5348,25 @@
 }
 
 .coachBoardDock {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  z-index: 6;
+  flex-shrink: 0;
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  padding: 6px;
+  align-items: center;
+  padding: 8px 6px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  margin-top: 8px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
+  background: #fff;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.coachBoardDockBack {
+  flex-shrink: 0;
 }
 
 .coachBoardDockBtn {
@@ -5427,17 +5432,29 @@
     padding: 6px 4px 4px;
   }
 
+  .coachBoardShell {
+    padding-bottom: 0;
+  }
+
+  .coachBoardCourtWrap {
+    padding: 4px 0;
+  }
+
   .coachBoardDock {
-    left: 4px;
-    right: 4px;
-    bottom: 4px;
+    margin-top: 6px;
     gap: 4px;
+    padding: 6px 4px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    border-radius: 10px 10px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
   }
 
   .coachBoardDockBtn {
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 10px 8px;
+    flex: 0 0 auto;
+    min-width: 44px;
+    padding: 10px 10px;
     font-size: 12px;
   }
 }

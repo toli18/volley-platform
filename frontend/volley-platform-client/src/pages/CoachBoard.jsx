@@ -57,8 +57,10 @@ function createInitialPlayers() {
 export default function CoachBoard() {
   const toast = useToast();
   const containerRef = useRef(null);
+  const dockRef = useRef(null);
   const bgCanvasRef = useRef(null);
   const drawCanvasRef = useRef(null);
+  const [dockHeight, setDockHeight] = useState(56);
   const lastCanvasRef = useRef({ w: 0, h: 0, orientation: getInitialOrientation() });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [strokes, setStrokes] = useState([]);
@@ -100,15 +102,26 @@ export default function CoachBoard() {
   }, []);
 
   useEffect(() => {
+    const el = dockRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setDockHeight(el.offsetHeight || 56);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, controlsOpen, showRotateBanner]);
+
+  useEffect(() => {
     const fitCourt = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const vh = getViewportHeight();
-      const dockH = isMobile ? 64 : controlsOpen ? 88 : 56;
-      const topBarH = controlsOpen && !isMobile ? 52 : showRotateBanner ? 48 : 8;
-      const pagePad = fullscreen ? 12 : isMobile ? 8 : 24;
+      const dockH = dockHeight + (isMobile ? 8 : 12);
+      const topBarH = controlsOpen && !isMobile ? 52 : showRotateBanner ? 48 : 0;
+      const shellPad = fullscreen ? 8 : isMobile ? 8 : 20;
       const maxW = Math.max(280, rect.width);
-      const maxH = Math.max(280, vh - dockH - topBarH - pagePad);
+      const flexH = rect.height > 80 ? rect.height : vh - dockH - topBarH - shellPad;
+      const maxH = Math.max(280, flexH);
 
       let width = maxW;
       let height = Math.round(width / ratio);
@@ -120,13 +133,15 @@ export default function CoachBoard() {
     };
 
     fitCourt();
+    const raf = window.requestAnimationFrame(fitCourt);
     window.addEventListener("resize", fitCourt);
     window.visualViewport?.addEventListener("resize", fitCourt);
     return () => {
+      window.cancelAnimationFrame(raf);
       window.removeEventListener("resize", fitCourt);
       window.visualViewport?.removeEventListener("resize", fitCourt);
     };
-  }, [ratio, controlsOpen, fullscreen, isMobile, showRotateBanner]);
+  }, [ratio, controlsOpen, fullscreen, isMobile, showRotateBanner, dockHeight]);
 
   useEffect(() => {
     const last = lastCanvasRef.current;
@@ -558,68 +573,6 @@ export default function CoachBoard() {
               onTouchMove={moveDraw}
               onTouchEnd={endDraw}
             />
-            <div className="coachBoardDock">
-              {isMobile ? (
-                <Button as={Link} to={backTo} variant="secondary" size="sm">
-                  ←
-                </Button>
-              ) : null}
-              <button
-                type="button"
-                className={`coachBoardDockBtn${tool === "pen" ? " coachBoardDockBtn--active" : ""}`}
-                onClick={() => {
-                  pingActivity();
-                  setTool("pen");
-                }}
-              >
-                ✏️
-              </button>
-              <button
-                type="button"
-                className={`coachBoardDockBtn${tool === "eraser" ? " coachBoardDockBtn--active" : ""}`}
-                onClick={() => {
-                  pingActivity();
-                  setTool("eraser");
-                }}
-              >
-                🧽
-              </button>
-              <button type="button" className="coachBoardDockBtn" onClick={clearLastStroke} disabled={!strokes.length}>
-                ⌫
-              </button>
-              <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("a")}>
-                +A
-              </button>
-              <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("b")}>
-                +B
-              </button>
-              <button
-                type="button"
-                className="coachBoardDockBtn coachBoardDockBtn--danger"
-                onClick={removeSelectedPlayer}
-                disabled={!selectedPlayerId}
-              >
-                −
-              </button>
-              <button type="button" className="coachBoardDockBtn" onClick={toggleOrientation}>
-                {orientation === "landscape" ? "↕" : "↔"}
-              </button>
-              <button type="button" className="coachBoardDockBtn" onClick={toggleFullscreen}>
-                ⛶
-              </button>
-              {isMobile ? (
-                <button
-                  type="button"
-                  className="coachBoardDockBtn"
-                  onClick={() => {
-                    pingActivity();
-                    setControlsOpen((v) => !v);
-                  }}
-                >
-                  ⚙
-                </button>
-              ) : null}
-            </div>
             {players.map((pl) => (
               <button
                 key={pl.id}
@@ -655,6 +608,69 @@ export default function CoachBoard() {
             ))}
           </div>
         </div>
+
+        <nav ref={dockRef} className="coachBoardDock" aria-label="Инструменти">
+          {isMobile ? (
+            <Button as={Link} to={backTo} variant="secondary" size="sm" className="coachBoardDockBack">
+              ←
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            className={`coachBoardDockBtn${tool === "pen" ? " coachBoardDockBtn--active" : ""}`}
+            onClick={() => {
+              pingActivity();
+              setTool("pen");
+            }}
+          >
+            ✏️
+          </button>
+          <button
+            type="button"
+            className={`coachBoardDockBtn${tool === "eraser" ? " coachBoardDockBtn--active" : ""}`}
+            onClick={() => {
+              pingActivity();
+              setTool("eraser");
+            }}
+          >
+            🧽
+          </button>
+          <button type="button" className="coachBoardDockBtn" onClick={clearLastStroke} disabled={!strokes.length}>
+            ⌫
+          </button>
+          <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("a")}>
+            +A
+          </button>
+          <button type="button" className="coachBoardDockBtn" onClick={() => addPlayer("b")}>
+            +B
+          </button>
+          <button
+            type="button"
+            className="coachBoardDockBtn coachBoardDockBtn--danger"
+            onClick={removeSelectedPlayer}
+            disabled={!selectedPlayerId}
+          >
+            −
+          </button>
+          <button type="button" className="coachBoardDockBtn" onClick={toggleOrientation}>
+            {orientation === "landscape" ? "↕" : "↔"}
+          </button>
+          <button type="button" className="coachBoardDockBtn" onClick={toggleFullscreen}>
+            ⛶
+          </button>
+          {isMobile ? (
+            <button
+              type="button"
+              className="coachBoardDockBtn"
+              onClick={() => {
+                pingActivity();
+                setControlsOpen((v) => !v);
+              }}
+            >
+              ⚙
+            </button>
+          ) : null}
+        </nav>
       </section>
     </div>
   );
