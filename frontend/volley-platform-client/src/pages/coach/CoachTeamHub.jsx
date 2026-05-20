@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import TeamPortalCoachChat from "../../components/teamPortal/TeamPortalCoachChat";
 import TeamPortalCoachNews from "../../components/teamPortal/TeamPortalCoachNews";
-import {
-  TeamPortalHeroActions,
-  TeamPortalTextModal,
-  useTeamPortalCoach,
-} from "../../components/teamPortal/TeamPortalCoachPanel";
+import { TeamPortalHeroActions, TeamPortalTextModal, useTeamPortalCoach } from "../../components/teamPortal/TeamPortalCoachPanel";
+import CoachTeamHubOverview from "./CoachTeamHubOverview";
 import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { teamRoomLoginPath } from "../../utils/teamRoomAuth";
 import { useToast } from "../../components/ToastProvider";
 import { Button, EmptyState, Input } from "../../components/ui";
 
@@ -39,7 +35,6 @@ const SECTIONS = [
 export default function CoachTeamHub() {
   const { teamId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
   const teamIdNum = Number(teamId);
@@ -174,26 +169,14 @@ export default function CoachTeamHub() {
       </nav>
 
       {validSection === "overview" ? (
-        <section className="coachMobileHubSection">
-          <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-            Състезатели: <Link to={teamRoomLoginPath()}>/room/login</Link>
-          </p>
-          {canManage ? (
-            <>
-              <TeamPortalHeroActions coach={portalCoach} />
-              <div className="coachMobileHubLinks">
-                <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/coach/teams/${teamIdNum}/attendance-month`)}>
-                  Присъствие (месец)
-                </Button>
-                <Link to={`/teams/${teamIdNum}`} className="coachMobileQuickBtn" style={{ display: "inline-flex", alignItems: "center" }}>
-                  Пълен профил (десктоп)
-                </Link>
-              </div>
-            </>
-          ) : (
-            <p className="coachMobileMuted">Нямате права за публикуване към този отбор.</p>
-          )}
-        </section>
+        <CoachTeamHubOverview
+          team={team}
+          teamIdNum={teamIdNum}
+          memberCount={members.length}
+          portalItems={canManage ? portalCoach.items : []}
+          canManage={canManage}
+          onTab={setSection}
+        />
       ) : null}
 
       {validSection === "news" && canManage ? (

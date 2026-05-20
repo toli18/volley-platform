@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -100,6 +101,7 @@ const occurrenceKey = (it, i) =>
     : `rule-${it.rule_id}-${it.date}-${it.start_time}-${i}`;
 
 export default function TeamScheduleCalendar() {
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const { user } = useAuth();
   const role = roleValue(user);
@@ -224,6 +226,11 @@ export default function TeamScheduleCalendar() {
     };
     run();
   }, [isHeadCoach]);
+
+  useEffect(() => {
+    const tid = searchParams.get("team_id");
+    if (tid) setTeamFilter(String(tid));
+  }, [searchParams]);
 
   useEffect(() => {
     if (!metaLoaded) return;
