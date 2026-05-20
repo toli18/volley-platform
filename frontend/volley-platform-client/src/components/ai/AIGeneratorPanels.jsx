@@ -1,4 +1,99 @@
+import { useEffect, useMemo, useState } from "react";
 import AiGenDrillCard from "./AiGenDrillCard";
+
+function FocusPickerSheet({ open, title, value, options, toBgLabel, onClose, onSelect }) {
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    if (open) setQ("");
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return options;
+    return options.filter(
+      (o) => String(o).toLowerCase().includes(qq) || toBgLabel(o).toLowerCase().includes(qq)
+    );
+  }, [options, q, toBgLabel]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="aiGenSheetMount" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="aiGenSheetBackdrop" aria-label="Затвори" onClick={onClose} />
+      <div className="aiGenSheet">
+        <div className="aiGenSheetHeader">
+          <h2 className="aiGenSheetTitle">{title}</h2>
+          <button type="button" className="aiGenSheetClose" onClick={onClose} aria-label="Затвори">
+            ×
+          </button>
+        </div>
+        <input
+          type="search"
+          className="aiGenSheetSearch"
+          placeholder="Търси…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          autoComplete="off"
+          autoFocus
+        />
+        <ul className="aiGenSheetList">
+          {filtered.map((opt) => (
+            <li key={opt}>
+              <button
+                type="button"
+                className={`aiGenSheetOption${value === opt ? " aiGenSheetOption--active" : ""}`}
+                onClick={() => {
+                  onSelect(opt);
+                  onClose();
+                }}
+              >
+                {toBgLabel(opt)}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {filtered.length === 0 ? <p className="aiGenSheetEmpty">Няма съвпадения</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function FocusPickerField({ label, value, options, excludeOther, toBgLabel, onChange }) {
+  const [open, setOpen] = useState(false);
+  const displayOptions = useMemo(() => {
+    if (!excludeOther || options.length <= 1) return options;
+    const filtered = options.filter((o) => o !== excludeOther);
+    return filtered.length ? filtered : options;
+  }, [options, excludeOther]);
+
+  return (
+    <div className="aiGenField">
+      <span>{label}</span>
+      <button type="button" className="aiGenFocusTrigger" onClick={() => setOpen(true)}>
+        <span className="aiGenFocusTriggerText">{value ? toBgLabel(value) : "Избери…"}</span>
+        <span className="aiGenFocusTriggerHint">Избери</span>
+      </button>
+      <FocusPickerSheet
+        open={open}
+        title={label}
+        value={value}
+        options={displayOptions}
+        toBgLabel={toBgLabel}
+        onClose={() => setOpen(false)}
+        onSelect={onChange}
+      />
+    </div>
+  );
+}
 
 export function AIGeneratorSettingsPanel({
   form,
@@ -52,26 +147,21 @@ export function AIGeneratorSettingsPanel({
             ))}
           </select>
         </label>
-        <label className="aiGenField">
-          <span>Основен фокус</span>
-          <select value={form.mainFocus} onChange={(e) => setForm((p) => ({ ...p, mainFocus: e.target.value }))}>
-            {options.skills.map((x) => (
-              <option key={x} value={x}>
-                {toBgLabel(x)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="aiGenField">
-          <span>Вторичен фокус</span>
-          <select value={form.secondaryFocus} onChange={(e) => setForm((p) => ({ ...p, secondaryFocus: e.target.value }))}>
-            {options.skills.map((x) => (
-              <option key={x} value={x}>
-                {toBgLabel(x)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <FocusPickerField
+          label="Основен фокус"
+          value={form.mainFocus}
+          options={options.skills}
+          toBgLabel={toBgLabel}
+          onChange={(v) => setForm((p) => ({ ...p, mainFocus: v }))}
+        />
+        <FocusPickerField
+          label="Вторичен фокус"
+          value={form.secondaryFocus}
+          excludeOther={form.mainFocus}
+          options={options.skills}
+          toBgLabel={toBgLabel}
+          onChange={(v) => setForm((p) => ({ ...p, secondaryFocus: v }))}
+        />
         <label className="aiGenField">
           <span>Период</span>
           <select value={form.periodPhase} onChange={(e) => setForm((p) => ({ ...p, periodPhase: e.target.value }))}>

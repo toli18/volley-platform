@@ -13,16 +13,16 @@ import { Button, PageHero } from "../components/ui";
 import { useAuth } from "../auth/AuthContext";
 
 const PERIODS = [
-  { value: "prep", label: "РџРѕРґРіРѕС‚РѕРІРёС‚РµР»РµРЅ РїРµСЂРёРѕРґ" },
-  { value: "inseason", label: "РЎСЉСЃС‚РµР·Р°С‚РµР»РµРЅ РїРµСЂРёРѕРґ" },
-  { value: "taper", label: "РџРёРєРѕРІР° С„РѕСЂРјР°" },
-  { value: "offseason", label: "РџСЂРµС…РѕРґРµРЅ РїРµСЂРёРѕРґ" },
+  { value: "prep", label: "Подготовителен период" },
+  { value: "inseason", label: "Състезателен период" },
+  { value: "taper", label: "Пикова форма" },
+  { value: "offseason", label: "Преходен период" },
 ];
 
 const INTENSITIES = [
-  { value: "low", label: "РќРёСЃСЉРє" },
-  { value: "medium", label: "РЎСЂРµРґРµРЅ" },
-  { value: "high", label: "Р’РёСЃРѕРє" },
+  { value: "low", label: "Нисък" },
+  { value: "medium", label: "Среден" },
+  { value: "high", label: "Висок" },
 ];
 
 const DURATION_OPTIONS = [60, 75, 90, 105, 120];
@@ -30,16 +30,16 @@ const PLAYERS_OPTIONS = [6, 8, 10, 12, 14, 16, 18];
 const AGE_OPTIONS = Array.from({ length: 15 }, (_, i) => i + 10);
 const SEED_OPTIONS = [7, 42, 99, 2026];
 const ORIENTATION_OPTIONS = [
-  { value: "balanced", label: "Р‘Р°Р»Р°РЅСЃРёСЂР°РЅР°" },
-  { value: "serve_receive", label: "РЎРµСЂРІРёСЃ / РџРѕСЃСЂРµС‰Р°РЅРµ" },
-  { value: "attack_block", label: "РђС‚Р°РєР° / Р‘Р»РѕРє" },
-  { value: "defense_transition", label: "Р—Р°С‰РёС‚Р° / РџСЂРµС…РѕРґ" },
-  { value: "game_tactics", label: "РРіСЂРѕРІРѕ-С‚Р°РєС‚РёС‡РµСЃРєР°" },
-  { value: "physical", label: "Р¤РёР·РёС‡РµСЃРєР° РЅР°СЃРѕС‡РµРЅРѕСЃС‚" },
+  { value: "balanced", label: "Балансирана" },
+  { value: "serve_receive", label: "Сервис / Посрещане" },
+  { value: "attack_block", label: "Атака / Блок" },
+  { value: "defense_transition", label: "Защита / Преход" },
+  { value: "game_tactics", label: "Игрово-тактическа" },
+  { value: "physical", label: "Физическа насоченост" },
 ];
 const VARIABILITY_OPTIONS = [
-  { value: "stable", label: "РЎС‚Р°Р±РёР»РµРЅ (РїРѕ-РїРѕРІС‚Р°СЂСЏРµРј)" },
-  { value: "varied", label: "Р’Р°СЂРёР°С‚РёРІРµРЅ (РїРѕ-СЂР°Р·Р»РёС‡РЅРё РїР»Р°РЅРѕРІРµ)" },
+  { value: "stable", label: "Стабилен (по-повтаряем)" },
+  { value: "varied", label: "Вариативен (по-различни планове)" },
 ];
 
 function parseList(raw) {
@@ -70,27 +70,27 @@ function chooseByKeywords(options, keywords, fallbackCount = 2) {
 }
 
 const BG_TOKEN_MAP = {
-  attack: "РђС‚Р°РєР°",
-  defense: "Р—Р°С‰РёС‚Р°",
-  defence: "Р—Р°С‰РёС‚Р°",
-  receive: "РџРѕСЃСЂРµС‰Р°РЅРµ",
-  reception: "РџРѕСЃСЂРµС‰Р°РЅРµ",
-  "serve receive": "РџРѕСЃСЂРµС‰Р°РЅРµ",
-  serve: "РЎРµСЂРІРёСЃ",
-  service: "РЎРµСЂРІРёСЃ",
-  block: "Р‘Р»РѕРє",
-  setting: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
-  set: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
-  pass: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
-  passing: "Р Р°Р·РїСЂРµРґРµР»РµРЅРёРµ",
-  transition: "РџСЂРµС…РѕРґ",
-  counter: "РљРѕРЅС‚СЂР°Р°С‚Р°РєР°",
-  rally: "Р Р°Р·РёРіСЂР°РІР°РЅРµ",
-  game: "РРіСЂР°",
-  "break point": "Р‘СЂРµР№Рє С‚РѕС‡РєР°",
-  break_point: "Р‘СЂРµР№Рє С‚РѕС‡РєР°",
-  indoor: "Р—Р°Р»Р°",
-  outdoor: "РћС‚РєСЂРёС‚Рѕ",
+  attack: "Атака",
+  defense: "Защита",
+  defence: "Защита",
+  receive: "Посрещане",
+  reception: "Посрещане",
+  "serve receive": "Посрещане",
+  serve: "Сервис",
+  service: "Сервис",
+  block: "Блок",
+  setting: "Разпределение",
+  set: "Разпределение",
+  pass: "Разпределение",
+  passing: "Разпределение",
+  transition: "Преход",
+  counter: "Контраатака",
+  rally: "Разиграване",
+  game: "Игра",
+  "break point": "Брейк точка",
+  break_point: "Брейк точка",
+  indoor: "Зала",
+  outdoor: "Открито",
 };
 
 function toBgLabel(raw) {
@@ -147,7 +147,7 @@ export default function AIGenerator() {
   const [err, setErr] = useState("");
   const [savedTraining, setSavedTraining] = useState(null);
   const [editableBlocks, setEditableBlocks] = useState([]);
-  const [targetBlockType, setTargetBlockType] = useState("РРЅС‚РµРіСЂР°С†РёСЏ");
+  const [targetBlockType, setTargetBlockType] = useState("Интеграция");
   const [cardTargetByDrill, setCardTargetByDrill] = useState({});
   const [assignCoaches, setAssignCoaches] = useState([]);
   const [assignDueDate, setAssignDueDate] = useState("");
@@ -280,7 +280,7 @@ export default function AIGenerator() {
     const domains = uniq(drills.flatMap((d) => parseList(d.skill_domains)));
     const phases = uniq(drills.flatMap((d) => parseList(d.game_phases)));
     const skills = uniq([
-      ...drills.map((d) => String(d.skill_focus || "").trim()),
+      ...drills.flatMap((d) => parseList(d.skill_focus)),
       ...drills.flatMap((d) => parseList(d.technical_focus)),
       ...drills.flatMap((d) => parseList(d.tactical_focus)),
     ]);
@@ -291,7 +291,7 @@ export default function AIGenerator() {
     const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "bg"));
     const inferLocation = (d) => {
       const text = `${d?.setup || ""} ${d?.description || ""}`.toLowerCase();
-      if (text.includes("outdoor") || text.includes("РЅР°РІСЉРЅ") || text.includes("РѕС‚РєСЂРёС‚")) return "Outdoor";
+      if (text.includes("outdoor") || text.includes("навън") || text.includes("открит")) return "Outdoor";
       return "Indoor";
     };
     const parsePlayers = (raw) => {
@@ -316,6 +316,7 @@ export default function AIGenerator() {
         ...parseList(d?.skill_domains),
         ...parseList(d?.skill_focus),
         ...parseList(d?.technical_focus),
+        ...parseList(d?.tactical_focus),
       ]);
       skillSet.forEach((s) => {
         if (!s) return;
@@ -379,12 +380,12 @@ export default function AIGenerator() {
 
   const activeFinderTags = useMemo(() => {
     const tags = [];
-    if (finder.level !== "all") tags.push({ key: "level", label: `РќРёРІРѕ: ${finder.level}` });
-    if (finder.location !== "all") tags.push({ key: "location", label: `Р›РѕРєР°С†РёСЏ: ${toBgLabel(finder.location)}` });
-    if (finder.playersBucket !== "all") tags.push({ key: "playersBucket", label: `РРіСЂР°С‡Рё: ${finder.playersBucket}` });
-    if (finder.trainingPhase !== "all") tags.push({ key: "trainingPhase", label: `Р¤Р°Р·Р°: ${toBgLabel(finder.trainingPhase)}` });
-    if (finder.gameForm !== "all") tags.push({ key: "gameForm", label: `Р¤РѕСЂРјР°: ${toBgLabel(finder.gameForm)}` });
-    finder.skills.forEach((s) => tags.push({ key: `skill:${s}`, label: `РЈРјРµРЅРёРµ: ${toBgLabel(s)}` }));
+    if (finder.level !== "all") tags.push({ key: "level", label: `Ниво: ${finder.level}` });
+    if (finder.location !== "all") tags.push({ key: "location", label: `Локация: ${toBgLabel(finder.location)}` });
+    if (finder.playersBucket !== "all") tags.push({ key: "playersBucket", label: `Играчи: ${finder.playersBucket}` });
+    if (finder.trainingPhase !== "all") tags.push({ key: "trainingPhase", label: `Фаза: ${toBgLabel(finder.trainingPhase)}` });
+    if (finder.gameForm !== "all") tags.push({ key: "gameForm", label: `Форма: ${toBgLabel(finder.gameForm)}` });
+    finder.skills.forEach((s) => tags.push({ key: `skill:${s}`, label: `Умение: ${toBgLabel(s)}` }));
     return tags;
   }, [finder]);
 
@@ -392,14 +393,30 @@ export default function AIGenerator() {
     if (!form.level && options.levels.length) {
       setForm((prev) => ({ ...prev, level: options.levels[0] }));
     }
-    if (!form.mainFocus && options.skills.length) {
-      setForm((prev) => ({
-        ...prev,
-        mainFocus: options.skills[0],
-        secondaryFocus: options.skills[1] || options.skills[0],
-      }));
-    }
-  }, [form.level, form.mainFocus, options.levels, options.skills]);
+  }, [form.level, options.levels]);
+
+  useEffect(() => {
+    if (!options.skills.length) return;
+    setForm((prev) => {
+      const skillSet = new Set(options.skills);
+      const resolve = (v) => {
+        if (v && skillSet.has(v)) return v;
+        if (v) {
+          for (const part of parseList(v)) {
+            if (skillSet.has(part)) return part;
+          }
+        }
+        return null;
+      };
+      let main = resolve(prev.mainFocus) ?? options.skills[0];
+      let sec = resolve(prev.secondaryFocus) ?? options.skills[1] ?? options.skills[0];
+      if (main === sec && options.skills.length > 1) {
+        sec = options.skills.find((s) => s !== main) ?? sec;
+      }
+      if (main === prev.mainFocus && sec === prev.secondaryFocus) return prev;
+      return { ...prev, mainFocus: main, secondaryFocus: sec };
+    });
+  }, [options.skills]);
 
   const payload = useMemo(
     () => ({
@@ -414,15 +431,15 @@ export default function AIGenerator() {
       focusSkills: [form.mainFocus, form.secondaryFocus].filter(Boolean),
       focusDomains:
         form.orientation === "serve_receive"
-          ? chooseByKeywords(options.domains, ["РїСЂРёРµРј", "РїРѕСЃСЂРµС‰", "service", "serve"], 3)
+          ? chooseByKeywords(options.domains, ["прием", "посрещ", "service", "serve"], 3)
           : form.orientation === "attack_block"
-            ? chooseByKeywords(options.domains, ["Р°С‚Р°РєР°", "attack", "Р±Р»РѕРє", "block"], 3)
+            ? chooseByKeywords(options.domains, ["атака", "attack", "блок", "block"], 3)
             : form.orientation === "defense_transition"
-              ? chooseByKeywords(options.domains, ["Р·Р°С‰", "defense", "dig", "transition"], 3)
+              ? chooseByKeywords(options.domains, ["защ", "defense", "dig", "transition"], 3)
               : form.orientation === "game_tactics"
-                ? chooseByKeywords(options.domains, ["С‚Р°РєС‚РёРє", "system", "rotation", "РёРіСЂР°"], 3)
+                ? chooseByKeywords(options.domains, ["тактик", "system", "rotation", "игра"], 3)
                 : form.orientation === "physical"
-                  ? chooseByKeywords(options.domains, ["С„РёР·", "conditioning", "speed", "jump", "СЃРёР»"], 3)
+                  ? chooseByKeywords(options.domains, ["физ", "conditioning", "speed", "jump", "сил"], 3)
                   : options.domains.slice(0, Math.min(3, options.domains.length)),
       focusGamePhases:
         form.orientation === "serve_receive"
@@ -534,12 +551,12 @@ export default function AIGenerator() {
         if ((b.drills || []).some((d) => Number(d.drillId) === drillId)) return b;
         const added = {
           drillId,
-          name: drill?.title || drill?.name || `РЈРїСЂР°Р¶РЅРµРЅРёРµ #${drillId}`,
+          name: drill?.title || drill?.name || `Упражнение #${drillId}`,
           minutes: 0,
           intensity_type: String(drill?.intensity_type || "medium"),
           rpe: drill?.rpe ?? null,
           category: String(drill?.category || ""),
-          why: ["Р”РѕР±Р°РІРµРЅРѕ СЂСЉС‡РЅРѕ РѕС‚ С‚СЂРµРЅСЊРѕСЂР° СЃР»РµРґ РіРµРЅРµСЂРёСЂР°РЅРµ."],
+          why: ["Добавено ръчно от треньора след генериране."],
           score: 0,
         };
         return rebalanceBlockMinutes({ ...b, drills: [...(b.drills || []), added] });
@@ -567,7 +584,7 @@ export default function AIGenerator() {
       setCardTargetByDrill({});
       goToPlan();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Р“СЂРµС€РєР° РїСЂРё РіРµРЅРµСЂРёСЂР°РЅРµ.");
+      setErr(e?.response?.data?.detail || e?.message || "Грешка при генериране.");
     } finally {
       setLoading(false);
     }
@@ -578,7 +595,7 @@ export default function AIGenerator() {
     setErr("");
     const customTitle = form.trainingTitle?.trim();
     if (!customTitle) {
-      setErr("РњРѕР»СЏ, РІСЉРІРµРґРµС‚Рµ РёРјРµ РЅР° С‚СЂРµРЅРёСЂРѕРІРєР°С‚Р° РїСЂРµРґРё Р·Р°РїРёСЃ.");
+      setErr("Моля, въведете име на тренировката преди запис.");
       setSaving(false);
       return;
     }
@@ -593,7 +610,7 @@ export default function AIGenerator() {
           ...payload,
           randomSeed: effectiveSeed,
           trainingTitle: customTitle,
-          trainingStatus: "С‡РµСЂРЅРѕРІР°",
+          trainingStatus: "чернова",
           editedBlocks: editableBlocks.length ? editableBlocks : undefined,
         },
       });
@@ -616,17 +633,17 @@ export default function AIGenerator() {
         });
       }
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Р“СЂРµС€РєР° РїСЂРё generate-and-save.");
+      setErr(e?.response?.data?.detail || e?.message || "Грешка при запис (generate-and-save).");
     } finally {
       setSaving(false);
     }
   };
 
   const tabs = [
-    { id: "settings", label: "РќР°СЃС‚СЂРѕР№РєРё" },
-    { id: "library", label: "Р‘Р°Р·Р° СѓРїСЂР°Р¶РЅРµРЅРёСЏ" },
-    { id: "plan", label: "РџР»Р°РЅ", badge: planBlocks.length || null },
-    { id: "save", label: "Р—Р°РїРёСЃ" },
+    { id: "settings", label: "Настройки" },
+    { id: "library", label: "База упражнения" },
+    { id: "plan", label: "План", badge: planBlocks.length || null },
+    { id: "save", label: "Запис" },
   ];
 
   const openDrillPreview = (drillOrId) => {
@@ -637,22 +654,22 @@ export default function AIGenerator() {
     }
     const full = drillById[Number(drillOrId)];
     if (full) setPreviewDrill(full);
-    else setPreviewDrill({ id: drillOrId, title: `РЈРїСЂР°Р¶РЅРµРЅРёРµ #${drillOrId}` });
+    else setPreviewDrill({ id: drillOrId, title: `Упражнение #${drillOrId}` });
   };
 
   return (
     <div className="aiGenPage">
       <PageHero
-        title="AI РіРµРЅРµСЂР°С‚РѕСЂ РЅР° С‚СЂРµРЅРёСЂРѕРІРєРё"
-        subtitle="РР·РїРѕР»Р·РІР° РѕРґРѕР±СЂРµРЅРёС‚Рµ СѓРїСЂР°Р¶РЅРµРЅРёСЏ Рё РіРё СЂР°Р·РїСЂРµРґРµР»СЏ РІ 4 С‡Р°СЃС‚Рё РЅР° С‚СЂРµРЅРёСЂРѕРІРєР°С‚Р°."
+        title="AI генератор на тренировки"
+        subtitle="Използва одобрените упражнения и ги разпределя в 4 части на тренировката."
         actions={
           <Button as={Link} to="/my-trainings" size="sm" variant="secondary">
-            в†ђ РњРѕРёС‚Рµ С‚СЂРµРЅРёСЂРѕРІРєРё
+            ← Моите тренировки
           </Button>
         }
       />
 
-      <nav className="aiGenTabs" aria-label="РЎРµРєС†РёРё РЅР° РіРµРЅРµСЂР°С‚РѕСЂР°">
+      <nav className="aiGenTabs" aria-label="Секции на генератора">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -669,8 +686,8 @@ export default function AIGenerator() {
       {err ? <div className="aiGenError">{String(err)}</div> : null}
       {savedTraining?.id ? (
         <div className="aiGenSuccess">
-          Р—Р°РїРёСЃР°РЅРѕ РєР°С‚Рѕ С‚СЂРµРЅРёСЂРѕРІРєР° #{savedTraining.id}: {savedTraining.title}
-          {isHeadCoachUser && assignCoaches.length > 0 ? " вЂў Р’СЉР·Р»РѕР¶РµРЅР° РєР°С‚Рѕ Р·Р°РґР°С‡Р°." : ""}
+          Записано като тренировка #{savedTraining.id}: {savedTraining.title}
+          {isHeadCoachUser && assignCoaches.length > 0 ? " • Възложена като задача." : ""}
         </div>
       ) : null}
 
@@ -753,10 +770,10 @@ export default function AIGenerator() {
         />
       ) : null}
 
-      <div className="aiGenStickyBar" role="toolbar" aria-label="Р”РµР№СЃС‚РІРёСЏ">
+      <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
         {(activeTab === "settings" || activeTab === "plan") && (
           <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={onGenerate} disabled={loading || saving || metaLoading}>
-            {loading ? "Р“РµРЅРµСЂРёСЂР°РЅРµ..." : "Р“РµРЅРµСЂРёСЂР°Р№"}
+            {loading ? "Генериране..." : "Генерирай"}
           </button>
         )}
         <button
@@ -768,7 +785,7 @@ export default function AIGenerator() {
           }}
           disabled={loading || saving || metaLoading}
         >
-          {saving ? "Р—Р°РїРёСЃ..." : "Р—Р°РїР°Р·Рё"}
+          {saving ? "Запис..." : "Запази"}
         </button>
       </div>
 
