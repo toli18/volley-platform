@@ -3920,6 +3920,21 @@
   display: block;
 }
 
+.drillVideoShell {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #dbe3ef;
+  background: #0b1220;
+}
+
+.drillVideoScreen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
 .drillVideoNative {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -3931,38 +3946,91 @@
   margin: 0 auto;
 }
 
+.drillVideoNative--bare {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  object-fit: contain;
+}
+
+.drillVideoScreenEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.drillVideoControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f1f5f9;
+  border-top: 1px solid #dbe3ef;
+}
+
+.drillVideoCtrlBtn {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  background: #0b5cff;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.drillVideoCtrlBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.drillVideoSeek {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  accent-color: #0b5cff;
+}
+
+.drillVideoTime {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.drillVideoCtrlLink {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b5cff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.drillVideoCtrlLink:hover {
+  text-decoration: underline;
+}
+
 .drillVideoHint {
   margin: 0;
   font-size: 12px;
   line-height: 1.4;
   color: #64748b;
   text-align: center;
-}
-
-.drillVideoMobileFallback {
-  padding: 14px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-
-.drillVideoMobileFallback p {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: #475569;
-}
-
-.drillVideoMobileFallback a {
-  color: #0b5cff;
-  font-weight: 700;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.drillVideoMobileFallback a:hover {
-  text-decoration: underline;
 }
 
 @media (max-width: 900px), (pointer: coarse) {
@@ -3979,7 +4047,11 @@
   border: none;
 }
 
-.dmpPlayerBox .drillVideoNative {
+.dmpPlayerBox .drillVideoShell {
+  border: none;
+}
+
+.dmpPlayerBox .drillVideoNative--bare {
   border: none;
 }
 
