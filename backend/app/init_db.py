@@ -4,9 +4,10 @@ from sqlalchemy import select, func, text
 
 from .database import engine, SessionLocal, Base
 from .settings import settings
-from .models import User, UserRole, Club, Drill
+from .models import User, UserRole, Club, Drill, MethodArticle
 from .seed.seed_clubs import seed_clubs
 from .seed.seed_drills import seed_drills
+from .seed.seed_national_method import seed_national_method
 from .auth import get_password_hash
 
 
@@ -71,6 +72,16 @@ def init_db() -> None:
                         "ADD COLUMN IF NOT EXISTS portal VARCHAR(32) NOT NULL DEFAULT 'parent'"
                     )
                 )
+                conn.execute(
+                    text("ALTER TABLE drills ADD COLUMN IF NOT EXISTS scope VARCHAR(20) NOT NULL DEFAULT 'community'")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE drills ADD COLUMN IF NOT EXISTS is_national_read_only "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(text("ALTER TABLE drills ADD COLUMN IF NOT EXISTS method_source_id INTEGER"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender ensured")
             print("✅ PostgreSQL: teams.gender ensured")
@@ -155,6 +166,12 @@ def init_db() -> None:
             print("✅ Drills seeded")
         else:
             print("ℹ️ Drills already exist - seeding skipped")
+
+        try:
+            seed_national_method(db)
+            print("✅ National method library seeded (if needed)")
+        except Exception as exc:
+            print(f"⚠️ National method seed skipped: {exc}")
 
         print("✅ Database initialized successfully")
     except Exception as e:

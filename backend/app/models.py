@@ -181,10 +181,16 @@ class Drill(Base):
     status = Column(String, default="pending")
     rejection_reason = Column(Text)
 
+    # national_bfv: официални БФВ упражнения (read-only за треньори)
+    scope = Column(String(20), nullable=False, default="community", index=True)
+    is_national_read_only = Column(Boolean, nullable=False, default=False)
+    method_source_id = Column(Integer, ForeignKey("method_sources.id", ondelete="SET NULL"), nullable=True, index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     creator = relationship("User", foreign_keys=[created_by])
+    method_source = relationship("MethodSource", back_populates="drills")
     training_items = relationship("TrainingDrill", back_populates="drill")
 
 
@@ -877,3 +883,114 @@ class ClubCompetitionEvent(Base):
     __table_args__ = (
         Index("ix_competition_club_date", "club_id", "date"),
     )
+
+
+# =========================
+# National method library (BVF)
+# =========================
+class MethodSource(Base):
+    __tablename__ = "method_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(512), nullable=False)
+    original_language = Column(String(8), nullable=False, default="it")
+    content_type = Column(String(32), nullable=False, default="methodology")
+    age_band = Column(String(16), nullable=False, default="all")
+    rights_note = Column(Text, nullable=True)
+    ingest_status = Column(String(32), nullable=False, default="pending")
+    extracted_text = Column(Text, nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    wave = Column(Integer, nullable=False, default=1)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    articles = relationship("MethodArticle", back_populates="source")
+    cycles = relationship("MethodCycle", back_populates="source")
+    drills = relationship("Drill", back_populates="method_source")
+
+
+class MethodArticle(Base):
+    __tablename__ = "method_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("method_sources.id", ondelete="SET NULL"), nullable=True, index=True)
+    title_bg = Column(String(512), nullable=False)
+    body_bg = Column(Text, nullable=False)
+    category = Column(String(32), nullable=False, default="methodology")
+    age_band = Column(String(16), nullable=False, default="all", index=True)
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    published_at = Column(DateTime, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    source = relationship("MethodSource", back_populates="articles")
+
+
+class MethodCycle(Base):
+    __tablename__ = "method_cycles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("method_sources.id", ondelete="SET NULL"), nullable=True, index=True)
+    title_bg = Column(String(512), nullable=False)
+    summary_bg = Column(Text, nullable=True)
+    cycle_type = Column(String(16), nullable=False, default="meso")
+    weeks = Column(Integer, nullable=False, default=4)
+    age_band = Column(String(16), nullable=False, default="all", index=True)
+    structure_json = Column(JSON, nullable=False, default=dict)
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    published_at = Column(DateTime, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    source = relationship("MethodSource", back_populates="cycles")
+    club_instances = relationship("ClubCycleInstance", back_populates="cycle")
+
+
+class ClubCycleInstance(Base):
+    __tablename__ = "club_cycle_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    cycle_id = Column(Integer, ForeignKey("method_cycles.id", ondelete="CASCADE"), nullable=False, index=True)
+    start_date = Column(String(10), nullable=False)
+    customizations_json = Column(JSON, nullable=True)
+    status = Column(String(20), nullable=False, default="active")
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    cycle = relationship("MethodCycle", back_populates="club_instances")
+    team = relationship("Team")
+    club = relationship("Club")
+
+
+class MethodAssignment(Base):
+    __tablename__ = "method_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    cycle_id = Column(Integer, ForeignKey("method_cycles.id", ondelete="SET NULL"), nullable=True, index=True)
+    club_cycle_instance_id = Column(
+        Integer, ForeignKey("club_cycle_instances.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    week_ref = Column(Integer, nullable=True)
+    title_bg = Column(String(512), nullable=False)
+    guidance_bg = Column(Text, nullable=True)
+    drill_ids = Column(JSON, nullable=True)
+    due_date = Column(String(10), nullable=True)
+    status = Column(String(20), nullable=False, default="new")
+    completion_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    assigner = relationship("User", foreign_keys=[assigned_by])
+    assignee = relationship("User", foreign_keys=[assigned_to])
+    cycle = relationship("MethodCycle")

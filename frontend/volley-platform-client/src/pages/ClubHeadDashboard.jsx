@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
+import ClubHeadMethodSection from "../components/clubHead/ClubHeadMethodSection";
 import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
@@ -500,6 +501,9 @@ export default function ClubHeadDashboard() {
             </Button>
             <Button variant={tab === "schedule" ? "primary" : "secondary"} onClick={() => setTab("schedule")}>
               График
+            </Button>
+            <Button variant={tab === "method" ? "primary" : "secondary"} onClick={() => setTab("method")}>
+              Методика БФВ
             </Button>
           </div>
         }
@@ -1019,6 +1023,8 @@ export default function ClubHeadDashboard() {
           </Card>
         </>
       )}
+
+      {tab === "method" && <ClubHeadMethodSection teams={teams} coaches={transferCoaches} />}
 
       {payAthlete && (
         <div onClick={() => !busy && setPayAthlete(null)} className="uiModalOverlay">

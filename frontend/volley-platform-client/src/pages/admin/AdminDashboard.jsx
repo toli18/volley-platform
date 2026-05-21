@@ -46,6 +46,7 @@ export default function AdminDashboard() {
     { to: "/admin/articles", label: "Всички статии (редакция / изтриване)" },
     { to: "/admin/articles/pending", label: "Статии за одобрение" },
     { to: "/admin/clubs", label: "Клубове" },
+    { to: "/admin/national-library", label: "Национална библиотека (БФВ)" },
   ];
 
   return (

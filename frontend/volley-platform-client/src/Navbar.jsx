@@ -206,9 +206,15 @@ export default function Navbar() {
     let cancelled = false;
     const loadTasks = async () => {
       try {
-        const res = await axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS);
+        const [trainRes, methodRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS),
+          axiosInstance.get(API_PATHS.MY_METHOD_ASSIGNMENTS).catch(() => ({ data: [] })),
+        ]);
         if (cancelled) return;
-        const items = Array.isArray(res.data) ? res.data : [];
+        const items = [
+          ...(Array.isArray(trainRes.data) ? trainRes.data : []),
+          ...(Array.isArray(methodRes.data) ? methodRes.data : []),
+        ];
         const fresh = items.filter((x) => String(x?.status || "").toLowerCase() === "new").length;
         setNewTaskCount(fresh);
       } catch {
@@ -295,9 +301,15 @@ export default function Navbar() {
     let cancelled = false;
     const loadTaskItems = async () => {
       try {
-        const res = await axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS);
+        const [trainRes, methodRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS),
+          axiosInstance.get(API_PATHS.MY_METHOD_ASSIGNMENTS).catch(() => ({ data: [] })),
+        ]);
         if (cancelled) return;
-        const items = Array.isArray(res.data) ? res.data : [];
+        const items = [
+          ...(Array.isArray(trainRes.data) ? trainRes.data : []),
+          ...(Array.isArray(methodRes.data) ? methodRes.data : []),
+        ];
         setTasks(items.slice(0, 8));
       } catch {
         if (!cancelled) setTasks([]);
@@ -321,6 +333,7 @@ export default function Navbar() {
     }
     if (isCoachUser) {
       items.push({ to: "/", label: "Начало" });
+      items.push({ to: "/national-library", label: "Библиотека БФВ" });
       items.push({ to: "/ai-generator", label: "AI Помощник" });
       items.push({ to: "/teams", label: "Отбори" });
       items.push({ to: "/monthly-fees", label: "Месечни Такси" });
@@ -345,6 +358,7 @@ export default function Navbar() {
       { to: "/admin/drills", label: "Всички упражнения" },
       { to: "/admin/coaches", label: "Треньори" },
       { to: "/admin/clubs", label: "Клубове" },
+      { to: "/admin/national-library", label: "Библиотека БФВ" },
       { to: "/admin/pending", label: "Чакащи упражнения" },
     ];
     if (isPlatformAdmin) {

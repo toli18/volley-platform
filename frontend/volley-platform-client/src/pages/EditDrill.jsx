@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { normalizeDrillPayload, validateGeneratorMinimums } from "../utils/drillCanonical";
 import { useToast } from "../components/ToastProvider";
+import { useAuth } from "../auth/AuthContext";
 import { Button, PageHero } from "../components/ui";
 
 const toIntOrNull = (v) => {
@@ -153,6 +154,8 @@ export default function EditDrill() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { isAdmin } = useAuth();
+  const [nationalLocked, setNationalLocked] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -216,6 +219,7 @@ export default function EditDrill() {
 
       const res = await axiosInstance.get(`/drills/${drillId}`);
       const d = res.data || {};
+      setNationalLocked(Boolean(d.is_national_read_only && d.scope === "federation" && !isAdmin));
 
       setForm((p) => ({
         ...p,
@@ -322,6 +326,10 @@ export default function EditDrill() {
 
   const save = async () => {
     setError("");
+    if (nationalLocked) {
+      setError("Националните упражнения на БФВ се редактират само от админ панела.");
+      return;
+    }
     if (!form.title.trim()) {
       setError("Името е задължително.");
       return;
@@ -625,7 +633,7 @@ export default function EditDrill() {
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
         <Button
           onClick={save}
-          disabled={saving}
+          disabled={saving || nationalLocked}
         >
           {saving ? "Запазване…" : "Запази промените"}
         </Button>

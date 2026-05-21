@@ -61,6 +61,8 @@ const AdminPendingArticles = React.lazy(() => import("./pages/admin/AdminPending
 const AdminArticleModeration = React.lazy(() => import("./pages/admin/AdminArticleModeration.jsx"));
 const AdminArticles = React.lazy(() => import("./pages/admin/AdminArticles.jsx"));
 const AdminEditArticle = React.lazy(() => import("./pages/admin/AdminEditArticle.jsx"));
+const AdminNationalLibrary = React.lazy(() => import("./pages/admin/AdminNationalLibrary.jsx"));
+const NationalLibrary = React.lazy(() => import("./pages/NationalLibrary.jsx"));
 
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
@@ -128,6 +130,7 @@ const router = createBrowserRouter([
         {
         element: <ProtectedRoute allowRoles={["coach", "club_head_coach", "federation_admin"]} />,
         children: [
+          { path: "national-library", element: <NationalLibrary /> },
           { path: "my-drills", element: <MyDrills /> },
 
           { path: "my-trainings", element: <MyTrainings /> },
@@ -191,6 +194,7 @@ const router = createBrowserRouter([
           { path: "articles/pending", element: <AdminPendingArticles /> },
           { path: "articles/:id", element: <AdminArticleModeration /> },
           { path: "articles/:id/edit", element: <AdminEditArticle /> },
+          { path: "national-library", element: <AdminNationalLibrary /> },
         ],
       },
     ],

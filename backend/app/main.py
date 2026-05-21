@@ -28,6 +28,7 @@ from app.routers.parent_auth import router as parent_auth_router
 from app.routers.parent_portal import router as parent_portal_router
 from app.routers.team_portal import router as team_portal_router
 from app.routers.team_chat import router as team_chat_router
+from app.routers.national_method import router as national_method_router
 from app.routers import articles
 
 
@@ -86,6 +87,7 @@ app.include_router(athlete_room_router, prefix="/api", tags=["Athlete Room"])
 app.include_router(team_portal_router, prefix="/api", tags=["Team Portal"])
 app.include_router(team_chat_router, prefix="/api", tags=["Team Chat"])
 app.include_router(admin_analytics_router, prefix="/api", tags=["Admin Analytics"])
+app.include_router(national_method_router)
 
 # --- Root ---
 @app.get("/")

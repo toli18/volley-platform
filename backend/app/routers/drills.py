@@ -183,13 +183,22 @@ class DrillOut(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    scope: Optional[str] = "community"
+    is_national_read_only: Optional[bool] = False
+    method_source_id: Optional[int] = None
+
 
 # ========================
 # Helpers
 # ========================
 
 def _list_approved(db: Session):
-    return db.query(Drill).filter(Drill.status == "approved").order_by(Drill.id.asc()).all()
+    return (
+        db.query(Drill)
+        .filter(Drill.status == "approved")
+        .order_by(Drill.scope.desc(), Drill.id.asc())
+        .all()
+    )
 
 
 def _list_pending(db: Session):
@@ -216,6 +225,8 @@ def coach_submit_drill(
     user=Depends(require_role(UserRole.coach)),
 ):
     drill = Drill(**payload.model_dump(exclude_unset=True))
+    drill.scope = "community"
+    drill.is_national_read_only = False
     drill.created_by = user.id
     drill.status = "pending"
     drill.created_at = datetime.utcnow()
