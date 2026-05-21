@@ -7,6 +7,25 @@ import { useToast } from "../components/ToastProvider";
 
 const AGE_OPTIONS = ["all", "U13", "U14", "U15", "U16", "U17", "U18"];
 
+const SKILL_LABELS = {
+  подаване: "Подаване",
+  прием: "Прием",
+  разпределение: "Разпределение",
+  атака: "Атака",
+  блок: "Блок",
+  защита: "Защита",
+  сервис: "Сервис",
+};
+
+const CATEGORY_LABELS = {
+  tactical: "Тактика",
+  psychology: "Психология",
+  organization: "Организация",
+  physical: "Физика",
+  methodology: "Методика",
+  principles: "Принципи",
+};
+
 const renderBody = (text) => {
   if (!text) return null;
   return text.split("\n").map((line, i) => {
@@ -37,11 +56,12 @@ export default function NationalLibrary() {
   const toast = useToast();
   const [ageBand, setAgeBand] = useState("all");
   const [section, setSection] = useState("articles");
-  const [data, setData] = useState({ articles: [], cycles: [], drills: [] });
+  const [data, setData] = useState({ articles: [], cycles: [], drills: [], guidelines: [] });
   const [loading, setLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedDrill, setSelectedDrill] = useState(null);
+  const [guidelineSkill, setGuidelineSkill] = useState("all");
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +72,7 @@ export default function NationalLibrary() {
         articles: res.data?.articles || [],
         cycles: res.data?.cycles || [],
         drills: res.data?.drills || [],
+        guidelines: res.data?.guidelines || [],
       });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при зареждане");
@@ -90,11 +111,21 @@ export default function NationalLibrary() {
     return Array.isArray(weeks) ? weeks : [];
   }, [selectedCycle]);
 
+  const guidelineSkills = useMemo(() => {
+    const skills = [...new Set((data.guidelines || []).map((g) => g.skill_element))];
+    return skills.sort();
+  }, [data.guidelines]);
+
+  const filteredGuidelines = useMemo(() => {
+    if (guidelineSkill === "all") return data.guidelines || [];
+    return (data.guidelines || []).filter((g) => g.skill_element === guidelineSkill);
+  }, [data.guidelines, guidelineSkill]);
+
   return (
     <div className="uiPage">
       <PageHero
         title="Национална библиотека"
-        subtitle="Официална методика и периодизация на БФВ — само текст на български."
+        subtitle="БФВ — серия „Наука и спорта“ (Volley Comment), периодизация и насоки за корекция."
       />
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
@@ -109,7 +140,10 @@ export default function NationalLibrary() {
           </select>
         </label>
         <Button variant={section === "articles" ? "primary" : "secondary"} onClick={() => setSection("articles")}>
-          Методика
+          Наука и спорта
+        </Button>
+        <Button variant={section === "guidelines" ? "primary" : "secondary"} onClick={() => setSection("guidelines")}>
+          Насоки
         </Button>
         <Button variant={section === "cycles" ? "primary" : "secondary"} onClick={() => setSection("cycles")}>
           Цикли
@@ -122,18 +156,58 @@ export default function NationalLibrary() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(320px, 2fr)", gap: 16 }}>
         <div>
           {loading && <p className="uiMuted">Зареждане...</p>}
+
           {!loading && section === "articles" && data.articles.length === 0 && (
-            <EmptyState title="Няма статии за този филтър" />
+            <EmptyState title="Няма статии — пуснете ingest_volleycomment" />
           )}
           {section === "articles" &&
             data.articles.map((a) => (
               <Card key={a.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openArticle(a.id)}>
                 <strong>{a.title_bg}</strong>
-                <div className="uiMuted" style={{ fontSize: 13 }}>
-                  {a.category} · {a.age_band}
+                {a.summary_bg && (
+                  <p className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
+                    {a.summary_bg.slice(0, 140)}
+                    {a.summary_bg.length > 140 ? "…" : ""}
+                  </p>
+                )}
+                <div className="uiMuted" style={{ fontSize: 12, marginTop: 4 }}>
+                  {CATEGORY_LABELS[a.category] || a.category}
+                  {a.author ? ` · ${a.author}` : ""}
                 </div>
               </Card>
             ))}
+
+          {section === "guidelines" && (
+            <>
+              <select
+                className="uiInput"
+                style={{ marginBottom: 8, width: "100%" }}
+                value={guidelineSkill}
+                onChange={(e) => setGuidelineSkill(e.target.value)}
+              >
+                <option value="all">Всички елементи</option>
+                {guidelineSkills.map((s) => (
+                  <option key={s} value={s}>
+                    {SKILL_LABELS[s] || s}
+                  </option>
+                ))}
+              </select>
+              {filteredGuidelines.map((g) => (
+                <Card key={g.id} style={{ marginBottom: 8, padding: 12 }}>
+                  <div className="uiMuted" style={{ fontSize: 12, marginBottom: 4 }}>
+                    {SKILL_LABELS[g.skill_element] || g.skill_element}
+                  </div>
+                  <p>
+                    <strong>Грешка:</strong> {g.error_bg}
+                  </p>
+                  <p style={{ marginTop: 6 }}>
+                    <strong>Корекция:</strong> {g.correction_bg}
+                  </p>
+                </Card>
+              ))}
+            </>
+          )}
+
           {section === "cycles" &&
             data.cycles.map((c) => (
               <Card key={c.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openCycle(c.id)}>
@@ -143,6 +217,7 @@ export default function NationalLibrary() {
                 </div>
               </Card>
             ))}
+
           {section === "drills" &&
             data.drills.map((d) => (
               <Card key={d.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openDrill(d.id)}>
@@ -155,13 +230,40 @@ export default function NationalLibrary() {
         </div>
 
         <Card style={{ padding: 16, minHeight: 280 }}>
-          {!selectedArticle && !selectedCycle && !selectedDrill && (
+          {section === "guidelines" && (
+            <p className="uiMuted">Изберете елемент отляво — грешка и корекция за залата.</p>
+          )}
+          {section !== "guidelines" && !selectedArticle && !selectedCycle && !selectedDrill && (
             <p className="uiMuted">Изберете елемент от списъка.</p>
           )}
           {selectedArticle && (
             <>
               <h2>{selectedArticle.title_bg}</h2>
-              <div>{renderBody(selectedArticle.body_bg)}</div>
+              {selectedArticle.author && <p className="uiMuted">{selectedArticle.author}</p>}
+              {selectedArticle.summary_bg && (
+                <Card style={{ padding: 12, marginTop: 12, background: "var(--surface-2, #f5f5f5)" }}>
+                  <strong>Резюме</strong>
+                  <p style={{ marginTop: 6 }}>{selectedArticle.summary_bg}</p>
+                </Card>
+              )}
+              {selectedArticle.key_points?.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <strong>Ключови точки</strong>
+                  <ul>
+                    {selectedArticle.key_points.map((k, i) => (
+                      <li key={i}>{k}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div style={{ marginTop: 16 }}>{renderBody(selectedArticle.body_bg)}</div>
+              {selectedArticle.source_url && (
+                <p style={{ marginTop: 16 }}>
+                  <a href={selectedArticle.source_url} target="_blank" rel="noreferrer">
+                    Оригинал в Volley Comment
+                  </a>
+                </p>
+              )}
             </>
           )}
           {selectedCycle && (

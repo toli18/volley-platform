@@ -84,6 +84,12 @@ def init_db() -> None:
                     )
                 )
                 conn.execute(text("ALTER TABLE drills ADD COLUMN IF NOT EXISTS method_source_id INTEGER"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS source_url VARCHAR(1024)"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS author VARCHAR(256)"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS series VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS summary_bg TEXT"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS key_points JSONB"))
+                conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS content_origin VARCHAR(32)"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender ensured")
             print("✅ PostgreSQL: teams.gender ensured")
@@ -176,19 +182,29 @@ def init_db() -> None:
             print(f"⚠️ National method seed skipped: {exc}")
 
         try:
-            from app.scripts.import_bvf_library import bundle_available, import_from_bg_bundle
+            from pathlib import Path as _Path
 
-            if bundle_available():
-                stats = import_from_bg_bundle(db, force=False)
+            vc_json = _Path(__file__).resolve().parent / "seed" / "data" / "bvf_volleycomment_bg.json"
+            if vc_json.is_file():
+                from app.scripts.ingest_volleycomment import import_to_db
+
+                stats = import_to_db(force=False)
                 db.commit()
-                print(f"✅ BVF library from BG bundle: {stats}")
+                print(f"✅ Volley Comment (Наука и спорта): {stats}")
             else:
-                from app.scripts.import_bvf_library import import_articles_and_cycles
+                from app.scripts.import_bvf_library import bundle_available, import_from_bg_bundle
 
-                art_n, cyc_n = import_articles_and_cycles(db, force=False)
-                if art_n or cyc_n:
+                if bundle_available():
+                    stats = import_from_bg_bundle(db, force=False)
                     db.commit()
-                    print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
+                    print(f"✅ BVF library from BG bundle: {stats}")
+                else:
+                    from app.scripts.import_bvf_library import import_articles_and_cycles
+
+                    art_n, cyc_n = import_articles_and_cycles(db, force=False)
+                    if art_n or cyc_n:
+                        db.commit()
+                        print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
         except Exception as exc:
             print(f"⚠️ BVF library import skipped: {exc}")
 

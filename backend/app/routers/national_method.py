@@ -17,6 +17,7 @@ from app.models import (
     MethodArticle,
     MethodAssignment,
     MethodCycle,
+    MethodGuideline,
     MethodSource,
     Team,
     User,
@@ -75,6 +76,12 @@ class ArticleIn(BaseModel):
     age_band: str = "all"
     status: str = "draft"
     sort_order: int = 0
+    source_url: Optional[str] = None
+    author: Optional[str] = None
+    series: Optional[str] = None
+    summary_bg: Optional[str] = None
+    key_points: Optional[List[str]] = None
+    content_origin: Optional[str] = None
 
 
 class ArticleOut(ArticleIn):
@@ -82,6 +89,18 @@ class ArticleOut(ArticleIn):
     published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class GuidelineOut(BaseModel):
+    id: int
+    skill_element: str
+    error_bg: str
+    correction_bg: str
+    age_band: str
+    sort_order: int
 
     class Config:
         from_attributes = True
@@ -357,17 +376,15 @@ def admin_import_bvf_library(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*ADMIN_ROLES)),
 ):
-    from app.scripts.import_bvf_library import (
-        bundle_available,
-        import_from_bg_bundle,
-        library_stats,
-    )
+    from pathlib import Path as _Path
 
-    if bundle_available():
-        out = {"bundle": import_from_bg_bundle(db, force=force)}
+    from app.scripts.ingest_volleycomment import EXPORT_PATH, import_to_db
+
+    if EXPORT_PATH.is_file():
+        out = {"volleycomment": import_to_db(force=force)}
     else:
         out = {
-            "error": "Няма bvf_*_bg.json в seed/data. Пуснете export_bvf_translations и commit.",
+            "error": "Липсва bvf_volleycomment_bg.json — python -m app.scripts.ingest_volleycomment --export",
             "skipped": True,
         }
     db.commit()
@@ -454,7 +471,16 @@ def coach_library(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
+    # Фаза A: основно съдържание от Volley Comment (БФВ), без PDF/GTP архив
     aq = db.query(MethodArticle).filter(MethodArticle.status == "published")
+    vc_count = aq.filter(MethodArticle.content_origin == "volleycomment").count()
+    if vc_count > 0:
+        aq = aq.filter(MethodArticle.content_origin == "volleycomment")
+    else:
+        aq = aq.filter(
+            (MethodArticle.title_bg.is_(None)) | (~MethodArticle.title_bg.like("PDF:%")),
+            (MethodArticle.content_origin.is_(None)) | (MethodArticle.content_origin != "legacy_pdf"),
+        )
     cq = db.query(MethodCycle).filter(MethodCycle.status == "published")
     dq = db.query(Drill).filter(Drill.scope == "federation", Drill.status == "approved")
     if age_band and age_band != "all":
@@ -467,11 +493,19 @@ def coach_library(
         )
     articles = aq.order_by(MethodArticle.sort_order.asc()).all()
     cycles = cq.order_by(MethodCycle.sort_order.asc()).all()
-    drills = dq.order_by(Drill.id.asc()).limit(500).all()
+    # Упражнения: ограничен брой, докато не са подбрани от БФВ методика
+    drills = dq.order_by(Drill.id.asc()).limit(40).all()
+    guidelines = (
+        db.query(MethodGuideline)
+        .filter(MethodGuideline.status == "published")
+        .order_by(MethodGuideline.sort_order.asc())
+        .all()
+    )
     return {
         "articles": [ArticleOut.model_validate(a) for a in articles],
         "cycles": [CycleOut.model_validate(c) for c in cycles],
         "drills": [_drill_dict(d) for d in drills],
+        "guidelines": [GuidelineOut.model_validate(g) for g in guidelines],
     }
 
 

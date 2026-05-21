@@ -1,10 +1,16 @@
-# BVF библиотека — преведено съдържание (еднократно)
+# BVF национална библиотека — seed данни
 
-Файловете `bvf_drills_bg.json` и `bvf_articles_bg.json` се генерират **веднъж**:
+## Фаза A (активна): Volley Comment „Наука и спорта“
 
 ```bash
-set BVF_LIBRARY_ROOT=C:\Users\krasi\Downloads\библиотека
-python -m app.scripts.export_bvf_translations
+python -m app.scripts.ingest_volleycomment --export
+python -m app.scripts.ingest_volleycomment --import-db
 ```
 
-След това се commit-ват в git. Платформата импортира само тях — без повторен превод.
+Файл: `bvf_volleycomment_bg.json` — български статии от [Volley Comment](https://volleycomment.bg/?s=наука) (с ОК от БФВ).
+
++ 12 насоки „грешка → корекция“ в `bvf_coaching_guidelines_bg.py`.
+
+## Архив (не се показва на треньори по подразбиране)
+
+`bvf_drills_bg.json` / `bvf_articles_bg.json` — стар превод от PDF/GTP.

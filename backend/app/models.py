@@ -922,11 +922,30 @@ class MethodArticle(Base):
     status = Column(String(20), nullable=False, default="draft", index=True)
     sort_order = Column(Integer, nullable=False, default=0)
     published_at = Column(DateTime, nullable=True)
+    source_url = Column(String(1024), nullable=True)
+    author = Column(String(256), nullable=True)
+    series = Column(String(64), nullable=True, index=True)
+    summary_bg = Column(Text, nullable=True)
+    key_points = Column(JSON, nullable=True)
+    content_origin = Column(String(32), nullable=True, index=True)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     source = relationship("MethodSource", back_populates="articles")
+
+
+class MethodGuideline(Base):
+    __tablename__ = "method_guidelines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    skill_element = Column(String(32), nullable=False, index=True)
+    error_bg = Column(Text, nullable=False)
+    correction_bg = Column(Text, nullable=False)
+    age_band = Column(String(16), nullable=False, default="all")
+    sort_order = Column(Integer, nullable=False, default=0)
+    status = Column(String(20), nullable=False, default="published", index=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class MethodCycle(Base):
