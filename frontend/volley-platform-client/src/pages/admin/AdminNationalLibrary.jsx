@@ -102,9 +102,10 @@ export default function AdminNationalLibrary() {
         params: { archive: true },
       });
       const t = res.data?.totals;
+      const arch = res.data?.archive;
       toast.success(
         t
-          ? `Импорт: ${t.articles_published} статии, ${t.cycles_published} цикла, ${t.federation_drills} упражнения`
+          ? `Публикувани: ${t.articles_published} статии, ${t.cycles_published} цикла, ${t.federation_drills} упражнения. Чернови PDF: ${t.articles_draft ?? 0}${arch?.pdf_draft_articles_added ? ` (+${arch.pdf_draft_articles_added} нови)` : ""}`
           : "Импортът завърши"
       );
       loadAll();
@@ -224,7 +225,7 @@ export default function AdminNationalLibrary() {
           Обнови
         </Button>
         <Button variant="primary" onClick={runLibraryImport} disabled={importing}>
-          {importing ? "Импорт..." : "Импорт от библиотека"}
+          {importing ? "Импорт..." : "Зареди BG библиотека"}
         </Button>
       </div>
 

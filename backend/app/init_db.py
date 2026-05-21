@@ -176,17 +176,19 @@ def init_db() -> None:
             print(f"⚠️ National method seed skipped: {exc}")
 
         try:
-            from app.scripts.import_bvf_library import import_articles_and_cycles, run_archive
+            from app.scripts.import_bvf_library import bundle_available, import_from_bg_bundle
 
-            art_n, cyc_n = import_articles_and_cycles(db, force=False)
-            if art_n or cyc_n:
+            if bundle_available():
+                stats = import_from_bg_bundle(db, force=False)
                 db.commit()
-                print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
-            lib_root = os.environ.get("BVF_LIBRARY_ROOT", r"C:\Users\krasi\Downloads\библиотека")
-            if Path(lib_root).is_dir() and os.environ.get("BVF_IMPORT_LIBRARY", "").lower() in ("1", "true", "yes"):
-                stats = run_archive(db, Path(lib_root), force=False)
-                db.commit()
-                print(f"✅ BVF archive import: {stats}")
+                print(f"✅ BVF library from BG bundle: {stats}")
+            else:
+                from app.scripts.import_bvf_library import import_articles_and_cycles
+
+                art_n, cyc_n = import_articles_and_cycles(db, force=False)
+                if art_n or cyc_n:
+                    db.commit()
+                    print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
         except Exception as exc:
             print(f"⚠️ BVF library import skipped: {exc}")
 
