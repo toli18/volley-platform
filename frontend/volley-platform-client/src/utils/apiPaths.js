@@ -189,6 +189,7 @@ export const API_PATHS = {
   NATIONAL_METHOD_META: "/api/national-method/meta",
   NATIONAL_METHOD_LIBRARY: "/api/national-method/library",
   NATIONAL_METHOD_ARTICLE: (id) => `/api/national-method/articles/${id}`,
+  NATIONAL_METHOD_ARTICLE_CYCLES: (id) => `/api/national-method/articles/${id}/cycles`,
   NATIONAL_METHOD_CYCLE: (id) => `/api/national-method/cycles/${id}`,
   NATIONAL_METHOD_DRILL: (id) => `/api/national-method/drills/${id}`,
   NATIONAL_METHOD_ADMIN_SOURCES: "/api/national-method/admin/sources",

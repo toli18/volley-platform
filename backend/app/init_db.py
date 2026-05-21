@@ -190,7 +190,7 @@ def init_db() -> None:
 
                 stats = import_to_db(force=False)
                 db.commit()
-                print(f"✅ Volley Comment (Наука и спорта): {stats}")
+                print(f"✅ Volley Comment + cycle links (фаза B): {stats}")
             else:
                 from app.scripts.import_bvf_library import bundle_available, import_from_bg_bundle
 

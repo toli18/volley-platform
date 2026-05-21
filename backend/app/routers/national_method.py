@@ -24,6 +24,7 @@ from app.models import (
     UserRole,
 )
 from app.national_method.constants import AGE_BANDS, CONTENT_TYPES, CYCLE_TYPES, METHOD_CATEGORIES, PUBLISH_STATUSES
+from app.national_method.cycle_article_links import find_cycles_for_article
 from app.national_method.inventory import MATERIAL_INVENTORY
 
 router = APIRouter(prefix="/api/national-method", tags=["National Method Library"])
@@ -382,6 +383,9 @@ def admin_import_bvf_library(
 
     if EXPORT_PATH.is_file():
         out = {"volleycomment": import_to_db(force=force)}
+        from app.national_method.cycle_article_links import sync_all_cycle_links
+
+        out["cycle_links"] = sync_all_cycle_links(db)
     else:
         out = {
             "error": "Липсва bvf_volleycomment_bg.json — python -m app.scripts.ingest_volleycomment --export",
@@ -492,7 +496,14 @@ def coach_library(
             (Drill.age_max.is_(None)) | (Drill.age_max >= lo),
         )
     articles = aq.order_by(MethodArticle.sort_order.asc()).all()
-    cycles = cq.order_by(MethodCycle.sort_order.asc()).all()
+    cycles_out = []
+    for c in cq.order_by(MethodCycle.sort_order.asc()).all():
+        s = c.structure_json or {}
+        link_n = sum(len(w.get("related_articles") or []) for w in (s.get("weeks") or []))
+        link_n += len(s.get("program_articles") or [])
+        row = CycleOut.model_validate(c).model_dump()
+        row["linked_articles_count"] = link_n
+        cycles_out.append(row)
     # Упражнения: ограничен брой, докато не са подбрани от БФВ методика
     drills = dq.order_by(Drill.id.asc()).limit(40).all()
     guidelines = (
@@ -503,7 +514,7 @@ def coach_library(
     )
     return {
         "articles": [ArticleOut.model_validate(a) for a in articles],
-        "cycles": [CycleOut.model_validate(c) for c in cycles],
+        "cycles": cycles_out,
         "drills": [_drill_dict(d) for d in drills],
         "guidelines": [GuidelineOut.model_validate(g) for g in guidelines],
     }
@@ -536,7 +547,7 @@ def coach_get_article(
     return row
 
 
-@router.get("/cycles/{cycle_id}", response_model=CycleOut)
+@router.get("/cycles/{cycle_id}")
 def coach_get_cycle(
     cycle_id: int,
     db: Session = Depends(get_db),
@@ -545,7 +556,20 @@ def coach_get_cycle(
     row = db.query(MethodCycle).filter(MethodCycle.id == cycle_id, MethodCycle.status == "published").first()
     if not row:
         raise HTTPException(status_code=404, detail="Cycle not found")
-    return row
+    base = CycleOut.model_validate(row).model_dump()
+    s = row.structure_json or {}
+    base["program_articles"] = s.get("program_articles") or []
+    base["bvf_series"] = s.get("bvf_series")
+    return base
+
+
+@router.get("/articles/{article_id}/cycles")
+def coach_article_cycles(
+    article_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    return find_cycles_for_article(db, article_id)
 
 
 @router.get("/drills/{drill_id}")

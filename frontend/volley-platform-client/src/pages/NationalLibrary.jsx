@@ -61,6 +61,7 @@ export default function NationalLibrary() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedDrill, setSelectedDrill] = useState(null);
+  const [articleCycles, setArticleCycles] = useState([]);
   const [guidelineSkill, setGuidelineSkill] = useState("all");
 
   const load = useCallback(async () => {
@@ -86,8 +87,12 @@ export default function NationalLibrary() {
   }, [load]);
 
   const openArticle = async (id) => {
-    const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_ARTICLE(id));
-    setSelectedArticle(res.data);
+    const [artRes, cycRes] = await Promise.all([
+      axiosInstance.get(API_PATHS.NATIONAL_METHOD_ARTICLE(id)),
+      axiosInstance.get(API_PATHS.NATIONAL_METHOD_ARTICLE_CYCLES(id)).catch(() => ({ data: [] })),
+    ]);
+    setSelectedArticle(artRes.data);
+    setArticleCycles(Array.isArray(cycRes.data) ? cycRes.data : []);
     setSelectedCycle(null);
     setSelectedDrill(null);
   };
@@ -172,6 +177,7 @@ export default function NationalLibrary() {
                 )}
                 <div className="uiMuted" style={{ fontSize: 12, marginTop: 4 }}>
                   {CATEGORY_LABELS[a.category] || a.category}
+                  {a.age_band && a.age_band !== "all" ? ` · ${a.age_band}` : ""}
                   {a.author ? ` · ${a.author}` : ""}
                 </div>
               </Card>
@@ -214,6 +220,7 @@ export default function NationalLibrary() {
                 <strong>{c.title_bg}</strong>
                 <div className="uiMuted" style={{ fontSize: 13 }}>
                   {c.cycle_type} · {c.weeks} седм. · {c.age_band}
+                  {c.linked_articles_count > 0 ? ` · ${c.linked_articles_count} статии` : ""}
                 </div>
               </Card>
             ))}
@@ -257,6 +264,24 @@ export default function NationalLibrary() {
                 </div>
               )}
               <div style={{ marginTop: 16 }}>{renderBody(selectedArticle.body_bg)}</div>
+              {articleCycles.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <strong>Свързани цикли</strong>
+                  <ul>
+                    {articleCycles.map((c) => (
+                      <li key={c.cycle_id}>
+                        <button
+                          type="button"
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--primary, #2563eb)" }}
+                          onClick={() => openCycle(c.cycle_id)}
+                        >
+                          {c.title_bg} ({c.role})
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {selectedArticle.source_url && (
                 <p style={{ marginTop: 16 }}>
                   <a href={selectedArticle.source_url} target="_blank" rel="noreferrer">
@@ -270,6 +295,25 @@ export default function NationalLibrary() {
             <>
               <h2>{selectedCycle.title_bg}</h2>
               {selectedCycle.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}
+              {(selectedCycle.program_articles || []).length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <strong>Единна програма БФВ</strong>
+                  <ul style={{ marginTop: 8 }}>
+                    {selectedCycle.program_articles.map((a) => (
+                      <li key={a.id}>
+                        <button
+                          type="button"
+                          className="uiLinkButton"
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textAlign: "left" }}
+                          onClick={() => openArticle(a.id)}
+                        >
+                          {a.title_bg}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {weekCards.map((w) => (
                 <div key={w.week} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border, #ddd)" }}>
                   <strong>
@@ -282,6 +326,26 @@ export default function NationalLibrary() {
                         <li key={i}>{g}</li>
                       ))}
                     </ul>
+                  )}
+                  {(w.related_articles || []).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <span className="uiMuted" style={{ fontSize: 13 }}>
+                        Препоръчано четене:
+                      </span>
+                      <ul>
+                        {w.related_articles.map((a) => (
+                          <li key={a.id}>
+                            <button
+                              type="button"
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--primary, #2563eb)", textAlign: "left" }}
+                              onClick={() => openArticle(a.id)}
+                            >
+                              {a.title_bg}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               ))}

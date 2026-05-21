@@ -23,6 +23,7 @@ from sqlalchemy import text
 from app.database import Base, SessionLocal, engine
 from app.models import MethodArticle, MethodGuideline, MethodSource
 from app.settings import settings
+from app.national_method.cycle_article_links import infer_age_band
 from app.national_method.volley_comment import discover_article_urls, fetch_article
 from app.seed.bvf_coaching_guidelines_bg import GUIDELINES
 
@@ -54,7 +55,7 @@ def export_articles() -> dict:
                     "key_points": art.key_points,
                     "body_bg": art.body_bg,
                     "category": art.category,
-                    "age_band": "all",
+                    "age_band": infer_age_band(art.title_bg, art.slug),
                     "status": "published",
                     "content_origin": ORIGIN,
                     "sort_order": i,
@@ -168,8 +169,15 @@ def import_to_db(force: bool = False) -> dict:
             )
             g_added += 1
 
+        from app.national_method.cycle_article_links import sync_all_cycle_links
+
+        link_stats = sync_all_cycle_links(db)
         db.commit()
-        return {"articles_added": added, "guidelines_added": g_added}
+        return {
+            "articles_added": added,
+            "guidelines_added": g_added,
+            "cycle_links": link_stats,
+        }
     finally:
         db.close()
 

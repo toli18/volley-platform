@@ -11,6 +11,14 @@ python -m app.scripts.ingest_volleycomment --import-db
 
 + 12 насоки „грешка → корекция“ в `bvf_coaching_guidelines_bg.py`.
 
+## Фаза B: цикли ↔ статии
+
+```bash
+python -m app.scripts.sync_cycle_article_links
+```
+
+Свързва мезо/микро цикли с препоръчани статии по седмица и „единна програма“.
+
 ## Архив (не се показва на треньори по подразбиране)
 
 `bvf_drills_bg.json` / `bvf_articles_bg.json` — стар превод от PDF/GTP.
