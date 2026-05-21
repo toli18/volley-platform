@@ -128,7 +128,7 @@ function ThreadView({
         История {retentionDays} дни · общ канал на отбора
       </p>
       {error ? <p className="teamRoomChatError">{error}</p> : null}
-      <MessagesList listRef={listRef} messages={messages} onCoachBubbleRef={handleCoachBubbleRef} />
+      <MessagesList listRef={listRef} messages={messages} onCoachBubbleRef={onCoachBubbleRef} />
       <form className="teamRoomChatComposer" onSubmit={onSend}>
         <input
           type="text"
