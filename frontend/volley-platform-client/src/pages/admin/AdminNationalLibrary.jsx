@@ -67,6 +67,7 @@ export default function AdminNationalLibrary() {
     status: "draft",
   });
   const [drillForm, setDrillForm] = useState({ title: "", instructions: "", coaching_points: "", age_min: 14, age_max: 16 });
+  const [importing, setImporting] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -93,6 +94,26 @@ export default function AdminNationalLibrary() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  const runLibraryImport = async () => {
+    try {
+      setImporting(true);
+      const res = await axiosInstance.post(API_PATHS.NATIONAL_METHOD_ADMIN_IMPORT_LIBRARY, null, {
+        params: { archive: true },
+      });
+      const t = res.data?.totals;
+      toast.success(
+        t
+          ? `Импорт: ${t.articles_published} статии, ${t.cycles_published} цикла, ${t.federation_drills} упражнения`
+          : "Импортът завърши"
+      );
+      loadAll();
+    } catch (e) {
+      toast.error(normalizeError(e));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const createSource = async () => {
     try {
@@ -201,6 +222,9 @@ export default function AdminNationalLibrary() {
         ))}
         <Button variant="secondary" onClick={loadAll}>
           Обнови
+        </Button>
+        <Button variant="primary" onClick={runLibraryImport} disabled={importing}>
+          {importing ? "Импорт..." : "Импорт от библиотека"}
         </Button>
       </div>
 

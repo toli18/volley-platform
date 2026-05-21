@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, List, Optional
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -347,6 +349,29 @@ def admin_delete_cycle(
 
 
 # ---------- Admin: national drills ----------
+
+
+@router.post("/admin/import-library")
+def admin_import_bvf_library(
+    force: bool = Query(False),
+    archive: bool = Query(True, description="Import GTP drills if BVF_LIBRARY_ROOT exists on server"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    from app.scripts.import_bvf_library import import_articles_and_cycles, library_stats, run_archive
+
+    art_n, cyc_n = import_articles_and_cycles(db, force=force)
+    out: dict[str, Any] = {
+        "embedded": {"articles_added": art_n, "cycles_added": cyc_n},
+    }
+    lib_root = os.environ.get("BVF_LIBRARY_ROOT", "")
+    if archive and lib_root and Path(lib_root).is_dir():
+        out["archive"] = run_archive(db, Path(lib_root), force=force)
+    elif archive:
+        out["archive"] = {"skipped": True, "reason": "BVF_LIBRARY_ROOT not set or missing on server"}
+    db.commit()
+    out["totals"] = library_stats(db)
+    return out
 
 
 @router.get("/admin/drills")

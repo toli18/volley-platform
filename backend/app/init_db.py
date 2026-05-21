@@ -8,6 +8,8 @@ from .models import User, UserRole, Club, Drill, MethodArticle
 from .seed.seed_clubs import seed_clubs
 from .seed.seed_drills import seed_drills
 from .seed.seed_national_method import seed_national_method
+from pathlib import Path
+import os
 from .auth import get_password_hash
 
 
@@ -172,6 +174,21 @@ def init_db() -> None:
             print("✅ National method library seeded (if needed)")
         except Exception as exc:
             print(f"⚠️ National method seed skipped: {exc}")
+
+        try:
+            from app.scripts.import_bvf_library import import_articles_and_cycles, run_archive
+
+            art_n, cyc_n = import_articles_and_cycles(db, force=False)
+            if art_n or cyc_n:
+                db.commit()
+                print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
+            lib_root = os.environ.get("BVF_LIBRARY_ROOT", r"C:\Users\krasi\Downloads\библиотека")
+            if Path(lib_root).is_dir() and os.environ.get("BVF_IMPORT_LIBRARY", "").lower() in ("1", "true", "yes"):
+                stats = run_archive(db, Path(lib_root), force=False)
+                db.commit()
+                print(f"✅ BVF archive import: {stats}")
+        except Exception as exc:
+            print(f"⚠️ BVF library import skipped: {exc}")
 
         print("✅ Database initialized successfully")
     except Exception as e:
