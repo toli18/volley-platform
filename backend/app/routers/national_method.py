@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.national_method.constants import AGE_BANDS, CONTENT_TYPES, CYCLE_TYPES, METHOD_CATEGORIES, PUBLISH_STATUSES
 from app.national_method.bvf_ai_knowledge import get_age_knowledge, resolve_age_band, week_context
+from app.national_method.content_policy import is_allowed_federation_drill, is_allowed_method_article, purge_legacy_library
 from app.national_method.cycle_article_links import find_cycles_for_article
 from app.national_method.inventory import MATERIAL_INVENTORY
 
@@ -249,13 +250,37 @@ def admin_extract_source(
 @router.get("/admin/articles", response_model=List[ArticleOut])
 def admin_list_articles(
     status: Optional[str] = None,
+    include_legacy: bool = Query(False, description="Включи PDF/GTP/преведени архивни статии"),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*ADMIN_ROLES)),
 ):
     q = db.query(MethodArticle).order_by(MethodArticle.sort_order.asc(), MethodArticle.id.asc())
     if status:
         q = q.filter(MethodArticle.status == status)
-    return q.all()
+    rows = q.all()
+    if include_legacy:
+        return rows
+    out = []
+    for art in rows:
+        src = (
+            db.query(MethodSource).filter(MethodSource.id == art.source_id).first()
+            if art.source_id
+            else None
+        )
+        if is_allowed_method_article(art, src):
+            out.append(art)
+    return out
+
+
+@router.post("/admin/purge-legacy-library")
+def admin_purge_legacy_library(
+    dry_run: bool = Query(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    """Премахва EN/GTP/PDF и машинно преведени bundle от БД."""
+    stats = purge_legacy_library(db, dry_run=dry_run)
+    return stats
 
 
 @router.post("/admin/articles", response_model=ArticleOut)
@@ -403,7 +428,16 @@ def admin_list_national_drills(
     user: User = Depends(require_role(*ADMIN_ROLES)),
 ):
     rows = db.query(Drill).filter(Drill.scope == "federation").order_by(Drill.id.asc()).all()
-    return [_drill_dict(d) for d in rows]
+    out = []
+    for d in rows:
+        src = (
+            db.query(MethodSource).filter(MethodSource.id == d.method_source_id).first()
+            if d.method_source_id
+            else None
+        )
+        if is_allowed_federation_drill(d, src):
+            out.append(_drill_dict(d))
+    return out
 
 
 @router.post("/admin/drills")
@@ -501,8 +535,16 @@ def coach_library(
         row = CycleOut.model_validate(c).model_dump()
         row["linked_articles_count"] = link_n
         cycles_out.append(row)
-    # Упражнения: ограничен брой, докато не са подбрани от БФВ методика
-    drills = dq.order_by(Drill.id.asc()).limit(40).all()
+    drills_all = dq.order_by(Drill.id.asc()).all()
+    drills = []
+    for d in drills_all:
+        src = (
+            db.query(MethodSource).filter(MethodSource.id == d.method_source_id).first()
+            if d.method_source_id
+            else None
+        )
+        if is_allowed_federation_drill(d, src):
+            drills.append(d)
     guidelines = (
         db.query(MethodGuideline)
         .filter(MethodGuideline.status == "published")

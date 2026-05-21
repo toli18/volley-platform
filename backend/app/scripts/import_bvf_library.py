@@ -325,96 +325,13 @@ def register_pdf_sources(db, library_root: Path) -> int:
 
 
 def bundle_available() -> bool:
-    if not DRILLS_BUNDLE_PATH.exists():
-        return False
-    try:
-        data = json.loads(DRILLS_BUNDLE_PATH.read_text(encoding="utf-8"))
-        return int(data.get("count", 0) or len(data.get("drills", []))) >= 10
-    except Exception:
-        return False
+    """Архивният BG bundle (GTP превод) е изключен — само Volley Comment + seed."""
+    return False
 
 
 def import_from_bg_bundle(db, force: bool = False) -> dict:
-    """Импорт от предварително преведени JSON в repo — без EN/IT в платформата."""
-    now = datetime.utcnow()
-    articles_n = 0
-    drills_n = 0
-
-    if ARTICLES_BUNDLE_PATH.exists():
-        payload = json.loads(ARTICLES_BUNDLE_PATH.read_text(encoding="utf-8"))
-        for spec in payload.get("articles", []):
-            title = spec["title_bg"]
-            if db.query(MethodArticle).filter(MethodArticle.title_bg == title).first() and not force:
-                continue
-            if force:
-                for row in db.query(MethodArticle).filter(MethodArticle.title_bg == title).all():
-                    db.delete(row)
-                db.flush()
-            src_id = None
-            if spec.get("source_file"):
-                src_id = _ensure_source(
-                    db,
-                    spec["source_file"],
-                    spec.get("language", "bg"),
-                    spec.get("category", "methodology"),
-                    spec.get("age_band", "all"),
-                )
-            status = spec.get("status", "published")
-            db.add(
-                MethodArticle(
-                    source_id=src_id,
-                    title_bg=title,
-                    body_bg=spec["body_bg"],
-                    category=spec.get("category", "methodology"),
-                    age_band=spec.get("age_band", "all"),
-                    status=status,
-                    sort_order=spec.get("sort_order", 0),
-                    published_at=now if status == "published" else None,
-                )
-            )
-            articles_n += 1
-
-    if DRILLS_BUNDLE_PATH.exists():
-        payload = json.loads(DRILLS_BUNDLE_PATH.read_text(encoding="utf-8"))
-        src_id = _ensure_source(db, "bvf-drills-bundle", "bg", "exercise", "all")
-        for spec in payload.get("drills", []):
-            title = spec["title_bg"]
-            exists = (
-                db.query(Drill)
-                .filter(Drill.scope == "federation", Drill.title == title)
-                .first()
-            )
-            if exists and not force:
-                continue
-            if exists and force:
-                db.delete(exists)
-                db.flush()
-            db.add(
-                Drill(
-                    title=title,
-                    description=spec.get("description_bg", "")[:2000],
-                    category=spec.get("category", "general"),
-                    instructions=spec.get("instructions_bg", "")[:12000],
-                    coaching_points=spec.get("coaching_points_bg", ""),
-                    age_min=spec.get("age_min"),
-                    age_max=spec.get("age_max"),
-                    scope="federation",
-                    is_national_read_only=True,
-                    method_source_id=src_id,
-                    status="approved",
-                    level="national",
-                )
-            )
-            drills_n += 1
-
-    _, cyc_n = import_articles_and_cycles(db, force)
-    db.flush()
-    return {
-        "articles_added": articles_n,
-        "drills_added": drills_n,
-        "cycles_added": cyc_n,
-        "source": "bvf_bg_bundle",
-    }
+    """DEPRECATED: машинно преведен GTP bundle — не се импортира в платформата."""
+    return {"skipped": True, "reason": "legacy_bundle_disabled"}
 
 
 def run_embedded(db, force: bool = False) -> dict:

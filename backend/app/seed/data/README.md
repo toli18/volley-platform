@@ -1,24 +1,30 @@
 # BVF национална библиотека — seed данни
 
-## Фаза A (активна): Volley Comment „Наука и спорта“
+## Активни източници
+
+| Файл / модул | Роля |
+|--------------|------|
+| `bvf_volleycomment_bg.json` | Volley Comment „Наука и спорта“ → AI методика (`ingest_volleycomment`) |
+| `bvf_ai_knowledge.json` | Структуриран контекст по възраст за AI (`build_bvf_ai_knowledge`) |
+| `bvf_coaching_guidelines_bg.py` | Насоки грешка → корекция |
+| `seed_national_method.py` | Мезо/микро цикли + ~22 курирани BG упражнения |
 
 ```bash
 python -m app.scripts.ingest_volleycomment --export
 python -m app.scripts.ingest_volleycomment --import-db
-```
-
-Файл: `bvf_volleycomment_bg.json` — български статии от [Volley Comment](https://volleycomment.bg/?s=наука) (с ОК от БФВ).
-
-+ 12 насоки „грешка → корекция“ в `bvf_coaching_guidelines_bg.py`.
-
-## Фаза B: цикли ↔ статии
-
-```bash
+python -m app.scripts.build_bvf_ai_knowledge
 python -m app.scripts.sync_cycle_article_links
 ```
 
-Свързва мезо/микро цикли с препоръчани статии по седмица и „единна програма“.
+## Премахнати архиви (EN / машинен превод)
 
-## Архив (не се показва на треньори по подразбиране)
+`bvf_drills_bg.json` и `bvf_articles_bg.json` са **изтрити от repo** — не се импортират.
 
-`bvf_drills_bg.json` / `bvf_articles_bg.json` — стар превод от PDF/GTP.
+Почистване на вече импортнато в БД:
+
+```bash
+python -m app.scripts.purge_legacy_bvf_library --dry-run
+python -m app.scripts.purge_legacy_bvf_library
+```
+
+Или админ API: `POST /api/national-method/admin/purge-legacy-library`

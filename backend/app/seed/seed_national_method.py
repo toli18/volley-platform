@@ -238,6 +238,33 @@ def seed_national_method(db: Session) -> None:
     db.commit()
 
 
+def ensure_national_drills(db: Session) -> int:
+    """Възстановява курираните BG упражнения след purge на GTP/bundle."""
+    if db.query(Drill).filter(Drill.scope == "federation").count() >= 20:
+        return 0
+    src = (
+        db.query(MethodSource)
+        .filter(MethodSource.filename == "Programmazione-Macrociclo-4-Settimane.xls")
+        .first()
+    )
+    if not src:
+        src = MethodSource(
+            filename="Programmazione-Macrociclo-4-Settimane.xls",
+            original_language="it",
+            content_type="periodization",
+            age_band="all",
+            rights_note="БФВ — документирано право",
+            ingest_status="published",
+            wave=1,
+            admin_notes="Референтен източник за мезо шаблони",
+        )
+        db.add(src)
+        db.flush()
+    _seed_national_drills(db, src.id)
+    db.flush()
+    return db.query(Drill).filter(Drill.scope == "federation").count()
+
+
 def _seed_national_drills(db: Session, source_id: int) -> None:
     if db.query(Drill).filter(Drill.scope == "federation").count() >= 20:
         return

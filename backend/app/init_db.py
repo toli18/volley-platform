@@ -192,19 +192,12 @@ def init_db() -> None:
                 db.commit()
                 print(f"✅ Volley Comment + cycle links (фаза B): {stats}")
             else:
-                from app.scripts.import_bvf_library import bundle_available, import_from_bg_bundle
+                from app.scripts.import_bvf_library import import_articles_and_cycles
 
-                if bundle_available():
-                    stats = import_from_bg_bundle(db, force=False)
+                art_n, cyc_n = import_articles_and_cycles(db, force=False)
+                if art_n or cyc_n:
                     db.commit()
-                    print(f"✅ BVF library from BG bundle: {stats}")
-                else:
-                    from app.scripts.import_bvf_library import import_articles_and_cycles
-
-                    art_n, cyc_n = import_articles_and_cycles(db, force=False)
-                    if art_n or cyc_n:
-                        db.commit()
-                        print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
+                    print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
         except Exception as exc:
             print(f"⚠️ BVF library import skipped: {exc}")
 

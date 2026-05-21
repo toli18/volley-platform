@@ -203,6 +203,7 @@ export const API_PATHS = {
   NATIONAL_METHOD_ADMIN_DRILLS: "/api/national-method/admin/drills",
   NATIONAL_METHOD_ADMIN_DRILL: (id) => `/api/national-method/admin/drills/${id}`,
   NATIONAL_METHOD_ADMIN_IMPORT_LIBRARY: "/api/national-method/admin/import-library",
+  NATIONAL_METHOD_ADMIN_PURGE_LEGACY: "/api/national-method/admin/purge-legacy-library",
   CLUB_CYCLE_INSTANCES: "/api/national-method/club/cycle-instances",
   CLUB_CYCLE_INSTANCE: (id) => `/api/national-method/club/cycle-instances/${id}`,
   CLUB_METHOD_ASSIGNMENTS: "/api/national-method/club/method-assignments",

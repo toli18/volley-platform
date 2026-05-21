@@ -1,12 +1,6 @@
 """
-Превод на националната библиотека на български и публикуване.
-
-  set DATABASE_URL=...
-  python -m app.scripts.translate_bvf_library --drills
-  python -m app.scripts.translate_bvf_library --articles
-  python -m app.scripts.translate_bvf_library --all
-
-По-бърз/качествен превод: задай OPENAI_API_KEY (иначе Google превод).
+DEPRECATED — машинният превод на GTP/PDF архива е премахнат.
+Използвайте: python -m app.scripts.ingest_volleycomment
 """
 
 from __future__ import annotations

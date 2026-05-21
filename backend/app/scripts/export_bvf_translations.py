@@ -1,10 +1,6 @@
 """
-Еднократен експорт: превод на целия архив → JSON в repo (български завинаги).
-
-  set BVF_LIBRARY_ROOT=C:\\Users\\krasi\\Downloads\\библиотека
-  python -m app.scripts.export_bvf_translations
-
-Продължава от checkpoint при прекъсване. След завършване: import_bvf_library --from-bundle
+DEPRECATED — архивният GTP/PDF bundle е премахнат от платформата.
+Използвайте: python -m app.scripts.ingest_volleycomment
 """
 
 from __future__ import annotations

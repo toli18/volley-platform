@@ -15,6 +15,7 @@ from ..national_method.bvf_ai_knowledge import (
     build_training_plan_text,
     enrich_request,
 )
+from ..national_method.content_policy import query_drills_for_ai
 
 
 router = APIRouter(prefix="/api/ai/training", tags=["AI Training"])
@@ -85,7 +86,7 @@ def generate_ai_training(
     recent_by_session = _recent_drill_ids_for_user(db, user, limit_sessions=3)
     request_data["recentDrillIdsBySession"] = recent_by_session
     request_data["recentDrillIds"] = [did for bucket in recent_by_session for did in bucket]
-    drills = db.query(Drill).filter(Drill.status == "approved").all()
+    drills = query_drills_for_ai(db)
     result = generate_training_session(drills, request_data)
     session = result.get("session") or {}
     attach_text_drills(session, request_data)
@@ -104,7 +105,7 @@ def generate_and_save_ai_training(
     recent_by_session = _recent_drill_ids_for_user(db, user, limit_sessions=3)
     request_data["recentDrillIdsBySession"] = recent_by_session
     request_data["recentDrillIds"] = [did for bucket in recent_by_session for did in bucket]
-    drills = db.query(Drill).filter(Drill.status == "approved").all()
+    drills = query_drills_for_ai(db)
     generated = generate_training_session(drills, request_data)
 
     session = generated["session"]
