@@ -710,6 +710,79 @@
   line-height: 1.45;
 }
 
+.aiGenBvfBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid #b8c9e8;
+  background: #eef4ff;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.aiGenPlanText {
+  margin-bottom: 16px;
+  border: 1px solid #c5d4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.aiGenPlanText > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.aiGenPlanTextBody {
+  padding: 0 14px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.aiGenPlanTextH2 {
+  font-size: 17px;
+  margin: 8px 0 4px;
+}
+
+.aiGenPlanTextH3 {
+  font-size: 15px;
+  margin: 10px 0 4px;
+}
+
+.aiGenPlanTextH4 {
+  font-size: 14px;
+  margin: 8px 0 4px;
+}
+
+.aiGenPlanTextP,
+.aiGenPlanTextLi {
+  margin: 4px 0;
+}
+
+.aiGenPlanTextHr {
+  border: none;
+  border-top: 1px solid #d0dcee;
+  margin: 10px 0;
+}
+
+.aiGenPlanRow--text {
+  border-left: 3px solid #7c9fd4;
+  background: #f4f8ff;
+}
+
+.aiGenTextDrillInstr {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+}
+
 .aiGenGrid {
   display: grid;
   grid-template-columns: 1fr;

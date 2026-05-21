@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import DrillMediaPreviewModal from "../components/DrillMediaPreviewModal";
@@ -114,8 +114,11 @@ function toBgLabel(raw) {
   return translated.join(", ");
 }
 
+const AGE_BAND_TO_YEARS = { mini: 11, U13: 13, U14: 14, U15: 15, U16: 16, U17: 17, U18: 18 };
+
 export default function AIGenerator() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const isHeadCoachUser = String(user?.role || "").toLowerCase() === "club_head_coach";
   const planRef = useRef(null);
   const [activeTab, setActiveTab] = useState("settings");
@@ -159,6 +162,8 @@ export default function AIGenerator() {
   const [assignDueDate, setAssignDueDate] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [clubCoaches, setClubCoaches] = useState([]);
+  const [cycleParams, setCycleParams] = useState({ ageBand: "", cycleId: null, cycleWeek: null });
+  const [bvfMethodHint, setBvfMethodHint] = useState(null);
 
   const cloneBlocks = (blocks) =>
     (blocks || []).map((b) => ({
@@ -173,6 +178,13 @@ export default function AIGenerator() {
         category: d.category || "",
         why: Array.isArray(d.why) ? d.why : d.why ? [String(d.why)] : [],
         score: Number(d.score || 0),
+      })),
+      textDrills: (b.textDrills || []).map((td) => ({
+        title: td.title,
+        instructions: td.instructions,
+        minutes: Number(td.minutes || 0),
+        skill: td.skill,
+        source: td.source,
       })),
     }));
 
@@ -253,6 +265,40 @@ export default function AIGenerator() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const ageBand = (searchParams.get("ageBand") || "").trim();
+    const cycleIdRaw = (searchParams.get("cycleId") || "").trim();
+    const cycleWeekRaw = (searchParams.get("cycleWeek") || "").trim();
+    if (!ageBand && !cycleIdRaw) return;
+
+    const band = ageBand || "U14";
+    const cycleId = cycleIdRaw ? Number(cycleIdRaw) : null;
+    const cycleWeek = cycleWeekRaw ? Number(cycleWeekRaw) : null;
+    const ageYears = AGE_BAND_TO_YEARS[band] ?? 14;
+
+    setCycleParams({ ageBand: band, cycleId: Number.isFinite(cycleId) ? cycleId : null, cycleWeek });
+    setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
+
+    let alive = true;
+    (async () => {
+      try {
+        const ctx = await apiClient(API_PATHS.NATIONAL_METHOD_CONTEXT, {
+          params: {
+            age_band: band,
+            ...(cycleWeek ? { cycle_week: cycleWeek } : {}),
+          },
+        });
+        if (!alive) return;
+        setBvfMethodHint(ctx);
+      } catch {
+        if (alive) setBvfMethodHint(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isHeadCoachUser) {
@@ -450,8 +496,11 @@ export default function AIGenerator() {
         avoidRepeatSameCategory: true,
       },
       randomSeed: form.randomSeed === "" ? null : Number(form.randomSeed),
+      ageBand: cycleParams.ageBand || undefined,
+      cycleId: cycleParams.cycleId || undefined,
+      cycleWeek: cycleParams.cycleWeek ?? undefined,
     }),
-    [form, options.domains, options.phases]
+    [form, options.domains, options.phases, cycleParams]
   );
 
   const resetFinder = () => {
@@ -654,7 +703,13 @@ export default function AIGenerator() {
     <div className="aiGenPage">
       <PageHero
         title="AI генератор на тренировки"
-        subtitle="Използва одобрените упражнения и ги разпределя в 4 части на тренировката."
+        subtitle={
+          bvfMethodHint?.week?.theme
+            ? `Методика БФВ · ${cycleParams.ageBand || bvfMethodHint.age_band} · седмица: ${bvfMethodHint.week.theme} — план + упражнения от базата.`
+            : cycleParams.ageBand
+              ? `Методика БФВ за ${cycleParams.ageBand} — структуриран план и предложения от одобрената база.`
+              : "Структуриран текстов план по методика БФВ + упражнения от одобрената база (не статии за четене)."
+        }
         actions={
           <Button as={Link} to="/my-trainings" size="sm" variant="secondary">
             ← Моите тренировки
@@ -675,6 +730,19 @@ export default function AIGenerator() {
           </button>
         ))}
       </nav>
+
+      {bvfMethodHint?.principles?.length ? (
+        <div className="aiGenBvfBanner" role="note">
+          <strong>Контекст от националната методика</strong>
+          <span>
+            {bvfMethodHint.week?.theme
+              ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
+              : `Възраст ${bvfMethodHint.age_band}`}
+            {" · "}
+            AI използва тези принципи при генериране — не е нужно да четете статии.
+          </span>
+        </div>
+      ) : null}
 
       {err ? <div className="aiGenError">{String(err)}</div> : null}
       {savedTraining?.id ? (
@@ -733,6 +801,7 @@ export default function AIGenerator() {
         <AIGeneratorPlanPanel
           planRef={planRef}
           result={result}
+          trainingPlanText={result?.trainingPlanText}
           planBlocks={planBlocks}
           minTwoPerBlockOk={minTwoPerBlockOk}
           openDrillPreview={openDrillPreview}

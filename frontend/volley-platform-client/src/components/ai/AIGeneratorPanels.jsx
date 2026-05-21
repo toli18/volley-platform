@@ -414,9 +414,30 @@ export function AIGeneratorLibraryPanel({
   );
 }
 
+function renderPlanTextLine(line, idx) {
+  const t = String(line || "").trim();
+  if (!t) return <br key={idx} />;
+  if (t.startsWith("### ")) return <h4 key={idx} className="aiGenPlanTextH4">{t.slice(4)}</h4>;
+  if (t.startsWith("## ")) return <h3 key={idx} className="aiGenPlanTextH3">{t.slice(3)}</h3>;
+  if (t.startsWith("# ")) return <h2 key={idx} className="aiGenPlanTextH2">{t.slice(2)}</h2>;
+  if (t === "---") return <hr key={idx} className="aiGenPlanTextHr" />;
+  const bold = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  if (t.startsWith("- ")) {
+    return (
+      <li
+        key={idx}
+        className="aiGenPlanTextLi"
+        dangerouslySetInnerHTML={{ __html: bold.replace(/^- /, "") }}
+      />
+    );
+  }
+  return <p key={idx} className="aiGenPlanTextP" dangerouslySetInnerHTML={{ __html: bold }} />;
+}
+
 export function AIGeneratorPlanPanel({
   planRef,
   result,
+  trainingPlanText,
   planBlocks,
   minTwoPerBlockOk,
   openDrillPreview,
@@ -438,9 +459,19 @@ export function AIGeneratorPlanPanel({
     );
   }
 
+  const planLines = trainingPlanText ? String(trainingPlanText).split("\n") : [];
+
   return (
     <section className="aiGenPanel" ref={planRef}>
       <p className="aiGenHint">Редактирай реда, премахвай или премести упражнения. Добавяй нови от „База упражнения“.</p>
+      {planLines.length ? (
+        <details className="aiGenPlanText" open>
+          <summary>Текстов тренировъчен план (методика БФВ)</summary>
+          <div className="aiGenPlanTextBody">
+            {planLines.map((line, idx) => renderPlanTextLine(line, idx))}
+          </div>
+        </details>
+      ) : null}
       {result?.фокус?.основен ? (
         <p className="aiGenPlanMeta">
           <strong>Фокус:</strong> {result.фокус.основен} / {result.фокус.вторичен || "—"}
@@ -504,6 +535,15 @@ export function AIGeneratorPlanPanel({
                     ))}
                   </ul>
                 ) : null}
+              </div>
+            ))}
+            {(b.textDrills || []).map((td, tidx) => (
+              <div key={`${b.blockType}-text-${tidx}`} className="aiGenPlanRow aiGenPlanRow--text">
+                <div className="aiGenPlanRowHead">
+                  <strong>{td.title}</strong>
+                  <span>{td.minutes} мин · текстово (методика)</span>
+                </div>
+                <p className="aiGenTextDrillInstr">{td.instructions}</p>
               </div>
             ))}
           </div>

@@ -10,6 +10,11 @@ from ..database import get_db
 from ..dependencies.roles import require_role
 from ..models import Drill, Training, TrainingSource, TrainingStatus, User, UserRole
 from ..services.bulgarian_training_generator import BLOCK_TO_PLAN_KEY, generate_training_session
+from ..national_method.bvf_ai_knowledge import (
+    attach_text_drills,
+    build_training_plan_text,
+    enrich_request,
+)
 
 
 router = APIRouter(prefix="/api/ai/training", tags=["AI Training"])
@@ -37,6 +42,9 @@ class GenerateRequest(BaseModel):
     intensityTarget: Literal["low", "medium", "high"] = "medium"
     constraints: GenerateConstraints = Field(default_factory=GenerateConstraints)
     randomSeed: Optional[int] = None
+    ageBand: Optional[str] = None
+    cycleId: Optional[int] = None
+    cycleWeek: Optional[int] = None
 
 
 class GenerateAndSaveRequest(GenerateRequest):
@@ -73,12 +81,17 @@ def generate_ai_training(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)),
 ):
-    request_data = payload.model_dump()
+    request_data = enrich_request(payload.model_dump(), db)
     recent_by_session = _recent_drill_ids_for_user(db, user, limit_sessions=3)
     request_data["recentDrillIdsBySession"] = recent_by_session
     request_data["recentDrillIds"] = [did for bucket in recent_by_session for did in bucket]
     drills = db.query(Drill).filter(Drill.status == "approved").all()
-    return generate_training_session(drills, request_data)
+    result = generate_training_session(drills, request_data)
+    session = result.get("session") or {}
+    attach_text_drills(session, request_data)
+    result["trainingPlanText"] = build_training_plan_text(session, request_data)
+    result["bvfMethod"] = request_data.get("bvfKnowledge")
+    return result
 
 
 @router.post("/generate-and-save")
@@ -87,7 +100,7 @@ def generate_and_save_ai_training(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)),
 ):
-    request_data = payload.model_dump()
+    request_data = enrich_request(payload.model_dump(), db)
     recent_by_session = _recent_drill_ids_for_user(db, user, limit_sessions=3)
     request_data["recentDrillIdsBySession"] = recent_by_session
     request_data["recentDrillIds"] = [did for bucket in recent_by_session for did in bucket]
@@ -95,6 +108,9 @@ def generate_and_save_ai_training(
     generated = generate_training_session(drills, request_data)
 
     session = generated["session"]
+    attach_text_drills(session, request_data)
+    generated["trainingPlanText"] = build_training_plan_text(session, request_data)
+    generated["bvfMethod"] = request_data.get("bvfKnowledge")
     if payload.editedBlocks:
         edited_blocks = payload.editedBlocks
         session["blocks"] = edited_blocks

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
-const AGE_OPTIONS = ["all", "U13", "U14", "U15", "U16", "U17", "U18"];
+const AGE_OPTIONS = ["U13", "U14", "U15", "U16", "U17", "U18"];
 
 const SKILL_LABELS = {
   подаване: "Подаване",
@@ -17,60 +17,25 @@ const SKILL_LABELS = {
   сервис: "Сервис",
 };
 
-const CATEGORY_LABELS = {
-  tactical: "Тактика",
-  psychology: "Психология",
-  organization: "Организация",
-  physical: "Физика",
-  methodology: "Методика",
-  principles: "Принципи",
-};
-
-const renderBody = (text) => {
-  if (!text) return null;
-  return text.split("\n").map((line, i) => {
-    if (line.startsWith("## ")) {
-      return (
-        <h3 key={i} style={{ marginTop: 12, marginBottom: 6 }}>
-          {line.replace(/^##\s+/, "")}
-        </h3>
-      );
-    }
-    if (line.startsWith("- ")) {
-      return (
-        <li key={i} style={{ marginLeft: 18 }}>
-          {line.replace(/^-\s+/, "")}
-        </li>
-      );
-    }
-    if (!line.trim()) return <br key={i} />;
-    return (
-      <p key={i} style={{ margin: "6px 0" }}>
-        {line}
-      </p>
-    );
-  });
-};
-
 export default function NationalLibrary() {
   const toast = useToast();
-  const [ageBand, setAgeBand] = useState("all");
-  const [section, setSection] = useState("articles");
-  const [data, setData] = useState({ articles: [], cycles: [], drills: [], guidelines: [] });
+  const navigate = useNavigate();
+  const [ageBand, setAgeBand] = useState("U14");
+  const [section, setSection] = useState("cycles");
+  const [data, setData] = useState({ method_principles: null, cycles: [], drills: [], guidelines: [] });
   const [loading, setLoading] = useState(true);
-  const [selectedArticle, setSelectedArticle] = useState(null);
   const [selectedCycle, setSelectedCycle] = useState(null);
-  const [selectedDrill, setSelectedDrill] = useState(null);
-  const [articleCycles, setArticleCycles] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState(1);
   const [guidelineSkill, setGuidelineSkill] = useState("all");
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const params = ageBand && ageBand !== "all" ? { age_band: ageBand } : {};
-      const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_LIBRARY, { params });
+      const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_LIBRARY, {
+        params: { age_band: ageBand },
+      });
       setData({
-        articles: res.data?.articles || [],
+        method_principles: res.data?.method_principles || null,
         cycles: res.data?.cycles || [],
         drills: res.data?.drills || [],
         guidelines: res.data?.guidelines || [],
@@ -86,39 +51,28 @@ export default function NationalLibrary() {
     load();
   }, [load]);
 
-  const openArticle = async (id) => {
-    const [artRes, cycRes] = await Promise.all([
-      axiosInstance.get(API_PATHS.NATIONAL_METHOD_ARTICLE(id)),
-      axiosInstance.get(API_PATHS.NATIONAL_METHOD_ARTICLE_CYCLES(id)).catch(() => ({ data: [] })),
-    ]);
-    setSelectedArticle(artRes.data);
-    setArticleCycles(Array.isArray(cycRes.data) ? cycRes.data : []);
-    setSelectedCycle(null);
-    setSelectedDrill(null);
-  };
-
   const openCycle = async (id) => {
     const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_CYCLE(id));
     setSelectedCycle(res.data);
-    setSelectedArticle(null);
-    setSelectedDrill(null);
+    const w = res.data?.weeks_detail?.[0]?.week;
+    setSelectedWeek(w ? Number(w) : 1);
   };
 
-  const openDrill = async (id) => {
-    const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_DRILL(id));
-    setSelectedDrill(res.data);
-    setSelectedArticle(null);
-    setSelectedCycle(null);
+  const goToGenerator = () => {
+    const params = new URLSearchParams({
+      ageBand,
+      cycleId: selectedCycle?.id ? String(selectedCycle.id) : "",
+      cycleWeek: String(selectedWeek),
+    });
+    navigate(`/ai-generator?${params.toString()}`);
   };
 
   const weekCards = useMemo(() => {
-    const weeks = selectedCycle?.structure_json?.weeks;
-    return Array.isArray(weeks) ? weeks : [];
+    return selectedCycle?.weeks_detail || selectedCycle?.structure_json?.weeks || [];
   }, [selectedCycle]);
 
   const guidelineSkills = useMemo(() => {
-    const skills = [...new Set((data.guidelines || []).map((g) => g.skill_element))];
-    return skills.sort();
+    return [...new Set((data.guidelines || []).map((g) => g.skill_element))].sort();
   }, [data.guidelines]);
 
   const filteredGuidelines = useMemo(() => {
@@ -129,9 +83,18 @@ export default function NationalLibrary() {
   return (
     <div className="uiPage">
       <PageHero
-        title="Национална библиотека"
-        subtitle="БФВ — серия „Наука и спорта“ (Volley Comment), периодизация и насоки за корекция."
+        title="Национална методика БФВ"
+        subtitle="Методиката от „Наука и спорта“ захранва AI генератора — треньорът получава цикли, план и упражнения, не дълги статии."
       />
+
+      <Card style={{ padding: 16, marginBottom: 16, background: "var(--surface-2, #f0f4ff)" }}>
+        <strong>Как работи</strong>
+        <ol style={{ margin: "8px 0 0 18px", lineHeight: 1.6 }}>
+          <li>Изберете възраст и мезо/микро цикъл.</li>
+          <li>Отворете седмица → <strong>Генерирай тренировка с AI</strong>.</li>
+          <li>AI използва методиката БФВ + базата упражнения → текстов план и предложени drills.</li>
+        </ol>
+      </Card>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
         <label>
@@ -139,22 +102,19 @@ export default function NationalLibrary() {
           <select className="uiInput" value={ageBand} onChange={(e) => setAgeBand(e.target.value)}>
             {AGE_OPTIONS.map((a) => (
               <option key={a} value={a}>
-                {a === "all" ? "Всички" : a}
+                {a}
               </option>
             ))}
           </select>
         </label>
-        <Button variant={section === "articles" ? "primary" : "secondary"} onClick={() => setSection("articles")}>
-          Наука и спорта
-        </Button>
-        <Button variant={section === "guidelines" ? "primary" : "secondary"} onClick={() => setSection("guidelines")}>
-          Насоки
-        </Button>
         <Button variant={section === "cycles" ? "primary" : "secondary"} onClick={() => setSection("cycles")}>
           Цикли
         </Button>
-        <Button variant={section === "drills" ? "primary" : "secondary"} onClick={() => setSection("drills")}>
-          Упражнения
+        <Button variant={section === "principles" ? "primary" : "secondary"} onClick={() => setSection("principles")}>
+          Принципи (кратко)
+        </Button>
+        <Button variant={section === "guidelines" ? "primary" : "secondary"} onClick={() => setSection("guidelines")}>
+          Насоки
         </Button>
       </div>
 
@@ -162,26 +122,18 @@ export default function NationalLibrary() {
         <div>
           {loading && <p className="uiMuted">Зареждане...</p>}
 
-          {!loading && section === "articles" && data.articles.length === 0 && (
-            <EmptyState title="Няма статии — пуснете ingest_volleycomment" />
+          {section === "principles" && data.method_principles && (
+            <Card style={{ padding: 12 }}>
+              <p className="uiMuted" style={{ fontSize: 13 }}>{data.method_principles.note}</p>
+              <ul style={{ marginTop: 8 }}>
+                {(data.method_principles.principles || []).map((p, i) => (
+                  <li key={i} style={{ marginBottom: 6 }}>
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </Card>
           )}
-          {section === "articles" &&
-            data.articles.map((a) => (
-              <Card key={a.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openArticle(a.id)}>
-                <strong>{a.title_bg}</strong>
-                {a.summary_bg && (
-                  <p className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
-                    {a.summary_bg.slice(0, 140)}
-                    {a.summary_bg.length > 140 ? "…" : ""}
-                  </p>
-                )}
-                <div className="uiMuted" style={{ fontSize: 12, marginTop: 4 }}>
-                  {CATEGORY_LABELS[a.category] || a.category}
-                  {a.age_band && a.age_band !== "all" ? ` · ${a.age_band}` : ""}
-                  {a.author ? ` · ${a.author}` : ""}
-                </div>
-              </Card>
-            ))}
 
           {section === "guidelines" && (
             <>
@@ -200,9 +152,7 @@ export default function NationalLibrary() {
               </select>
               {filteredGuidelines.map((g) => (
                 <Card key={g.id} style={{ marginBottom: 8, padding: 12 }}>
-                  <div className="uiMuted" style={{ fontSize: 12, marginBottom: 4 }}>
-                    {SKILL_LABELS[g.skill_element] || g.skill_element}
-                  </div>
+                  <div className="uiMuted" style={{ fontSize: 12 }}>{SKILL_LABELS[g.skill_element] || g.skill_element}</div>
                   <p>
                     <strong>Грешка:</strong> {g.error_bg}
                   </p>
@@ -216,157 +166,64 @@ export default function NationalLibrary() {
 
           {section === "cycles" &&
             data.cycles.map((c) => (
-              <Card key={c.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openCycle(c.id)}>
+              <Card
+                key={c.id}
+                style={{ marginBottom: 8, padding: 12, cursor: "pointer" }}
+                onClick={() => openCycle(c.id)}
+              >
                 <strong>{c.title_bg}</strong>
                 <div className="uiMuted" style={{ fontSize: 13 }}>
                   {c.cycle_type} · {c.weeks} седм. · {c.age_band}
-                  {c.linked_articles_count > 0 ? ` · ${c.linked_articles_count} статии` : ""}
-                </div>
-              </Card>
-            ))}
-
-          {section === "drills" &&
-            data.drills.map((d) => (
-              <Card key={d.id} style={{ marginBottom: 8, padding: 12, cursor: "pointer" }} onClick={() => openDrill(d.id)}>
-                <strong>{d.title}</strong>
-                <div className="uiMuted" style={{ fontSize: 13 }}>
-                  U{d.age_min}–{d.age_max}
                 </div>
               </Card>
             ))}
         </div>
 
         <Card style={{ padding: 16, minHeight: 280 }}>
-          {section === "guidelines" && (
-            <p className="uiMuted">Изберете елемент отляво — грешка и корекция за залата.</p>
-          )}
-          {section !== "guidelines" && !selectedArticle && !selectedCycle && !selectedDrill && (
-            <p className="uiMuted">Изберете елемент от списъка.</p>
-          )}
-          {selectedArticle && (
-            <>
-              <h2>{selectedArticle.title_bg}</h2>
-              {selectedArticle.author && <p className="uiMuted">{selectedArticle.author}</p>}
-              {selectedArticle.summary_bg && (
-                <Card style={{ padding: 12, marginTop: 12, background: "var(--surface-2, #f5f5f5)" }}>
-                  <strong>Резюме</strong>
-                  <p style={{ marginTop: 6 }}>{selectedArticle.summary_bg}</p>
-                </Card>
-              )}
-              {selectedArticle.key_points?.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <strong>Ключови точки</strong>
-                  <ul>
-                    {selectedArticle.key_points.map((k, i) => (
-                      <li key={i}>{k}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div style={{ marginTop: 16 }}>{renderBody(selectedArticle.body_bg)}</div>
-              {articleCycles.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <strong>Свързани цикли</strong>
-                  <ul>
-                    {articleCycles.map((c) => (
-                      <li key={c.cycle_id}>
-                        <button
-                          type="button"
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--primary, #2563eb)" }}
-                          onClick={() => openCycle(c.cycle_id)}
-                        >
-                          {c.title_bg} ({c.role})
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {selectedArticle.source_url && (
-                <p style={{ marginTop: 16 }}>
-                  <a href={selectedArticle.source_url} target="_blank" rel="noreferrer">
-                    Оригинал в Volley Comment
-                  </a>
-                </p>
-              )}
-            </>
-          )}
-          {selectedCycle && (
+          {section !== "cycles" && <p className="uiMuted">Изберете таб „Цикли“ за генериране на тренировка.</p>}
+
+          {section === "cycles" && !selectedCycle && <p className="uiMuted">Изберете цикъл отляво.</p>}
+
+          {section === "cycles" && selectedCycle && (
             <>
               <h2>{selectedCycle.title_bg}</h2>
               {selectedCycle.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}
-              {(selectedCycle.program_articles || []).length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <strong>Единна програма БФВ</strong>
-                  <ul style={{ marginTop: 8 }}>
-                    {selectedCycle.program_articles.map((a) => (
-                      <li key={a.id}>
-                        <button
-                          type="button"
-                          className="uiLinkButton"
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textAlign: "left" }}
-                          onClick={() => openArticle(a.id)}
-                        >
-                          {a.title_bg}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {weekCards.map((w) => (
-                <div key={w.week} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border, #ddd)" }}>
-                  <strong>
-                    Седмица {w.week}: {w.theme}
-                  </strong>
-                  <p className="uiMuted">Натоварване: {w.load}</p>
-                  {w.session_goals?.length > 0 && (
-                    <ul>
-                      {w.session_goals.map((g, i) => (
-                        <li key={i}>{g}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {(w.related_articles || []).length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <span className="uiMuted" style={{ fontSize: 13 }}>
-                        Препоръчано четене:
-                      </span>
+              <p className="uiMuted" style={{ marginTop: 8 }}>{selectedCycle.ai_hint}</p>
+
+              <label style={{ display: "block", marginTop: 16 }}>
+                Седмица от цикъла:{" "}
+                <select
+                  className="uiInput"
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                >
+                  {weekCards.map((w) => (
+                    <option key={w.week} value={w.week}>
+                      Седмица {w.week}: {w.theme}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {weekCards
+                .filter((w) => Number(w.week) === Number(selectedWeek))
+                .map((w) => (
+                  <div key={w.week} style={{ marginTop: 12, padding: 12, background: "var(--surface-2, #f5f5f5)", borderRadius: 8 }}>
+                    <strong>Фокус: {w.theme}</strong>
+                    <p className="uiMuted">Натоварване: {w.load}</p>
+                    {w.session_goals?.length > 0 && (
                       <ul>
-                        {w.related_articles.map((a) => (
-                          <li key={a.id}>
-                            <button
-                              type="button"
-                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--primary, #2563eb)", textAlign: "left" }}
-                              onClick={() => openArticle(a.id)}
-                            >
-                              {a.title_bg}
-                            </button>
-                          </li>
+                        {w.session_goals.map((g, i) => (
+                          <li key={i}>{g}</li>
                         ))}
                       </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <p style={{ marginTop: 16 }}>
-                <Link to="/ai-generator">
-                  <Button variant="secondary">Отвори AI генератор</Button>
-                </Link>
-              </p>
-            </>
-          )}
-          {selectedDrill && (
-            <>
-              <h2>{selectedDrill.title}</h2>
-              <p>{selectedDrill.description}</p>
-              <h3>Инструкции</h3>
-              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{selectedDrill.instructions}</pre>
-              <h3>Акценти</h3>
-              <p>{selectedDrill.coaching_points}</p>
-              <Link to={`/drills/${selectedDrill.id}`}>
-                <Button variant="secondary">Пълен преглед</Button>
-              </Link>
+                    )}
+                  </div>
+                ))}
+
+              <Button variant="primary" style={{ marginTop: 20 }} onClick={goToGenerator}>
+                Генерирай тренировка с AI
+              </Button>
             </>
           )}
         </Card>

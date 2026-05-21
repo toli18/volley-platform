@@ -188,6 +188,7 @@ export const API_PATHS = {
   // National method library (BVF)
   NATIONAL_METHOD_META: "/api/national-method/meta",
   NATIONAL_METHOD_LIBRARY: "/api/national-method/library",
+  NATIONAL_METHOD_CONTEXT: "/api/national-method/method-context",
   NATIONAL_METHOD_ARTICLE: (id) => `/api/national-method/articles/${id}`,
   NATIONAL_METHOD_ARTICLE_CYCLES: (id) => `/api/national-method/articles/${id}/cycles`,
   NATIONAL_METHOD_CYCLE: (id) => `/api/national-method/cycles/${id}`,

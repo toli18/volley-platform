@@ -24,6 +24,7 @@ from app.models import (
     UserRole,
 )
 from app.national_method.constants import AGE_BANDS, CONTENT_TYPES, CYCLE_TYPES, METHOD_CATEGORIES, PUBLISH_STATUSES
+from app.national_method.bvf_ai_knowledge import get_age_knowledge, resolve_age_band, week_context
 from app.national_method.cycle_article_links import find_cycles_for_article
 from app.national_method.inventory import MATERIAL_INVENTORY
 
@@ -475,27 +476,23 @@ def coach_library(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
-    # Фаза A: основно съдържание от Volley Comment (БФВ), без PDF/GTP архив
-    aq = db.query(MethodArticle).filter(MethodArticle.status == "published")
-    vc_count = aq.filter(MethodArticle.content_origin == "volleycomment").count()
-    if vc_count > 0:
-        aq = aq.filter(MethodArticle.content_origin == "volleycomment")
-    else:
-        aq = aq.filter(
-            (MethodArticle.title_bg.is_(None)) | (~MethodArticle.title_bg.like("PDF:%")),
-            (MethodArticle.content_origin.is_(None)) | (MethodArticle.content_origin != "legacy_pdf"),
-        )
     cq = db.query(MethodCycle).filter(MethodCycle.status == "published")
     dq = db.query(Drill).filter(Drill.scope == "federation", Drill.status == "approved")
     if age_band and age_band != "all":
-        aq = aq.filter(MethodArticle.age_band.in_([age_band, "all"]))
         cq = cq.filter(MethodCycle.age_band.in_([age_band, "all"]))
         lo, hi = _age_band_range(age_band)
         dq = dq.filter(
             (Drill.age_min.is_(None)) | (Drill.age_min <= hi),
             (Drill.age_max.is_(None)) | (Drill.age_max >= lo),
         )
-    articles = aq.order_by(MethodArticle.sort_order.asc()).all()
+    band = resolve_age_band({"ageBand": age_band or "U14"})
+    k = get_age_knowledge(band)
+    method_principles = {
+        "age_band": band,
+        "note": "Кратки принципи от методиката БФВ — пълният контекст се подава на AI генератора.",
+        "principles": (k.get("principles") or [])[:10],
+        "focus_priority": k.get("focus_priority") or [],
+    }
     cycles_out = []
     for c in cq.order_by(MethodCycle.sort_order.asc()).all():
         s = c.structure_json or {}
@@ -513,10 +510,32 @@ def coach_library(
         .all()
     )
     return {
-        "articles": [ArticleOut.model_validate(a) for a in articles],
+        "method_principles": method_principles,
         "cycles": cycles_out,
         "drills": [_drill_dict(d) for d in drills],
         "guidelines": [GuidelineOut.model_validate(g) for g in guidelines],
+    }
+
+
+@router.get("/method-context")
+def coach_method_context(
+    age_band: str = Query("U14"),
+    cycle_week: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Контекст за AI генератор — структурирана методика, не статии."""
+    band = age_band if age_band != "all" else "U14"
+    k = get_age_knowledge(band)
+    wc = week_context(band, cycle_week)
+    return {
+        "age_band": band,
+        "principles": k.get("principles", [])[:12],
+        "session_structure": k.get("session_structure", []),
+        "meso_weeks": k.get("meso_weeks", []),
+        "week": wc,
+        "coach_cues": k.get("coach_cues", []),
+        "focus_priority": k.get("focus_priority", []),
     }
 
 
@@ -558,8 +577,19 @@ def coach_get_cycle(
         raise HTTPException(status_code=404, detail="Cycle not found")
     base = CycleOut.model_validate(row).model_dump()
     s = row.structure_json or {}
-    base["program_articles"] = s.get("program_articles") or []
-    base["bvf_series"] = s.get("bvf_series")
+    weeks = []
+    for w in s.get("weeks") or []:
+        weeks.append(
+            {
+                "week": w.get("week"),
+                "theme": w.get("theme"),
+                "load": w.get("load"),
+                "focus": w.get("focus"),
+                "session_goals": w.get("session_goals"),
+            }
+        )
+    base["weeks_detail"] = weeks
+    base["ai_hint"] = "Използвайте този цикъл в AI генератора — методиката се прилага автоматично."
     return base
 
 
