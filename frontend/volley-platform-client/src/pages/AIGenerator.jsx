@@ -162,7 +162,7 @@ export default function AIGenerator() {
   const [assignDueDate, setAssignDueDate] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [clubCoaches, setClubCoaches] = useState([]);
-  const [cycleParams, setCycleParams] = useState({ ageBand: "", cycleId: null, cycleWeek: null });
+  const [cycleParams, setCycleParams] = useState({ ageBand: "", cycleId: null, cycleWeek: null, cycleDay: null });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
   const assignmentId = searchParams.get("assignmentId") || "";
 
@@ -271,14 +271,21 @@ export default function AIGenerator() {
     const ageBand = (searchParams.get("ageBand") || "").trim();
     const cycleIdRaw = (searchParams.get("cycleId") || "").trim();
     const cycleWeekRaw = (searchParams.get("cycleWeek") || "").trim();
+    const cycleDayRaw = (searchParams.get("cycleDay") || "").trim();
     if (!ageBand && !cycleIdRaw) return;
 
     const band = ageBand || "U14";
     const cycleId = cycleIdRaw ? Number(cycleIdRaw) : null;
     const cycleWeek = cycleWeekRaw ? Number(cycleWeekRaw) : null;
+    const cycleDay = cycleDayRaw ? Number(cycleDayRaw) : null;
     const ageYears = AGE_BAND_TO_YEARS[band] ?? 14;
 
-    setCycleParams({ ageBand: band, cycleId: Number.isFinite(cycleId) ? cycleId : null, cycleWeek });
+    setCycleParams({
+      ageBand: band,
+      cycleId: Number.isFinite(cycleId) ? cycleId : null,
+      cycleWeek,
+      cycleDay: Number.isFinite(cycleDay) ? cycleDay : null,
+    });
     setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
 
     let alive = true;
@@ -287,7 +294,9 @@ export default function AIGenerator() {
         const ctx = await apiClient(API_PATHS.NATIONAL_METHOD_CONTEXT, {
           params: {
             age_band: band,
+            ...(cycleId ? { cycle_id: cycleId } : {}),
             ...(cycleWeek ? { cycle_week: cycleWeek } : {}),
+            ...(cycleDay ? { cycle_day: cycleDay } : {}),
           },
         });
         if (!alive) return;
@@ -743,9 +752,11 @@ export default function AIGenerator() {
         <div className="aiGenBvfBanner" role="note">
           <strong>Контекст от националната методика</strong>
           <span>
-            {bvfMethodHint.week?.theme
-              ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
-              : `Възраст ${bvfMethodHint.age_band}`}
+            {bvfMethodHint.day?.label
+              ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week?.week} · ${bvfMethodHint.day.label}: ${bvfMethodHint.day.theme || ""}`
+              : bvfMethodHint.week?.theme
+                ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
+                : `Възраст ${bvfMethodHint.age_band}`}
             {" · "}
             AI използва тези принципи при генериране — не е нужно да четете статии.
           </span>

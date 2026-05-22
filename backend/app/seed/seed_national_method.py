@@ -5,10 +5,12 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models import Drill, MethodArticle, MethodCycle, MethodSource
+from app.national_method.cycle_days import enrich_structure
 
 
 def _meso_structure_u14() -> dict:
-    return {
+    return enrich_structure(
+        {
         "weeks": [
             {
                 "week": 1,
@@ -46,11 +48,15 @@ def _meso_structure_u14() -> dict:
                 "recommended_drill_tags": ["система", "сервис"],
             },
         ]
-    }
+        },
+        cycle_type="meso",
+        age_band="U14",
+    )
 
 
 def _meso_structure_u16() -> dict:
-    return {
+    return enrich_structure(
+        {
         "weeks": [
             {
                 "week": 1,
@@ -81,7 +87,10 @@ def _meso_structure_u16() -> dict:
                 "session_goals": ["Симулация на мачови ротации", "Ментална устойчивост"],
             },
         ]
-    }
+        },
+        cycle_type="meso",
+        age_band="U16",
+    )
 
 
 def seed_national_method(db: Session) -> None:
@@ -214,17 +223,21 @@ def seed_national_method(db: Session) -> None:
             cycle_type="micro",
             weeks=1,
             age_band="U18",
-            structure_json={
-                "weeks": [
-                    {
-                        "week": 1,
-                        "theme": "Тапер",
-                        "load": "ниска-средна",
-                        "focus": ["сервис", "система"],
-                        "session_goals": ["Свежест", "Минимум на нови елементи"],
-                    }
-                ]
-            },
+            structure_json=enrich_structure(
+                {
+                    "weeks": [
+                        {
+                            "week": 1,
+                            "theme": "Тапер",
+                            "load": "ниска-средна",
+                            "focus": ["сервис", "система"],
+                            "session_goals": ["Свежест", "Минимум на нови елементи"],
+                        }
+                    ]
+                },
+                cycle_type="micro",
+                age_band="U18",
+            ),
             status="published",
             sort_order=3,
             published_at=now,

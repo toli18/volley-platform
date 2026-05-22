@@ -587,19 +587,40 @@ def coach_library(
 def coach_method_context(
     age_band: str = Query("U14"),
     cycle_week: Optional[int] = Query(None),
+    cycle_day: Optional[int] = Query(None),
+    cycle_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
     """Контекст за AI генератор — структурирана методика, не статии."""
+    from app.national_method.cycle_days import merge_week_day_context, week_day_from_cycle
+
     band = age_band if age_band != "all" else "U14"
     k = get_age_knowledge(band)
     wc = week_context(band, cycle_week)
+    day_ctx = None
+
+    if cycle_id:
+        row = db.query(MethodCycle).filter(MethodCycle.id == cycle_id, MethodCycle.status == "published").first()
+        if row:
+            wk, dy = week_day_from_cycle(
+                row.structure_json,
+                cycle_week,
+                cycle_day,
+                cycle_type=row.cycle_type,
+                age_band=row.age_band,
+            )
+            if wk:
+                wc = merge_week_day_context(wk, dy)
+                day_ctx = dy
+
     return {
         "age_band": band,
         "principles": k.get("principles", [])[:12],
         "session_structure": k.get("session_structure", []),
         "meso_weeks": k.get("meso_weeks", []),
         "week": wc,
+        "day": day_ctx,
         "coach_cues": k.get("coach_cues", []),
         "focus_priority": k.get("focus_priority", []),
     }
@@ -641,8 +662,14 @@ def coach_get_cycle(
     row = db.query(MethodCycle).filter(MethodCycle.id == cycle_id, MethodCycle.status == "published").first()
     if not row:
         raise HTTPException(status_code=404, detail="Cycle not found")
+    from app.national_method.cycle_days import enrich_structure, sessions_per_week
+
     base = CycleOut.model_validate(row).model_dump()
-    s = row.structure_json or {}
+    s = enrich_structure(
+        row.structure_json or {},
+        cycle_type=row.cycle_type,
+        age_band=row.age_band,
+    )
     weeks = []
     for w in s.get("weeks") or []:
         weeks.append(
@@ -652,10 +679,16 @@ def coach_get_cycle(
                 "load": w.get("load"),
                 "focus": w.get("focus"),
                 "session_goals": w.get("session_goals"),
+                "days": w.get("days") or [],
             }
         )
     base["weeks_detail"] = weeks
-    base["ai_hint"] = "Използвайте този цикъл в AI генератора — методиката се прилага автоматично."
+    base["sessions_per_week"] = s.get("sessions_per_week") or sessions_per_week(
+        row.cycle_type, row.age_band, len(weeks)
+    )
+    base["ai_hint"] = (
+        "Изберете седмица и тренировка в таблицата → AI генератор с контекст за конкретния ден."
+    )
     return base
 
 

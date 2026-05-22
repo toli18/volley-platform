@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from app.national_method.cycle_days import enrich_structure
+
+
+def _cycle_weeks(weeks: list, *, cycle_type: str, age_band: str) -> dict:
+    return enrich_structure({"weeks": weeks}, cycle_type=cycle_type, age_band=age_band)
+
 
 def mini_program_7_lessons() -> str:
     return """## Програма от 7 урока (мини-волейбол в училище)
@@ -252,8 +258,8 @@ def cycle_mini_7() -> dict:
         "cycle_type": "micro",
         "weeks": 7,
         "age_band": "mini",
-        "structure_json": {
-            "weeks": [
+        "structure_json": _cycle_weeks(
+            [
                 {"week": 1, "theme": "Запознаване и игри", "load": "ниска", "focus": ["хвърляне", "хващане"], "session_goals": ["Правила и безопасност"]},
                 {"week": 2, "theme": "Подаване", "load": "ниска", "focus": ["подаване"], "session_goals": ["Контакт с платформа"]},
                 {"week": 3, "theme": "Прием", "load": "ниска", "focus": ["прием"], "session_goals": ["Движение към топката"]},
@@ -261,8 +267,10 @@ def cycle_mini_7() -> dict:
                 {"week": 5, "theme": "3v3 / 4v4", "load": "средна", "focus": ["ротация"], "session_goals": ["Ротация след точка"]},
                 {"week": 6, "theme": "Атака (по възраст)", "load": "средна", "focus": ["атака"], "session_goals": ["Рязка или отблъск"]},
                 {"week": 7, "theme": "Турнир", "load": "средна", "focus": ["игра"], "session_goals": ["Симулация на събитие"]},
-            ]
-        },
+            ],
+            cycle_type="micro",
+            age_band="mini",
+        ),
     }
 
 
@@ -273,14 +281,16 @@ def cycle_u13_meso() -> dict:
         "cycle_type": "meso",
         "weeks": 4,
         "age_band": "U13",
-        "structure_json": {
-            "weeks": [
+        "structure_json": _cycle_weeks(
+            [
                 {"week": 1, "theme": "Подаване и прием", "load": "средна", "focus": ["подаване", "прием"], "session_goals": ["Стабилен прием в зона 2", "Точно подаване"]},
                 {"week": 2, "theme": "Сервис и зони", "load": "средна", "focus": ["сервис"], "session_goals": ["Сервис в зона", "Прием с крака"]},
                 {"week": 3, "theme": "3v3 и 4v4", "load": "средна-висока", "focus": ["игра"], "session_goals": ["Минимум 3 докосвания"]},
                 {"week": 4, "theme": "Мачов ритъм", "load": "средна", "focus": ["система"], "session_goals": ["Ротация 6v0", "Спокойствие при точка"]},
-            ]
-        },
+            ],
+            cycle_type="meso",
+            age_band="U13",
+        ),
     }
 
 
@@ -293,14 +303,16 @@ CYCLES: list[dict] = [
         "cycle_type": "meso",
         "weeks": 4,
         "age_band": "U14",
-        "structure_json": {
-            "weeks": [
+        "structure_json": _cycle_weeks(
+            [
                 {"week": 1, "theme": "Техническа база", "load": "средна", "focus": ["подаване", "прием"], "session_goals": ["Комуникация", "Стабилен прием"]},
                 {"week": 2, "theme": "Нападение", "load": "средна-висока", "focus": ["разпределение", "атака"], "session_goals": ["Бърз side-out"]},
                 {"week": 3, "theme": "Блок и защита", "load": "висока", "focus": ["блок", "защита"], "session_goals": ["Блок-аут", "Защита зона 6"]},
                 {"week": 4, "theme": "Интеграция", "load": "средна", "focus": ["система"], "session_goals": ["Пълна система", "Контрол на грешки"]},
-            ]
-        },
+            ],
+            cycle_type="meso",
+            age_band="U14",
+        ),
     },
     {
         "title_bg": "Мезоцикъл 4 седмици — U16",
@@ -308,14 +320,16 @@ CYCLES: list[dict] = [
         "cycle_type": "meso",
         "weeks": 4,
         "age_band": "U16",
-        "structure_json": {
-            "weeks": [
+        "structure_json": _cycle_weeks(
+            [
                 {"week": 1, "theme": "Физика + техника", "load": "средна", "focus": ["скок", "сервис"], "session_goals": ["PLOOM", "Точен сервис"]},
                 {"week": 2, "theme": "Комплекс", "load": "висока", "focus": ["прием-атака"], "session_goals": ["6 топки без прекъсване"]},
                 {"week": 3, "theme": "Тактика", "load": "висока", "focus": ["ротации", "блок"], "session_goals": ["Четене на сервис"]},
                 {"week": 4, "theme": "Мач", "load": "средна", "focus": ["симулация"], "session_goals": ["Видео", "Ментална устойчивост"]},
-            ]
-        },
+            ],
+            cycle_type="meso",
+            age_band="U16",
+        ),
     },
     {
         "title_bg": "Мезоцикъл 4 седмици — U18",
@@ -323,13 +337,15 @@ CYCLES: list[dict] = [
         "cycle_type": "meso",
         "weeks": 4,
         "age_band": "U18",
-        "structure_json": {
-            "weeks": [
+        "structure_json": _cycle_weeks(
+            [
                 {"week": 1, "theme": "Сервис-прием и атака", "load": "висока", "focus": ["сервис", "прием"], "session_goals": ["First ball side-out"]},
                 {"week": 2, "theme": "Система и скаут", "load": "висока", "focus": ["тактика"], "session_goals": ["План за съперник"]},
                 {"week": 3, "theme": "Натоварване", "load": "висока", "focus": ["физика", "игра"], "session_goals": ["Контрол на обема"]},
                 {"week": 4, "theme": "Тапер", "load": "ниска-средна", "focus": ["свежест"], "session_goals": ["Мач симулация", "Малко нови елементи"]},
-            ]
-        },
+            ],
+            cycle_type="meso",
+            age_band="U18",
+        ),
     },
 ]

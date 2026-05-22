@@ -288,39 +288,61 @@ def _default_focus(band: str) -> list[str]:
 
 def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     """Добавя BVF контекст към заявката за генератор."""
+    from app.national_method.cycle_days import (
+        enrich_structure,
+        find_day,
+        find_week,
+        merge_week_day_context,
+    )
+
     out = dict(request_data)
     age_band = resolve_age_band(out)
     week = out.get("cycleWeek")
+    day = out.get("cycleDay")
     try:
         week = int(week) if week is not None else None
     except (TypeError, ValueError):
         week = None
+    try:
+        day = int(day) if day is not None else None
+    except (TypeError, ValueError):
+        day = None
 
     knowledge = get_age_knowledge(age_band)
     wc = week_context(age_band, week)
+    day_ctx = None
 
     if db and out.get("cycleId"):
         from app.models import MethodCycle
 
         cycle = db.query(MethodCycle).filter(MethodCycle.id == int(out["cycleId"])).first()
         if cycle and cycle.structure_json:
-            weeks = cycle.structure_json.get("weeks") or []
-            if week:
-                for w in weeks:
-                    if int(w.get("week", 0)) == week:
-                        wc = w
-                        break
+            s = enrich_structure(
+                cycle.structure_json,
+                cycle_type=cycle.cycle_type,
+                age_band=cycle.age_band,
+            )
+            wk = find_week(s.get("weeks") or [], week)
+            if wk:
+                wc = merge_week_day_context(wk, find_day(wk, day))
+                day_ctx = find_day(wk, day)
 
     if not out.get("mainFocus"):
-        p, s = suggest_focus_skills(age_band, week)
-        out["mainFocus"] = p
-        out["secondaryFocus"] = s
+        prio = (day_ctx or wc or {}).get("focus") or []
+        if prio:
+            out["mainFocus"] = _skill_from_token(prio[0])
+            out["secondaryFocus"] = _skill_from_token(prio[1] if len(prio) > 1 else "атака")
+        else:
+            p, s = suggest_focus_skills(age_band, week)
+            out["mainFocus"] = p
+            out["secondaryFocus"] = s
 
     out["ageBand"] = age_band
     out["bvfKnowledge"] = {
         "age_band": age_band,
         "principles": (knowledge.get("principles") or [])[:8],
         "week": wc,
+        "day": day_ctx,
         "session_structure": knowledge.get("session_structure") or SESSION_PHASES_BG,
         "coach_cues": knowledge.get("coach_cues") or [],
     }
@@ -340,6 +362,13 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
     ]
     if wc:
         lines.append(f"**Седмица от мезоцикъл:** {wc.get('theme', '')} (натоварване: {wc.get('load', 'средна')})")
+    day_ctx = bvf.get("day") or (wc if wc and wc.get("day_label") else None)
+    if day_ctx and day_ctx.get("day_label"):
+        lines.append(
+            f"**Тренировка:** {day_ctx.get('day_label')} — {day_ctx.get('day_theme') or day_ctx.get('theme', '')}"
+        )
+        if day_ctx.get("session_goal"):
+            lines.append(f"**Цел на сесията:** {day_ctx.get('session_goal')}")
     lines.append("")
     lines.append("## Методически акцент (БФВ)")
     for p in (k.get("principles") or [])[:5]:

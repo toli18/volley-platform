@@ -724,6 +724,135 @@
   line-height: 1.45;
 }
 
+.nationalPlannerLayout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(360px, 2.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .nationalPlannerLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nationalPlannerCycleCard--active {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 1px;
+}
+
+.nationalPlannerTableWrap {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.nationalPlannerTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.nationalPlannerTable th,
+.nationalPlannerTable td {
+  border: 1px solid var(--border, #d8e0ef);
+  padding: 8px;
+  vertical-align: top;
+}
+
+.nationalPlannerTable thead th {
+  background: var(--surface-2, #f0f4ff);
+  font-weight: 600;
+  text-align: center;
+}
+
+.nationalPlannerTable__corner {
+  min-width: 140px;
+  text-align: left !important;
+}
+
+.nationalPlannerTable__weekHead {
+  background: var(--surface-2, #f5f7fb);
+  min-width: 140px;
+}
+
+.nationalPlannerTable__weekNum {
+  display: block;
+  font-weight: 700;
+}
+
+.nationalPlannerTable__weekTheme {
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.nationalPlannerTable__weekLoad {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.nationalPlannerTable__cell {
+  padding: 4px;
+  min-width: 120px;
+}
+
+.nationalPlannerTable__cell--empty {
+  text-align: center;
+  color: #94a3b8;
+}
+
+.nationalPlannerCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nationalPlannerCell:hover {
+  border-color: #93b4e8;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.nationalPlannerCell--selected {
+  border-color: var(--primary, #2563eb);
+  background: #eef4ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.nationalPlannerCell__label {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.nationalPlannerCell__theme {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.nationalPlannerCell__focus {
+  font-size: 11px;
+}
+
+.nationalPlannerSelection {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2, #f0f4ff);
+  border: 1px solid #c5d4ef;
+}
+
 .aiGenPlanText {
   margin-bottom: 16px;
   border: 1px solid #c5d4ef;
