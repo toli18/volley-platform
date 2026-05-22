@@ -7,16 +7,6 @@ import { useToast } from "../components/ToastProvider";
 
 const AGE_OPTIONS = ["U13", "U14", "U15", "U16", "U17", "U18"];
 
-const SKILL_LABELS = {
-  подаване: "Подаване",
-  прием: "Прием",
-  разпределение: "Разпределение",
-  атака: "Атака",
-  блок: "Блок",
-  защита: "Защита",
-  сервис: "Сервис",
-};
-
 export default function NationalLibrary() {
   const toast = useToast();
   const navigate = useNavigate();
@@ -26,8 +16,6 @@ export default function NationalLibrary() {
   const [loading, setLoading] = useState(true);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(1);
-  const [guidelineSkill, setGuidelineSkill] = useState("all");
-
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -38,7 +26,6 @@ export default function NationalLibrary() {
         method_principles: res.data?.method_principles || null,
         cycles: res.data?.cycles || [],
         drills: res.data?.drills || [],
-        guidelines: res.data?.guidelines || [],
       });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при зареждане");
@@ -71,20 +58,16 @@ export default function NationalLibrary() {
     return selectedCycle?.weeks_detail || selectedCycle?.structure_json?.weeks || [];
   }, [selectedCycle]);
 
-  const guidelineSkills = useMemo(() => {
-    return [...new Set((data.guidelines || []).map((g) => g.skill_element))].sort();
-  }, [data.guidelines]);
-
-  const filteredGuidelines = useMemo(() => {
-    if (guidelineSkill === "all") return data.guidelines || [];
-    return (data.guidelines || []).filter((g) => g.skill_element === guidelineSkill);
-  }, [data.guidelines, guidelineSkill]);
-
   return (
     <div className="uiPage">
       <PageHero
-        title="Национална методика БФВ"
-        subtitle="Методиката от „Наука и спорта“ захранва AI генератора — треньорът получава цикли, план и упражнения, не дълги статии."
+        title="Цикли БФВ и AI генератор"
+        subtitle="Мезо/микро периодизация по възраст → генерирайте тренировка. Методическите насоки са в отделен раздел."
+        actions={
+          <Button as={Link} to="/method-guidelines" variant="secondary" size="sm">
+            ← Методически насоки
+          </Button>
+        }
       />
 
       <Card style={{ padding: 16, marginBottom: 16, background: "var(--surface-2, #f0f4ff)" }}>
@@ -107,62 +90,17 @@ export default function NationalLibrary() {
             ))}
           </select>
         </label>
-        <Button variant={section === "cycles" ? "primary" : "secondary"} onClick={() => setSection("cycles")}>
+        <Button variant="primary" disabled>
           Цикли
         </Button>
-        <Button variant={section === "principles" ? "primary" : "secondary"} onClick={() => setSection("principles")}>
-          Принципи (кратко)
-        </Button>
-        <Button variant={section === "guidelines" ? "primary" : "secondary"} onClick={() => setSection("guidelines")}>
-          Насоки
+        <Button as={Link} to="/method-guidelines" variant="secondary">
+          Методически насоки
         </Button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(320px, 2fr)", gap: 16 }}>
         <div>
           {loading && <p className="uiMuted">Зареждане...</p>}
-
-          {section === "principles" && data.method_principles && (
-            <Card style={{ padding: 12 }}>
-              <p className="uiMuted" style={{ fontSize: 13 }}>{data.method_principles.note}</p>
-              <ul style={{ marginTop: 8 }}>
-                {(data.method_principles.principles || []).map((p, i) => (
-                  <li key={i} style={{ marginBottom: 6 }}>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {section === "guidelines" && (
-            <>
-              <select
-                className="uiInput"
-                style={{ marginBottom: 8, width: "100%" }}
-                value={guidelineSkill}
-                onChange={(e) => setGuidelineSkill(e.target.value)}
-              >
-                <option value="all">Всички елементи</option>
-                {guidelineSkills.map((s) => (
-                  <option key={s} value={s}>
-                    {SKILL_LABELS[s] || s}
-                  </option>
-                ))}
-              </select>
-              {filteredGuidelines.map((g) => (
-                <Card key={g.id} style={{ marginBottom: 8, padding: 12 }}>
-                  <div className="uiMuted" style={{ fontSize: 12 }}>{SKILL_LABELS[g.skill_element] || g.skill_element}</div>
-                  <p>
-                    <strong>Грешка:</strong> {g.error_bg}
-                  </p>
-                  <p style={{ marginTop: 6 }}>
-                    <strong>Корекция:</strong> {g.correction_bg}
-                  </p>
-                </Card>
-              ))}
-            </>
-          )}
 
           {section === "cycles" &&
             data.cycles.map((c) => (
@@ -180,11 +118,9 @@ export default function NationalLibrary() {
         </div>
 
         <Card style={{ padding: 16, minHeight: 280 }}>
-          {section !== "cycles" && <p className="uiMuted">Изберете таб „Цикли“ за генериране на тренировка.</p>}
+          {!selectedCycle && <p className="uiMuted">Изберете цикъл отляво.</p>}
 
-          {section === "cycles" && !selectedCycle && <p className="uiMuted">Изберете цикъл отляво.</p>}
-
-          {section === "cycles" && selectedCycle && (
+          {selectedCycle && (
             <>
               <h2>{selectedCycle.title_bg}</h2>
               {selectedCycle.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}

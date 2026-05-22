@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.national_method.constants import AGE_BANDS, CONTENT_TYPES, CYCLE_TYPES, METHOD_CATEGORIES, PUBLISH_STATUSES
 from app.national_method.bvf_ai_knowledge import get_age_knowledge, resolve_age_band, week_context
+from app.national_method.coach_hub import get_coach_section, list_coach_hub
 from app.national_method.content_policy import is_allowed_federation_drill, is_allowed_method_article, purge_legacy_library
 from app.national_method.cycle_article_links import find_cycles_for_article
 from app.national_method.inventory import MATERIAL_INVENTORY
@@ -502,6 +503,29 @@ def _drill_dict(d: Drill) -> dict:
 
 
 # ---------- Coach read (published only) ----------
+
+
+@router.get("/coach-hub")
+def coach_method_hub(
+    age_band: str = Query("U14"),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Навигация за методически насоки."""
+    return list_coach_hub(age_band)
+
+
+@router.get("/coach-hub/{slug}")
+def coach_method_hub_section(
+    slug: str,
+    age_band: str = Query("U14"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Съдържание на една секция от методическите насоки."""
+    data = get_coach_section(db, slug, age_band)
+    if not data:
+        raise HTTPException(status_code=404, detail="Section not found")
+    return data
 
 
 @router.get("/library")

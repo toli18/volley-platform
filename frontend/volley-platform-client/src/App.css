@@ -783,6 +783,223 @@
   line-height: 1.45;
 }
 
+/* Method guidelines hub */
+.methodHubPage {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.methodHubLayout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .methodHubLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.methodHubSidebar {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 8px;
+  position: sticky;
+  top: 72px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.methodHubNavGroup {
+  margin-bottom: 12px;
+}
+
+.methodHubNavGroupTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  padding: 4px 10px 6px;
+}
+
+.methodHubNavItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #334155;
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.methodHubNavItem:hover {
+  background: #f1f5f9;
+}
+
+.methodHubNavItem--active {
+  background: #1e3a5f;
+  color: #fff;
+  font-weight: 600;
+}
+
+.methodHubMain {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  min-height: 400px;
+}
+
+.methodHubMainHead h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.methodHubMuted {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.methodHubGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.methodHubGrid--2 {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.methodHubStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.methodHubCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fafbfc;
+}
+
+.methodHubCard--age {
+  border-left: 4px solid #f59e0b;
+}
+
+.methodHubCard--principle {
+  border-left: 4px solid #3b82f6;
+}
+
+.methodHubCardTitle {
+  margin: 0 0 12px;
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.methodHubSubhead {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.methodHubSteps {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.methodHubSteps li {
+  margin-bottom: 6px;
+}
+
+.methodHubTwoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .methodHubTwoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+.methodHubErrorPair {
+  margin-bottom: 12px;
+}
+
+.methodHubErrorPair:last-child {
+  margin-bottom: 0;
+}
+
+.methodHubError,
+.methodHubCorrection {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.methodHubError {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+}
+
+.methodHubCorrection {
+  background: #ecfdf5;
+  border-left: 3px solid #10b981;
+}
+
+.methodHubLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.methodHubLabel--err {
+  color: #b91c1c;
+}
+
+.methodHubLabel--ok {
+  color: #047857;
+}
+
+.methodHubTips div {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #eff6ff;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e40af;
+}
+
+.methodHubCta {
+  padding: 24px;
+  background: #f0f4ff;
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+.methodHubAgeLabel {
+  font-size: 14px;
+  color: #334155;
+}
+
 .aiGenGrid {
   display: grid;
   grid-template-columns: 1fr;

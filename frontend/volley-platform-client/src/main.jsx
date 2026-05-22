@@ -63,6 +63,7 @@ const AdminArticles = React.lazy(() => import("./pages/admin/AdminArticles.jsx")
 const AdminEditArticle = React.lazy(() => import("./pages/admin/AdminEditArticle.jsx"));
 const AdminNationalLibrary = React.lazy(() => import("./pages/admin/AdminNationalLibrary.jsx"));
 const NationalLibrary = React.lazy(() => import("./pages/NationalLibrary.jsx"));
+const MethodGuidelines = React.lazy(() => import("./pages/MethodGuidelines.jsx"));
 
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
@@ -130,6 +131,7 @@ const router = createBrowserRouter([
         {
         element: <ProtectedRoute allowRoles={["coach", "club_head_coach", "federation_admin"]} />,
         children: [
+          { path: "method-guidelines", element: <MethodGuidelines /> },
           { path: "national-library", element: <NationalLibrary /> },
           { path: "my-drills", element: <MyDrills /> },
 

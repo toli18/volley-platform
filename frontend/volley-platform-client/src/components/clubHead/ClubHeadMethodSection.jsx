@@ -156,7 +156,9 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
         <h3 style={{ marginTop: 0 }}>Седмица с посока — мезо шаблон</h3>
         <p className="uiMuted">
           Изберете национален цикъл и отбор.{" "}
-          <Link to="/national-library">Национална библиотека</Link>
+          <Link to="/method-guidelines">Методически насоки</Link>
+          {" · "}
+          <Link to="/national-library">Цикли БФВ</Link>
         </p>
         <div style={{ display: "grid", gap: 8, maxWidth: 480 }}>
           <select

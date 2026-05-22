@@ -333,7 +333,8 @@ export default function Navbar() {
     }
     if (isCoachUser) {
       items.push({ to: "/", label: "Начало" });
-      items.push({ to: "/national-library", label: "Библиотека БФВ" });
+      items.push({ to: "/method-guidelines", label: "Методически насоки" });
+      items.push({ to: "/national-library", label: "Цикли БФВ" });
       items.push({ to: "/ai-generator", label: "AI Помощник" });
       items.push({ to: "/teams", label: "Отбори" });
       items.push({ to: "/monthly-fees", label: "Месечни Такси" });
