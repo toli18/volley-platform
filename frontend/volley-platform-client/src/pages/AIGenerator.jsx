@@ -164,6 +164,7 @@ export default function AIGenerator() {
   const [clubCoaches, setClubCoaches] = useState([]);
   const [cycleParams, setCycleParams] = useState({ ageBand: "", cycleId: null, cycleWeek: null });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
+  const assignmentId = searchParams.get("assignmentId") || "";
 
   const cloneBlocks = (blocks) =>
     (blocks || []).map((b) => ({
@@ -730,6 +731,13 @@ export default function AIGenerator() {
           </button>
         ))}
       </nav>
+
+      {assignmentId ? (
+        <div className="aiGenBvfBanner" role="note">
+          <strong>Задача от главния треньор</strong>
+          <span>Генерирайте план по зададените цикъл и седмица, после запазете тренировката.</span>
+        </div>
+      ) : null}
 
       {bvfMethodHint?.principles?.length ? (
         <div className="aiGenBvfBanner" role="note">

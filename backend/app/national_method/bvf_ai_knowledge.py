@@ -168,6 +168,71 @@ def _skill_from_token(token: str) -> str:
     return "Посрещане"
 
 
+_JUNK_LINE_MARKERS = (
+    "javascript disabled",
+    "outdated browser",
+    "primary navigation",
+    "begin typing your search",
+    "press esc to cancel",
+    "published on",
+    "by николай иванов",
+    "volley comment",
+    "sorry, you have",
+    "google chrome frame",
+)
+
+
+def _clean_method_text(text: str, max_len: int = 500) -> str:
+    if not text:
+        return ""
+    lines: list[str] = []
+    for line in text.replace("\r", "\n").split("\n"):
+        chunk = line.strip()
+        if not chunk or len(chunk) < 12:
+            continue
+        low = chunk.lower()
+        if any(m in low for m in _JUNK_LINE_MARKERS):
+            continue
+        if low.startswith("http"):
+            continue
+        lines.append(chunk)
+    cleaned = " ".join(lines)
+    return cleaned[:max_len].strip()
+
+
+_JUNK_LINE_MARKERS = (
+    "javascript disabled",
+    "outdated browser",
+    "google chrome frame",
+    "primary navigation",
+    "begin typing your search",
+    "press esc to cancel",
+    "published on ",
+    "by николай иванов",
+    "sorry, you have",
+)
+
+
+def clean_vc_text(text: str, max_len: int = 500) -> str:
+    """Премахва HTML/навигационен шум от Volley Comment извличане."""
+    if not text:
+        return ""
+    lines: list[str] = []
+    for line in text.replace("\r", "").split("\n"):
+        s = line.strip()
+        if not s or len(s) < 12:
+            continue
+        low = s.lower()
+        if any(m in low for m in _JUNK_LINE_MARKERS):
+            continue
+        if low.startswith("http") or "volley comment" in low and len(s) < 80:
+            continue
+        lines.append(s)
+    joined = " ".join(lines)
+    joined = re.sub(r"\s+", " ", joined).strip()
+    return joined[:max_len] if joined else ""
+
+
 def build_from_volleycomment_json(vc_path: Path) -> dict[str, Any]:
     """Еднократно изграждане на knowledge bundle от bvf_volleycomment_bg.json."""
     data = json.loads(vc_path.read_text(encoding="utf-8"))
@@ -180,11 +245,12 @@ def build_from_volleycomment_json(vc_path: Path) -> dict[str, Any]:
         if band not in buckets:
             buckets[band] = {"principles": [], "program_notes": [], "titles": []}
         for kp in art.get("key_points") or []:
-            if kp and len(kp) > 30 and kp not in buckets[band]["principles"]:
-                buckets[band]["principles"].append(kp[:400])
-        sm = (art.get("summary_bg") or "").strip()
+            cleaned = clean_vc_text(kp, 400)
+            if cleaned and len(cleaned) > 30 and cleaned not in buckets[band]["principles"]:
+                buckets[band]["principles"].append(cleaned)
+        sm = clean_vc_text((art.get("summary_bg") or "").strip(), 500)
         if sm and len(sm) > 40 and sm not in buckets[band]["principles"]:
-            buckets[band]["principles"].append(sm[:500])
+            buckets[band]["principles"].append(sm)
         if "единна програм" in art.get("title_bg", "").lower():
             buckets[band]["program_notes"].append(art.get("title_bg", "")[:200])
 

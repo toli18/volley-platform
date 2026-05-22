@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 import { createDraftKey, hasMeaningfulDraft, loadDraft } from "../utils/articleDrafts";
+import CoachMethodAssignments from "../components/coach/CoachMethodAssignments";
 import Drills from "./Drills";
 
 const currentMonthKey = () => {
@@ -289,6 +290,7 @@ export default function Home() {
       />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
+      <CoachMethodAssignments />
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
       <Card
         title="График за следващите 7 дни"

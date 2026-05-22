@@ -28,3 +28,5 @@ python -m app.scripts.purge_legacy_bvf_library
 ```
 
 Или админ API: `POST /api/national-method/admin/purge-legacy-library`
+
+**Production (веднъж след deploy):** същата команда или API — премахва старите GTP/PDF записи от Railway.

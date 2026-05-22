@@ -80,6 +80,7 @@ def _get_field(source: Any, *names: str) -> Any:
 def _drill_to_dict(drill: Any) -> Dict[str, Any]:
     return {
         "id": int(_get_field(drill, "id") or 0),
+        "scope": _safe_str(_get_field(drill, "scope")) or "community",
         "name": _safe_str(_get_field(drill, "name", "title")),
         "category": _safe_str(_get_field(drill, "category")),
         "skillFocus": _safe_str(_get_field(drill, "skillFocus", "skill_focus")),
@@ -500,6 +501,31 @@ def scoreDrill(
         score += novelty_score
         reasons.append("получава novelty бонус, защото не е ползвано в последните 3 тренировки")
 
+    if _safe_str(drill.get("scope")).lower() == "federation":
+        score += 35
+        reasons.append("национално упражнение БФВ (приоритет)")
+
+    week_tags = sessionFocus.get("weekFocusTags") or []
+    if week_tags:
+        blob = " ".join(
+            [
+                _safe_str(drill.get("name")),
+                _safe_str(drill.get("category")),
+                _safe_str(drill.get("skillFocus")),
+                _safe_str(drill.get("goal")),
+                _safe_str(drill.get("description")),
+            ]
+        ).lower()
+        for tag in week_tags:
+            t = _norm(tag)
+            if t and t in blob:
+                score += 18
+                reasons.append(f"съвпада със седмичния фокус ({tag})")
+                break
+
+    if _has_valid_video(drill):
+        score += 6
+
     return {
         "score": round(score, 4),
         "phaseMatchScore": round(phase_score, 4),
@@ -577,15 +603,20 @@ def selectDrillsForPhase(
     pickedSoFar: PickedState,
 ) -> List[Dict[str, Any]]:
     available = [d for d in drills if int(d["id"]) not in pickedSoFar.picked_ids]
-    with_video = [d for d in available if _has_valid_video(d)]
-    if len(with_video) >= 2:
-        available = with_video
 
     scored: List[Tuple[float, Dict[str, Any], Dict[str, Any]]] = []
     for drill in available:
         meta = scoreDrill(drill, targetPhase, sessionFocus, pickedSoFar)
         scored.append((meta["score"], drill, meta))
-    scored.sort(key=lambda item: (item[0], item[2]["phaseMatchScore"], -int(item[1]["id"])), reverse=True)
+    scored.sort(
+        key=lambda item: (
+            item[0],
+            1 if _has_valid_video(item[1]) else 0,
+            item[2]["phaseMatchScore"],
+            -int(item[1]["id"]),
+        ),
+        reverse=True,
+    )
 
     target_count = max(2, min(4, _target_count_for_phase(targetMinutes)))
     selected: List[Dict[str, Any]] = []
@@ -760,7 +791,14 @@ def generateSessionPlan(drills: Sequence[Any], request_data: Dict[str, Any]) -> 
     if not primary:
         fallback_focus = _split_values(request_data.get("focusSkills"))
         primary = normalizeSkill(fallback_focus[0]) if fallback_focus else "Посрещане"
-    session_focus = {"primary": primary, "secondary": secondary}
+    week_tags: List[str] = []
+    bvf = request_data.get("bvfKnowledge") or {}
+    wc = bvf.get("week") or {}
+    for raw in wc.get("focus") or request_data.get("weekFocusTags") or []:
+        t = _norm(str(raw))
+        if t:
+            week_tags.append(t)
+    session_focus = {"primary": primary, "secondary": secondary, "weekFocusTags": week_tags}
     recent_rank_by_id = _build_recent_rank_map(request_data)
 
     age_eligible = [d for d in normalized_drills if _age_matches(d, session_age_min, session_age_max)]

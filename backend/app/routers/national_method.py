@@ -846,12 +846,22 @@ def update_method_assignment(
 
 def _assignment_dict(db: Session, r: MethodAssignment) -> dict:
     assignee = db.query(User).filter(User.id == r.assigned_to).first()
+    cycle = db.query(MethodCycle).filter(MethodCycle.id == r.cycle_id).first() if r.cycle_id else None
+    week_theme = None
+    if cycle and r.week_ref and cycle.structure_json:
+        for w in cycle.structure_json.get("weeks") or []:
+            if int(w.get("week", 0)) == int(r.week_ref):
+                week_theme = w.get("theme")
+                break
     return {
         "id": r.id,
         "club_id": r.club_id,
         "assigned_to": r.assigned_to,
         "assignee_name": assignee.name if assignee else None,
         "cycle_id": r.cycle_id,
+        "cycle_title": cycle.title_bg if cycle else None,
+        "cycle_age_band": cycle.age_band if cycle else None,
+        "week_theme": week_theme,
         "club_cycle_instance_id": r.club_cycle_instance_id,
         "week_ref": r.week_ref,
         "title_bg": r.title_bg,

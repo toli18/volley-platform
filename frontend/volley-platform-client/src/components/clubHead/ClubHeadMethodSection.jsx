@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Button, Card, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui";
@@ -7,8 +7,16 @@ import { useToast } from "../ToastProvider";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+function aiPreviewUrl(cycleId, ageBand, week) {
+  const params = new URLSearchParams({ ageBand: ageBand || "U14" });
+  if (cycleId) params.set("cycleId", String(cycleId));
+  if (week) params.set("cycleWeek", String(week));
+  return `/ai-generator?${params.toString()}`;
+}
+
 export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [cycles, setCycles] = useState([]);
   const [instances, setInstances] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -105,6 +113,42 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
   };
 
   const selectedCycle = cycles.find((c) => String(c.id) === String(instanceForm.cycle_id));
+  const assignCycle = cycles.find((c) => String(c.id) === String(assignForm.cycle_id));
+  const [assignCycleDetail, setAssignCycleDetail] = useState(null);
+
+  useEffect(() => {
+    if (!assignForm.cycle_id) {
+      setAssignCycleDetail(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_CYCLE(assignForm.cycle_id));
+        if (alive) setAssignCycleDetail(res.data);
+      } catch {
+        if (alive) setAssignCycleDetail(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [assignForm.cycle_id]);
+
+  const assignWeeks = useMemo(() => {
+    return assignCycleDetail?.weeks_detail || assignCycleDetail?.structure_json?.weeks || [];
+  }, [assignCycleDetail]);
+
+  const fillTitleFromWeek = (weekNum) => {
+    const w = assignWeeks.find((x) => Number(x.week) === Number(weekNum));
+    if (w?.theme) {
+      setAssignForm((f) => ({
+        ...f,
+        week_ref: String(weekNum),
+        title_bg: f.title_bg?.trim() ? f.title_bg : `Седмица ${weekNum}: ${w.theme}`,
+      }));
+    }
+  };
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
@@ -205,20 +249,54 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
           <select
             className="uiInput"
             value={assignForm.cycle_id}
-            onChange={(e) => setAssignForm((f) => ({ ...f, cycle_id: e.target.value }))}
+            onChange={(e) =>
+              setAssignForm((f) => ({
+                ...f,
+                cycle_id: e.target.value,
+                week_ref: "",
+              }))
+            }
           >
             <option value="">Свързан цикъл (по избор)</option>
             {cycles.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.title_bg}
+                {c.title_bg} ({c.age_band})
               </option>
             ))}
           </select>
-          <Input
-            placeholder="Седмица № (1–4)"
-            value={assignForm.week_ref}
-            onChange={(e) => setAssignForm((f) => ({ ...f, week_ref: e.target.value }))}
-          />
+          {assignWeeks.length > 0 ? (
+            <select
+              className="uiInput"
+              value={assignForm.week_ref}
+              onChange={(e) => fillTitleFromWeek(e.target.value)}
+            >
+              <option value="">Седмица от цикъла</option>
+              {assignWeeks.map((w) => (
+                <option key={w.week} value={w.week}>
+                  Седмица {w.week}: {w.theme}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <Input
+              placeholder="Седмица № (1–4)"
+              value={assignForm.week_ref}
+              onChange={(e) => setAssignForm((f) => ({ ...f, week_ref: e.target.value }))}
+            />
+          )}
+          {assignCycle?.age_band && assignForm.cycle_id && assignForm.week_ref ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                navigate(
+                  aiPreviewUrl(assignForm.cycle_id, assignCycle.age_band, assignForm.week_ref)
+                )
+              }
+            >
+              Преглед в AI генератор
+            </Button>
+          ) : null}
           <Input
             type="date"
             value={assignForm.due_date}
