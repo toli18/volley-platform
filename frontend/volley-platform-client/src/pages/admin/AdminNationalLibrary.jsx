@@ -68,6 +68,7 @@ export default function AdminNationalLibrary() {
   });
   const [drillForm, setDrillForm] = useState({ title: "", instructions: "", coaching_points: "", age_min: 14, age_max: 16 });
   const [importing, setImporting] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -95,11 +96,35 @@ export default function AdminNationalLibrary() {
     loadAll();
   }, [loadAll]);
 
+  const runPurgeLegacy = async (dryRun = false) => {
+    const msg = dryRun
+      ? "Пробен преглед: колко стари записа ще се изтрият?"
+      : "Изтрива стари EN/GTP/PDF записи от production базата. Запазва Volley Comment и курираните BG упражнения. Продължаваш?";
+    if (!window.confirm(msg)) return;
+    try {
+      setPurging(true);
+      const res = await axiosInstance.post(API_PATHS.NATIONAL_METHOD_ADMIN_PURGE_LEGACY, null, {
+        params: { dry_run: dryRun },
+      });
+      const s = res.data || {};
+      toast.success(
+        dryRun
+          ? `Проба: ${s.articles_deleted ?? 0} статии, ${s.drills_deleted ?? 0} упражнения за изтриване`
+          : `Готово: изтрити ${s.articles_deleted ?? 0} статии, ${s.drills_deleted ?? 0} упражнения. Национални: ${s.national_drills_restored ?? "—"}`
+      );
+      if (!dryRun) loadAll();
+    } catch (e) {
+      toast.error(normalizeError(e));
+    } finally {
+      setPurging(false);
+    }
+  };
+
   const runLibraryImport = async () => {
     try {
       setImporting(true);
       const res = await axiosInstance.post(API_PATHS.NATIONAL_METHOD_ADMIN_IMPORT_LIBRARY, null, {
-        params: { archive: true },
+        params: {},
       });
       const t = res.data?.totals;
       const arch = res.data?.archive;
@@ -224,10 +249,24 @@ export default function AdminNationalLibrary() {
         <Button variant="secondary" onClick={loadAll}>
           Обнови
         </Button>
-        <Button variant="primary" onClick={runLibraryImport} disabled={importing}>
-          {importing ? "Импорт..." : "Зареди BG библиотека"}
+        <Button variant="primary" onClick={runLibraryImport} disabled={importing || purging}>
+          {importing ? "Импорт..." : "Импорт Volley Comment"}
+        </Button>
+        <Button variant="secondary" onClick={() => runPurgeLegacy(true)} disabled={importing || purging}>
+          Проба: почисти старо
+        </Button>
+        <Button variant="secondary" onClick={() => runPurgeLegacy(false)} disabled={importing || purging}>
+          {purging ? "Почистване..." : "Почисти стара библиотека (1×)"}
         </Button>
       </div>
+
+      <Card style={{ padding: 12, marginBottom: 16, background: "#fff8e6", border: "1px solid #f0d78c" }}>
+        <strong>Еднократно на Railway</strong>
+        <p className="uiMuted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>
+          След deploy натисни „Проба“, после „Почисти стара библиотека“. Това маха английските и лошо преведените
+          упражнения от базата. Не е нужно на всеки deploy.
+        </p>
+      </Card>
 
       {loading && <p className="uiMuted">Зареждане...</p>}
 
