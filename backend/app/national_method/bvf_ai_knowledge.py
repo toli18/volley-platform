@@ -127,6 +127,43 @@ def get_age_knowledge(age_band: str) -> dict[str, Any]:
     }
 
 
+def coach_principles_for_plan(principles: list[str] | None, age_band: str) -> list[str]:
+    """Кратки методически акценти за плана — без статии и дълги откъслеци."""
+    skip_fragments = (
+        "volley comment",
+        "sorry",
+        "javascript",
+        "http",
+        "науката и спорта-",
+        "published on",
+        "primary navigation",
+    )
+    out: list[str] = []
+    for raw in principles or []:
+        s = clean_vc_text(str(raw).strip(), max_len=160)
+        if len(s) < 18 or len(s) > 160:
+            continue
+        low = s.lower()
+        if any(f in low for f in skip_fragments):
+            continue
+        if s not in out:
+            out.append(s)
+    if out:
+        return out[:4]
+    return [
+        f"Възраст {age_band}: много качествени повторения, ясна цел на всеки блок.",
+        "Кратки команди и корекция — не дълги обяснения между сериите.",
+        "Натоварването следва седмицата от мезоцикъла.",
+    ]
+
+
+def phase_block_goal(phase_name: str) -> str:
+    for p in SESSION_PHASES_BG:
+        if p.get("phase") == phase_name:
+            return str(p.get("goal", ""))
+    return ""
+
+
 def week_context(age_band: str, week: int | None) -> dict[str, Any] | None:
     if not week:
         return None
@@ -340,55 +377,96 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     out["ageBand"] = age_band
     out["bvfKnowledge"] = {
         "age_band": age_band,
-        "principles": (knowledge.get("principles") or [])[:8],
+        "principles": coach_principles_for_plan(knowledge.get("principles"), age_band),
         "week": wc,
         "day": day_ctx,
         "session_structure": knowledge.get("session_structure") or SESSION_PHASES_BG,
-        "coach_cues": knowledge.get("coach_cues") or [],
+        "coach_cues": (knowledge.get("coach_cues") or [])[:4],
     }
     return out
 
 
 def build_training_plan_text(session: dict[str, Any], request_data: dict[str, Any]) -> str:
-    """Текстов тренировъчен план за треньора (не статия)."""
+    """Текстов тренировъчен план за треньора (структуриран, без повторения)."""
     age_band = resolve_age_band(request_data)
     k = get_age_knowledge(age_band)
     bvf = request_data.get("bvfKnowledge") or {}
     wc = bvf.get("week") or week_context(age_band, request_data.get("cycleWeek"))
     total = int(session.get("totalMinutes") or request_data.get("durationTotalMin") or 90)
+    primary = request_data.get("mainFocus") or request_data.get("primaryFocus") or ""
+    secondary = request_data.get("secondaryFocus") or ""
+
     lines = [
-        f"# Тренировъчен план — {age_band}",
-        f"**Продължителност:** {total} мин",
+        f"# Тренировъчен план — {age_band} · {total} мин",
+        "",
+        "## 1. Контекст от цикъл",
     ]
     if wc:
-        lines.append(f"**Седмица от мезоцикъл:** {wc.get('theme', '')} (натоварване: {wc.get('load', 'средна')})")
+        lines.append(f"- **Седмица:** {wc.get('theme', '')} (натоварване: {wc.get('load', 'средна')})")
+        if wc.get("session_goals"):
+            for g in (wc.get("session_goals") or [])[:2]:
+                lines.append(f"- **Цел за седмицата:** {g}")
     day_ctx = bvf.get("day") or (wc if wc and wc.get("day_label") else None)
     if day_ctx and day_ctx.get("day_label"):
-        lines.append(
-            f"**Тренировка:** {day_ctx.get('day_label')} — {day_ctx.get('day_theme') or day_ctx.get('theme', '')}"
-        )
+        lines.append(f"- **Тренировка:** {day_ctx.get('day_label')}")
+        if day_ctx.get("day_theme"):
+            lines.append(f"- **Тема:** {day_ctx.get('day_theme')}")
         if day_ctx.get("session_goal"):
-            lines.append(f"**Цел на сесията:** {day_ctx.get('session_goal')}")
-    lines.append("")
-    lines.append("## Методически акцент (БФВ)")
-    for p in (k.get("principles") or [])[:5]:
-        lines.append(f"- {p}")
-    lines.append("")
-    lines.append("## Структура")
+            lines.append(f"- **Цел на тази сесия:** {day_ctx.get('session_goal')}")
+    if not wc and not day_ctx:
+        lines.append("- Обща методика БФВ за избраната възраст.")
+
+    lines.extend(["", "## 2. Фокус на тренировката"])
+    if primary or secondary:
+        lines.append(f"- **Основен:** {primary or '—'}")
+        lines.append(f"- **Вторичен:** {secondary or '—'}")
+    else:
+        focus = (wc or {}).get("focus") or k.get("focus_priority") or []
+        if focus:
+            lines.append(f"- **Приоритет:** {', '.join(focus[:3])}")
+
+    principles = bvf.get("principles") or coach_principles_for_plan(k.get("principles"), age_band)
+    lines.extend(["", "## 3. Методически акценти в залата"])
+    for i, p in enumerate(principles[:4], start=1):
+        lines.append(f"{i}. {p}")
+
+    cues = bvf.get("coach_cues") or k.get("coach_cues") or []
+    if cues:
+        lines.append("")
+        lines.append("**В залата:** " + " · ".join(cues[:3]))
+
+    lines.extend(["", "## 4. Структура на сесията"])
     for block in session.get("blocks") or []:
         bt = block.get("blockType") or block.get("име")
         tm = block.get("targetMinutes") or block.get("целевоВреме") or 0
+        goal = phase_block_goal(bt)
         lines.append(f"### {bt} ({tm} мин)")
-        for d in block.get("drills") or []:
-            name = d.get("name") or d.get("име") or "Упражнение"
-            mins = d.get("minutes") or d.get("минути") or 0
-            why = (d.get("why") or [""])[0] if isinstance(d.get("why"), list) else d.get("обосновка", "")
-            lines.append(f"- **{name}** ({mins} мин) — {why}")
+        if goal:
+            lines.append(f"**Задача:** {goal}")
+        drills = block.get("drills") or []
+        if drills:
+            lines.append("**Упражнения:**")
+            for d in drills:
+                name = d.get("name") or d.get("име") or "Упражнение"
+                mins = d.get("minutes") or d.get("минути") or 0
+                lines.append(f"- {name} — {mins} мин")
         for td in block.get("textDrills") or []:
-            lines.append(f"- *{td.get('title')}* ({td.get('minutes', 0)} мин) — текстово упражнение: {td.get('instructions', '')[:120]}…")
-    lines.append("")
-    lines.append("---")
-    lines.append("*Генерирано по националната методика БФВ (Наука и спорта).*")
+            lines.append(
+                f"- *{td.get('title')}* ({td.get('minutes', 0)} мин) — {td.get('instructions', '')[:100]}"
+            )
+
+    lines.extend(
+        [
+            "",
+            "## 5. Какво да следите",
+            "- Брой качествени докосвания, не само продължителност.",
+            "- Една корекция на играч, после продължаване на ритъма.",
+            "- Комуникация при всяка ротация в интеграция и игра.",
+            "",
+            "---",
+            "*План по националната методика БФВ.*",
+        ]
+    )
     return "\n".join(lines)
 
 

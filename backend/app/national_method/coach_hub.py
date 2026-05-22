@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models import MethodGuideline
+from app.national_method.guideline_dedup import dedupe_guideline_pairs
 from app.seed.bvf_coaching_guidelines_bg import SKILL_LABELS
 from app.seed.bvf_method_sections_bg import GROUPS, SECTIONS
 
@@ -61,7 +62,7 @@ def _guidelines_by_skill(db: Session, age_band: str) -> list[dict]:
             {
                 "name": SKILL_LABELS.get(skill, skill),
                 "skill_key": skill,
-                "pairs": pairs,
+                "pairs": dedupe_guideline_pairs(pairs),
             }
         )
     return skills

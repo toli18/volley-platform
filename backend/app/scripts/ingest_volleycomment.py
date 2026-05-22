@@ -145,18 +145,22 @@ def import_to_db(force: bool = False) -> dict:
             )
             added += 1
 
+        if force:
+            db.query(MethodGuideline).delete()
+            db.flush()
         g_added = 0
         for g in GUIDELINES:
-            exists = (
-                db.query(MethodGuideline)
-                .filter(
-                    MethodGuideline.skill_element == g["skill_element"],
-                    MethodGuideline.error_bg == g["error_bg"],
+            if not force:
+                exists = (
+                    db.query(MethodGuideline)
+                    .filter(
+                        MethodGuideline.skill_element == g["skill_element"],
+                        MethodGuideline.error_bg == g["error_bg"],
+                    )
+                    .first()
                 )
-                .first()
-            )
-            if exists and not force:
-                continue
+                if exists:
+                    continue
             db.add(
                 MethodGuideline(
                     skill_element=g["skill_element"],

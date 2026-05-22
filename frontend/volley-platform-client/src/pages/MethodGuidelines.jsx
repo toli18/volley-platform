@@ -28,8 +28,8 @@ function SectionContent({ section, loading }) {
         {section.skills.map((sk) => (
           <div key={sk.skill_key} className="methodHubCard">
             <h3 className="methodHubCardTitle">{sk.name}</h3>
-            {sk.pairs.map((p, i) => (
-              <div key={i} className="methodHubErrorPair">
+            {sk.pairs.map((p) => (
+              <div key={`${sk.skill_key}-${p.error}`} className="methodHubErrorPair">
                 <div className="methodHubError">
                   <span className="methodHubLabel methodHubLabel--err">Грешка</span>
                   {p.error}

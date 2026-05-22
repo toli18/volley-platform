@@ -595,6 +595,8 @@ def coach_method_context(
     """Контекст за AI генератор — структурирана методика, не статии."""
     from app.national_method.cycle_days import merge_week_day_context, week_day_from_cycle
 
+    from app.national_method.bvf_ai_knowledge import coach_principles_for_plan
+
     band = age_band if age_band != "all" else "U14"
     k = get_age_knowledge(band)
     wc = week_context(band, cycle_week)
@@ -616,12 +618,12 @@ def coach_method_context(
 
     return {
         "age_band": band,
-        "principles": k.get("principles", [])[:12],
+        "principles": coach_principles_for_plan(k.get("principles"), band),
         "session_structure": k.get("session_structure", []),
         "meso_weeks": k.get("meso_weeks", []),
         "week": wc,
         "day": day_ctx,
-        "coach_cues": k.get("coach_cues", []),
+        "coach_cues": (k.get("coach_cues") or [])[:4],
         "focus_priority": k.get("focus_priority", []),
     }
 

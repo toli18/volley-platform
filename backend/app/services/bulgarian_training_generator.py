@@ -381,14 +381,48 @@ def _secondary_bonus(target_phase: str, has_secondary: bool) -> int:
     return 10
 
 
-def _reason_sentence(reasons: List[str], fallback: str) -> str:
-    if not reasons:
-        return fallback
-    main = reasons[:2]
-    sentence = " и ".join(main)
-    if not sentence.endswith("."):
-        sentence += "."
-    return sentence
+_PHASE_COACH_HINTS: dict[str, str] = {
+    "Активиране": "Разгрявка с топка; комуникация; без максимален скоков обем.",
+    "Изграждане": "Много качествени повторения; един технически елемент; кратка корекция.",
+    "Интеграция": "Свързване в ритъм; прием → пас → атака; правила за докосвания.",
+    "Състезателност": "Контролирана игра; отчитане на точки; спокойствие между рали.",
+}
+
+_GENERIC_REASON_PREFIXES = (
+    "съдържа основния фокус",
+    "подкрепя вторичния фокус",
+)
+
+
+def _pick_coach_reason(reasons: List[str], target_phase: str, fallback: str) -> str:
+    """Една конкретна бележка — без повторение на основен/вторичен фокус на всяко упражнение."""
+    specific = [
+        r
+        for r in reasons
+        if r and not any(r.lower().startswith(p) for p in _GENERIC_REASON_PREFIXES)
+    ]
+    for needle, label in (
+        ("национално упражнение бфв", "Национално упражнение БФВ — препоръчано за възрастта."),
+        ("седмичен фокус", None),
+        ("надгражда", None),
+        ("подходящо е за фаза", None),
+        ("novelty бонус", "Свеж избор — не е ползвано в последните тренировки."),
+        ("по-нисък приоритет", None),
+    ):
+        for r in specific:
+            if needle in r.lower():
+                if label:
+                    return label
+                text = r.strip()
+                return text if text.endswith(".") else f"{text}."
+    if specific:
+        text = specific[0].strip()
+        return text if text.endswith(".") else f"{text}."
+    return _PHASE_COACH_HINTS.get(target_phase, fallback)
+
+
+def _reason_sentence(reasons: List[str], fallback: str, target_phase: str = "") -> str:
+    return _pick_coach_reason(reasons, target_phase, fallback)
 
 
 def _build_recent_rank_map(request_data: Dict[str, Any]) -> Dict[int, int]:
@@ -637,7 +671,8 @@ def selectDrillsForPhase(
                 "minutes": 0,
                 "обосновка": _reason_sentence(
                     meta["reasons"],
-                    f"Подходящо за {targetPhase} според категория, контекст и фокус на тренировката.",
+                    f"Подходящо за {targetPhase} според категория и контекст.",
+                    targetPhase,
                 ),
                 "__score": meta["score"],
                 "__primary_match": meta["primaryMatch"],
@@ -667,6 +702,7 @@ def selectDrillsForPhase(
                     "обосновка": _reason_sentence(
                         meta["reasons"],
                         f"Избрано като най-близко упражнение за фаза {targetPhase}.",
+                        targetPhase,
                     ),
                     "__score": meta["score"],
                     "__primary_match": meta["primaryMatch"],
@@ -748,6 +784,7 @@ def _replace_to_enforce_primary_ratio(
                 "обосновка": _reason_sentence(
                     meta["reasons"],
                     f"Заменено за да се покрие основният фокус {primary}.",
+                    phase_name,
                 ),
                 "__score": meta["score"],
                 "__primary_match": meta["primaryMatch"],
