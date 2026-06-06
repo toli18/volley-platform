@@ -853,6 +853,117 @@
   border: 1px solid #c5d4ef;
 }
 
+.nationalPlannerModeToggle {
+  display: inline-flex;
+  border: 1px solid #c5d4ef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.nationalPlannerModeBtn {
+  border: none;
+  background: #fff;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nationalPlannerModeBtn--active {
+  background: var(--primary, #2563eb);
+  color: #fff;
+}
+
+.nationalPlannerMacroGroup {
+  margin-bottom: 12px;
+}
+
+.nationalPlannerMacroHead {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c5d4ef;
+  border-radius: 8px;
+  background: #eef3ff;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nationalPlannerMesoCard__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.nationalPlannerBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.nationalPlannerBadge--prep {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.nationalPlannerBadge--competitive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.nationalPlannerBadge--transition {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.nationalPlannerMainHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.nationalPlannerMetaBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nationalPlannerMetaBadge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #eef3ff;
+  border: 1px solid #c5d4ef;
+}
+
+.nationalPlannerMetaBadge--link {
+  text-decoration: none;
+  color: var(--primary, #2563eb);
+}
+
+.nationalPlannerTable__weekPlan {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.nationalPlannerCell__plan {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+
 .aiGenPlanText {
   margin-bottom: 16px;
   border: 1px solid #c5d4ef;
@@ -1127,6 +1238,266 @@
 .methodHubAgeLabel {
   font-size: 14px;
   color: #334155;
+}
+
+/* —— Учебник БФВ —— */
+.textbookPage .textbookToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.textbookSearch {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.textbookLayout {
+  align-items: flex-start;
+}
+
+.textbookSidebar {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.textbookSidebarBlock {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.textbookNavTitle {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.textbookNavMeta {
+  display: block;
+  font-size: 11px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.textbookQuickAge {
+  margin-bottom: 8px;
+}
+
+.textbookQuickAge__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  margin: 6px 0 4px;
+}
+
+.methodHubNavItem--compact {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.textbookBreadcrumb {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  margin-bottom: 12px;
+}
+
+.textbookBreadcrumb button {
+  background: none;
+  border: none;
+  color: var(--primary, #2563eb);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.textbookMainHead h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+.textbookSummary {
+  margin: 8px 0 0;
+  max-width: 72ch;
+}
+
+.textbookBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.textbookBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.textbookBadge--muted {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.textbookBadge--age {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.textbookBadge--plan {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.textbookBadge--phase {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.textbookCtaBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  margin: 16px 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1px solid #bfdbfe;
+}
+
+.textbookSubhead {
+  font-size: 1rem;
+  margin: 20px 0 10px;
+}
+
+.textbookTimeline {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.textbookTimeline__item {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+.textbookTimeline__item:last-child {
+  border-bottom: none;
+}
+
+.textbookTimeline__time {
+  font-weight: 700;
+  color: #0f766e;
+  font-variant-numeric: tabular-nums;
+}
+
+.textbookTimeline__label {
+  line-height: 1.45;
+}
+
+.textbookBody {
+  margin-top: 16px;
+  max-width: 72ch;
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+.textbookPara {
+  margin: 0 0 12px;
+}
+
+.textbookPara--numbered {
+  padding-left: 8px;
+}
+
+.textbookBullet {
+  margin: 0 0 8px 20px;
+  list-style: disc;
+}
+
+.textbookRelated {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.textbookRelatedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.textbookRelatedCard {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.textbookRelatedCard:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.textbookRelatedCard__title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.textbookRelatedCard__meta {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.textbookPager {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.textbookPager__btn {
+  background: none;
+  border: none;
+  color: var(--primary, #2563eb);
+  cursor: pointer;
+  font-size: 13px;
+  max-width: 45%;
+  text-align: left;
+  padding: 0;
+}
+
+.textbookPager__btn:last-child {
+  text-align: right;
+  margin-left: auto;
 }
 
 .aiGenGrid {

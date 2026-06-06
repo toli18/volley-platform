@@ -334,6 +334,7 @@ export default function Navbar() {
     if (isCoachUser) {
       items.push({ to: "/", label: "Начало" });
       items.push({ to: "/method-guidelines", label: "Методически насоки" });
+      items.push({ to: "/textbook", label: "Учебник БФВ" });
       items.push({ to: "/national-library", label: "Цикли БФВ" });
       items.push({ to: "/ai-generator", label: "AI Помощник" });
       items.push({ to: "/teams", label: "Отбори" });

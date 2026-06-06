@@ -1,32 +1,24 @@
-# BVF национална библиотека — seed данни
+# Seed данни — национална методика
 
-## Активни източници
+| Файл | Описание |
+|------|----------|
+| `bvf_textbook_bg.txt` | Пълен учебник БФВ (plain text) |
+| `bvf_textbook_bg.json` | Парснати секции + навигация (`ingest_bvf_textbook --export`) |
+| `bvf_ai_knowledge.json` | Структуриран AI контекст по възраст (`build_bvf_ai_knowledge`) |
 
-| Файл / модул | Роля |
-|--------------|------|
-| `bvf_volleycomment_bg.json` | Volley Comment „Наука и спорта“ → AI методика (`ingest_volleycomment`) |
-| `bvf_ai_knowledge.json` | Структуриран контекст по възраст за AI (`build_bvf_ai_knowledge`) |
-| `bvf_coaching_guidelines_bg.py` | Насоки грешка → корекция |
-| `seed_national_method.py` | Мезо/микро цикли + ~22 курирани BG упражнения |
+## Импорт (локално или Railway)
 
 ```bash
-python -m app.scripts.ingest_volleycomment --export
-python -m app.scripts.ingest_volleycomment --import-db
+cd backend
+python -m app.scripts.ingest_bvf_textbook --export --import-db --replace-vc
 python -m app.scripts.build_bvf_ai_knowledge
-python -m app.scripts.sync_cycle_article_links
 ```
 
-## Премахнати архиви (EN / машинен превод)
+`--replace-vc` изтрива Volley Comment от библиотеката.
 
-`bvf_drills_bg.json` и `bvf_articles_bg.json` са **изтрити от repo** — не се импортират.
-
-Почистване на вече импортнато в БД:
+## Почистване на legacy
 
 ```bash
 python -m app.scripts.purge_legacy_bvf_library --dry-run
 python -m app.scripts.purge_legacy_bvf_library
 ```
-
-Или админ API: `POST /api/national-method/admin/purge-legacy-library`
-
-**Production (веднъж след deploy):** същата команда или API — премахва старите GTP/PDF записи от Railway.

@@ -10,11 +10,13 @@ from app.models import Drill, MethodArticle, MethodSource
 
 ALLOWED_SOURCE_FILENAMES = frozenset(
     {
-        "volleycomment.bg",
+        "bvf-textbook-bg",
         "Programmazione-Macrociclo-4-Settimane.xls",
         "bvf-content",
     }
 )
+
+BLOCKED_CONTENT_ORIGINS = frozenset({"volleycomment"})
 
 BLOCKED_SOURCE_FILENAMES = frozenset(
     {
@@ -72,7 +74,9 @@ def is_allowed_federation_drill(drill: Drill, source: MethodSource | None = None
 
 def is_allowed_method_article(article: MethodArticle, source: MethodSource | None = None) -> bool:
     origin = (article.content_origin or "").strip().lower()
-    if origin == "volleycomment":
+    if origin in BLOCKED_CONTENT_ORIGINS:
+        return False
+    if origin == "textbook":
         return True
     title = (article.title_bg or "").strip()
     if title.startswith("PDF:"):
@@ -90,14 +94,34 @@ def drill_allowed_in_generator_with_source(drill: Drill, source: MethodSource | 
     return is_allowed_federation_drill(drill, source)
 
 
+def purge_volleycomment_content(db: Session, *, dry_run: bool = False) -> dict:
+    """Премахва Volley Comment статии и източника от библиотеката."""
+    stats = {"articles_deleted": 0, "sources_deleted": 0, "dry_run": dry_run}
+    q = db.query(MethodArticle).filter(MethodArticle.content_origin == "volleycomment")
+    stats["articles_deleted"] = q.count()
+    if not dry_run:
+        q.delete(synchronize_session=False)
+        db.flush()
+        src = db.query(MethodSource).filter(MethodSource.filename == "volleycomment.bg").first()
+        if src:
+            has_art = db.query(MethodArticle).filter(MethodArticle.source_id == src.id).first()
+            if not has_art:
+                db.delete(src)
+                stats["sources_deleted"] = 1
+    return stats
+
+
 def purge_legacy_library(db: Session, *, dry_run: bool = False) -> dict:
-    """Изтрива EN/GTP/PDF/bundle статии и упражнения; запазва volleycomment + seed BG."""
+    """Изтрива EN/GTP/PDF/bundle/Volley Comment; запазва учебник + seed BG."""
     stats = {
         "articles_deleted": 0,
         "drills_deleted": 0,
         "sources_deleted": 0,
         "dry_run": dry_run,
     }
+
+    vc_stats = purge_volleycomment_content(db, dry_run=dry_run)
+    stats["volleycomment_articles_deleted"] = vc_stats.get("articles_deleted", 0)
 
     articles = db.query(MethodArticle).all()
     for art in articles:

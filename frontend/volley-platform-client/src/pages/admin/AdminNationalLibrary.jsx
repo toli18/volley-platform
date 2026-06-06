@@ -99,7 +99,7 @@ export default function AdminNationalLibrary() {
   const runPurgeLegacy = async (dryRun = false) => {
     const msg = dryRun
       ? "Пробен преглед: колко стари записа ще се изтрият?"
-      : "Изтрива стари EN/GTP/PDF записи от production базата. Запазва Volley Comment и курираните BG упражнения. Продължаваш?";
+      : "Изтрива стари EN/GTP/PDF/Volley Comment записи. Запазва учебника БФВ и курираните BG упражнения. Продължаваш?";
     if (!window.confirm(msg)) return;
     try {
       setPurging(true);
@@ -250,7 +250,7 @@ export default function AdminNationalLibrary() {
           Обнови
         </Button>
         <Button variant="primary" onClick={runLibraryImport} disabled={importing || purging}>
-          {importing ? "Импорт..." : "Импорт Volley Comment"}
+          {importing ? "Импорт..." : "Импорт учебник БФВ"}
         </Button>
         <Button variant="secondary" onClick={() => runPurgeLegacy(true)} disabled={importing || purging}>
           Проба: почисти старо

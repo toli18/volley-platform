@@ -7,6 +7,12 @@ import { useToast } from "../components/ToastProvider";
 
 const AGE_OPTIONS = ["U13", "U14", "U15", "U16", "U17", "U18"];
 
+const PERIOD_BADGE = {
+  prep: "Подготвителен",
+  competitive: "Състезателен",
+  transition: "Преходен",
+};
+
 function focusLabel(focus) {
   if (!focus?.length) return "";
   return focus.slice(0, 2).join(", ");
@@ -15,8 +21,10 @@ function focusLabel(focus) {
 export default function NationalLibrary() {
   const toast = useToast();
   const navigate = useNavigate();
-  const [ageBand, setAgeBand] = useState("U14");
-  const [data, setData] = useState({ method_principles: null, cycles: [], drills: [] });
+  const [ageBand, setAgeBand] = useState("U16");
+  const [plannerMode, setPlannerMode] = useState("annual");
+  const [expandedMacro, setExpandedMacro] = useState(1);
+  const [data, setData] = useState({ method_principles: null, cycles: [], annual_program: null });
   const [loading, setLoading] = useState(true);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedCell, setSelectedCell] = useState({ week: 1, day: 1 });
@@ -30,7 +38,9 @@ export default function NationalLibrary() {
       setData({
         method_principles: res.data?.method_principles || null,
         cycles: res.data?.cycles || [],
+        annual_program: res.data?.annual_program || null,
       });
+      setSelectedCycle(null);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при зареждане");
     } finally {
@@ -41,6 +51,9 @@ export default function NationalLibrary() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const annual = data.annual_program;
+  const hasAnnual = Boolean(annual?.mesos_by_macro?.[1]?.length || annual?.mesos_by_macro?.[2]?.length);
 
   const openCycle = async (id) => {
     try {
@@ -70,28 +83,63 @@ export default function NationalLibrary() {
 
   const goToGenerator = (week, day) => {
     if (!selectedCycle?.id) return;
+    const wk = weekCards.find((w) => Number(w.week) === Number(week));
+    const dayObj = cellDay(wk, day);
     const params = new URLSearchParams({
       ageBand,
       cycleId: String(selectedCycle.id),
       cycleWeek: String(week),
       cycleDay: String(day),
     });
+    const tbSlug = dayObj?.textbook_slug || wk?.textbook_slug || selectedCycle?.annual_program?.primary_textbook_slug;
+    if (tbSlug) params.set("textbookSlug", tbSlug);
     navigate(`/ai-generator?${params.toString()}`);
   };
 
   const cellDay = (weekRow, dayIndex) => {
-    const days = weekRow.days || [];
+    const days = weekRow?.days || [];
     return days.find((d) => Number(d.day) === dayIndex) || days[dayIndex - 1];
   };
+
+  const sidebarCycles = useMemo(() => {
+    if (plannerMode === "legacy") {
+      return annual?.legacy_cycles?.length ? annual.legacy_cycles : data.cycles.filter((c) => !c.annual_program_key);
+    }
+    return [];
+  }, [plannerMode, annual, data.cycles]);
+
+  const renderMesoCard = (m) => (
+    <Card
+      key={m.id}
+      className={`nationalPlannerCycleCard nationalPlannerMesoCard${selectedCycle?.id === m.id ? " nationalPlannerCycleCard--active" : ""}`}
+      style={{ marginBottom: 6, padding: 10, cursor: "pointer" }}
+      onClick={() => openCycle(m.id)}
+    >
+      <div className="nationalPlannerMesoCard__head">
+        <strong>Мезо {m.meso_number}</strong>
+        {m.period && (
+          <span className={`nationalPlannerBadge nationalPlannerBadge--${m.period}`}>
+            {m.period_label || PERIOD_BADGE[m.period] || m.period}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 13 }}>{m.title_bg.replace(/^Мезо \d+ — /, "")}</div>
+      {m.summary_bg && (
+        <div className="uiMuted" style={{ fontSize: 12, marginTop: 4 }}>
+          {m.summary_bg}
+        </div>
+      )}
+    </Card>
+  );
 
   return (
     <div className="uiPage">
       <PageHero
-        title="Цикли БФВ и AI генератор"
-        subtitle="Мезо/микро периодизация — изберете седмица и тренировка (3–4 на седмица), после генерирайте план с AI."
+        title="Годишна програма и цикли БФВ"
+        subtitle="Макро I/II → 11 мезоцикъла → седмица → тренировка. Конспекти от учебника се подават автоматично към AI."
         actions={
-          <Button as={Link} to="/method-guidelines" variant="secondary" size="sm">
-            ← Методически насоки
+          <Button as={Link} to="/textbook" variant="secondary" size="sm">
+            Учебник БФВ
           </Button>
         }
       />
@@ -99,10 +147,10 @@ export default function NationalLibrary() {
       <Card style={{ padding: 16, marginBottom: 16, background: "var(--surface-2, #f0f4ff)" }}>
         <strong>Как работи</strong>
         <ol style={{ margin: "8px 0 0 18px", lineHeight: 1.6 }}>
-          <li>Изберете възраст и мезо/микро цикъл отляво.</li>
+          <li>Изберете възраст и мезо от годишната програма (или класически 4-седмичен шаблон).</li>
           <li>В таблицата кликнете клетка (седмица × тренировка).</li>
           <li>
-            <strong>Генерирай с AI</strong> — планът и упражненията са за конкретния ден от цикъла.
+            <strong>Генерирай с AI</strong> — планът включва контекст от мезо, период и конспект от учебника.
           </li>
         </ol>
       </Card>
@@ -118,6 +166,22 @@ export default function NationalLibrary() {
             ))}
           </select>
         </label>
+        <div className="nationalPlannerModeToggle">
+          <button
+            type="button"
+            className={`nationalPlannerModeBtn${plannerMode === "annual" ? " nationalPlannerModeBtn--active" : ""}`}
+            onClick={() => setPlannerMode("annual")}
+          >
+            Годишна програма
+          </button>
+          <button
+            type="button"
+            className={`nationalPlannerModeBtn${plannerMode === "legacy" ? " nationalPlannerModeBtn--active" : ""}`}
+            onClick={() => setPlannerMode("legacy")}
+          >
+            Шаблони 4 седм.
+          </button>
+        </div>
         <Button as={Link} to="/method-guidelines" variant="secondary">
           Методически насоки
         </Button>
@@ -126,31 +190,109 @@ export default function NationalLibrary() {
       <div className="nationalPlannerLayout">
         <div className="nationalPlannerSidebar">
           {loading && <p className="uiMuted">Зареждане...</p>}
-          {!loading && data.cycles.length === 0 && (
-            <EmptyState title="Няма цикли" description="За тази възраст няма публикувани цикли." />
+
+          {!loading && plannerMode === "annual" && !hasAnnual && (
+            <EmptyState
+              title="Няма годишна програма"
+              description="Пуснете seed: python -m app.scripts.seed_annual_program"
+            />
           )}
-          {data.cycles.map((c) => (
-            <Card
-              key={c.id}
-              className={`nationalPlannerCycleCard${selectedCycle?.id === c.id ? " nationalPlannerCycleCard--active" : ""}`}
-              style={{ marginBottom: 8, padding: 12, cursor: "pointer" }}
-              onClick={() => openCycle(c.id)}
-            >
-              <strong>{c.title_bg}</strong>
-              <div className="uiMuted" style={{ fontSize: 13 }}>
-                {c.cycle_type} · {c.weeks} седм. · {c.age_band}
-              </div>
-            </Card>
-          ))}
+
+          {!loading && plannerMode === "annual" && hasAnnual && (
+            <>
+              {(annual.macros || []).map((macro) => (
+                <div key={macro.id} className="nationalPlannerMacroGroup">
+                  <button
+                    type="button"
+                    className="nationalPlannerMacroHead"
+                    onClick={() => setExpandedMacro(macro.macro_id || macro.id)}
+                  >
+                    <span>{macro.title_bg}</span>
+                    <span className="uiMuted">{expandedMacro === (macro.macro_id || 1) ? "▾" : "▸"}</span>
+                  </button>
+                  {expandedMacro === (macro.macro_id || macro.id) &&
+                    (annual.mesos_by_macro?.[macro.macro_id || 1] || []).map(renderMesoCard)}
+                </div>
+              ))}
+              {annual.textbook_slug && (
+                <Button as={Link} to={`/textbook/${annual.textbook_slug}`} variant="secondary" size="sm" style={{ marginTop: 8 }}>
+                  Периодизация в учебника
+                </Button>
+              )}
+            </>
+          )}
+
+          {!loading && plannerMode === "legacy" && sidebarCycles.length === 0 && (
+            <EmptyState title="Няма шаблони" description="За тази възраст няма 4-седмични цикли." />
+          )}
+
+          {!loading &&
+            plannerMode === "legacy" &&
+            sidebarCycles.map((c) => (
+              <Card
+                key={c.id}
+                className={`nationalPlannerCycleCard${selectedCycle?.id === c.id ? " nationalPlannerCycleCard--active" : ""}`}
+                style={{ marginBottom: 8, padding: 12, cursor: "pointer" }}
+                onClick={() => openCycle(c.id)}
+              >
+                <strong>{c.title_bg}</strong>
+                <div className="uiMuted" style={{ fontSize: 13 }}>
+                  {c.cycle_type} · {c.weeks} седм. · {c.age_band}
+                </div>
+              </Card>
+            ))}
         </div>
 
         <Card className="nationalPlannerMain" style={{ padding: 16, minHeight: 320 }}>
-          {!selectedCycle && <p className="uiMuted">Изберете цикъл отляво.</p>}
+          {!selectedCycle && (
+            <p className="uiMuted">
+              {plannerMode === "annual"
+                ? "Изберете мезоцикъл от годишната програма."
+                : "Изберете 4-седмичен шаблон отляво."}
+            </p>
+          )}
 
-          {selectedCycle && (
-            <>
+          {selectedCycle?.cycle_type === "macro" && (
+            <div>
               <h2 style={{ marginTop: 0 }}>{selectedCycle.title_bg}</h2>
-              {selectedCycle.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}
+              <p className="uiMuted">{selectedCycle.summary_bg}</p>
+              <p>Изберете конкретен <strong>мезоцикъл</strong> отляво, за да видите седмици и тренировки.</p>
+              {selectedCycle.annual_program?.textbook_reference && (
+                <Button as={Link} to={`/textbook/${selectedCycle.annual_program.textbook_reference}`} variant="secondary" size="sm">
+                  Отвори периодизацията в учебника
+                </Button>
+              )}
+            </div>
+          )}
+
+          {selectedCycle && selectedCycle.cycle_type !== "macro" && (
+            <>
+              <div className="nationalPlannerMainHead">
+                <div>
+                  <h2 style={{ marginTop: 0 }}>{selectedCycle.title_bg}</h2>
+                  {selectedCycle.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}
+                </div>
+                {selectedCycle.annual_program && (
+                  <div className="nationalPlannerMetaBadges">
+                    {selectedCycle.annual_program.meso_number && (
+                      <span className="nationalPlannerMetaBadge">Мезо {selectedCycle.annual_program.meso_number}</span>
+                    )}
+                    {selectedCycle.annual_program.period_label && (
+                      <span className={`nationalPlannerBadge nationalPlannerBadge--${selectedCycle.annual_program.period}`}>
+                        {selectedCycle.annual_program.period_label}
+                      </span>
+                    )}
+                    {selectedCycle.annual_program.primary_session_code && (
+                      <Link
+                        to={`/textbook/${selectedCycle.annual_program.primary_textbook_slug}`}
+                        className="nationalPlannerMetaBadge nationalPlannerMetaBadge--link"
+                      >
+                        {selectedCycle.annual_program.primary_session_code}
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
               <p className="uiMuted" style={{ marginTop: 8, fontSize: 13 }}>
                 {selectedCycle.ai_hint}
               </p>
@@ -172,6 +314,9 @@ export default function NationalLibrary() {
                           <span className="nationalPlannerTable__weekNum">С{w.week}</span>
                           <span className="nationalPlannerTable__weekTheme">{w.theme}</span>
                           <span className="nationalPlannerTable__weekLoad uiMuted">{w.load}</span>
+                          {w.session_code && (
+                            <span className="nationalPlannerTable__weekPlan uiMuted">{w.session_code}</span>
+                          )}
                         </th>
                         {Array.from({ length: slotCount }, (_, i) => {
                           const dayNum = i + 1;
@@ -196,6 +341,9 @@ export default function NationalLibrary() {
                                 <span className="nationalPlannerCell__label">{day.label || `Тр. ${dayNum}`}</span>
                                 <span className="nationalPlannerCell__theme">{day.theme}</span>
                                 <span className="nationalPlannerCell__focus uiMuted">{focusLabel(day.focus)}</span>
+                                {day.session_code && (
+                                  <span className="nationalPlannerCell__plan uiMuted">{day.session_code}</span>
+                                )}
                               </button>
                             </td>
                           );
@@ -221,6 +369,13 @@ export default function NationalLibrary() {
                           {day.theme}
                           {day.session_goal ? ` — ${day.session_goal}` : ""}
                         </p>
+                        {(day.textbook_slug || wk.textbook_slug) && (
+                          <p style={{ margin: "8px 0 0", fontSize: 13 }}>
+                            <Link to={`/textbook/${day.textbook_slug || wk.textbook_slug}`}>
+                              Конспект в учебника{day.session_code ? `: ${day.session_code}` : ""}
+                            </Link>
+                          </p>
+                        )}
                         <Button
                           variant="primary"
                           style={{ marginTop: 12 }}

@@ -190,6 +190,8 @@ export const API_PATHS = {
   NATIONAL_METHOD_COACH_HUB: "/api/national-method/coach-hub",
   NATIONAL_METHOD_COACH_HUB_SECTION: (slug) => `/api/national-method/coach-hub/${slug}`,
   NATIONAL_METHOD_LIBRARY: "/api/national-method/library",
+  NATIONAL_METHOD_TEXTBOOK: "/api/national-method/textbook",
+  NATIONAL_METHOD_TEXTBOOK_SECTION: (slug) => `/api/national-method/textbook/${encodeURIComponent(slug)}`,
   NATIONAL_METHOD_CONTEXT: "/api/national-method/method-context",
   NATIONAL_METHOD_ARTICLE: (id) => `/api/national-method/articles/${id}`,
   NATIONAL_METHOD_ARTICLE_CYCLES: (id) => `/api/national-method/articles/${id}/cycles`,

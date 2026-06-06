@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -162,7 +162,13 @@ export default function AIGenerator() {
   const [assignDueDate, setAssignDueDate] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [clubCoaches, setClubCoaches] = useState([]);
-  const [cycleParams, setCycleParams] = useState({ ageBand: "", cycleId: null, cycleWeek: null, cycleDay: null });
+  const [cycleParams, setCycleParams] = useState({
+    ageBand: "",
+    cycleId: null,
+    cycleWeek: null,
+    cycleDay: null,
+    textbookSlug: "",
+  });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
   const assignmentId = searchParams.get("assignmentId") || "";
 
@@ -272,7 +278,8 @@ export default function AIGenerator() {
     const cycleIdRaw = (searchParams.get("cycleId") || "").trim();
     const cycleWeekRaw = (searchParams.get("cycleWeek") || "").trim();
     const cycleDayRaw = (searchParams.get("cycleDay") || "").trim();
-    if (!ageBand && !cycleIdRaw) return;
+    const textbookSlug = (searchParams.get("textbookSlug") || "").trim();
+    if (!ageBand && !cycleIdRaw && !textbookSlug) return;
 
     const band = ageBand || "U14";
     const cycleId = cycleIdRaw ? Number(cycleIdRaw) : null;
@@ -285,6 +292,7 @@ export default function AIGenerator() {
       cycleId: Number.isFinite(cycleId) ? cycleId : null,
       cycleWeek,
       cycleDay: Number.isFinite(cycleDay) ? cycleDay : null,
+      textbookSlug,
     });
     setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
 
@@ -297,6 +305,7 @@ export default function AIGenerator() {
             ...(cycleId ? { cycle_id: cycleId } : {}),
             ...(cycleWeek ? { cycle_week: cycleWeek } : {}),
             ...(cycleDay ? { cycle_day: cycleDay } : {}),
+            ...(textbookSlug ? { textbook_slug: textbookSlug } : {}),
           },
         });
         if (!alive) return;
@@ -509,6 +518,8 @@ export default function AIGenerator() {
       ageBand: cycleParams.ageBand || undefined,
       cycleId: cycleParams.cycleId || undefined,
       cycleWeek: cycleParams.cycleWeek ?? undefined,
+      cycleDay: cycleParams.cycleDay ?? undefined,
+      textbookSlug: cycleParams.textbookSlug || undefined,
     }),
     [form, options.domains, options.phases, cycleParams]
   );
@@ -748,17 +759,19 @@ export default function AIGenerator() {
         </div>
       ) : null}
 
-      {bvfMethodHint?.principles?.length ? (
+      {bvfMethodHint?.principles?.length || bvfMethodHint?.textbook ? (
         <div className="aiGenBvfBanner" role="note">
           <strong>Контекст от националната методика</strong>
           <span>
-            {bvfMethodHint.day?.label
-              ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week?.week} · ${bvfMethodHint.day.label}: ${bvfMethodHint.day.theme || ""}`
-              : bvfMethodHint.week?.theme
-                ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
-                : `Възраст ${bvfMethodHint.age_band}`}
+            {bvfMethodHint.textbook?.title
+              ? `Учебник: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""}`
+              : bvfMethodHint.day?.label
+                ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week?.week} · ${bvfMethodHint.day.label}: ${bvfMethodHint.day.theme || ""}`
+                : bvfMethodHint.week?.theme
+                  ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
+                  : `Възраст ${bvfMethodHint.age_band}`}
             {" · "}
-            AI използва тези принципи при генериране — не е нужно да четете статии.
+            AI използва учебника и методиката при генериране.
           </span>
         </div>
       ) : null}

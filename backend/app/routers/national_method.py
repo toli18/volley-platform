@@ -406,16 +406,17 @@ def admin_import_bvf_library(
 ):
     from pathlib import Path as _Path
 
-    from app.scripts.ingest_volleycomment import EXPORT_PATH, import_to_db
+    from app.scripts.ingest_bvf_textbook import EXPORT_PATH, import_to_db
 
-    if EXPORT_PATH.is_file():
-        out = {"volleycomment": import_to_db(force=force)}
-        from app.national_method.cycle_article_links import sync_all_cycle_links
+    if EXPORT_PATH.is_file() or (EXPORT_PATH.parent / "bvf_textbook_bg.txt").is_file():
+        out = {"textbook": import_to_db(force=force, replace_vc=True)}
+        from app.scripts.build_bvf_ai_knowledge import main as build_ai_knowledge
 
-        out["cycle_links"] = sync_all_cycle_links(db)
+        build_ai_knowledge()
+        out["ai_knowledge"] = "rebuilt"
     else:
         out = {
-            "error": "Липсва bvf_volleycomment_bg.json — python -m app.scripts.ingest_volleycomment --export",
+            "error": "Липсва bvf_textbook_bg.txt — python -m app.scripts.ingest_bvf_textbook --export",
             "skipped": True,
         }
     db.commit()
@@ -551,13 +552,23 @@ def coach_library(
         "principles": (k.get("principles") or [])[:10],
         "focus_priority": k.get("focus_priority") or [],
     }
+    cycles_rows = cq.order_by(MethodCycle.sort_order.asc()).all()
+    from app.national_method.annual_program import library_tree
+
     cycles_out = []
-    for c in cq.order_by(MethodCycle.sort_order.asc()).all():
+    for c in cycles_rows:
         s = c.structure_json or {}
         link_n = sum(len(w.get("related_articles") or []) for w in (s.get("weeks") or []))
         link_n += len(s.get("program_articles") or [])
         row = CycleOut.model_validate(c).model_dump()
         row["linked_articles_count"] = link_n
+        s_meta = c.structure_json or {}
+        if s_meta.get("annual_program_key"):
+            row["annual_program_key"] = s_meta.get("annual_program_key")
+            row["meso_number"] = s_meta.get("meso_number")
+            row["macro_id"] = s_meta.get("macro_id")
+            row["period"] = s_meta.get("period")
+            row["period_label"] = s_meta.get("period_label")
         cycles_out.append(row)
     drills_all = dq.order_by(Drill.id.asc()).all()
     drills = []
@@ -578,9 +589,49 @@ def coach_library(
     return {
         "method_principles": method_principles,
         "cycles": cycles_out,
+        "annual_program": library_tree(cycles_rows, band),
         "drills": [_drill_dict(d) for d in drills],
         "guidelines": [GuidelineOut.model_validate(g) for g in guidelines],
     }
+
+
+@router.get("/textbook")
+def coach_textbook_index(
+    q: Optional[str] = Query(None),
+    age_band: Optional[str] = Query(None),
+    part: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    kind: Optional[str] = Query(None),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Навигация и търсене в учебника БФВ."""
+    from app.national_method.textbook_index import search_sections, textbook_navigation
+
+    base = textbook_navigation()
+    if q or age_band or part or category or kind:
+        base["search_results"] = search_sections(
+            q or "",
+            age_band=age_band,
+            part=part,
+            category=category,
+            kind=kind,
+        )
+        base["search_query"] = q
+    return base
+
+
+@router.get("/textbook/{slug}")
+def coach_textbook_section(
+    slug: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    from app.national_method.textbook_index import get_section
+
+    detail = get_section(slug, db)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Section not found")
+    return detail
 
 
 @router.get("/method-context")
@@ -589,6 +640,7 @@ def coach_method_context(
     cycle_week: Optional[int] = Query(None),
     cycle_day: Optional[int] = Query(None),
     cycle_id: Optional[int] = Query(None),
+    textbook_slug: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
@@ -601,6 +653,7 @@ def coach_method_context(
     k = get_age_knowledge(band)
     wc = week_context(band, cycle_week)
     day_ctx = None
+    row = None
 
     if cycle_id:
         row = db.query(MethodCycle).filter(MethodCycle.id == cycle_id, MethodCycle.status == "published").first()
@@ -616,6 +669,33 @@ def coach_method_context(
                 wc = merge_week_day_context(wk, dy)
                 day_ctx = dy
 
+    from app.national_method.annual_program import annual_context_from_structure, textbook_slug_for_day
+
+    annual_ctx = None
+    tb_slug_resolved = textbook_slug
+    if cycle_id and row:
+        annual_ctx = annual_context_from_structure(row.structure_json)
+        if not tb_slug_resolved and row.cycle_type == "meso":
+            wk_raw, dy_raw = week_day_from_cycle(
+                row.structure_json,
+                cycle_week,
+                cycle_day,
+                cycle_type=row.cycle_type,
+                age_band=row.age_band,
+            )
+            tb_slug_resolved = textbook_slug_for_day(row.structure_json, wk_raw, dy_raw)
+
+    from app.national_method.textbook_index import textbook_context_for_ai
+
+    tb_ctx = textbook_context_for_ai(tb_slug_resolved, db) if tb_slug_resolved else None
+    if tb_ctx and tb_ctx.get("age_band") and tb_ctx["age_band"] != "all":
+        band = tb_ctx["age_band"]
+        k = get_age_knowledge(band)
+
+    cues = (k.get("coach_cues") or [])[:4]
+    if tb_ctx and tb_ctx.get("coach_cues"):
+        cues = tb_ctx["coach_cues"][:6]
+
     return {
         "age_band": band,
         "principles": coach_principles_for_plan(k.get("principles"), band),
@@ -623,8 +703,10 @@ def coach_method_context(
         "meso_weeks": k.get("meso_weeks", []),
         "week": wc,
         "day": day_ctx,
-        "coach_cues": (k.get("coach_cues") or [])[:4],
+        "coach_cues": cues,
         "focus_priority": k.get("focus_priority", []),
+        "textbook": tb_ctx,
+        "annual_program": annual_ctx,
     }
 
 
@@ -664,6 +746,7 @@ def coach_get_cycle(
     row = db.query(MethodCycle).filter(MethodCycle.id == cycle_id, MethodCycle.status == "published").first()
     if not row:
         raise HTTPException(status_code=404, detail="Cycle not found")
+    from app.national_method.annual_program import annual_context_from_structure
     from app.national_method.cycle_days import enrich_structure, sessions_per_week
 
     base = CycleOut.model_validate(row).model_dump()
@@ -672,6 +755,9 @@ def coach_get_cycle(
         cycle_type=row.cycle_type,
         age_band=row.age_band,
     )
+    annual_ctx = annual_context_from_structure(s)
+    if annual_ctx:
+        base["annual_program"] = annual_ctx
     weeks = []
     for w in s.get("weeks") or []:
         weeks.append(
@@ -681,6 +767,8 @@ def coach_get_cycle(
                 "load": w.get("load"),
                 "focus": w.get("focus"),
                 "session_goals": w.get("session_goals"),
+                "textbook_slug": w.get("textbook_slug"),
+                "session_code": w.get("session_code"),
                 "days": w.get("days") or [],
             }
         )

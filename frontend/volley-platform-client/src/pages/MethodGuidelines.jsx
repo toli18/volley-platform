@@ -236,6 +236,9 @@ export default function MethodGuidelines() {
                 ))}
               </select>
             </label>
+            <Button as={Link} to="/textbook" variant="secondary" size="sm">
+              Учебник БФВ
+            </Button>
             <Button as={Link} to="/national-library" variant="secondary" size="sm">
               Цикли БФВ → AI
             </Button>

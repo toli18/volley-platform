@@ -1,7 +1,7 @@
 """
 Структурирана методика БФВ за AI генератора (не за четене от треньори).
 
-Зарежда се от seed/data/bvf_ai_knowledge.json — извлечено от Volley Comment.
+Зарежда се от seed/data/bvf_ai_knowledge.json — извлечено от учебника БФВ.
 """
 
 from __future__ import annotations
@@ -270,6 +270,58 @@ def clean_vc_text(text: str, max_len: int = 500) -> str:
     return joined[:max_len] if joined else ""
 
 
+def build_from_textbook_json(tb_path: Path) -> dict[str, Any]:
+    """Изгражда knowledge bundle от bvf_textbook_bg.json."""
+    data = json.loads(tb_path.read_text(encoding="utf-8"))
+    sections = data.get("sections") or []
+
+    principles_by_band: dict[str, list[str]] = {}
+    session_notes: dict[str, list[str]] = {}
+
+    for sec in sections:
+        band = sec.get("age_band") or "all"
+        kind = sec.get("kind") or ""
+        body = _clean_method_text(sec.get("body_bg") or "", 400)
+        title = (sec.get("title_bg") or "").strip()
+
+        if kind == "session_plan" and band != "all":
+            session_notes.setdefault(band, []).append(f"{title}: {body[:120]}" if body else title)
+            continue
+
+        if sec.get("category") in ("periodization", "principles", "planning") or "ПРИНЦИП" in title.upper():
+            if body and len(body) > 35:
+                principles_by_band.setdefault("all", [])
+                if body not in principles_by_band["all"]:
+                    principles_by_band["all"].append(body)
+            for line in (sec.get("body_bg") or "").split("\n"):
+                cleaned = _clean_method_text(line, 160)
+                if 25 < len(cleaned) < 160:
+                    principles_by_band.setdefault(band if band != "all" else "all", [])
+                    bucket = principles_by_band[band if band != "all" else "all"]
+                    if cleaned not in bucket and len(bucket) < 20:
+                        bucket.append(cleaned)
+
+    ages: dict[str, Any] = {}
+    for band in ("mini", "U13", "U14", "U16", "U18"):
+        shared = principles_by_band.get("all") or []
+        specific = principles_by_band.get(band) or []
+        principles = coach_principles_for_plan((specific + shared)[:12], band)
+        ages[band] = {
+            "label": band,
+            "principles": principles,
+            "program_highlights": (session_notes.get(band) or [])[:8],
+            "focus_priority": _default_focus(band),
+            "session_structure": SESSION_PHASES_BG,
+            "meso_weeks": DEFAULT_WEEK_THEMES.get(band, DEFAULT_WEEK_THEMES["U14"]),
+            "coach_cues": [
+                "Кратки команди, много повторения.",
+                "Комуникация на всяка ротация.",
+                "Натоварването следва периода и мезоцикъла.",
+            ],
+        }
+    return {"version": "2.0.0", "source": "bvf-textbook-bg", "ages": ages}
+
+
 def build_from_volleycomment_json(vc_path: Path) -> dict[str, Any]:
     """Еднократно изграждане на knowledge bundle от bvf_volleycomment_bg.json."""
     data = json.loads(vc_path.read_text(encoding="utf-8"))
@@ -348,9 +400,12 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     knowledge = get_age_knowledge(age_band)
     wc = week_context(age_band, week)
     day_ctx = None
+    annual_ctx = None
+    tb_slug_resolved = out.get("textbookSlug")
 
     if db and out.get("cycleId"):
         from app.models import MethodCycle
+        from app.national_method.annual_program import annual_context_from_structure, textbook_slug_for_day
 
         cycle = db.query(MethodCycle).filter(MethodCycle.id == int(out["cycleId"])).first()
         if cycle and cycle.structure_json:
@@ -363,6 +418,26 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
             if wk:
                 wc = merge_week_day_context(wk, find_day(wk, day))
                 day_ctx = find_day(wk, day)
+            annual_ctx = annual_context_from_structure(s)
+            if not tb_slug_resolved and cycle.cycle_type == "meso":
+                tb_slug_resolved = textbook_slug_for_day(s, wk, day_ctx)
+
+    textbook_ctx = None
+    tb_slug = tb_slug_resolved or out.get("textbookSlug")
+    if tb_slug:
+        from app.national_method.textbook_index import textbook_context_for_ai
+
+        textbook_ctx = textbook_context_for_ai(str(tb_slug), db)
+        if textbook_ctx:
+            if textbook_ctx.get("age_band") and textbook_ctx["age_band"] != "all":
+                age_band = textbook_ctx["age_band"]
+                out["ageBand"] = age_band
+                knowledge = get_age_knowledge(age_band)
+            if textbook_ctx.get("session_code") and not wc:
+                wc = {
+                    "theme": textbook_ctx.get("title", "")[:120],
+                    "session_goals": [textbook_ctx.get("summary", "")[:200]],
+                }
 
     if not out.get("mainFocus"):
         prio = (day_ctx or wc or {}).get("focus") or []
@@ -381,7 +456,9 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
         "week": wc,
         "day": day_ctx,
         "session_structure": knowledge.get("session_structure") or SESSION_PHASES_BG,
-        "coach_cues": (knowledge.get("coach_cues") or [])[:4],
+        "coach_cues": (textbook_ctx.get("coach_cues") if textbook_ctx else (knowledge.get("coach_cues") or [])[:4]),
+        "textbook": textbook_ctx,
+        "annual_program": annual_ctx,
     }
     return out
 
@@ -415,6 +492,19 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
             lines.append(f"- **Цел на тази сесия:** {day_ctx.get('session_goal')}")
     if not wc and not day_ctx:
         lines.append("- Обща методика БФВ за избраната възраст.")
+    tb = bvf.get("textbook") or {}
+    if tb.get("title"):
+        lines.append(f"- **Учебник:** {tb.get('title')}")
+        if tb.get("session_code"):
+            lines.append(f"- **Конспект:** {tb.get('session_code')}")
+    annual = bvf.get("annual_program") or {}
+    if annual.get("meso_number"):
+        parts = [f"Мезо {annual['meso_number']}"]
+        if annual.get("period_label"):
+            parts.append(annual["period_label"])
+        if annual.get("macro_label"):
+            parts.append(annual["macro_label"])
+        lines.append(f"- **Годишна програма:** {' · '.join(parts)}")
 
     lines.extend(["", "## 2. Фокус на тренировката"])
     if primary or secondary:

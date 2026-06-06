@@ -135,7 +135,7 @@ def enrich_cycle_structure(
 
     structure["weeks"] = enriched_weeks
     structure["program_articles"] = program_articles[:12]
-    structure["bvf_series"] = "nauka-i-sporta"
+    structure["bvf_series"] = "bvf-coach-textbook"
     structure["linked_age_band"] = age
     return structure
 
@@ -145,7 +145,7 @@ def sync_all_cycle_links(db: Session) -> dict[str, int]:
         db.query(MethodArticle)
         .filter(
             MethodArticle.status == "published",
-            MethodArticle.content_origin == "volleycomment",
+            MethodArticle.content_origin == "textbook",
         )
         .all()
     )

@@ -184,20 +184,20 @@ def init_db() -> None:
         try:
             from pathlib import Path as _Path
 
-            vc_json = _Path(__file__).resolve().parent / "seed" / "data" / "bvf_volleycomment_bg.json"
-            if vc_json.is_file():
-                from app.scripts.ingest_volleycomment import import_to_db
+            tb_json = _Path(__file__).resolve().parent / "seed" / "data" / "bvf_textbook_bg.json"
+            tb_txt = _Path(__file__).resolve().parent / "seed" / "data" / "bvf_textbook_bg.txt"
+            if tb_txt.is_file() or tb_json.is_file():
+                from app.scripts.ingest_bvf_textbook import import_to_db
 
-                stats = import_to_db(force=False)
+                stats = import_to_db(force=False, replace_vc=True)
                 db.commit()
-                print(f"✅ Volley Comment + cycle links (фаза B): {stats}")
-            else:
-                from app.scripts.import_bvf_library import import_articles_and_cycles
+                print(f"✅ Учебник БФВ (фаза 1): {stats}")
+                from app.scripts.build_bvf_ai_knowledge import main as build_ai_knowledge
 
-                art_n, cyc_n = import_articles_and_cycles(db, force=False)
-                if art_n or cyc_n:
-                    db.commit()
-                    print(f"✅ BVF embedded library: +{art_n} articles, +{cyc_n} cycles")
+                build_ai_knowledge()
+                print("✅ AI knowledge от учебника")
+            else:
+                print("ℹ️ bvf_textbook_bg.txt липсва — пропуск учебник импорт")
         except Exception as exc:
             print(f"⚠️ BVF library import skipped: {exc}")
 

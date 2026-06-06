@@ -47,6 +47,7 @@ class GenerateRequest(BaseModel):
     cycleId: Optional[int] = None
     cycleWeek: Optional[int] = None
     cycleDay: Optional[int] = None
+    textbookSlug: Optional[str] = None
 
 
 class GenerateAndSaveRequest(GenerateRequest):
