@@ -5,7 +5,13 @@ import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
-const AGE_OPTIONS = ["U14", "U15", "U16", "U17", "U18"];
+const AGE_OPTIONS = [
+  { value: "U14", label: "U14" },
+  { value: "U15", label: "U15 (→ U16)" },
+  { value: "U16", label: "U16" },
+  { value: "U17", label: "U17 (→ U18)" },
+  { value: "U18", label: "U18" },
+];
 
 const PERIOD_BADGE = {
   prep: "Подготвителен",
@@ -147,12 +153,17 @@ export default function NationalLibrary() {
           Възраст:{" "}
           <select className="uiInput" value={ageBand} onChange={(e) => setAgeBand(e.target.value)}>
             {AGE_OPTIONS.map((a) => (
-              <option key={a} value={a}>
-                {a}
+              <option key={a.value} value={a.value}>
+                {a.label}
               </option>
             ))}
           </select>
         </label>
+        {annual?.age_band_note && (
+          <span className="uiMuted" style={{ fontSize: 13 }}>
+            {annual.age_band_note}
+          </span>
+        )}
         <Button as={Link} to="/textbook" variant="secondary">
           Методика в учебника
         </Button>
@@ -164,8 +175,8 @@ export default function NationalLibrary() {
 
           {!loading && !hasAnnual && (
             <EmptyState
-              title="Няма годишна програма"
-              description="На сървъра: python -m app.scripts.seed_annual_program --replace"
+              title="Годишната програма се зарежда"
+              description="Данните идват от учебника БФВ. Опитайте U16 или U18, или презаредете след минута. Ако проблемът остане — свържете се с администратор."
             />
           )}
 

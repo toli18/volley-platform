@@ -182,6 +182,16 @@ def init_db() -> None:
             print(f"⚠️ National method seed skipped: {exc}")
 
         try:
+            from app.national_method.annual_program import ensure_annual_program_seeded
+
+            ap_stats = ensure_annual_program_seeded(db)
+            if not ap_stats.get("skipped"):
+                db.commit()
+                print(f"✅ Годишна програма (ensure): {ap_stats}")
+        except Exception as exc:
+            print(f"⚠️ Annual program ensure skipped: {exc}")
+
+        try:
             from pathlib import Path as _Path
 
             tb_json = _Path(__file__).resolve().parent / "seed" / "data" / "bvf_textbook_bg.json"
@@ -198,7 +208,8 @@ def init_db() -> None:
                 print("✅ AI knowledge от учебника")
                 from app.scripts.seed_annual_program import seed_annual_program
 
-                ap_stats = seed_annual_program(db, replace=True)
+                ap_stats = seed_annual_program(db, replace=False)
+                db.commit()
                 print(f"✅ Годишна програма: {ap_stats}")
                 from app.national_method.content_policy import purge_pre_textbook_method
 

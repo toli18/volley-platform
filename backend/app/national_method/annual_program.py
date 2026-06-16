@@ -24,6 +24,21 @@ MACRO_LABELS = {
 
 ANNUAL_AGE_BANDS = ("U14", "U16", "U18")
 
+# Годишната програма в учебника е за U14 / U16 / U18 — останалите се map-ват
+ANNUAL_BAND_ALIASES = {
+    "U13": "U14",
+    "U15": "U16",
+    "U17": "U18",
+    "mini": "U14",
+}
+
+
+def resolve_annual_program_band(age_band: str | None) -> str:
+    ab = (age_band or "U16").upper()
+    if ab in ANNUAL_AGE_BANDS:
+        return ab
+    return ANNUAL_BAND_ALIASES.get(ab, "U16")
+
 # 11 мезоцикъла — структура по учебника БФВ (периодизация, годишен план)
 MESO_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -403,4 +418,22 @@ def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
         "mesos_by_macro": mesos_by_macro,
         "meso_count": len(MESO_DEFINITIONS),
         "textbook_slug": "periodizatsiya-na-trenirovachniya-protses",
+        "available_age_bands": list(ANNUAL_AGE_BANDS),
     }
+
+
+def ensure_annual_program_seeded(db) -> dict[str, Any]:
+    """Idempotent: seed годишна програма ако липсва в БД."""
+    from app.models import MethodCycle
+
+    from app.national_method.content_policy import is_annual_program_cycle
+
+    existing = sum(
+        1 for c in db.query(MethodCycle).filter(MethodCycle.status == "published").all()
+        if is_annual_program_cycle(c)
+    )
+    if existing >= len(ANNUAL_AGE_BANDS) * (2 + len(MESO_DEFINITIONS)):
+        return {"skipped": True, "existing": existing}
+    from app.scripts.seed_annual_program import seed_annual_program
+
+    return seed_annual_program(db, replace=False)

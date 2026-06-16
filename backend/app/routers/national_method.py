@@ -537,14 +537,21 @@ def coach_library(
 ):
     cq = db.query(MethodCycle).filter(MethodCycle.status == "published")
     dq = db.query(Drill).filter(Drill.scope == "federation", Drill.status == "approved")
+    band = resolve_age_band({"ageBand": age_band or "U14"})
+    from app.national_method.annual_program import ensure_annual_program_seeded, library_tree, resolve_annual_program_band
+
+    ensure_annual_program_seeded(db)
+    db.commit()
+
+    program_band = resolve_annual_program_band(band)
+    if program_band:
+        cq = cq.filter(MethodCycle.age_band.in_([program_band, "all"]))
     if age_band and age_band != "all":
-        cq = cq.filter(MethodCycle.age_band.in_([age_band, "all"]))
-        lo, hi = _age_band_range(age_band)
+        lo, hi = _age_band_range(band)
         dq = dq.filter(
             (Drill.age_min.is_(None)) | (Drill.age_min <= hi),
             (Drill.age_max.is_(None)) | (Drill.age_max >= lo),
         )
-    band = resolve_age_band({"ageBand": age_band or "U14"})
     k = get_age_knowledge(band)
     method_principles = {
         "age_band": band,
@@ -552,7 +559,6 @@ def coach_library(
         "principles": (k.get("principles") or [])[:10],
         "focus_priority": k.get("focus_priority") or [],
     }
-    from app.national_method.annual_program import library_tree
     from app.national_method.content_policy import is_annual_program_cycle
 
     cycles_rows = [
@@ -587,7 +593,16 @@ def coach_library(
     return {
         "method_principles": method_principles,
         "cycles": cycles_out,
-        "annual_program": library_tree(cycles_rows, band),
+        "annual_program": {
+            **library_tree(cycles_rows, program_band),
+            "requested_age_band": band,
+            "program_age_band": program_band,
+            "age_band_note": (
+                f"Годишната програма в учебника е за {program_band}; използва се като най-близка група за {band}."
+                if program_band != band
+                else None
+            ),
+        },
         "drills": [_drill_dict(d) for d in drills],
     }
 
