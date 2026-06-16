@@ -8,6 +8,7 @@ import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKi
 import { createDraftKey, hasMeaningfulDraft, loadDraft } from "../utils/articleDrafts";
 import CoachMethodAssignments from "../components/coach/CoachMethodAssignments";
 import Drills from "./Drills";
+import { normalizePlan } from "../utils/trainingPlanNormalize";
 
 const currentMonthKey = () => {
   const d = new Date();
@@ -59,16 +60,8 @@ const dashboardScheduleAttendanceTo = (it) => {
 };
 
 const extractDrillIdsFromPlan = (plan) => {
-  if (!plan || typeof plan !== "object") return [];
-  const out = [];
-  Object.values(plan).forEach((arr) => {
-    if (!Array.isArray(arr)) return;
-    arr.forEach((id) => {
-      const n = Number(id);
-      if (Number.isFinite(n)) out.push(n);
-    });
-  });
-  return out;
+  const normalized = normalizePlan(plan);
+  return Object.values(normalized).flatMap((items) => items.map((x) => x.drillId));
 };
 
 export default function Home() {

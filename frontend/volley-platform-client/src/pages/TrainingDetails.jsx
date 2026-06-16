@@ -8,7 +8,7 @@ import { SessionReviewCard } from "../components/ai/SessionReviewCard";
 import { SectionBvfContext } from "../components/ai/SectionBvfContext";
 import { Button, EmptyState, PageHero } from "../components/ui";
 import { PLAN_SECTION_DEFS, sectionGuide, buildBvfFieldSteps, buildBvfPhaseMeta, replaceStepDrill } from "../utils/trainingPlanSections";
-import { normalizePlan } from "../utils/trainingPlanNormalize";
+import { normalizePlan, resolveDrillId } from "../utils/trainingPlanNormalize";
 import { useToast } from "../components/ToastProvider";
 
 function clipText(s, n = 180) {
@@ -221,7 +221,10 @@ export default function TrainingDetails() {
     };
   }, [fieldMode, swapDrills.length]);
 
-  const plan = livePlan || normalizePlan(data?.plan);
+  const plan = useMemo(
+    () => normalizePlan(livePlan ?? data?.plan),
+    [livePlan, data?.plan]
+  );
   const drillsMap = data?.drills || {};
   const sessionReview = data?.sessionReview || null;
   const fieldSteps = useMemo(() => {
@@ -920,10 +923,12 @@ export default function TrainingDetails() {
             ) : (
               <div className="cards">
                 {items.map((item, idx) => {
-                  const drillId = item.drillId;
-                  const d = drillsMap[String(drillId)] || drillsMap[drillId] || null;
+                  const drillId = resolveDrillId(item);
+                  const d = drillId
+                    ? drillsMap[String(drillId)] || drillsMap[drillId] || null
+                    : null;
 
-                  const title = d?.title || `Упражнение #${drillId}`;
+                  const title = d?.title || (drillId ? `Упражнение #${drillId}` : "Упражнение");
                   const meta = [d?.category, d?.level, d?.equipment].filter(Boolean).join(" • ") || "—";
                   const desc = d?.description ? clipText(d.description, 170) : "Няма описание.";
                   const media = d ? getDrillPrimaryMedia(d) : null;

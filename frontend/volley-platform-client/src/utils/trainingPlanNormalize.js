@@ -1,15 +1,31 @@
 /** Нормализация на training.plan — legacy [id] или enriched [{ drillId, minutes }]. */
 
+export function resolveDrillId(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.trunc(raw);
+  if (typeof raw === "string") {
+    const n = Number(raw.trim());
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    for (const key of ["drillId", "drill_id", "id"]) {
+      const v = raw[key];
+      if (v == null) continue;
+      const resolved = resolveDrillId(v);
+      if (resolved) return resolved;
+    }
+  }
+  return null;
+}
+
 export function normalizePlanItem(raw, defaultMinutes = 10) {
   if (raw == null) return null;
+  const did = resolveDrillId(raw);
+  if (!did) return null;
   if (typeof raw === "object" && !Array.isArray(raw)) {
-    const did = Number(raw.drillId ?? raw.drill_id ?? 0);
-    if (!did) return null;
     const mins = Math.max(3, Number(raw.minutes) || defaultMinutes);
     return { drillId: did, minutes: mins, coachNote: String(raw.coachNote || raw.coach_note || "") };
   }
-  const did = Number(raw);
-  if (!did) return null;
   return { drillId: did, minutes: Math.max(3, defaultMinutes), coachNote: "" };
 }
 

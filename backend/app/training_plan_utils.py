@@ -8,8 +8,11 @@ def normalize_plan_item(raw: Any, default_minutes: int = 10) -> dict[str, Any] |
     if raw is None:
         return None
     if isinstance(raw, dict):
+        did_raw = raw.get("drillId") or raw.get("drill_id") or raw.get("id")
+        if isinstance(did_raw, dict):
+            did_raw = did_raw.get("drillId") or did_raw.get("drill_id") or did_raw.get("id")
         try:
-            did = int(raw.get("drillId") or raw.get("drill_id") or 0)
+            did = int(did_raw or 0)
         except (TypeError, ValueError):
             return None
         if did <= 0:
