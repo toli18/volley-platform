@@ -1011,6 +1011,226 @@
   margin: 10px 0;
 }
 
+.aiGenSessionReview {
+  border: 1px solid #b8c9e8;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, #f0f6ff 0%, #fff 100%);
+}
+
+.aiGenSessionReviewHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.aiGenSessionReviewTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e3a5f;
+}
+
+.aiGenSessionReviewMeso {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #e2ebff;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.aiGenSessionReviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+@media (min-width: 720px) {
+  .aiGenSessionReviewGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.aiGenSessionReviewItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f4;
+}
+
+.aiGenSessionReviewLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.aiGenSessionReviewItem strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.aiGenSessionReviewDay,
+.aiGenSessionReviewTextbook {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.aiGenTimeline {
+  margin-top: 10px;
+}
+
+.aiGenTimelineList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aiGenTimelineItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e8eef8;
+}
+
+.aiGenTimelineTime {
+  font-weight: 700;
+  font-size: 12px;
+  color: #2563eb;
+  min-width: 72px;
+}
+
+.aiGenTimelineLabel {
+  flex: 1;
+  color: #334155;
+}
+
+.aiGenTimelineBlock {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.aiGenBlockGuide {
+  margin-top: 12px;
+}
+
+.aiGenBlockGuideGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+@media (min-width: 640px) {
+  .aiGenBlockGuideGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .aiGenBlockGuideGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.aiGenBlockGuideCard {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #dce5f2;
+  background: #fff;
+}
+
+.aiGenBlockGuideHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.aiGenBlockGuideHead strong {
+  font-size: 13px;
+}
+
+.aiGenBlockGuideHead span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.aiGenBlockGuideGoal {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.aiGenBlockGuideSegs,
+.aiGenBlockGuideHint {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.aiGenBlockGuideSegs li {
+  padding: 2px 0;
+}
+
+.aiGenBlockContext {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f0f6ff;
+  border-left: 3px solid #2563eb;
+}
+
+.aiGenBlockGoal {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.aiGenBlockTimeline {
+  margin: 0;
+  padding: 0 0 0 14px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.aiGenBlockHint {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
 .aiGenPlanRow--text {
   border-left: 3px solid #7c9fd4;
   background: #f4f8ff;

@@ -375,6 +375,191 @@ def _default_focus(band: str) -> list[str]:
     }.get(band, ["прием", "подаване", "атака"])
 
 
+PERIOD_PHASE_LABELS: dict[str, str] = {
+    "prep": "Подготовителен",
+    "inseason": "Състезателен",
+    "taper": "Пикова форма",
+    "offseason": "Преходен",
+}
+
+INTENSITY_LABELS: dict[str, str] = {
+    "low": "Нисък",
+    "medium": "Среден",
+    "high": "Висок",
+}
+
+_TIMELINE_TO_BLOCK: dict[str, tuple[str, ...]] = {
+    "Активиране": ("загряв", "разгряв", "актив", "раздвиж", "разпуск"),
+    "Изграждане": ("техник", "силов", "станц", "повтор", "специализ", "плиометр", "офп", "силна", "тактическ"),
+    "Интеграция": ("комплекс", "ситуацион", "свърз", "серия", "ритм", "комплексн"),
+    "Състезателност": ("игра", "гейм", "мач", "симула", "6 срещу 6", "официален", "турнир", "възстанов", "стреч"),
+}
+
+
+def period_phase_from_annual(annual_ctx: dict[str, Any] | None) -> str:
+    p = (annual_ctx or {}).get("period")
+    if p == "prep":
+        return "prep"
+    if p == "competitive":
+        return "inseason"
+    if p == "transition":
+        return "offseason"
+    return "inseason"
+
+
+def intensity_label_from_load(load: str | None, intensity: str) -> str:
+    l = (load or "средна").lower()
+    if "средна" in l and "висок" in l:
+        return "Среден/Висок"
+    if "средна" in l and "ниск" in l:
+        return "Среден/Нисък"
+    return INTENSITY_LABELS.get(intensity, intensity)
+
+
+def intensity_from_load(load: str | None) -> str:
+    l = (load or "средна").lower()
+    if any(x in l for x in ("ниск", "тапер", "почив", "възстанов")):
+        return "low"
+    if "висок" in l:
+        return "high"
+    return "medium"
+
+
+def _map_timeline_label(label: str) -> str:
+    low = (label or "").lower()
+    for block, keys in _TIMELINE_TO_BLOCK.items():
+        if any(k in low for k in keys):
+            return block
+    return "Изграждане"
+
+
+def _focus_tokens(
+    day_ctx: dict[str, Any] | None,
+    week_ctx: dict[str, Any] | None,
+) -> list[str]:
+    if day_ctx and day_ctx.get("focus"):
+        return list(day_ctx["focus"])
+    if week_ctx and week_ctx.get("focus"):
+        return list(week_ctx["focus"])
+    return []
+
+
+def map_textbook_timeline(session_blocks: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for block in session_blocks or []:
+        if block.get("type") != "time_block":
+            continue
+        label = block.get("label") or ""
+        out.append(
+            {
+                "time": f"{block.get('start', '')}-{block.get('end', '')}",
+                "label": label,
+                "mapsToBlock": _map_timeline_label(label),
+            }
+        )
+    return out
+
+
+def build_block_guide(
+    timeline: list[dict[str, Any]],
+    total_minutes: int = 90,
+) -> list[dict[str, Any]]:
+    guides: list[dict[str, Any]] = []
+    for phase in SESSION_PHASES_BG:
+        name = phase["phase"]
+        mins = max(8, int(total_minutes * float(phase.get("minutes_pct") or 0.25)))
+        segments = [t for t in timeline if t.get("mapsToBlock") == name]
+        hint_parts = [f"{s['time']} {s['label']}" for s in segments[:4]]
+        guides.append(
+            {
+                "blockType": name,
+                "targetMinutes": mins,
+                "goal": phase.get("goal") or "",
+                "timelineHint": " · ".join(hint_parts) if hint_parts else phase.get("goal") or "",
+                "segments": segments,
+            }
+        )
+    return guides
+
+
+def build_session_review(
+    *,
+    age_band: str,
+    week_ctx: dict[str, Any] | None,
+    day_ctx: dict[str, Any] | None,
+    annual_ctx: dict[str, Any] | None,
+    textbook_ctx: dict[str, Any] | None,
+    total_minutes: int = 90,
+) -> dict[str, Any]:
+    """Структуриран контекст за преглед + препоръчани настройки на генератора."""
+    load = (week_ctx or {}).get("load") or "средна"
+    period_phase = period_phase_from_annual(annual_ctx)
+    intensity = intensity_from_load(load)
+    focus = _focus_tokens(day_ctx, week_ctx)
+    main_focus, secondary_focus = suggest_focus_skills(age_band, (week_ctx or {}).get("week"))
+    if focus:
+        main_focus = _skill_from_token(focus[0])
+        secondary_focus = _skill_from_token(focus[1] if len(focus) > 1 else "атака")
+
+    timeline = map_textbook_timeline((textbook_ctx or {}).get("session_blocks"))
+    block_guide = build_block_guide(timeline, total_minutes)
+
+    meso_label = None
+    if annual_ctx:
+        parts = []
+        if annual_ctx.get("meso_number"):
+            parts.append(f"Мезо {annual_ctx['meso_number']}")
+        if annual_ctx.get("period_label"):
+            parts.append(annual_ctx["period_label"])
+        if annual_ctx.get("macro_label"):
+            parts.append(annual_ctx["macro_label"])
+        meso_label = " · ".join(parts) if parts else None
+
+    day_summary = None
+    if day_ctx:
+        day_summary = {
+            "label": day_ctx.get("day_label"),
+            "theme": day_ctx.get("day_theme") or day_ctx.get("theme"),
+            "session_goal": day_ctx.get("session_goal"),
+            "intensity": day_ctx.get("intensity"),
+        }
+    elif week_ctx and week_ctx.get("day_label"):
+        day_summary = {
+            "label": week_ctx.get("day_label"),
+            "theme": week_ctx.get("day_theme"),
+            "session_goal": week_ctx.get("session_goal"),
+        }
+
+    return {
+        "recommended": {
+            "mainFocus": main_focus,
+            "secondaryFocus": secondary_focus,
+            "periodPhase": period_phase,
+            "periodLabel": PERIOD_PHASE_LABELS.get(period_phase, period_phase),
+            "intensityTarget": intensity,
+            "intensityLabel": intensity_label_from_load(load, intensity),
+            "load": load,
+        },
+        "mesoLabel": meso_label,
+        "annualProgram": annual_ctx,
+        "week": {
+            "week": week_ctx.get("week") if week_ctx else None,
+            "theme": week_ctx.get("theme") if week_ctx else None,
+            "load": load,
+            "focus": focus,
+            "session_goals": (week_ctx or {}).get("session_goals") or [],
+        },
+        "day": day_summary,
+        "textbook": {
+            "title": (textbook_ctx or {}).get("title"),
+            "session_code": (textbook_ctx or {}).get("session_code"),
+            "slug": (textbook_ctx or {}).get("slug"),
+        },
+        "timeline": timeline,
+        "blockGuide": block_guide,
+    }
+
+
 def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     """Добавя BVF контекст към заявката за генератор."""
     from app.national_method.cycle_days import (
@@ -439,15 +624,25 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
                     "session_goals": [textbook_ctx.get("summary", "")[:200]],
                 }
 
-    if not out.get("mainFocus"):
-        prio = (day_ctx or wc or {}).get("focus") or []
-        if prio:
-            out["mainFocus"] = _skill_from_token(prio[0])
-            out["secondaryFocus"] = _skill_from_token(prio[1] if len(prio) > 1 else "атака")
-        else:
-            p, s = suggest_focus_skills(age_band, week)
-            out["mainFocus"] = p
-            out["secondaryFocus"] = s
+    total_min = int(out.get("durationTotalMin") or 90)
+    session_review = build_session_review(
+        age_band=age_band,
+        week_ctx=wc,
+        day_ctx=day_ctx,
+        annual_ctx=annual_ctx,
+        textbook_ctx=textbook_ctx,
+        total_minutes=total_min,
+    )
+    from_planner = bool(out.get("cycleId") or out.get("textbookSlug"))
+    rec = session_review["recommended"]
+    if from_planner:
+        out["mainFocus"] = rec["mainFocus"]
+        out["secondaryFocus"] = rec["secondaryFocus"]
+        out["periodPhase"] = rec["periodPhase"]
+        out["intensityTarget"] = rec["intensityTarget"]
+    elif not out.get("mainFocus"):
+        out["mainFocus"] = rec["mainFocus"]
+        out["secondaryFocus"] = rec["secondaryFocus"]
 
     out["ageBand"] = age_band
     out["bvfKnowledge"] = {
@@ -459,6 +654,7 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
         "coach_cues": (textbook_ctx.get("coach_cues") if textbook_ctx else (knowledge.get("coach_cues") or [])[:4]),
         "textbook": textbook_ctx,
         "annual_program": annual_ctx,
+        "sessionReview": session_review,
     }
     return out
 
@@ -562,9 +758,17 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
 
 def attach_text_drills(session: dict[str, Any], request_data: dict[str, Any], min_per_block: int = 1) -> None:
     """Добавя текстови упражнения ако блокът е празен или кратък."""
-    age_band = resolve_age_band(request_data)
+    review = (request_data.get("bvfKnowledge") or {}).get("sessionReview") or {}
+    guides = {g["blockType"]: g for g in review.get("blockGuide") or []}
     for block in session.get("blocks") or []:
         bt = block.get("blockType") or "Изграждане"
+        guide = guides.get(bt) or {}
+        if guide.get("timelineHint"):
+            block["methodHint"] = guide["timelineHint"]
+        if guide.get("segments"):
+            block["timelineSegments"] = guide["segments"]
+        if guide.get("goal"):
+            block["phaseGoal"] = guide["goal"]
         drills = block.get("drills") or []
         target = int(block.get("targetMinutes") or 10)
         filled = sum(int(d.get("minutes") or 0) for d in drills)
@@ -573,10 +777,13 @@ def attach_text_drills(session: dict[str, Any], request_data: dict[str, Any], mi
         if len(drills) < min_per_block or filled < target * 0.5:
             t = templates[0]
             mins = max(8, min(target, 15))
+            instr = t["instructions"]
+            if guide.get("timelineHint"):
+                instr = f"Конспект (учебник): {guide['timelineHint']}\n\n{t['instructions']}"
             text_drills.append(
                 {
                     "title": t["title"],
-                    "instructions": t["instructions"],
+                    "instructions": instr,
                     "minutes": mins,
                     "skill": t["skill"],
                     "source": "bvf_method",

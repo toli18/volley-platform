@@ -94,6 +94,7 @@ def generate_ai_training(
     attach_text_drills(session, request_data)
     result["trainingPlanText"] = build_training_plan_text(session, request_data)
     result["bvfMethod"] = request_data.get("bvfKnowledge")
+    result["sessionReview"] = (request_data.get("bvfKnowledge") or {}).get("sessionReview")
     return result
 
 
@@ -114,6 +115,7 @@ def generate_and_save_ai_training(
     attach_text_drills(session, request_data)
     generated["trainingPlanText"] = build_training_plan_text(session, request_data)
     generated["bvfMethod"] = request_data.get("bvfKnowledge")
+    generated["sessionReview"] = (request_data.get("bvfKnowledge") or {}).get("sessionReview")
     if payload.editedBlocks:
         edited_blocks = payload.editedBlocks
         session["blocks"] = edited_blocks

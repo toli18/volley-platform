@@ -170,12 +170,21 @@ export default function AIGenerator() {
     textbookSlug: "",
   });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
+  const plannerPrefillRef = useRef(false);
   const assignmentId = searchParams.get("assignmentId") || "";
+
+  const sessionReview = useMemo(
+    () => result?.sessionReview || bvfMethodHint?.sessionReview || null,
+    [result?.sessionReview, bvfMethodHint?.sessionReview]
+  );
 
   const cloneBlocks = (blocks) =>
     (blocks || []).map((b) => ({
       blockType: b.blockType,
       targetMinutes: Number(b.targetMinutes || 0),
+      methodHint: b.methodHint || "",
+      phaseGoal: b.phaseGoal || "",
+      timelineSegments: Array.isArray(b.timelineSegments) ? b.timelineSegments : [],
       drills: (b.drills || []).map((d) => ({
         drillId: Number(d.drillId),
         name: d.name,
@@ -294,6 +303,7 @@ export default function AIGenerator() {
       cycleDay: Number.isFinite(cycleDay) ? cycleDay : null,
       textbookSlug,
     });
+    plannerPrefillRef.current = Boolean(cycleIdRaw || textbookSlug);
     setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
 
     let alive = true;
@@ -310,6 +320,16 @@ export default function AIGenerator() {
         });
         if (!alive) return;
         setBvfMethodHint(ctx);
+        const rec = ctx?.recommended;
+        if (rec && plannerPrefillRef.current) {
+          setForm((prev) => ({
+            ...prev,
+            mainFocus: rec.mainFocus || prev.mainFocus,
+            secondaryFocus: rec.secondaryFocus || prev.secondaryFocus,
+            periodPhase: rec.periodPhase || prev.periodPhase,
+            intensityTarget: rec.intensityTarget || prev.intensityTarget,
+          }));
+        }
       } catch {
         if (alive) setBvfMethodHint(null);
       }
@@ -459,9 +479,10 @@ export default function AIGenerator() {
     if (!options.skills.length) return;
     setForm((prev) => {
       const selectable = options.skills;
-      let main = resolveToSelectableSkill(prev.mainFocus, selectable) || selectable[0];
+      const resolve = (raw) => resolveToSelectableSkill(raw, selectable) || raw;
+      let main = resolve(prev.mainFocus) || selectable[0];
       let sec =
-        resolveToSelectableSkill(prev.secondaryFocus, selectable) ||
+        resolve(prev.secondaryFocus) ||
         selectable.find((s) => s !== main) ||
         selectable[0];
       if (main === sec && selectable.length > 1) {
@@ -470,6 +491,9 @@ export default function AIGenerator() {
       if (main === prev.mainFocus && sec === prev.secondaryFocus) return prev;
       return { ...prev, mainFocus: main, secondaryFocus: sec };
     });
+    if (plannerPrefillRef.current && options.skills.length) {
+      plannerPrefillRef.current = false;
+    }
   }, [options.skills]);
 
   const payload = useMemo(
@@ -833,6 +857,7 @@ export default function AIGenerator() {
         <AIGeneratorPlanPanel
           planRef={planRef}
           result={result}
+          sessionReview={sessionReview}
           trainingPlanText={result?.trainingPlanText}
           planBlocks={planBlocks}
           minTwoPerBlockOk={minTwoPerBlockOk}
@@ -843,6 +868,7 @@ export default function AIGenerator() {
           onGenerate={onGenerate}
           loading={loading}
           metaLoading={metaLoading}
+          toBgLabel={toBgLabel}
         />
       ) : null}
 
