@@ -732,6 +732,34 @@ def coach_method_context(
     }
 
 
+@router.get("/health")
+def bvf_method_health(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Проверка на ключови BVF данни (учебник, годишна програма, упражнения)."""
+    from app.models import Drill, MethodCycle
+    from app.national_method.textbook_index import textbook_navigation
+
+    idx = textbook_navigation()
+    session_plans = sum(len(v or []) for v in (idx.get("session_plans_by_age") or {}).values())
+    meso_cycles = (
+        db.query(MethodCycle)
+        .filter(MethodCycle.cycle_type == "meso", MethodCycle.status == "published")
+        .count()
+    )
+    federation_drills = db.query(Drill).filter(Drill.scope == "federation").count()
+    ok = session_plans >= 20 and meso_cycles >= 30 and federation_drills >= 50
+    return {
+        "ok": ok,
+        "textbook_sections": int(idx.get("section_count") or 0),
+        "session_plans": session_plans,
+        "meso_cycles_published": meso_cycles,
+        "federation_drills": federation_drills,
+        "hint": None if ok else "Run seed scripts: ingest_bvf_textbook, seed_annual_program, seed_national_method",
+    }
+
+
 def _age_band_range(band: str) -> tuple[int, int]:
     mapping = {
         "U13": (12, 13),

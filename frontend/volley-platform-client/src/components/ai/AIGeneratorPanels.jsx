@@ -466,7 +466,12 @@ export function AIGeneratorPlanPanel({
 
   return (
     <section className="aiGenPanel" ref={planRef}>
-      <SessionReviewCard sessionReview={sessionReview} toBgLabel={toBgLabel || ((x) => x)} />
+      <div className="aiGenPlanToolbar">
+        <SessionReviewCard sessionReview={sessionReview} toBgLabel={toBgLabel || ((x) => x)} />
+        <button type="button" className="aiGenBtn aiGenBtn--ghost aiGenPrintBtn" onClick={() => window.print()}>
+          🖨 Печат
+        </button>
+      </div>
       <p className="aiGenHint">Редактирай реда, премахвай или премести упражнения. Добавяй нови от „База упражнения“.</p>
       {planLines.length ? (
         <details className="aiGenPlanText">

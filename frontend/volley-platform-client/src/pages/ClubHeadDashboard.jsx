@@ -815,12 +815,17 @@ export default function ClubHeadDashboard() {
                     <TableHead>Краен срок</TableHead>
                     <TableHead>Бележка</TableHead>
                     <TableHead>Отчет (готово)</TableHead>
+                    <TableHead>Действие</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAssignments.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell>{a.training_title || `#${a.training_id}`}</TableCell>
+                      <TableCell>
+                        <Link to={`/trainings/${a.training_id}`} style={{ fontWeight: 700 }}>
+                          {a.training_title || `#${a.training_id}`}
+                        </Link>
+                      </TableCell>
                       <TableCell>{a.assigned_to_name || `#${a.assigned_to}`}</TableCell>
                       <TableCell>
                         <span className={`uiBadge ${a.status === "done" ? "uiBadge--success" : a.status === "in_progress" ? "uiBadge--warning" : "uiBadge--secondary"}`}>
@@ -830,6 +835,11 @@ export default function ClubHeadDashboard() {
                       <TableCell>{a.due_date || "-"}</TableCell>
                       <TableCell>{a.note || "-"}</TableCell>
                       <TableCell>{a.completion_note || "—"}</TableCell>
+                      <TableCell>
+                        <Button as={Link} to={`/trainings/${a.training_id}`} size="sm" variant="secondary">
+                          Преглед
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

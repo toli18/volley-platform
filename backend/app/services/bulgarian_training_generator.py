@@ -5,6 +5,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 
 PHASES_BG = ["Активиране", "Изграждане", "Интеграция", "Състезателност"]
+
+PERIOD_PHASE_RATIOS: Dict[str, Dict[str, float]] = {
+    "prep": {"Активиране": 0.18, "Изграждане": 0.36, "Интеграция": 0.28, "Състезателност": 0.18},
+    "inseason": {"Активиране": 0.15, "Изграждане": 0.28, "Интеграция": 0.32, "Състезателност": 0.25},
+    "taper": {"Активиране": 0.14, "Изграждане": 0.26, "Интеграция": 0.30, "Състезателност": 0.30},
+    "offseason": {"Активиране": 0.20, "Изграждане": 0.30, "Интеграция": 0.25, "Състезателност": 0.25},
+}
+
+INTENSITY_NUM = {"low": 1, "medium": 2, "high": 3}
 BLOCK_TO_PLAN_KEY = {
     "Активиране": "warmup",
     "Изграждане": "technique",
@@ -454,6 +463,77 @@ def _build_recent_rank_map(request_data: Dict[str, Any]) -> Dict[int, int]:
     return recent_rank
 
 
+def _drill_intensity_level(drill: Dict[str, Any]) -> int:
+    itype = _safe_str(drill.get("intensity_type")).lower()
+    base = INTENSITY_NUM.get(itype, 2)
+    rpe = drill.get("rpe")
+    try:
+        rpe_val = int(rpe)
+    except (TypeError, ValueError):
+        rpe_val = None
+    if rpe_val is not None:
+        if rpe_val >= 8:
+            return max(base, 3)
+        if rpe_val <= 4:
+            return min(base, 1)
+        if rpe_val >= 6:
+            return max(base, 2)
+    return base
+
+
+def _target_intensity_from_focus(session_focus: Dict[str, Any]) -> float:
+    target = session_focus.get("intensityTarget") or "medium"
+    val = float(INTENSITY_NUM.get(str(target), 2))
+    load = _safe_str(session_focus.get("weekLoad")).lower()
+    if "средна" in load and "висок" in load:
+        val = 2.5
+    elif "ниск" in load:
+        val = min(val, 1.5)
+    elif "висок" in load and "средна" not in load:
+        val = max(val, 2.8)
+    return val
+
+
+def _period_phase_bonus(period: str, target_phase: str, drill: Dict[str, Any]) -> tuple[float, str | None]:
+    """Бонус/наказание според periodPhase и BVF фаза."""
+    category = _safe_str(drill.get("category")).lower()
+    blob = " ".join(
+        [
+            _safe_str(drill.get("name")),
+            _safe_str(drill.get("description")),
+            category,
+        ]
+    ).lower()
+    bonus = 0.0
+    reason = None
+    if period == "prep":
+        if target_phase == "Изграждане":
+            bonus += 18
+            reason = "подготовителен период — приоритет на изграждане"
+        elif target_phase == "Състезателност":
+            if any(x in blob for x in ("6 срещу 6", "6v6", "официален", "турнир", "мач")):
+                bonus -= 22
+                reason = "тежка състезателна форма — по-слабо за подготовителен период"
+            else:
+                bonus -= 8
+    elif period == "inseason":
+        if target_phase in {"Интеграция", "Състезателност"}:
+            bonus += 15
+            reason = "състезателен период — игрови и интеграционни форми"
+    elif period == "taper":
+        drill_int = _drill_intensity_level(drill)
+        if drill_int >= 3 and target_phase == "Състезателност":
+            bonus -= 18
+            reason = "пикова форма — избягване на прекалено висок интензитет"
+        if target_phase == "Активиране":
+            bonus += 10
+    elif period == "offseason":
+        if "игра" in category or "fun" in category:
+            bonus += 12
+            reason = "преходен период — игрови/variative форми"
+    return bonus, reason
+
+
 def scoreDrill(
     drill: Dict[str, Any],
     targetPhase: str,
@@ -560,6 +640,23 @@ def scoreDrill(
     if _has_valid_video(drill):
         score += 6
 
+    target_intensity = _target_intensity_from_focus(sessionFocus)
+    drill_intensity = _drill_intensity_level(drill)
+    intensity_delta = abs(target_intensity - drill_intensity)
+    if intensity_delta <= 0.6:
+        score += 28
+        reasons.append("съответства на целевия интензитет / натоварване")
+    elif intensity_delta >= 1.5:
+        score -= 18
+        reasons.append("интензитетът не отговаря на седмичното натоварване")
+
+    period = _safe_str(sessionFocus.get("periodPhase") or "inseason").lower()
+    period_bonus, period_reason = _period_phase_bonus(period, targetPhase, drill)
+    if period_bonus:
+        score += period_bonus
+        if period_reason:
+            reasons.append(period_reason)
+
     return {
         "score": round(score, 4),
         "phaseMatchScore": round(phase_score, 4),
@@ -574,8 +671,9 @@ def scoreDrill(
     }
 
 
-def _target_minutes(total_minutes: int) -> Dict[str, int]:
-    ratios = {"Активиране": 0.18, "Изграждане": 0.32, "Интеграция": 0.32, "Състезателност": 0.18}
+def _target_minutes(total_minutes: int, period_phase: str = "inseason") -> Dict[str, int]:
+    period = period_phase if period_phase in PERIOD_PHASE_RATIOS else "inseason"
+    ratios = PERIOD_PHASE_RATIOS[period]
     minutes = {phase: int(round(total_minutes * ratios[phase])) for phase in PHASES_BG}
     diff = total_minutes - sum(minutes.values())
     idx = 0
@@ -835,11 +933,21 @@ def generateSessionPlan(drills: Sequence[Any], request_data: Dict[str, Any]) -> 
         t = _norm(str(raw))
         if t:
             week_tags.append(t)
-    session_focus = {"primary": primary, "secondary": secondary, "weekFocusTags": week_tags}
+    period_phase = _safe_str(request_data.get("periodPhase") or "inseason").lower()
+    intensity_target = _safe_str(request_data.get("intensityTarget") or "medium").lower()
+    week_load = _safe_str(wc.get("load") or (bvf.get("sessionReview") or {}).get("recommended", {}).get("load")).lower()
+    session_focus = {
+        "primary": primary,
+        "secondary": secondary,
+        "weekFocusTags": week_tags,
+        "periodPhase": period_phase,
+        "intensityTarget": intensity_target,
+        "weekLoad": week_load,
+    }
     recent_rank_by_id = _build_recent_rank_map(request_data)
 
     age_eligible = [d for d in normalized_drills if _age_matches(d, session_age_min, session_age_max)]
-    phase_minutes = _target_minutes(total_minutes)
+    phase_minutes = _target_minutes(total_minutes, period_phase)
 
     state = PickedState(
         selected=[],
