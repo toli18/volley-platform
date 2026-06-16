@@ -3,26 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
-import { Button, PageHero } from "../components/ui";
-import { useToast } from "../components/ToastProvider";
+import { SessionReviewCard } from "../components/ai/SessionReviewCard";
+import { SectionBvfContext } from "../components/ai/SectionBvfContext";
+import { BVF_FIELD_PHASES, PLAN_SECTION_DEFS, sectionGuide } from "../utils/trainingPlanSections";
+import { normalizePlan } from "../utils/trainingPlanNormalize";
 
 export default function EditTraining() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
 
-  const SECTIONS = useMemo(
-    () => [
-      { key: "warmup", label: "Загрявка" },
-      { key: "technique", label: "Техника" },
-      { key: "serve_receive", label: "Сервис / Посрещане" },
-      { key: "attack_block", label: "Атака / Блок" },
-      { key: "game", label: "Игрова част" },
-      { key: "conditioning", label: "Физическа подготовка" },
-      { key: "cooldown", label: "Разпускане" },
-    ],
-    []
-  );
+  const SECTIONS = useMemo(() => PLAN_SECTION_DEFS, []);
 
   const emptyPlan = useMemo(() => {
     const p = {};
@@ -45,6 +36,7 @@ export default function EditTraining() {
   const [drills, setDrills] = useState([]);
   const [q, setQ] = useState("");
   const [activeSection, setActiveSection] = useState("warmup");
+  const [sessionReview, setSessionReview] = useState(null);
   const [modalDrill, setModalDrill] = useState(null);
 
   useEffect(() => {
@@ -60,12 +52,9 @@ export default function EditTraining() {
           notes: details?.notes ?? "",
         });
 
-        const p = details?.plan || {};
-        const normalized = { ...emptyPlan };
-        for (const k of Object.keys(normalized)) {
-          normalized[k] = Array.isArray(p[k]) ? p[k].map(Number) : [];
-        }
-        setPlan(normalized);
+        const p = normalizePlan(details?.plan || {});
+        setPlan(p);
+        setSessionReview(details?.sessionReview || null);
 
         // drills list (за добавяне/замяна)
         const drillsList = await apiJson("/drills/");
@@ -96,10 +85,16 @@ export default function EditTraining() {
 
   function addToSection(drillId, sectionKey) {
     const idNum = Number(drillId);
+    const guide = sectionGuide(sessionReview, sectionKey);
+    const defaultMin = guide?.targetMinutes
+      ? Math.max(5, Math.floor(guide.targetMinutes / Math.max(1, (plan[sectionKey] || []).length + 1)))
+      : 10;
     setPlan((prev) => {
       const next = { ...prev };
       const arr = Array.isArray(next[sectionKey]) ? [...next[sectionKey]] : [];
-      if (!arr.includes(idNum)) arr.push(idNum);
+      if (!arr.some((x) => x.drillId === idNum)) {
+        arr.push({ drillId: idNum, minutes: defaultMin, coachNote: "" });
+      }
       next[sectionKey] = arr;
       return next;
     });
@@ -109,9 +104,20 @@ export default function EditTraining() {
     const idNum = Number(drillId);
     setPlan((prev) => {
       const next = { ...prev };
-      next[sectionKey] = (next[sectionKey] || []).filter((x) => x !== idNum);
+      next[sectionKey] = (next[sectionKey] || []).filter((x) => x.drillId !== idNum);
       return next;
     });
+  }
+
+  function setItemMinutes(sectionKey, drillId, minutes) {
+    const idNum = Number(drillId);
+    const mins = Math.max(3, Number(minutes) || 10);
+    setPlan((prev) => ({
+      ...prev,
+      [sectionKey]: (prev[sectionKey] || []).map((x) =>
+        x.drillId === idNum ? { ...x, minutes: mins } : x
+      ),
+    }));
   }
 
   function move(sectionKey, idx, dir) {
@@ -120,9 +126,7 @@ export default function EditTraining() {
       const arr = [...(next[sectionKey] || [])];
       const ni = idx + dir;
       if (ni < 0 || ni >= arr.length) return prev;
-      const tmp = arr[idx];
-      arr[idx] = arr[ni];
-      arr[ni] = tmp;
+      [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
       next[sectionKey] = arr;
       return next;
     });
@@ -167,10 +171,13 @@ export default function EditTraining() {
         actions={
           <>
             <Button variant="secondary" as={Link} to={`/trainings/${id}`}>Преглед</Button>
+            <Button as={Link} to={`/trainings/${id}?mode=field`} variant="secondary">Режим зала</Button>
             <Button variant="secondary" as={Link} to="/my-trainings">Към списъка</Button>
           </>
         }
       />
+
+      <SessionReviewCard sessionReview={sessionReview} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {/* LEFT: Form + Plan */}
@@ -230,24 +237,35 @@ export default function EditTraining() {
 
           <hr style={{ margin: "14px 0" }} />
 
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>План (по секции)</div>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>План (4 BVF фази)</div>
 
-          <div style={{ display: "grid", gap: 10 }}>
-            {SECTIONS.map((s) => {
-              const ids = plan[s.key] || [];
+          <div style={{ display: "grid", gap: 14 }}>
+            {BVF_FIELD_PHASES.map((phase) => {
+              const guide = (sessionReview?.blockGuide || []).find((g) => g.blockType === phase.block);
+              const sections = phase.sectionKeys
+                .map((key) => SECTIONS.find((s) => s.key === key))
+                .filter(Boolean);
+              const totalItems = sections.reduce((n, s) => n + (plan[s.key] || []).length, 0);
+              if (!totalItems && !guide) return null;
               return (
-                <div key={s.key} style={{ border: "1px solid #eee", borderRadius: 12, padding: 10, background: "#fafafa" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div style={{ fontWeight: 900 }}>{s.label}</div>
-                    <div style={{ fontSize: 12, opacity: 0.7 }}>{ids.length} упражнения</div>
-                  </div>
-
-                  {ids.length === 0 ? (
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Няма упражнения.</div>
-                  ) : (
-                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-                      {ids.map((drillId, idx) => {
-                        const d = drillById.get(Number(drillId));
+                <div key={phase.block} style={{ border: "1px solid #c7d8f0", borderRadius: 12, padding: 12, background: "#f8fbff" }}>
+                  <div style={{ fontWeight: 900, marginBottom: 6 }}>{phase.block}{guide?.targetMinutes ? ` · ${guide.targetMinutes} мин` : ""}</div>
+                  <SectionBvfContext guide={guide} bvfBlock={phase.block} />
+                  {sections.map((s) => {
+                    const items = plan[s.key] || [];
+                    return (
+                      <div key={s.key} style={{ marginTop: 10, border: "1px solid #eee", borderRadius: 10, padding: 10, background: "#fff" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <div style={{ fontWeight: 800 }}>{s.label}</div>
+                          <div style={{ fontSize: 12, opacity: 0.7 }}>{items.length} упражнения</div>
+                        </div>
+                        {items.length === 0 ? (
+                          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Няма упражнения.</div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                            {items.map((item, idx) => {
+                              const drillId = item.drillId;
+                              const d = drillById.get(Number(drillId));
                         const media = d ? getDrillPrimaryMedia(d) : null;
                         return (
                           <div
@@ -302,7 +320,18 @@ export default function EditTraining() {
                               </div>
                             </div>
 
-                            <div style={{ display: "flex", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                              <label style={{ fontSize: 12 }}>
+                                мин
+                                <input
+                                  type="number"
+                                  min={3}
+                                  max={60}
+                                  value={item.minutes || 10}
+                                  onChange={(e) => setItemMinutes(s.key, drillId, e.target.value)}
+                                  style={{ width: 52, marginLeft: 4, padding: 4, borderRadius: 6, border: "1px solid #ddd" }}
+                                />
+                              </label>
                               <button type="button" onClick={() => d && setModalDrill(d)}>Преглед</button>
                               <button type="button" onClick={() => move(s.key, idx, -1)}>↑</button>
                               <button type="button" onClick={() => move(s.key, idx, +1)}>↓</button>
@@ -316,9 +345,12 @@ export default function EditTraining() {
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

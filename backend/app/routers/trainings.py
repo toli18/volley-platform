@@ -51,19 +51,11 @@ def _ensure_view_access(db: Session, training: Training, current_user: User):
     raise HTTPException(status_code=404, detail="Training not found")
 
 
-def _collect_plan_ids(plan: Dict[str, List[int]]) -> Set[int]:
-    ids: Set[int] = set()
-    if not plan:
-        return ids
-    for _, arr in plan.items():
-        if not arr:
-            continue
-        for x in arr:
-            try:
-                ids.add(int(x))
-            except Exception:
-                pass
-    return ids
+from ..training_plan_utils import normalize_plan, plan_drill_ids
+
+
+def _collect_plan_ids(plan) -> Set[int]:
+    return plan_drill_ids(plan)
 
 
 @router.post("/", response_model=TrainingRead, status_code=status.HTTP_201_CREATED)
@@ -126,7 +118,7 @@ def get_training_details(
     if not training:
         raise HTTPException(status_code=404, detail="Training not found")
 
-    plan = training.plan or {}
+    plan = normalize_plan(training.plan or {})
     ids = _collect_plan_ids(plan)
 
     drills_map = {}

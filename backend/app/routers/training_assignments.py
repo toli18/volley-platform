@@ -20,19 +20,11 @@ def _ensure_head(user: User):
         raise HTTPException(status_code=422, detail="Head coach is not assigned to a club")
 
 
+from app.training_plan_utils import plan_drill_ids
+
+
 def _collect_plan_ids(plan: dict) -> set[int]:
-    ids: set[int] = set()
-    if not isinstance(plan, dict):
-        return ids
-    for arr in plan.values():
-        if not arr:
-            continue
-        for x in arr:
-            try:
-                ids.add(int(x))
-            except Exception:
-                pass
-    return ids
+    return plan_drill_ids(plan)
 
 
 @router.post("/club/training-assignments")

@@ -7,7 +7,8 @@ import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/Dril
 import { SessionReviewCard } from "../components/ai/SessionReviewCard";
 import { SectionBvfContext } from "../components/ai/SectionBvfContext";
 import { Button, EmptyState, PageHero } from "../components/ui";
-import { PLAN_SECTION_DEFS, sectionGuide, bvfBlockForPlanKey } from "../utils/trainingPlanSections";
+import { PLAN_SECTION_DEFS, sectionGuide, buildBvfFieldSteps, buildBvfPhaseMeta, replaceStepDrill } from "../utils/trainingPlanSections";
+import { normalizePlan } from "../utils/trainingPlanNormalize";
 import { useToast } from "../components/ToastProvider";
 
 function clipText(s, n = 180) {
@@ -53,6 +54,11 @@ export default function TrainingDetails() {
     note: "",
   });
   const [savingPayment, setSavingPayment] = useState(false);
+  const [livePlan, setLivePlan] = useState(null);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapDrills, setSwapDrills] = useState([]);
+  const [swapQ, setSwapQ] = useState("");
+  const [savingSwap, setSavingSwap] = useState(false);
 
   const SECTIONS = useMemo(() => PLAN_SECTION_DEFS, []);
 
@@ -63,6 +69,7 @@ export default function TrainingDetails() {
       try {
         const res = await apiJson(`/trainings/${id}/details`);
         setData(res);
+        setLivePlan(normalizePlan(res?.plan));
       } catch (e) {
         // Fallback: if the page is opened from an assignment card, load details via assignment context.
         if (assignmentId) {
@@ -71,6 +78,7 @@ export default function TrainingDetails() {
               params: { training_id: Number(id) || undefined },
             });
             setData(fallback);
+            setLivePlan(normalizePlan(fallback?.plan));
           } catch (fallbackErr) {
             toast.error(fallbackErr?.message || e?.message || "Грешка при зареждане");
             setData(null);
@@ -197,25 +205,32 @@ export default function TrainingDetails() {
     };
   }, [selectedTeamId]);
 
-  const plan = data?.plan || {};
+  useEffect(() => {
+    if (!fieldMode || swapDrills.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await apiJson("/drills/");
+        if (!cancelled) setSwapDrills(Array.isArray(list) ? list : []);
+      } catch {
+        if (!cancelled) setSwapDrills([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fieldMode, swapDrills.length]);
+
+  const plan = livePlan || normalizePlan(data?.plan);
   const drillsMap = data?.drills || {};
+  const sessionReview = data?.sessionReview || null;
   const fieldSteps = useMemo(() => {
-    const out = [];
-    SECTIONS.forEach((s) => {
-      const ids = Array.isArray(plan[s.key]) ? plan[s.key] : [];
-      ids.forEach((drillId, idx) => {
-        const d = drillsMap[String(drillId)] || drillsMap[drillId] || null;
-        out.push({
-          sectionKey: s.key,
-          sectionLabel: s.label,
-          orderInSection: idx + 1,
-          drillId,
-          drill: d,
-        });
-      });
-    });
-    return out;
-  }, [SECTIONS, plan, drillsMap]);
+    const raw = buildBvfFieldSteps(plan, sessionReview);
+    return raw.map((s) => ({
+      ...s,
+      drill: drillsMap[String(s.drillId)] || drillsMap[s.drillId] || null,
+    }));
+  }, [plan, sessionReview, drillsMap]);
 
   useEffect(() => {
     if (!fieldSteps.length) {
@@ -228,23 +243,7 @@ export default function TrainingDetails() {
   const step = fieldSteps[currentStep] || null;
   const canPrev = currentStep > 0;
   const canNext = currentStep < fieldSteps.length - 1;
-  const phaseMeta = useMemo(() => {
-    const meta = [];
-    let offset = 0;
-    SECTIONS.forEach((s) => {
-      const count = (Array.isArray(plan[s.key]) ? plan[s.key] : []).length;
-      if (!count) return;
-      meta.push({
-        key: s.key,
-        label: s.label,
-        count,
-        start: offset,
-        end: offset + count - 1,
-      });
-      offset += count;
-    });
-    return meta;
-  }, [SECTIONS, plan]);
+  const phaseMeta = useMemo(() => buildBvfPhaseMeta(fieldSteps), [fieldSteps]);
   const activePhase = useMemo(
     () => phaseMeta.find((p) => currentStep >= p.start && currentStep <= p.end) || null,
     [phaseMeta, currentStep]
@@ -253,10 +252,14 @@ export default function TrainingDetails() {
     () => typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
     []
   );
-  const activePhaseGuide = useMemo(() => {
-    if (!step?.sectionKey || !data?.sessionReview) return null;
-    return sectionGuide(data.sessionReview, step.sectionKey);
-  }, [step?.sectionKey, data?.sessionReview]);
+  const activePhaseGuide = useMemo(() => step?.phaseGuide || null, [step?.phaseGuide]);
+
+  useEffect(() => {
+    if (!step?.minutes) return;
+    setDurationMin(step.minutes);
+    setSecondsLeft(step.minutes * 60);
+    setRunning(false);
+  }, [currentStep, step?.minutes, step?.drillId]);
 
   const onPrint = () => window.print();
   const fmtTime = (sec) => {
@@ -265,10 +268,33 @@ export default function TrainingDetails() {
     const ss = String(s % 60).padStart(2, "0");
     return `${mm}:${ss}`;
   };
-    const s = Math.max(0, Number(sec) || 0);
-    const mm = String(Math.floor(s / 60)).padStart(2, "0");
-    const ss = String(s % 60).padStart(2, "0");
-    return `${mm}:${ss}`;
+
+  const filteredSwapDrills = useMemo(() => {
+    const q = swapQ.trim().toLowerCase();
+    let list = swapDrills;
+    if (q) {
+      list = list.filter((d) =>
+        `${d?.title || d?.name || ""} ${d?.description || ""}`.toLowerCase().includes(q)
+      );
+    }
+    return list.slice(0, 40);
+  }, [swapDrills, swapQ]);
+
+  const onSwapDrill = async (newDrillId) => {
+    if (!step || !data?.id) return;
+    const nextPlan = replaceStepDrill(plan, step, newDrillId);
+    setSavingSwap(true);
+    try {
+      await apiJson(`/trainings/${data.id}`, { method: "PATCH", data: { plan: nextPlan } });
+      setLivePlan(nextPlan);
+      setSwapOpen(false);
+      setSwapQ("");
+      toast.success("Упражнението е сменено.");
+    } catch (e) {
+      toast.error(e?.message || "Грешка при смяна.");
+    } finally {
+      setSavingSwap(false);
+    }
   };
 
   const saveAttendanceNow = async () => {
@@ -470,7 +496,12 @@ export default function TrainingDetails() {
         <div className="fieldHeader">
           <div>
             <h1 className="fieldTitle">{data.title}</h1>
-            <div className="fieldMeta">Режим Тренировка • {fieldSteps.length} упражнения</div>
+            <div className="fieldMeta">
+              Режим зала · {fieldSteps.length} упражнения
+              {sessionReview?.recommended?.mainFocus
+                ? ` · ${sessionReview.recommended.mainFocus}${sessionReview.recommended.periodLabel ? ` · ${sessionReview.recommended.periodLabel}` : ""}`
+                : ""}
+            </div>
           </div>
           <div className="controls">
             <button className="fieldBtn" onClick={exitFieldMode}>Изход от режим</button>
@@ -484,14 +515,14 @@ export default function TrainingDetails() {
           <>
             <div className="storyProgress">
               {phaseMeta.map((p) => (
-                <div key={p.key} className={currentStep >= p.start ? "on" : ""} />
+                <div key={p.block} className={currentStep >= p.start ? "on" : ""} />
               ))}
             </div>
-            <div className="storyStrip" aria-label="Фази (story навигация)">
+            <div className="storyStrip" aria-label="BVF фази">
               {phaseMeta.map((p) => (
                 <button
-                  key={p.key}
-                  className={`storyChip ${activePhase?.key === p.key ? "active" : ""}`}
+                  key={p.block}
+                  className={`storyChip ${activePhase?.block === p.block ? "active" : ""}`}
                   onClick={() => setCurrentStep(p.start)}
                   title={`${p.label} (${p.count})`}
                 >
@@ -518,11 +549,10 @@ export default function TrainingDetails() {
               }}
             >
               <div className="fieldStep">
-                {step.sectionLabel} • {currentStep + 1}/{fieldSteps.length} • #{step.orderInSection} в секцията
-                {bvfBlockForPlanKey(step.sectionKey) ? ` • ${bvfBlockForPlanKey(step.sectionKey)}` : ""}
+                {step.bvfBlock} · {step.sectionLabel} · {currentStep + 1}/{fieldSteps.length} · {step.minutes} мин
               </div>
               {activePhaseGuide ? (
-                <SectionBvfContext guide={activePhaseGuide} bvfBlock={bvfBlockForPlanKey(step.sectionKey)} />
+                <SectionBvfContext guide={activePhaseGuide} bvfBlock={step.bvfBlock} />
               ) : null}
               <h2 className="fieldDrillTitle">{step.drill?.title || `Упражнение #${step.drillId}`}</h2>
               <div className="fieldDrillMeta">
@@ -531,6 +561,9 @@ export default function TrainingDetails() {
               <div className="fieldDrillDesc">{step.drill?.description || "Няма описание за това упражнение."}</div>
               <button className="fieldMediaBtn" onClick={() => step.drill && setModalDrill(step.drill)}>
                 🎥 Покажи видео/преглед
+              </button>
+              <button type="button" className="fieldBtn" onClick={() => setSwapOpen(true)} disabled={savingSwap}>
+                🔄 Смени упражнение
               </button>
               <div>
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>Запиши наблюдение</div>
@@ -696,14 +729,14 @@ export default function TrainingDetails() {
           <div className="storyMap" onClick={() => setStoryMapOpen(false)}>
             <div className="storyMapCard" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <strong>Story карта на тренировката</strong>
+                <strong>Карта на тренировката (4 BVF фази)</strong>
                 <button className="fieldBtn" onClick={() => setStoryMapOpen(false)}>Затвори</button>
               </div>
               {fieldSteps.map((st, idx) => (
                 <div key={`${st.sectionKey}-${st.drillId}-${idx}`} className="storyMapRow">
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {idx + 1}/{fieldSteps.length} • {st.sectionLabel}
+                      {idx + 1}/{fieldSteps.length} · {st.bvfBlock} · {st.minutes} мин
                     </div>
                     <div style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {st.drill?.title || `Упражнение #${st.drillId}`}
@@ -717,6 +750,34 @@ export default function TrainingDetails() {
                     }}
                   >
                     Отвори
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {swapOpen ? (
+          <div className="storyMap" onClick={() => !savingSwap && setSwapOpen(false)}>
+            <div className="storyMapCard" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <strong>Смени упражнение</strong>
+                <button className="fieldBtn" onClick={() => setSwapOpen(false)} disabled={savingSwap}>Затвори</button>
+              </div>
+              <input
+                value={swapQ}
+                onChange={(e) => setSwapQ(e.target.value)}
+                placeholder="Търси в базата…"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #d8e1ec", marginBottom: 8 }}
+              />
+              {filteredSwapDrills.map((d) => (
+                <div key={d.id} className="storyMapRow">
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 800 }}>{d.title || d.name}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{d.category || "—"}</div>
+                  </div>
+                  <button className="go" disabled={savingSwap} onClick={() => onSwapDrill(d.id)}>
+                    Избери
                   </button>
                 </div>
               ))}
@@ -844,21 +905,22 @@ export default function TrainingDetails() {
       ) : null}
 
       {SECTIONS.map((s) => {
-        const ids = Array.isArray(plan[s.key]) ? plan[s.key] : [];
+        const items = plan[s.key] || [];
         const guide = sectionGuide(data.sessionReview, s.key);
         return (
           <div key={s.key} className="sectionBox">
             <div className="sectionHead">
               <div className="sectionName">{s.label}</div>
-              <div className="count">{ids.length} упражнения</div>
+              <div className="count">{items.length} упражнения</div>
             </div>
             <SectionBvfContext guide={guide} bvfBlock={s.bvfBlock} />
 
-            {ids.length === 0 ? (
+            {items.length === 0 ? (
               <div className="muted" style={{ marginTop: 10 }}>Няма упражнения.</div>
             ) : (
               <div className="cards">
-                {ids.map((drillId, idx) => {
+                {items.map((item, idx) => {
+                  const drillId = item.drillId;
                   const d = drillsMap[String(drillId)] || drillsMap[drillId] || null;
 
                   const title = d?.title || `Упражнение #${drillId}`;
@@ -880,7 +942,7 @@ export default function TrainingDetails() {
 
                       <div style={{ minWidth: 0 }}>
                         <div className="cardTitle">{idx + 1}. {title}</div>
-                        <div className="muted">{meta}</div>
+                        <div className="muted">{meta}{item.minutes ? ` · ${item.minutes} мин` : ""}</div>
                         <div style={{ marginTop: 6, fontSize: 13, color: "#333" }}>{desc}</div>
                       </div>
 

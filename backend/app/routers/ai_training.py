@@ -121,31 +121,29 @@ def generate_and_save_ai_training(
         session["blocks"] = edited_blocks
         session["totalMinutes"] = int(sum(int(b.get("targetMinutes", 0) or 0) for b in edited_blocks))
     blocks = session.get("blocks", [])
-    plan: Dict[str, List[int]] = {}
+    plan: Dict[str, list] = {}
     selected_drill_ids: List[int] = []
     weighted_score_sum = 0.0
     weighted_score_count = 0
 
+    def _append_entry(section_key: str, drill: dict) -> None:
+        did = int(drill["drillId"])
+        mins = max(3, int(drill.get("minutes") or 10))
+        plan.setdefault(section_key, []).append({"drillId": did, "minutes": mins, "coachNote": ""})
+        selected_drill_ids.append(did)
+
     for block in blocks:
         block_type = block.get("blockType")
-        ids = [int(d["drillId"]) for d in block.get("drills", [])]
+        drills_in_block = block.get("drills") or []
         if block_type in {"Tactics", "Интеграция"}:
-            sr = plan.get("serve_receive", [])
-            ab = plan.get("attack_block", [])
-            for idx, did in enumerate(ids):
-                if idx % 2 == 0:
-                    if did not in sr:
-                        sr.append(did)
-                else:
-                    if did not in ab:
-                        ab.append(did)
-            plan["serve_receive"] = sr
-            plan["attack_block"] = ab
+            for idx, d in enumerate(drills_in_block):
+                key = "serve_receive" if idx % 2 == 0 else "attack_block"
+                _append_entry(key, d)
         else:
             plan_key = BLOCK_TO_PLAN_KEY.get(block_type, str(block_type or "main").lower())
-            plan[plan_key] = ids
-        selected_drill_ids.extend(ids)
-        for d in block.get("drills", []):
+            for d in drills_in_block:
+                _append_entry(plan_key, d)
+        for d in drills_in_block:
             weighted_score_sum += float(d.get("score", 0))
             weighted_score_count += 1
 

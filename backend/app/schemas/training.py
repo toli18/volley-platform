@@ -53,36 +53,19 @@ def _normalize_status(v: Any) -> TrainingStatus:
         raise ValueError("Input should be 'чернова'/'запазена' (или aliases: draft/saved).")
 
 
-def _normalize_plan(v: Any) -> Dict[str, List[int]]:
+def _normalize_plan(v: Any) -> Dict[str, List[Any]]:
     """
-    plan: dict[str, list[int]]
-    Пример:
-      { "warmup": [1,2], "game": [5] }
+    plan: dict[str, list[int | {drillId, minutes, coachNote?}]]
     """
     if v is None:
         return {}
 
     if not isinstance(v, dict):
-        raise ValueError("plan must be an object (dict) with sections -> list[int].")
+        raise ValueError("plan must be an object (dict) with sections -> list of drill refs.")
 
-    out: Dict[str, List[int]] = {}
-    for k, arr in v.items():
-        if not k:
-            continue
-        if arr is None:
-            continue
-        if not isinstance(arr, list):
-            raise ValueError(f"plan['{k}'] must be a list of drill IDs.")
-        cleaned: List[int] = []
-        for x in arr:
-            try:
-                cleaned.append(int(x))
-            except Exception:
-                continue
-        # държим само непразните секции
-        if cleaned:
-            out[str(k)] = cleaned
-    return out
+    from app.training_plan_utils import normalize_plan
+
+    return normalize_plan(v)
 
 
 class TrainingBase(BaseModel):
@@ -91,7 +74,7 @@ class TrainingBase(BaseModel):
     source: TrainingSource = TrainingSource.manual
     status: TrainingStatus = TrainingStatus.draft
 
-    plan: Dict[str, List[int]] = {}
+    plan: Dict[str, List[Any]] = {}
     notes: Optional[str] = None
 
     @field_validator("source", mode="before")
@@ -119,7 +102,7 @@ class TrainingUpdate(BaseModel):
     club_id: Optional[int] = None
     source: Optional[TrainingSource] = None
     status: Optional[TrainingStatus] = None
-    plan: Optional[Dict[str, List[int]]] = None
+    plan: Optional[Dict[str, List[Any]]] = None
     notes: Optional[str] = None
 
     @field_validator("source", mode="before")
