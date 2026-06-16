@@ -552,8 +552,12 @@ def coach_library(
         "principles": (k.get("principles") or [])[:10],
         "focus_priority": k.get("focus_priority") or [],
     }
-    cycles_rows = cq.order_by(MethodCycle.sort_order.asc()).all()
     from app.national_method.annual_program import library_tree
+    from app.national_method.content_policy import is_annual_program_cycle
+
+    cycles_rows = [
+        c for c in cq.order_by(MethodCycle.sort_order.asc()).all() if is_annual_program_cycle(c)
+    ]
 
     cycles_out = []
     for c in cycles_rows:
@@ -580,18 +584,11 @@ def coach_library(
         )
         if is_allowed_federation_drill(d, src):
             drills.append(d)
-    guidelines = (
-        db.query(MethodGuideline)
-        .filter(MethodGuideline.status == "published")
-        .order_by(MethodGuideline.sort_order.asc())
-        .all()
-    )
     return {
         "method_principles": method_principles,
         "cycles": cycles_out,
         "annual_program": library_tree(cycles_rows, band),
         "drills": [_drill_dict(d) for d in drills],
-        "guidelines": [GuidelineOut.model_validate(g) for g in guidelines],
     }
 
 

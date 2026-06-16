@@ -5,7 +5,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
-const AGE_OPTIONS = ["U13", "U14", "U15", "U16", "U17", "U18"];
+const AGE_OPTIONS = ["U14", "U15", "U16", "U17", "U18"];
 
 const PERIOD_BADGE = {
   prep: "Подготвителен",
@@ -22,9 +22,8 @@ export default function NationalLibrary() {
   const toast = useToast();
   const navigate = useNavigate();
   const [ageBand, setAgeBand] = useState("U16");
-  const [plannerMode, setPlannerMode] = useState("annual");
   const [expandedMacro, setExpandedMacro] = useState(1);
-  const [data, setData] = useState({ method_principles: null, cycles: [], annual_program: null });
+  const [annual, setAnnual] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedCell, setSelectedCell] = useState({ week: 1, day: 1 });
@@ -35,11 +34,7 @@ export default function NationalLibrary() {
       const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_LIBRARY, {
         params: { age_band: ageBand },
       });
-      setData({
-        method_principles: res.data?.method_principles || null,
-        cycles: res.data?.cycles || [],
-        annual_program: res.data?.annual_program || null,
-      });
+      setAnnual(res.data?.annual_program || null);
       setSelectedCycle(null);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при зареждане");
@@ -52,7 +47,6 @@ export default function NationalLibrary() {
     load();
   }, [load]);
 
-  const annual = data.annual_program;
   const hasAnnual = Boolean(annual?.mesos_by_macro?.[1]?.length || annual?.mesos_by_macro?.[2]?.length);
 
   const openCycle = async (id) => {
@@ -81,6 +75,11 @@ export default function NationalLibrary() {
     return maxDays || 4;
   }, [selectedCycle, weekCards]);
 
+  const cellDay = (weekRow, dayIndex) => {
+    const days = weekRow?.days || [];
+    return days.find((d) => Number(d.day) === dayIndex) || days[dayIndex - 1];
+  };
+
   const goToGenerator = (week, day) => {
     if (!selectedCycle?.id) return;
     const wk = weekCards.find((w) => Number(w.week) === Number(week));
@@ -95,18 +94,6 @@ export default function NationalLibrary() {
     if (tbSlug) params.set("textbookSlug", tbSlug);
     navigate(`/ai-generator?${params.toString()}`);
   };
-
-  const cellDay = (weekRow, dayIndex) => {
-    const days = weekRow?.days || [];
-    return days.find((d) => Number(d.day) === dayIndex) || days[dayIndex - 1];
-  };
-
-  const sidebarCycles = useMemo(() => {
-    if (plannerMode === "legacy") {
-      return annual?.legacy_cycles?.length ? annual.legacy_cycles : data.cycles.filter((c) => !c.annual_program_key);
-    }
-    return [];
-  }, [plannerMode, annual, data.cycles]);
 
   const renderMesoCard = (m) => (
     <Card
@@ -135,7 +122,7 @@ export default function NationalLibrary() {
   return (
     <div className="uiPage">
       <PageHero
-        title="Годишна програма и цикли БФВ"
+        title="Годишна програма БФВ"
         subtitle="Макро I/II → 11 мезоцикъла → седмица → тренировка. Конспекти от учебника се подават автоматично към AI."
         actions={
           <Button as={Link} to="/textbook" variant="secondary" size="sm">
@@ -147,10 +134,10 @@ export default function NationalLibrary() {
       <Card style={{ padding: 16, marginBottom: 16, background: "var(--surface-2, #f0f4ff)" }}>
         <strong>Как работи</strong>
         <ol style={{ margin: "8px 0 0 18px", lineHeight: 1.6 }}>
-          <li>Изберете възраст и мезо от годишната програма (или класически 4-седмичен шаблон).</li>
+          <li>Изберете възраст и мезо от годишната програма (от учебника БФВ).</li>
           <li>В таблицата кликнете клетка (седмица × тренировка).</li>
           <li>
-            <strong>Генерирай с AI</strong> — планът включва контекст от мезо, период и конспект от учебника.
+            <strong>Генерирай с AI</strong> — планът включва мезо, период и конспект от учебника.
           </li>
         </ol>
       </Card>
@@ -166,24 +153,8 @@ export default function NationalLibrary() {
             ))}
           </select>
         </label>
-        <div className="nationalPlannerModeToggle">
-          <button
-            type="button"
-            className={`nationalPlannerModeBtn${plannerMode === "annual" ? " nationalPlannerModeBtn--active" : ""}`}
-            onClick={() => setPlannerMode("annual")}
-          >
-            Годишна програма
-          </button>
-          <button
-            type="button"
-            className={`nationalPlannerModeBtn${plannerMode === "legacy" ? " nationalPlannerModeBtn--active" : ""}`}
-            onClick={() => setPlannerMode("legacy")}
-          >
-            Шаблони 4 седм.
-          </button>
-        </div>
-        <Button as={Link} to="/method-guidelines" variant="secondary">
-          Методически насоки
+        <Button as={Link} to="/textbook" variant="secondary">
+          Методика в учебника
         </Button>
       </div>
 
@@ -191,14 +162,14 @@ export default function NationalLibrary() {
         <div className="nationalPlannerSidebar">
           {loading && <p className="uiMuted">Зареждане...</p>}
 
-          {!loading && plannerMode === "annual" && !hasAnnual && (
+          {!loading && !hasAnnual && (
             <EmptyState
               title="Няма годишна програма"
-              description="Пуснете seed: python -m app.scripts.seed_annual_program"
+              description="На сървъра: python -m app.scripts.seed_annual_program --replace"
             />
           )}
 
-          {!loading && plannerMode === "annual" && hasAnnual && (
+          {!loading && hasAnnual && (
             <>
               {(annual.macros || []).map((macro) => (
                 <div key={macro.id} className="nationalPlannerMacroGroup">
@@ -215,50 +186,37 @@ export default function NationalLibrary() {
                 </div>
               ))}
               {annual.textbook_slug && (
-                <Button as={Link} to={`/textbook/${annual.textbook_slug}`} variant="secondary" size="sm" style={{ marginTop: 8 }}>
+                <Button
+                  as={Link}
+                  to={`/textbook/${annual.textbook_slug}`}
+                  variant="secondary"
+                  size="sm"
+                  style={{ marginTop: 8 }}
+                >
                   Периодизация в учебника
                 </Button>
               )}
             </>
           )}
-
-          {!loading && plannerMode === "legacy" && sidebarCycles.length === 0 && (
-            <EmptyState title="Няма шаблони" description="За тази възраст няма 4-седмични цикли." />
-          )}
-
-          {!loading &&
-            plannerMode === "legacy" &&
-            sidebarCycles.map((c) => (
-              <Card
-                key={c.id}
-                className={`nationalPlannerCycleCard${selectedCycle?.id === c.id ? " nationalPlannerCycleCard--active" : ""}`}
-                style={{ marginBottom: 8, padding: 12, cursor: "pointer" }}
-                onClick={() => openCycle(c.id)}
-              >
-                <strong>{c.title_bg}</strong>
-                <div className="uiMuted" style={{ fontSize: 13 }}>
-                  {c.cycle_type} · {c.weeks} седм. · {c.age_band}
-                </div>
-              </Card>
-            ))}
         </div>
 
         <Card className="nationalPlannerMain" style={{ padding: 16, minHeight: 320 }}>
-          {!selectedCycle && (
-            <p className="uiMuted">
-              {plannerMode === "annual"
-                ? "Изберете мезоцикъл от годишната програма."
-                : "Изберете 4-седмичен шаблон отляво."}
-            </p>
-          )}
+          {!selectedCycle && <p className="uiMuted">Изберете мезоцикъл от годишната програма.</p>}
 
           {selectedCycle?.cycle_type === "macro" && (
             <div>
               <h2 style={{ marginTop: 0 }}>{selectedCycle.title_bg}</h2>
               <p className="uiMuted">{selectedCycle.summary_bg}</p>
-              <p>Изберете конкретен <strong>мезоцикъл</strong> отляво, за да видите седмици и тренировки.</p>
+              <p>
+                Изберете конкретен <strong>мезоцикъл</strong> отляво, за да видите седмици и тренировки.
+              </p>
               {selectedCycle.annual_program?.textbook_reference && (
-                <Button as={Link} to={`/textbook/${selectedCycle.annual_program.textbook_reference}`} variant="secondary" size="sm">
+                <Button
+                  as={Link}
+                  to={`/textbook/${selectedCycle.annual_program.textbook_reference}`}
+                  variant="secondary"
+                  size="sm"
+                >
                   Отвори периодизацията в учебника
                 </Button>
               )}

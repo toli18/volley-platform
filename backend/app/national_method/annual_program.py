@@ -363,14 +363,16 @@ def textbook_slug_for_day(
 
 
 def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
-    """Групира цикли за UI: макро → мезо + legacy шаблони."""
+    """Групира годишна програма за UI: макро → мезо."""
     ab = age_band.upper()
     macros: list[dict[str, Any]] = []
     mesos_by_macro: dict[int, list[dict[str, Any]]] = {1: [], 2: []}
-    legacy: list[dict[str, Any]] = []
 
     for c in cycles:
         s = getattr(c, "structure_json", None) or {}
+        key = s.get("annual_program_key") or ""
+        if not key.startswith(f"{ab}-"):
+            continue
         row = {
             "id": c.id,
             "title_bg": c.title_bg,
@@ -383,17 +385,13 @@ def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
             "macro_id": s.get("macro_id"),
             "period": s.get("period"),
             "period_label": s.get("period_label") or PERIOD_LABELS.get(s.get("period") or ""),
-            "annual_program_key": s.get("annual_program_key"),
+            "annual_program_key": key,
         }
-        key = s.get("annual_program_key") or ""
-        if c.cycle_type == "macro" and key.startswith(f"{ab}-macro"):
+        if c.cycle_type == "macro":
             macros.append(row)
-        elif c.cycle_type == "meso" and key.startswith(f"{ab}-meso"):
+        elif c.cycle_type == "meso":
             mid = s.get("macro_id") or 1
             mesos_by_macro.setdefault(mid, []).append(row)
-        elif not key.startswith(f"{ab}-meso") and not key.startswith(f"{ab}-macro"):
-            if c.age_band in (ab, "all"):
-                legacy.append(row)
 
     macros.sort(key=lambda x: x.get("sort_order", 0))
     for mid in mesos_by_macro:
@@ -403,7 +401,6 @@ def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
         "age_band": ab,
         "macros": macros,
         "mesos_by_macro": mesos_by_macro,
-        "legacy_cycles": legacy,
         "meso_count": len(MESO_DEFINITIONS),
         "textbook_slug": "periodizatsiya-na-trenirovachniya-protses",
     }

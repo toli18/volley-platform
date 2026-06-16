@@ -73,6 +73,7 @@ export default function Textbook() {
   const query = searchParams.get("q") || "";
   const ageFilter = searchParams.get("age") || "all";
   const partFilter = searchParams.get("part") || "";
+  const categoryFilter = searchParams.get("category") || "";
 
   const loadIndex = useCallback(async () => {
     try {
@@ -81,6 +82,7 @@ export default function Textbook() {
       if (query) params.q = query;
       if (ageFilter && ageFilter !== "all") params.age_band = ageFilter;
       if (partFilter) params.part = partFilter;
+      if (categoryFilter) params.category = categoryFilter;
       const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_TEXTBOOK, { params });
       setIndex(res.data);
     } catch (e) {
@@ -88,7 +90,7 @@ export default function Textbook() {
     } finally {
       setLoadingIndex(false);
     }
-  }, [query, ageFilter, partFilter, toast]);
+  }, [query, ageFilter, partFilter, categoryFilter, toast]);
 
   const loadSection = useCallback(async (slug) => {
     if (!slug) {
@@ -127,7 +129,7 @@ export default function Textbook() {
   };
 
   const searchResults = index?.search_results;
-  const showSearch = Boolean(query || (ageFilter && ageFilter !== "all") || partFilter);
+  const showSearch = Boolean(query || (ageFilter && ageFilter !== "all") || partFilter || categoryFilter);
 
   const goToGenerator = () => {
     if (!section?.ai_params) return;
@@ -145,14 +147,9 @@ export default function Textbook() {
         title="Учебник БФВ"
         subtitle="Официална методика — принципи, периодизация, техника и готови план-конспекти. Свързано с AI генератора."
         actions={
-          <>
-            <Button as={Link} to="/method-guidelines" variant="secondary" size="sm">
-              Насоки
-            </Button>
-            <Button as={Link} to="/national-library" variant="secondary" size="sm">
-              Цикли
-            </Button>
-          </>
+          <Button as={Link} to="/national-library" variant="secondary" size="sm">
+            Годишна програма
+          </Button>
         }
       />
 
@@ -176,6 +173,14 @@ export default function Textbook() {
           {(index?.filters?.parts || []).map((p) => (
             <option key={p.id} value={p.id}>
               {p.label}
+            </option>
+          ))}
+        </select>
+        <select className="uiInput" value={categoryFilter} onChange={(e) => updateFilter("category", e.target.value)}>
+          <option value="">Всички категории</option>
+          {(index?.filters?.categories || []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
             </option>
           ))}
         </select>

@@ -196,6 +196,15 @@ def init_db() -> None:
 
                 build_ai_knowledge()
                 print("✅ AI knowledge от учебника")
+                from app.scripts.seed_annual_program import seed_annual_program
+
+                ap_stats = seed_annual_program(db, replace=True)
+                print(f"✅ Годишна програма: {ap_stats}")
+                from app.national_method.content_policy import purge_pre_textbook_method
+
+                purge_stats = purge_pre_textbook_method(db, dry_run=False)
+                db.commit()
+                print(f"✅ Почистване legacy методика: {purge_stats}")
             else:
                 print("ℹ️ bvf_textbook_bg.txt липсва — пропуск учебник импорт")
         except Exception as exc:
