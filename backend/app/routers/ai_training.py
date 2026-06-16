@@ -155,6 +155,9 @@ def generate_and_save_ai_training(
     status_input = (payload.trainingStatus or "чернова").strip().lower()
     training_status = TrainingStatus.saved if status_input in {"saved", "запазена"} else TrainingStatus.draft
 
+    request_data["sessionReview"] = generated.get("sessionReview")
+    request_data["trainingPlanText"] = generated.get("trainingPlanText")
+
     training = Training(
         title=title,
         coach_id=user.id,

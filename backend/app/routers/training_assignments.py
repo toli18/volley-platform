@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Drill, Training, TrainingAssignment, User, UserRole
+from app.national_method.bvf_ai_knowledge import method_context_from_stored_request
 
 router = APIRouter()
 
@@ -278,6 +279,8 @@ def assigned_training_details(
         for d in drills:
             drills_map[int(d.id)] = d
 
+    method_ctx = method_context_from_stored_request(training.generation_request, db)
+
     return {
         "id": training.id,
         "title": training.title,
@@ -290,6 +293,8 @@ def assigned_training_details(
         "created_at": training.created_at,
         "updated_at": training.updated_at,
         "drills": drills_map,
+        "sessionReview": method_ctx.get("sessionReview"),
+        "trainingPlanText": method_ctx.get("trainingPlanText"),
         "assignment_id": assignment.id if assignment else None,
         "assignment_status": assignment.status if assignment else None,
         "assignment_due_date": assignment.due_date if assignment else None,

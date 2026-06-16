@@ -169,3 +169,5 @@ class DrillMini(BaseModel):
 
 class TrainingReadDetailed(TrainingRead):
     drills: Dict[int, DrillMini] = {}
+    sessionReview: Optional[Dict[str, Any]] = None
+    trainingPlanText: Optional[str] = None

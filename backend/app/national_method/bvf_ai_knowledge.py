@@ -791,3 +791,29 @@ def attach_text_drills(session: dict[str, Any], request_data: dict[str, Any], mi
             )
         if text_drills:
             block["textDrills"] = text_drills
+
+
+def method_context_from_stored_request(
+    gen_req: dict[str, Any] | None,
+    db=None,
+) -> dict[str, Any]:
+    """sessionReview + trainingPlanText от записана AI генерация (или rebuild от цикъл)."""
+    if not gen_req or not isinstance(gen_req, dict):
+        return {}
+    if gen_req.get("sessionReview"):
+        return {
+            "sessionReview": gen_req["sessionReview"],
+            "trainingPlanText": gen_req.get("trainingPlanText"),
+        }
+    bvf = gen_req.get("bvfKnowledge") or {}
+    if bvf.get("sessionReview"):
+        return {
+            "sessionReview": bvf["sessionReview"],
+            "trainingPlanText": gen_req.get("trainingPlanText"),
+        }
+    if db and (gen_req.get("cycleId") or gen_req.get("textbookSlug") or gen_req.get("ageBand")):
+        enriched = enrich_request(dict(gen_req), db)
+        sr = (enriched.get("bvfKnowledge") or {}).get("sessionReview")
+        if sr:
+            return {"sessionReview": sr, "trainingPlanText": gen_req.get("trainingPlanText")}
+    return {}

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..dependencies.roles import require_role
 from ..models import Training, TrainingAssignment, UserRole, User, Drill
+from ..national_method.bvf_ai_knowledge import method_context_from_stored_request
 from ..schemas.training import (
     TrainingCreate,
     TrainingRead,
@@ -134,6 +135,8 @@ def get_training_details(
         for d in drills:
             drills_map[int(d.id)] = d
 
+    method_ctx = method_context_from_stored_request(training.generation_request, db)
+
     return {
         "id": training.id,
         "title": training.title,
@@ -146,6 +149,8 @@ def get_training_details(
         "created_at": training.created_at,
         "updated_at": training.updated_at,
         "drills": drills_map,
+        "sessionReview": method_ctx.get("sessionReview"),
+        "trainingPlanText": method_ctx.get("trainingPlanText"),
     }
 
 
