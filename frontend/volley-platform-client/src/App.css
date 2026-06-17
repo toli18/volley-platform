@@ -5574,6 +5574,125 @@
   outline-offset: 0;
 }
 
+.teamRoomChatGif {
+  display: block;
+  max-width: 220px;
+  width: 100%;
+  border-radius: 10px;
+  margin: 2px 0;
+}
+
+.teamPortalCoachChatGif {
+  display: block;
+  max-width: 200px;
+  width: 100%;
+  border-radius: 10px;
+  margin: 4px 0 0;
+}
+
+/* Chat composer tools (emoji + GIF picker) */
+.chatTools {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.chatToolBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.chatToolBtn--gif {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: 0.02em;
+}
+.chatToolBtn:hover:not(:disabled) { border-color: #2563eb; }
+.chatToolBtn--active { border-color: #2563eb; background: #eff6ff; }
+.chatToolBtn:disabled { opacity: 0.5; cursor: default; }
+
+.chatPickerPopover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  padding: 10px;
+}
+
+.chatPickerPopover--emoji {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  width: 296px;
+  max-width: 80vw;
+}
+
+.chatEmojiBtn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 6px;
+  border-radius: 8px;
+}
+.chatEmojiBtn:hover { background: #f1f5f9; }
+
+.chatPickerPopover--gif {
+  width: 320px;
+  max-width: 86vw;
+}
+.chatPickerTitle {
+  margin: 2px 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+.chatGifGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.chatGifThumbBtn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chatGifThumbBtn:hover { border-color: #2563eb; }
+.chatGifThumbBtn img {
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+}
+.chatGifThumbBtn span {
+  font-size: 11px;
+  color: #475569;
+  padding: 3px 0;
+  text-align: center;
+}
+
 .teamPortalCoachChat {
   margin-top: 16px;
   display: flex;

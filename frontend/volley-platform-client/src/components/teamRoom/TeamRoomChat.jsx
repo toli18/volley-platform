@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { buildGifBody, chatPreview, parseChatBody } from "../../utils/chatContent";
+import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, EmptyState } from "../ui";
 
 function formatChatTime(iso) {
@@ -58,7 +60,7 @@ function ChannelListBody({ channels, retentionDays, onPick }) {
               <span className="teamRoomChatChannelMain">
                 <span className="teamRoomChatChannelName">{ch.team_name}</span>
                 {ch.last_message_preview ? (
-                  <span className="teamRoomChatChannelPreview">{ch.last_message_preview}</span>
+                  <span className="teamRoomChatChannelPreview">{chatPreview(ch.last_message_preview)}</span>
                 ) : (
                   <span className="teamRoomChatChannelPreview teamRoomMuted">Няма съобщения</span>
                 )}
@@ -92,7 +94,15 @@ function ChatBubble({ msg, bubbleRef }) {
       }`}
     >
       {!msg.is_mine ? <span className="teamRoomChatSender">{msg.sender_label}</span> : null}
-      <p className="teamRoomChatBody">{msg.body}</p>
+      {(() => {
+        const parsed = parseChatBody(msg.body);
+        if (parsed.type === "gif") {
+          return (
+            <img className="teamRoomChatGif" src={parsed.url} alt="GIF" loading="lazy" />
+          );
+        }
+        return <p className="teamRoomChatBody">{msg.body}</p>;
+      })()}
       <time className="teamRoomChatTime" dateTime={msg.created_at}>
         {formatChatTime(msg.created_at)}
       </time>
@@ -112,6 +122,8 @@ function ThreadView({
   sending,
   onBack,
   onSend,
+  onInsertEmoji,
+  onPickGif,
   onCoachBubbleRef,
 }) {
   return (
@@ -130,6 +142,7 @@ function ThreadView({
       {error ? <p className="teamRoomChatError">{error}</p> : null}
       <MessagesList listRef={listRef} messages={messages} onCoachBubbleRef={onCoachBubbleRef} />
       <form className="teamRoomChatComposer" onSubmit={onSend}>
+        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGif={onPickGif} disabled={sending} />
         <input
           type="text"
           className="teamRoomChatInput"
@@ -324,6 +337,30 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
     }
   };
 
+  const handleSendGif = async (gifId) => {
+    if (!gifId || !selectedTeamId || sending) return;
+    try {
+      setSending(true);
+      setError("");
+      const res = await axiosInstance.post(API_PATHS.ATHLETE_ROOM_CHAT_MESSAGES(selectedTeamId), {
+        body: buildGifBody(gifId),
+      });
+      if (res.data) {
+        setMessages((prev) => [...prev, res.data]);
+      }
+      loadChannels({ silent: true });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Съобщението не беше изпратено.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleInsertEmoji = (emoji) => {
+    setDraft((prev) => (prev.length >= 2000 ? prev : `${prev}${emoji}`));
+  };
+
   const handlePickChannel = (teamId) => {
     setSelectedTeamId(teamId);
     setMessages([]);
@@ -388,6 +425,8 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
       sending={sending}
       onBack={handleBack}
       onSend={handleSend}
+      onInsertEmoji={handleInsertEmoji}
+      onPickGif={handleSendGif}
       onCoachBubbleRef={handleCoachBubbleRef}
     />
   );

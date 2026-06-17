@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { buildGifBody, parseChatBody } from "../../utils/chatContent";
+import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, Card, Input } from "../ui";
 
 const RETENTION_DAYS = 15;
@@ -161,6 +163,27 @@ export default function TeamPortalCoachChat({ teamId }) {
     }
   };
 
+  const handleSendGif = async (gifId) => {
+    if (!gifId || !teamId || busy) return;
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.TEAM_CHAT_MESSAGES(teamId), {
+        body: buildGifBody(gifId),
+      });
+      if (res.data) {
+        setMessages((prev) => [...prev, res.data]);
+      } else {
+        await load();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleInsertEmoji = (emoji) => {
+    setDraft((prev) => (prev.length >= 2000 ? prev : `${prev}${emoji}`));
+  };
+
   const handleDelete = async (messageId) => {
     if (!teamId || busy) return;
     try {
@@ -185,6 +208,8 @@ export default function TeamPortalCoachChat({ teamId }) {
         draft={draft}
         setDraft={setDraft}
         onSend={handleSend}
+        onInsertEmoji={handleInsertEmoji}
+        onPickGif={handleSendGif}
       />
       {readTarget ? (
         <ChatReadSheet teamId={teamId} message={readTarget} onClose={() => setReadTarget(null)} />
@@ -193,7 +218,7 @@ export default function TeamPortalCoachChat({ teamId }) {
   );
 }
 
-function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend }) {
+function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGif }) {
   return (
     <div className="teamPortalCoachChat">
       <div className="teamPortalCoachChatMessages" ref={listRef}>
@@ -210,7 +235,13 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
               }`}
             >
               <strong style={{ fontSize: 12 }}>{msg.sender_label}</strong>
-              <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{msg.body}</p>
+              {(() => {
+                const parsed = parseChatBody(msg.body);
+                if (parsed.type === "gif") {
+                  return <img className="teamPortalCoachChatGif" src={parsed.url} alt="GIF" loading="lazy" />;
+                }
+                return <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{msg.body}</p>;
+              })()}
               <div className="teamPortalCoachChatMeta">
                 <span>{formatTime(msg.created_at)}</span>
                 <div className="teamPortalCoachChatMetaActions">
@@ -242,6 +273,7 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
         )}
       </div>
       <form className="teamPortalCoachChatComposer" onSubmit={onSend}>
+        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGif={onPickGif} disabled={busy} />
         <Input
           as="textarea"
           rows={2}
