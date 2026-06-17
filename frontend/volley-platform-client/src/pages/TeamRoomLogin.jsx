@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { parentLoginPath } from "../utils/parentAuth";
 import { setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
+import LoginIntro from "../components/auth/LoginIntro";
 
 function TeamRoomLoginShell({ children }) {
   return (
@@ -65,6 +66,7 @@ export default function TeamRoomLogin() {
 
   return (
     <TeamRoomLoginShell>
+      <LoginIntro visibleMs={1800} fadeMs={600} />
       <div className="teamRoomLoginPage">
         <header className="teamRoomHero">
           <h1 className="teamRoomHeroTitle">Вход в отборната стая</h1>

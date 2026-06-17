@@ -9,6 +9,7 @@ import TeamRoomHomeAlerts from "../components/teamRoom/TeamRoomHomeAlerts";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
+import LoginIntro from "../components/auth/LoginIntro";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
@@ -272,6 +273,7 @@ export default function TeamRoomPortal() {
 
   return (
     <TeamRoomLayout bottomNav={bottomNav} headerActions={headerActions}>
+      <LoginIntro visibleMs={1800} fadeMs={600} />
       <div className="teamRoomPage">
         {loading ? <p className="teamRoomMuted">Зареждане...</p> : null}
         {!loading && error ? (

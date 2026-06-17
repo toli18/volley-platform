@@ -6,6 +6,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { parentPortalPath, setParentToken } from "../utils/parentAuth";
 import { teamRoomLoginPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
+import LoginIntro from "../components/auth/LoginIntro";
 
 function ParentLoginShell({ children }) {
   return (
@@ -70,6 +71,7 @@ export default function ParentLogin() {
 
   return (
     <ParentLoginShell>
+      <LoginIntro />
       <div className="parentPortalPage parentLoginPage">
         <header className="parentPortalHero">
           <h1 className="parentPortalHeroTitle">Родителски профил</h1>
