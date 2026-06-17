@@ -3,8 +3,10 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
+import MobileDrawer from "../components/shell/MobileDrawer";
 import { useToast } from "../components/ToastProvider";
 import { NATIONAL_LIBRARY_AGE_OPTIONS } from "../utils/ageBands";
+import useMediaQuery from "../utils/useMediaQuery";
 
 const PERIOD_BADGE = {
   prep: "Подготвителен",
@@ -27,6 +29,8 @@ export default function NationalLibrary() {
   const [loading, setLoading] = useState(true);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedCell, setSelectedCell] = useState({ week: 1, day: 1 });
+  const [mesoDrawerOpen, setMesoDrawerOpen] = useState(false);
+  const isMobileLayout = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
     const band = searchParams.get("ageBand");
@@ -84,6 +88,7 @@ export default function NationalLibrary() {
         week: firstWeek ? Number(firstWeek) : 1,
         day: firstDay ? Number(firstDay) : 1,
       });
+      if (isMobileLayout) setMesoDrawerOpen(false);
       return res.data;
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при цикъл");
@@ -147,6 +152,93 @@ export default function NationalLibrary() {
     </Card>
   );
 
+  const renderMesoSidebar = () => (
+    <>
+      {loading && <p className="uiMuted">Зареждане...</p>}
+
+      {!loading && !hasAnnual && (
+        <EmptyState
+          title="Годишната програма се зарежда"
+          description="Данните идват от учебника БФВ. Опитайте U16 или U18, или презаредете след минута. Ако проблемът остане — свържете се с администратор."
+        />
+      )}
+
+      {!loading && hasAnnual && (
+        <>
+          {(annual.macros || []).map((macro) => (
+            <div key={macro.id} className="nationalPlannerMacroGroup">
+              <button
+                type="button"
+                className="nationalPlannerMacroHead"
+                onClick={() => setExpandedMacro(macro.macro_id || macro.id)}
+              >
+                <span>{macro.title_bg}</span>
+                <span className="uiMuted">{expandedMacro === (macro.macro_id || 1) ? "▾" : "▸"}</span>
+              </button>
+              {expandedMacro === (macro.macro_id || 1) &&
+                (annual.mesos_by_macro?.[macro.macro_id || 1] || []).map(renderMesoCard)}
+            </div>
+          ))}
+          {annual.textbook_slug && (
+            <Button
+              as={Link}
+              to={`/textbook/${annual.textbook_slug}`}
+              variant="secondary"
+              size="sm"
+              style={{ marginTop: 8 }}
+              onClick={() => setMesoDrawerOpen(false)}
+            >
+              Периодизация в учебника
+            </Button>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  const renderMobileWeeks = () => (
+    <div className="nationalPlannerMobileWeeks">
+      {weekCards.map((w) => (
+        <div key={w.week} className="nationalPlannerMobileWeek">
+          <div className="nationalPlannerMobileWeekHead">
+            Седмица {w.week}
+            <span className="nationalPlannerMobileWeekMeta">{w.theme}</span>
+            {w.load ? <span className="nationalPlannerMobileWeekMeta">{w.load}</span> : null}
+          </div>
+          <div className="nationalPlannerMobileDays">
+            {Array.from({ length: slotCount }, (_, i) => {
+              const dayNum = i + 1;
+              const day = cellDay(w, dayNum);
+              const isSelected =
+                Number(selectedCell.week) === Number(w.week) && Number(selectedCell.day) === dayNum;
+              if (!day) {
+                return (
+                  <div key={dayNum} className="uiMuted" style={{ fontSize: 13, padding: "4px 2px" }}>
+                    Тренировка {dayNum}: —
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={dayNum}
+                  type="button"
+                  className={`nationalPlannerCell${isSelected ? " nationalPlannerCell--selected" : ""}`}
+                  onClick={() => setSelectedCell({ week: w.week, day: dayNum })}
+                >
+                  <span className="nationalPlannerCell__label">{day.label || `Тренировка ${dayNum}`}</span>
+                  <span className="nationalPlannerCell__theme">{day.theme}</span>
+                  {day.session_code ? (
+                    <span className="nationalPlannerCell__plan uiMuted">{day.session_code}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="uiPage">
       <PageHero
@@ -191,47 +283,14 @@ export default function NationalLibrary() {
         </Button>
       </div>
 
+      <div className="mobilePageToolbar">
+        <button type="button" className="mobilePageToolbarBtn mobilePageToolbarBtn--primary" onClick={() => setMesoDrawerOpen(true)}>
+          {selectedCycle ? `Мезо ${selectedCycle.annual_program?.meso_number || "?"}` : "Избери мезоцикъл"}
+        </button>
+      </div>
+
       <div className="nationalPlannerLayout">
-        <div className="nationalPlannerSidebar">
-          {loading && <p className="uiMuted">Зареждане...</p>}
-
-          {!loading && !hasAnnual && (
-            <EmptyState
-              title="Годишната програма се зарежда"
-              description="Данните идват от учебника БФВ. Опитайте U16 или U18, или презаредете след минута. Ако проблемът остане — свържете се с администратор."
-            />
-          )}
-
-          {!loading && hasAnnual && (
-            <>
-              {(annual.macros || []).map((macro) => (
-                <div key={macro.id} className="nationalPlannerMacroGroup">
-                  <button
-                    type="button"
-                    className="nationalPlannerMacroHead"
-                    onClick={() => setExpandedMacro(macro.macro_id || macro.id)}
-                  >
-                    <span>{macro.title_bg}</span>
-                    <span className="uiMuted">{expandedMacro === (macro.macro_id || 1) ? "▾" : "▸"}</span>
-                  </button>
-                  {expandedMacro === (macro.macro_id || macro.id) &&
-                    (annual.mesos_by_macro?.[macro.macro_id || 1] || []).map(renderMesoCard)}
-                </div>
-              ))}
-              {annual.textbook_slug && (
-                <Button
-                  as={Link}
-                  to={`/textbook/${annual.textbook_slug}`}
-                  variant="secondary"
-                  size="sm"
-                  style={{ marginTop: 8 }}
-                >
-                  Периодизация в учебника
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+        <div className="nationalPlannerSidebar nationalPlannerSidebarHost--desktop">{renderMesoSidebar()}</div>
 
         <Card className="nationalPlannerMain" style={{ padding: 16, minHeight: 320 }}>
           {!selectedCycle && <p className="uiMuted">Изберете мезоцикъл от годишната програма.</p>}
@@ -288,7 +347,9 @@ export default function NationalLibrary() {
                 {selectedCycle.ai_hint}
               </p>
 
-              <div className="nationalPlannerTableWrap">
+              {renderMobileWeeks()}
+
+              <div className="nationalPlannerTableWrap nationalPlannerTableWrap--desktop">
                 <table className="nationalPlannerTable">
                   <thead>
                     <tr>
@@ -343,6 +404,7 @@ export default function NationalLibrary() {
                     ))}
                   </tbody>
                 </table>
+                <p className="nationalPlannerScrollHint">На широк екран плъзнете таблицата хоризонтално, ако не се вижда изцяло.</p>
               </div>
 
               {selectedCell.week && selectedCell.day && (
@@ -387,6 +449,10 @@ export default function NationalLibrary() {
           )}
         </Card>
       </div>
+
+      <MobileDrawer open={mesoDrawerOpen} onClose={() => setMesoDrawerOpen(false)} title="Мезоцикли">
+        <div className="nationalPlannerSidebar">{renderMesoSidebar()}</div>
+      </MobileDrawer>
     </div>
   );
 }

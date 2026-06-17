@@ -3,7 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, EmptyState, PageHero } from "../components/ui";
+import MobileDrawer from "../components/shell/MobileDrawer";
 import { useToast } from "../components/ToastProvider";
+import useMediaQuery from "../utils/useMediaQuery";
 import {
   PLAN_BAND_LABELS,
   PLAN_BAND_ORDER,
@@ -74,6 +76,8 @@ export default function Textbook() {
   const [loadingIndex, setLoadingIndex] = useState(true);
   const [loadingSection, setLoadingSection] = useState(false);
   const [expandedPlanBands, setExpandedPlanBands] = useState(() => new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobileLayout = useMediaQuery("(max-width: 768px)");
 
   const sortedPlanBands = useMemo(() => {
     const byAge = index?.session_plans_by_age || {};
@@ -143,7 +147,92 @@ export default function Textbook() {
 
   const openSlug = (slug) => {
     navigate(`/textbook/${slug}`);
+    if (isMobileLayout) setSidebarOpen(false);
   };
+
+  const renderSidebarNav = () => (
+    <>
+      {loadingIndex && <p className="methodHubMuted">Зареждане…</p>}
+
+      {showSearch && searchResults && (
+        <div className="textbookSidebarBlock">
+          <div className="methodHubNavGroupTitle">Резултати ({searchResults.length})</div>
+          {searchResults.length === 0 && <p className="methodHubMuted">Няма съвпадения.</p>}
+          {searchResults.map((s) => (
+            <button
+              key={s.slug}
+              type="button"
+              className={`methodHubNavItem${activeSlug === s.slug ? " methodHubNavItem--active" : ""}`}
+              onClick={() => openSlug(s.slug)}
+            >
+              <span className="textbookNavTitle">{titleCase(s.title_bg)}</span>
+              {s.session_code && <span className="textbookNavMeta">{s.session_code}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!showSearch &&
+        (index?.navigation || []).map((group) => (
+          <div key={group.id} className="methodHubNavGroup">
+            <div className="methodHubNavGroupTitle">{group.title}</div>
+            {(group.sections || []).map((s) => (
+              <button
+                key={s.slug}
+                type="button"
+                className={`methodHubNavItem${activeSlug === s.slug ? " methodHubNavItem--active" : ""}`}
+                onClick={() => openSlug(s.slug)}
+              >
+                <span className="textbookNavTitle">{titleCase(s.title_bg)}</span>
+                {s.kind === "session_plan" && s.session_code && (
+                  <span className="textbookNavMeta">{s.session_code}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        ))}
+
+      {!showSearch && index?.session_plans_by_age && sortedPlanBands.length > 0 && (
+        <div className="textbookSidebarBlock">
+          <div className="methodHubNavGroupTitle">
+            Бърз достъп — конспекти (
+            {Object.values(index.session_plans_by_age)
+              .flat()
+              .filter(Boolean).length}
+            )
+          </div>
+          {sortedPlanBands.map((band) => {
+            const plans = index.session_plans_by_age[band] || [];
+            const expanded = expandedPlanBands.has(band);
+            const visible = expanded ? plans : plans.slice(0, QUICK_PLAN_PREVIEW);
+            const hiddenCount = Math.max(0, plans.length - QUICK_PLAN_PREVIEW);
+            return (
+              <div key={band} className="textbookQuickAge">
+                <span className="textbookQuickAge__label">
+                  {PLAN_BAND_LABELS[band] || band} · {plans.length}
+                </span>
+                {visible.map((p) => (
+                  <button
+                    key={p.slug}
+                    type="button"
+                    className={`methodHubNavItem methodHubNavItem--compact${activeSlug === p.slug ? " methodHubNavItem--active" : ""}`}
+                    onClick={() => openSlug(p.slug)}
+                  >
+                    {p.session_code || titleCase(p.title_bg)}
+                  </button>
+                ))}
+                {hiddenCount > 0 ? (
+                  <button type="button" className="textbookQuickAge__toggle" onClick={() => togglePlanBand(band)}>
+                    {expanded ? "По-малко" : `+${hiddenCount} още`}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
 
   const updateFilter = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -210,92 +299,14 @@ export default function Textbook() {
         </select>
       </div>
 
+      <div className="mobilePageToolbar">
+        <button type="button" className="mobilePageToolbarBtn mobilePageToolbarBtn--primary" onClick={() => setSidebarOpen(true)}>
+          ≡ Съдържание
+        </button>
+      </div>
+
       <div className="methodHubLayout textbookLayout">
-        <aside className="methodHubSidebar textbookSidebar">
-          {loadingIndex && <p className="methodHubMuted">Зареждане…</p>}
-
-          {showSearch && searchResults && (
-            <div className="textbookSidebarBlock">
-              <div className="methodHubNavGroupTitle">Резултати ({searchResults.length})</div>
-              {searchResults.length === 0 && <p className="methodHubMuted">Няма съвпадения.</p>}
-              {searchResults.map((s) => (
-                <button
-                  key={s.slug}
-                  type="button"
-                  className={`methodHubNavItem${activeSlug === s.slug ? " methodHubNavItem--active" : ""}`}
-                  onClick={() => openSlug(s.slug)}
-                >
-                  <span className="textbookNavTitle">{titleCase(s.title_bg)}</span>
-                  {s.session_code && <span className="textbookNavMeta">{s.session_code}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!showSearch &&
-            (index?.navigation || []).map((group) => (
-              <div key={group.id} className="methodHubNavGroup">
-                <div className="methodHubNavGroupTitle">{group.title}</div>
-                {(group.sections || []).map((s) => (
-                  <button
-                    key={s.slug}
-                    type="button"
-                    className={`methodHubNavItem${activeSlug === s.slug ? " methodHubNavItem--active" : ""}`}
-                    onClick={() => openSlug(s.slug)}
-                  >
-                    <span className="textbookNavTitle">{titleCase(s.title_bg)}</span>
-                    {s.kind === "session_plan" && s.session_code && (
-                      <span className="textbookNavMeta">{s.session_code}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            ))}
-
-          {!showSearch && index?.session_plans_by_age && sortedPlanBands.length > 0 && (
-            <div className="textbookSidebarBlock">
-              <div className="methodHubNavGroupTitle">
-                Бърз достъп — конспекти (
-                {Object.values(index.session_plans_by_age)
-                  .flat()
-                  .filter(Boolean).length}
-                )
-              </div>
-              {sortedPlanBands.map((band) => {
-                const plans = index.session_plans_by_age[band] || [];
-                const expanded = expandedPlanBands.has(band);
-                const visible = expanded ? plans : plans.slice(0, QUICK_PLAN_PREVIEW);
-                const hiddenCount = Math.max(0, plans.length - QUICK_PLAN_PREVIEW);
-                return (
-                  <div key={band} className="textbookQuickAge">
-                    <span className="textbookQuickAge__label">
-                      {PLAN_BAND_LABELS[band] || band} · {plans.length}
-                    </span>
-                    {visible.map((p) => (
-                      <button
-                        key={p.slug}
-                        type="button"
-                        className={`methodHubNavItem methodHubNavItem--compact${activeSlug === p.slug ? " methodHubNavItem--active" : ""}`}
-                        onClick={() => openSlug(p.slug)}
-                      >
-                        {p.session_code || titleCase(p.title_bg)}
-                      </button>
-                    ))}
-                    {hiddenCount > 0 ? (
-                      <button
-                        type="button"
-                        className="textbookQuickAge__toggle"
-                        onClick={() => togglePlanBand(band)}
-                      >
-                        {expanded ? "По-малко" : `+${hiddenCount} още`}
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </aside>
+        <aside className="methodHubSidebar textbookSidebar mobileSidebarHost--desktopOnly">{renderSidebarNav()}</aside>
 
         <main className="methodHubMain textbookMain">
           {!activeSlug && !loadingIndex && (
@@ -421,6 +432,10 @@ export default function Textbook() {
           )}
         </main>
       </div>
+
+      <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} title="Съдържание на учебника">
+        <aside className="methodHubSidebar textbookSidebar methodHubSidebar--inline">{renderSidebarNav()}</aside>
+      </MobileDrawer>
     </div>
   );
 }

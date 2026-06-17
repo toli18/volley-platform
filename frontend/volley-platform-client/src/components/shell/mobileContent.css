@@ -1,0 +1,248 @@
+/* Shared mobile drawer + content page mobile fixes */
+
+.mobileDrawerRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 650;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
+}
+
+.mobileDrawerBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.mobileDrawerSheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(88vh, 720px);
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobileDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.mobileDrawerClose {
+  border: 1px solid #dbe5f2;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mobileDrawerBody {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 20px;
+  flex: 1;
+}
+
+.mobilePageToolbar {
+  display: none;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mobilePageToolbarBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.mobilePageToolbarBtn--primary {
+  border-color: #0c6a47;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.mobileSidebarHost--desktopOnly {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .mobilePageToolbar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .mobileSidebarHost--desktopOnly {
+    display: none !important;
+  }
+
+  .methodHubSidebar--inline {
+    position: static;
+    max-height: none;
+    top: auto;
+  }
+
+  .nationalPlannerLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nationalPlannerMain {
+    order: 1;
+  }
+
+  .nationalPlannerSidebarHost--desktop {
+    display: none !important;
+  }
+
+  .nationalPlannerMobileWeeks {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .nationalPlannerMobileWeek {
+    border: 1px solid #dbe5f2;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .nationalPlannerMobileWeekHead {
+    padding: 10px 12px;
+    background: #f0f4ff;
+    border-bottom: 1px solid #dbe5f2;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  .nationalPlannerMobileWeekMeta {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .nationalPlannerMobileDays {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .nationalPlannerTableWrap--desktop {
+    display: none !important;
+  }
+
+  .nationalPlannerScrollHint {
+    display: none;
+  }
+
+  .textbookToolbar select {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .textbookMain {
+    padding: 14px 12px !important;
+  }
+
+  .uiPage {
+    min-width: 0;
+    overflow-x: clip;
+  }
+}
+
+@media (min-width: 769px) {
+  .nationalPlannerMobileWeeks {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .nationalPlannerTableWrap--desktop {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .nationalPlannerScrollHint {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin: 8px 0 0;
+  }
+}
+
+.nationalPlannerTableWrap .nationalPlannerTable {
+  min-width: 560px;
+}
+
+.nationalPlannerTableWrap {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Header utility panels — bottom sheet on phone */
+.appHeaderUtilBackdrop {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .appHeaderUtilBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 8998;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.4);
+    cursor: pointer;
+  }
+
+  .appHeaderUtilWrap .navShellPanel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    top: auto;
+    width: auto;
+    max-height: min(72vh, 520px);
+    z-index: 8999;
+  }
+
+  .profileMenu__dropdown {
+    position: fixed;
+    right: 12px;
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    left: auto;
+    width: min(280px, calc(100vw - 24px));
+  }
+}

@@ -44,6 +44,23 @@ export default function AppHeader() {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  const utilityPanelOpen = tasksOpen || notificationsOpen;
+
+  useEffect(() => {
+    if (!utilityPanelOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [utilityPanelOpen]);
+
+  useEffect(() => {
     if (!mobileNavOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -95,6 +112,14 @@ export default function AppHeader() {
             </Link>
           ) : (
             <>
+              {utilityPanelOpen ? (
+                <button
+                  type="button"
+                  className="appHeaderUtilBackdrop"
+                  aria-label="Затвори панела"
+                  onClick={closePanels}
+                />
+              ) : null}
               {isCoachUser ? (
                 <div className="appHeaderUtilWrap">
                   <NavIconButton

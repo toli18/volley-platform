@@ -3,6 +3,7 @@ import { Suspense, useMemo } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import "./App.css";
+import "./components/shell/mobileContent.css";
 
 export default function App() {
   const location = useLocation();
