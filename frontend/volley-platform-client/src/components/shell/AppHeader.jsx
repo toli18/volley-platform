@@ -103,7 +103,7 @@ export default function AppHeader() {
           </span>
         </Link>
 
-        <DesktopNav forumUnreadCount={feed.unreadCount} />
+        {user ? <DesktopNav forumUnreadCount={feed.unreadCount} /> : null}
 
         <div className="appHeaderUtils">
           {!user ? (
@@ -165,35 +165,39 @@ export default function AppHeader() {
             </>
           )}
 
-          <button
-            type="button"
-            className="navBurger navBurger--compact"
-            aria-label={mobileNavOpen ? "Затвори менюто" : "Отвори менюто"}
-            aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen((v) => !v)}
-          >
-            <span className="navBurgerLines" aria-hidden>
-              <span className="navBurgerBar" />
-              <span className="navBurgerBar" />
-              <span className="navBurgerBar" />
-            </span>
-          </button>
+          {user ? (
+            <button
+              type="button"
+              className="navBurger navBurger--compact"
+              aria-label={mobileNavOpen ? "Затвори менюто" : "Отвори менюто"}
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((v) => !v)}
+            >
+              <span className="navBurgerLines" aria-hidden>
+                <span className="navBurgerBar" />
+                <span className="navBurgerBar" />
+                <span className="navBurgerBar" />
+              </span>
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <MobileNavDrawer
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        user={user}
-        userLabel={userLabel}
-        roleLabel={roleLabel}
-        isCoachUser={isCoachUser}
-        isHeadCoachUser={isHeadCoachUser}
-        newTaskCount={feed.newTaskCount}
-        combinedUnreadCount={feed.combinedUnreadCount}
-        onLogout={onLogout}
-        feedProps={feedProps}
-      />
+      {user ? (
+        <MobileNavDrawer
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          user={user}
+          userLabel={userLabel}
+          roleLabel={roleLabel}
+          isCoachUser={isCoachUser}
+          isHeadCoachUser={isHeadCoachUser}
+          newTaskCount={feed.newTaskCount}
+          combinedUnreadCount={feed.combinedUnreadCount}
+          onLogout={onLogout}
+          feedProps={feedProps}
+        />
+      ) : null}
     </header>
   );
 }
