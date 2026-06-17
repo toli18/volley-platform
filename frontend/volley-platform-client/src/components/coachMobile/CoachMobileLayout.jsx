@@ -1,12 +1,14 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import PlatformBrandBlock from "../shared/PlatformBrandBlock";
 import CoachBottomNav from "./CoachBottomNav";
 import CoachMobileNavMenu from "./CoachMobileNavMenu";
 import { Button } from "../ui";
 
 export default function CoachMobileLayout() {
+  const isMobileShell = useIsCoachMobileShell();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -41,6 +43,10 @@ export default function CoachMobileLayout() {
     logout();
     navigate("/login");
   };
+
+  if (!isMobileShell) {
+    return <Outlet />;
+  }
 
   return (
     <div className="coachMobileShell">

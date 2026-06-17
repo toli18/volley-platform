@@ -29,7 +29,7 @@ export function coachMobileActiveTab(pathname) {
     return "club";
   }
   if (pathname === "/coach/attendance" || pathname.includes("/attendance-month")) return "club";
-  if (pathname.startsWith("/coach/schedule")) return "schedule";
+  if (pathname.startsWith("/coach/schedule") || pathname === "/teams/schedule") return "schedule";
   if (pathname.startsWith("/coach/menu")) return "more";
   if (
     pathname.startsWith("/articles") ||

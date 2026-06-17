@@ -2426,6 +2426,193 @@
   }
 }
 
+/* Mobile calendar shell (Phase 4) */
+.calendarShell {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 128px);
+  margin: -14px;
+  width: calc(100% + 28px);
+}
+
+.calendarShellToolbar {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.calendarShellMonth {
+  text-align: center;
+  min-width: 0;
+}
+
+.calendarShellMonth strong {
+  display: block;
+  font-size: 16px;
+  color: #0f172a;
+  text-transform: capitalize;
+}
+
+.calendarShellMonthCount {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.calendarShellNavBtn,
+.calendarShellFilterBtn {
+  min-height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calendarShellFilterBtn {
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.calendarShellFilterBtn.is-active {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #0f4d3a;
+}
+
+.calendarShellBody {
+  flex: 1;
+  padding: 10px 14px 88px;
+  overflow-y: auto;
+}
+
+.calendarShellLoading {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.calendarShellList {
+  display: grid;
+  gap: 10px;
+}
+
+.calendarShellEvent {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.calendarShellEvent--comp {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.calendarShellEvent--cancelled {
+  opacity: 0.78;
+}
+
+.calendarShellEventHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.calendarShellEventTime {
+  font-weight: 800;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.calendarShellEventTeam {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.calendarShellEventMeta {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.calendarShellEventActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.calendarShellFilters {
+  display: grid;
+  gap: 10px;
+}
+
+.calendarShellFilterActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.calendarShellFilterActions .uiButton {
+  flex: 1;
+}
+
+.calendarShellFab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  z-index: 84;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: 0 8px 24px rgba(15, 77, 58, 0.35);
+  cursor: pointer;
+}
+
+.calendarShellFabMenu {
+  position: fixed;
+  right: 18px;
+  bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  z-index: 84;
+  display: grid;
+  gap: 8px;
+}
+
+.calendarShellFabBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 83;
+  border: none;
+  background: rgba(15, 23, 42, 0.2);
+  cursor: default;
+}
+
+.appContent--coachMobileForeign .calendarShellFab {
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+}
+
 .teamScheduleCalendarCols {
   min-width: 760px;
 }
@@ -5897,8 +6084,10 @@
   margin-top: 2px;
 }
 
-.coachMobilePage--schedule .uiPageHero {
-  display: none;
+@media (max-width: 767px) {
+  .coachMobilePage--schedule .uiPageHero {
+    display: none;
+  }
 }
 
 /* Coach — monthly attendance matrix */

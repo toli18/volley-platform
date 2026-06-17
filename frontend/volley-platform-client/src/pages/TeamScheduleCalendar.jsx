@@ -7,6 +7,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
+import MobileDrawer from "../components/shell/MobileDrawer";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 import useMediaQuery from "../utils/useMediaQuery";
 import {
@@ -18,6 +19,20 @@ import {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const monthKeyNow = () => todayKey().slice(0, 7);
+
+const shiftMonthKey = (monthKey, delta) => {
+  const [y, m] = String(monthKey || "").split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKeyNow();
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const formatMonthLabel = (monthKey) => {
+  const [y, m] = String(monthKey || "").split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return "—";
+  return new Date(y, m - 1, 1).toLocaleDateString("bg-BG", { month: "long", year: "numeric" });
+};
+
 const dayNames = ["Пон", "Вт", "Ср", "Чет", "Пет", "Съб", "Нед"];
 const teamColorPalette = [
   { bg: "#e0f2fe", border: "#7dd3fc", text: "#0c4a6e" },
@@ -118,7 +133,9 @@ export default function TeamScheduleCalendar() {
   const [locationFilter, setLocationFilter] = useState("");
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [calendarView, setCalendarView] = useState("list");
-  const isNarrowScreen = useMediaQuery("(max-width: 720px)");
+  const isCalendarShell = useMediaQuery("(max-width: 767px)");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -195,6 +212,39 @@ export default function TeamScheduleCalendar() {
   };
   const canEditOccurrence = (it) => !isCompetitionEvent(it) && canEditItem(it);
 
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (teamFilter) n += 1;
+    if (coachFilter) n += 1;
+    if (locationFilter.trim()) n += 1;
+    return n;
+  }, [teamFilter, coachFilter, locationFilter]);
+
+  const filterFields = (
+    <>
+      <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
+      <Input as="select" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
+        <option value="">Всички отбори</option>
+        {teams.map((t) => (
+          <option key={t.id} value={String(t.id)}>
+            {t.name}
+          </option>
+        ))}
+      </Input>
+      {coaches.length > 0 ? (
+        <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
+          <option value="">Всички треньори</option>
+          {coaches.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name}
+            </option>
+          ))}
+        </Input>
+      ) : null}
+      <Input placeholder="Търси по зала" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} />
+    </>
+  );
+
   const loadMeta = async () => {
     const [teamsRes, coachesRes] = await Promise.all([
       axiosInstance.get(API_PATHS.TEAMS_LIST),
@@ -254,8 +304,8 @@ export default function TeamScheduleCalendar() {
   }, [calendarView]);
 
   useEffect(() => {
-    if (isNarrowScreen && calendarView === "grid") setCalendarView("list");
-  }, [isNarrowScreen, calendarView]);
+    if (isCalendarShell && calendarView === "grid") setCalendarView("list");
+  }, [isCalendarShell, calendarView]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -613,6 +663,260 @@ export default function TeamScheduleCalendar() {
     }
   };
 
+  const renderScheduleListItem = (it, i) => {
+    const cancelled = Boolean(it.is_cancelled);
+    return (
+      <article
+        key={occurrenceKey(it, i)}
+        className={`calendarShellEvent${cancelled ? " calendarShellEvent--cancelled" : ""}${isCompetitionEvent(it) ? " calendarShellEvent--comp" : ""}`}
+      >
+        <div className="calendarShellEventHead">
+          <div className={`calendarShellEventTime${cancelled ? " trainingAdjustStruck" : ""}`}>
+            {it.date} · {it.start_time}–{it.end_time}
+            {cancelled ? " · Отменена" : ""}
+          </div>
+          <span
+            className="calendarShellEventTeam"
+            style={{
+              borderColor: teamColorFor(it.team_id).border,
+              background: teamColorFor(it.team_id).bg,
+              color: teamColorFor(it.team_id).text,
+            }}
+          >
+            {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
+          </span>
+        </div>
+        <div className="calendarShellEventMeta">
+          {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
+          {it.location}
+          {it.coach_name ? ` · ${it.coach_name}` : ""}
+        </div>
+        <div className="calendarShellEventActions">
+          {!isCompetitionEvent(it) ? (
+            <Link to={occurrenceAttendanceTo(it)}>
+              <Button size="sm">Присъствие</Button>
+            </Link>
+          ) : null}
+          {isCompetitionEvent(it) && canEditItem(it) ? (
+            <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>
+              Редакция
+            </Button>
+          ) : null}
+          {renderTrainingOccurrenceActions(it)}
+        </div>
+      </article>
+    );
+  };
+
+  const scheduleModals = (
+    <>
+      {addOpen ? (
+        <div className="uiModalOverlay" onClick={() => !busy && setAddOpen(false)}>
+          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="uiModalTitle">Добавяне на тренировка</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input as="select" value={addForm.team_id} onChange={(e) => setAddForm((p) => ({ ...p, team_id: e.target.value }))}>
+                <option value="">Избери отбор</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </Input>
+              {isHeadCoach ? (
+                <Input as="select" value={addForm.coach_id} onChange={(e) => setAddForm((p) => ({ ...p, coach_id: e.target.value }))}>
+                  <option value="">Избери треньор</option>
+                  {coaches.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </Input>
+              ) : null}
+              <Input type="date" value={addForm.date} onChange={(e) => setAddForm((p) => ({ ...p, date: e.target.value }))} />
+              <Input placeholder="Зала" value={addForm.location} onChange={(e) => setAddForm((p) => ({ ...p, location: e.target.value }))} />
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+                <Input type="time" value={addForm.start_time} onChange={(e) => setAddForm((p) => ({ ...p, start_time: e.target.value }))} />
+                <Input type="time" value={addForm.end_time} onChange={(e) => setAddForm((p) => ({ ...p, end_time: e.target.value }))} />
+              </div>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(addForm.repeat_weekly)}
+                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
+                />
+                Повтаряй всяка седмица
+              </label>
+              {addForm.repeat_weekly ? (
+                <Input
+                  type="date"
+                  value={addForm.repeat_to}
+                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_to: e.target.value }))}
+                  placeholder="Повтаряй до"
+                />
+              ) : null}
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={addTraining}>Запази</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {editOcc ? (
+        <div className="uiModalOverlay" onClick={() => !busy && setEditOcc(null)}>
+          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="uiModalTitle">Корекция на тренировка</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input type="date" value={editForm.date} onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))} />
+              <Input as="select" value={editForm.team_id} onChange={(e) => setEditForm((p) => ({ ...p, team_id: e.target.value }))}>
+                <option value="">Избери отбор</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </Input>
+              <Input as="select" value={editForm.coach_id} onChange={(e) => setEditForm((p) => ({ ...p, coach_id: e.target.value }))}>
+                <option value="">Избери треньор</option>
+                {(isHeadCoach ? coaches : [{ id: currentUserId, name: user?.name || "Треньор" }]).map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </Input>
+              <Input placeholder="Зала" value={editForm.location} onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))} />
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+                <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((p) => ({ ...p, start_time: e.target.value }))} />
+                <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((p) => ({ ...p, end_time: e.target.value }))} />
+              </div>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(editForm.repeat_weekly)}
+                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
+                />
+                Повтаряй всяка седмица
+              </label>
+              {editForm.repeat_weekly ? (
+                <Input
+                  type="date"
+                  value={editForm.repeat_to}
+                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_to: e.target.value }))}
+                  placeholder="Повтаряй до"
+                />
+              ) : null}
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={saveOverride}>Запази корекция</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setEditOcc(null)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <CompetitionEventModal
+        open={compOpen}
+        busy={busy}
+        isHeadCoach={isHeadCoach}
+        teams={teamsForCompetition}
+        coaches={coaches}
+        form={compForm}
+        setForm={setCompForm}
+        editId={compEditId}
+        onClose={() => {
+          if (!busy) {
+            setCompOpen(false);
+            setCompEditId(null);
+          }
+        }}
+        onSave={saveCompetition}
+        onDelete={deleteCompetition}
+      />
+    </>
+  );
+
+  if (isCalendarShell) {
+    return (
+      <div className="calendarShell">
+        <div className="calendarShellToolbar">
+          <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, -1))} aria-label="Предишен месец">
+            ‹
+          </button>
+          <div className="calendarShellMonth">
+            <strong>{formatMonthLabel(monthKey)}</strong>
+            <span className="calendarShellMonthCount">{scheduleListSorted.length} събития</span>
+          </div>
+          <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, 1))} aria-label="Следващ месец">
+            ›
+          </button>
+          <button
+            type="button"
+            className={`calendarShellFilterBtn${activeFilterCount ? " is-active" : ""}`}
+            onClick={() => setFiltersOpen(true)}
+          >
+            Филтри{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </button>
+        </div>
+
+        <div className="calendarShellBody">
+          {busy ? (
+            <p className="calendarShellLoading">Зареждане...</p>
+          ) : scheduleListSorted.length === 0 ? (
+            <EmptyState title="Няма записи" description="Няма тренировки в графика за този месец с текущите филтри." />
+          ) : (
+            <div className="calendarShellList">{scheduleListSorted.map((it, i) => renderScheduleListItem(it, i))}</div>
+          )}
+        </div>
+
+        {fabOpen ? (
+          <div className="calendarShellFabBackdrop" onClick={() => setFabOpen(false)} aria-hidden />
+        ) : null}
+        {fabOpen ? (
+          <div className="calendarShellFabMenu">
+            <Button
+              size="sm"
+              onClick={() => {
+                setFabOpen(false);
+                openAddForDate(todayKey());
+              }}
+            >
+              + Тренировка
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setFabOpen(false);
+                openCompetitionForDate(todayKey());
+              }}
+            >
+              + Състезание
+            </Button>
+          </div>
+        ) : null}
+        <button type="button" className="calendarShellFab" aria-label="Добави" onClick={() => setFabOpen((v) => !v)}>
+          +
+        </button>
+
+        <MobileDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Филтри на графика">
+          <div className="calendarShellFilters">{filterFields}</div>
+          <div className="calendarShellFilterActions">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setTeamFilter("");
+                setCoachFilter("");
+                setLocationFilter("");
+              }}
+            >
+              Изчисти
+            </Button>
+            <Button type="button" onClick={() => setFiltersOpen(false)}>
+              Приложи
+            </Button>
+          </div>
+        </MobileDrawer>
+
+        {scheduleModals}
+      </div>
+    );
+  }
+
   return (
     <div className="uiPage">
       <PageHero
@@ -630,28 +934,7 @@ export default function TeamScheduleCalendar() {
       />
 
       <Card title="Филтри">
-        <div className="feesFormGrid">
-          <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
-          <Input as="select" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
-            <option value="">Всички отбори</option>
-            {teams.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.name}
-              </option>
-            ))}
-          </Input>
-          {coaches.length > 0 ? (
-            <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
-              <option value="">Всички треньори</option>
-              {coaches.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}
-                </option>
-              ))}
-            </Input>
-          ) : null}
-          <Input placeholder="Търси по зала" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} />
-        </div>
+        <div className="feesFormGrid">{filterFields}</div>
       </Card>
 
       <Card
@@ -907,122 +1190,7 @@ export default function TeamScheduleCalendar() {
         )}
       </Card>
 
-      {addOpen ? (
-        <div className="uiModalOverlay" onClick={() => !busy && setAddOpen(false)}>
-          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="uiModalTitle">Добавяне на тренировка</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input as="select" value={addForm.team_id} onChange={(e) => setAddForm((p) => ({ ...p, team_id: e.target.value }))}>
-                <option value="">Избери отбор</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.name}</option>
-                ))}
-              </Input>
-              {isHeadCoach ? (
-                <Input as="select" value={addForm.coach_id} onChange={(e) => setAddForm((p) => ({ ...p, coach_id: e.target.value }))}>
-                  <option value="">Избери треньор</option>
-                  {coaches.map((c) => (
-                    <option key={c.id} value={String(c.id)}>{c.name}</option>
-                  ))}
-                </Input>
-              ) : null}
-              <Input type="date" value={addForm.date} onChange={(e) => setAddForm((p) => ({ ...p, date: e.target.value }))} />
-              <Input placeholder="Зала" value={addForm.location} onChange={(e) => setAddForm((p) => ({ ...p, location: e.target.value }))} />
-              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-                <Input type="time" value={addForm.start_time} onChange={(e) => setAddForm((p) => ({ ...p, start_time: e.target.value }))} />
-                <Input type="time" value={addForm.end_time} onChange={(e) => setAddForm((p) => ({ ...p, end_time: e.target.value }))} />
-              </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(addForm.repeat_weekly)}
-                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
-                />
-                Повтаряй всяка седмица
-              </label>
-              {addForm.repeat_weekly ? (
-                <Input
-                  type="date"
-                  value={addForm.repeat_to}
-                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_to: e.target.value }))}
-                  placeholder="Повтаряй до"
-                />
-              ) : null}
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={addTraining}>Запази</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {editOcc ? (
-        <div className="uiModalOverlay" onClick={() => !busy && setEditOcc(null)}>
-          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="uiModalTitle">Корекция на тренировка</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input type="date" value={editForm.date} onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))} />
-              <Input as="select" value={editForm.team_id} onChange={(e) => setEditForm((p) => ({ ...p, team_id: e.target.value }))}>
-                <option value="">Избери отбор</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.name}</option>
-                ))}
-              </Input>
-              <Input as="select" value={editForm.coach_id} onChange={(e) => setEditForm((p) => ({ ...p, coach_id: e.target.value }))}>
-                <option value="">Избери треньор</option>
-                {(isHeadCoach ? coaches : [{ id: currentUserId, name: user?.name || "Треньор" }]).map((c) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
-                ))}
-              </Input>
-              <Input placeholder="Зала" value={editForm.location} onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))} />
-              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-                <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((p) => ({ ...p, start_time: e.target.value }))} />
-                <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((p) => ({ ...p, end_time: e.target.value }))} />
-              </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(editForm.repeat_weekly)}
-                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
-                />
-                Повтаряй всяка седмица
-              </label>
-              {editForm.repeat_weekly ? (
-                <Input
-                  type="date"
-                  value={editForm.repeat_to}
-                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_to: e.target.value }))}
-                  placeholder="Повтаряй до"
-                />
-              ) : null}
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveOverride}>Запази корекция</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setEditOcc(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      <CompetitionEventModal
-        open={compOpen}
-        busy={busy}
-        isHeadCoach={isHeadCoach}
-        teams={teamsForCompetition}
-        coaches={coaches}
-        form={compForm}
-        setForm={setCompForm}
-        editId={compEditId}
-        onClose={() => {
-          if (!busy) {
-            setCompOpen(false);
-            setCompEditId(null);
-          }
-        }}
-        onSave={saveCompetition}
-        onDelete={deleteCompetition}
-      />
+      {scheduleModals}
     </div>
   );
 }
