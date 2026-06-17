@@ -16,11 +16,11 @@
   background:
     radial-gradient(120% 120% at 30% 20%, #16a34a 0%, #0c6a47 45%, #053d2a 100%);
   cursor: pointer;
-  animation: loginIntroBgIn 600ms ease both;
+  animation: loginIntroBgIn 800ms ease both;
 }
 
 .loginIntro--leaving {
-  animation: loginIntroFadeOut 600ms ease forwards;
+  animation: loginIntroFadeOut 900ms ease forwards;
 }
 
 .loginIntroGlow {
@@ -40,7 +40,9 @@
   object-fit: contain;
   border-radius: 24px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
-  animation: loginIntroLogoIn 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation:
+    loginIntroLogoIn 1400ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    loginIntroLogoFloat 3.6s ease-in-out 1400ms infinite;
 }
 
 @keyframes loginIntroBgIn {
@@ -54,9 +56,15 @@
 }
 
 @keyframes loginIntroLogoIn {
-  0% { opacity: 0; transform: scale(0.6) translateY(20px); }
-  60% { opacity: 1; transform: scale(1.04) translateY(0); }
+  0% { opacity: 0; transform: scale(0.55) translateY(28px) rotate(-3deg); }
+  55% { opacity: 1; transform: scale(1.05) translateY(0) rotate(0deg); }
+  75% { transform: scale(0.99) translateY(0); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes loginIntroLogoFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.015); }
 }
 
 @keyframes loginIntroPulse {
