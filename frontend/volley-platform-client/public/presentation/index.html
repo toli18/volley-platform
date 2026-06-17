@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volley Coach Platform — Презентация за треньори</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg2: #0f1b33;
+    --panel: #111c33;
+    --ink: #f8fafc;
+    --muted: #9fb1cc;
+    --line: rgba(148, 163, 184, 0.22);
+    --blue: #2f6df6;
+    --blue-soft: rgba(47, 109, 246, 0.16);
+    --green: #16a34a;
+    --amber: #f59e0b;
+    --red: #e11d48;
+    --accent: #38bdf8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: radial-gradient(1200px 800px at 80% -10%, #16284d 0%, var(--bg) 55%) fixed;
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  .deck { height: 100vh; width: 100vw; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 7vw;
+    animation: fade 420ms ease;
+  }
+  .slide.active { display: flex; }
+
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(13px, 1.4vw, 18px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+  .kicker::before {
+    content: "";
+    width: 28px; height: 3px; border-radius: 3px;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  h1 { font-size: clamp(34px, 5.6vw, 76px); line-height: 1.04; margin: 0 0 18px; font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(28px, 4.2vw, 56px); line-height: 1.08; margin: 0 0 26px; font-weight: 800; letter-spacing: -0.01em; }
+  .sub { font-size: clamp(17px, 2vw, 26px); color: var(--muted); max-width: 60ch; line-height: 1.5; }
+
+  .grid { display: grid; gap: 20px; margin-top: 10px; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.three { grid-template-columns: repeat(3, 1fr); }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 24px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: clamp(18px, 1.9vw, 24px); }
+  .card p { margin: 0; color: var(--muted); font-size: clamp(14px, 1.5vw, 19px); line-height: 1.45; }
+  .card .ico { font-size: 30px; margin-bottom: 12px; display: block; }
+
+  ul.points { list-style: none; padding: 0; margin: 8px 0 0; }
+  ul.points li {
+    display: flex; align-items: flex-start; gap: 14px;
+    font-size: clamp(17px, 2vw, 27px);
+    margin: 16px 0;
+    line-height: 1.4;
+  }
+  ul.points li b { color: var(--ink); }
+  ul.points li span.k {
+    flex: none; width: 34px; height: 34px; border-radius: 10px;
+    display: grid; place-items: center; font-size: 18px;
+    background: var(--blue-soft); border: 1px solid var(--line);
+  }
+  ul.points li small { color: var(--muted); font-weight: 400; }
+
+  .shot {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    min-height: 40vh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .shot img { width: 100%; height: 100%; max-height: 64vh; object-fit: contain; display: block; cursor: zoom-in; transition: transform 180ms ease; }
+  .shot img:hover { transform: scale(1.012); }
+
+  .lightbox {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(3, 8, 18, 0.92);
+    display: none; align-items: center; justify-content: center;
+    padding: 3vh 3vw; cursor: zoom-out;
+    backdrop-filter: blur(2px);
+  }
+  .lightbox.show { display: flex; animation: fade 200ms ease; }
+  .lightbox img { max-width: 96vw; max-height: 94vh; object-fit: contain; border-radius: 12px; box-shadow: 0 30px 90px rgba(0,0,0,0.6); cursor: zoom-out; }
+  .lightbox .lbClose {
+    position: fixed; top: 18px; right: 24px;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 1px solid var(--line);
+    color: #fff; font-size: 24px; line-height: 1; cursor: pointer; z-index: 91;
+  }
+  .lightbox .lbHint { position: fixed; bottom: 18px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 13px; }
+  .shot .ph {
+    text-align: center;
+    color: var(--muted);
+    padding: 24px;
+  }
+  .shot .ph .big { font-size: 44px; margin-bottom: 12px; }
+  .shot .ph code {
+    display: inline-block; margin-top: 12px;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 8px; color: var(--accent); font-size: 14px;
+  }
+
+  .demoRow { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 32px; align-items: center; height: 72vh; }
+  .demoRow .shot { height: 72vh; min-height: 0; }
+  .demoRow .copy h2 { margin-bottom: 18px; }
+
+  .shotWide { height: 64vh; min-height: 0; width: 100%; }
+  .demoThree { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; height: 58vh; margin-top: 8px; }
+  .demoThree .shot { height: 58vh; min-height: 0; }
+  .shotCap { text-align: center; color: var(--muted); font-size: clamp(13px, 1.4vw, 17px); margin-top: 12px; }
+
+  .scenario {
+    border-left: 4px solid var(--amber);
+    background: rgba(245, 158, 11, 0.08);
+    border-radius: 0 14px 14px 0;
+    padding: 16px 22px;
+    margin-top: 18px;
+    font-size: clamp(15px, 1.7vw, 22px);
+    color: #fde9c7;
+  }
+  .scenario b { color: #fff; }
+
+  .big-finish h1 { font-size: clamp(40px, 7vw, 96px); }
+  .big-finish .sub { font-size: clamp(20px, 2.4vw, 32px); color: #cfe0ff; }
+
+  .tip {
+    margin-top: 26px;
+    display: inline-flex; gap: 14px; align-items: center;
+    background: var(--blue-soft); border: 1px solid var(--line);
+    padding: 14px 20px; border-radius: 14px;
+    font-size: clamp(15px, 1.7vw, 21px);
+  }
+
+  .linkBox { margin-top: 26px; }
+  .bigLink {
+    display: inline-block;
+    font-size: clamp(22px, 3vw, 40px);
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 26px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--blue), var(--accent));
+    box-shadow: 0 16px 40px rgba(47, 109, 246, 0.35);
+    letter-spacing: -0.01em;
+  }
+  .bigLink:hover { filter: brightness(1.08); }
+  .linkRow { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 18px; }
+  .linkRow a {
+    color: var(--ink); text-decoration: none;
+    font-size: clamp(15px, 1.7vw, 21px); font-weight: 600;
+    padding: 10px 18px; border-radius: 12px;
+    border: 1px solid var(--line); background: rgba(255,255,255,0.04);
+  }
+  .linkRow a:hover { border-color: var(--accent); color: var(--accent); }
+
+  .brandRow { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+  .brandMark {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--blue), var(--accent));
+    display: grid; place-items: center; font-weight: 900; font-size: 24px; color: #051026;
+  }
+  .brandMark--logo {
+    width: 72px; height: 72px; object-fit: cover;
+    background: none; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .brandText b { display: block; font-size: 18px; }
+  .brandText small { color: var(--muted); }
+
+  /* chrome */
+  .progress { position: fixed; top: 0; left: 0; height: 4px; background: var(--accent); width: 0; z-index: 50; transition: width 240ms ease; }
+  .counter { position: fixed; bottom: 18px; right: 22px; color: var(--muted); font-size: 13px; letter-spacing: 0.08em; z-index: 40; }
+  .hint { position: fixed; bottom: 18px; left: 22px; color: var(--muted); font-size: 12px; z-index: 40; opacity: 0.7; }
+
+  .notes {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    max-height: 42vh; overflow: auto;
+    background: #06101f; border-top: 2px solid var(--accent);
+    padding: 18px 26px 22px; z-index: 60;
+    display: none;
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
+  }
+  .notes.show { display: block; }
+  .notes h4 { margin: 0 0 10px; color: var(--accent); font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .notes .content { font-size: clamp(15px, 1.5vw, 19px); line-height: 1.55; color: #dbe6f7; }
+  .notes .content ul { margin: 6px 0 0; padding-left: 20px; }
+  .notes .content li { margin: 6px 0; }
+  .notes .time { float: right; color: var(--muted); font-weight: 600; }
+
+  .noteData { display: none; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 0 — TITLE -->
+  <section class="slide active">
+    <div class="brandRow">
+      <img class="brandMark brandMark--logo" src="logo.png" alt="Българска федерация по волейбол" />
+      <div class="brandText"><b>Volley Coach Platform</b><small>Българска федерация по волейбол</small></div>
+    </div>
+    <h1>Един екран за целия клуб</h1>
+    <p class="sub">Вътрешна дигитална платформа за управление на тренировки, отбори, присъствие, такси и комуникация с родителите — на телефона и на компютъра.</p>
+    <div class="tip">⏱️ 15 минути · 🏐 от треньор за треньори</div>
+    <div class="noteData">
+      <h4>Заглавие <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Поздрави и се представи с едно изречение.</li>
+          <li>„Днес за 15 минути ще ви покажа как цялата администрация на клуба — присъствие, такси, график, комуникация с родители — се събира на едно място, в джоба ви.“</li>
+          <li>Обещай нагледна демонстрация, не теория: „Няма да чета слайдове — ще ви разходя през реални екрани.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1 — PROBLEM -->
+  <section class="slide">
+    <div class="kicker">1 · Проблемът</div>
+    <h2>Колко инструмента ползваме за един отбор?</h2>
+    <div class="grid three">
+      <div class="card"><span class="ico">📋</span><h3>Присъствие на хартия</h3><p>Тетрадки и листчета, които се губят. Няма история, няма справка.</p></div>
+      <div class="card"><span class="ico">💬</span><h3>Вайбър хаос</h3><p>Графикът, таксите и снимките се губят в безкраен чат с родителите.</p></div>
+      <div class="card"><span class="ico">💸</span><h3>Такси „наум“</h3><p>Кой е платил? Кой дължи? Неудобни напомняния и грешки.</p></div>
+      <div class="card"><span class="ico">📝</span><h3>Тренировки в тефтер</h3><p>Упражненията са в главата или в стар документ — трудно се споделят.</p></div>
+      <div class="card"><span class="ico">📵</span><h3>Родителят е „на тъмно“</h3><p>Не знае дали детето присъства, кога е следващата тренировка, на кого да звънне.</p></div>
+      <div class="card"><span class="ico">⏳</span><h3>Време за бюрокрация</h3><p>Часове седмично в администрация вместо в зала.</p></div>
+    </div>
+    <div class="noteData">
+      <h4>Проблемът <span class="time">~2 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Започни с въпрос към залата: „Колко приложения отваряте, за да водите един отбор?“ Изчакай реакция.</li>
+          <li>Разкажи реалния ден: тетрадка за присъствие, Вайбър за съобщения, тефтер за такси, Excel за график.</li>
+          <li>Болка №1 — <b>информацията е разпиляна</b> и се губи. Болка №2 — <b>родителят пита постоянно</b> едни и същи неща.</li>
+          <li>Завърши: „Не ни липсва желание — липсва ни <b>едно място</b>. Това решаваме днес.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 — SOLUTION -->
+  <section class="slide">
+    <div class="kicker">2 · Решението</div>
+    <h2>Всичко за клуба — в едно приложение</h2>
+    <p class="sub">Треньорът работи от телефона в залата. Родителят има свой портал. Главният треньор вижда целия клуб.</p>
+    <div class="grid three" style="margin-top: 26px;">
+      <div class="card"><span class="ico">🏐</span><h3>За треньора</h3><p>Днешни тренировки, присъствие с един тап, отбори, график, такси, учебник на БФВ и AI помощник.</p></div>
+      <div class="card"><span class="ico">👨‍👩‍👧</span><h3>За родителя</h3><p>Новини от треньора, присъствие на детето, такси, график и контакт — без да пита.</p></div>
+      <div class="card"><span class="ico">🛡️</span><h3>За клуба</h3><p>Главен треньор и федерация виждат отбори, треньори и обща картина.</p></div>
+    </div>
+    <div class="tip">📱 Telefon-first: работи като приложение на телефона · ☁️ данните са на сигурно място в облака</div>
+    <div class="noteData">
+      <h4>Решението <span class="time">~1.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Една изречение-обещание: „Една платформа, три гледни точки — треньор, родител, клуб.“</li>
+          <li>Подчертай <b>telefon-first</b>: треньорът не сяда пред компютър — вади телефона в залата.</li>
+          <li>Кажи, че родителят има <b>отделен достъп</b> — вижда само своето дете, нищо повече (поверителност).</li>
+          <li>Мостче към демото: „Нека ви покажа как изглежда един реален ден.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 — DEMO INTRO -->
+  <section class="slide">
+    <div class="kicker">3 · Демонстрация</div>
+    <h1>Един ден с платформата</h1>
+    <p class="sub">Табло на треньора → присъствие в залата → график и такси → методиката на БФВ и AI генератор → и какво вижда родителят и състезателят паралелно.</p>
+    <div class="noteData">
+      <h4>Демонстрация — въведение <span class="time">~0.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Кажи структурата на демото с едно изречение, за да следят логиката.</li>
+          <li>Ако имаш жив телефон/проектор — превключи. Ако не — слайдовете със снимки водят разказа.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 — DEMO: COACH DASHBOARD -->
+  <section class="slide">
+    <div class="kicker">Демо · Командният център</div>
+    <h2>Табло на треньора — целият клуб на един екран</h2>
+    <div class="shot shotWide"><img src="screenshots/dashboard.png" alt="Табло на треньора" data-cap="Табло на треньора (десктоп)" data-file="screenshots/dashboard.png" /></div>
+    <div class="shotCap">График за 7 дни · последни тренировки · най-чести упражнения · известия · дължими такси — на едно място.</div>
+    <div class="noteData">
+      <h4>Демо · Табло на треньора <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>„Това виждам, щом вляза от компютъра — целият клуб накратко.“</li>
+          <li>Посочи блока <b>„Последни известия“</b>: тук изскача „Извинение от родител: Александър Николов ще липсва на 18.06“ — не го търсиш във Вайбър.</li>
+          <li>Посочи <b>„График за следващите 7 дни“</b> и <b>„Дължими такси“</b> — веднага знаеш какво предстои и кой дължи.</li>
+          <li>Мостче: „А сега да видим как изглежда работата в залата — от телефона.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — DEMO: ATTENDANCE (mobile) -->
+  <section class="slide">
+    <div class="demoRow">
+      <div class="shot"><img src="screenshots/attendance.png" alt="Присъствие" data-cap="Присъствие (мобилно)" data-file="screenshots/attendance.png" /></div>
+      <div class="copy">
+        <div class="kicker">Демо · В залата · от телефона</div>
+        <h2>Присъствие за 20 секунди</h2>
+        <ul class="points">
+          <li><span class="k">✅</span><div>Тап по списъка: <b>Тук · Закъсня · Няма · Извинен</b></div></li>
+          <li><span class="k">🏷️</span><div>Зелен бадж „Извинение от родител“ до детето</div></li>
+          <li><span class="k">📝</span><div>Бележка към всеки състезател при нужда</div></li>
+        </ul>
+        <div class="scenario"><b>Сценарий:</b> До „Александър Николов“ свети „Извинение от родител“ — знаеш защо го няма, преди да попиташ. Минаваш списъка с пръст и готово.</div>
+      </div>
+    </div>
+    <div class="noteData">
+      <h4>Демо · Присъствие <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Демонстрирай скоростта: „Тук, тук, няма — готово.“ Това е най-честото действие в залата.</li>
+          <li>Покажи зеления бадж <b>„Извинение от родител“</b> — връзката родител → треньор е затворена.</li>
+          <li>Ползата накрая: „В края на сезона имам обективна история — за разговор с родител или за селекция.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 — DEMO: SCHEDULE + FEES -->
+  <section class="slide">
+    <div class="kicker">Демо · Организация</div>
+    <h2>График и такси — без недоразумения</h2>
+    <div class="grid two" style="height: 60vh;">
+      <div class="shot"><img src="screenshots/schedule.png" alt="Месечен график" data-cap="Месечен график" data-file="screenshots/schedule.png" /></div>
+      <div class="shot"><img src="screenshots/fees.png" alt="Месечни такси" data-cap="Месечни такси" data-file="screenshots/fees.png" /></div>
+    </div>
+    <div class="scenario"><b>Сценарий:</b> Местиш тренировка — в календара денят става червен и родителите го виждат веднага. Отбелязваш „Плати“ — статусът светва зелено за месеца.</div>
+    <div class="noteData">
+      <h4>Демо · График и такси <span class="time">~1.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>График: „Цял месец пред очите ми; зелено = тренировка, оранжево = състезание, червено = промяна.“</li>
+          <li>Такси: „99 състезатели, виждам кой е платил (зелено) и кой дължи (червено) — без неудобни лични съобщения.“</li>
+          <li>Акцент: и двете махат най-честия източник на недоразумения с родителите.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — DEMO: BFV METHODOLOGY -->
+  <section class="slide">
+    <div class="kicker">Демо · Качество по стандарт на БФВ</div>
+    <h2>Методиката на БФВ — вградена в платформата</h2>
+    <div class="grid two" style="height: 58vh;">
+      <div class="shot"><img src="screenshots/yearly-program.png" alt="Годишна програма БФВ" data-cap="Годишна програма (мезоцикли)" data-file="screenshots/yearly-program.png" /></div>
+      <div class="shot"><img src="screenshots/textbook.png" alt="Учебник БФВ" data-cap="Учебник БФВ (методика)" data-file="screenshots/textbook.png" /></div>
+    </div>
+    <div class="scenario"><b>Сценарий:</b> Избираш възраст U16 → мезоцикъл → седмица. Планът следва официалната програма, а конспектът от учебника се подава автоматично към генератора.</div>
+    <div class="noteData">
+      <h4>Демо · Методика на БФВ <span class="time">~1.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Това е силният аргумент: „Не случайни упражнения — <b>единен стандарт на федерацията</b>.“</li>
+          <li>Годишна програма: макроцикъл → 11 мезоцикъла → седмица → тренировка. Покажи дървото U16.</li>
+          <li>Учебникът е търсим, с теми и възрасти — методиката е под ръка за всеки треньор.</li>
+          <li>Мостче: „И точно този конспект захранва AI генератора — следващия екран.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 — DEMO: AI GENERATOR + TRAINING -->
+  <section class="slide">
+    <div class="kicker">Демо · Подготовка за минути</div>
+    <h2>От програмата към готова тренировка</h2>
+    <div class="grid two" style="height: 58vh;">
+      <div class="shot"><img src="screenshots/ai-generator.png" alt="AI генератор" data-cap="AI генератор на тренировки" data-file="screenshots/ai-generator.png" /></div>
+      <div class="shot"><img src="screenshots/training.png" alt="Готова тренировка" data-cap="Готова тренировка с упражнения" data-file="screenshots/training.png" /></div>
+    </div>
+    <div class="scenario"><b>Сценарий:</b> 5 минути преди тренировка натискаш „Генерирай“ — получаваш план по фази (загрявка, техника, игрова част) с упражнения, който нагласяш за минути.</div>
+    <div class="noteData">
+      <h4>Демо · AI генератор <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>AI помощникът е <b>стартова точка</b>, не заместител на треньора — маха „празния лист“.</li>
+          <li>Покажи, че планът идва с контекст от годишната програма и конспект от учебника.</li>
+          <li>Готовата тренировка е структурирана по фази и може да се редактира и запази.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 — DEMO: PARENT PORTAL -->
+  <section class="slide">
+    <div class="demoRow">
+      <div class="shot"><img src="screenshots/parent-home.png" alt="Родителски портал" data-cap="Родителски портал — Начало" data-file="screenshots/parent-home.png" /></div>
+      <div class="copy">
+        <div class="kicker">Демо · Гледната точка на родителя</div>
+        <h2>Родителят вижда своето — и спира да пита</h2>
+        <ul class="points">
+          <li><span class="k">📰</span><div>Новини от треньора и снимки от отбора</div></li>
+          <li><span class="k">📊</span><div>Присъствие (напр. 80%) + следваща тренировка</div></li>
+          <li><span class="k">📞</span><div>Контакт с треньора винаги видим</div></li>
+          <li><span class="k">🙋</span><div>Предварително извинение с един бутон</div></li>
+        </ul>
+        <div class="scenario"><b>Сценарий:</b> Родителят натиска „Съобщи за отсъствие“ → ти го виждаш в таблото и в присъствието. Кръгът се затваря.</div>
+      </div>
+    </div>
+    <div class="noteData">
+      <h4>Демо · Родителски портал <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Смяна на перспективата: „Сега съм родител.“ Влизам с телефон и година на раждане на детето — без пароли.</li>
+          <li>Родителят вижда <b>само своето дете</b> — поверителност.</li>
+          <li>Акцент: „Предварително извинение“ → се появява при треньора. Това е екранът от слайд 4/5.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 — DEMO: TEAM ROOM -->
+  <section class="slide">
+    <div class="kicker">Демо · Отборна стая за състезателите</div>
+    <h2>Отборна стая — край на Вайбър хаоса</h2>
+    <div class="demoThree">
+      <div class="shot"><img src="screenshots/room-home.png" alt="Отборна стая Начало" data-cap="Начало (предстои, присъствие, такса)" data-file="screenshots/room-home.png" /></div>
+      <div class="shot"><img src="screenshots/room-schedule.png" alt="Отборна стая График" data-cap="График на отбора" data-file="screenshots/room-schedule.png" /></div>
+      <div class="shot"><img src="screenshots/room-chat.png" alt="Отборна стая Чат" data-cap="Отборен чат" data-file="screenshots/room-chat.png" /></div>
+    </div>
+    <div class="noteData">
+      <h4>Демо · Отборна стая <span class="time">~0.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Кратко и бързо: „Отделно пространство за самите състезатели — начало, график, чат.“</li>
+          <li>Това заменя хаотичните Вайбър групи; историята на чата е на едно място.</li>
+          <li>Известия на телефона при ново съобщение.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 — DEMO: ARTICLES + FORUM -->
+  <section class="slide">
+    <div class="kicker">Демо · Знание и общност</div>
+    <h2>Статии и Форум — треньорите се учат заедно</h2>
+    <div class="grid two" style="height: 58vh;">
+      <div class="shot"><img src="screenshots/articles.png" alt="Статии и методика" data-cap="Статии и методика" data-file="screenshots/articles.png" /></div>
+      <div class="shot"><img src="screenshots/forum.png" alt="Форум за треньори" data-cap="Форум за треньори" data-file="screenshots/forum.png" /></div>
+    </div>
+    <div class="scenario"><b>Сценарий:</b> Прочиташ статия за атакуващия удар, после питаш колегите във форума „как преподавате блок при U14“ — и получаваш отговори от треньори в цялата страна.</div>
+    <div class="noteData">
+      <h4>Демо · Статии и Форум <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Статии: „Практически знания и методика — с филтри по тема, ниво и автор; одобрени от федерацията.“</li>
+          <li>Форум: „Място за обмен между треньори — въпроси, идеи, тагове (#блок, #защита, #U14…).“</li>
+          <li>Голямата идея: <b>не си сам</b> — платформата събира общността и знанието на едно място.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 — COACH BENEFITS -->
+  <section class="slide">
+    <div class="kicker">4 · Ползи за треньора</div>
+    <h2>По-малко администрация, повече треньорство</h2>
+    <ul class="points">
+      <li><span class="k">⏱️</span><div><b>Спестено време</b> <small>— присъствие, такси и график без хартия и Excel</small></div></li>
+      <li><span class="k">📱</span><div><b>Всичко от телефона</b> <small>— работиш в залата, не вкъщи пред компютъра</small></div></li>
+      <li><span class="k">📈</span><div><b>Обективни данни</b> <small>— история на присъствие за разговори и селекция</small></div></li>
+      <li><span class="k">🧠</span><div><b>Готови ресурси</b> <small>— упражнения, учебник на БФВ, AI помощник</small></div></li>
+      <li><span class="k">😌</span><div><b>По-малко въпроси</b> <small>— родителите си отговарят сами в портала</small></div></li>
+    </ul>
+    <div class="noteData">
+      <h4>Ползи за треньора <span class="time">~1.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Говори с цифри/усещане: „Колко часа седмично губим в администрация? Връщаме си ги.“</li>
+          <li>Най-силният аргумент за залата: <b>всичко от телефона</b>.</li>
+          <li>Свържи с професионализъм: обективните данни правят разговорите с родители лесни.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 — PARENT BENEFITS -->
+  <section class="slide">
+    <div class="kicker">5 · Ползи за родителя</div>
+    <h2>Спокойствие и прозрачност</h2>
+    <ul class="points">
+      <li><span class="k">👀</span><div><b>Вижда детето си</b> <small>— присъствие, новини, снимки от тренировките</small></div></li>
+      <li><span class="k">📅</span><div><b>Знае графика</b> <small>— кога и къде е следващата тренировка</small></div></li>
+      <li><span class="k">💳</span><div><b>Яснота за таксите</b> <small>— какво е платено и какво предстои</small></div></li>
+      <li><span class="k">🙋</span><div><b>Лесно извинение</b> <small>— „ще липсва на 18.06“ с един бутон</small></div></li>
+      <li><span class="k">📞</span><div><b>Връзка с треньора</b> <small>— контактът е винаги под ръка</small></div></li>
+    </ul>
+    <div class="scenario"><b>Резултат:</b> Доволен родител = спокоен треньор. По-малко обаждания, повече доверие към клуба.</div>
+    <div class="noteData">
+      <h4>Ползи за родителя <span class="time">~1.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Рамка: „Щастливият родител е най-добрата реклама на клуба.“</li>
+          <li>Акцент на прозрачността — родителят не се чувства „на тъмно“.</li>
+          <li>Обвържи обратно с треньора: по-малко въпроси към теб = повече време за работа.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 — HOW TO START -->
+  <section class="slide">
+    <div class="kicker">6 · Как започваме</div>
+    <h2>3 стъпки до старт</h2>
+    <div class="grid three" style="margin-top: 20px;">
+      <div class="card"><span class="ico">1️⃣</span><h3>Достъп</h3><p>Получаваш профил като треньор и добавяш отборите и състезателите си.</p></div>
+      <div class="card"><span class="ico">2️⃣</span><h3>Първа тренировка</h3><p>Водиш присъствие от телефона още на следващата тренировка.</p></div>
+      <div class="card"><span class="ico">3️⃣</span><h3>Каниш родителите</h3><p>Родителите влизат с телефон и година на раждане на детето — без пароли.</p></div>
+    </div>
+    <div class="tip">🤝 Започни с един отбор тази седмица — разширяваш, когато си готов.</div>
+    <div class="noteData">
+      <h4>Как започваме <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Свали бариерата: „Не е нужна голяма подготовка — започваме с един отбор.“</li>
+          <li>Подчертай, че родителският вход е <b>без пароли</b> — телефон + година на раждане.</li>
+          <li>Дай ясен следващ ход: „Който иска достъп — да остане 2 минути след семинара.“</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 — STRONG FINISH -->
+  <section class="slide big-finish">
+    <div class="kicker">Финал</div>
+    <h1>Времето ти е в залата —<br/>не в тетрадката.</h1>
+    <p class="sub">Една платформа за присъствие, такси, график, тренировки и родители. По-малко администрация, повече волейбол.</p>
+    <div class="linkBox">
+      <a class="bigLink" href="https://volley-platform.vercel.app/" target="_blank" rel="noreferrer">volley-platform.vercel.app</a>
+      <div class="linkRow">
+        <a href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">🏐 Вход за треньори</a>
+        <a href="https://volley-platform.vercel.app/parent/login" target="_blank" rel="noreferrer">👨‍👩‍👧 Родителски вход</a>
+        <a href="https://volley-platform.vercel.app/room/login" target="_blank" rel="noreferrer">💬 Отборна стая</a>
+      </div>
+    </div>
+    <div class="tip">🔥 Започни с един отбор тази седмица. Усещаш разликата веднага.</div>
+    <div class="noteData">
+      <h4>Финал <span class="time">~0.5 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Кажи ударното изречение бавно, погледни залата, направи пауза.</li>
+          <li>Призив за действие: „Кой иска да пробва с един отбор тази седмица?“ — вдигни ръка пръв.</li>
+          <li>Благодари и отвори за въпроси.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="progress" id="progressBar"></div>
+<div class="counter" id="counter">1 / 16</div>
+<div class="hint">← / → смяна на слайд · <b>N</b> бележки · <b>F</b> цял екран</div>
+
+<div class="notes" id="notesPanel">
+  <h4>Говорни бележки (виждаш само ти)</h4>
+  <div class="content" id="notesContent"></div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <button type="button" class="lbClose" id="lbClose" aria-label="Затвори">&times;</button>
+  <img id="lightboxImg" src="" alt="Уголемен екран" />
+  <div class="lbHint">Клик или <b>Esc</b> за затваряне</div>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let idx = 0;
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progressBar');
+  const notesPanel = document.getElementById('notesPanel');
+  const notesContent = document.getElementById('notesContent');
+  let notesOn = false;
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    counter.textContent = (idx + 1) + ' / ' + slides.length;
+    progress.style.width = ((idx + 1) / slides.length * 100) + '%';
+    const data = slides[idx].querySelector('.noteData');
+    notesContent.innerHTML = data ? data.innerHTML : '';
+  }
+
+  function go(n) {
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    render();
+  }
+
+  // lightbox (zoom screenshots)
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lbOpen = () => lightbox.classList.contains('show');
+  function openLightbox(src) {
+    lightboxImg.src = src;
+    lightbox.classList.add('show');
+  }
+  function closeLightbox() {
+    lightbox.classList.remove('show');
+    lightboxImg.src = '';
+  }
+  lightbox.addEventListener('click', closeLightbox);
+
+  document.addEventListener('keydown', (e) => {
+    if (lbOpen()) {
+      if (e.key === 'Escape') closeLightbox();
+      return;
+    }
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+    else if (e.key.toLowerCase() === 'n') { notesOn = !notesOn; notesPanel.classList.toggle('show', notesOn); }
+    else if (e.key.toLowerCase() === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  // click navigation (right half = next, left = prev); ignore links, screenshots and lightbox
+  document.getElementById('deck').addEventListener('click', (e) => {
+    if (lbOpen()) return;
+    const img = e.target.closest('.shot img');
+    if (img) { e.stopPropagation(); openLightbox(img.getAttribute('src')); return; }
+    if (e.target.closest('a') || e.target.closest('.shot')) return;
+    const x = e.clientX / window.innerWidth;
+    if (x > 0.6) go(idx + 1);
+    else if (x < 0.4) go(idx - 1);
+  });
+
+  // screenshot placeholders
+  document.querySelectorAll('.shot img').forEach((img) => {
+    img.addEventListener('error', () => {
+      const cap = img.getAttribute('data-cap') || 'Екран от приложението';
+      const file = img.getAttribute('data-file') || '';
+      const ph = document.createElement('div');
+      ph.className = 'ph';
+      ph.innerHTML = '<div class="big">📸</div><div><b>' + cap + '</b></div>' +
+        '<div style="margin-top:8px;font-size:14px;">Поставете снимка тук</div>' +
+        (file ? '<code>' + file + '</code>' : '');
+      img.replaceWith(ph);
+    });
+    // trigger error if src missing/broken on load
+    if (img.complete && img.naturalWidth === 0) img.dispatchEvent(new Event('error'));
+  });
+
+  render();
+</script>
+</body>
+</html>
