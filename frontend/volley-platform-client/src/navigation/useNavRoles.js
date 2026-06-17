@@ -9,7 +9,7 @@ export function normalizeRole(user) {
 }
 
 export default function useNavRoles() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const userRoleNorm = useMemo(() => normalizeRole(user), [user]);
 
   const isCoachUser = userRoleNorm === "coach" || userRoleNorm === "club_head_coach";
@@ -24,5 +24,6 @@ export default function useNavRoles() {
     isHeadCoachUser,
     isPlatformAdmin,
     isAdminUser,
+    logout,
   };
 }
