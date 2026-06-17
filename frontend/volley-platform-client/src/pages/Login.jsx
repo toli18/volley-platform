@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, Input, PageHero } from "../components/ui";
+import LoginIntro from "../components/auth/LoginIntro";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ export default function Login() {
 
   return (
     <div className="uiPage" style={{ maxWidth: 420, margin: "40px auto" }}>
+      <LoginIntro />
       <PageHero title="Вход" subtitle="Влез в платформата с твоите данни." />
       <Card title="Вход" subtitle="Влез в платформата с твоите данни.">
         {sessionHint ? <div className="uiAlert uiAlert--info">{sessionHint}</div> : null}
