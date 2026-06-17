@@ -15,7 +15,7 @@ export default function CoachClubHub() {
     <CoachHubPage title="Клуб & отбори" subtitle="Отбори, график, такси, тренировки и присъствие">
       <MenuGroup title="Работа">
         {links.map((item) => (
-          <MenuLink key={item.id} to={item.to} label={item.label} hint={item.hint} accent={item.accent} />
+          <MenuLink key={item.id} to={item.to} label={item.label} hint={item.hint} accent={item.accent} icon={item.icon} />
         ))}
       </MenuGroup>
     </CoachHubPage>

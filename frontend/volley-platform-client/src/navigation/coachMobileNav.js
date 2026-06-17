@@ -3,6 +3,14 @@ import { COACH_MOBILE_TABS } from "./navConfig";
 export function coachMobileActiveTab(pathname) {
   if (pathname.startsWith("/coach/bvf")) return "bvf";
   if (
+    pathname.startsWith("/textbook") ||
+    pathname.startsWith("/national-library") ||
+    pathname.startsWith("/ai-generator") ||
+    pathname.startsWith("/method-guidelines")
+  ) {
+    return "bvf";
+  }
+  if (
     pathname.startsWith("/coach/club") ||
     pathname.startsWith("/coach/teams") ||
     pathname.startsWith("/coach/fees") ||
@@ -11,9 +19,26 @@ export function coachMobileActiveTab(pathname) {
   ) {
     return "club";
   }
+  if (
+    pathname.startsWith("/teams") ||
+    pathname.startsWith("/monthly-fees") ||
+    pathname.startsWith("/my-trainings") ||
+    pathname.startsWith("/trainings") ||
+    pathname.startsWith("/club-head")
+  ) {
+    return "club";
+  }
   if (pathname === "/coach/attendance" || pathname.includes("/attendance-month")) return "club";
   if (pathname.startsWith("/coach/schedule")) return "schedule";
   if (pathname.startsWith("/coach/menu")) return "more";
+  if (
+    pathname.startsWith("/articles") ||
+    pathname.startsWith("/forum") ||
+    pathname.startsWith("/drills") ||
+    pathname.startsWith("/my-drills")
+  ) {
+    return "more";
+  }
   if (pathname.startsWith("/coach/today") || pathname === "/coach") return "today";
   return null;
 }

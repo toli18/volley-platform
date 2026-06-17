@@ -5298,6 +5298,73 @@
   box-shadow: 0 4px 18px rgba(15, 77, 58, 0.18);
 }
 
+.coachMobileTopBar--foreign {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 86;
+}
+
+.coachMobileForeignTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coachMobileTopActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coachMobileMenuBtn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.coachMobileMenuBtn--compact {
+  width: 40px;
+  height: 40px;
+}
+
+.coachMobileBurger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 18px;
+}
+
+.coachMobileBurger span {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.appShell--coachMobileForeign {
+  background: linear-gradient(180deg, #f4f8f6 0%, #eef3f8 48%, #f8fafc 100%);
+}
+
+.appShell--coachMobileForeign .appContent--coachMobileForeign {
+  padding: 68px 14px calc(92px + env(safe-area-inset-bottom, 0px));
+  max-width: none;
+}
+
 .coachMobileTopTitle {
   margin: 0;
   font-size: 17px;
@@ -5315,6 +5382,46 @@
   border-radius: 12px;
   padding: 14px;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.coachMobileProfileCard--rich {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #bbf7d0;
+}
+
+.coachMobileProfileHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.coachMobileProfileAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f4d3a, #1a6b52);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.coachMobileProfileRole {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #0f4d3a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.coachMobileProfileSub {
+  margin-top: 10px;
 }
 
 .coachMobileProfileGreeting {
@@ -5696,12 +5803,83 @@
 .coachMobileMenuRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px 14px;
   text-decoration: none;
   color: #0f172a;
   border-bottom: 1px solid #f1f5f9;
+}
+
+.coachMobileMenuRowBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.coachMobileMenuIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #334155;
+  flex-shrink: 0;
+}
+
+.coachMobileMenuIconWrap--accent {
+  background: #d1fae5;
+  color: #0b5137;
+}
+
+.coachMobileMenuQuickGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coachMobileMenuQuickTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 88px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-decoration: none;
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.coachMobileMenuQuickTile--accent {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.coachMobileMenuQuickTileIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.coachMobileMenuQuickTile--accent .coachMobileMenuQuickTileIcon {
+  background: #d1fae5;
+  color: #0b5137;
+}
+
+.coachMobileMenuQuickTileLabel {
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .coachMobileMenuList li:last-child .coachMobileMenuRow {

@@ -111,19 +111,26 @@ export const COACH_MOBILE_TABS = [
 
 /** @type {NavLinkItem[]} */
 export const COACH_CLUB_HUB_LINKS = [
-  { id: "teams", label: "Отбори", to: "/coach/teams", hint: "Списък и детайли" },
-  { id: "schedule", label: "Месечен график", to: "/coach/schedule", hint: "Календар на тренировки" },
-  { id: "fees", label: "Месечни такси", to: "/coach/fees" },
-  { id: "trainings", label: "Моите тренировки", to: "/coach/trainings", hint: "Списък и нова тренировка" },
-  { id: "attendance", label: "Присъствие", to: "/coach/attendance", hint: "По отбори" },
+  { id: "teams", label: "Отбори", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
+  { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar", hint: "Календар на тренировки" },
+  { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "fees" },
+  { id: "trainings", label: "Моите тренировки", to: "/coach/trainings", icon: "training", hint: "Списък и нова тренировка" },
+  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "check", hint: "По отбори" },
   { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
 ];
 
 /** @type {NavLinkItem[]} */
 export const COACH_BVF_HUB_LINKS = [
-  { id: "textbook", label: "Учебник БФВ", to: "/textbook", hint: "Методика и конспекти" },
-  { id: "national-library", label: "Годишна програма", to: "/national-library", hint: "Мезоцикли и планиране" },
-  { id: "ai", label: "AI Помощник", to: "/ai-generator", hint: "Генериране на тренировки", accent: true },
+  { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book", hint: "Методика и конспекти" },
+  { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "calendar", hint: "Мезоцикли и планиране" },
+  { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_MORE_QUICK_LINKS = [
+  { id: "forum", label: "Форум", to: "/forum", icon: "chat" },
+  { id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
+  { id: "coach-board", label: "Дъска", to: "/coach-board", icon: "training" },
 ];
 
 /** @type {{ title: string, links: NavLinkItem[] }[]} */
@@ -131,19 +138,19 @@ export const COACH_MORE_MENU_SECTIONS = [
   {
     title: "Съдържание",
     links: [
-      { id: "articles", label: "Статии", to: "/articles" },
-      { id: "my-articles", label: "Моите статии", to: "/articles/my" },
-      { id: "forum", label: "Форум", to: "/forum" },
-      { id: "drills", label: "Упражнения", to: "/drills" },
-      { id: "my-drills", label: "Моите упражнения", to: "/my-drills" },
+      { id: "articles", label: "Статии", to: "/articles", icon: "article" },
+      { id: "my-articles", label: "Моите статии", to: "/articles/my", icon: "article" },
+      { id: "forum", label: "Форум", to: "/forum", icon: "chat" },
+      { id: "drills", label: "Упражнения", to: "/drills", icon: "drill" },
+      { id: "my-drills", label: "Моите упражнения", to: "/my-drills", icon: "drill" },
     ],
   },
   {
     title: "Инструменти",
-    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board" }],
+    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board", icon: "training", accent: true }],
   },
   {
     title: "Друго",
-    links: [{ id: "desktop-home", label: "Пълен dashboard (десктоп)", to: "/", hint: "Класическо начало" }],
+    links: [{ id: "desktop-home", label: "Пълен dashboard", to: "/", icon: "home", hint: "Класическо начало (десктоп)" }],
   },
 ];

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import PlatformBrandBlock from "../shared/PlatformBrandBlock";
 import CoachBottomNav from "./CoachBottomNav";
+import CoachMobileNavMenu from "./CoachMobileNavMenu";
 import { Button } from "../ui";
 
 export default function CoachMobileLayout() {
@@ -54,12 +55,15 @@ export default function CoachMobileLayout() {
             ←
           </button>
         ) : (
-          <span className="coachMobileTopSpacer" aria-hidden />
+          <CoachMobileNavMenu />
         )}
         <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
-        <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
-          Изход
-        </Button>
+        <div className="coachMobileTopActions">
+          {showBack ? <CoachMobileNavMenu className="coachMobileMenuBtn coachMobileMenuBtn--compact" /> : null}
+          <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
+            Изход
+          </Button>
+        </div>
       </header>
       <main className="coachMobileMain">
         <Outlet />

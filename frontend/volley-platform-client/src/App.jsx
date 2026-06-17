@@ -2,6 +2,8 @@
 import { Suspense, useMemo } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
+import CoachMobileForeignChrome from "./components/coachMobile/CoachMobileForeignChrome";
+import useCoachMobileForeignChrome from "./hooks/useCoachMobileForeignChrome";
 import "./App.css";
 import "./components/shell/mobileContent.css";
 
@@ -33,18 +35,23 @@ export default function App() {
     return path === "/coach" || path.startsWith("/coach/");
   }, [location.pathname]);
 
-  const hideAppChrome = isPublicPortal || isCoachMobile;
+  const coachForeignChrome = useCoachMobileForeignChrome(location.pathname, location.search);
+
+  const hideAppChrome = isPublicPortal || isCoachMobile || coachForeignChrome;
   const shellClass = isPublicPortal
     ? "appShell--parentPortal"
     : isCoachMobile
       ? "appShell--coachMobile"
-      : "";
+      : coachForeignChrome
+        ? "appShell--coachMobileForeign"
+        : "";
 
   return (
     <div className={`appShell bfvTheme ${shellClass}`.trim()}>
       {!isImmersiveMode && !hideAppChrome ? <Navbar /> : null}
+      {coachForeignChrome ? <CoachMobileForeignChrome /> : null}
       <main
-        className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""} ${isPublicPortal ? "appContent--parentPortal" : ""} ${isCoachMobile ? "appContent--coachMobile" : ""}`.trim()}
+        className={`appContent ${isImmersiveMode ? "appContent--immersive" : ""} ${isPublicPortal ? "appContent--parentPortal" : ""} ${isCoachMobile ? "appContent--coachMobile" : ""} ${coachForeignChrome ? "appContent--coachMobileForeign" : ""}`.trim()}
       >
         <Suspense fallback={<div style={{ padding: 24 }}>Зареждане...</div>}>
           <Outlet />
