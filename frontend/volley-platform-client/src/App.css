@@ -4914,6 +4914,7 @@
   margin: 0;
   font-size: 1.35rem;
   font-weight: 800;
+  color: #f8fafc;
 }
 
 .teamRoomTopSub {
@@ -4926,6 +4927,7 @@
   margin: 18px 0 10px;
   font-size: 1rem;
   font-weight: 800;
+  color: #f1f5f9;
 }
 
 .teamRoomCard {
@@ -4940,7 +4942,7 @@
   margin: 0 0 10px;
   font-size: 14px;
   font-weight: 800;
-  color: #94a3b8;
+  color: #e2e8f0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

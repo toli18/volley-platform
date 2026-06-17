@@ -316,6 +316,22 @@ export default function TeamRoomPortal() {
                     onAckChange={handleAckScheduleChange}
                   />
                 </section>
+
+                <section className="teamRoomCard teamRoomCard--compact" aria-label="Присъствие">
+                  <h2 className="teamRoomCardTitle">Присъствие (90 дни)</h2>
+                  {(attendance?.total ?? 0) > 0 ? (
+                    <div className="teamRoomStatRow">
+                      <span className="teamRoomStatPill teamRoomStatPill--ok">{attendance.attendance_rate_percent}%</span>
+                      <span className="teamRoomMuted">
+                        Присъства: {attendance.present}
+                        {attendance.late ? ` · Закъснения: ${attendance.late}` : ""}
+                        {attendance.absent ? ` · Отсъствия: ${attendance.absent}` : ""}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="teamRoomMuted">Още няма достатъчно записи.</p>
+                  )}
+                </section>
               </div>
               <TeamRoomFeeStatus
                 fee={data.current_month_fee}
