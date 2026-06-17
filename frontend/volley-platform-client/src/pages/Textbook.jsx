@@ -4,17 +4,12 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
+import {
+  PLAN_BAND_LABELS,
+  PLAN_BAND_ORDER,
+  TEXTBOOK_AGE_FILTER_OPTIONS,
+} from "../utils/ageBands";
 
-const AGE_OPTIONS = ["all", "mini", "U13", "U14", "U15", "U16", "U17", "U18"];
-
-const PLAN_BAND_ORDER = ["mini", "U13", "U14", "U16", "U18"];
-const PLAN_BAND_LABELS = {
-  mini: "Mini (8–10 г.)",
-  U13: "U13",
-  U14: "U14",
-  U16: "U16",
-  U18: "U18",
-};
 const QUICK_PLAN_PREVIEW = 3;
 
 function titleCase(s) {
@@ -191,9 +186,9 @@ export default function Textbook() {
           onChange={(e) => updateFilter("q", e.target.value)}
         />
         <select className="uiInput" value={ageFilter} onChange={(e) => updateFilter("age", e.target.value)}>
-          {AGE_OPTIONS.map((a) => (
+          {TEXTBOOK_AGE_FILTER_OPTIONS.map((a) => (
             <option key={a} value={a}>
-              {a === "all" ? "Всички възрасти" : a}
+              {a === "all" ? "Всички възрасти" : PLAN_BAND_LABELS[a] || a}
             </option>
           ))}
         </select>
@@ -338,6 +333,22 @@ export default function Textbook() {
                     Генерирай тази тренировка с AI
                   </Button>
                   <span className="uiMuted">Конспектът от учебника се подава на генератора като контекст.</span>
+                </div>
+              )}
+
+              {section.kind === "session_plan" && section.annual_links?.length > 0 && (
+                <div className="textbookAnnualLinks" role="navigation">
+                  <span className="textbookAnnualLinks__label">В годишната програма:</span>
+                  {section.annual_links.map((link) => (
+                    <Link
+                      key={`${link.age_band}-${link.meso_number}-${link.week}`}
+                      className="textbookAnnualLinks__chip"
+                      to={`/national-library?ageBand=${encodeURIComponent(link.age_band)}&meso=${link.meso_number}&week=${link.week}&day=1`}
+                    >
+                      Мезо {link.meso_number} · седмица {link.week}
+                      {link.period_label ? ` (${link.period_label})` : ""}
+                    </Link>
+                  ))}
                 </div>
               )}
 

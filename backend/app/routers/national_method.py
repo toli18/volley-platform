@@ -424,6 +424,21 @@ def admin_import_bvf_library(
     return out
 
 
+@router.post("/admin/seed-annual-program")
+def admin_seed_annual_program(
+    replace: bool = Query(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    """Обновява мезо/макро циклите на годишната програма в БД (без CLI)."""
+    from app.scripts.seed_annual_program import seed_annual_program
+
+    stats = seed_annual_program(db, replace=replace)
+    db.commit()
+    total = db.query(MethodCycle).filter(MethodCycle.status == "published").count()
+    return {"ok": True, "stats": stats, "published_cycles": total}
+
+
 @router.get("/admin/drills")
 def admin_list_national_drills(
     db: Session = Depends(get_db),

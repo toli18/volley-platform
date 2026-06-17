@@ -220,6 +220,10 @@ def get_section(slug: str, db: Session | None = None) -> dict[str, Any] | None:
     by_slug = {s["slug"]: s for s in sections}
     related = [_card(by_slug[rs]) for rs in sec.get("related_slugs") or [] if rs in by_slug]
 
+    from app.national_method.annual_program import annual_links_for_textbook_slug
+
+    annual_links = annual_links_for_textbook_slug(slug) if sec.get("kind") == "session_plan" else []
+
     return {
         **_card(sec),
         "body_bg": body,
@@ -230,6 +234,7 @@ def get_section(slug: str, db: Session | None = None) -> dict[str, Any] | None:
         "prev_title": by_slug[sec["prev_slug"]]["title_bg"] if sec.get("prev_slug") in by_slug else None,
         "next_title": by_slug[sec["next_slug"]]["title_bg"] if sec.get("next_slug") in by_slug else None,
         "related": related,
+        "annual_links": annual_links,
         "ai_params": {
             "ageBand": sec.get("age_band") if sec.get("age_band") != "all" else "U14",
             "textbookSlug": slug,

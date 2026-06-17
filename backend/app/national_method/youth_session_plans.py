@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,39 @@ def _section_row(item: dict[str, Any], sort_order: int, part: str = "session_pla
         "session_phase": item["phase"],
         "summary_bg": body[:280].replace("\n", " ") + ("…" if len(body) > 280 else ""),
     }
+
+
+def dedupe_session_plans(sections: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Премахва дублирани session_code (напр. u16-podg-01 и u16-podg-01-2)."""
+    by_code: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for sec in sections:
+        if sec.get("kind") == "session_plan" and sec.get("session_code"):
+            by_code[str(sec["session_code"])].append(sec)
+
+    remove_slugs: set[str] = set()
+    for group in by_code.values():
+        if len(group) < 2:
+            continue
+        group.sort(
+            key=lambda s: (
+                1 if str(s.get("slug") or "").endswith("-2") else 0,
+                -len(s.get("body_bg") or ""),
+                s.get("sort_order") or 0,
+            )
+        )
+        keeper = group[0]
+        for dup in group[1:]:
+            dup_body = dup.get("body_bg") or ""
+            if len(dup_body) > len(keeper.get("body_bg") or ""):
+                keeper["body_bg"] = dup_body
+                keeper["title_bg"] = dup.get("title_bg") or keeper.get("title_bg")
+                summary = dup_body[:280].replace("\n", " ")
+                keeper["summary_bg"] = summary + ("…" if len(dup_body) > 280 else "")
+            remove_slugs.add(str(dup["slug"]))
+
+    if not remove_slugs:
+        return sections, 0
+    return [s for s in sections if s.get("slug") not in remove_slugs], len(remove_slugs)
 
 
 def build_u13_from_u14(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -184,10 +218,13 @@ def merge_youth_session_plans(data: dict[str, Any]) -> tuple[dict[str, Any], dic
     sections, sast_added = upsert_mini_sast_plans(sections)
     added += sast_added
 
+    sections, deduped = dedupe_session_plans(sections)
+
     data["sections"] = sections
     data["section_count"] = len(sections)
     stats = {
         "added": added,
+        "deduped": deduped,
         "mini_plans": sum(1 for s in sections if s.get("age_band") == "mini" and s.get("kind") == "session_plan"),
         "mini_sast_plans": sum(
             1

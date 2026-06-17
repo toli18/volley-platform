@@ -1623,6 +1623,40 @@
   text-decoration: underline;
 }
 
+.textbookAnnualLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--surface-2, #f8fafc);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.textbookAnnualLinks__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+}
+
+.textbookAnnualLinks__chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border, #cbd5e1);
+  color: var(--primary, #2563eb);
+  text-decoration: none;
+}
+
+.textbookAnnualLinks__chip:hover {
+  background: var(--primary, #2563eb);
+  color: #fff;
+  border-color: var(--primary, #2563eb);
+}
+
 .methodHubNavItem--compact {
   font-size: 12px;
   padding: 6px 10px;

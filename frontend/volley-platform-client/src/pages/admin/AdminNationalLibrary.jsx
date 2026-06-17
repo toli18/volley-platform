@@ -69,6 +69,7 @@ export default function AdminNationalLibrary() {
   const [drillForm, setDrillForm] = useState({ title: "", instructions: "", coaching_points: "", age_min: 14, age_max: 16 });
   const [importing, setImporting] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [seedingAnnual, setSeedingAnnual] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -138,6 +139,31 @@ export default function AdminNationalLibrary() {
       toast.error(normalizeError(e));
     } finally {
       setImporting(false);
+    }
+  };
+
+  const runSeedAnnualProgram = async () => {
+    if (
+      !window.confirm(
+        "Обновява мезо/макро циклите на годишната програма (mini, U13, U14, U16, U18) в базата. Продължаваш?"
+      )
+    ) {
+      return;
+    }
+    try {
+      setSeedingAnnual(true);
+      const res = await axiosInstance.post(API_PATHS.NATIONAL_METHOD_ADMIN_SEED_ANNUAL, null, {
+        params: { replace: true },
+      });
+      const stats = res.data?.stats || {};
+      toast.success(
+        `Годишна програма: +${stats.created ?? 0} нови, ${stats.updated ?? 0} обновени. Публикувани цикли: ${res.data?.published_cycles ?? "—"}`
+      );
+      loadAll();
+    } catch (e) {
+      toast.error(normalizeError(e));
+    } finally {
+      setSeedingAnnual(false);
     }
   };
 
@@ -249,22 +275,26 @@ export default function AdminNationalLibrary() {
         <Button variant="secondary" onClick={loadAll}>
           Обнови
         </Button>
-        <Button variant="primary" onClick={runLibraryImport} disabled={importing || purging}>
+        <Button variant="primary" onClick={runLibraryImport} disabled={importing || purging || seedingAnnual}>
           {importing ? "Импорт..." : "Импорт учебник БФВ"}
         </Button>
-        <Button variant="secondary" onClick={() => runPurgeLegacy(true)} disabled={importing || purging}>
+        <Button variant="secondary" onClick={runSeedAnnualProgram} disabled={importing || purging || seedingAnnual}>
+          {seedingAnnual ? "Обновяване..." : "Обнови годишна програма"}
+        </Button>
+        <Button variant="secondary" onClick={() => runPurgeLegacy(true)} disabled={importing || purging || seedingAnnual}>
           Проба: почисти старо
         </Button>
-        <Button variant="secondary" onClick={() => runPurgeLegacy(false)} disabled={importing || purging}>
+        <Button variant="secondary" onClick={() => runPurgeLegacy(false)} disabled={importing || purging || seedingAnnual}>
           {purging ? "Почистване..." : "Почисти стара библиотека (1×)"}
         </Button>
       </div>
 
       <Card style={{ padding: 12, marginBottom: 16, background: "#fff8e6", border: "1px solid #f0d78c" }}>
-        <strong>Еднократно на Railway</strong>
+        <strong>След deploy (от админа)</strong>
         <p className="uiMuted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>
-          След deploy натисни „Проба“, после „Почисти стара библиотека“. Това маха английските и лошо преведените
-          упражнения от базата. Не е нужно на всеки deploy.
+          1) <strong>Импорт учебник БФВ</strong> — конспекти и методика в базата. 2){" "}
+          <strong>Обнови годишна програма</strong> — мезоцикли за mini/U13/U14/U16/U18. Почистването на
+          стара библиотека е еднократно.
         </p>
       </Card>
 

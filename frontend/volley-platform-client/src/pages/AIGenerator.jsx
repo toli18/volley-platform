@@ -17,6 +17,7 @@ import {
   matchSkillQuery,
   resolveToSelectableSkill,
 } from "../utils/skillCanonical";
+import { AGE_BAND_TO_YEARS, FORM_AGE_YEAR_OPTIONS } from "../utils/ageBands";
 
 const PERIODS = [
   { value: "prep", label: "Подготовителен период" },
@@ -33,7 +34,7 @@ const INTENSITIES = [
 
 const DURATION_OPTIONS = [60, 75, 90, 105, 120];
 const PLAYERS_OPTIONS = [6, 8, 10, 12, 14, 16, 18];
-const AGE_OPTIONS = Array.from({ length: 15 }, (_, i) => i + 10);
+const AGE_OPTIONS = FORM_AGE_YEAR_OPTIONS;
 const SEED_OPTIONS = [7, 42, 99, 2026];
 const ORIENTATION_OPTIONS = [
   { value: "balanced", label: "Балансирана" },
@@ -113,8 +114,6 @@ function toBgLabel(raw) {
   });
   return translated.join(", ");
 }
-
-const AGE_BAND_TO_YEARS = { mini: 11, U13: 13, U14: 14, U15: 15, U16: 16, U17: 17, U18: 18 };
 
 export default function AIGenerator() {
   const { user } = useAuth();

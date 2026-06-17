@@ -437,6 +437,43 @@ def plan_slug_for_meso_week(
     return entry["slug"], entry.get("code")
 
 
+@lru_cache(maxsize=1)
+def textbook_annual_links_index() -> dict[str, list[dict[str, Any]]]:
+    """Обратен индекс: textbook slug → мезо/седмица в годишната програма."""
+    from collections import defaultdict
+
+    links: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for band in ANNUAL_AGE_BANDS:
+        for defn in meso_definitions_for(band):
+            meso_n = defn["meso_number"]
+            period = defn["period"]
+            for w in range(1, 5):
+                slug, code = plan_slug_for_meso_week(band, period, meso_n, w)
+                if not slug:
+                    continue
+                links[slug].append(
+                    {
+                        "age_band": band,
+                        "meso_number": meso_n,
+                        "macro_id": defn.get("macro_id"),
+                        "week": w,
+                        "period": period,
+                        "period_label": PERIOD_LABELS.get(period, period),
+                        "meso_theme": defn.get("theme"),
+                        "session_code": code,
+                    }
+                )
+    for slug in links:
+        links[slug].sort(key=lambda x: (x["meso_number"], x["week"]))
+    return dict(links)
+
+
+def annual_links_for_textbook_slug(slug: str | None) -> list[dict[str, Any]]:
+    if not slug:
+        return []
+    return list(textbook_annual_links_index().get(slug) or [])
+
+
 def annual_program_key(age_band: str, kind: str, number: int) -> str:
     ab = _normalize_plan_band(age_band)
     return f"{ab}-{kind}-{number}"

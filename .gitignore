@@ -25,3 +25,12 @@ frontend/volley-platform-client/dist/
 auth.json
 backend/app/static/uploads/
 backend/app/seed/data/bvf_export_progress.json
+
+# Local scratch / extraction artifacts
+tmp_*
+tmp_vc.*
+backend/app/scripts/parse_vc_*.py
+backend/app/scripts/analyze_vc_bundle.py
+backend/app/scripts/dump_components.py
+backend/app/scripts/find_vc_components.py
+backend/app/scripts/map_jp_tabs.py

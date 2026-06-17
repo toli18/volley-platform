@@ -1,19 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
-
-const AGE_OPTIONS = [
-  { value: "mini", label: "Mini (8–10 г.)" },
-  { value: "U13", label: "U13 (12–13 г.)" },
-  { value: "U14", label: "U14" },
-  { value: "U15", label: "U15 (→ U16)" },
-  { value: "U16", label: "U16" },
-  { value: "U17", label: "U17 (→ U18)" },
-  { value: "U18", label: "U18" },
-];
+import { NATIONAL_LIBRARY_AGE_OPTIONS } from "../utils/ageBands";
 
 const PERIOD_BADGE = {
   prep: "Подготвителен",
@@ -29,12 +20,18 @@ function focusLabel(focus) {
 export default function NationalLibrary() {
   const toast = useToast();
   const navigate = useNavigate();
-  const [ageBand, setAgeBand] = useState("U16");
+  const [searchParams] = useSearchParams();
+  const [ageBand, setAgeBand] = useState(() => searchParams.get("ageBand") || "U16");
   const [expandedMacro, setExpandedMacro] = useState(1);
   const [annual, setAnnual] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [selectedCell, setSelectedCell] = useState({ week: 1, day: 1 });
+
+  useEffect(() => {
+    const band = searchParams.get("ageBand");
+    if (band) setAgeBand(band);
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +52,26 @@ export default function NationalLibrary() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const mesoRaw = searchParams.get("meso");
+    const weekRaw = searchParams.get("week");
+    const dayRaw = searchParams.get("day");
+    if (!annual || !mesoRaw || selectedCycle) return;
+    const mesoNum = Number(mesoRaw);
+    if (!Number.isFinite(mesoNum)) return;
+    const allMesos = [...(annual.mesos_by_macro?.[1] || []), ...(annual.mesos_by_macro?.[2] || [])];
+    const target = allMesos.find((m) => Number(m.meso_number) === mesoNum);
+    if (!target?.id) return;
+    openCycle(target.id).then(() => {
+      if (weekRaw || dayRaw) {
+        setSelectedCell({
+          week: weekRaw ? Number(weekRaw) : 1,
+          day: dayRaw ? Number(dayRaw) : 1,
+        });
+      }
+    });
+  }, [annual, selectedCycle, searchParams]);
+
   const hasAnnual = Boolean(annual?.mesos_by_macro?.[1]?.length || annual?.mesos_by_macro?.[2]?.length);
 
   const openCycle = async (id) => {
@@ -67,8 +84,10 @@ export default function NationalLibrary() {
         week: firstWeek ? Number(firstWeek) : 1,
         day: firstDay ? Number(firstDay) : 1,
       });
+      return res.data;
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка при цикъл");
+      return null;
     }
   };
 
@@ -155,7 +174,7 @@ export default function NationalLibrary() {
         <label>
           Възраст:{" "}
           <select className="uiInput" value={ageBand} onChange={(e) => setAgeBand(e.target.value)}>
-            {AGE_OPTIONS.map((a) => (
+            {NATIONAL_LIBRARY_AGE_OPTIONS.map((a) => (
               <option key={a.value} value={a.value}>
                 {a.label}
               </option>
@@ -335,8 +354,12 @@ export default function NationalLibrary() {
                     return (
                       <>
                         <strong>
-                          Седмица {wk.week}: {wk.theme} · {day.label}
+                          Мезо {selectedCycle.meso_number || selectedCycle.structure_json?.meso_number}:{" "}
+                          {selectedCycle.title_bg?.replace(/^Мезо \d+ — /, "") || selectedCycle.title_bg}
                         </strong>
+                        <p className="uiMuted" style={{ margin: "4px 0 0", fontSize: 13 }}>
+                          Седмица {selectedCell.week}: {wk.theme} · {day.label}
+                        </p>
                         <p className="uiMuted" style={{ margin: "6px 0 0" }}>
                           {day.theme}
                           {day.session_goal ? ` — ${day.session_goal}` : ""}
