@@ -110,8 +110,6 @@ const router = createBrowserRouter([
       </AuthProvider>
     ),
     children: [
-      { index: true, element: <Home /> },
-
       { path: "login", element: <Login /> },
       { path: "parent/login", element: <ParentLogin /> },
       { path: "parent/portal", element: <ParentPortal /> },
@@ -123,12 +121,19 @@ const router = createBrowserRouter([
       { path: "team/:token", element: <Navigate to="/room/login" replace /> },
       { path: "team", element: <Navigate to="/room/login" replace /> },
 
-      { path: "drills", element: <Drills /> },
-      { path: "articles", element: <Articles /> },
-      { path: "articles/:id", element: <ArticleDetails /> },
-      { path: "drills/new", element: <CreateDrill /> },
-      { path: "drills/:id", element: <DrillDetails /> },
-      { path: "generator", element: <Generator /> },
+      // Изисква вписан потребител (всяка роля) — без сесия пренасочва към /login
+      {
+        element: <ProtectedRoute />,
+        children: [
+          { index: true, element: <Home /> },
+          { path: "drills", element: <Drills /> },
+          { path: "articles", element: <Articles /> },
+          { path: "articles/:id", element: <ArticleDetails /> },
+          { path: "drills/new", element: <CreateDrill /> },
+          { path: "drills/:id", element: <DrillDetails /> },
+          { path: "generator", element: <Generator /> },
+        ],
+      },
 
       // Coach-only
         {
