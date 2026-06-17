@@ -1,5 +1,5 @@
 """
-Seed на годишна програма: макро I/II + 11 мезоцикъла (U14, U16, U18).
+Seed на годишна програма: макро I/II + мезоцикли (mini, U13, U14, U16, U18).
 
   cd backend
   python -m app.scripts.seed_annual_program

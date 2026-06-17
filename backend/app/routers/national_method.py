@@ -653,6 +653,7 @@ def coach_method_context(
     cycle_day: Optional[int] = Query(None),
     cycle_id: Optional[int] = Query(None),
     textbook_slug: Optional[str] = Query(None),
+    session_code: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
@@ -697,9 +698,13 @@ def coach_method_context(
             )
             tb_slug_resolved = textbook_slug_for_day(row.structure_json, wk_raw, dy_raw)
 
-    from app.national_method.textbook_index import textbook_context_for_ai
+    from app.national_method.textbook_index import resolve_textbook_for_ai
 
-    tb_ctx = textbook_context_for_ai(tb_slug_resolved, db) if tb_slug_resolved else None
+    tb_ctx = (
+        resolve_textbook_for_ai(tb_slug_resolved, session_code, db)
+        if (tb_slug_resolved or session_code)
+        else None
+    )
     if tb_ctx and tb_ctx.get("age_band") and tb_ctx["age_band"] != "all":
         band = tb_ctx["age_band"]
         k = get_age_knowledge(band)

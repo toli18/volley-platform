@@ -168,6 +168,7 @@ export default function AIGenerator() {
     cycleWeek: null,
     cycleDay: null,
     textbookSlug: "",
+    sessionCode: "",
   });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
   const plannerPrefillRef = useRef(false);
@@ -288,7 +289,8 @@ export default function AIGenerator() {
     const cycleWeekRaw = (searchParams.get("cycleWeek") || "").trim();
     const cycleDayRaw = (searchParams.get("cycleDay") || "").trim();
     const textbookSlug = (searchParams.get("textbookSlug") || "").trim();
-    if (!ageBand && !cycleIdRaw && !textbookSlug) return;
+    const sessionCode = (searchParams.get("sessionCode") || "").trim();
+    if (!ageBand && !cycleIdRaw && !textbookSlug && !sessionCode) return;
 
     const band = ageBand || "U14";
     const cycleId = cycleIdRaw ? Number(cycleIdRaw) : null;
@@ -302,8 +304,9 @@ export default function AIGenerator() {
       cycleWeek,
       cycleDay: Number.isFinite(cycleDay) ? cycleDay : null,
       textbookSlug,
+      sessionCode,
     });
-    plannerPrefillRef.current = Boolean(cycleIdRaw || textbookSlug);
+    plannerPrefillRef.current = Boolean(cycleIdRaw || textbookSlug || sessionCode);
     setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
 
     let alive = true;
@@ -316,19 +319,30 @@ export default function AIGenerator() {
             ...(cycleWeek ? { cycle_week: cycleWeek } : {}),
             ...(cycleDay ? { cycle_day: cycleDay } : {}),
             ...(textbookSlug ? { textbook_slug: textbookSlug } : {}),
+            ...(sessionCode ? { session_code: sessionCode } : {}),
           },
         });
         if (!alive) return;
         setBvfMethodHint(ctx);
+        const resolvedSlug = ctx?.textbook?.slug || textbookSlug;
+        if (resolvedSlug && resolvedSlug !== textbookSlug) {
+          setCycleParams((prev) => ({ ...prev, textbookSlug: resolvedSlug }));
+        }
         const rec = ctx?.recommended;
         if (rec && plannerPrefillRef.current) {
           setForm((prev) => ({
             ...prev,
+            ...(ctx?.age_band && ctx.age_band !== band
+              ? { ageRange: ctx.age_band, age: AGE_BAND_TO_YEARS[ctx.age_band] ?? prev.age }
+              : {}),
             mainFocus: rec.mainFocus || prev.mainFocus,
             secondaryFocus: rec.secondaryFocus || prev.secondaryFocus,
             periodPhase: rec.periodPhase || prev.periodPhase,
             intensityTarget: rec.intensityTarget || prev.intensityTarget,
           }));
+        }
+        if (ctx?.age_band && ctx.age_band !== band) {
+          setCycleParams((prev) => ({ ...prev, ageBand: ctx.age_band }));
         }
       } catch {
         if (alive) setBvfMethodHint(null);
@@ -544,6 +558,7 @@ export default function AIGenerator() {
       cycleWeek: cycleParams.cycleWeek ?? undefined,
       cycleDay: cycleParams.cycleDay ?? undefined,
       textbookSlug: cycleParams.textbookSlug || undefined,
+      sessionCode: cycleParams.sessionCode || undefined,
     }),
     [form, options.domains, options.phases, cycleParams]
   );
@@ -749,11 +764,13 @@ export default function AIGenerator() {
       <PageHero
         title="AI генератор на тренировки"
         subtitle={
-          bvfMethodHint?.week?.theme
-            ? `Методика БФВ · ${cycleParams.ageBand || bvfMethodHint.age_band} · седмица: ${bvfMethodHint.week.theme} — план + упражнения от базата.`
-            : cycleParams.ageBand
-              ? `Методика БФВ за ${cycleParams.ageBand} — структуриран план и предложения от одобрената база.`
-              : "Структуриран текстов план по методика БФВ + упражнения от одобрената база (не статии за четене)."
+          bvfMethodHint?.textbook?.title
+            ? `Конспект: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""} · ${cycleParams.ageBand || bvfMethodHint.age_band || "БФВ"}`
+            : bvfMethodHint?.week?.theme
+              ? `Методика БФВ · ${cycleParams.ageBand || bvfMethodHint.age_band} · седмица: ${bvfMethodHint.week.theme} — план + упражнения от базата.`
+              : cycleParams.ageBand
+                ? `Методика БФВ за ${cycleParams.ageBand} — структуриран план и предложения от одобрената база.`
+                : "Структуриран текстов план по методика БФВ + упражнения от одобрената база (не статии за четене)."
         }
         actions={
           <Button as={Link} to="/my-trainings" size="sm" variant="secondary">
@@ -796,6 +813,12 @@ export default function AIGenerator() {
                   : `Възраст ${bvfMethodHint.age_band}`}
             {" · "}
             AI използва учебника и методиката при генериране.
+            {cycleParams.textbookSlug ? (
+              <>
+                {" "}
+                <Link to={`/textbook/${cycleParams.textbookSlug}`}>← Конспект в учебника</Link>
+              </>
+            ) : null}
           </span>
         </div>
       ) : null}

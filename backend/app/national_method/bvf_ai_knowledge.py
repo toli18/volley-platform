@@ -587,6 +587,7 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     day_ctx = None
     annual_ctx = None
     tb_slug_resolved = out.get("textbookSlug")
+    session_code = out.get("sessionCode")
 
     if db and out.get("cycleId"):
         from app.models import MethodCycle
@@ -608,12 +609,17 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
                 tb_slug_resolved = textbook_slug_for_day(s, wk, day_ctx)
 
     textbook_ctx = None
-    tb_slug = tb_slug_resolved or out.get("textbookSlug")
-    if tb_slug:
-        from app.national_method.textbook_index import textbook_context_for_ai
+    if tb_slug_resolved or session_code:
+        from app.national_method.textbook_index import resolve_textbook_for_ai
 
-        textbook_ctx = textbook_context_for_ai(str(tb_slug), db)
+        textbook_ctx = resolve_textbook_for_ai(
+            str(tb_slug_resolved) if tb_slug_resolved else None,
+            str(session_code) if session_code else None,
+            db,
+        )
         if textbook_ctx:
+            if textbook_ctx.get("slug") and not out.get("textbookSlug"):
+                out["textbookSlug"] = textbook_ctx["slug"]
             if textbook_ctx.get("age_band") and textbook_ctx["age_band"] != "all":
                 age_band = textbook_ctx["age_band"]
                 out["ageBand"] = age_band
@@ -633,7 +639,7 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
         textbook_ctx=textbook_ctx,
         total_minutes=total_min,
     )
-    from_planner = bool(out.get("cycleId") or out.get("textbookSlug"))
+    from_planner = bool(out.get("cycleId") or out.get("textbookSlug") or out.get("sessionCode"))
     rec = session_review["recommended"]
     if from_planner:
         out["mainFocus"] = rec["mainFocus"]

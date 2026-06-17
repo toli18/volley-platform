@@ -280,6 +280,34 @@ def textbook_navigation() -> dict[str, Any]:
     }
 
 
+def slug_for_session_code(session_code: str | None) -> str | None:
+    """Намира slug на план-конспект по код (напр. MINI-СЪСТ-05)."""
+    code = (session_code or "").strip().upper()
+    if not code:
+        return None
+    sections = enrich_sections(load_bundle().get("sections") or [])
+    for sec in sections:
+        sc = (sec.get("session_code") or "").strip().upper()
+        if sc and sc == code:
+            return sec["slug"]
+    return None
+
+
+def resolve_textbook_for_ai(
+    slug: str | None = None,
+    session_code: str | None = None,
+    db: Session | None = None,
+) -> dict[str, Any] | None:
+    """Резолвира учебен контекст по slug и/или session_code (кодът има приоритет)."""
+    resolved_slug = (slug or "").strip() or None
+    code_slug = slug_for_session_code(session_code)
+    if code_slug:
+        resolved_slug = code_slug
+    if not resolved_slug:
+        return None
+    return textbook_context_for_ai(resolved_slug, db)
+
+
 def textbook_context_for_ai(slug: str | None, db: Session | None = None) -> dict[str, Any] | None:
     if not slug:
         return None

@@ -98,6 +98,7 @@ export default function NationalLibrary() {
     });
     const tbSlug = dayObj?.textbook_slug || wk?.textbook_slug || selectedCycle?.annual_program?.primary_textbook_slug;
     if (tbSlug) params.set("textbookSlug", tbSlug);
+    if (dayObj?.session_code) params.set("sessionCode", dayObj.session_code);
     navigate(`/ai-generator?${params.toString()}`);
   };
 

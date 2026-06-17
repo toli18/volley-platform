@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { apiJson } from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/DrillMediaPreviewModal";
+import DrillPickerSheet from "../components/drills/DrillPickerSheet";
 import { SessionReviewCard } from "../components/ai/SessionReviewCard";
 import { SectionBvfContext } from "../components/ai/SectionBvfContext";
 import { Button, EmptyState, PageHero } from "../components/ui";
@@ -56,8 +57,6 @@ export default function TrainingDetails() {
   const [savingPayment, setSavingPayment] = useState(false);
   const [livePlan, setLivePlan] = useState(null);
   const [swapOpen, setSwapOpen] = useState(false);
-  const [swapDrills, setSwapDrills] = useState([]);
-  const [swapQ, setSwapQ] = useState("");
   const [savingSwap, setSavingSwap] = useState(false);
 
   const SECTIONS = useMemo(() => PLAN_SECTION_DEFS, []);
@@ -205,22 +204,6 @@ export default function TrainingDetails() {
     };
   }, [selectedTeamId]);
 
-  useEffect(() => {
-    if (!fieldMode || swapDrills.length) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await apiJson("/drills/");
-        if (!cancelled) setSwapDrills(Array.isArray(list) ? list : []);
-      } catch {
-        if (!cancelled) setSwapDrills([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fieldMode, swapDrills.length]);
-
   const plan = useMemo(
     () => normalizePlan(livePlan ?? data?.plan),
     [livePlan, data?.plan]
@@ -272,17 +255,6 @@ export default function TrainingDetails() {
     return `${mm}:${ss}`;
   };
 
-  const filteredSwapDrills = useMemo(() => {
-    const q = swapQ.trim().toLowerCase();
-    let list = swapDrills;
-    if (q) {
-      list = list.filter((d) =>
-        `${d?.title || d?.name || ""} ${d?.description || ""}`.toLowerCase().includes(q)
-      );
-    }
-    return list.slice(0, 40);
-  }, [swapDrills, swapQ]);
-
   const onSwapDrill = async (newDrillId) => {
     if (!step || !data?.id) return;
     const nextPlan = replaceStepDrill(plan, step, newDrillId);
@@ -291,7 +263,6 @@ export default function TrainingDetails() {
       await apiJson(`/trainings/${data.id}`, { method: "PATCH", data: { plan: nextPlan } });
       setLivePlan(nextPlan);
       setSwapOpen(false);
-      setSwapQ("");
       toast.success("Упражнението е сменено.");
     } catch (e) {
       toast.error(e?.message || "Грешка при смяна.");
@@ -760,33 +731,15 @@ export default function TrainingDetails() {
           </div>
         ) : null}
 
-        {swapOpen ? (
-          <div className="storyMap" onClick={() => !savingSwap && setSwapOpen(false)}>
-            <div className="storyMapCard" onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <strong>Смени упражнение</strong>
-                <button className="fieldBtn" onClick={() => setSwapOpen(false)} disabled={savingSwap}>Затвори</button>
-              </div>
-              <input
-                value={swapQ}
-                onChange={(e) => setSwapQ(e.target.value)}
-                placeholder="Търси в базата…"
-                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #d8e1ec", marginBottom: 8 }}
-              />
-              {filteredSwapDrills.map((d) => (
-                <div key={d.id} className="storyMapRow">
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800 }}>{d.title || d.name}</div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>{d.category || "—"}</div>
-                  </div>
-                  <button className="go" disabled={savingSwap} onClick={() => onSwapDrill(d.id)}>
-                    Избери
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <DrillPickerSheet
+          open={swapOpen}
+          onClose={() => !savingSwap && setSwapOpen(false)}
+          onSelect={onSwapDrill}
+          loading={savingSwap}
+          title="Смени упражнение"
+          sectionKey={step?.sectionKey || ""}
+          currentDrill={step?.drill || null}
+        />
 
         {paymentAthlete ? (
           <div className="payModal" onClick={() => !savingPayment && setPaymentAthlete(null)}>

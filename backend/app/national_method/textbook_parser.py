@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 SESSION_CODE_RE = re.compile(
-    r"^(U\d{2})-(ПОДГ|СЪСТ)-(\d{1,2})\s*:?\s*(.*)$",
+    r"^(MINI|U\d{2})-(ПОДГ|СЪСТ)-(\d{1,2})\s*:?\s*(.*)$",
     re.IGNORECASE,
 )
 PAGE_MARKER_RE = re.compile(r"^(стр\.|Стр\.)\s*\d+", re.IGNORECASE)
@@ -145,7 +145,7 @@ def parse_textbook(text: str) -> dict[str, Any]:
             n += 1
         used_slugs.add(slug)
         sort_order += 1
-        age = _infer_age_band(current_title, current_meta.get("code"))
+        age = current_meta.get("age_band") or _infer_age_band(current_title, current_meta.get("code"))
         sections.append(
             {
                 "slug": slug,
@@ -174,12 +174,16 @@ def parse_textbook(text: str) -> dict[str, Any]:
         sess = SESSION_CODE_RE.match(line.strip())
         if sess:
             flush()
-            band, phase, num, rest = sess.groups()
-            code = f"{band.upper()}-{phase.upper()}-{num.zfill(2)}"
+            band_raw, phase, num, rest = sess.groups()
+            band = band_raw.upper()
+            if band == "MINI":
+                band = "mini"
+            phase_up = phase.upper()
+            code = f"{band_raw.upper()}-{phase_up}-{num.zfill(2)}"
             title = rest.strip() or code
             current_title = f"{code}: {title}"
             current_kind = "session_plan"
-            current_meta = {"code": code, "phase": phase.upper()}
+            current_meta = {"code": code, "phase": phase_up, "age_band": band}
             continue
 
         if _is_heading(line):

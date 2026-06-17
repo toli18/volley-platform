@@ -22,19 +22,24 @@ MACRO_LABELS = {
     2: "Макроцикъл II (I–VII)",
 }
 
-ANNUAL_AGE_BANDS = ("U14", "U16", "U18")
+ANNUAL_AGE_BANDS = ("mini", "U13", "U14", "U16", "U18")
 
-# Годишната програма в учебника е за U14 / U16 / U18 — останалите се map-ват
+# U15/U17 map to съседната програма; mini и U13 имат собствена годишна програма
 ANNUAL_BAND_ALIASES = {
-    "U13": "U14",
     "U15": "U16",
     "U17": "U18",
-    "mini": "U14",
 }
 
 
+def _normalize_plan_band(age_band: str | None) -> str:
+    ab = (age_band or "U16").strip()
+    if ab.lower() == "mini":
+        return "mini"
+    return ab.upper()
+
+
 def resolve_annual_program_band(age_band: str | None) -> str:
-    ab = (age_band or "U16").upper()
+    ab = _normalize_plan_band(age_band or "U16")
     if ab in ANNUAL_AGE_BANDS:
         return ab
     return ANNUAL_BAND_ALIASES.get(ab, "U16")
@@ -142,6 +147,210 @@ MESO_DEFINITIONS: list[dict[str, Any]] = [
     },
 ]
 
+# Мини волейбол (8–10 г.) — 8 мезоцикъла, 1 тренировка/седмица (учебник: 10 ПОДГ + 20 СЪСТ)
+MINI_MESO_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "meso_number": 1,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "септември",
+        "theme": "Координация и траектория на топката",
+        "load": "ниска",
+        "focus": ["игра", "координация", "траектория"],
+    },
+    {
+        "meso_number": 2,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "октомври",
+        "theme": "Бързи крака и стабилен стоеж",
+        "load": "ниска-средна",
+        "focus": ["стоеж", "OFP", "долно подаване"],
+    },
+    {
+        "meso_number": 3,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "ноември",
+        "theme": "Баланс и ориентация в пространството",
+        "load": "ниска-средна",
+        "focus": ["баланс", "горно подаване", "игра"],
+    },
+    {
+        "meso_number": 4,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "декември",
+        "theme": "Долен сервис и странично движение",
+        "load": "средна",
+        "focus": ["сервис", "движение", "точност"],
+    },
+    {
+        "meso_number": 5,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "януари–февруари",
+        "theme": "Контрол на първо докосване",
+        "load": "средна",
+        "focus": ["посрещане", "игра 2v2", "комуникация"],
+    },
+    {
+        "meso_number": 6,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "март–април",
+        "theme": "Малки игри 3v3 и 4v4",
+        "load": "средна",
+        "focus": ["екипна работа", "игрово мислене", "прехвърляне"],
+    },
+    {
+        "meso_number": 7,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "май",
+        "theme": "Мини турнири и състезателна игра",
+        "load": "средна",
+        "focus": ["турнир", "състезание", "игра"],
+    },
+    {
+        "meso_number": 8,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "май",
+        "theme": "Турнирна подготовка и полуфинали",
+        "load": "средна",
+        "focus": ["турнир", "тактика", "комуникация"],
+    },
+    {
+        "meso_number": 9,
+        "macro_id": 2,
+        "period": "transition",
+        "months_bg": "юни",
+        "theme": "Финален турнир и сезонна оценка",
+        "load": "ниска-средна",
+        "focus": ["финал", "оценка", "празник"],
+    },
+]
+
+# U13 (12–13 г.) — 11 мезоцикъла; универсално обучение, по-леко натоварване от U14
+U13_MESO_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "meso_number": 1,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "август–септември",
+        "theme": "Въвеждане, координация и комуникация",
+        "load": "ниска-средна",
+        "focus": ["физика", "координация", "комуникация"],
+    },
+    {
+        "meso_number": 2,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "септември–октомври",
+        "theme": "Техническа база — подаване и прием",
+        "load": "средна",
+        "focus": ["подаване", "прием", "приземяване"],
+    },
+    {
+        "meso_number": 3,
+        "macro_id": 1,
+        "period": "prep",
+        "months_bg": "октомври",
+        "theme": "Биомеханика на скок и стабилност",
+        "load": "средна",
+        "focus": ["техника", "скок", "платформа"],
+    },
+    {
+        "meso_number": 4,
+        "macro_id": 1,
+        "period": "competitive",
+        "months_bg": "октомври–ноември",
+        "theme": "Сервис, посрещане и универсална игра",
+        "load": "средна",
+        "focus": ["сервис", "посрещане", "игра 6v6"],
+    },
+    {
+        "meso_number": 5,
+        "macro_id": 1,
+        "period": "competitive",
+        "months_bg": "ноември–декември",
+        "theme": "Атака и защита без специализация",
+        "load": "средна",
+        "focus": ["атака", "блок", "ротация"],
+    },
+    {
+        "meso_number": 6,
+        "macro_id": 1,
+        "period": "transition",
+        "months_bg": "декември",
+        "theme": "Преход и възстановяване",
+        "load": "ниска-средна",
+        "focus": ["възстановяване", "техника", "игра"],
+    },
+    {
+        "meso_number": 7,
+        "macro_id": 2,
+        "period": "prep",
+        "months_bg": "януари–февруари",
+        "theme": "Зимна техническа база",
+        "load": "средна",
+        "focus": ["техника", "физика", "координация"],
+    },
+    {
+        "meso_number": 8,
+        "macro_id": 2,
+        "period": "prep",
+        "months_bg": "февруари–март",
+        "theme": "Свързване на елементите",
+        "load": "средна",
+        "focus": ["комплекс", "система", "сервис"],
+    },
+    {
+        "meso_number": 9,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "март–май",
+        "theme": "Състезателен сезон U13",
+        "load": "средна-висока",
+        "focus": ["тактика", "атака", "защита"],
+    },
+    {
+        "meso_number": 10,
+        "macro_id": 2,
+        "period": "competitive",
+        "months_bg": "май–юни",
+        "theme": "Турнири и стабилизация",
+        "load": "средна",
+        "focus": ["игра", "ментална устойчивост", "оценка"],
+    },
+    {
+        "meso_number": 11,
+        "macro_id": 2,
+        "period": "transition",
+        "months_bg": "юли",
+        "theme": "Активна почивка и преход към U14",
+        "load": "ниска",
+        "focus": ["възстановяване", "игра", "оценка"],
+    },
+]
+
+MESO_DEFINITIONS_BY_BAND: dict[str, list[dict[str, Any]]] = {
+    "mini": MINI_MESO_DEFINITIONS,
+    "U13": U13_MESO_DEFINITIONS,
+    "U14": MESO_DEFINITIONS,
+    "U16": MESO_DEFINITIONS,
+    "U18": MESO_DEFINITIONS,
+}
+
+
+def meso_definitions_for(age_band: str) -> list[dict[str, Any]]:
+    return MESO_DEFINITIONS_BY_BAND.get(_normalize_plan_band(age_band), MESO_DEFINITIONS)
+
+
+def meso_count_for_band(age_band: str) -> int:
+    return len(meso_definitions_for(age_band))
+
 WEEK_PROGRESS = (
     ("Въвеждане и акцент", "средна"),
     ("Развитие и обем", "средна-висока"),
@@ -160,7 +369,7 @@ def _textbook_plan_index() -> dict[str, dict[str, list[str]]]:
     for sec in data.get("sections") or []:
         if sec.get("kind") != "session_plan":
             continue
-        band = (sec.get("age_band") or "").upper()
+        band = _normalize_plan_band(sec.get("age_band") or "")
         phase = (sec.get("session_phase") or "").upper()
         slug = sec.get("slug")
         code = sec.get("session_code") or ""
@@ -184,8 +393,30 @@ def plan_slug_for_meso_week(
 ) -> tuple[str | None, str | None]:
     """Връща (textbook_slug, session_code) за седмица в мезо."""
     idx = _textbook_plan_index()
-    band = age_band.upper()
+    band = _normalize_plan_band(age_band)
     plans = idx.get(band, {})
+    if not plans and band == "U13":
+        plans = idx.get("U14", {})
+
+    if band == "mini":
+        if period in ("competitive", "transition") and meso_number >= 5:
+            pool = plans.get("sast") or []
+            if not pool:
+                return None, None
+            if meso_number >= 9:
+                plan_index = 16 + week - 1
+            else:
+                plan_index = (meso_number - 5) * 4 + week - 1
+            plan_index = max(0, min(plan_index, len(pool) - 1))
+        else:
+            pool = plans.get("podg") or []
+            if not pool:
+                return None, None
+            plan_index = (meso_number - 1) * 4 + week - 1
+            plan_index = max(0, min(plan_index, len(pool) - 1))
+        entry = pool[plan_index]
+        return entry["slug"], entry.get("code")
+
     if period in ("prep", "transition"):
         pool = plans.get("podg") or []
     elif period == "competitive":
@@ -194,19 +425,20 @@ def plan_slug_for_meso_week(
         pool = []
     if not pool:
         return None, None
-    plan_index = min(max(week, 1), len(pool)) - 1
     if period == "competitive":
         plan_index = min((meso_number - 4) * 4 + week - 1, len(pool) - 1)
         plan_index = max(0, plan_index)
     elif period == "prep":
         plan_index = min(meso_number + week - 2, len(pool) - 1)
         plan_index = max(0, plan_index)
+    else:
+        plan_index = min(max(week, 1), len(pool)) - 1
     entry = pool[plan_index]
     return entry["slug"], entry.get("code")
 
 
 def annual_program_key(age_band: str, kind: str, number: int) -> str:
-    ab = age_band.upper()
+    ab = _normalize_plan_band(age_band)
     return f"{ab}-{kind}-{number}"
 
 
@@ -277,17 +509,18 @@ def build_meso_structure(defn: dict[str, Any], age_band: str) -> dict[str, Any]:
 
 
 def build_macro_structure(macro_id: int, age_band: str) -> dict[str, Any]:
-    meso_nums = [d["meso_number"] for d in MESO_DEFINITIONS if d["macro_id"] == macro_id]
+    defs = meso_definitions_for(age_band)
+    meso_nums = [d["meso_number"] for d in defs if d["macro_id"] == macro_id]
     periods: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for defn in MESO_DEFINITIONS:
+    for defn in defs:
         if defn["macro_id"] != macro_id:
             continue
         p = defn["period"]
         if p in seen:
             continue
         seen.add(p)
-        nums = [d["meso_number"] for d in MESO_DEFINITIONS if d["macro_id"] == macro_id and d["period"] == p]
+        nums = [d["meso_number"] for d in defs if d["macro_id"] == macro_id and d["period"] == p]
         periods.append(
             {
                 "period": p,
@@ -296,13 +529,28 @@ def build_macro_structure(macro_id: int, age_band: str) -> dict[str, Any]:
             }
         )
 
+    macro_labels = MACRO_LABELS
+    if _normalize_plan_band(age_band) == "mini":
+        macro_labels = {
+            1: "Макро I — Запознаване и подготовка (IX–I)",
+            2: "Макро II — Турнири и финал (II–VI)",
+        }
+
     return {
         "annual_program_key": annual_program_key(age_band, "macro", macro_id),
         "macro_id": macro_id,
-        "macro_label": MACRO_LABELS.get(macro_id, f"Макро {macro_id}"),
+        "macro_label": macro_labels.get(macro_id, f"Макро {macro_id}"),
         "periods": periods,
         "meso_numbers": meso_nums,
-        "textbook_reference": "periodizatsiya-na-trenirovachniya-protses",
+        "textbook_reference": (
+            "vazrastova-grupa-mini-volenbol-8-10-godini"
+            if _normalize_plan_band(age_band) == "mini"
+            else (
+                "vazrastova-grupa-under-13-under-14-u13-u14"
+                if _normalize_plan_band(age_band) == "U13"
+                else "periodizatsiya-na-trenirovachniya-protses"
+            )
+        ),
         "weeks": [],
     }
 
@@ -316,30 +564,32 @@ def meso_cycle_spec(defn: dict[str, Any], age_band: str) -> dict[str, Any]:
         "summary_bg": f"{macro_label} · {period_label} · {defn.get('months_bg', '')}",
         "cycle_type": "meso",
         "weeks": 4,
-        "age_band": age_band,
+        "age_band": _normalize_plan_band(age_band),
         "structure_json": build_meso_structure(defn, age_band),
         "sort_order": 100 + n,
     }
 
 
 def macro_cycle_spec(macro_id: int, age_band: str) -> dict[str, Any]:
-    label = MACRO_LABELS.get(macro_id, f"Макро {macro_id}")
-    meso_nums = [d["meso_number"] for d in MESO_DEFINITIONS if d["macro_id"] == macro_id]
+    defs = meso_definitions_for(age_band)
+    label = build_macro_structure(macro_id, age_band).get("macro_label") or MACRO_LABELS.get(macro_id, f"Макро {macro_id}")
+    meso_nums = [d["meso_number"] for d in defs if d["macro_id"] == macro_id]
     return {
-        "title_bg": f"{label} — {age_band}",
+        "title_bg": f"{label} — {_normalize_plan_band(age_band)}",
         "summary_bg": f"Мезоцикли {meso_nums[0]}–{meso_nums[-1]} · учебник БФВ",
         "cycle_type": "macro",
         "weeks": 0,
-        "age_band": age_band,
+        "age_band": _normalize_plan_band(age_band),
         "structure_json": build_macro_structure(macro_id, age_band),
         "sort_order": 90 + macro_id,
     }
 
 
 def all_annual_cycle_specs(age_band: str) -> list[dict[str, Any]]:
-    specs = [macro_cycle_spec(1, age_band), macro_cycle_spec(2, age_band)]
-    for defn in MESO_DEFINITIONS:
-        specs.append(meso_cycle_spec(defn, age_band))
+    band = _normalize_plan_band(age_band)
+    specs = [macro_cycle_spec(1, band), macro_cycle_spec(2, band)]
+    for defn in meso_definitions_for(band):
+        specs.append(meso_cycle_spec(defn, band))
     return specs
 
 
@@ -379,7 +629,7 @@ def textbook_slug_for_day(
 
 def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
     """Групира годишна програма за UI: макро → мезо."""
-    ab = age_band.upper()
+    ab = _normalize_plan_band(age_band)
     macros: list[dict[str, Any]] = []
     mesos_by_macro: dict[int, list[dict[str, Any]]] = {1: [], 2: []}
 
@@ -416,7 +666,7 @@ def library_tree(cycles: list[Any], age_band: str) -> dict[str, Any]:
         "age_band": ab,
         "macros": macros,
         "mesos_by_macro": mesos_by_macro,
-        "meso_count": len(MESO_DEFINITIONS),
+        "meso_count": meso_count_for_band(ab),
         "textbook_slug": "periodizatsiya-na-trenirovachniya-protses",
         "available_age_bands": list(ANNUAL_AGE_BANDS),
     }
@@ -432,7 +682,8 @@ def ensure_annual_program_seeded(db) -> dict[str, Any]:
         1 for c in db.query(MethodCycle).filter(MethodCycle.status == "published").all()
         if is_annual_program_cycle(c)
     )
-    if existing >= len(ANNUAL_AGE_BANDS) * (2 + len(MESO_DEFINITIONS)):
+    expected = sum(2 + meso_count_for_band(b) for b in ANNUAL_AGE_BANDS)
+    if existing >= expected:
         return {"skipped": True, "existing": existing}
     from app.scripts.seed_annual_program import seed_annual_program
 
