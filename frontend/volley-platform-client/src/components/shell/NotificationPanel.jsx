@@ -1,0 +1,101 @@
+import { Link } from "react-router-dom";
+import axiosInstance from "../../utils/apiClient";
+import { API_PATHS } from "../../utils/apiPaths";
+import { formatMoney } from "../../utils/currency";
+
+export default function NotificationPanel({
+  isHeadCoachUser,
+  unifiedFeedItems,
+  onClose,
+  markFeeItemSeen,
+  markTaskItemSeen,
+  markAllClubFeedSeen,
+  markForumItemRead,
+  markAllForumRead,
+}) {
+  return (
+    <div id="nav-notifications-panel" className="navShellPanel navShellPanel--wide" role="region" aria-label="Известия">
+      <div className="navShellPanel__head">
+        <strong>Известия</strong>
+        <div className="navShellPanel__headActions">
+          <button type="button" className="navShellPanel__linkBtn" onClick={markAllForumRead}>
+            Форум: всички
+          </button>
+          {isHeadCoachUser ? (
+            <button type="button" className="navShellPanel__linkBtn" onClick={markAllClubFeedSeen}>
+              Клуб: прочетени
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <span className="navShellPanel__hint">
+        {isHeadCoachUser ? "Форум, такси и задачи (клуб) на едно място." : "Форум известия."}
+      </span>
+      {unifiedFeedItems.length === 0 ? <span className="navShellPanel__empty">Няма известия.</span> : null}
+      {unifiedFeedItems.map((row) => {
+        if (row.kind === "forum") {
+          const item = row.forum;
+          return (
+            <Link
+              key={row.key}
+              to={`/forum/${item.post_id}`}
+              onClick={async () => {
+                try {
+                  if (!item.is_read) await axiosInstance.post(API_PATHS.FORUM_NOTIFICATION_READ(item.id));
+                } catch {
+                  // ignore
+                } finally {
+                  markForumItemRead(item);
+                  onClose();
+                }
+              }}
+              className={`navShellPanel__row ${row.unread ? "navShellPanel__row--unread" : ""}`}
+            >
+              <div className="navShellPanel__tag">Форум</div>
+              <div>{item.message}</div>
+              <div className="navShellPanel__rowMeta">{new Date(item.created_at || "").toLocaleString("bg-BG")}</div>
+            </Link>
+          );
+        }
+        if (row.kind === "fee") {
+          const item = row.fee;
+          return (
+            <Link
+              key={row.key}
+              to={`/monthly-fees?athlete_id=${item.athlete_id}`}
+              onClick={() => {
+                markFeeItemSeen(item.id);
+                onClose();
+              }}
+              className={`navShellPanel__row navShellPanel__row--fee ${row.unread ? "navShellPanel__row--unread" : ""}`}
+            >
+              <div className="navShellPanel__tag">Такса (клуб)</div>
+              <div className="navShellPanel__rowTitle">{item.athlete_name}</div>
+              <div className="navShellPanel__rowMeta">
+                {item.month_key} · {formatMoney(item.amount)} · от {item.coach_name}
+              </div>
+            </Link>
+          );
+        }
+        const item = row.task;
+        return (
+          <Link
+            key={row.key}
+            to={`/trainings/${item.training_id}?assignment=${item.id}`}
+            onClick={() => {
+              markTaskItemSeen(item.id);
+              onClose();
+            }}
+            className={`navShellPanel__row navShellPanel__row--task ${row.unread ? "navShellPanel__row--unread" : ""}`}
+          >
+            <div className="navShellPanel__tag">Задача готова</div>
+            <div className="navShellPanel__rowTitle">{item.training_title || `Тренировка #${item.training_id}`}</div>
+            <div className="navShellPanel__rowMeta">
+              Отчетена от: {item.assigned_to_name || `#${item.assigned_to}`}
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
