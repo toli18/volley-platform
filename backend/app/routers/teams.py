@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -26,6 +27,7 @@ from app.schemas.teams import (
     AthleteTimelineEvent,
     AttendanceResponse,
     AttendanceSavePayload,
+    CoachAbsenceNoticeRead,
     TeamCreate,
     TeamAssignCoach,
     TeamAttendanceMatrixAthlete,
@@ -455,6 +457,59 @@ def get_team_attendance_by_date(
         notes=session.notes if session else None,
         items=items,
     )
+
+
+@router.get("/coach/absence-notices", response_model=list[CoachAbsenceNoticeRead])
+def get_coach_absence_notices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    team_q = db.query(Team.id)
+    if _is_head_coach(current_user):
+        team_q = team_q.filter(Team.club_id == current_user.club_id)
+    else:
+        team_q = team_q.filter(Team.coach_id == current_user.id)
+    team_ids = [t[0] for t in team_q.all()]
+    if not team_ids:
+        return []
+
+    member_athlete_ids = [
+        x[0]
+        for x in db.query(TeamMember.athlete_id)
+        .filter(TeamMember.team_id.in_(team_ids), TeamMember.is_active.is_(True))
+        .distinct()
+        .all()
+    ]
+    if not member_athlete_ids:
+        return []
+
+    today_s = datetime.utcnow().date().isoformat()
+    rows = (
+        db.query(ParentAbsenceNotice, Athlete.athlete_name, Team.name)
+        .join(Athlete, Athlete.id == ParentAbsenceNotice.athlete_id)
+        .outerjoin(Team, Team.id == ParentAbsenceNotice.team_id)
+        .filter(
+            ParentAbsenceNotice.cancelled_at.is_(None),
+            ParentAbsenceNotice.notice_date >= today_s,
+            ParentAbsenceNotice.athlete_id.in_(member_athlete_ids),
+            or_(ParentAbsenceNotice.team_id.is_(None), ParentAbsenceNotice.team_id.in_(team_ids)),
+        )
+        .order_by(ParentAbsenceNotice.notice_date.asc())
+        .all()
+    )
+    return [
+        CoachAbsenceNoticeRead(
+            id=notice.id,
+            notice_date=notice.notice_date,
+            athlete_id=notice.athlete_id,
+            athlete_name=athlete_name,
+            team_id=notice.team_id,
+            team_name=team_name,
+            note=notice.note,
+            created_at=notice.created_at,
+        )
+        for notice, athlete_name, team_name in rows
+    ]
 
 
 @router.post("/teams/{team_id}/attendance", response_model=AttendanceResponse)

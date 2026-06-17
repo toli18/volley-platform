@@ -81,6 +81,17 @@ class AttendanceItemRead(BaseModel):
     parent_absence_note: Optional[str] = None
 
 
+class CoachAbsenceNoticeRead(BaseModel):
+    id: int
+    notice_date: str
+    athlete_id: int
+    athlete_name: str
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime
+
+
 class AttendanceResponse(BaseModel):
     team_id: int
     session_id: Optional[int] = None

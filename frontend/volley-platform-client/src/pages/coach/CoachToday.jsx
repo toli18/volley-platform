@@ -60,12 +60,19 @@ function EventCardHeader({ item, isComp }) {
   );
 }
 
+function formatShortDateBg(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
+  return `${d}.${m}.${y}`;
+}
+
 export default function CoachToday() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
+  const [absenceNotices, setAbsenceNotices] = useState([]);
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -78,15 +85,19 @@ export default function CoachToday() {
         setLoading(true);
         setError("");
         const to = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-        const res = await axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, {
-          params: {
-            from: today,
-            to,
-            ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
-          },
-        });
-        const list = Array.isArray(res.data?.items) ? res.data.items : [];
+        const [scheduleRes, noticesRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, {
+            params: {
+              from: today,
+              to,
+              ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
+            },
+          }),
+          axiosInstance.get(API_PATHS.COACH_ABSENCE_NOTICES).catch(() => ({ data: [] })),
+        ]);
+        const list = Array.isArray(scheduleRes.data?.items) ? scheduleRes.data.items : [];
         setItems(list);
+        setAbsenceNotices(Array.isArray(noticesRes.data) ? noticesRes.data : []);
       } catch (err) {
         const detail = err?.response?.data?.detail;
         setError(typeof detail === "string" ? detail : "Грешка при зареждане на графика.");
@@ -123,6 +134,31 @@ export default function CoachToday() {
 
       {!loading && !error ? (
         <>
+          {absenceNotices.length > 0 ? (
+            <section className="coachMobileAbsenceBox">
+              <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush">
+                Предварителни извинения
+                <span className="coachMobileAbsenceCount">{absenceNotices.length}</span>
+              </h2>
+              <ul className="coachMobileAbsenceList">
+                {absenceNotices.map((notice) => (
+                  <li key={notice.id} className="coachMobileAbsenceItem">
+                    <div className="coachMobileAbsenceMain">
+                      <strong>{notice.athlete_name}</strong>
+                      <span className="coachMobileAbsenceDate">
+                        ще липсва на {formatShortDateBg(notice.notice_date)}
+                      </span>
+                    </div>
+                    {notice.team_name ? (
+                      <span className="coachMobileMuted">{notice.team_name}</span>
+                    ) : null}
+                    {notice.note ? <p className="coachMobileAbsenceNote">{notice.note}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <h2 className="coachMobileSectionTitle">Днес</h2>
           {todayItems.length === 0 ? (
             <p className="coachMobileMuted">Няма планирани събития за днес.</p>

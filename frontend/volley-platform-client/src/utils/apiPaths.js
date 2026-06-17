@@ -178,6 +178,7 @@ export const API_PATHS = {
 
   // Training schedule calendar
   SCHEDULE_OCCURRENCES: "/api/schedule",
+  COACH_ABSENCE_NOTICES: "/api/coach/absence-notices",
   SCHEDULE_RULES_LIST: "/api/schedule/rules",
   SCHEDULE_RULES_CREATE: "/api/schedule/rules",
   SCHEDULE_RULE_UPDATE: (ruleId) => `/api/schedule/rules/${ruleId}`,
