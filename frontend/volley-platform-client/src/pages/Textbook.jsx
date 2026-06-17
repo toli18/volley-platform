@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -6,6 +6,16 @@ import { Button, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
 const AGE_OPTIONS = ["all", "mini", "U13", "U14", "U15", "U16", "U17", "U18"];
+
+const PLAN_BAND_ORDER = ["mini", "U13", "U14", "U16", "U18"];
+const PLAN_BAND_LABELS = {
+  mini: "Mini (8–10 г.)",
+  U13: "U13",
+  U14: "U14",
+  U16: "U16",
+  U18: "U18",
+};
+const QUICK_PLAN_PREVIEW = 3;
 
 function titleCase(s) {
   if (!s) return "";
@@ -68,6 +78,25 @@ export default function Textbook() {
   const [section, setSection] = useState(null);
   const [loadingIndex, setLoadingIndex] = useState(true);
   const [loadingSection, setLoadingSection] = useState(false);
+  const [expandedPlanBands, setExpandedPlanBands] = useState(() => new Set());
+
+  const sortedPlanBands = useMemo(() => {
+    const byAge = index?.session_plans_by_age || {};
+    const ordered = PLAN_BAND_ORDER.filter((band) => (byAge[band] || []).length > 0);
+    const rest = Object.keys(byAge).filter(
+      (band) => band !== "all" && !PLAN_BAND_ORDER.includes(band) && (byAge[band] || []).length > 0
+    );
+    return [...ordered, ...rest];
+  }, [index?.session_plans_by_age]);
+
+  const togglePlanBand = (band) => {
+    setExpandedPlanBands((prev) => {
+      const next = new Set(prev);
+      if (next.has(band)) next.delete(band);
+      else next.add(band);
+      return next;
+    });
+  };
 
   const activeSlug = routeSlug || searchParams.get("s") || "";
   const query = searchParams.get("q") || "";
@@ -228,26 +257,47 @@ export default function Textbook() {
               </div>
             ))}
 
-          {!showSearch && index?.session_plans_by_age && (
+          {!showSearch && index?.session_plans_by_age && sortedPlanBands.length > 0 && (
             <div className="textbookSidebarBlock">
-              <div className="methodHubNavGroupTitle">Бърз достъп — конспекти</div>
-              {Object.entries(index.session_plans_by_age).map(([band, plans]) =>
-                band !== "all" ? (
+              <div className="methodHubNavGroupTitle">
+                Бърз достъп — конспекти (
+                {Object.values(index.session_plans_by_age)
+                  .flat()
+                  .filter(Boolean).length}
+                )
+              </div>
+              {sortedPlanBands.map((band) => {
+                const plans = index.session_plans_by_age[band] || [];
+                const expanded = expandedPlanBands.has(band);
+                const visible = expanded ? plans : plans.slice(0, QUICK_PLAN_PREVIEW);
+                const hiddenCount = Math.max(0, plans.length - QUICK_PLAN_PREVIEW);
+                return (
                   <div key={band} className="textbookQuickAge">
-                    <span className="textbookQuickAge__label">{band}</span>
-                    {(plans || []).slice(0, 3).map((p) => (
+                    <span className="textbookQuickAge__label">
+                      {PLAN_BAND_LABELS[band] || band} · {plans.length}
+                    </span>
+                    {visible.map((p) => (
                       <button
                         key={p.slug}
                         type="button"
-                        className="methodHubNavItem methodHubNavItem--compact"
+                        className={`methodHubNavItem methodHubNavItem--compact${activeSlug === p.slug ? " methodHubNavItem--active" : ""}`}
                         onClick={() => openSlug(p.slug)}
                       >
                         {p.session_code || titleCase(p.title_bg)}
                       </button>
                     ))}
+                    {hiddenCount > 0 ? (
+                      <button
+                        type="button"
+                        className="textbookQuickAge__toggle"
+                        onClick={() => togglePlanBand(band)}
+                      >
+                        {expanded ? "По-малко" : `+${hiddenCount} още`}
+                      </button>
+                    ) : null}
                   </div>
-                ) : null
-              )}
+                );
+              })}
             </div>
           )}
         </aside>

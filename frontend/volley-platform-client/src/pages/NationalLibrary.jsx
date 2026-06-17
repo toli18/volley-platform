@@ -6,6 +6,8 @@ import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { useToast } from "../components/ToastProvider";
 
 const AGE_OPTIONS = [
+  { value: "mini", label: "Mini (8–10 г.)" },
+  { value: "U13", label: "U13 (12–13 г.)" },
   { value: "U14", label: "U14" },
   { value: "U15", label: "U15 (→ U16)" },
   { value: "U16", label: "U16" },

@@ -1605,6 +1605,24 @@
   margin: 6px 0 4px;
 }
 
+.textbookQuickAge__toggle {
+  display: block;
+  width: 100%;
+  margin: 2px 0 4px;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--primary, #2563eb);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.textbookQuickAge__toggle:hover {
+  text-decoration: underline;
+}
+
 .methodHubNavItem--compact {
   font-size: 12px;
   padding: 6px 10px;
