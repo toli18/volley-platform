@@ -1,6 +1,8 @@
+import { IconCalendar, IconHome } from "../teamRoom/teamRoomIcons";
+
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round", strokeLinejoin: "round" };
 
-export { IconHome, IconCalendar } from "../teamRoom/teamRoomIcons";
+export { IconHome, IconCalendar };
 
 export function IconTeams({ className, size = 24 }) {
   return (
