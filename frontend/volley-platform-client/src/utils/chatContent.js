@@ -11,6 +11,8 @@ export const CHAT_EMOJIS = [
 // Curated, key-free volleyball GIFs served by the public Giphy CDN.
 // (Loaded via <img>, so Giphy returns the real asset.)
 export const CHAT_GIFS = [
+  { id: "Lw4yMNawMopyxEX3iq", label: "България" },
+  { id: "GGq6n5aB5jPXqEHDeX", label: "Фен" },
   { id: "nD311R972KRsttf3E7", label: "Сервис" },
   { id: "rjUcfJQAOs87js6FAc", label: "Атака" },
   { id: "XdXds38x6m7iVaw7Zv", label: "Забиване" },
@@ -26,7 +28,35 @@ const GIF_PREFIX = "[gif]";
 
 export const gifFullUrl = (id) => `https://media.giphy.com/media/${id}/giphy.gif`;
 export const gifThumbUrl = (id) => `https://media.giphy.com/media/${id}/200w.gif`;
-export const buildGifBody = (id) => `${GIF_PREFIX}${gifFullUrl(id)}`;
+export const gifBodyFromUrl = (url) => `${GIF_PREFIX}${url}`;
+export const buildGifBody = (id) => gifBodyFromUrl(gifFullUrl(id));
+
+// Optional live GIF search via Tenor (Google). Set VITE_TENOR_KEY to enable.
+const TENOR_KEY = import.meta.env.VITE_TENOR_KEY || "";
+
+export const isGifSearchEnabled = () => Boolean(TENOR_KEY);
+
+export async function searchTenorGifs(query, { limit = 24, signal } = {}) {
+  const q = (query || "").trim();
+  if (!TENOR_KEY || !q) return [];
+  const url =
+    `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}` +
+    `&key=${encodeURIComponent(TENOR_KEY)}&client_key=volleycoach` +
+    `&limit=${limit}&media_filter=tinygif,gif&contentfilter=high`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`tenor_${res.status}`);
+  const data = await res.json();
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return results
+    .map((r) => {
+      const formats = r?.media_formats || {};
+      const full = formats.gif?.url || formats.tinygif?.url;
+      const thumb = formats.tinygif?.url || formats.gif?.url;
+      if (!full) return null;
+      return { id: r.id, full, thumb };
+    })
+    .filter(Boolean);
+}
 
 const GIF_URL_RE = /^https?:\/\/\S+\.gif(\?\S*)?$/i;
 const GIF_HOST_RE = /giphy\.com|tenor\.com/i;

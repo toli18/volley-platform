@@ -5662,6 +5662,32 @@
   font-weight: 700;
   color: #475569;
 }
+.chatGifSearch {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #f8fafc;
+}
+.chatGifSearch:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 0;
+}
+.chatPickerHint {
+  margin: 4px 4px 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+.chatGifThumbBtn--plain img {
+  height: 80px;
+}
+.chatGifThumbBtn--plain {
+  background: #0f172a;
+}
 .chatGifGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { buildGifBody, parseChatBody } from "../../utils/chatContent";
+import { gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, Card, Input } from "../ui";
 
@@ -163,12 +163,12 @@ export default function TeamPortalCoachChat({ teamId }) {
     }
   };
 
-  const handleSendGif = async (gifId) => {
-    if (!gifId || !teamId || busy) return;
+  const handleSendGifUrl = async (gifUrl) => {
+    if (!gifUrl || !teamId || busy) return;
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.TEAM_CHAT_MESSAGES(teamId), {
-        body: buildGifBody(gifId),
+        body: gifBodyFromUrl(gifUrl),
       });
       if (res.data) {
         setMessages((prev) => [...prev, res.data]);
@@ -209,7 +209,7 @@ export default function TeamPortalCoachChat({ teamId }) {
         setDraft={setDraft}
         onSend={handleSend}
         onInsertEmoji={handleInsertEmoji}
-        onPickGif={handleSendGif}
+        onPickGifUrl={handleSendGifUrl}
       />
       {readTarget ? (
         <ChatReadSheet teamId={teamId} message={readTarget} onClose={() => setReadTarget(null)} />
@@ -218,7 +218,7 @@ export default function TeamPortalCoachChat({ teamId }) {
   );
 }
 
-function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGif }) {
+function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl }) {
   return (
     <div className="teamPortalCoachChat">
       <div className="teamPortalCoachChatMessages" ref={listRef}>
@@ -273,7 +273,7 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
         )}
       </div>
       <form className="teamPortalCoachChatComposer" onSubmit={onSend}>
-        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGif={onPickGif} disabled={busy} />
+        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={busy} />
         <Input
           as="textarea"
           rows={2}

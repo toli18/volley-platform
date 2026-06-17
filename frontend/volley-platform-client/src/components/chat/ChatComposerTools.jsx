@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
-import { CHAT_EMOJIS, CHAT_GIFS, gifThumbUrl } from "../../utils/chatContent";
+import {
+  CHAT_EMOJIS,
+  CHAT_GIFS,
+  gifFullUrl,
+  gifThumbUrl,
+  isGifSearchEnabled,
+  searchTenorGifs,
+} from "../../utils/chatContent";
 
-export default function ChatComposerTools({ onInsertEmoji, onPickGif, disabled = false }) {
+export default function ChatComposerTools({ onInsertEmoji, onPickGifUrl, disabled = false }) {
   const [open, setOpen] = useState(null); // "emoji" | "gif" | null
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const wrapRef = useRef(null);
+  const searchEnabled = isGifSearchEnabled();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -15,7 +27,41 @@ export default function ChatComposerTools({ onInsertEmoji, onPickGif, disabled =
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  useEffect(() => {
+    if (!searchEnabled || !query.trim()) {
+      setResults([]);
+      setSearchError("");
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setSearching(true);
+        setSearchError("");
+        const gifs = await searchTenorGifs(query, { signal: controller.signal });
+        setResults(gifs);
+      } catch (err) {
+        if (err?.name !== "AbortError") setSearchError("Търсенето не успя.");
+      } finally {
+        setSearching(false);
+      }
+    }, 450);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query, searchEnabled]);
+
   const toggle = (panel) => setOpen((cur) => (cur === panel ? null : panel));
+
+  const pickUrl = (url) => {
+    setOpen(null);
+    setQuery("");
+    setResults([]);
+    onPickGifUrl?.(url);
+  };
+
+  const showResults = searchEnabled && query.trim().length > 0;
 
   return (
     <div className="chatTools" ref={wrapRef}>
@@ -47,9 +93,7 @@ export default function ChatComposerTools({ onInsertEmoji, onPickGif, disabled =
               key={emoji}
               type="button"
               className="chatEmojiBtn"
-              onClick={() => {
-                onInsertEmoji?.(emoji);
-              }}
+              onClick={() => onInsertEmoji?.(emoji)}
             >
               {emoji}
             </button>
@@ -59,24 +103,56 @@ export default function ChatComposerTools({ onInsertEmoji, onPickGif, disabled =
 
       {open === "gif" ? (
         <div className="chatPickerPopover chatPickerPopover--gif" role="menu">
-          <p className="chatPickerTitle">Волейбол GIF</p>
-          <div className="chatGifGrid">
-            {CHAT_GIFS.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                className="chatGifThumbBtn"
-                onClick={() => {
-                  setOpen(null);
-                  onPickGif?.(g.id);
-                }}
-                title={g.label}
-              >
-                <img src={gifThumbUrl(g.id)} alt={g.label} loading="lazy" />
-                <span>{g.label}</span>
-              </button>
-            ))}
-          </div>
+          {searchEnabled ? (
+            <input
+              type="text"
+              className="chatGifSearch"
+              placeholder="Търси GIF (напр. Nikolov, България)..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+            />
+          ) : null}
+
+          {showResults ? (
+            <>
+              {searching ? <p className="chatPickerHint">Търсене...</p> : null}
+              {searchError ? <p className="chatPickerHint">{searchError}</p> : null}
+              {!searching && !searchError && results.length === 0 ? (
+                <p className="chatPickerHint">Няма резултати.</p>
+              ) : null}
+              <div className="chatGifGrid">
+                {results.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className="chatGifThumbBtn chatGifThumbBtn--plain"
+                    onClick={() => pickUrl(g.full)}
+                  >
+                    <img src={g.thumb} alt="GIF" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="chatPickerTitle">Волейбол GIF</p>
+              <div className="chatGifGrid">
+                {CHAT_GIFS.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className="chatGifThumbBtn"
+                    onClick={() => pickUrl(gifFullUrl(g.id))}
+                    title={g.label}
+                  >
+                    <img src={gifThumbUrl(g.id)} alt={g.label} loading="lazy" />
+                    <span>{g.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

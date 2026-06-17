@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { buildGifBody, chatPreview, parseChatBody } from "../../utils/chatContent";
+import { chatPreview, gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, EmptyState } from "../ui";
 
@@ -123,7 +123,7 @@ function ThreadView({
   onBack,
   onSend,
   onInsertEmoji,
-  onPickGif,
+  onPickGifUrl,
   onCoachBubbleRef,
 }) {
   return (
@@ -142,7 +142,7 @@ function ThreadView({
       {error ? <p className="teamRoomChatError">{error}</p> : null}
       <MessagesList listRef={listRef} messages={messages} onCoachBubbleRef={onCoachBubbleRef} />
       <form className="teamRoomChatComposer" onSubmit={onSend}>
-        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGif={onPickGif} disabled={sending} />
+        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={sending} />
         <input
           type="text"
           className="teamRoomChatInput"
@@ -337,13 +337,13 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
     }
   };
 
-  const handleSendGif = async (gifId) => {
-    if (!gifId || !selectedTeamId || sending) return;
+  const handleSendGifUrl = async (gifUrl) => {
+    if (!gifUrl || !selectedTeamId || sending) return;
     try {
       setSending(true);
       setError("");
       const res = await axiosInstance.post(API_PATHS.ATHLETE_ROOM_CHAT_MESSAGES(selectedTeamId), {
-        body: buildGifBody(gifId),
+        body: gifBodyFromUrl(gifUrl),
       });
       if (res.data) {
         setMessages((prev) => [...prev, res.data]);
@@ -426,7 +426,7 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
       onBack={handleBack}
       onSend={handleSend}
       onInsertEmoji={handleInsertEmoji}
-      onPickGif={handleSendGif}
+      onPickGifUrl={handleSendGifUrl}
       onCoachBubbleRef={handleCoachBubbleRef}
     />
   );
