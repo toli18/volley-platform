@@ -13,6 +13,7 @@
 
 ```bash
 cd backend
+python -m app.scripts.extract_youth_session_plans
 python -m app.scripts.ingest_bvf_textbook --export --import-db --replace-vc
 python -m app.scripts.build_bvf_ai_knowledge
 python -m app.scripts.seed_annual_program --replace

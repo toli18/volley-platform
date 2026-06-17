@@ -1,4 +1,4 @@
-"""Извлича MINI/U13 конспекти от учебника и записва bvf_textbook_bg.json."""
+"""Извлича MINI/U13/U14 конспекти от учебника и записва bvf_textbook_bg.json."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from app.national_method.youth_session_plans import patch_textbook_json
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract mini/U13 session plans into textbook JSON")
+    parser = argparse.ArgumentParser(description="Extract mini/U13/U14 session plans into textbook JSON")
     parser.add_argument("--json", type=Path, default=None, help="Path to bvf_textbook_bg.json")
     args = parser.parse_args()
     stats = patch_textbook_json(args.json)
