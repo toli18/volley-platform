@@ -2416,6 +2416,16 @@
   padding-bottom: 4px;
 }
 
+.teamScheduleGridToggle {
+  display: inline-flex;
+}
+
+@media (max-width: 720px) {
+  .teamScheduleGridToggle {
+    display: none !important;
+  }
+}
+
 .teamScheduleCalendarCols {
   min-width: 760px;
 }

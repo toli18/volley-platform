@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
+import useMediaQuery from "../utils/useMediaQuery";
 import {
   COMPETITION_KIND_OPTIONS,
   competitionBlockStyle,
@@ -117,6 +118,7 @@ export default function TeamScheduleCalendar() {
   const [locationFilter, setLocationFilter] = useState("");
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [calendarView, setCalendarView] = useState("list");
+  const isNarrowScreen = useMediaQuery("(max-width: 720px)");
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -250,6 +252,10 @@ export default function TeamScheduleCalendar() {
   useEffect(() => {
     if (calendarView === "list") setSelectedDate("");
   }, [calendarView]);
+
+  useEffect(() => {
+    if (isNarrowScreen && calendarView === "grid") setCalendarView("list");
+  }, [isNarrowScreen, calendarView]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -656,7 +662,13 @@ export default function TeamScheduleCalendar() {
             <Button size="sm" variant={calendarView === "list" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("list")}>
               Списък
             </Button>
-            <Button size="sm" variant={calendarView === "grid" ? "primary" : "secondary"} type="button" onClick={() => setCalendarView("grid")}>
+            <Button
+              size="sm"
+              variant={calendarView === "grid" ? "primary" : "secondary"}
+              type="button"
+              className="teamScheduleGridToggle"
+              onClick={() => setCalendarView("grid")}
+            >
               Мрежа
             </Button>
           </div>

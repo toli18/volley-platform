@@ -15,6 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  ResponsiveDataView,
 } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
@@ -25,6 +26,8 @@ const normalizeError = (err) => {
   if (Array.isArray(detail)) return detail[0]?.msg || "Грешка (422)";
   return "Грешка";
 };
+
+const IMPORT_TIMEOUT_MS = 180000;
 
 const TABS = [
   { id: "sources", label: "Източници" },
@@ -124,8 +127,10 @@ export default function AdminNationalLibrary() {
   const runLibraryImport = async () => {
     try {
       setImporting(true);
+      toast.info("Импортът стартира. Може да отнеме до 2–3 минути, не затваряйте страницата.");
       const res = await axiosInstance.post(API_PATHS.NATIONAL_METHOD_ADMIN_IMPORT_LIBRARY, null, {
         params: {},
+        timeout: IMPORT_TIMEOUT_MS,
       });
       const t = res.data?.totals;
       const arch = res.data?.archive;
@@ -136,7 +141,18 @@ export default function AdminNationalLibrary() {
       );
       loadAll();
     } catch (e) {
-      toast.error(normalizeError(e));
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("timeout")) {
+        toast.error(
+          "Импортът отне твърде дълго за текущата връзка. Изчакайте 30 сек. и опитайте пак."
+        );
+      } else if (msg.toLowerCase().includes("network error")) {
+        toast.error(
+          "Мрежова грешка при дълъг импорт. Проверете интернет връзката и натиснете отново „Импорт учебник БФВ“."
+        );
+      } else {
+        toast.error(normalizeError(e));
+      }
     } finally {
       setImporting(false);
     }
@@ -266,7 +282,7 @@ export default function AdminNationalLibrary() {
         }
       />
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+      <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <Button key={t.id} variant={tab === t.id ? "primary" : "secondary"} onClick={() => setTab(t.id)}>
             {t.label}
@@ -302,26 +318,38 @@ export default function AdminNationalLibrary() {
 
       {tab === "inventory" && (
         <AdminSection title="Референтен инвентар на материали">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Файл</TableHead>
-                <TableHead>Тип</TableHead>
-                <TableHead>Възраст</TableHead>
-                <TableHead>Вълна</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(meta?.material_inventory || []).map((row) => (
-                <TableRow key={row.key}>
-                  <TableCell>{row.filename_hint}</TableCell>
-                  <TableCell>{row.content_type}</TableCell>
-                  <TableCell>{row.age_band}</TableCell>
-                  <TableCell>{row.wave}</TableCell>
+          <ResponsiveDataView
+            items={meta?.material_inventory || []}
+            renderMobileCard={(row) => (
+              <Card key={row.key} style={{ padding: 12 }}>
+                <div><strong>{row.filename_hint}</strong></div>
+                <div className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
+                  {row.content_type} · {row.age_band} · вълна {row.wave}
+                </div>
+              </Card>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Файл</TableHead>
+                  <TableHead>Тип</TableHead>
+                  <TableHead>Възраст</TableHead>
+                  <TableHead>Вълна</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {(meta?.material_inventory || []).map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell>{row.filename_hint}</TableCell>
+                    <TableCell>{row.content_type}</TableCell>
+                    <TableCell>{row.age_band}</TableCell>
+                    <TableCell>{row.wave}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </AdminSection>
       )}
 
@@ -345,31 +373,49 @@ export default function AdminNationalLibrary() {
           {sources.length === 0 ? (
             <EmptyState title="Няма източници" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Файл</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead>Действия</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sources.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.filename}</TableCell>
-                    <TableCell>{s.ingest_status}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="secondary" onClick={() => extractSource(s.id)}>
-                        Extract
-                      </Button>{" "}
-                      <Button size="sm" onClick={() => publishSource(s.id, "published")}>
-                        Публикуван архив
-                      </Button>
-                    </TableCell>
+            <ResponsiveDataView
+              items={sources}
+              renderMobileCard={(s) => (
+                <Card key={s.id} style={{ padding: 12 }}>
+                  <div><strong>{s.filename}</strong></div>
+                  <div className="uiMuted" style={{ fontSize: 13, marginTop: 4 }}>{s.ingest_status}</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    <Button size="sm" variant="secondary" onClick={() => extractSource(s.id)}>
+                      Extract
+                    </Button>
+                    <Button size="sm" onClick={() => publishSource(s.id, "published")}>
+                      Публикуван архив
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Файл</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Действия</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {sources.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{s.filename}</TableCell>
+                      <TableCell>{s.ingest_status}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="secondary" onClick={() => extractSource(s.id)}>
+                          Extract
+                        </Button>{" "}
+                        <Button size="sm" onClick={() => publishSource(s.id, "published")}>
+                          Публикуван архив
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResponsiveDataView>
           )}
         </AdminSection>
       )}
@@ -391,30 +437,47 @@ export default function AdminNationalLibrary() {
             />
             <Button onClick={createArticle}>Създай статия</Button>
           </Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Заглавие</TableHead>
-                <TableHead>Възраст</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {articles.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>{a.title_bg}</TableCell>
-                  <TableCell>{a.age_band}</TableCell>
-                  <TableCell>{a.status}</TableCell>
-                  <TableCell>
-                    <Button size="sm" onClick={() => toggleArticlePublish(a)}>
-                      {a.status === "published" ? "Свали" : "Публикувай"}
-                    </Button>
-                  </TableCell>
+          <ResponsiveDataView
+            items={articles}
+            renderMobileCard={(a) => (
+              <Card key={a.id} style={{ padding: 12 }}>
+                <div><strong>{a.title_bg}</strong></div>
+                <div className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
+                  {a.age_band} · {a.status}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Button size="sm" block onClick={() => toggleArticlePublish(a)}>
+                    {a.status === "published" ? "Свали" : "Публикувай"}
+                  </Button>
+                </div>
+              </Card>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Заглавие</TableHead>
+                  <TableHead>Възраст</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {articles.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>{a.title_bg}</TableCell>
+                    <TableCell>{a.age_band}</TableCell>
+                    <TableCell>{a.status}</TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={() => toggleArticlePublish(a)}>
+                        {a.status === "published" ? "Свали" : "Публикувай"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </AdminSection>
       )}
 
@@ -440,32 +503,49 @@ export default function AdminNationalLibrary() {
             />
             <Button onClick={createCycle}>Създай цикъл</Button>
           </Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Заглавие</TableHead>
-                <TableHead>Тип</TableHead>
-                <TableHead>Възраст</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cycles.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>{c.title_bg}</TableCell>
-                  <TableCell>{c.cycle_type}</TableCell>
-                  <TableCell>{c.age_band}</TableCell>
-                  <TableCell>{c.status}</TableCell>
-                  <TableCell>
-                    <Button size="sm" onClick={() => toggleCyclePublish(c)}>
-                      {c.status === "published" ? "Свали" : "Публикувай"}
-                    </Button>
-                  </TableCell>
+          <ResponsiveDataView
+            items={cycles}
+            renderMobileCard={(c) => (
+              <Card key={c.id} style={{ padding: 12 }}>
+                <div><strong>{c.title_bg}</strong></div>
+                <div className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
+                  {c.cycle_type} · {c.age_band} · {c.status}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Button size="sm" block onClick={() => toggleCyclePublish(c)}>
+                    {c.status === "published" ? "Свали" : "Публикувай"}
+                  </Button>
+                </div>
+              </Card>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Заглавие</TableHead>
+                  <TableHead>Тип</TableHead>
+                  <TableHead>Възраст</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {cycles.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.title_bg}</TableCell>
+                    <TableCell>{c.cycle_type}</TableCell>
+                    <TableCell>{c.age_band}</TableCell>
+                    <TableCell>{c.status}</TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={() => toggleCyclePublish(c)}>
+                        {c.status === "published" ? "Свали" : "Публикувай"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </AdminSection>
       )}
 
@@ -487,26 +567,38 @@ export default function AdminNationalLibrary() {
             <Button onClick={createDrill}>Добави упражнение</Button>
           </Card>
           <p className="uiMuted">{drills.length} национални упражнения</p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Заглавие</TableHead>
-                <TableHead>Възраст</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {drills.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell>{d.id}</TableCell>
-                  <TableCell>{d.title}</TableCell>
-                  <TableCell>
-                    {d.age_min}–{d.age_max}
-                  </TableCell>
+          <ResponsiveDataView
+            items={drills}
+            renderMobileCard={(d) => (
+              <Card key={d.id} style={{ padding: 12 }}>
+                <div><strong>{d.title}</strong></div>
+                <div className="uiMuted" style={{ fontSize: 13, marginTop: 6 }}>
+                  ID {d.id} · {d.age_min}–{d.age_max} г.
+                </div>
+              </Card>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Заглавие</TableHead>
+                  <TableHead>Възраст</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {drills.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell>{d.id}</TableCell>
+                    <TableCell>{d.title}</TableCell>
+                    <TableCell>
+                      {d.age_min}–{d.age_max}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </AdminSection>
       )}
     </div>

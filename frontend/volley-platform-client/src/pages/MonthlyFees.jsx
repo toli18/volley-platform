@@ -7,7 +7,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
-import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { Button, Card, EmptyState, Input, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { filterFeesAthletes } from "../utils/feesAthleteSearch";
 
@@ -1137,75 +1137,116 @@ export default function MonthlyFees() {
         <Card
           title={`Отчет по месеци: ${athleteReport.athlete?.athlete_name} (Общо платено: ${formatMoney(athleteReport.total_paid)})`}
         >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Месец</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Сума</TableHead>
-                <TableHead>Квитанция</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(athleteReport.months || []).map((m) => (
-                <TableRow key={m.month_key}>
-                  <TableCell>{m.month_key}</TableCell>
-                  <TableCell>
-                    <span className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                      {m.paid ? "Платено" : "Неплатено"}
-                    </span>
-                  </TableCell>
-                  <TableCell>{m.paid ? formatMoney(m.amount) : "—"}</TableCell>
-                  <TableCell>
-                    {m.payment_id ? (
-                      <Button size="sm" variant="secondary" onClick={() => downloadReceipt(m.payment_id)}>
-                        Квитанция PDF
-                      </Button>
-                    ) : (
-                      <span style={{ color: "#94a3b8" }}>—</span>
-                    )}
-                  </TableCell>
+          <ResponsiveDataView
+            items={athleteReport.months || []}
+            renderMobileCard={(m) => (
+              <article key={m.month_key} className="feesAthleteCard">
+                <div className="feesAthleteCardName">{m.month_key}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <span className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                    {m.paid ? "Платено" : "Неплатено"}
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{m.paid ? formatMoney(m.amount) : "—"}</span>
+                </div>
+                {m.payment_id ? (
+                  <Button size="sm" variant="secondary" block onClick={() => downloadReceipt(m.payment_id)}>
+                    Квитанция PDF
+                  </Button>
+                ) : null}
+              </article>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Месец</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Сума</TableHead>
+                  <TableHead>Квитанция</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {(athleteReport.months || []).map((m) => (
+                  <TableRow key={m.month_key}>
+                    <TableCell>{m.month_key}</TableCell>
+                    <TableCell>
+                      <span className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                        {m.paid ? "Платено" : "Неплатено"}
+                      </span>
+                    </TableCell>
+                    <TableCell>{m.paid ? formatMoney(m.amount) : "—"}</TableCell>
+                    <TableCell>
+                      {m.payment_id ? (
+                        <Button size="sm" variant="secondary" onClick={() => downloadReceipt(m.payment_id)}>
+                          Квитанция PDF
+                        </Button>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </Card>
       )}
 
       {periodReport && (
         <Card title={`Общ отчет (${periodReport.from_month} → ${periodReport.to_month}) • Състезатели: ${periodReport.total_athletes}`}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Състезател</TableHead>
-                <TableHead>Платени</TableHead>
-                <TableHead>Неплатени</TableHead>
-                <TableHead>Общо</TableHead>
-                <TableHead>Месеци</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(periodReport.rows || []).map((row) => (
-                <TableRow key={row.athlete_id}>
-                  <TableCell>
-                    <strong>{row.athlete_name}</strong>
-                  </TableCell>
-                  <TableCell>{row.paid_months}</TableCell>
-                  <TableCell>{row.unpaid_months}</TableCell>
-                  <TableCell>{formatMoney(row.total_paid)}</TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {(row.months || []).map((m) => (
-                        <span key={`${row.athlete_id}-${m.month_key}`} className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                          {m.month_key}: {m.paid ? "ПЛАТЕНО" : "НЕПЛАТЕНО"}
-                        </span>
-                      ))}
-                    </div>
-                  </TableCell>
+          <ResponsiveDataView
+            items={periodReport.rows || []}
+            renderMobileCard={(row) => (
+              <article key={row.athlete_id} className="feesAthleteCard">
+                <div className="feesAthleteCardName">{row.athlete_name}</div>
+                <div className="feesAthleteCardRow">
+                  <div>Платени месеци: {row.paid_months}</div>
+                  <div>Неплатени: {row.unpaid_months}</div>
+                  <div>Общо: {formatMoney(row.total_paid)}</div>
+                </div>
+                <div className="feesAthleteCardMonths">
+                  {(row.months || []).map((m) => (
+                    <span key={`${row.athlete_id}-${m.month_key}`} className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                      {m.month_key}: {m.paid ? "ПЛАТЕНО" : "НЕПЛАТЕНО"}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Състезател</TableHead>
+                  <TableHead>Платени</TableHead>
+                  <TableHead>Неплатени</TableHead>
+                  <TableHead>Общо</TableHead>
+                  <TableHead>Месеци</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {(periodReport.rows || []).map((row) => (
+                  <TableRow key={row.athlete_id}>
+                    <TableCell>
+                      <strong>{row.athlete_name}</strong>
+                    </TableCell>
+                    <TableCell>{row.paid_months}</TableCell>
+                    <TableCell>{row.unpaid_months}</TableCell>
+                    <TableCell>{formatMoney(row.total_paid)}</TableCell>
+                    <TableCell>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {(row.months || []).map((m) => (
+                          <span key={`${row.athlete_id}-${m.month_key}`} className={`uiBadge ${m.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                            {m.month_key}: {m.paid ? "ПЛАТЕНО" : "НЕПЛАТЕНО"}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveDataView>
         </Card>
       )}
 

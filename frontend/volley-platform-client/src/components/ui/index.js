@@ -8,4 +8,5 @@ export { default as AdminActionsRow } from "./AdminActionsRow";
 export { default as AdminStatCard } from "./AdminStatCard";
 export { default as PageHero } from "./PageHero";
 export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./Table";
+export { default as ResponsiveDataView } from "./ResponsiveDataView";
 
