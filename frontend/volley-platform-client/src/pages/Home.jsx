@@ -21,6 +21,12 @@ const formatDate = (value) => {
   return date.toLocaleString("bg-BG");
 };
 
+const formatShortDate = (iso) => {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
+  return `${d}.${m}.${y}`;
+};
+
 const monthStart = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -116,6 +122,7 @@ export default function Home() {
           myArticlesRes,
           notificationsRes,
           scheduleRes,
+          absenceRes,
         ] = await Promise.allSettled([
           axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, {
             params: { from_month: monthKey, to_month: monthKey },
@@ -136,6 +143,7 @@ export default function Home() {
               ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
             },
           }),
+          axiosInstance.get(API_PATHS.COACH_ABSENCE_NOTICES),
         ]);
 
         const feesRows = feesRes.status === "fulfilled" && Array.isArray(feesRes.value.data?.rows) ? feesRes.value.data.rows : [];
@@ -242,11 +250,20 @@ export default function Home() {
             };
           });
 
-        setActivityItems(
-          [...forumNotifications, ...articleStatusAlerts, ...drillStatusAlerts]
-            .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
-            .slice(0, 8)
+        const absenceList =
+          absenceRes.status === "fulfilled" && Array.isArray(absenceRes.value.data) ? absenceRes.value.data : [];
+        const absenceAlerts = absenceList.map((n) => ({
+          id: `absence-${n.id}`,
+          kind: "absence",
+          text: `Извинение от родител: ${n.athlete_name} ще липсва на ${formatShortDate(n.notice_date)}${n.team_name ? ` · ${n.team_name}` : ""}${n.note ? ` (${n.note})` : ""}`,
+          at: n.created_at,
+          to: n.team_id ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}` : "/teams",
+        }));
+
+        const otherAlerts = [...forumNotifications, ...articleStatusAlerts, ...drillStatusAlerts].sort(
+          (a, b) => new Date(b.at || 0) - new Date(a.at || 0),
         );
+        setActivityItems([...absenceAlerts, ...otherAlerts].slice(0, 12));
         const scheduleList = scheduleRes.status === "fulfilled" && Array.isArray(scheduleRes.value.data?.items)
           ? scheduleRes.value.data.items
           : [];
@@ -450,12 +467,24 @@ export default function Home() {
           <EmptyState title="Няма нови известия" description="Ще виждаш тук форум активност и промени по статии/упражнения." />
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {activityItems.map((item) => (
-              <Link key={item.id} to={item.to} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10 }}>
-                <div style={{ fontWeight: 700 }}>{item.text}</div>
-                <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
-              </Link>
-            ))}
+            {activityItems.map((item) => {
+              const isAbsence = item.kind === "absence";
+              return (
+                <Link
+                  key={item.id}
+                  to={item.to}
+                  style={{
+                    border: `1px solid ${isAbsence ? "#fcd34d" : "#e2e8f0"}`,
+                    borderRadius: 10,
+                    padding: 10,
+                    background: isAbsence ? "#fffbeb" : undefined,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: isAbsence ? "#92400e" : undefined }}>{item.text}</div>
+                  <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </Card>
