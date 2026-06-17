@@ -269,6 +269,8 @@ export default function ParentPortal() {
             feesOptions={PARENT_FEES_PERIOD_OPTIONS}
             statusLabel={statusLabel}
             statusBadgeClass={statusBadgeClass}
+            onSwitchTab={setActiveTab}
+            onProfileRefresh={() => loadProfile({ silent: true })}
           />
         ) : null}
       </div>

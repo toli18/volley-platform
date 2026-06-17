@@ -191,7 +191,14 @@ export default function TeamAttendance() {
             <div className="teamAttendanceMobile">
               {attendanceRows.map((row) => (
                 <div key={row.athlete_id} className="teamAttendanceCard">
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{row.athlete_name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>
+                    {row.athlete_name}
+                    {row.parent_absence_notice ? (
+                      <span className="uiBadge uiBadge--warning teamAttendanceParentNotice" title={row.parent_absence_note || "Родителят е съобщил за отсъствие"}>
+                        Извинение от родител
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="teamAttendanceQuickRow">
                     {(["present", "late", "absent", "excused"]).map((st) => (
                       <Button
@@ -231,7 +238,19 @@ export default function TeamAttendance() {
                 <TableBody>
                   {attendanceRows.map((row) => (
                     <TableRow key={row.athlete_id}>
-                      <TableCell>{row.athlete_name}</TableCell>
+                      <TableCell>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <span>{row.athlete_name}</span>
+                          {row.parent_absence_notice ? (
+                            <span
+                              className="uiBadge uiBadge--warning teamAttendanceParentNotice"
+                              title={row.parent_absence_note || "Родителят е съобщил за отсъствие"}
+                            >
+                              Извинение от родител
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           <select

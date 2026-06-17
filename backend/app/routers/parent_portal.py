@@ -20,15 +20,20 @@ from app.models import (
     AthletePayment,
     AttendanceRecord,
     Club,
+    ParentAbsenceNotice,
     ParentPushSubscription,
     Team,
     TeamMember,
+    TeamPortalItem,
     TeamSession,
     TrainingScheduleException,
     TrainingScheduleRule,
     User,
 )
+from app.routers.team_portal import _item_to_response
 from app.schemas.parent_portal import (
+    ParentAbsenceNoticeCreate,
+    ParentAbsenceNoticeRead,
     ParentAthleteProfileResponse,
     ParentAttendanceRow,
     ParentAttendanceSummary,
@@ -41,6 +46,7 @@ from app.schemas.parent_portal import (
     ParentPortalAckBody,
     ParentPushVapidResponse,
     ParentScheduleItem,
+    ParentTeamFeedItem,
 )
 from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
@@ -351,6 +357,7 @@ def _attendance_summary_from_rows(rows: list[ParentAttendanceRow]) -> ParentAtte
 
 
 _MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _resolve_parent_portal_athlete(db: Session, token: str) -> Athlete:
@@ -380,6 +387,118 @@ def _team_ids_for_athlete(db: Session, athlete_id: int) -> list[int]:
         tm.team_id
         for tm in db.query(TeamMember).filter(TeamMember.athlete_id == athlete_id, TeamMember.is_active.is_(True)).all()
     ]
+
+
+def _validate_notice_date(raw: str) -> str:
+    value = (raw or "").strip()
+    if not _DATE_RE.match(value):
+        raise HTTPException(status_code=422, detail="notice_date must be YYYY-MM-DD")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid notice_date") from exc
+    if parsed < date.today():
+        raise HTTPException(status_code=422, detail="notice_date must be today or in the future")
+    return value
+
+
+def _team_feed_for_parent(db: Session, team_ids: list[int], limit: int = 5) -> list[ParentTeamFeedItem]:
+    if not team_ids:
+        return []
+    rows = (
+        db.query(TeamPortalItem, Team.name)
+        .join(Team, Team.id == TeamPortalItem.team_id)
+        .filter(TeamPortalItem.team_id.in_(team_ids))
+        .order_by(TeamPortalItem.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    out: list[ParentTeamFeedItem] = []
+    for item, team_name in rows:
+        base = _item_to_response(item)
+        out.append(ParentTeamFeedItem(**base.model_dump(), team_name=team_name))
+    return out
+
+
+def _active_absence_notices(db: Session, athlete_id: int) -> list[ParentAbsenceNoticeRead]:
+    today_s = date.today().isoformat()
+    rows = (
+        db.query(ParentAbsenceNotice, Team.name)
+        .outerjoin(Team, Team.id == ParentAbsenceNotice.team_id)
+        .filter(
+            ParentAbsenceNotice.athlete_id == athlete_id,
+            ParentAbsenceNotice.cancelled_at.is_(None),
+            ParentAbsenceNotice.notice_date >= today_s,
+        )
+        .order_by(ParentAbsenceNotice.notice_date.asc())
+        .all()
+    )
+    return [
+        ParentAbsenceNoticeRead(
+            id=notice.id,
+            notice_date=notice.notice_date,
+            team_id=notice.team_id,
+            team_name=team_name,
+            note=notice.note,
+            created_at=notice.created_at,
+        )
+        for notice, team_name in rows
+    ]
+
+
+def _create_absence_notice(db: Session, athlete: Athlete, body: ParentAbsenceNoticeCreate) -> ParentAbsenceNoticeRead:
+    notice_date = _validate_notice_date(body.notice_date)
+    team_ids = _team_ids_for_athlete(db, athlete.id)
+    if body.team_id is not None and body.team_id not in team_ids:
+        raise HTTPException(status_code=422, detail="Invalid team for athlete")
+
+    dup_q = db.query(ParentAbsenceNotice).filter(
+        ParentAbsenceNotice.athlete_id == athlete.id,
+        ParentAbsenceNotice.notice_date == notice_date,
+        ParentAbsenceNotice.cancelled_at.is_(None),
+    )
+    if body.team_id is not None:
+        dup_q = dup_q.filter(ParentAbsenceNotice.team_id == body.team_id)
+    if dup_q.first():
+        raise HTTPException(status_code=409, detail="Absence notice already exists for this date")
+
+    row = ParentAbsenceNotice(
+        athlete_id=athlete.id,
+        team_id=body.team_id,
+        notice_date=notice_date,
+        note=(body.note or "").strip() or None,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    team_name = None
+    if row.team_id:
+        team_row = db.query(Team.name).filter(Team.id == row.team_id).first()
+        team_name = team_row[0] if team_row else None
+    return ParentAbsenceNoticeRead(
+        id=row.id,
+        notice_date=row.notice_date,
+        team_id=row.team_id,
+        team_name=team_name,
+        note=row.note,
+        created_at=row.created_at,
+    )
+
+
+def _cancel_absence_notice(db: Session, athlete_id: int, notice_id: int) -> None:
+    row = (
+        db.query(ParentAbsenceNotice)
+        .filter(
+            ParentAbsenceNotice.id == notice_id,
+            ParentAbsenceNotice.athlete_id == athlete_id,
+            ParentAbsenceNotice.cancelled_at.is_(None),
+        )
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Absence notice not found")
+    row.cancelled_at = datetime.utcnow()
+    db.commit()
 
 
 def _item_has_highlight(item: ParentScheduleItem, marker_keys: set[str], pending_dates: set[str]) -> bool:
@@ -523,6 +642,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         fee_due_day=PARENT_FEE_DUE_DAY,
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
+        team_feed=_team_feed_for_parent(db, team_ids, limit=5),
+        absence_notices=_active_absence_notices(db, athlete.id),
     )
 
 
@@ -723,3 +844,35 @@ def parent_portal_schedule(
 def parent_portal_view(token: str, db: Session = Depends(get_db)):
     athlete = _resolve_parent_portal_athlete(db, token)
     return _build_parent_athlete_profile(db, athlete)
+
+
+@router.post("/parent-portal/me/absence-notices", response_model=ParentAbsenceNoticeRead, status_code=201)
+def parent_create_absence_notice_me(
+    body: ParentAbsenceNoticeCreate,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _create_absence_notice(db, athlete, body)
+
+
+@router.delete("/parent-portal/me/absence-notices/{notice_id}", status_code=204)
+def parent_cancel_absence_notice_me(
+    notice_id: int,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    _cancel_absence_notice(db, athlete.id, notice_id)
+    return None
+
+
+@router.post("/parent-portal/{token}/absence-notices", response_model=ParentAbsenceNoticeRead, status_code=201)
+def parent_create_absence_notice_token(token: str, body: ParentAbsenceNoticeCreate, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _create_absence_notice(db, athlete, body)
+
+
+@router.delete("/parent-portal/{token}/absence-notices/{notice_id}", status_code=204)
+def parent_cancel_absence_notice_token(token: str, notice_id: int, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    _cancel_absence_notice(db, athlete.id, notice_id)
+    return None

@@ -12,6 +12,7 @@ from app.models import (
     Athlete,
     AthletePayment,
     AttendanceRecord,
+    ParentAbsenceNotice,
     Team,
     TeamMember,
     TeamSession,
@@ -414,15 +415,35 @@ def get_team_attendance_by_date(
         )
         status_map = {r.athlete_id: r for r in records}
 
+    member_athlete_ids = [athlete.id for _, athlete in members]
+    notice_map: dict[int, ParentAbsenceNotice] = {}
+    if member_athlete_ids:
+        notice_rows = (
+            db.query(ParentAbsenceNotice)
+            .filter(
+                ParentAbsenceNotice.notice_date == day,
+                ParentAbsenceNotice.cancelled_at.is_(None),
+                ParentAbsenceNotice.athlete_id.in_(member_athlete_ids),
+            )
+            .all()
+        )
+        for notice in notice_rows:
+            if notice.team_id is not None and notice.team_id != team.id:
+                continue
+            notice_map[notice.athlete_id] = notice
+
     items = []
     for _, athlete in members:
         rec = status_map.get(athlete.id)
+        notice = notice_map.get(athlete.id)
         items.append(
             {
                 "athlete_id": athlete.id,
                 "athlete_name": athlete.athlete_name,
                 "status": rec.status if rec else "present",
                 "note": rec.note if rec else None,
+                "parent_absence_notice": notice is not None,
+                "parent_absence_note": notice.note if notice else None,
             }
         )
 

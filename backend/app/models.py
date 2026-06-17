@@ -570,6 +570,23 @@ class AthleteParentAccessToken(Base):
     created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
+class ParentAbsenceNotice(Base):
+    __tablename__ = "parent_absence_notices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    notice_date = Column(String(10), nullable=False, index=True)
+    note = Column(Text, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    athlete = relationship("Athlete", foreign_keys=[athlete_id])
+    team = relationship("Team", foreign_keys=[team_id])
+
+    __table_args__ = (Index("ix_parent_absence_athlete_date", "athlete_id", "notice_date"),)
+
+
 # =========================
 # Teams & Attendance
 # =========================

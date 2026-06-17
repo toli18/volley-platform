@@ -1,6 +1,9 @@
 import ParentPushPrompt from "./ParentPushPrompt";
 import ParentScheduleViews from "./ParentScheduleViews";
 import { ParentPortalTabPanel } from "./ParentPortalLayout";
+import ParentCoachContact from "./ParentCoachContact";
+import ParentPortalFeed from "./ParentPortalFeed";
+import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
 import { IconCalendar, IconEuro } from "./parentPortalIcons";
 import { Button, Card, EmptyState, Input } from "../ui";
 import { formatMoney } from "../../utils/currency";
@@ -150,21 +153,7 @@ function FeeHighlightBody({
         </>
       )}
       {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
-        <div className="parentPortalContactBox">
-          <div className="parentPortalContactLabel">Контакт</div>
-          {feeCoach.name ? <div>{feeCoach.name}</div> : null}
-          {feeCoach.email ? (
-            <a href={`mailto:${feeCoach.email}`} className="parentPortalContactLink">
-              {feeCoach.email}
-            </a>
-          ) : null}
-          {feeCoach.club_name ? <div className="parentPortalHighlightMuted">{feeCoach.club_name}</div> : null}
-          {feeCoach.club_phone ? (
-            <a href={`tel:${feeCoach.club_phone}`} className="parentPortalContactLink">
-              {feeCoach.club_phone}
-            </a>
-          ) : null}
-        </div>
+        <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--fee" />
       ) : null}
     </>
   );
@@ -191,9 +180,12 @@ export default function ParentPortalProfileContent({
   feesOptions,
   statusLabel,
   statusBadgeClass,
+  onSwitchTab,
+  onProfileRefresh,
 }) {
   const currentFee = profile.current_month_fee;
   const feeCoach = profile.fee_coach || {};
+  const attendanceSummary = profile.attendance_summary || {};
   const feeDueDay = currentFee?.due_day ?? profile.fee_due_day ?? 10;
   const scheduleMonthKey = profile.schedule_month_key || new Date().toISOString().slice(0, 7);
   const competitionsMonthLabel = formatCompetitionsMonthLabel(profile.competitions_this_month ?? 0, scheduleMonthKey);
@@ -203,6 +195,11 @@ export default function ParentPortalProfileContent({
   const visibleAttendance = filterAttendanceByPeriod(allAttendance, attendancePeriod);
   const visibleAttendanceSummary = summarizeAttendanceRows(visibleAttendance);
   const visiblePayments = allPayments.slice(0, Number(feesPeriod) || 3);
+
+  const attendanceHomeParts = [];
+  if (attendanceSummary.present) attendanceHomeParts.push(`${attendanceSummary.present} присъства`);
+  if (attendanceSummary.late) attendanceHomeParts.push(`${attendanceSummary.late} закъсня`);
+  if (attendanceSummary.absent) attendanceHomeParts.push(`${attendanceSummary.absent} отсъства`);
 
   const eventsBlock = (
     <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
@@ -254,6 +251,54 @@ export default function ParentPortalProfileContent({
     <>
       <ParentPortalTabPanel tabId="home" activeTab={activeTab}>
         <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
+
+        <div className="parentPortalHomeStack">
+          <Card title="Новини от треньора">
+            <ParentPortalFeed items={profile.team_feed || []} />
+          </Card>
+
+          <Card title="Присъствие">
+            {attendanceSummary.total ? (
+              <>
+                <p className="parentPortalAttendanceHomeStat">
+                  <strong>{attendanceSummary.attendance_rate_percent}%</strong>
+                  {attendanceHomeParts.length ? (
+                    <span> · {attendanceHomeParts.join(", ")}</span>
+                  ) : null}
+                </p>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
+                  Пълен списък
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="parentPortalHighlightMuted">
+                  Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
+                </p>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
+                  Виж присъствие
+                </Button>
+              </>
+            )}
+          </Card>
+
+          <Card title="Контакт с треньора">
+            <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--standalone" />
+            {!feeCoach.name && !feeCoach.email && !feeCoach.club_phone ? (
+              <p className="parentPortalHighlightMuted">Няма въведен контакт за треньора.</p>
+            ) : null}
+          </Card>
+
+          <Card title="Предварително извинение">
+            <ParentAbsenceNoticeSection
+              notices={profile.absence_notices || []}
+              isSession={isSession}
+              token={token}
+              onChanged={onProfileRefresh}
+              formatShortDate={formatShortDate}
+            />
+          </Card>
+        </div>
 
         <div className="parentPortalHighlightGrid">
           <details className="parentPortalDetails parentPortalHighlightFold" open>
@@ -400,6 +445,7 @@ export default function ParentPortalProfileContent({
               {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
               {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
             </div>
+            <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--athleteDetails" />
           </div>
         </details>
       </ParentPortalTabPanel>

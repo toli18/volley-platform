@@ -147,6 +147,10 @@ export const API_PATHS = {
   PARENT_PUSH_TEST_TOKEN: (token) => `/api/parent-portal/${token}/push-test`,
   PARENT_PORTAL_GET: (token) => `/api/parent-portal/${token}`,
   PARENT_PORTAL_SCHEDULE: (token) => `/api/parent-portal/${token}/schedule`,
+  PARENT_PORTAL_ABSENCE_NOTICES_ME: "/api/parent-portal/me/absence-notices",
+  PARENT_PORTAL_ABSENCE_NOTICE_ME: (id) => `/api/parent-portal/me/absence-notices/${id}`,
+  PARENT_PORTAL_ABSENCE_NOTICES_TOKEN: (token) => `/api/parent-portal/${token}/absence-notices`,
+  PARENT_PORTAL_ABSENCE_NOTICE_TOKEN: (token, id) => `/api/parent-portal/${token}/absence-notices/${id}`,
 
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,

@@ -77,6 +77,8 @@ class AttendanceItemRead(BaseModel):
     athlete_name: str
     status: str
     note: Optional[str] = None
+    parent_absence_notice: bool = False
+    parent_absence_note: Optional[str] = None
 
 
 class AttendanceResponse(BaseModel):

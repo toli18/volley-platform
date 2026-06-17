@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.team_portal import TeamPortalItemResponse
+
 
 class ParentAccessStatusResponse(BaseModel):
     has_active_token: bool = False
@@ -115,6 +117,25 @@ class ParentFeeCoachContact(BaseModel):
     club_phone: Optional[str] = None
 
 
+class ParentTeamFeedItem(TeamPortalItemResponse):
+    team_name: Optional[str] = None
+
+
+class ParentAbsenceNoticeRead(BaseModel):
+    id: int
+    notice_date: str
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class ParentAbsenceNoticeCreate(BaseModel):
+    notice_date: str = Field(..., min_length=10, max_length=10)
+    team_id: Optional[int] = None
+    note: Optional[str] = Field(None, max_length=500)
+
+
 class ParentCurrentMonthFee(BaseModel):
     month_key: str
     paid: bool = False
@@ -147,3 +168,5 @@ class ParentAthleteProfileResponse(BaseModel):
     fee_due_day: int = 10
     pending_schedule_dates: list[str] = Field(default_factory=list)
     fee_change_highlight: bool = False
+    team_feed: list[ParentTeamFeedItem] = Field(default_factory=list)
+    absence_notices: list[ParentAbsenceNoticeRead] = Field(default_factory=list)
