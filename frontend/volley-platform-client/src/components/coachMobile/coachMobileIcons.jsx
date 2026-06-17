@@ -17,3 +17,31 @@ export function IconMenu({ className, size = 24 }) {
     </svg>
   );
 }
+
+export function IconBook({ className, size = 24 }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <path {...stroke} d="M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Zm14 3h1a2 2 0 0 1 2 2v11a3 3 0 0 0-3-3h-1V7Z" />
+    </svg>
+  );
+}
+
+export function IconSparkles({ className, size = 24 }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <path {...stroke} d="m12 3 1.2 3.6L17 8l-3.8 1.4L12 13l-1.2-3.6L7 8l3.8-1.4L12 3ZM5 14l.8 2.4L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.6L5 14Zm14 0 .8 2.4L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.6L19 14Z" />
+    </svg>
+  );
+}
+
+const COACH_TAB_ICONS = {
+  home: IconHome,
+  teams: IconTeams,
+  calendar: IconCalendar,
+  book: IconBook,
+  menu: IconMenu,
+};
+
+export function coachTabIcon(name) {
+  return COACH_TAB_ICONS[name] || IconMenu;
+}

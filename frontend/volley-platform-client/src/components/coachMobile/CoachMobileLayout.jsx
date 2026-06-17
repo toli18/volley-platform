@@ -22,7 +22,7 @@ export default function CoachMobileLayout() {
 
   const handleBack = () => {
     if (isFeesPage) {
-      navigate("/coach/menu");
+      navigate("/coach/club");
       return;
     }
     if (isAttendanceMonth) {

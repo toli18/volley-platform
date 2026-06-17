@@ -99,3 +99,51 @@ export const ADMIN_NAV_SECTIONS = [
     ],
   },
 ];
+
+/** @type {{ id: string, path: string, label: string, icon: string }[]} */
+export const COACH_MOBILE_TABS = [
+  { id: "today", path: "/coach/today", label: "Днес", icon: "home" },
+  { id: "club", path: "/coach/club", label: "Клуб", icon: "teams" },
+  { id: "schedule", path: "/coach/schedule", label: "График", icon: "calendar" },
+  { id: "bvf", path: "/coach/bvf", label: "БФВ", icon: "book" },
+  { id: "more", path: "/coach/menu", label: "Още", icon: "menu" },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_CLUB_HUB_LINKS = [
+  { id: "teams", label: "Отбори", to: "/coach/teams", hint: "Списък и детайли" },
+  { id: "schedule", label: "Месечен график", to: "/coach/schedule", hint: "Календар на тренировки" },
+  { id: "fees", label: "Месечни такси", to: "/coach/fees" },
+  { id: "trainings", label: "Моите тренировки", to: "/coach/trainings", hint: "Списък и нова тренировка" },
+  { id: "attendance", label: "Присъствие", to: "/coach/attendance", hint: "По отбори" },
+  { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_BVF_HUB_LINKS = [
+  { id: "textbook", label: "Учебник БФВ", to: "/textbook", hint: "Методика и конспекти" },
+  { id: "national-library", label: "Годишна програма", to: "/national-library", hint: "Мезоцикли и планиране" },
+  { id: "ai", label: "AI Помощник", to: "/ai-generator", hint: "Генериране на тренировки", accent: true },
+];
+
+/** @type {{ title: string, links: NavLinkItem[] }[]} */
+export const COACH_MORE_MENU_SECTIONS = [
+  {
+    title: "Съдържание",
+    links: [
+      { id: "articles", label: "Статии", to: "/articles" },
+      { id: "my-articles", label: "Моите статии", to: "/articles/my" },
+      { id: "forum", label: "Форум", to: "/forum" },
+      { id: "drills", label: "Упражнения", to: "/drills" },
+      { id: "my-drills", label: "Моите упражнения", to: "/my-drills" },
+    ],
+  },
+  {
+    title: "Инструменти",
+    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board" }],
+  },
+  {
+    title: "Друго",
+    links: [{ id: "desktop-home", label: "Пълен dashboard (десктоп)", to: "/", hint: "Класическо начало" }],
+  },
+];

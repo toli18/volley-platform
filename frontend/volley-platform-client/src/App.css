@@ -5362,16 +5362,35 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
+  gap: 3px;
+  padding: 6px 2px;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   border-radius: 10px;
   min-height: 48px;
+  min-width: 0;
+}
+
+.coachMobileBottomNavLabel {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.coachMobileBottomNavBtn--bvf.is-active {
+  color: #0b5137;
+  background: #d1fae5;
+}
+
+.coachMobileMenuRow--accent .coachMobileMenuLabel {
+  color: #0b5137;
+  font-weight: 800;
 }
 
 .coachMobileBottomNavBtn.is-active {

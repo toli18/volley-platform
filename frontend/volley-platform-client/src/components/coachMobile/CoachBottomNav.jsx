@@ -1,42 +1,28 @@
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { IconCalendar, IconHome, IconMenu, IconTeams } from "./coachMobileIcons";
-
-const TABS = [
-  { id: "today", path: "/coach/today", label: "Днес", Icon: IconHome },
-  { id: "teams", path: "/coach/teams", label: "Отбори", Icon: IconTeams, matchPrefix: "/coach/teams" },
-  { id: "schedule", path: "/coach/schedule", label: "График", Icon: IconCalendar },
-  { id: "menu", path: "/coach/menu", label: "Меню", Icon: IconMenu },
-];
-
-function activeTabForPath(pathname) {
-  if (pathname.startsWith("/coach/fees") || pathname.startsWith("/coach/athletes/")) return "menu";
-  if (pathname === "/coach/attendance" || pathname.includes("/attendance-month")) return "today";
-  if (pathname.startsWith("/coach/teams")) return "teams";
-  if (pathname.startsWith("/coach/schedule")) return "schedule";
-  if (pathname.startsWith("/coach/menu")) return "menu";
-  if (pathname.startsWith("/coach/today") || pathname === "/coach") return "today";
-  return null;
-}
+import { coachTabIcon } from "./coachMobileIcons";
+import { COACH_MOBILE_TABS } from "../../navigation/navConfig";
+import { coachMobileActiveTab } from "../../navigation/coachMobileNav";
 
 export default function CoachBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const active = activeTabForPath(location.pathname);
+  const active = coachMobileActiveTab(location.pathname);
 
   return (
     <nav className="coachMobileBottomNav" aria-label="Треньорска навигация">
-      {TABS.map(({ id, path, label, Icon }) => {
+      {COACH_MOBILE_TABS.map(({ id, path, label, icon }) => {
+        const Icon = coachTabIcon(icon);
         const isActive = active === id;
         return (
           <button
             key={id}
             type="button"
-            className={`coachMobileBottomNavBtn${isActive ? " is-active" : ""}`}
+            className={`coachMobileBottomNavBtn${isActive ? " is-active" : ""}${id === "bvf" ? " coachMobileBottomNavBtn--bvf" : ""}`}
             onClick={() => navigate(path)}
             aria-current={isActive ? "page" : undefined}
           >
-            <Icon className="coachMobileBottomNavIcon" size={22} />
+            <Icon className="coachMobileBottomNavIcon" size={20} />
             <span className="coachMobileBottomNavLabel">{label}</span>
           </button>
         );
