@@ -95,6 +95,9 @@ def _send_web_push(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
             vapid_private_key=private_key,
             vapid_claims=claims,
             ttl=86400,
+            # Без timeout една мъртва/бавна push услуга може да блокира нишката
+            # (и нейната DB връзка) за неопределено време.
+            timeout=10,
         )
         return "ok", None
     except WebPushException as exc:

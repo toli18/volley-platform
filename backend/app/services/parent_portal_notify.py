@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -12,9 +14,24 @@ from app.services.parent_push import format_date_bg, notify_athlete
 
 logger = logging.getLogger(__name__)
 
+# Ограничен thread pool за фоновите известия. Всяка задача отваря DB сесия и
+# прави няколко синхронни web-push заявки, докато трае. Без таван при пик от
+# известия (много отбори/съобщения едновременно) бихме породили десетки нишки,
+# които изчерпват connection pool-а и гладуват реалните HTTP заявки. Пулът пази
+# едновременността ниска; излишните задачи просто чакат на опашка.
+_NOTIFY_MAX_WORKERS = max(1, int(os.getenv("NOTIFY_MAX_WORKERS", "3")))
+_notify_executor = ThreadPoolExecutor(
+    max_workers=_NOTIFY_MAX_WORKERS,
+    thread_name_prefix="parent-notify",
+)
+
 
 def _run_in_background(fn, *args, **kwargs) -> None:
-    threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
+    try:
+        _notify_executor.submit(fn, *args, **kwargs)
+    except RuntimeError:
+        # Пулът е спрян (напр. при рестарт) — еднократен фолбек, за да не губим известието.
+        threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
 
 
 CHANGE_TRAINING_CANCELLED = "training_cancelled"
