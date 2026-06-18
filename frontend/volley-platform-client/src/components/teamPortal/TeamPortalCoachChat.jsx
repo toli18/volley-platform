@@ -120,12 +120,14 @@ function ChatReadSheet({ teamId, message, onClose }) {
   );
 }
 
-export default function TeamPortalCoachChat({ teamId }) {
+export default function TeamPortalCoachChat({ teamId, teamName }) {
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [readTarget, setReadTarget] = useState(null);
+  const [photoNote, setPhotoNote] = useState("");
   const listRef = useRef(null);
+  const fileRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!teamId) return;
@@ -184,6 +186,36 @@ export default function TeamPortalCoachChat({ teamId }) {
     setDraft((prev) => (prev.length >= 2000 ? prev : `${prev}${emoji}`));
   };
 
+  const handlePickPhoto = () => fileRef.current?.click();
+
+  const handlePhotoSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !teamId || busy) return;
+    try {
+      setBusy(true);
+      setPhotoNote("");
+      const fd = new FormData();
+      fd.append("file", file);
+      await axiosInstance.post(API_PATHS.TEAM_PORTAL_IMAGE_CREATE(teamId), fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const res = await axiosInstance.post(API_PATHS.TEAM_CHAT_MESSAGES(teamId), {
+        body: "📷 Качих нова снимка в Новините на отбора.",
+      });
+      if (res.data) {
+        setMessages((prev) => [...prev, res.data]);
+      } else {
+        await load();
+      }
+      setPhotoNote("Снимката е качена в „Новини и комуникация“ на отбора.");
+    } catch {
+      setPhotoNote("Неуспешно качване на снимка. Опитайте отново.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDelete = async (messageId) => {
     if (!teamId || busy) return;
     try {
@@ -198,7 +230,10 @@ export default function TeamPortalCoachChat({ teamId }) {
   if (!teamId) return null;
 
   return (
-    <Card title="Отборен чат" subtitle={`Съобщенията се пазят ${RETENTION_DAYS} дни`}>
+    <Card
+      title={teamName ? `Отборен чат · ${teamName}` : "Отборен чат"}
+      subtitle={`Съобщенията се пазят ${RETENTION_DAYS} дни`}
+    >
       <CoachChatPanel
         messages={messages}
         listRef={listRef}
@@ -210,6 +245,15 @@ export default function TeamPortalCoachChat({ teamId }) {
         onSend={handleSend}
         onInsertEmoji={handleInsertEmoji}
         onPickGifUrl={handleSendGifUrl}
+        onPickPhoto={handlePickPhoto}
+        photoNote={photoNote}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handlePhotoSelected}
       />
       {readTarget ? (
         <ChatReadSheet teamId={teamId} message={readTarget} onClose={() => setReadTarget(null)} />
@@ -218,7 +262,7 @@ export default function TeamPortalCoachChat({ teamId }) {
   );
 }
 
-function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl }) {
+function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl, onPickPhoto, photoNote }) {
   return (
     <div className="teamPortalCoachChat">
       <div className="teamPortalCoachChatMessages" ref={listRef}>
@@ -272,8 +316,25 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
           ))
         )}
       </div>
+      {photoNote ? (
+        <p className="teamPortalCoachChatNote" role="status">
+          {photoNote}
+        </p>
+      ) : null}
       <form className="teamPortalCoachChatComposer" onSubmit={onSend}>
         <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={busy} />
+        {onPickPhoto ? (
+          <button
+            type="button"
+            className="chatToolBtn chatToolBtn--photo"
+            onClick={onPickPhoto}
+            disabled={busy}
+            title="Качи снимка в Новините на отбора"
+            aria-label="Качи снимка"
+          >
+            📷
+          </button>
+        ) : null}
         <Input
           as="textarea"
           rows={2}

@@ -36,12 +36,21 @@ export function IconSparkles({ className, size = 24 }) {
   );
 }
 
+export function IconChat({ className, size = 24 }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <path {...stroke} d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
 const COACH_TAB_ICONS = {
   home: IconHome,
   teams: IconTeams,
   calendar: IconCalendar,
   book: IconBook,
   menu: IconMenu,
+  chat: IconChat,
 };
 
 export function coachTabIcon(name) {

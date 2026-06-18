@@ -5825,6 +5825,96 @@
   align-items: flex-end;
 }
 
+.teamPortalCoachChatNote {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f766e;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.chatToolBtn--photo {
+  font-size: 16px;
+}
+
+/* Dedicated coach chat center (desktop two-pane) */
+.coachChatLayout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.coachChatSidebar {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.coachChatTeamList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coachChatTeamItem {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.coachChatTeamItem:hover {
+  background: #f1f5f9;
+}
+
+.coachChatTeamItem--active {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.coachChatTeamItemName {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coachChatTeamItemMeta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coachChatMain .teamPortalCoachChatMessages {
+  max-height: 56vh;
+}
+
+.coachChatRoomMobile .teamPortalCoachChatMessages {
+  max-height: 58vh;
+}
+
+@media (max-width: 820px) {
+  .coachChatLayout {
+    grid-template-columns: 1fr;
+  }
+  .coachChatSidebar {
+    max-height: 32vh;
+  }
+}
+
 /* Coach mobile shell (light theme) */
 .appShell--coachMobile .appContent--coachMobile {
   padding: 0;

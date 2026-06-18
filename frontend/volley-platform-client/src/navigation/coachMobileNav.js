@@ -1,6 +1,7 @@
 import { COACH_MOBILE_TABS } from "./navConfig";
 
 export function coachMobileActiveTab(pathname) {
+  if (pathname.startsWith("/coach/chat")) return "chat";
   if (pathname.startsWith("/coach/bvf")) return "bvf";
   if (
     pathname.startsWith("/textbook") ||

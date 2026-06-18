@@ -17,15 +17,21 @@ export default function CoachMobileLayout() {
   const isAttendanceHub = pathname === "/coach/attendance";
   const isAttendanceMonth = pathname.includes("/attendance-month");
   const isFeesPage = pathname.startsWith("/coach/fees");
+  const isChatRoom = pathname.startsWith("/coach/chat/") && pathname !== "/coach/chat";
   const showBack =
     isFeesPage ||
     isAttendanceHub ||
     isAttendanceMonth ||
+    isChatRoom ||
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams");
 
   const handleBack = () => {
     if (isFeesPage) {
       navigate("/coach/club");
+      return;
+    }
+    if (isChatRoom) {
+      navigate("/coach/chat");
       return;
     }
     if (isAttendanceMonth) {

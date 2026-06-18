@@ -54,6 +54,7 @@ export const COACH_PRIMARY_NAV = [
     ],
   },
   { type: "link", id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
+  { type: "link", id: "chat", label: "Чат", to: "/chat", icon: "chat" },
   { type: "link", id: "forum", label: "Форум", to: "/forum", icon: "chat", badge: "forumUnread" },
 ];
 
@@ -104,6 +105,7 @@ export const ADMIN_NAV_SECTIONS = [
 export const COACH_MOBILE_TABS = [
   { id: "today", path: "/coach/today", label: "Днес", icon: "home" },
   { id: "club", path: "/coach/club", label: "Клуб", icon: "teams" },
+  { id: "chat", path: "/coach/chat", label: "Чат", icon: "chat" },
   { id: "schedule", path: "/coach/schedule", label: "График", icon: "calendar" },
   { id: "bvf", path: "/coach/bvf", label: "БФВ", icon: "book" },
   { id: "more", path: "/coach/menu", label: "Още", icon: "menu" },
