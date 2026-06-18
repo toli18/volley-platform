@@ -3,6 +3,29 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import useNavRoles from "../navigation/useNavRoles";
 
+/**
+ * Polling, който НЕ удря бекенда, когато табът е скрит (минимизиран/друг таб),
+ * и добавя малък jitter, за да не се синхронизират всички клиенти в един момент.
+ * При връщане на фокус прави незабавно опресняване.
+ * Връща cleanup функция.
+ */
+function startVisiblePoll(load, intervalMs) {
+  const jitter = Math.floor(Math.random() * 4000);
+  const tick = () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    load();
+  };
+  const timer = window.setInterval(tick, intervalMs + jitter);
+  const onVisible = () => {
+    if (typeof document !== "undefined" && !document.hidden) load();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    window.clearInterval(timer);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
+}
+
 export default function useNavbarFeed() {
   const { user, isCoachUser, isHeadCoachUser } = useNavRoles();
 
@@ -139,42 +162,12 @@ export default function useNavbarFeed() {
       }
     };
     load();
-    const timer = window.setInterval(load, 45000);
+    const stop = startVisiblePoll(load, 45000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop();
     };
   }, [user]);
-
-  useEffect(() => {
-    if (!isCoachUser || !user) {
-      setNewTaskCount(0);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const [trainRes, methodRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS),
-          axiosInstance.get(API_PATHS.MY_METHOD_ASSIGNMENTS).catch(() => ({ data: [] })),
-        ]);
-        if (cancelled) return;
-        const items = [
-          ...(Array.isArray(trainRes.data) ? trainRes.data : []),
-          ...(Array.isArray(methodRes.data) ? methodRes.data : []),
-        ];
-        setNewTaskCount(items.filter((x) => String(x?.status || "").toLowerCase() === "new").length);
-      } catch {
-        if (!cancelled) setNewTaskCount(0);
-      }
-    };
-    load();
-    const timer = window.setInterval(load, 45000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [isCoachUser, user]);
 
   useEffect(() => {
     if (!isHeadCoachUser || !user) {
@@ -200,10 +193,10 @@ export default function useNavbarFeed() {
       }
     };
     load();
-    const timer = window.setInterval(load, 30000);
+    const stop = startVisiblePoll(load, 30000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop();
     };
   }, [isHeadCoachUser, user]);
 
@@ -231,16 +224,17 @@ export default function useNavbarFeed() {
       }
     };
     load();
-    const timer = window.setInterval(load, 30000);
+    const stop = startVisiblePoll(load, 30000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop();
     };
   }, [isHeadCoachUser, user]);
 
   useEffect(() => {
     if (!isCoachUser || !user) {
       setTasks([]);
+      setNewTaskCount(0);
       return;
     }
     let cancelled = false;
@@ -255,16 +249,22 @@ export default function useNavbarFeed() {
           ...(Array.isArray(trainRes.data) ? trainRes.data : []),
           ...(Array.isArray(methodRes.data) ? methodRes.data : []),
         ];
+        // Едно зареждане захранва и списъка със задачи, и брояча за нови —
+        // вместо два отделни polling цикъла към същите endpoint-и.
         setTasks(items.slice(0, 8));
+        setNewTaskCount(items.filter((x) => String(x?.status || "").toLowerCase() === "new").length);
       } catch {
-        if (!cancelled) setTasks([]);
+        if (!cancelled) {
+          setTasks([]);
+          setNewTaskCount(0);
+        }
       }
     };
     load();
-    const timer = window.setInterval(load, 45000);
+    const stop = startVisiblePoll(load, 45000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop();
     };
   }, [isCoachUser, user]);
 

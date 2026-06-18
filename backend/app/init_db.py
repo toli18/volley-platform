@@ -44,7 +44,46 @@ def _table_has_rows(db: Session, model) -> bool:
     return (count or 0) > 0
 
 
+# Уникален ключ за PostgreSQL advisory lock — гарантира, че само ЕДИН uvicorn
+# worker изпълнява seeding/schema patch при старт (останалите пропускат безопасно).
+_INIT_DB_LOCK_KEY = 911002
+
+
 def init_db() -> None:
+    """
+    Безопасен за много worker-и старт.
+
+    При PostgreSQL хваща advisory lock: само първият worker изпълнява
+    реалната инициализация, а останалите я пропускат (схемата вече е
+    подсигурена от `alembic upgrade head` в Procfile + от worker-а с lock-а).
+    Това предотвратява състезания/дублирано seeding-ване между процесите.
+    """
+    db_url = (settings.database_url or "").lower()
+    if "postgres" in db_url:
+        try:
+            conn = engine.connect()
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ init_db: неуспешна връзка за advisory lock: {exc}")
+            return
+        try:
+            got_lock = conn.exec_driver_sql(
+                f"SELECT pg_try_advisory_lock({_INIT_DB_LOCK_KEY})"
+            ).scalar()
+            if not got_lock:
+                print("ℹ️ init_db пропуснат (друг worker държи init lock-а)")
+                return
+            try:
+                _init_db_impl()
+            finally:
+                conn.exec_driver_sql(f"SELECT pg_advisory_unlock({_INIT_DB_LOCK_KEY})")
+        finally:
+            conn.close()
+    else:
+        # SQLite / локален dev: един процес, lock не е нужен.
+        _init_db_impl()
+
+
+def _init_db_impl() -> None:
     """
     - Създава таблиците ако липсват (create_all)
     - НЕ трие данни при рестарт

@@ -140,8 +140,18 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
   useEffect(() => {
     if (!teamId) return undefined;
     load().catch(() => {});
-    const id = setInterval(() => load().catch(() => {}), 12000);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      load().catch(() => {});
+    }, 12000);
+    const onVisible = () => {
+      if (!document.hidden) load().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [teamId, load]);
 
   useEffect(() => {

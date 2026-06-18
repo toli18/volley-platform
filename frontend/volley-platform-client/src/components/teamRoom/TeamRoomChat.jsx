@@ -266,8 +266,18 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
   useEffect(() => {
     if (!active) return undefined;
     loadChannels();
-    const id = setInterval(() => loadChannels({ silent: true }), 30000);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      loadChannels({ silent: true });
+    }, 30000);
+    const onVisible = () => {
+      if (!document.hidden) loadChannels({ silent: true });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [active, loadChannels]);
 
   useEffect(() => {
@@ -275,8 +285,18 @@ export default function TeamRoomChat({ active, onUnreadChange, openTeamId, onOpe
     markedReadRef.current = new Set();
     bubbleRefsRef.current = new Map();
     loadMessages();
-    const id = setInterval(loadMessages, 10000);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      loadMessages();
+    }, 10000);
+    const onVisible = () => {
+      if (!document.hidden) loadMessages();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [active, selectedTeamId, loadMessages]);
 
   const handleCoachBubbleRef = useCallback((messageId, el) => {
