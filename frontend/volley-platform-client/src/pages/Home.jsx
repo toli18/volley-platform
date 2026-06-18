@@ -85,6 +85,7 @@ export default function Home() {
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
   const [scheduleItems, setScheduleItems] = useState([]);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("today");
 
   const role = String(user?.role || "").toLowerCase();
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
@@ -301,7 +302,78 @@ export default function Home() {
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
       <CoachMethodAssignments />
+
+      <div
+        role="tablist"
+        aria-label="Раздели на таблото"
+        style={{
+          display: "flex",
+          gap: 6,
+          flexWrap: "wrap",
+          margin: "4px 0 16px",
+          padding: 4,
+          background: "#f1f5f9",
+          borderRadius: 12,
+          width: "fit-content",
+          maxWidth: "100%",
+        }}
+      >
+        {[
+          { id: "today", label: "Днес", badge: activityItems.length || null },
+          { id: "content", label: "Съдържание", badge: null },
+          { id: "stats", label: "Статистика", badge: feesSummary.unpaid || null },
+        ].map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                border: "none",
+                cursor: "pointer",
+                padding: "9px 16px",
+                borderRadius: 9,
+                fontWeight: 700,
+                fontSize: 14,
+                color: active ? "#0f766e" : "#475569",
+                background: active ? "#ffffff" : "transparent",
+                boxShadow: active ? "0 1px 3px rgba(15,23,42,0.12)" : "none",
+                transition: "background 140ms ease, color 140ms ease",
+              }}
+            >
+              {tab.label}
+              {tab.badge ? (
+                <span
+                  style={{
+                    minWidth: 20,
+                    height: 20,
+                    padding: "0 6px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    background: tab.id === "stats" ? "#dc2626" : "#0f766e",
+                  }}
+                >
+                  {tab.badge}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      {activeTab === "today" && (
       <Card
         title="График за следващите 7 дни"
         actions={
@@ -323,7 +395,7 @@ export default function Home() {
           />
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {scheduleItems.map((it, idx) => {
+            {scheduleItems.slice(0, 6).map((it, idx) => {
               const isComp = isCompetitionEvent(it);
               const tc = teamColorsForId(it.team_id);
               const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
@@ -365,10 +437,18 @@ export default function Home() {
                 </Link>
               );
             })}
+            {scheduleItems.length > 6 && (
+              <Link to="/teams/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                + още {scheduleItems.length - 6} в пълния график →
+              </Link>
+            )}
           </div>
         )}
       </Card>
+      )}
 
+      {activeTab === "content" && (
+      <>
       <Card
         title="Твоите последни 5 тренировки"
         actions={
@@ -452,7 +532,10 @@ export default function Home() {
           </div>
         )}
       </Card>
+      </>
+      )}
 
+      {activeTab === "today" && (
       <Card
         title="Последни известия"
         actions={
@@ -466,7 +549,7 @@ export default function Home() {
         ) : activityItems.length === 0 ? (
           <EmptyState title="Няма нови известия" description="Ще виждаш тук форум активност и промени по статии/упражнения." />
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
             {activityItems.map((item) => {
               const isAbsence = item.kind === "absence";
               return (
@@ -489,6 +572,10 @@ export default function Home() {
         )}
       </Card>
 
+      )}
+
+      {activeTab === "stats" && (
+      <>
       <Card
         title="Малка статистика за месеца"
       >
@@ -526,10 +613,12 @@ export default function Home() {
           </div>
         )}
       </Card>
-      </div>
 
-      <div style={{ display: "grid", gap: 16 }}>
+      </>
+      )}
 
+      {activeTab === "content" && (
+      <>
       <Card
         title="Последни теми във форума"
         actions={
@@ -593,6 +682,8 @@ export default function Home() {
           </div>
         )}
       </Card>
+      </>
+      )}
       </div>
     </div>
   );
