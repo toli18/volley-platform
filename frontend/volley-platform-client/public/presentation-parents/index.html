@@ -156,6 +156,8 @@
   .shotWide { height: 72vh; min-height: 0; width: 100%; }
   .demoThree { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; height: 70vh; margin-top: 8px; }
   .demoThree .shot { height: 70vh; min-height: 0; }
+  .demoFour { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; height: 66vh; margin-top: 8px; }
+  .demoFour .shot { height: 66vh; min-height: 0; }
   .shotCap { text-align: center; color: var(--muted); font-size: clamp(13px, 1.4vw, 17px); margin-top: 12px; }
 
   .scenario {
@@ -252,6 +254,9 @@
 
     .demoThree { grid-template-columns: 1fr; height: auto; gap: 12px; }
     .demoThree .shot { height: auto; max-height: 58vh; }
+
+    .demoFour { grid-template-columns: 1fr 1fr; height: auto; gap: 10px; }
+    .demoFour .shot { height: auto; max-height: 46vh; }
 
     .shot { min-height: 220px; }
     .shotWide { height: auto; max-height: 64vh; }
@@ -358,12 +363,13 @@
   <section class="slide">
     <div class="kicker">За състезателите · Отборна стая</div>
     <h2>Отборната стая — за самите играчи</h2>
-    <div class="demoThree">
+    <div class="demoFour">
       <div class="shot"><img src="screenshots/room-home.png" alt="Отборна стая — Начало" data-cap="Начало — предстои, присъствие, такса" data-file="screenshots/room-home.png" /></div>
       <div class="shot"><img src="screenshots/room-schedule.png" alt="Отборна стая — График" data-cap="График на отбора" data-file="screenshots/room-schedule.png" /></div>
       <div class="shot"><img src="screenshots/room-chat.png" alt="Отборна стая — Чат" data-cap="Отборен чат" data-file="screenshots/room-chat.png" /></div>
+      <div class="shot"><img src="screenshots/room-gif.png" alt="Волейболни GIF-ове" data-cap="Волейболни GIF-ове в чата" data-file="screenshots/room-gif.png" /></div>
     </div>
-    <div class="scenario"><b>Едно място за отбора:</b> предстоящи тренировки, график и чат — вместо хаоса в Вайбър.</div>
+    <div class="scenario"><b>Едно място за отбора:</b> предстоящи тренировки, график, чат и забавни волейболни GIF-ове — вместо хаоса в Вайбър.</div>
   </section>
 
   <!-- 7 — ATHLETES: HOW TO LOGIN -->
