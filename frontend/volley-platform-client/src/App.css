@@ -2488,6 +2488,14 @@
   min-height: 44px;
 }
 
+/* Inside the coach mobile shell the bottom navigation (z-index 85) sits on top
+   of the action bar; lift the action bar above the nav so the buttons show. */
+.coachMobileShell .aiGenStickyBar {
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 10px;
+  z-index: 84;
+}
+
 .teamScheduleCalendarWrap {
   overflow-x: auto;
   padding-bottom: 4px;
