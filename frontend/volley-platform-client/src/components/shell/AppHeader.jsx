@@ -9,6 +9,7 @@ import NavIconButton from "./NavIconButton";
 import NotificationPanel from "./NotificationPanel";
 import ProfileMenu from "./ProfileMenu";
 import TasksPanel from "./TasksPanel";
+import ClubLogo from "../shared/ClubLogo";
 import "./appHeader.css";
 
 export default function AppHeader() {
@@ -106,6 +107,13 @@ export default function AppHeader() {
         {user ? <DesktopNav forumUnreadCount={feed.unreadCount} /> : null}
 
         <div className="appHeaderUtils">
+          {user?.club_logo_url ? (
+            <ClubLogo
+              logoUrl={user.club_logo_url}
+              name={user.club_name}
+              className="appHeaderClubLogo"
+            />
+          ) : null}
           {!user ? (
             <Link className="appHeaderLogin" to="/login">
               Вход

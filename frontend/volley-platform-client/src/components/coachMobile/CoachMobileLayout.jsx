@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import PlatformBrandBlock from "../shared/PlatformBrandBlock";
+import ClubLogo from "../shared/ClubLogo";
 import CoachBottomNav from "./CoachBottomNav";
 import CoachMobileNavMenu from "./CoachMobileNavMenu";
 import { Button } from "../ui";
@@ -71,6 +72,9 @@ export default function CoachMobileLayout() {
         )}
         <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
         <div className="coachMobileTopActions">
+          {user?.club_logo_url ? (
+            <ClubLogo logoUrl={user.club_logo_url} name={user.club_name} className="portalHeaderClubLogo" />
+          ) : null}
           {showBack ? <CoachMobileNavMenu className="coachMobileMenuBtn coachMobileMenuBtn--compact" /> : null}
           <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
             Изход

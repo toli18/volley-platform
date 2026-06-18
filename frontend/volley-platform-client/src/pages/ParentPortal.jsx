@@ -232,7 +232,13 @@ export default function ParentPortal() {
   ) : null;
 
   return (
-    <ParentPortalLayout headerActions={headerActions} fab={fab} bottomNav={bottomNav}>
+    <ParentPortalLayout
+      headerActions={headerActions}
+      fab={fab}
+      bottomNav={bottomNav}
+      clubLogoUrl={profile?.club_logo_url}
+      clubName={profile?.club_name || profile?.fee_coach?.club_name}
+    >
       <div className="parentPortalPage">
         <header className="parentPortalHero">
           <h1 className="parentPortalHeroTitle">{profile ? profile.athlete_name : "Родителски профил"}</h1>

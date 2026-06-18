@@ -24,6 +24,7 @@ class AthleteRoomMeResponse(BaseModel):
     birth_year: Optional[int] = None
     teams: list[str] = Field(default_factory=list)
     club_name: Optional[str] = None
+    club_logo_url: Optional[str] = None
     schedule_month_key: str
     week_start: str
     monthly_schedule: list[ParentScheduleItem] = Field(default_factory=list)

@@ -272,7 +272,12 @@ export default function TeamRoomPortal() {
     ) : null;
 
   return (
-    <TeamRoomLayout bottomNav={bottomNav} headerActions={headerActions}>
+    <TeamRoomLayout
+      bottomNav={bottomNav}
+      headerActions={headerActions}
+      clubLogoUrl={data?.club_logo_url}
+      clubName={data?.club_name}
+    >
       <LoginIntro visibleMs={1800} fadeMs={600} />
       <div className="teamRoomPage">
         {loading ? <p className="teamRoomMuted">Зареждане...</p> : null}

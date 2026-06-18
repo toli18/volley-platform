@@ -1,0 +1,697 @@
+﻿[
+    {
+        "bvf_id":  "138",
+        "name":  "Академик волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/05c2aa8d-979a-4c9f-e23c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "73",
+        "name":  "Айтос",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/1c438b5b-df50-42d7-e21d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "190",
+        "name":  "Академик Варна",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d04741a7-aca5-4841-e260-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "95",
+        "name":  "Арда - Кърджали",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/729e09ec-c7a0-4ee5-e22a-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "188",
+        "name":  "АРДА 2022",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a667e03b-16d5-4374-e25f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "182",
+        "name":  "Армеец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/727d434a-d5c5-4b26-e25b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "130",
+        "name":  "Асеновград",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "41",
+        "name":  "Асеновец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "195",
+        "name":  "Атом",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/139afc18-f199-4497-4992-08de0a1bad46"
+    },
+    {
+        "bvf_id":  "128",
+        "name":  "АХИЛ - ВОЛЕЙ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/b3468245-0bff-48db-e239-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "159",
+        "name":  "Барутов Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/bacd4f83-1cf7-491b-e246-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "38",
+        "name":  "БДИН - ВИДА",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/362d5307-75a1-4e33-e20d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "53",
+        "name":  "Берое",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/aa8d2a68-4b09-42b2-e217-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "116",
+        "name":  "Берое 2016",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/267c938c-7a64-4146-e232-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "202",
+        "name":  "БИЙЧ ВОЛЕЙ БУРГАС",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/aca4c2ee-5ab2-4496-2a1e-08de9ab74725"
+    },
+    {
+        "bvf_id":  "123",
+        "name":  "Благоевград",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0c19fddf-2033-4e80-e235-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "19",
+        "name":  "Ботев (Врц)",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/9d271344-a0a1-4476-e202-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "46",
+        "name":  "Ботев (Ихт)",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/94a62c0b-7739-49f1-e212-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "11",
+        "name":  "Ботев (Лук)",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/7ad3f71c-0452-484c-e1fc-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "122",
+        "name":  "Бултекс 2013",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0af91cb0-55ef-4b7a-e234-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "83",
+        "name":  "Бургас 2007",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "90",
+        "name":  "Бургас Волей - 2009",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/019b32cf-c9e7-4be2-e226-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "177",
+        "name":  "Бургос Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/86c2ed96-f068-45ef-e256-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "201",
+        "name":  "Бъдин-Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/9ef40b39-c2b9-4c96-5ac2-08de16da3a7f"
+    },
+    {
+        "bvf_id":  "115",
+        "name":  "ВАРНА - ДКС",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/05bd3e02-38df-4d8e-e231-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "176",
+        "name":  "Вел Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/acf7c312-caef-41f5-e255-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "33",
+        "name":  "Велбъжд - Олимпия",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/95012727-8524-4812-e20a-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "200",
+        "name":  "Великани",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/e40ff2d6-5660-4382-12d0-08de0cc43a23"
+    },
+    {
+        "bvf_id":  "94",
+        "name":  "Велики Преслав",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/41530d74-151c-4156-e229-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "108",
+        "name":  "Велинград Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "50",
+        "name":  "Виктория Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/adb9a201-5c3a-4a35-e215-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "170",
+        "name":  "ВИХЪР",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/af346591-847a-4937-e250-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "160",
+        "name":  "Владимир Николов",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/5bcabf6a-eb50-4793-e247-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "163",
+        "name":  "ВОЛЕЙБОЛ СЛАВИЯ 2017",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f2e019ae-3ace-49a6-ed7a-08dd6b94b3f4"
+    },
+    {
+        "bvf_id":  "193",
+        "name":  "ВОЛЕЙБОЛЕН КЛУБ НЕСЕБЪР ВОЛЕЙ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/8d6f8536-12fd-45cf-e263-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "175",
+        "name":  "ВОЛЕЙБОЛЕН КЛУБ РОДИНА-СУВОРОВО",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/47e5e7a8-58c1-459d-e254-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "184",
+        "name":  "ВОЛЕЙБОЛЕН КЛУБ СЛАВЕЙКОВ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/033979bc-37d8-4fcd-e25c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "197",
+        "name":  "Волейболна Академия Лъвски Сърца",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/68e07b77-56f4-4ca8-8cdf-08de05a7c84c"
+    },
+    {
+        "bvf_id":  "153",
+        "name":  "ВОЛЕЙБОЛНА АКАДЕМИЯ СТОЙЧЕВ - КАЗИЙСКИ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/6d986aa4-61e8-48e0-e244-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "173",
+        "name":  "Волов 2020",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/5113db17-d554-4c4a-e253-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "14",
+        "name":  "Вършец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/6f96ea69-4021-41c6-e1fd-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "89",
+        "name":  "Въча",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "62",
+        "name":  "Град",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f2121523-f1f5-4d6d-e21b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "180",
+        "name":  "ГРЪМ В РАЯ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f96a6b5c-4c14-408f-e259-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "150",
+        "name":  "Дея Спорт",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/8b037035-ade8-4be8-e242-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "57",
+        "name":  "ДИЕМ Русе",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/ce5badfa-c229-4849-e219-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "80",
+        "name":  "Добруджa 07",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/37e21a91-33fe-47dd-e221-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "189",
+        "name":  "Драгоман",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "31",
+        "name":  "Дунав",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a089c6aa-2da3-4447-e209-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "165",
+        "name":  "ЕЛИТ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/959404ef-8669-4161-e24c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "203",
+        "name":  "ЕНЕРДЖИ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0c844185-105a-4bd7-2a1f-08de9ab74725"
+    },
+    {
+        "bvf_id":  "139",
+        "name":  "Ерма 96",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "127",
+        "name":  "Етрополе",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/82c6885d-fcce-4a61-e238-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "164",
+        "name":  "ЗАГОРЕЦ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/676597cd-0d85-4709-e24b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "17",
+        "name":  "Звездец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/83563ad4-bafb-445c-e200-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "44",
+        "name":  "Звезди 94",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/3d25118b-b6e9-40e5-e210-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "35",
+        "name":  "Изгрев",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f8b9d3c7-39dd-42b5-e20c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "118",
+        "name":  "Импулс",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/b0d7631e-59f1-4f5a-e233-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "68",
+        "name":  "Йоан Екзарх Български - Шумен 05",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f7fcbc95-1ca5-45c5-e21c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "5",
+        "name":  "Казанлък",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/1a00ca30-ee78-49f9-e1fb-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "194",
+        "name":  "КАРЛОВО ВОЛЕЙ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/cd6e37cb-0674-4929-e264-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "161",
+        "name":  "Кирково 15",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/ad0617c7-c34e-44ce-e248-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "140",
+        "name":  "Козлодуй - мъже",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "168",
+        "name":  "Коини Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a69fd34a-4124-48ff-e24e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "158",
+        "name":  "КОКО ВОЛЕЙ 2016",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "196",
+        "name":  "Крепост Хисаря",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/1d48940c-8413-4258-7c9c-08dd78f22ff4"
+    },
+    {
+        "bvf_id":  "65",
+        "name":  "Левски - 2005",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "126",
+        "name":  "Левски София",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/c212508d-0115-41f0-e237-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "154",
+        "name":  "ЛОКОМОТИВ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/35d79168-616c-44dd-e245-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "16",
+        "name":  "Локомотив (ЧБ)",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0a0e593c-767c-4197-e1ff-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "74",
+        "name":  "Локомотив 1929 Нидо",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/b74f8196-bbf7-43c2-e21e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "25",
+        "name":  "Локомотив АВИА",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/41d3e1a1-a8f2-4a83-e205-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "144",
+        "name":  "Лудогорец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "105",
+        "name":  "Любимец 2010",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a8bae350-9f28-481a-e22f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "162",
+        "name":  "ЛЮБО ГАНЕВ - АВТОСВЯТ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/7d5de6bd-fa21-4373-e249-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "134",
+        "name":  "ЛЮЛИН",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0456d871-5b51-4be7-e23a-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "191",
+        "name":  "МАРЕК ДУПНИЦА",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d93c502c-64a8-46b4-7c9a-08dd78f22ff4"
+    },
+    {
+        "bvf_id":  "166",
+        "name":  "Марица - Белово",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/33f4d921-2d7a-4e3d-e24d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "4",
+        "name":  "Марица - Пловдив",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/23a99039-128d-4bc6-e1fa-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "178",
+        "name":  "Марица 2022",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/915d32f3-fe1b-44de-e257-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "149",
+        "name":  "МЕДИУС ВОЛЕЙ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/63b87d90-4def-4d40-e241-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "132",
+        "name":  "Металик волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "179",
+        "name":  "Металург",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/85f8d7b6-5762-4630-e258-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "40",
+        "name":  "Миньор",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a5df51df-3843-4da2-e20e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "82",
+        "name":  "Монтана Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/4b3c71bf-765b-44e7-e223-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "27",
+        "name":  "Нефтохимик - 2010",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f9a69091-3766-4f81-e206-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "181",
+        "name":  "Нике",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/ebaacbc7-94b3-4820-e25a-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "136",
+        "name":  "Олимпиец",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "20",
+        "name":  "Омуртаг",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/9bf5e425-d936-4a47-e203-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "169",
+        "name":  "ОСЪМ - ЛОВЕЧ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/2a2c12b8-805e-4568-e24f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "21",
+        "name":  "Павликени",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/70cdbb89-70d2-4dd7-e204-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "131",
+        "name":  "ПАН-Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "185",
+        "name":  "Перун 1",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/43743f69-0155-4e63-e25d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "79",
+        "name":  "Перун Варна",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/a6a202ba-1131-4c00-e220-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "49",
+        "name":  "Пирдоп",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/9c732c6c-91d9-4fbb-e214-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "146",
+        "name":  "ПИРИН-РАЗЛОГ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/23fc300b-b2a7-407e-e23e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "81",
+        "name":  "Попово 09",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/ee56037e-a160-4b63-e222-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "148",
+        "name":  "Раднево Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f1d880c8-fd72-410d-e240-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "187",
+        "name":  "Ракитово Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "87",
+        "name":  "Раковски - 1964",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f0b29ae9-0055-4ce0-e224-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "55",
+        "name":  "Раковски - Димитровград",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/664fff94-f143-4ae8-e218-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "12",
+        "name":  "Родина - Суворово",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "88",
+        "name":  "Родопа - Смолян",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0ae9d9c2-b0d8-4ba0-e225-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "45",
+        "name":  "Ропотамо",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/c9fdf03b-2f0d-4efa-e211-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "52",
+        "name":  "Русе Волей клуб",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "91",
+        "name":  "Самоков - 2009",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/849b0b23-2628-4e24-e227-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "171",
+        "name":  "Севлиево Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/9e95292f-cded-484e-e251-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "72",
+        "name":  "Септември - Про Синема",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f8fee843-7a0d-4af8-7c9b-08dd78f22ff4"
+    },
+    {
+        "bvf_id":  "192",
+        "name":  "СИМЕОНОВИ СУПЕР ВОЛЕЙ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d855a190-dd68-4d52-e262-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "3",
+        "name":  "Славия",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/261ef80b-82b3-430d-7c99-08dd78f22ff4"
+    },
+    {
+        "bvf_id":  "51",
+        "name":  "Сливен",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/06b2c4aa-2714-4f41-e216-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "101",
+        "name":  "Сливен - Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/29ec5006-33fe-4c09-e22c-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "152",
+        "name":  "Сливнишки герой",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/0e473886-0998-41e0-e243-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "92",
+        "name":  "Софийски университет",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/388d69f2-7e2f-48d4-e228-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "104",
+        "name":  "Спартак 1996",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/5b3e2cd7-1c98-4bb8-e22e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "183",
+        "name":  "СПАРТАК ВАРНА",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "28",
+        "name":  "Странджа",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/b5bba2e3-04e2-4626-e207-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "78",
+        "name":  "Тетевен Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/88de3927-729d-4d31-e21f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "114",
+        "name":  "Тони Спорт",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/e64044c3-8767-4213-e230-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "147",
+        "name":  "Тополово",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/ec1c421a-a9e9-4396-e23f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "103",
+        "name":  "Торо - Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/e92a3033-01b3-46f7-e22d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "167",
+        "name":  "Троян Волей",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f42cc8c3-707d-41fd-ed74-08dd6b94b3f4"
+    },
+    {
+        "bvf_id":  "18",
+        "name":  "Тунджа",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/4050deaf-f74b-4ece-e201-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "186",
+        "name":  "Феникс 2024",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/42641955-0b09-4d75-e25e-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "42",
+        "name":  "Хан Аспарух",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/7700d02e-edec-4765-e20f-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "172",
+        "name":  "Хаштаг - Бургас",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/53809cd7-d5f9-4a2c-e252-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "174",
+        "name":  "Хеброс-Харманли",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f035c841-577f-49cd-280b-08dd6910f918"
+    },
+    {
+        "bvf_id":  "125",
+        "name":  "Хебър - Пазарджик",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d5076056-bc1a-4bcc-e236-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "198",
+        "name":  "ХЕБЪР 24 - ПАЗАРДЖИК",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/f652abfb-3eb2-45d5-48b7-08de0a1bad46"
+    },
+    {
+        "bvf_id":  "60",
+        "name":  "Хектор",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/eab0eae2-b45c-488f-e21a-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "47",
+        "name":  "Царевец - 19",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/fced708d-c253-4314-e213-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "29",
+        "name":  "Царево",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d1b183e0-f91f-4d05-e208-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "145",
+        "name":  "ЦЕНТРАЛЕН ПОЛИЦЕЙСКИ ВОЛЕЙБОЛЕН КЛУБ",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/5a68ca7e-91af-4686-e23d-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "13",
+        "name":  "ЦСКА",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/1e6ff50f-c7f3-4887-ed72-08dd6b94b3f4"
+    },
+    {
+        "bvf_id":  "96",
+        "name":  "Чавдар - 1932",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/032ad1a0-01be-47e1-e22b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "24",
+        "name":  "Черно море",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/83e75307-b81e-41a0-ed75-08dd6b94b3f4"
+    },
+    {
+        "bvf_id":  "34",
+        "name":  "Черноломец - Попово 98",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/37865f24-f442-4b3e-e20b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "135",
+        "name":  "ЧЕРНОМОРЕЦ БЯЛА 2008",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/d44acb3e-db69-4488-e23b-08dd6a2e8e38"
+    },
+    {
+        "bvf_id":  "15",
+        "name":  "Яворов",
+        "logo_url":  "https://cdn.bgvolley.dev/club-logos/76afeccd-a8e2-4ac2-e1fe-08dd6a2e8e38"
+    }
+]

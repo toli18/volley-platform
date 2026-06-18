@@ -153,6 +153,8 @@ class ParentAthleteProfileResponse(BaseModel):
     birth_year: Optional[int] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
+    club_name: Optional[str] = None
+    club_logo_url: Optional[str] = None
     teams: list[str] = Field(default_factory=list)
     fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)
     current_month_fee: ParentCurrentMonthFee

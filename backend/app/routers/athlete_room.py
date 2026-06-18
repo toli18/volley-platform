@@ -54,17 +54,16 @@ _MONTH_KEY_RE = re.compile(r"^\d{4}-\d{2}$")
 _UPCOMING_HORIZON_DAYS = 45
 
 
-def _club_name_for_athlete(db: Session, athlete: Athlete) -> str | None:
+def _club_for_athlete(db: Session, athlete: Athlete) -> Club | None:
     if athlete.club_id:
         club = db.query(Club).filter(Club.id == athlete.club_id).first()
         if club:
-            return club.name
+            return club
     team_ids = _team_ids_for_athlete(db, athlete.id)
     if team_ids:
         team = db.query(Team).filter(Team.id == team_ids[0]).first()
         if team and team.club_id:
-            club = db.query(Club).filter(Club.id == team.club_id).first()
-            return club.name if club else None
+            return db.query(Club).filter(Club.id == team.club_id).first()
     return None
 
 
@@ -150,12 +149,15 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
     attendance_rows = _build_parent_attendance_list(db, athlete.id, team_ids, attendance_since, attendance_to)
     attendance_summary = _attendance_summary_from_rows([r for r in attendance_rows if r.date <= today_s])
 
+    club_row = _club_for_athlete(db, athlete)
+
     return AthleteRoomMeResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
         birth_year=athlete.birth_year,
         teams=teams,
-        club_name=_club_name_for_athlete(db, athlete),
+        club_name=club_row.name if club_row else None,
+        club_logo_url=club_row.logo_url if club_row else None,
         schedule_month_key=mk,
         week_start=_monday_of_week_iso(),
         monthly_schedule=schedule,

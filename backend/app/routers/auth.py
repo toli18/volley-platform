@@ -39,6 +39,8 @@ class UserResponse(BaseModel):
     name: str
     role: UserRole
     club_id: int | None
+    club_name: Optional[str] = None
+    club_logo_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -132,5 +134,23 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_current_user(current_user: Annotated[User, Depends(get_current_user)]):
-    return current_user
+async def read_current_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    club_name = None
+    club_logo_url = None
+    if current_user.club_id is not None:
+        club = db.get(Club, current_user.club_id)
+        if club is not None:
+            club_name = club.name
+            club_logo_url = club.logo_url
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        club_id=current_user.club_id,
+        club_name=club_name,
+        club_logo_url=club_logo_url,
+    )

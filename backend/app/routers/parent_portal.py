@@ -603,6 +603,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     competitions_this_month = _count_competitions_in_month(schedule_items, this_month)
 
     fee_coach = ParentFeeCoachContact()
+    club_name = None
+    club_logo_url = None
     coach_row = db.query(User).filter(User.id == athlete.coach_id).first()
     if coach_row:
         fee_coach.name = coach_row.name
@@ -612,6 +614,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         if club_row:
             fee_coach.club_name = club_row.name
             fee_coach.club_phone = club_row.contact_phone
+            club_name = club_row.name
+            club_logo_url = club_row.logo_url
 
     try:
         _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
@@ -627,6 +631,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         birth_year=athlete.birth_year,
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,
+        club_name=club_name,
+        club_logo_url=club_logo_url,
         teams=teams,
         fee_coach=fee_coach,
         current_month_fee=current_month_fee,

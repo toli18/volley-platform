@@ -4,6 +4,7 @@ import { apiClient } from "../../../utils/auth";
 import { API_PATHS } from "../../../utils/apiPaths";
 import { AdminHero, Button, Card, EmptyState, Input } from "../../../components/ui";
 import { useToast } from "../../../components/ToastProvider";
+import { resolveStaticUrl } from "../../../utils/staticUrl";
 
 export default function ClubList() {
   const [clubs, setClubs] = useState([]);
@@ -207,13 +208,25 @@ export default function ClubList() {
               className="uiCard--soft"
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
-                <div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                  {c.logo_url ? (
+                    <img
+                      src={resolveStaticUrl(c.logo_url)}
+                      alt={c.name || "Клуб"}
+                      style={{ width: 44, height: 44, objectFit: "contain", background: "#fff", borderRadius: 10, padding: 3, border: "1px solid #e2e8f0", flexShrink: 0 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 18 }}>{c.name || "Клуб"}</div>
                   <div style={{ fontSize: 12, color: "#5f708c", marginTop: 2 }}>
                     ID: {c.id} • Треньори: <b>{coachesByClub[Number(c.id)] || 0}</b> • Статус:{" "}
                     <b style={{ color: c.is_active === false ? "#be1e2d" : "#0a6b47" }}>
                       {c.is_active === false ? "Спрян достъп" : "Активен"}
                     </b>
+                  </div>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -301,6 +314,27 @@ export default function ClubList() {
               <label style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>Лого URL</div>
                 <Input value={editForm.logo_url} onChange={(e) => setEditForm((p) => ({ ...p, logo_url: e.target.value }))} />
+                {editForm.logo_url ? (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                    <img
+                      src={resolveStaticUrl(editForm.logo_url)}
+                      alt="Преглед на логото"
+                      style={{
+                        width: 56,
+                        height: 56,
+                        objectFit: "contain",
+                        background: "#fff",
+                        borderRadius: 10,
+                        padding: 4,
+                        border: "1px solid #e2e8f0",
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: "#64748b" }}>Преглед</span>
+                  </div>
+                ) : null}
               </label>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>

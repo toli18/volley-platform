@@ -12,6 +12,10 @@ def seed_clubs(db: Session):
         for row in reader:
             exists = db.query(Club).filter(Club.name == row["name"]).first()
             if exists:
+                # Keep the logo in sync for already-seeded clubs.
+                new_logo = row.get("logo_url")
+                if new_logo and exists.logo_url != new_logo:
+                    exists.logo_url = new_logo
                 continue
 
             club = Club(
