@@ -5,7 +5,7 @@ from sqlalchemy import select, func, text
 from .database import engine, SessionLocal, Base
 from .settings import settings
 from .models import User, UserRole, Club, Drill, MethodArticle
-from .seed.seed_clubs import seed_clubs
+from .seed.seed_clubs import seed_clubs, sync_club_logos
 from .seed.seed_drills import seed_drills
 from .seed.seed_national_method import seed_national_method
 from pathlib import Path
@@ -167,6 +167,12 @@ def init_db() -> None:
             print("✅ Clubs seeded")
         else:
             print("ℹ️ Clubs already exist - seeding skipped")
+
+        # Винаги синхронизирай реалните клубни лога (заменя само placeholder-и)
+        try:
+            sync_club_logos(db)
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ Club logo sync skipped: {exc}")
 
         # Drills seed само ако таблицата е празна
         if not _table_has_rows(db, Drill):
