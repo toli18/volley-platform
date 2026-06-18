@@ -126,6 +126,8 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
   const [draft, setDraft] = useState("");
   const [readTarget, setReadTarget] = useState(null);
   const [photoNote, setPhotoNote] = useState("");
+  const [announceOpen, setAnnounceOpen] = useState(false);
+  const [announceBody, setAnnounceBody] = useState("");
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -216,6 +218,35 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
     }
   };
 
+  const handleToggleAnnounce = () => {
+    setAnnounceOpen((prev) => !prev);
+  };
+
+  const handlePublishAnnounce = async () => {
+    const body = announceBody.trim();
+    if (!body || !teamId || busy) return;
+    try {
+      setBusy(true);
+      setPhotoNote("");
+      await axiosInstance.post(API_PATHS.TEAM_PORTAL_TEXT_CREATE(teamId), { body });
+      const res = await axiosInstance.post(API_PATHS.TEAM_CHAT_MESSAGES(teamId), {
+        body: "📢 Публикувах ново обявление в Новините на отбора.",
+      });
+      if (res.data) {
+        setMessages((prev) => [...prev, res.data]);
+      } else {
+        await load();
+      }
+      setAnnounceBody("");
+      setAnnounceOpen(false);
+      setPhotoNote("Обявлението е публикувано в „Новини и комуникация“ на отбора.");
+    } catch {
+      setPhotoNote("Неуспешно публикуване. Опитайте отново.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDelete = async (messageId) => {
     if (!teamId || busy) return;
     try {
@@ -247,6 +278,11 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
         onPickGifUrl={handleSendGifUrl}
         onPickPhoto={handlePickPhoto}
         photoNote={photoNote}
+        announceOpen={announceOpen}
+        announceBody={announceBody}
+        setAnnounceBody={setAnnounceBody}
+        onToggleAnnounce={handleToggleAnnounce}
+        onPublishAnnounce={handlePublishAnnounce}
       />
       <input
         ref={fileRef}
@@ -262,7 +298,7 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
   );
 }
 
-function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl, onPickPhoto, photoNote }) {
+function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl, onPickPhoto, photoNote, announceOpen, announceBody, setAnnounceBody, onToggleAnnounce, onPublishAnnounce }) {
   return (
     <div className="teamPortalCoachChat">
       <div className="teamPortalCoachChatMessages" ref={listRef}>
@@ -321,8 +357,41 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
           {photoNote}
         </p>
       ) : null}
+      {announceOpen ? (
+        <div className="teamPortalCoachChatAnnounce">
+          <p className="teamPortalCoachChatAnnounceTitle">Ново обявление в „Новини и комуникация“</p>
+          <Input
+            as="textarea"
+            rows={3}
+            placeholder="Напишете обявление към отбора (вижда се в Новините)..."
+            value={announceBody}
+            onChange={(e) => setAnnounceBody(e.target.value)}
+            maxLength={4000}
+          />
+          <div className="teamPortalCoachChatAnnounceActions">
+            <Button type="button" variant="secondary" size="sm" onClick={onToggleAnnounce} disabled={busy}>
+              Отказ
+            </Button>
+            <Button type="button" size="sm" onClick={onPublishAnnounce} disabled={busy || !announceBody.trim()}>
+              Публикувай
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <form className="teamPortalCoachChatComposer" onSubmit={onSend}>
         <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={busy} />
+        {onToggleAnnounce ? (
+          <button
+            type="button"
+            className={`chatToolBtn chatToolBtn--text${announceOpen ? " chatToolBtn--active" : ""}`}
+            onClick={onToggleAnnounce}
+            disabled={busy}
+            title="Публикувай текстово обявление в Новините на отбора"
+            aria-label="Текстово обявление"
+          >
+            Текст
+          </button>
+        ) : null}
         {onPickPhoto ? (
           <button
             type="button"

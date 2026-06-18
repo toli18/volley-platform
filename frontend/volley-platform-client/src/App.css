@@ -5840,6 +5840,37 @@
   font-size: 16px;
 }
 
+.chatToolBtn--text {
+  width: auto;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.teamPortalCoachChatAnnounce {
+  border: 1px solid #a7f3d0;
+  background: #f0fdf4;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teamPortalCoachChatAnnounceTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.teamPortalCoachChatAnnounceActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* Dedicated coach chat center (desktop two-pane) */
 .coachChatLayout {
   display: grid;
