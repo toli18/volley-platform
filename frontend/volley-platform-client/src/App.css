@@ -2488,9 +2488,11 @@
   min-height: 44px;
 }
 
-/* Inside the coach mobile shell the bottom navigation (z-index 85) sits on top
-   of the action bar; lift the action bar above the nav so the buttons show. */
-.coachMobileShell .aiGenStickyBar {
+/* On coach mobile (both the shell and the "foreign chrome" pages such as the AI
+   generator) the bottom navigation (z-index 85) sits on top of the action bar;
+   lift the action bar above the nav so the buttons stay visible. */
+.coachMobileShell .aiGenStickyBar,
+.appContent--coachMobileForeign .aiGenStickyBar {
   bottom: calc(60px + env(safe-area-inset-bottom, 0px));
   padding-bottom: 10px;
   z-index: 84;
