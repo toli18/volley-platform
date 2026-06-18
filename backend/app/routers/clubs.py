@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..models import Club, UserRole, User
 from ..dependencies.roles import require_role
+from ..seed.seed_clubs import sync_club_logos
 
 router = APIRouter(prefix="/clubs", tags=["Clubs"])
 
@@ -26,6 +27,16 @@ def get_clubs(
     user=Depends(require_role(UserRole.platform_admin, UserRole.federation_admin))
 ):
     return db.query(Club).all()
+
+
+@router.post("/sync-logos")
+def sync_logos(
+    db: Session = Depends(get_db),
+    user=Depends(require_role(UserRole.platform_admin, UserRole.federation_admin)),
+):
+    """Replace placeholder/empty club logos with the real /static/club-logos files."""
+    updated = sync_club_logos(db)
+    return {"updated": updated}
 
 
 @router.post("/")
