@@ -145,128 +145,116 @@ export default function useNavbarFeed() {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await axiosInstance.get(API_PATHS.FORUM_NOTIFICATIONS, { params: { limit: 8 } });
-        if (cancelled) return;
-        setNotifications(Array.isArray(res.data?.items) ? res.data.items : []);
-        setUnreadCount(Number(res.data?.unread_count) || 0);
-      } catch {
-        if (!cancelled) {
-          setNotifications([]);
-          setUnreadCount(0);
-        }
-      }
-    };
-    load();
-    const stop = startVisiblePoll(load, 45000);
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [user]);
-
-  useEffect(() => {
-    if (!isHeadCoachUser || !user) {
+      setTasks([]);
+      setNewTaskCount(0);
       setFeeAlerts([]);
       setFeeUnreadCount(0);
-      return;
-    }
-    const storageKey = `vp-fee-alerts-seen-${user.id}`;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await axiosInstance.get(API_PATHS.FEES_PAYMENT_ACTIVITY, { params: { limit: 12 } });
-        if (cancelled) return;
-        const items = Array.isArray(res.data?.items) ? res.data.items : [];
-        setFeeAlerts(items);
-        const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        setFeeUnreadCount(items.filter((x) => !seen.includes(Number(x.id))).length);
-      } catch {
-        if (!cancelled) {
-          setFeeAlerts([]);
-          setFeeUnreadCount(0);
-        }
-      }
-    };
-    load();
-    const stop = startVisiblePoll(load, 30000);
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [isHeadCoachUser, user]);
-
-  useEffect(() => {
-    if (!isHeadCoachUser || !user) {
       setTaskReports([]);
       setTaskReportsUnread(0);
       return;
     }
-    const storageKey = `vp-task-reports-seen-${user.id}`;
     let cancelled = false;
-    const load = async () => {
+
+    const applyForum = (forum) => {
+      setNotifications(Array.isArray(forum?.items) ? forum.items : []);
+      setUnreadCount(Number(forum?.unread_count) || 0);
+    };
+
+    const applyTasks = (trainItems, methodItems) => {
+      const items = [
+        ...(Array.isArray(trainItems) ? trainItems : []),
+        ...(Array.isArray(methodItems) ? methodItems : []),
+      ];
+      setTasks(items.slice(0, 8));
+      setNewTaskCount(items.filter((x) => String(x?.status || "").toLowerCase() === "new").length);
+    };
+
+    const applyFeeActivity = (items) => {
+      const list = Array.isArray(items) ? items : [];
+      setFeeAlerts(list);
       try {
-        const res = await axiosInstance.get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_ACTIVITY, { params: { limit: 24 } });
-        if (cancelled) return;
-        const items = Array.isArray(res.data?.items) ? res.data.items : [];
-        setTaskReports(items);
-        const seen = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        setTaskReportsUnread(items.filter((x) => !seen.includes(Number(x.id))).length);
+        const seen = JSON.parse(localStorage.getItem(`vp-fee-alerts-seen-${user.id}`) || "[]");
+        setFeeUnreadCount(list.filter((x) => !seen.includes(Number(x.id))).length);
       } catch {
-        if (!cancelled) {
-          setTaskReports([]);
-          setTaskReportsUnread(0);
-        }
+        setFeeUnreadCount(0);
       }
     };
-    load();
-    const stop = startVisiblePoll(load, 30000);
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [isHeadCoachUser, user]);
 
-  useEffect(() => {
-    if (!isCoachUser || !user) {
-      setTasks([]);
-      setNewTaskCount(0);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
+    const applyTaskReports = (items) => {
+      const list = Array.isArray(items) ? items : [];
+      setTaskReports(list);
       try {
+        const seen = JSON.parse(localStorage.getItem(`vp-task-reports-seen-${user.id}`) || "[]");
+        setTaskReportsUnread(list.filter((x) => !seen.includes(Number(x.id))).length);
+      } catch {
+        setTaskReportsUnread(0);
+      }
+    };
+
+    // Резервен вариант (старите отделни заявки) — ползва се само ако агрегираният
+    // endpoint липсва/гръмне (напр. при разминаване между деплоя на фронта и бекенда).
+    const loadLegacy = async () => {
+      const forumRes = await axiosInstance
+        .get(API_PATHS.FORUM_NOTIFICATIONS, { params: { limit: 8 } })
+        .catch(() => ({ data: {} }));
+      if (cancelled) return;
+      applyForum(forumRes.data);
+
+      if (isCoachUser) {
         const [trainRes, methodRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS),
+          axiosInstance.get(API_PATHS.MY_TRAINING_ASSIGNMENTS).catch(() => ({ data: [] })),
           axiosInstance.get(API_PATHS.MY_METHOD_ASSIGNMENTS).catch(() => ({ data: [] })),
         ]);
         if (cancelled) return;
-        const items = [
-          ...(Array.isArray(trainRes.data) ? trainRes.data : []),
-          ...(Array.isArray(methodRes.data) ? methodRes.data : []),
-        ];
-        // Едно зареждане захранва и списъка със задачи, и брояча за нови —
-        // вместо два отделни polling цикъла към същите endpoint-и.
-        setTasks(items.slice(0, 8));
-        setNewTaskCount(items.filter((x) => String(x?.status || "").toLowerCase() === "new").length);
+        applyTasks(trainRes.data, methodRes.data);
+      } else {
+        applyTasks([], []);
+      }
+
+      if (isHeadCoachUser) {
+        const [feeRes, repRes] = await Promise.all([
+          axiosInstance
+            .get(API_PATHS.FEES_PAYMENT_ACTIVITY, { params: { limit: 12 } })
+            .catch(() => ({ data: { items: [] } })),
+          axiosInstance
+            .get(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_ACTIVITY, { params: { limit: 24 } })
+            .catch(() => ({ data: { items: [] } })),
+        ]);
+        if (cancelled) return;
+        applyFeeActivity(feeRes.data?.items);
+        applyTaskReports(repRes.data?.items);
+      } else {
+        applyFeeActivity([]);
+        applyTaskReports([]);
+      }
+    };
+
+    const load = async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.NAVBAR_FEED);
+        if (cancelled) return;
+        const data = res.data || {};
+        applyForum(data.forum);
+        applyTasks(data.tasks_training, data.tasks_method);
+        applyFeeActivity(data.fee_activity?.items);
+        applyTaskReports(data.task_reports?.items);
       } catch {
-        if (!cancelled) {
-          setTasks([]);
-          setNewTaskCount(0);
+        if (cancelled) return;
+        try {
+          await loadLegacy();
+        } catch {
+          // запазваме предишното състояние при пълен неуспех
         }
       }
     };
+
     load();
     const stop = startVisiblePoll(load, 45000);
     return () => {
       cancelled = true;
       stop();
     };
-  }, [isCoachUser, user]);
+  }, [user, isCoachUser, isHeadCoachUser]);
 
   return {
     isCoachUser,

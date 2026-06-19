@@ -81,6 +81,7 @@ export const API_PATHS = {
   FORUM_CATEGORIES: "/api/forum/categories",
   FORUM_TAGS: "/api/forum/tags",
   FORUM_NOTIFICATIONS: "/api/forum/notifications",
+  NAVBAR_FEED: "/api/navbar/feed",
   FORUM_NOTIFICATION_READ: (notificationId) => `/api/forum/notifications/${notificationId}/read`,
   FORUM_NOTIFICATIONS_READ_ALL: "/api/forum/notifications/read-all",
   FORUM_REPLY_CREATE: (postId) => `/api/forum/posts/${postId}/replies`,
