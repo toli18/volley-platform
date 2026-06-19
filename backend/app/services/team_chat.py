@@ -247,6 +247,54 @@ def _sender_label(db: Session, msg: TeamChatMessage) -> str:
     return "Състезател"
 
 
+def _sender_labels_for_messages(
+    db: Session, messages: list[TeamChatMessage]
+) -> tuple[dict[int, str], dict[int, str]]:
+    """Зарежда имената на всички податели с 2 заявки (вместо 1 на съобщение).
+
+    Премахва N+1 в polling-а на чата: при N съобщения досега се правеха N
+    отделни заявки през `_sender_label`; сега са най-много 2 общо.
+    """
+    coach_ids = {
+        int(m.coach_user_id)
+        for m in messages
+        if m.sender_kind == TeamChatSenderKind.coach and m.coach_user_id
+    }
+    athlete_ids = {
+        int(m.athlete_id)
+        for m in messages
+        if m.sender_kind == TeamChatSenderKind.athlete and m.athlete_id
+    }
+    coach_names: dict[int, str] = {}
+    if coach_ids:
+        coach_names = {
+            int(i): n for i, n in db.query(User.id, User.name).filter(User.id.in_(coach_ids)).all()
+        }
+    athlete_names: dict[int, str] = {}
+    if athlete_ids:
+        athlete_names = {
+            int(i): n
+            for i, n in db.query(Athlete.id, Athlete.athlete_name).filter(Athlete.id.in_(athlete_ids)).all()
+        }
+    return coach_names, athlete_names
+
+
+def _label_from_maps(
+    msg: TeamChatMessage, coach_names: dict[int, str], athlete_names: dict[int, str]
+) -> str:
+    if msg.sender_kind == TeamChatSenderKind.coach:
+        if msg.coach_user_id:
+            name = coach_names.get(int(msg.coach_user_id))
+            if name:
+                return name
+        return "Треньор"
+    if msg.athlete_id:
+        name = athlete_names.get(int(msg.athlete_id))
+        if name:
+            return name
+    return "Състезател"
+
+
 def message_to_dict(
     db: Session,
     msg: TeamChatMessage,
@@ -254,6 +302,7 @@ def message_to_dict(
     *,
     roster_count: int = 0,
     read_by: list[dict] | None = None,
+    sender_label: str | None = None,
 ) -> dict:
     is_mine = (
         viewer_athlete_id is not None
@@ -265,7 +314,8 @@ def message_to_dict(
         "id": msg.id,
         "team_id": msg.team_id,
         "sender_kind": msg.sender_kind.value if hasattr(msg.sender_kind, "value") else str(msg.sender_kind),
-        "sender_label": _sender_label(db, msg),
+        # Ползва предварително изчисленото име ако е подадено (batch), иначе fallback.
+        "sender_label": sender_label if sender_label is not None else _sender_label(db, msg),
         "body": msg.body,
         "created_at": msg.created_at,
         "is_mine": is_mine,
@@ -286,7 +336,11 @@ def list_messages_for_athlete(db: Session, athlete: Athlete, team_id: int, limit
         .limit(min(limit, 300))
         .all()
     )
-    return [message_to_dict(db, m, athlete.id) for m in rows]
+    coach_names, athlete_names = _sender_labels_for_messages(db, rows)
+    return [
+        message_to_dict(db, m, athlete.id, sender_label=_label_from_maps(m, coach_names, athlete_names))
+        for m in rows
+    ]
 
 
 def post_athlete_message(db: Session, athlete: Athlete, team_id: int, body: str) -> TeamChatMessage:
@@ -340,6 +394,7 @@ def list_messages_for_coach(db: Session, team_id: int, limit: int = 150) -> list
     coach_ids = [m.id for m in rows if m.sender_kind == TeamChatSenderKind.coach]
     reads_map = _reads_by_message_ids(db, coach_ids)
     roster_ids = {aid for aid, _ in roster}
+    coach_names, athlete_names = _sender_labels_for_messages(db, rows)
 
     result = []
     for m in rows:
@@ -353,6 +408,7 @@ def list_messages_for_coach(db: Session, team_id: int, limit: int = 150) -> list
                 None,
                 roster_count=roster_count,
                 read_by=read_by if m.sender_kind == TeamChatSenderKind.coach else [],
+                sender_label=_label_from_maps(m, coach_names, athlete_names),
             )
         )
     return result
