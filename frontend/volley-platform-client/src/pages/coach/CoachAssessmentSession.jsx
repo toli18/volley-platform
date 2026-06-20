@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
@@ -286,7 +287,14 @@ export default function CoachAssessmentSession() {
 
   return (
     <div className="coachMobilePage">
-      <h2 className="coachMobileSectionTitle">Диагностична сесия</h2>
+      <div className="devHead">
+        <h2 className="coachMobileSectionTitle" style={{ margin: 0 }}>
+          Диагностична сесия
+        </h2>
+        <Link to="/coach/assessment/battery" className="devBack">
+          Тестова батерия →
+        </Link>
+      </div>
 
       <div className="assessToolbar">
         <label className="assessField">
@@ -354,7 +362,8 @@ export default function CoachAssessmentSession() {
         <>
           {isFinalized ? (
             <p className="assessMuted">
-              Сесията е приключена. Резултатите са изчислени и въвеждането е заключено.
+              Сесията е приключена. Резултатите са изчислени и въвеждането е заключено. Натиснете
+              име на състезател за Картата за развитие.
             </p>
           ) : null}
 
@@ -364,6 +373,11 @@ export default function CoachAssessmentSession() {
             values={values}
             onChange={handleChange}
             disabled={isFinalized || saving || finalizing}
+            athleteHref={
+              isFinalized
+                ? (athleteId) => `/coach/assessment/athletes/${athleteId}?from=/coach/assessment`
+                : null
+            }
           />
 
           {!isFinalized ? (

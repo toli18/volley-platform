@@ -48,6 +48,8 @@ const CoachMenu = React.lazy(() => import("./pages/coach/CoachMenu.jsx"));
 const CoachClubHub = React.lazy(() => import("./pages/coach/CoachClubHub.jsx"));
 const CoachBvfHub = React.lazy(() => import("./pages/coach/CoachBvfHub.jsx"));
 const CoachAssessmentSession = React.lazy(() => import("./pages/coach/CoachAssessmentSession.jsx"));
+const AthleteDevelopmentCard = React.lazy(() => import("./pages/coach/AthleteDevelopmentCard.jsx"));
+const CoachTestBattery = React.lazy(() => import("./pages/coach/CoachTestBattery.jsx"));
 const CoachAthleteProfile = React.lazy(() => import("./pages/coach/CoachAthleteProfile.jsx"));
 const CoachMyTrainings = React.lazy(() => import("./pages/coach/CoachMyTrainings.jsx"));
 const CoachAttendanceTeams = React.lazy(() => import("./pages/coach/CoachAttendanceTeams.jsx"));
@@ -184,6 +186,8 @@ const router = createBrowserRouter([
               { path: "chat/:teamId", element: <CoachChatRoom /> },
               { path: "bvf", element: <CoachBvfHub /> },
               { path: "assessment", element: <CoachAssessmentSession /> },
+              { path: "assessment/battery", element: <CoachTestBattery /> },
+              { path: "assessment/athletes/:athleteId", element: <AthleteDevelopmentCard /> },
               { path: "menu", element: <CoachMenu /> },
               { path: "fees", element: <MonthlyFees /> },
               { path: "trainings", element: <CoachMyTrainings /> },

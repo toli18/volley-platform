@@ -131,3 +131,211 @@
   border-radius: 10px;
   margin-bottom: 14px;
 }
+
+/* --- Карта за развитие --- */
+.devHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.devBack {
+  text-decoration: none;
+  color: #1d4ed8;
+  font-size: 14px;
+}
+.devSectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 18px 0 8px;
+}
+.devChart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.devRow {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.devRowLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+.devRowSub {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+.devBarTrack {
+  position: relative;
+  height: 22px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.devBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #60a5fa, #2563eb);
+  border-radius: 6px;
+}
+.devBarValue {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  line-height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.devDelta {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 48px;
+  text-align: right;
+}
+.devDelta--up {
+  color: #047857;
+}
+.devDelta--down {
+  color: #b91c1c;
+}
+.devDelta--flat {
+  color: #6b7280;
+}
+
+.deficitWrap {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+.deficitFocus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.deficitChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.deficitChip--bad {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+.deficitChip--ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+.deficitPlanText {
+  white-space: pre-wrap;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* --- Каталог: Тестова батерия --- */
+.batteryGroup {
+  margin-bottom: 22px;
+}
+.batteryGroupHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.batteryGroupTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+.batteryGroupCount {
+  font-size: 12px;
+  color: #6b7280;
+}
+.batteryCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.batteryCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.batteryCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.batteryCardName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.batteryCode {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #6b7280;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.batteryMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.batteryTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+}
+.batteryTag--up {
+  background: #ecfdf5;
+  color: #047857;
+}
+.batteryTag--down {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.batteryProtocol {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #475569;
+}
+.batteryVideo {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+}

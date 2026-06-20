@@ -1,9 +1,13 @@
+import { Link } from "react-router-dom";
 import "./assessment.css";
 
 /**
  * Mobile-first грид за въвеждане на сурови резултати: редове = състезатели,
  * колони = тестове от батерията. Контролиран компонент — стойностите и
  * промените се управляват от родителя (CoachAssessmentSession).
+ *
+ * `athleteHref(athleteId)` (по избор): ако е подадено, името на състезателя
+ * става връзка (напр. към Картата за развитие след finalize).
  */
 export default function AssessmentEntryGrid({
   tests = [],
@@ -11,6 +15,7 @@ export default function AssessmentEntryGrid({
   values = {},
   onChange,
   disabled = false,
+  athleteHref = null,
 }) {
   if (!athletes.length) {
     return <p className="assessMuted">Няма състезатели в този отбор.</p>;
@@ -36,7 +41,15 @@ export default function AssessmentEntryGrid({
         <tbody>
           {athletes.map((a) => (
             <tr key={a.athlete_id}>
-              <th className="assessStickyCol assessAthleteName">{a.athlete_name}</th>
+              <th className="assessStickyCol assessAthleteName">
+                {athleteHref ? (
+                  <Link to={athleteHref(a.athlete_id)} className="devBack">
+                    {a.athlete_name}
+                  </Link>
+                ) : (
+                  a.athlete_name
+                )}
+              </th>
               {tests.map((t) => (
                 <td key={t.code}>
                   <input
