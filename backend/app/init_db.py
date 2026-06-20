@@ -226,6 +226,27 @@ def _init_db_impl() -> None:
         except Exception as exc:
             print(f"⚠️ National method seed skipped: {exc}")
 
+        # Национална диагностична карта — тестовата батерия е част от
+        # методическата библиотека. Idempotent upsert по `code`.
+        try:
+            from app.national_method.assessment_battery import seed_assessment_battery
+
+            created = seed_assessment_battery(db)
+            print(f"✅ Тестова батерия (assessment) seeded — нови записи: {created}")
+        except Exception as exc:
+            print(f"⚠️ Assessment battery seed skipped: {exc}")
+
+        # Референтни норми (репери) — дават абсолютна скала за cold-start, за да
+        # имаме истинска делта от първото измерване. Idempotent; не презаписва
+        # норми, изчислени от реални данни (source="computed").
+        try:
+            from app.national_method.assessment_norms_seed import seed_reference_norms
+
+            created_norms = seed_reference_norms(db)
+            print(f"✅ Референтни норми (assessment) seeded — нови записи: {created_norms}")
+        except Exception as exc:
+            print(f"⚠️ Assessment reference norms seed skipped: {exc}")
+
         try:
             from app.national_method.annual_program import ensure_annual_program_seeded
 

@@ -1030,3 +1030,23 @@ class MethodAssignment(Base):
     assigner = relationship("User", foreign_keys=[assigned_by])
     assignee = relationship("User", foreign_keys=[assigned_to])
     cycle = relationship("MethodCycle")
+
+
+# =========================
+# Methodical Assessment Layer v1
+# Дефинирани в отделен модул за по-малък diff; импортирани тук, за да се
+# регистрират към общия Base/metadata и да са достъпни през `app.models`.
+# =========================
+from .models_assessment import (  # noqa: E402,F401
+    TestCategory,
+    TestDirection,
+    AssessmentWindowPhase,
+    AssessmentSessionStatus,
+    TestDefinition,
+    AssessmentWindow,
+    AssessmentSession,
+    AssessmentResult,
+    AssessmentNorm,
+    DevelopmentScore,
+    MethodicalIndexSnapshot,
+)
