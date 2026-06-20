@@ -2,9 +2,10 @@
 """Methodical Assessment Layer v1 — router.
 
 Phase 0: батерия, създаване на сесия, прозорци, bulk въвеждане на резултати.
-Phase 1: finalize (нормализация + Development Score + Методически Индекс) и
-обогатен GET за сесия. Отборна карта и федеративно табло идват в следващите
-фази (виж DEV_PLAN).
+Phase 1: откриване на прозорци (POST /windows), finalize (нормализация +
+Development Score + Методически Индекс), четене на Карта за развитие и
+Методически Индекс, и мост към AI генератора (recommend-training) —
+дефицитите от тестовете предписват тренировка.
 """
 from __future__ import annotations
 
@@ -21,6 +22,8 @@ from app.models import (
     AssessmentSession,
     AssessmentSessionStatus,
     AssessmentWindow,
+    AssessmentWindowPhase,
+    Athlete,
     DevelopmentScore,
     MethodicalIndexSnapshot,
     Team,
@@ -31,16 +34,20 @@ from app.models import (
 from app.schemas.assessment import (
     AssessmentSessionCreate,
     AssessmentSessionOut,
+    AssessmentWindowCreate,
     AssessmentWindowOut,
     DevelopmentScoreOut,
     MethodicalIndexOut,
     ResultBulkIn,
     TestDefinitionOut,
+    TrainingRecommendationOut,
 )
+from app.services.assessment_generator_bridge import build_generate_request
 from app.services.assessment_scoring import (
     compute_session_scores,
     compute_team_methodical_index,
 )
+from app.services.training_generation import run_generation
 
 # Подреждане на прозорците по фаза в логически ред.
 _PHASE_ORDER = {"baseline": 0, "mid": 1, "endline": 2}
@@ -57,6 +64,12 @@ _READ_ROLES = (
 # Създава сесии/въвежда резултати: треньор и нагоре.
 _WRITE_ROLES = (
     UserRole.coach,
+    UserRole.club_head_coach,
+    UserRole.platform_admin,
+    UserRole.federation_admin,
+)
+# Открива прозорци (методически контрол): главен треньор и нагоре.
+_WINDOW_ADMIN_ROLES = (
     UserRole.club_head_coach,
     UserRole.platform_admin,
     UserRole.federation_admin,
@@ -83,6 +96,25 @@ def _ensure_team_access(user: User, team: Team) -> None:
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Нямате достъп до този отбор",
+    )
+
+
+def _ensure_athlete_access(user: User, athlete: Athlete) -> None:
+    """Достъп до състезател: админ/федерация — навсякъде; главен треньор —
+    в рамките на клуба; треньор — само свои състезатели."""
+    role = _role_value(user)
+    if role in (UserRole.platform_admin.value, UserRole.federation_admin.value):
+        return
+    if role == UserRole.club_head_coach.value:
+        ath_club = getattr(athlete, "club_id", None)
+        user_club = getattr(user, "club_id", None)
+        if ath_club and user_club and ath_club == user_club:
+            return
+    if athlete.coach_id == user.id:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Нямате достъп до този състезател",
     )
 
 
@@ -167,6 +199,47 @@ def list_windows(
         )
     )
     return windows
+
+
+@router.post(
+    "/windows",
+    response_model=AssessmentWindowOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_window(
+    payload: AssessmentWindowCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WINDOW_ADMIN_ROLES)),
+):
+    """Открива тестов прозорец (baseline/mid/endline) за сезон.
+
+    Idempotent по (season, phase, club_id): ако вече има такъв прозорец — връща го.
+    """
+    existing = (
+        db.query(AssessmentWindow)
+        .filter(
+            AssessmentWindow.season == payload.season,
+            AssessmentWindow.phase == AssessmentWindowPhase(payload.phase),
+            AssessmentWindow.club_id == payload.club_id,
+        )
+        .first()
+    )
+    if existing is not None:
+        return existing
+
+    window = AssessmentWindow(
+        season=payload.season,
+        cycle=payload.cycle,
+        phase=AssessmentWindowPhase(payload.phase),
+        club_id=payload.club_id,
+        label=payload.label,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+    )
+    db.add(window)
+    db.commit()
+    db.refresh(window)
+    return window
 
 
 @router.post(
@@ -329,3 +402,88 @@ def bulk_results(
         "upserted": upserted,
         "skipped_unknown_codes": sorted(set(skipped)),
     }
+
+
+@router.get("/athletes/{athlete_id}/development", response_model=list[DevelopmentScoreOut])
+def athlete_development(
+    athlete_id: int,
+    window_id: Optional[int] = Query(None, description="По избор: само за конкретен прозорец"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Карта за развитие: Development Score-овете на състезателя през прозорците."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    query = db.query(DevelopmentScore).filter(DevelopmentScore.athlete_id == athlete_id)
+    if window_id is not None:
+        query = query.filter(DevelopmentScore.window_id == window_id)
+    return query.order_by(DevelopmentScore.window_id.asc()).all()
+
+
+@router.get("/teams/{team_id}/index", response_model=list[MethodicalIndexOut])
+def team_methodical_index(
+    team_id: int,
+    window_id: Optional[int] = Query(None, description="По избор: само за конкретен прозорец"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Методически Индекс на отбора през прозорците."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if team is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Отборът не е намерен")
+    _ensure_team_access(current_user, team)
+
+    query = db.query(MethodicalIndexSnapshot).filter(
+        MethodicalIndexSnapshot.subject_type == "team",
+        MethodicalIndexSnapshot.subject_id == team_id,
+    )
+    if window_id is not None:
+        query = query.filter(MethodicalIndexSnapshot.window_id == window_id)
+    return query.order_by(MethodicalIndexSnapshot.window_id.asc()).all()
+
+
+@router.post("/athletes/{athlete_id}/recommend-training", response_model=TrainingRecommendationOut)
+def recommend_training(
+    athlete_id: int,
+    window_id: int = Query(..., description="Прозорецът, чиято диагностика да ползваме"),
+    generate: bool = Query(False, description="Ако е true — директно генерира тренировка"),
+    duration_min: int = Query(90, ge=30, le=180),
+    players_count: int = Query(12, ge=1, le=40),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Превръща диагнозата в предписание: дефицити → заявка към AI генератора.
+
+    По подразбиране връща prefilled заявка (`generate_request`) + дефицитите.
+    При `generate=true` извиква генератора и връща и готовата тренировка.
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    window = db.query(AssessmentWindow).filter(AssessmentWindow.id == window_id).first()
+    if window is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Прозорецът не е намерен")
+
+    built = build_generate_request(
+        db, athlete, window, duration_min=duration_min, players_count=players_count
+    )
+    generate_request = built["generate_request"]
+
+    generated = None
+    if generate:
+        generated = run_generation(generate_request, user=current_user, db=db)["result"]
+
+    return TrainingRecommendationOut(
+        athlete_id=athlete_id,
+        window_id=window_id,
+        main_focus=generate_request["mainFocus"],
+        secondary_focus=generate_request.get("secondaryFocus"),
+        deficits=built["deficits"],
+        generate_request=generate_request,
+        generated=generated,
+    )

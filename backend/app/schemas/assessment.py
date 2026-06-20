@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -139,6 +139,26 @@ class MethodicalIndexOut(BaseModel):
     development: Optional[float] = None
     methodical_index: Optional[float] = None
     computed_at: Optional[datetime] = None
+
+
+# =========================
+# Bridge: диагноза → предписание (AI генератор)
+# =========================
+class DeficitOut(BaseModel):
+    domain: str
+    normalized: float
+    is_deficit: bool
+
+
+class TrainingRecommendationOut(BaseModel):
+    athlete_id: int
+    window_id: int
+    main_focus: str
+    secondary_focus: Optional[str] = None
+    deficits: list[DeficitOut] = Field(default_factory=list)
+    generate_request: dict[str, Any] = Field(default_factory=dict)
+    # Попълва се само ако клиентът поиска директно генериране (generate=true).
+    generated: Optional[dict[str, Any]] = None
 
 
 # Разрешава forward-референциите в AssessmentSessionOut към схемите по-долу.
