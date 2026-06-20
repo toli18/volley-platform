@@ -3,6 +3,7 @@ import ParentScheduleViews from "./ParentScheduleViews";
 import { ParentPortalTabPanel } from "./ParentPortalLayout";
 import ParentCoachContact from "./ParentCoachContact";
 import ParentPortalFeed from "./ParentPortalFeed";
+import ParentDevelopmentSection from "./ParentDevelopmentSection";
 import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
 import { IconCalendar, IconEuro } from "./parentPortalIcons";
 import { Button, Card, EmptyState, Input } from "../ui";
@@ -281,6 +282,8 @@ export default function ParentPortalProfileContent({
               </>
             )}
           </Card>
+
+          <ParentDevelopmentSection isSession={isSession} token={token} />
 
           <Card title="Контакт с треньора">
             <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--standalone" />

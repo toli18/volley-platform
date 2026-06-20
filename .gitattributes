@@ -1,0 +1,17 @@
+# Нормализирай край-на-ред: в репото пазим LF, за да няма CRLF „шум" в diff-овете.
+* text=auto eol=lf
+
+# Бинарни/непроменяеми файлове — без нормализация.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.mp4 binary
+*.webm binary

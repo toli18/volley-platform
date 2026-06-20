@@ -201,6 +201,40 @@ class TrainingRecommendationOut(BaseModel):
 
 
 # =========================
+# Съгласие (родителско споделяне на Картата за развитие) + родителски изглед
+# =========================
+class ConsentIn(BaseModel):
+    granted: bool
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class ConsentOut(BaseModel):
+    athlete_id: int
+    is_granted: bool = False
+    granted_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    granted_by_user_id: Optional[int] = None
+    note: Optional[str] = None
+
+
+class ParentWindowOut(BaseModel):
+    id: int
+    season: str
+    phase: WindowPhaseLiteral
+
+
+class ParentDevelopmentOut(BaseModel):
+    """Родителски read-only изглед на Картата за развитие (зад съгласие)."""
+    consent_granted: bool = False
+    athlete_name: Optional[str] = None
+    scores: list[DevelopmentScoreOut] = Field(default_factory=list)
+    windows: list[ParentWindowOut] = Field(default_factory=list)
+    deficits: list[DeficitOut] = Field(default_factory=list)
+    main_focus: Optional[str] = None
+    secondary_focus: Optional[str] = None
+
+
+# =========================
 # Федеративно табло v1 (6 агрегирани плочки — без лични данни на дете)
 # =========================
 class CoverageTile(BaseModel):

@@ -6,6 +6,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState } from "../../components/ui";
 import DevelopmentScoreChart from "../../components/assessment/DevelopmentScoreChart";
 import DeficitRecommendations from "../../components/assessment/DeficitRecommendations";
+import { openDevelopmentReport } from "../../utils/developmentReport";
 import "../../components/assessment/assessment.css";
 
 const PHASE_LABELS = { baseline: "Входящо", mid: "Междинно", endline: "Изходящо" };
@@ -32,6 +33,9 @@ export default function AthleteDevelopmentCard() {
   const [generating, setGenerating] = useState(false);
   const [recNotice, setRecNotice] = useState(null);
 
+  const [consent, setConsent] = useState(null);
+  const [consentSaving, setConsentSaving] = useState(false);
+
   useEffect(() => {
     if (!athleteIdNum) return;
     let alive = true;
@@ -39,14 +43,16 @@ export default function AthleteDevelopmentCard() {
       try {
         setLoading(true);
         setError("");
-        const [profileRes, devRes, windowsRes] = await Promise.all([
+        const [profileRes, devRes, windowsRes, consentRes] = await Promise.all([
           axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteIdNum)).catch(() => ({ data: null })),
           axiosInstance.get(API_PATHS.ASSESSMENT_DEVELOPMENT(athleteIdNum)),
           axiosInstance.get(API_PATHS.ASSESSMENT_WINDOWS).catch(() => ({ data: [] })),
+          axiosInstance.get(API_PATHS.ASSESSMENT_CONSENT(athleteIdNum)).catch(() => ({ data: null })),
         ]);
         if (!alive) return;
 
         setAthleteName(profileRes.data?.athlete_name || `Състезател #${athleteIdNum}`);
+        setConsent(consentRes.data || null);
 
         const map = {};
         for (const w of Array.isArray(windowsRes.data) ? windowsRes.data : []) {
@@ -128,6 +134,25 @@ export default function AthleteDevelopmentCard() {
     }
   };
 
+  const toggleConsent = async () => {
+    if (consentSaving) return;
+    const next = !(consent?.is_granted);
+    try {
+      setConsentSaving(true);
+      const res = await axiosInstance.put(API_PATHS.ASSESSMENT_CONSENT(athleteIdNum), { granted: next });
+      setConsent(res.data || null);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setRecNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешна промяна на съгласието." });
+    } finally {
+      setConsentSaving(false);
+    }
+  };
+
+  const downloadPdf = () => {
+    openDevelopmentReport({ athleteName, scores, windowMap, deficits, mainFocus });
+  };
+
   if (loading) return <p className="coachMobileMuted">Зареждане...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
 
@@ -187,13 +212,28 @@ export default function AthleteDevelopmentCard() {
           />
 
           <div className="assessActions">
-            <Button type="button" variant="secondary" disabled title="Скоро (Phase 4 — със съгласие)">
-              Сподели с родител
+            <Button
+              type="button"
+              variant={consent?.is_granted ? "primary" : "secondary"}
+              onClick={toggleConsent}
+              disabled={consentSaving}
+              title="Родителят вижда Картата за развитие в портала само при дадено съгласие"
+            >
+              {consentSaving
+                ? "Запазване..."
+                : consent?.is_granted
+                  ? "✓ Споделено с родител (оттегли)"
+                  : "Сподели с родител"}
             </Button>
-            <Button type="button" variant="secondary" disabled title="Скоро">
+            <Button type="button" variant="secondary" onClick={downloadPdf}>
               Изтегли PDF
             </Button>
           </div>
+          {consent?.is_granted ? (
+            <p className="assessMuted">
+              Родителят има достъп до Картата за развитие в родителския портал.
+            </p>
+          ) : null}
         </>
       )}
     </div>

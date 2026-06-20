@@ -48,6 +48,8 @@ from app.schemas.parent_portal import (
     ParentScheduleItem,
     ParentTeamFeedItem,
 )
+from app.schemas.assessment import ParentDevelopmentOut
+from app.services.assessment_consent import build_parent_development
 from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
     clear_marker_for_athlete,
@@ -811,6 +813,24 @@ def parent_portal_me(
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
     return _build_parent_athlete_profile(db, athlete)
+
+
+@router.get("/parent-portal/me/development", response_model=ParentDevelopmentOut)
+def parent_portal_me_development(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    """Read-only Карта за развитие за родителя (само при дадено съгласие)."""
+    return build_parent_development(db, athlete)
+
+
+@router.get("/parent-portal/{token}/development", response_model=ParentDevelopmentOut)
+def parent_portal_token_development(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return build_parent_development(db, athlete)
 
 
 @router.get("/parent-portal/me/schedule", response_model=list[ParentScheduleItem])

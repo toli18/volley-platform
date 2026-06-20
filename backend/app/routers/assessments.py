@@ -40,6 +40,8 @@ from app.schemas.assessment import (
     DevelopmentScoreOut,
     FederationDashboardOut,
     MethodicalIndexOut,
+    ConsentIn,
+    ConsentOut,
     ResultBulkIn,
     TestDefinitionAdminOut,
     TestDefinitionCreate,
@@ -48,6 +50,7 @@ from app.schemas.assessment import (
     TrainingRecommendationOut,
 )
 from app.national_method.assessment_battery import BATTERY_VERSION
+from app.services.assessment_consent import get_consent, set_consent
 from app.services.assessment_dashboard import build_federation_dashboard
 from app.services.assessment_generator_bridge import build_generate_request
 from app.services.assessment_scoring import (
@@ -575,6 +578,51 @@ def athlete_development(
     if window_id is not None:
         query = query.filter(DevelopmentScore.window_id == window_id)
     return query.order_by(DevelopmentScore.window_id.asc()).all()
+
+
+def _consent_out(athlete_id: int, consent) -> ConsentOut:
+    if consent is None:
+        return ConsentOut(athlete_id=athlete_id, is_granted=False)
+    return ConsentOut(
+        athlete_id=athlete_id,
+        is_granted=consent.is_granted,
+        granted_at=consent.granted_at,
+        revoked_at=consent.revoked_at,
+        granted_by_user_id=consent.granted_by_user_id,
+        note=consent.note,
+    )
+
+
+@router.get("/athletes/{athlete_id}/consent", response_model=ConsentOut)
+def get_athlete_consent(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Текущ статус на родителското съгласие за Картата за развитие."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+    return _consent_out(athlete_id, get_consent(db, athlete_id))
+
+
+@router.put("/athletes/{athlete_id}/consent", response_model=ConsentOut)
+def update_athlete_consent(
+    athlete_id: int,
+    payload: ConsentIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Записва/оттегля съгласието родителят да вижда Картата за развитие."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+    consent = set_consent(
+        db, athlete_id, payload.granted, user_id=current_user.id, note=payload.note
+    )
+    return _consent_out(athlete_id, consent)
 
 
 @router.get("/teams/{team_id}/index", response_model=list[MethodicalIndexOut])

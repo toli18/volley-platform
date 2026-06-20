@@ -245,3 +245,28 @@ class MethodicalIndexSnapshot(Base):
     __table_args__ = (
         Index("ix_methodical_index_subject_window", "subject_type", "subject_id", "window_id"),
     )
+
+
+# =========================
+# 8. Родителско съгласие за споделяне на Картата за развитие
+# =========================
+class AssessmentConsent(Base):
+    """Маркер за съгласие индивидуалната Карта за развитие да е видима за родителя.
+
+    Записва се от треньора (по искане на родителя). Един ред на състезател.
+    """
+
+    __tablename__ = "assessment_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(
+        Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    is_granted = Column(Boolean, nullable=False, default=False)
+    granted_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    granted_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    note = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

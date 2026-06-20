@@ -1049,4 +1049,5 @@ from .models_assessment import (  # noqa: E402,F401
     AssessmentNorm,
     DevelopmentScore,
     MethodicalIndexSnapshot,
+    AssessmentConsent,
 )
