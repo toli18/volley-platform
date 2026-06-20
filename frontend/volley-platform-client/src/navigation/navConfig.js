@@ -80,7 +80,10 @@ export const ADMIN_NAV_SECTIONS = [
   {
     id: "assessment",
     label: "Диагностика",
-    items: [{ id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" }],
+    items: [
+      { id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" },
+      { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "book" },
+    ],
   },
   {
     id: "drills",

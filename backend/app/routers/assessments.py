@@ -13,6 +13,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -37,11 +38,17 @@ from app.schemas.assessment import (
     AssessmentWindowCreate,
     AssessmentWindowOut,
     DevelopmentScoreOut,
+    FederationDashboardOut,
     MethodicalIndexOut,
     ResultBulkIn,
+    TestDefinitionAdminOut,
+    TestDefinitionCreate,
     TestDefinitionOut,
+    TestDefinitionUpdate,
     TrainingRecommendationOut,
 )
+from app.national_method.assessment_battery import BATTERY_VERSION
+from app.services.assessment_dashboard import build_federation_dashboard
 from app.services.assessment_generator_bridge import build_generate_request
 from app.services.assessment_scoring import (
     compute_session_scores,
@@ -74,6 +81,18 @@ _WINDOW_ADMIN_ROLES = (
     UserRole.platform_admin,
     UserRole.federation_admin,
 )
+# Федеративно табло: само национален/платформен админ (агрегирани данни).
+_DASHBOARD_ROLES = (
+    UserRole.platform_admin,
+    UserRole.federation_admin,
+)
+# Управление на батерията (стандарта): само национален/платформен админ.
+_BATTERY_ADMIN_ROLES = (
+    UserRole.platform_admin,
+    UserRole.federation_admin,
+)
+# Полета, които променят сравнимостта на данните — заключват се след употреба.
+_COMPARABILITY_FIELDS = ("category", "unit", "direction")
 
 
 def _role_value(user: User) -> str:
@@ -160,6 +179,141 @@ def get_battery(
         .order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc())
         .all()
     )
+
+
+# =========================
+# Управление на батерията (Phase 4 — само национален/платформен админ)
+# =========================
+def _norm_value(value):
+    """Нормализира enum/стойност до сравним стринг."""
+    return value.value if hasattr(value, "value") else value
+
+
+def _battery_usage_counts(db: Session, codes: Optional[list[str]] = None) -> dict[str, int]:
+    """Брой резултати по `test_code` — определя кои тестове са „заключени"."""
+    query = db.query(AssessmentResult.test_code, func.count(AssessmentResult.id))
+    if codes:
+        query = query.filter(AssessmentResult.test_code.in_(codes))
+    rows = query.group_by(AssessmentResult.test_code).all()
+    return {code: count for code, count in rows}
+
+
+def _admin_out(test: TestDefinition, usage: int) -> TestDefinitionAdminOut:
+    data = TestDefinitionOut.model_validate(test).model_dump()
+    return TestDefinitionAdminOut(**data, usage_count=usage, is_locked=usage > 0)
+
+
+@router.get("/battery/admin", response_model=list[TestDefinitionAdminOut])
+def get_battery_admin(
+    include_inactive: bool = Query(True, description="Включва и деактивираните тестове"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_BATTERY_ADMIN_ROLES)),
+):
+    """Пълен изглед на батерията за администриране (вкл. деактивирани + заключване)."""
+    query = db.query(TestDefinition)
+    if not include_inactive:
+        query = query.filter(TestDefinition.is_active.is_(True))
+    tests = query.order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc()).all()
+    usage = _battery_usage_counts(db, [t.code for t in tests])
+    return [_admin_out(t, usage.get(t.code, 0)) for t in tests]
+
+
+@router.post("/battery", response_model=TestDefinitionAdminOut, status_code=status.HTTP_201_CREATED)
+def create_test_definition(
+    payload: TestDefinitionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_BATTERY_ADMIN_ROLES)),
+):
+    """Създава нов тест в батерията. `code` трябва да е уникален."""
+    code = payload.code.strip()
+    exists = db.query(TestDefinition).filter(TestDefinition.code == code).first()
+    if exists is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Тест с код „{code}“ вече съществува.",
+        )
+    test = TestDefinition(
+        code=code,
+        name=payload.name.strip(),
+        category=payload.category,
+        unit=payload.unit.strip(),
+        direction=payload.direction,
+        protocol=payload.protocol,
+        video_url=payload.video_url,
+        age_min=payload.age_min,
+        age_max=payload.age_max,
+        battery_version=(payload.battery_version or BATTERY_VERSION),
+        sort_order=payload.sort_order,
+        is_active=True,
+    )
+    db.add(test)
+    db.commit()
+    db.refresh(test)
+    return _admin_out(test, 0)
+
+
+@router.patch("/battery/{code}", response_model=TestDefinitionAdminOut)
+def update_test_definition(
+    code: str,
+    payload: TestDefinitionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_BATTERY_ADMIN_ROLES)),
+):
+    """Редактира тест. Полетата за сравнимост (category/unit/direction) се
+    заключват, ако тестът вече е използван в резултати — тогава се създава нова
+    версия (нов код) вместо промяна."""
+    test = db.query(TestDefinition).filter(TestDefinition.code == code).first()
+    if test is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тестът не е намерен")
+
+    updates = payload.model_dump(exclude_unset=True)
+    usage = _battery_usage_counts(db, [code]).get(code, 0)
+
+    if usage > 0:
+        blocked = [
+            f for f in _COMPARABILITY_FIELDS
+            if f in updates and updates[f] is not None and _norm_value(getattr(test, f)) != updates[f]
+        ]
+        if blocked:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Тестът вече е използван в резултати — полетата "
+                    f"{', '.join(blocked)} са заключени за сравнимост. "
+                    "Създайте нова версия (нов код) вместо промяна."
+                ),
+            )
+
+    for field, value in updates.items():
+        setattr(test, field, value)
+    db.commit()
+    db.refresh(test)
+    return _admin_out(test, usage)
+
+
+@router.delete("/battery/{code}", status_code=status.HTTP_200_OK)
+def delete_test_definition(
+    code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_BATTERY_ADMIN_ROLES)),
+):
+    """Изтрива тест само ако НИКОГА не е използван. Използваните се деактивират
+    (PATCH is_active=false), за да се запази целостта на историческите данни."""
+    test = db.query(TestDefinition).filter(TestDefinition.code == code).first()
+    if test is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тестът не е намерен")
+    usage = _battery_usage_counts(db, [code]).get(code, 0)
+    if usage > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Тестът е използван в {usage} резултата и не може да се изтрие. "
+                "Деактивирайте го вместо това."
+            ),
+        )
+    db.delete(test)
+    db.commit()
+    return {"deleted": code}
 
 
 @router.get("/windows", response_model=list[AssessmentWindowOut])
@@ -487,3 +641,22 @@ def recommend_training(
         generate_request=generate_request,
         generated=generated,
     )
+
+
+# =========================
+# Федеративно табло v1 (само агрегирано — без лични данни на дете)
+# =========================
+@router.get("/federation/dashboard", response_model=FederationDashboardOut)
+def federation_dashboard(
+    window_id: Optional[int] = Query(None, description="По избор: конкретен прозорец (иначе последния с данни)"),
+    gender: Optional[str] = Query(None, description="Филтър по пол: male/female"),
+    age_band: Optional[str] = Query(None, description="Филтър по възрастова група, напр. U14"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_DASHBOARD_ROLES)),
+):
+    """6-те национални плочки агрегирано: покритие, развитие по възраст, приемане,
+    национални репери, лидери/риск (отборно) и дисциплина на измерване.
+
+    Малките проби се връщат с `is_indicative=true` (cold-start защита).
+    """
+    return build_federation_dashboard(db, window_id=window_id, gender=gender, age_band=age_band)

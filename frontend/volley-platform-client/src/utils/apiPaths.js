@@ -58,6 +58,10 @@ export const API_PATHS = {
   ASSESSMENT_TEAM_INDEX: (teamId) => `/api/assessments/teams/${teamId}/index`,
   ASSESSMENT_RECOMMEND: (athleteId) => `/api/assessments/athletes/${athleteId}/recommend-training`,
   ASSESSMENT_FEDERATION_DASHBOARD: "/api/assessments/federation/dashboard",
+  ASSESSMENT_BATTERY_ADMIN: "/api/assessments/battery/admin",
+  ASSESSMENT_BATTERY_CREATE: "/api/assessments/battery",
+  ASSESSMENT_BATTERY_UPDATE: (code) => `/api/assessments/battery/${encodeURIComponent(code)}`,
+  ASSESSMENT_BATTERY_DELETE: (code) => `/api/assessments/battery/${encodeURIComponent(code)}`,
 
   // Articles
   ARTICLES_LIST: "/api/articles",

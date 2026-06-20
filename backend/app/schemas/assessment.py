@@ -35,6 +35,45 @@ class TestDefinitionOut(BaseModel):
     is_active: bool = True
 
 
+class TestDefinitionAdminOut(TestDefinitionOut):
+    """Изглед за администриране: добавя дали тестът е „заключен" (вече използван
+    в резултати) и колко резултата го реферират."""
+    usage_count: int = 0
+    is_locked: bool = False
+
+
+class TestDefinitionCreate(BaseModel):
+    code: str = Field(..., min_length=2, max_length=64)
+    name: str = Field(..., min_length=2, max_length=255)
+    category: TestCategoryLiteral
+    unit: str = Field(..., min_length=1, max_length=32)
+    direction: TestDirectionLiteral = "higher_better"
+    protocol: Optional[str] = None
+    video_url: Optional[str] = Field(None, max_length=512)
+    age_min: Optional[int] = Field(None, ge=4, le=99)
+    age_max: Optional[int] = Field(None, ge=4, le=99)
+    battery_version: Optional[str] = Field(None, max_length=16)
+    sort_order: int = 0
+
+
+class TestDefinitionUpdate(BaseModel):
+    """Всички полета по избор. `code` е immutable и не се приема тук.
+
+    Критичните за сравнимостта полета (`category`, `unit`, `direction`) се
+    приемат, но routerът ги отхвърля, ако тестът вече е използван."""
+    name: Optional[str] = Field(None, min_length=2, max_length=255)
+    category: Optional[TestCategoryLiteral] = None
+    unit: Optional[str] = Field(None, min_length=1, max_length=32)
+    direction: Optional[TestDirectionLiteral] = None
+    protocol: Optional[str] = None
+    video_url: Optional[str] = Field(None, max_length=512)
+    age_min: Optional[int] = Field(None, ge=4, le=99)
+    age_max: Optional[int] = Field(None, ge=4, le=99)
+    battery_version: Optional[str] = Field(None, max_length=16)
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 # =========================
 # Прозорец
 # =========================
@@ -159,6 +198,76 @@ class TrainingRecommendationOut(BaseModel):
     generate_request: dict[str, Any] = Field(default_factory=dict)
     # Попълва се само ако клиентът поиска директно генериране (generate=true).
     generated: Optional[dict[str, Any]] = None
+
+
+# =========================
+# Федеративно табло v1 (6 агрегирани плочки — без лични данни на дете)
+# =========================
+class CoverageTile(BaseModel):
+    """Покритие: колко са обхванати от диагностиката в прозореца."""
+    athletes_tested: int = 0
+    athletes_total: int = 0
+    teams_tested: int = 0
+    teams_total: int = 0
+    coverage_pct: Optional[float] = None
+    is_indicative: bool = True
+
+
+class DevelopmentByAgeRow(BaseModel):
+    age_band: str
+    avg_delta: Optional[float] = None
+    avg_score: Optional[float] = None
+    sample: int = 0
+    is_indicative: bool = True
+
+
+class AdoptionTile(BaseModel):
+    """Приемане: дял отбори с активна годишна програма."""
+    avg_adoption: Optional[float] = None
+    teams_with_program: int = 0
+    teams_total: int = 0
+    is_indicative: bool = True
+
+
+class NormReperRow(BaseModel):
+    """Национален репер: средна сурова стойност по тест × възраст × пол."""
+    test_code: str
+    test_name: str
+    age_band: str
+    gender: str
+    mean_value: Optional[float] = None
+    sample: int = 0
+    is_indicative: bool = True
+
+
+class MethodicalLeaderRow(BaseModel):
+    team_id: int
+    team_name: str
+    methodical_index: Optional[float] = None
+
+
+class LeadersRiskTile(BaseModel):
+    leaders: list[MethodicalLeaderRow] = Field(default_factory=list)
+    risk: list[MethodicalLeaderRow] = Field(default_factory=list)
+
+
+class DisciplineTile(BaseModel):
+    """Дисциплина на измерване: среден дял тествани от състава."""
+    avg_discipline: Optional[float] = None
+    sample: int = 0
+    is_indicative: bool = True
+
+
+class FederationDashboardOut(BaseModel):
+    window_id: Optional[int] = None
+    window_label: Optional[str] = None
+    coverage: CoverageTile = Field(default_factory=CoverageTile)
+    development_by_age: list[DevelopmentByAgeRow] = Field(default_factory=list)
+    adoption: AdoptionTile = Field(default_factory=AdoptionTile)
+    norms: list[NormReperRow] = Field(default_factory=list)
+    leaders_risk: LeadersRiskTile = Field(default_factory=LeadersRiskTile)
+    discipline: DisciplineTile = Field(default_factory=DisciplineTile)
+    filters: dict[str, Any] = Field(default_factory=dict)
 
 
 # Разрешава forward-референциите в AssessmentSessionOut към схемите по-долу.
