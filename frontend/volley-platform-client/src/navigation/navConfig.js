@@ -29,6 +29,7 @@ export const COACH_PRIMARY_NAV = [
       { id: "fees", label: "Месечни такси", to: "/monthly-fees", icon: "fees" },
       { id: "trainings", label: "Моите тренировки", to: "/my-trainings", icon: "training" },
       { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "check" },
+      { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "check" },
       {
         id: "club-head",
         label: "Клубен преглед",
@@ -118,6 +119,7 @@ export const COACH_CLUB_HUB_LINKS = [
   { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "fees" },
   { id: "trainings", label: "Моите тренировки", to: "/coach/trainings", icon: "training", hint: "Списък и нова тренировка" },
   { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "check", hint: "По отбори" },
+  { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "check", hint: "Тестова батерия и развитие" },
   { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
 ];
 

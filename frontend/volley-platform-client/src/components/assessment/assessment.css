@@ -1,0 +1,133 @@
+/* Methodical Assessment Layer — entry grid & session UI */
+.assessToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+.assessField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+.assessField > span {
+  font-size: 12px;
+  color: #6b7280;
+}
+.assessField select,
+.assessField input {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.assessGridWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.assessGrid {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.assessGrid th,
+.assessGrid td {
+  border-bottom: 1px solid #eef2f7;
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+.assessStickyCol {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+  text-align: left;
+  min-width: 140px;
+  box-shadow: 1px 0 0 #e5e7eb;
+}
+.assessTestCol {
+  vertical-align: bottom;
+}
+.assessTestName {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  max-width: 116px;
+  white-space: normal;
+}
+.assessTestUnit {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+}
+.assessAthleteName {
+  font-weight: 600;
+}
+.assessInput {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+}
+.assessInput:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.assessMuted {
+  color: #6b7280;
+}
+.assessActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.assessNotice {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 10px 0;
+}
+.assessNotice--ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+.assessNotice--err {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+.assessBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.assessBadge--open {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.assessBadge--finalized {
+  background: #ecfdf5;
+  color: #047857;
+}
+.assessCreateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 12px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}

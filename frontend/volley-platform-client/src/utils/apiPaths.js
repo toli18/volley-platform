@@ -47,6 +47,17 @@ export const API_PATHS = {
   AI_TRAINING_GENERATE: "/api/ai/training/generate",
   AI_TRAINING_GENERATE_AND_SAVE: "/api/ai/training/generate-and-save",
 
+  // Assessment (Национална диагностична карта)
+  ASSESSMENT_BATTERY: "/api/assessments/battery",
+  ASSESSMENT_WINDOWS: "/api/assessments/windows",
+  ASSESSMENT_SESSIONS: "/api/assessments/sessions",
+  ASSESSMENT_SESSION_GET: (sessionId) => `/api/assessments/sessions/${sessionId}`,
+  ASSESSMENT_RESULTS_BULK: (sessionId) => `/api/assessments/sessions/${sessionId}/results/bulk`,
+  ASSESSMENT_SESSION_FINALIZE: (sessionId) => `/api/assessments/sessions/${sessionId}/finalize`,
+  ASSESSMENT_DEVELOPMENT: (athleteId) => `/api/assessments/athletes/${athleteId}/development`,
+  ASSESSMENT_TEAM_INDEX: (teamId) => `/api/assessments/teams/${teamId}/index`,
+  ASSESSMENT_RECOMMEND: (athleteId) => `/api/assessments/athletes/${athleteId}/recommend-training`,
+
   // Articles
   ARTICLES_LIST: "/api/articles",
   ARTICLE_MINE: "/api/articles/mine",
