@@ -70,6 +70,7 @@ const AdminArticleModeration = React.lazy(() => import("./pages/admin/AdminArtic
 const AdminArticles = React.lazy(() => import("./pages/admin/AdminArticles.jsx"));
 const AdminEditArticle = React.lazy(() => import("./pages/admin/AdminEditArticle.jsx"));
 const AdminNationalLibrary = React.lazy(() => import("./pages/admin/AdminNationalLibrary.jsx"));
+const FederationDashboard = React.lazy(() => import("./pages/admin/FederationDashboard.jsx"));
 const NationalLibrary = React.lazy(() => import("./pages/NationalLibrary.jsx"));
 const Textbook = React.lazy(() => import("./pages/Textbook.jsx"));
 const MethodGuidelines = React.lazy(() => import("./pages/MethodGuidelines.jsx"));
@@ -221,6 +222,7 @@ const router = createBrowserRouter([
           { path: "articles/:id", element: <AdminArticleModeration /> },
           { path: "articles/:id/edit", element: <AdminEditArticle /> },
           { path: "national-library", element: <AdminNationalLibrary /> },
+          { path: "federation", element: <FederationDashboard /> },
         ],
       },
     ],

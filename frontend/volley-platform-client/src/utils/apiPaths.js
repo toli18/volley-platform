@@ -57,6 +57,7 @@ export const API_PATHS = {
   ASSESSMENT_DEVELOPMENT: (athleteId) => `/api/assessments/athletes/${athleteId}/development`,
   ASSESSMENT_TEAM_INDEX: (teamId) => `/api/assessments/teams/${teamId}/index`,
   ASSESSMENT_RECOMMEND: (athleteId) => `/api/assessments/athletes/${athleteId}/recommend-training`,
+  ASSESSMENT_FEDERATION_DASHBOARD: "/api/assessments/federation/dashboard",
 
   // Articles
   ARTICLES_LIST: "/api/articles",

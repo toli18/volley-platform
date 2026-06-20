@@ -78,6 +78,11 @@ export const ADMIN_NAV_SECTIONS = [
     items: [{ id: "admin-bvf", label: "Библиотека БФВ", to: "/admin/national-library", icon: "book" }],
   },
   {
+    id: "assessment",
+    label: "Диагностика",
+    items: [{ id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" }],
+  },
+  {
     id: "drills",
     label: "Упражнения",
     items: [
