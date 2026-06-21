@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..models import Club, UserRole, User
 from ..dependencies.roles import require_role
+from ..national_method.bulgaria_regions import region_for_club
 from ..seed.seed_clubs import sync_club_logos
 
 router = APIRouter(prefix="/clubs", tags=["Clubs"])
@@ -21,12 +22,31 @@ class ClubUpdate(BaseModel):
     is_active: bool | None = None
 
 
+def _club_to_dict(club: Club) -> dict:
+    """Сериализира клуб + изчислен регион (по град, иначе по града в името)."""
+    return {
+        "id": club.id,
+        "name": club.name,
+        "city": club.city,
+        "country": club.country,
+        "address": club.address,
+        "contact_email": club.contact_email,
+        "contact_phone": club.contact_phone,
+        "website_url": club.website_url,
+        "logo_url": club.logo_url,
+        "is_active": club.is_active,
+        "created_at": club.created_at,
+        "updated_at": club.updated_at,
+        "region": region_for_club(club.name, club.city),
+    }
+
+
 @router.get("/")
 def get_clubs(
     db: Session = Depends(get_db),
     user=Depends(require_role(UserRole.platform_admin, UserRole.federation_admin))
 ):
-    return db.query(Club).all()
+    return [_club_to_dict(c) for c in db.query(Club).all()]
 
 
 @router.post("/sync-logos")

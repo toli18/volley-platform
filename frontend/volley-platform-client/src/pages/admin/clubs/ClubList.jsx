@@ -6,12 +6,15 @@ import { AdminHero, Button, Card, EmptyState, Input } from "../../../components/
 import { useToast } from "../../../components/ToastProvider";
 import { resolveStaticUrl } from "../../../utils/staticUrl";
 
+const REGION_OPTIONS = ["Витоша", "Струма", "Тракия", "Странджа", "Добруджа", "Хемус", "Неразпределен"];
+
 export default function ClubList() {
   const [clubs, setClubs] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [regionFilter, setRegionFilter] = useState("");
   const [editClub, setEditClub] = useState(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -55,12 +58,17 @@ export default function ClubList() {
 
   const filteredClubs = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return clubs;
     return clubs.filter((club) => {
+      if (regionFilter) {
+        const region = club.region || "Неразпределен";
+        if (region !== regionFilter) return false;
+      }
+      if (!q) return true;
       const haystack = [
         club.id,
         club.name,
         club.city,
+        club.region,
         club.country,
         club.address,
         club.contact_email,
@@ -71,7 +79,7 @@ export default function ClubList() {
         .join(" ");
       return haystack.includes(q);
     });
-  }, [clubs, query]);
+  }, [clubs, query, regionFilter]);
 
   const reload = async () => {
     const [clubsData, coachesData] = await Promise.all([
@@ -168,12 +176,27 @@ export default function ClubList() {
         ➕ Create Club
       </Button>
 
-      <div style={{ marginTop: 10, marginBottom: 10 }}>
+      <div style={{ marginTop: 10, marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <Input
+            placeholder="Търси клуб по ID, име, град, регион, държава, email..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
         <Input
-          placeholder="Търси клуб по ID, име, град, държава, email..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+          as="select"
+          value={regionFilter}
+          onChange={(e) => setRegionFilter(e.target.value)}
+          style={{ flex: "0 0 200px" }}
+        >
+          <option value="">Всички региони</option>
+          {REGION_OPTIONS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </Input>
       </div>
 
       {error && <div className="uiAlert uiAlert--danger">Грешка: {error}</div>}
@@ -220,7 +243,15 @@ export default function ClubList() {
                     />
                   ) : null}
                   <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: 18 }}>{c.name || "Клуб"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 900, fontSize: 18 }}>{c.name || "Клуб"}</span>
+                    <span
+                      className={`uiBadge ${c.region ? "uiBadge--success" : ""}`}
+                      title="Регион (по град или по името на клуба)"
+                    >
+                      {c.region || "Неразпределен"}
+                    </span>
+                  </div>
                   <div style={{ fontSize: 12, color: "#5f708c", marginTop: 2 }}>
                     ID: {c.id} • Треньори: <b>{coachesByClub[Number(c.id)] || 0}</b> • Статус:{" "}
                     <b style={{ color: c.is_active === false ? "#be1e2d" : "#0a6b47" }}>
@@ -239,6 +270,7 @@ export default function ClubList() {
               </div>
 
               <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                <div><b>Регион:</b> {c.region || "—"}</div>
                 <div><b>Град:</b> {c.city || "—"}</div>
                 <div><b>Държава:</b> {c.country || "—"}</div>
                 <div><b>Email:</b> {c.contact_email || "—"}</div>

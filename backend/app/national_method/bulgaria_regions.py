@@ -90,3 +90,42 @@ for _region, _cities in _REGION_CITIES.items():
 def region_for_city(city: Optional[str]) -> Optional[str]:
     """Връща региона по град или None, ако градът не е разпознат."""
     return CITY_TO_REGION.get(_normalize_city(city))
+
+
+# Градовете, подредени по дължина (низходящо), за да хванем първо по-дългите
+# имена (напр. „бяла слатина" преди „бяла") при сканиране на името на клуба.
+_CITIES_BY_LENGTH = sorted(CITY_TO_REGION.keys(), key=len, reverse=True)
+
+# Софийски клубове без град в името → Витоша (само еднозначни ключови думи).
+_SOFIA_CLUB_KEYWORDS = [
+    "цска", "васк", "люлин", "хектор", "звезди 94", "барутов", "симеонови",
+    "владимир николов", "цпвк", "софийски университет", "академик волей",
+    "левски софия", "славия", "ахил", "септември просинема", "армеец",
+]
+
+
+def _normalize_name(name: Optional[str]) -> str:
+    if not name:
+        return ""
+    value = name.lower()
+    for ch in ("„", "“", '"', "”", "-", "–", "—", ".", ",", "(", ")"):
+        value = value.replace(ch, " ")
+    return " ".join(value.split())
+
+
+def region_for_club(name: Optional[str], city: Optional[str] = None) -> Optional[str]:
+    """Определя региона на клуб: първо по град, после по града в името на клуба
+    (напр. „СКВ ДИЕМ Русе" → Русе), накрая по еднозначна софийска ключова дума."""
+    by_city = region_for_city(city)
+    if by_city:
+        return by_city
+
+    padded = f" {_normalize_name(name)} "
+    if padded.strip():
+        for token in _CITIES_BY_LENGTH:
+            if f" {token} " in padded:
+                return CITY_TO_REGION[token]
+        for kw in _SOFIA_CLUB_KEYWORDS:
+            if f" {kw} " in padded or padded.strip().endswith(f" {kw}") or padded.strip().startswith(f"{kw} "):
+                return REGION_VITOSHA
+    return None
