@@ -25,6 +25,7 @@ from app.models import (
     AssessmentWindow,
     AssessmentWindowPhase,
     Athlete,
+    BatteryAuditLog,
     DevelopmentScore,
     MethodicalIndexSnapshot,
     Team,
@@ -37,6 +38,9 @@ from app.schemas.assessment import (
     AssessmentSessionOut,
     AssessmentWindowCreate,
     AssessmentWindowOut,
+    AthleteResultRow,
+    AthleteResultsWindowOut,
+    BatteryAuditOut,
     DevelopmentScoreOut,
     FederationDashboardOut,
     MethodicalIndexOut,
@@ -206,6 +210,22 @@ def _admin_out(test: TestDefinition, usage: int) -> TestDefinitionAdminOut:
     return TestDefinitionAdminOut(**data, usage_count=usage, is_locked=usage > 0)
 
 
+def _record_battery_audit(
+    db: Session, *, test_code: str, action: str, changes: Optional[dict], user: User
+) -> None:
+    """Добавя запис в журнала на батерията (без отделен commit — извикващият
+    commit-ва заедно с промяната)."""
+    db.add(
+        BatteryAuditLog(
+            test_code=test_code,
+            action=action,
+            changes=changes or None,
+            actor_user_id=getattr(user, "id", None),
+            actor_name=getattr(user, "name", None),
+        )
+    )
+
+
 @router.get("/battery/admin", response_model=list[TestDefinitionAdminOut])
 def get_battery_admin(
     include_inactive: bool = Query(True, description="Включва и деактивираните тестове"),
@@ -250,6 +270,18 @@ def create_test_definition(
         is_active=True,
     )
     db.add(test)
+    _record_battery_audit(
+        db,
+        test_code=code,
+        action="create",
+        changes={
+            "name": test.name,
+            "category": _norm_value(test.category),
+            "unit": test.unit,
+            "direction": _norm_value(test.direction),
+        },
+        user=current_user,
+    )
     db.commit()
     db.refresh(test)
     return _admin_out(test, 0)
@@ -287,8 +319,21 @@ def update_test_definition(
                 ),
             )
 
+    changes: dict[str, list] = {}
     for field, value in updates.items():
+        old = _norm_value(getattr(test, field))
+        if old != value:
+            changes[field] = [old, value]
         setattr(test, field, value)
+
+    if changes:
+        # Специален случай: смяна само на статуса = (де)активиране.
+        if set(changes.keys()) == {"is_active"}:
+            action = "activate" if updates.get("is_active") else "deactivate"
+        else:
+            action = "update"
+        _record_battery_audit(db, test_code=code, action=action, changes=changes, user=current_user)
+
     db.commit()
     db.refresh(test)
     return _admin_out(test, usage)
@@ -314,9 +359,30 @@ def delete_test_definition(
                 "Деактивирайте го вместо това."
             ),
         )
+    _record_battery_audit(
+        db,
+        test_code=code,
+        action="delete",
+        changes={"name": test.name, "category": _norm_value(test.category)},
+        user=current_user,
+    )
     db.delete(test)
     db.commit()
     return {"deleted": code}
+
+
+@router.get("/battery/audit", response_model=list[BatteryAuditOut])
+def get_battery_audit(
+    test_code: Optional[str] = Query(None, description="По избор: само за конкретен тест"),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_BATTERY_ADMIN_ROLES)),
+):
+    """Журнал на промените по батерията (най-новите най-отгоре)."""
+    query = db.query(BatteryAuditLog)
+    if test_code:
+        query = query.filter(BatteryAuditLog.test_code == test_code)
+    return query.order_by(BatteryAuditLog.created_at.desc(), BatteryAuditLog.id.desc()).limit(limit).all()
 
 
 @router.get("/windows", response_model=list[AssessmentWindowOut])
@@ -578,6 +644,86 @@ def athlete_development(
     if window_id is not None:
         query = query.filter(DevelopmentScore.window_id == window_id)
     return query.order_by(DevelopmentScore.window_id.asc()).all()
+
+
+# Производен показател „чист отскок" = отскок след засилване − разтег (см).
+_NET_JUMP_APPROACH_CODE = "PHYS_JUMP_APPROACH"
+_NET_JUMP_REACH_CODE = "ANTH_REACH"
+
+
+@router.get("/athletes/{athlete_id}/results", response_model=list[AthleteResultsWindowOut])
+def athlete_results(
+    athlete_id: int,
+    window_id: Optional[int] = Query(None, description="По избор: само за конкретен прозорец"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Реалните (сурови) стойности на състезателя по тест, групирани по прозорец.
+
+    Допълва Картата за развитие, която показва само нормализираните оценки —
+    тук се виждат истинските см/сек/точки. Изчислява и „чист отскок".
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    rows = (
+        db.query(AssessmentResult, AssessmentSession.window_id, TestDefinition, AssessmentWindow)
+        .join(AssessmentSession, AssessmentResult.session_id == AssessmentSession.id)
+        .join(TestDefinition, TestDefinition.code == AssessmentResult.test_code)
+        .join(AssessmentWindow, AssessmentWindow.id == AssessmentSession.window_id)
+        .filter(AssessmentResult.athlete_id == athlete_id)
+    )
+    if window_id is not None:
+        rows = rows.filter(AssessmentSession.window_id == window_id)
+    rows = rows.all()
+
+    # Групиране по прозорец.
+    by_window: dict[int, dict] = {}
+    for result, win_id, test_def, window in rows:
+        bucket = by_window.setdefault(
+            win_id,
+            {
+                "window_id": win_id,
+                "season": window.season,
+                "phase": _norm_value(window.phase),
+                "rows": [],
+                "raw_by_code": {},
+            },
+        )
+        bucket["rows"].append(
+            AthleteResultRow(
+                test_code=test_def.code,
+                test_name=test_def.name,
+                category=_norm_value(test_def.category),
+                unit=test_def.unit,
+                direction=_norm_value(test_def.direction),
+                sort_order=test_def.sort_order or 0,
+                raw_value=result.raw_value,
+                normalized=result.normalized,
+                is_indicative=bool(result.is_indicative),
+            )
+        )
+        bucket["raw_by_code"][test_def.code] = result.raw_value
+
+    out: list[AthleteResultsWindowOut] = []
+    for win_id in sorted(by_window.keys()):
+        bucket = by_window[win_id]
+        bucket["rows"].sort(key=lambda r: (r.sort_order, r.test_code))
+        approach = bucket["raw_by_code"].get(_NET_JUMP_APPROACH_CODE)
+        reach = bucket["raw_by_code"].get(_NET_JUMP_REACH_CODE)
+        net_jump = round(approach - reach, 1) if approach is not None and reach is not None else None
+        out.append(
+            AthleteResultsWindowOut(
+                window_id=win_id,
+                season=bucket["season"],
+                phase=bucket["phase"],
+                results=bucket["rows"],
+                net_jump=net_jump,
+            )
+        )
+    return out
 
 
 def _consent_out(athlete_id: int, consent) -> ConsentOut:

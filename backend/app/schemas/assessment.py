@@ -56,6 +56,19 @@ class TestDefinitionCreate(BaseModel):
     sort_order: int = 0
 
 
+class BatteryAuditOut(BaseModel):
+    """Запис от журнала на промените по батерията."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    test_code: str
+    action: str
+    changes: Optional[dict[str, Any]] = None
+    actor_user_id: Optional[int] = None
+    actor_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
 class TestDefinitionUpdate(BaseModel):
     """Всички полета по избор. `code` е immutable и не се приема тук.
 
@@ -162,6 +175,32 @@ class DevelopmentScoreOut(BaseModel):
     development_score: Optional[float] = None
     delta: Optional[float] = None
     computed_at: Optional[datetime] = None
+
+
+# =========================
+# Реални (сурови) стойности по прозорец
+# =========================
+class AthleteResultRow(BaseModel):
+    """Един суров резултат на състезател за конкретен тест в даден прозорец."""
+    test_code: str
+    test_name: str
+    category: TestCategoryLiteral
+    unit: str
+    direction: TestDirectionLiteral
+    sort_order: int = 0
+    raw_value: Optional[float] = None
+    normalized: Optional[float] = None
+    is_indicative: bool = True
+
+
+class AthleteResultsWindowOut(BaseModel):
+    """Сурови стойности на състезателя, групирани по прозорец, плюс изчисления
+    производен показател „чист отскок" (отскок след засилване − разтег)."""
+    window_id: int
+    season: Optional[str] = None
+    phase: Optional[WindowPhaseLiteral] = None
+    results: list[AthleteResultRow] = Field(default_factory=list)
+    net_jump: Optional[float] = None
 
 
 # =========================
@@ -292,6 +331,14 @@ class DisciplineTile(BaseModel):
     is_indicative: bool = True
 
 
+class RegionIndexRow(BaseModel):
+    """Регионален rollup на Методическия Индекс (6-те структури на БФВ)."""
+    region: str
+    avg_index: Optional[float] = None
+    teams: int = 0
+    is_indicative: bool = True
+
+
 class FederationDashboardOut(BaseModel):
     window_id: Optional[int] = None
     window_label: Optional[str] = None
@@ -301,6 +348,7 @@ class FederationDashboardOut(BaseModel):
     norms: list[NormReperRow] = Field(default_factory=list)
     leaders_risk: LeadersRiskTile = Field(default_factory=LeadersRiskTile)
     discipline: DisciplineTile = Field(default_factory=DisciplineTile)
+    regional_index: list[RegionIndexRow] = Field(default_factory=list)
     filters: dict[str, Any] = Field(default_factory=dict)
 
 

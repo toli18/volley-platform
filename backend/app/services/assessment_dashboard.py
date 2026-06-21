@@ -27,12 +27,15 @@ from app.models import (
     AssessmentSession,
     AssessmentWindow,
     Athlete,
+    Club,
     ClubCycleInstance,
     DevelopmentScore,
     MethodicalIndexSnapshot,
     Team,
     TestDefinition,
+    User,
 )
+from app.national_method.bulgaria_regions import REGIONS, UNASSIGNED, region_for_city
 from app.services.assessment_scoring import (
     age_band_from_birth_year,
     window_sort_key,
@@ -263,6 +266,75 @@ def _leaders_risk(db: Session, window: AssessmentWindow) -> dict:
     return {"leaders": leaders, "risk": risk}
 
 
+def _team_city_map(db: Session, team_ids: set[int]) -> dict[int, Optional[str]]:
+    """Връща team_id → град на клуба (по Team.club_id, иначе по клуба на треньора)."""
+    if not team_ids:
+        return {}
+    teams = (
+        db.query(Team.id, Team.club_id, Team.coach_id)
+        .filter(Team.id.in_(team_ids))
+        .all()
+    )
+    club_ids = {club_id for (_, club_id, _) in teams if club_id is not None}
+    coach_ids = {coach_id for (_, club_id, coach_id) in teams if club_id is None and coach_id}
+
+    # Клубове на треньорите като резерв, когато отборът няма пряк club_id.
+    coach_club = {}
+    if coach_ids:
+        for uid, c_id in db.query(User.id, User.club_id).filter(User.id.in_(coach_ids)).all():
+            coach_club[uid] = c_id
+            if c_id is not None:
+                club_ids.add(c_id)
+
+    club_city = {}
+    if club_ids:
+        for c_id, city in db.query(Club.id, Club.city).filter(Club.id.in_(club_ids)).all():
+            club_city[c_id] = city
+
+    out: dict[int, Optional[str]] = {}
+    for team_id, club_id, coach_id in teams:
+        resolved_club = club_id if club_id is not None else coach_club.get(coach_id)
+        out[team_id] = club_city.get(resolved_club) if resolved_club is not None else None
+    return out
+
+
+def _regional_index(db: Session, window: AssessmentWindow) -> list[dict]:
+    """Регионален rollup на Методическия Индекс: среден индекс по регион,
+    като отбор → клуб → град → регион (6-те структури на БФВ)."""
+    rows = (
+        db.query(MethodicalIndexSnapshot.subject_id, MethodicalIndexSnapshot.methodical_index)
+        .filter(
+            MethodicalIndexSnapshot.subject_type == "team",
+            MethodicalIndexSnapshot.window_id == window.id,
+            MethodicalIndexSnapshot.methodical_index.isnot(None),
+        )
+        .all()
+    )
+    team_ids = {team_id for (team_id, _) in rows}
+    city_map = _team_city_map(db, team_ids)
+
+    buckets: dict[str, list[float]] = defaultdict(list)
+    for team_id, mi in rows:
+        region = region_for_city(city_map.get(team_id)) or UNASSIGNED
+        buckets[region].append(mi)
+
+    out = []
+    # Винаги връщаме 6-те региона (дори празни), плюс „Неразпределен" ако има.
+    for region in [*REGIONS, UNASSIGNED]:
+        vals = buckets.get(region, [])
+        if region == UNASSIGNED and not vals:
+            continue
+        out.append(
+            {
+                "region": region,
+                "avg_index": _avg(vals),
+                "teams": len(vals),
+                "is_indicative": len(vals) < MIN_TILE_SAMPLE,
+            }
+        )
+    return out
+
+
 def _discipline(db: Session, window: AssessmentWindow) -> dict:
     snaps = (
         db.query(MethodicalIndexSnapshot.measurement_discipline)
@@ -307,5 +379,6 @@ def build_federation_dashboard(
         "norms": _norms(db, window, gender, age_band),
         "leaders_risk": _leaders_risk(db, window),
         "discipline": _discipline(db, window),
+        "regional_index": _regional_index(db, window),
         "filters": filters,
     }

@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -270,3 +271,24 @@ class AssessmentConsent(Base):
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# =========================
+# 9. Журнал на промените по тестовата батерия (governance / проследимост)
+# =========================
+class BatteryAuditLog(Base):
+    """Кой, кога и какво е променил по тестовата батерия.
+
+    Батерията е националният стандарт (източник на истина за всички данни),
+    затова промените по нея се журналират за отчетност и разрешаване на спорове.
+    """
+
+    __tablename__ = "battery_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    test_code = Column(String(64), nullable=False, index=True)
+    action = Column(String(24), nullable=False)  # create | update | activate | deactivate | delete
+    changes = Column(JSON, nullable=True)  # { field: [old, new] } или снапшот
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    actor_name = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)

@@ -273,6 +273,39 @@ export default function FederationDashboard() {
             </div>
           </AdminSection>
 
+          <AdminSection title="Регионален методически индекс (6-те структури на БФВ)">
+            <Card>
+              {!data.regional_index?.length ? (
+                <EmptyState
+                  title="Няма данни"
+                  description="Регионалният индекс се появява след изчислени отборни индекси."
+                />
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {data.regional_index.map((row) => (
+                    <div key={row.region} style={{ display: "grid", gap: 4 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#607693" }}>
+                        <span>
+                          <strong style={{ color: "#334155" }}>{row.region}</strong>
+                          {" · "}
+                          {row.teams} {row.teams === 1 ? "отбор" : "отбора"}
+                          {row.is_indicative && row.teams > 0 ? (
+                            <span style={{ color: "#b91c1c" }}> · инд.</span>
+                          ) : null}
+                        </span>
+                        <span>{fmtNum(row.avg_index, 0)}</span>
+                      </div>
+                      <Bar pct={Number(row.avg_index) || 0} color="#1d4ed8" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="uiMuted" style={{ fontSize: 12, marginTop: 8 }}>
+                Регионът се определя по града на клуба (официалните регионални структури на БФВ).
+              </p>
+            </Card>
+          </AdminSection>
+
           <AdminSection title="Национални репери (тест × възраст × пол)">
             <Card>
               {!data.norms?.length ? (

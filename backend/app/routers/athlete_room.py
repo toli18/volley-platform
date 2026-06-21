@@ -28,7 +28,9 @@ from app.schemas.parent_portal import ParentCurrentMonthFee, ParentPortalAckBody
 from app.schemas.parent_portal import ParentPushSubscribeRequest, ParentPushTestResponse, ParentPushVapidResponse
 from app.routers.team_portal import _item_to_response
 from app.schemas.athlete_room import AthleteRoomHomeNotification, AthleteRoomMeResponse
+from app.schemas.assessment import ParentDevelopmentOut
 from app.schemas.parent_portal import ParentScheduleItem
+from app.services.assessment_consent import build_parent_development
 from app.services.parent_portal_notify import build_home_notifications, get_pending_marker_state
 from app.services.team_chat import total_unread_for_athlete
 from app.services.parent_push import (
@@ -189,6 +191,16 @@ def athlete_room_me(
             raise HTTPException(status_code=422, detail="month must be YYYY-MM")
         month_key = mk
     return _build_me(db, athlete, month_key)
+
+
+@router.get("/athlete-room/me/development", response_model=ParentDevelopmentOut)
+def athlete_room_development(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    """Карта за развитие на самия състезател. За разлика от родителския изглед,
+    тук съгласието не се изисква — атлетът винаги вижда собствените си данни."""
+    return build_parent_development(db, athlete, respect_consent=False)
 
 
 @router.get("/athlete-room/me/schedule", response_model=list[ParentScheduleItem])

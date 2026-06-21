@@ -1,8 +1,9 @@
-import { IconCalendar, IconChat, IconHome, IconUser } from "./teamRoomIcons";
+import { IconCalendar, IconChart, IconChat, IconHome, IconUser } from "./teamRoomIcons";
 
 const TABS = [
   { id: "home", label: "Начало", Icon: IconHome, badgeKey: "home" },
   { id: "schedule", label: "График", Icon: IconCalendar, badgeKey: null },
+  { id: "development", label: "Развитие", Icon: IconChart, badgeKey: null },
   { id: "messages", label: "Чатове", Icon: IconChat, badgeKey: "messages" },
   { id: "profile", label: "Профил", Icon: IconUser, badgeKey: null },
 ];

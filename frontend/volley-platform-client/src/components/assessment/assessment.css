@@ -82,6 +82,107 @@
   background: #f3f4f6;
   color: #6b7280;
 }
+.assessDerivedCol {
+  background: #eff6ff;
+}
+.assessDerivedCell {
+  text-align: center;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+/* --- Таблица с реални (сурови) стойности --- */
+.rawValuesTable .rawCatRow th {
+  background: #f3f4f6;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 6px 10px;
+}
+.rawCell {
+  text-align: center;
+  white-space: nowrap;
+}
+.rawRaw {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+}
+.rawNorm {
+  display: block;
+  font-size: 11px;
+  color: #1d4ed8;
+}
+.rawUnit {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 11px;
+}
+.rawNetJumpRow th {
+  color: #1d4ed8;
+}
+.rawLegend {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+/* --- Жива отборна карта (best-8) --- */
+.teamLiveCard {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+}
+.teamLiveHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.teamLiveGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.teamLiveCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+.teamLiveCell--derived {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.teamLiveName {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.teamLiveValue {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111827;
+}
+.teamLiveUnit {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+.teamLiveMeta {
+  font-size: 11px;
+  color: #9ca3af;
+}
 
 .assessMuted {
   color: #6b7280;

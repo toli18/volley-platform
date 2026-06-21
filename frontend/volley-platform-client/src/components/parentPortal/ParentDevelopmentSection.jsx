@@ -8,7 +8,14 @@ import "../assessment/assessment.css";
 
 const PHASE_LABELS = { baseline: "Входящо", mid: "Междинно", endline: "Изходящо" };
 
-export default function ParentDevelopmentSection({ isSession, token }) {
+/**
+ * Read-only секция „Развитие". Ползва се в родителския портал (зад съгласие) и
+ * в атлетския портал (за собствените данни на състезателя).
+ *
+ * `path` (по избор): ако е подаден, дърпа от него директно (атлетски портал).
+ * Иначе ползва родителските пътища според `isSession` / `token`.
+ */
+export default function ParentDevelopmentSection({ isSession, token, path }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -17,10 +24,12 @@ export default function ParentDevelopmentSection({ isSession, token }) {
     (async () => {
       try {
         setLoading(true);
-        const path = isSession
-          ? API_PATHS.PARENT_PORTAL_DEVELOPMENT_ME
-          : API_PATHS.PARENT_PORTAL_DEVELOPMENT_TOKEN(token);
-        const res = await axiosInstance.get(path);
+        const url =
+          path ||
+          (isSession
+            ? API_PATHS.PARENT_PORTAL_DEVELOPMENT_ME
+            : API_PATHS.PARENT_PORTAL_DEVELOPMENT_TOKEN(token));
+        const res = await axiosInstance.get(url);
         if (alive) setData(res.data || null);
       } catch {
         if (alive) setData(null);
@@ -31,7 +40,7 @@ export default function ParentDevelopmentSection({ isSession, token }) {
     return () => {
       alive = false;
     };
-  }, [isSession, token]);
+  }, [isSession, token, path]);
 
   const windowMap = useMemo(() => {
     const map = {};

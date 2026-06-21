@@ -1050,4 +1050,5 @@ from .models_assessment import (  # noqa: E402,F401
     DevelopmentScore,
     MethodicalIndexSnapshot,
     AssessmentConsent,
+    BatteryAuditLog,
 )

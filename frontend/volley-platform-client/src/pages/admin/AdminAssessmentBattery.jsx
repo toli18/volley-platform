@@ -17,6 +17,28 @@ const DIRECTION_LABELS = {
   lower_better: "↓ по-малко = по-добре",
   context: "контекст",
 };
+const ACTION_LABELS = {
+  create: "създаден",
+  update: "редактиран",
+  activate: "активиран",
+  deactivate: "деактивиран",
+  delete: "изтрит",
+};
+
+function formatChanges(changes) {
+  if (!changes || typeof changes !== "object") return "";
+  return Object.entries(changes)
+    .map(([field, val]) =>
+      Array.isArray(val) ? `${field}: ${val[0] ?? "—"} → ${val[1] ?? "—"}` : `${field}: ${val ?? "—"}`
+    )
+    .join("; ");
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toLocaleString("bg-BG");
+}
 
 const EMPTY_FORM = {
   code: "",
@@ -49,12 +71,17 @@ export default function AdminAssessmentBattery() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
+  const [audit, setAudit] = useState([]);
+  const [showAudit, setShowAudit] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+
   const load = async () => {
     try {
       setLoading(true);
       setError("");
       const res = await axiosInstance.get(API_PATHS.ASSESSMENT_BATTERY_ADMIN);
       setTests(Array.isArray(res.data) ? res.data : []);
+      if (showAudit) loadAudit();
     } catch (err) {
       const msg = normalizeError(err, "Грешка при зареждане на батерията.");
       setError(msg);
@@ -62,6 +89,24 @@ export default function AdminAssessmentBattery() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAudit = async () => {
+    try {
+      setAuditLoading(true);
+      const res = await axiosInstance.get(API_PATHS.ASSESSMENT_BATTERY_AUDIT);
+      setAudit(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при зареждане на журнала."));
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const toggleAudit = () => {
+    const next = !showAudit;
+    setShowAudit(next);
+    if (next && !audit.length) loadAudit();
   };
 
   useEffect(() => {
@@ -339,6 +384,52 @@ export default function AdminAssessmentBattery() {
           </AdminSection>
         ))
       )}
+
+      <AdminSection
+        title="Журнал на промените"
+        actions={
+          <Button variant="secondary" size="sm" onClick={toggleAudit}>
+            {showAudit ? "Скрий" : "Покажи журнал"}
+          </Button>
+        }
+      >
+        {showAudit ? (
+          <Card>
+            {auditLoading ? (
+              <p className="uiMuted">Зареждане...</p>
+            ) : !audit.length ? (
+              <EmptyState title="Няма записи" description="Промените по батерията се журналират тук." />
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#607693" }}>
+                      <th style={{ padding: "6px 8px" }}>Кога</th>
+                      <th style={{ padding: "6px 8px" }}>Тест</th>
+                      <th style={{ padding: "6px 8px" }}>Действие</th>
+                      <th style={{ padding: "6px 8px" }}>Кой</th>
+                      <th style={{ padding: "6px 8px" }}>Промени</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {audit.map((row) => (
+                      <tr key={row.id} style={{ borderTop: "1px solid #eef3fa" }}>
+                        <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatTimestamp(row.created_at)}</td>
+                        <td style={{ padding: "6px 8px", fontFamily: "ui-monospace, monospace" }}>{row.test_code}</td>
+                        <td style={{ padding: "6px 8px" }}>{ACTION_LABELS[row.action] || row.action}</td>
+                        <td style={{ padding: "6px 8px" }}>{row.actor_name || "—"}</td>
+                        <td style={{ padding: "6px 8px", color: "#475569" }}>{formatChanges(row.changes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        ) : (
+          <p className="uiMuted">Кой, кога и какво е променил по батерията (национален стандарт).</p>
+        )}
+      </AdminSection>
     </div>
   );
 }

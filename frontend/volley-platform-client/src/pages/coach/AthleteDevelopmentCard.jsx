@@ -5,6 +5,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState } from "../../components/ui";
 import DevelopmentScoreChart from "../../components/assessment/DevelopmentScoreChart";
+import AthleteRawResultsTable from "../../components/assessment/AthleteRawResultsTable";
 import DeficitRecommendations from "../../components/assessment/DeficitRecommendations";
 import { openDevelopmentReport } from "../../utils/developmentReport";
 import "../../components/assessment/assessment.css";
@@ -169,6 +170,9 @@ export default function AthleteDevelopmentCard() {
 
       <h3 className="devSectionTitle">Development Score през прозорците</h3>
       <DevelopmentScoreChart scores={scores} windowMap={windowMap} />
+
+      <h3 className="devSectionTitle">Реални стойности по прозорец</h3>
+      <AthleteRawResultsTable athleteId={athleteIdNum} />
 
       <h3 className="devSectionTitle">Диагноза → предписание</h3>
 

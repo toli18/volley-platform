@@ -33,3 +33,12 @@ export function IconUser({ className, size = 24 }) {
     </svg>
   );
 }
+
+export function IconChart({ className, size = 24 }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <path {...stroke} d="M4 4v16h16" />
+      <path {...stroke} d="M8 14v3M12 10v7M16 6v11" />
+    </svg>
+  );
+}

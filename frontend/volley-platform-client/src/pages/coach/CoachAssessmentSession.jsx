@@ -6,6 +6,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState } from "../../components/ui";
 import AssessmentEntryGrid from "../../components/assessment/AssessmentEntryGrid";
+import TeamLiveCard from "../../components/assessment/TeamLiveCard";
 
 const PHASES = [
   { value: "baseline", label: "Входящо (baseline)" },
@@ -365,6 +366,10 @@ export default function CoachAssessmentSession() {
               Сесията е приключена. Резултатите са изчислени и въвеждането е заключено. Натиснете
               име на състезател за Картата за развитие.
             </p>
+          ) : null}
+
+          {members.length ? (
+            <TeamLiveCard tests={battery} athletes={members} values={values} />
           ) : null}
 
           <AssessmentEntryGrid

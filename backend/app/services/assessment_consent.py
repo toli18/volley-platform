@@ -61,10 +61,14 @@ def is_consent_granted(db: Session, athlete_id: int) -> bool:
     return bool(consent and consent.is_granted)
 
 
-def build_parent_development(db: Session, athlete: Athlete) -> dict:
-    """Сглобява родителския изглед. При липса на съгласие връща празен изглед
-    с `consent_granted=False`, за да може клиентът да покаже подходящо съобщение."""
-    if not is_consent_granted(db, athlete.id):
+def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: bool = True) -> dict:
+    """Сглобява изгледа на Картата за развитие.
+
+    `respect_consent=True` (родителски изглед): при липса на съгласие връща празен
+    изглед с `consent_granted=False`. `respect_consent=False` се ползва, когато
+    самият състезател гледа своите данни в атлетския портал — съгласието касае
+    само видимостта за родител, не и за самия атлет."""
+    if respect_consent and not is_consent_granted(db, athlete.id):
         return {"consent_granted": False, "athlete_name": athlete.athlete_name}
 
     scores = (

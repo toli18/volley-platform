@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import ParentScheduleViews from "../components/parentPortal/ParentScheduleViews";
+import ParentDevelopmentSection from "../components/parentPortal/ParentDevelopmentSection";
 import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
 import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
 import TeamRoomChat from "../components/teamRoom/TeamRoomChat";
@@ -363,6 +364,11 @@ export default function TeamRoomPortal() {
                 onAckScheduleChange={handleAckScheduleChange}
                 scheduleHint="Докоснете ден за детайли. Червените дни имат промяна."
               />
+            </TabPanel>
+
+            <TabPanel id="development" activeTab={activeTab}>
+              <h2 className="teamRoomSectionTitle">Моето развитие</h2>
+              <ParentDevelopmentSection path={API_PATHS.ATHLETE_ROOM_DEVELOPMENT_ME} />
             </TabPanel>
 
             <TabPanel id="messages" activeTab={activeTab}>
