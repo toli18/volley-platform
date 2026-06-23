@@ -129,9 +129,24 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS summary_bg TEXT"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS key_points JSONB"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS content_origin VARCHAR(32)"))
+
+                # Assessment layer — нови колони (ADR-002 / Norms Machine), добавени
+                # към моделите, но липсващи в стара продукционна схема. Без тях
+                # SELECT-ите към тези таблици гърмят (напр. създаване на сесия → 500).
+                conn.execute(text("ALTER TABLE assessment_results ADD COLUMN IF NOT EXISTS norm_source VARCHAR(24)"))
+                conn.execute(text("ALTER TABLE assessment_results ADD COLUMN IF NOT EXISTS norm_confidence VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE assessment_results ADD COLUMN IF NOT EXISTS norm_explanation VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS source_status VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS maturity_level VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS valid_from DATE"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS valid_to DATE"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS coverage DOUBLE PRECISION"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS confidence_score DOUBLE PRECISION"))
+                conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS season_count INTEGER"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender ensured")
             print("✅ PostgreSQL: teams.gender ensured")
+            print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
