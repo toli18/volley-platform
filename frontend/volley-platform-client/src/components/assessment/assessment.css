@@ -452,12 +452,22 @@
 .talentCol {
   background: #f8fafc;
 }
+/* ВАЖНО: клетката трябва да остане table-cell. Ако ѝ сложим display:flex,
+   тя излиза от табличния модел и редовете спират да се подравняват. Вместо това
+   подреждаме съдържанието вертикално чрез block-елементи. */
 .scoutCell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
   min-width: 92px;
+  vertical-align: top;
+  white-space: normal;
+}
+.scoutCell .rawRaw {
+  display: block;
+  margin-bottom: 2px;
+}
+.scoutCell .talentBadge {
+  display: block;
+  width: fit-content;
+  margin: 2px auto 0;
 }
 
 /* Скаут таблицата е широка. В тесния (мобилен) изглед контейнерът е flex-колона
@@ -469,6 +479,10 @@
 .scoutPrintArea .assessGrid {
   width: auto;
   min-width: 100%;
+}
+.scoutPrintArea .assessGrid td,
+.scoutPrintArea .assessGrid th {
+  vertical-align: top;
 }
 
 .scoutSortable {
