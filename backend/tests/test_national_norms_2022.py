@@ -68,13 +68,14 @@ class Coverage2022Tests(unittest.TestCase):
         self.assertIsNotNone(get_bands("PHYS_LONGJUMP", "U13", "female"))
         self.assertIsNotNone(get_bands("PHYS_LONGJUMP", "U14", "female"))
 
-    def test_boys_cover_u14_and_u15_male(self):
+    def test_boys_cover_u13_and_u14_male(self):
+        # Летвата за момчета се прилага за набора U13–U14 (вж. national_norms_2022).
+        self.assertIsNotNone(get_bands("PHYS_LONGJUMP", "U13", "male"))
         self.assertIsNotNone(get_bands("PHYS_LONGJUMP", "U14", "male"))
-        self.assertIsNotNone(get_bands("PHYS_LONGJUMP", "U15", "male"))
 
     def test_unmapped_cells_return_none(self):
-        # момчета U13 ги няма в таблиците
-        self.assertIsNone(get_bands("PHYS_LONGJUMP", "U13", "male"))
+        # момчета U15 вече са извън набора (не се покриват)
+        self.assertIsNone(get_bands("PHYS_LONGJUMP", "U15", "male"))
         # тестове извън таблиците 2022
         self.assertIsNone(get_bands("TECH_ATTACK", "U14", "male"))
         self.assertIsNone(get_bands("PHYS_JUMP_1ARM", "U14", "male"))
@@ -91,7 +92,8 @@ class Coverage2022Tests(unittest.TestCase):
         self.assertGreaterEqual(score_2022(270.0, "PHYS_LONGJUMP", "U14", "male"), 85.0)
 
     def test_score_2022_none_when_no_norm(self):
-        self.assertIsNone(score_2022(200.0, "PHYS_LONGJUMP", "U13", "male"))
+        # U15 момчета вече са извън набора → няма летва.
+        self.assertIsNone(score_2022(200.0, "PHYS_LONGJUMP", "U15", "male"))
 
 
 if __name__ == "__main__":

@@ -35,8 +35,8 @@ class ReferenceAgeBandTests(unittest.TestCase):
     def test_female_reference_is_u13(self):
         self.assertEqual(reference_age_band("female"), "U13")
 
-    def test_male_reference_is_u14(self):
-        self.assertEqual(reference_age_band("male"), "U14")
+    def test_male_reference_is_u13(self):
+        self.assertEqual(reference_age_band("male"), "U13")
 
     def test_unknown_gender_has_no_reference(self):
         self.assertIsNone(reference_age_band("other"))
@@ -102,7 +102,7 @@ class BuildTalentProfileTests(unittest.TestCase):
     def test_no_results_gives_empty_but_covered(self):
         profile = build_talent_profile("male", "U11", {})
         self.assertTrue(profile.covered)
-        self.assertEqual(profile.reference_age_band, "U14")
+        self.assertEqual(profile.reference_age_band, "U13")
         self.assertEqual(profile.tests, ())
         self.assertIsNone(profile.talent_index)
 
