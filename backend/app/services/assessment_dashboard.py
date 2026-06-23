@@ -35,6 +35,7 @@ from app.models import (
     TestDefinition,
     User,
 )
+from app.models_assessment import TestCategory, TestDirection
 from app.national_method.bulgaria_regions import REGIONS, UNASSIGNED, region_for_city
 from app.services.assessment_scoring import (
     age_band_from_birth_year,
@@ -45,6 +46,7 @@ from app.services.assessment_scoring import (
 MIN_TILE_SAMPLE = 5  # под този брой плочката е индикативна
 MIN_NORM_SAMPLE = 20  # националните репери искат повече проби
 LEADERS_LIMIT = 5
+PARTICIPATION_LOW = 70.0  # под този дял измерени тестът се маркира като пропускан
 
 
 def _avg(values: list[float]) -> Optional[float]:
@@ -352,6 +354,71 @@ def _discipline(db: Session, window: AssessmentWindow) -> dict:
     }
 
 
+def _participation(
+    db: Session, window: AssessmentWindow, gender: Optional[str], age_band: Optional[str]
+) -> list[dict]:
+    """Участие по тест: от децата, тествани в този прозорец, какъв дял имат
+    измерен всеки конкретен тест. Ниският дял издава пропускан (често по-труден)
+    тест — сигнал за качеството на данните."""
+    rows = (
+        db.query(
+            AssessmentResult.athlete_id,
+            AssessmentResult.test_code,
+            Athlete.birth_year,
+            Athlete.gender,
+        )
+        .join(AssessmentSession, AssessmentResult.session_id == AssessmentSession.id)
+        .join(Athlete, Athlete.id == AssessmentResult.athlete_id)
+        .filter(
+            AssessmentSession.window_id == window.id,
+            AssessmentResult.raw_value.isnot(None),
+        )
+        .all()
+    )
+
+    tested_athletes: set[int] = set()
+    measured_by_test: dict[str, set[int]] = defaultdict(set)
+    for athlete_id, test_code, birth_year, ath_gender in rows:
+        if gender and ath_gender != gender:
+            continue
+        band = age_band_from_birth_year(birth_year)
+        if age_band and band != age_band:
+            continue
+        tested_athletes.add(athlete_id)
+        measured_by_test[test_code].add(athlete_id)
+
+    denom = len(tested_athletes)
+
+    test_defs = [
+        t
+        for t in db.query(TestDefinition)
+        .filter(TestDefinition.is_active.is_(True))
+        .order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc())
+        .all()
+        if (t.category.value if hasattr(t.category, "value") else t.category) != TestCategory.anthropometry.value
+        and (t.direction.value if hasattr(t.direction, "value") else t.direction) != TestDirection.context.value
+    ]
+
+    out = []
+    for td in test_defs:
+        measured = len(measured_by_test.get(td.code, ()))
+        pct = round(measured / denom * 100, 1) if denom else None
+        out.append(
+            {
+                "test_code": td.code,
+                "test_name": td.name,
+                "category": td.category.value if hasattr(td.category, "value") else td.category,
+                "measured": measured,
+                "tested_total": denom,
+                "participation_pct": pct,
+                "is_low": pct is not None and pct < PARTICIPATION_LOW,
+            }
+        )
+    # Най-пропусканите най-отгоре (None накрая), за да изпъкнат проблемите.
+    out.sort(key=lambda r: (r["participation_pct"] is None, r["participation_pct"] or 0.0))
+    return out
+
+
 # =========================
 # Публичен интерфейс
 # =========================
@@ -380,5 +447,6 @@ def build_federation_dashboard(
         "leaders_risk": _leaders_risk(db, window),
         "discipline": _discipline(db, window),
         "regional_index": _regional_index(db, window),
+        "participation": _participation(db, window, gender, age_band),
         "filters": filters,
     }

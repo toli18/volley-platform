@@ -13,6 +13,14 @@ const CATEGORY_LABELS = {
 };
 const CATEGORY_ORDER = ["technical", "speed", "physical", "anthropometry"];
 
+// Цветово ниво по словесната оценка на таланта.
+const LEVEL_CLASS = {
+  Незадоволително: "talentBadge--bad",
+  Задоволително: "talentBadge--warn",
+  "Много добро": "talentBadge--good",
+  Отлично: "talentBadge--great",
+};
+
 function fmt(value) {
   if (value === null || value === undefined) return "—";
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
@@ -24,6 +32,7 @@ function fmt(value) {
  */
 export default function AthleteRawResultsTable({ athleteId }) {
   const [windows, setWindows] = useState([]);
+  const [talent, setTalent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -34,8 +43,14 @@ export default function AthleteRawResultsTable({ athleteId }) {
       try {
         setLoading(true);
         setError("");
-        const res = await axiosInstance.get(API_PATHS.ASSESSMENT_RESULTS(athleteId));
-        if (alive) setWindows(Array.isArray(res.data) ? res.data : []);
+        const [resultsRes, talentRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.ASSESSMENT_RESULTS(athleteId)),
+          axiosInstance.get(API_PATHS.ASSESSMENT_TALENT_PROFILE(athleteId)).catch(() => ({ data: null })),
+        ]);
+        if (alive) {
+          setWindows(Array.isArray(resultsRes.data) ? resultsRes.data : []);
+          setTalent(talentRes.data || null);
+        }
       } catch (err) {
         if (alive) {
           const detail = err?.response?.data?.detail;
@@ -49,6 +64,15 @@ export default function AthleteRawResultsTable({ athleteId }) {
       alive = false;
     };
   }, [athleteId]);
+
+  // Талант по тест (число + дума спрямо летвата на по-голяма възраст).
+  const talentByCode = useMemo(() => {
+    const m = new Map();
+    for (const t of talent?.tests || []) m.set(t.test_code, t);
+    return m;
+  }, [talent]);
+  const showTalent = talentByCode.size > 0;
+  const talentRef = talent?.reference_age_band;
 
   const { columns, groups, netJumpRow } = useMemo(() => {
     const cols = [...windows].sort((a, b) => a.window_id - b.window_id);
@@ -114,13 +138,19 @@ export default function AthleteRawResultsTable({ athleteId }) {
                 <span className="assessTestUnit">{PHASE_LABELS[w.phase] || w.phase || ""}</span>
               </th>
             ))}
+            {showTalent ? (
+              <th className="assessTestCol talentCol">
+                <span className="assessTestName">Талант</span>
+                <span className="assessTestUnit">спрямо {talentRef}</span>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
           {groups.map((group) => (
             <Fragmented key={group.category}>
               <tr className="rawCatRow">
-                <th className="assessStickyCol" colSpan={columns.length + 1}>
+                <th className="assessStickyCol" colSpan={columns.length + 1 + (showTalent ? 1 : 0)}>
                   {group.label}
                 </th>
               </tr>
@@ -141,6 +171,22 @@ export default function AthleteRawResultsTable({ athleteId }) {
                       ) : null}
                     </td>
                   ))}
+                  {showTalent ? (
+                    <td className="rawCell talentCell">
+                      {talentByCode.has(t.code) ? (
+                        <span
+                          className={`talentBadge talentBadgeSm ${
+                            LEVEL_CLASS[talentByCode.get(t.code).talent_label] || "talentBadge--good"
+                          }`}
+                          title="Спрямо летвата на по-голяма възраст (индикативно)"
+                        >
+                          {fmt(talentByCode.get(t.code).talent_score)} · {talentByCode.get(t.code).talent_label}
+                        </span>
+                      ) : (
+                        <span className="rawUnit">—</span>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </Fragmented>
@@ -155,6 +201,11 @@ export default function AthleteRawResultsTable({ athleteId }) {
                   {fmt(v)}
                 </td>
               ))}
+              {showTalent ? (
+                <td className="rawCell talentCell">
+                  <span className="rawUnit">—</span>
+                </td>
+              ) : null}
             </tr>
           ) : null}
         </tbody>
@@ -162,6 +213,13 @@ export default function AthleteRawResultsTable({ athleteId }) {
       <p className="assessMuted rawLegend">
         Голямото число е реалната стойност; малкото в синьо е нормализираната оценка (0–100). „*" означава
         индикативна оценка (малка извадка/липсва норма).
+        {showTalent ? (
+          <>
+            {" "}
+            Колоната „Талант" показва колко детето покрива летвата на {talentRef} (национален стандарт 2022) —
+            ориентир за потенциал, който не променя официалната оценка.
+          </>
+        ) : null}
       </p>
     </div>
   );

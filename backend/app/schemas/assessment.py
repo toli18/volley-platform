@@ -134,7 +134,7 @@ class ResultBulkIn(BaseModel):
 
 
 class AssessmentResultOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     session_id: int
@@ -144,6 +144,11 @@ class AssessmentResultOut(BaseModel):
     normalized: Optional[float] = None
     percentile: Optional[float] = None
     is_indicative: bool = True
+    # Norm Resolver метаданни (ADR-002 UX Contract) — адитивни, optional.
+    # Четат се от ORM полетата `norm_*`; старите клиенти ги игнорират.
+    source: Optional[str] = Field(default=None, validation_alias="norm_source")
+    confidence: Optional[str] = Field(default=None, validation_alias="norm_confidence")
+    explanation: Optional[str] = Field(default=None, validation_alias="norm_explanation")
 
 
 class AssessmentSessionOut(BaseModel):
@@ -191,6 +196,10 @@ class AthleteResultRow(BaseModel):
     raw_value: Optional[float] = None
     normalized: Optional[float] = None
     is_indicative: bool = True
+    # Norm Resolver метаданни (ADR-002 UX Contract) — адитивни, optional.
+    source: Optional[str] = None
+    confidence: Optional[str] = None
+    explanation: Optional[str] = None
 
 
 class AthleteResultsWindowOut(BaseModel):
@@ -201,6 +210,178 @@ class AthleteResultsWindowOut(BaseModel):
     phase: Optional[WindowPhaseLiteral] = None
     results: list[AthleteResultRow] = Field(default_factory=list)
     net_jump: Optional[float] = None
+
+
+# =========================
+# Профил на таланта (надстроечен слой — НЕ променя официалните оценки)
+# =========================
+class TalentTestScoreOut(BaseModel):
+    """Оценка на таланта за един тест спрямо референтния (по-голям) стандарт 2022."""
+    test_code: str
+    test_name: Optional[str] = None
+    raw_value: float
+    talent_score: float  # 0–100 спрямо горната летва
+    talent_label: str  # Незадоволително…Отлично
+
+
+class TalentProfileOut(BaseModel):
+    """Профил на таланта на дете: число + дума спрямо стандарта на по-големите.
+
+    Това е чисто индикативен, надстроечен изглед — не участва в официалната
+    оценка, Development Score, нормализацията или Dashboard.
+    """
+    athlete_id: int
+    athlete_name: Optional[str] = None
+    gender: Optional[str] = None
+    age_band: Optional[str] = None  # собствената възраст (контекст)
+    reference_age_band: Optional[str] = None  # горната летва, спрямо която мерим
+    covered: bool = False  # има ли изобщо стандарт 2022 за този пол
+    is_aspirational: bool = False  # детето по-малко ли е от референтната възраст
+    talent_index: Optional[float] = None
+    talent_index_label: Optional[str] = None
+    tests: list[TalentTestScoreOut] = Field(default_factory=list)
+
+
+# =========================
+# Мотивационен изглед за детето (надстроечен слой — НЕ променя оценките)
+# =========================
+class MotivationNextGoalOut(BaseModel):
+    """Следваща „летва" (ниво 2022) за собствената възраст."""
+    target_raw: float
+    next_level: str
+    gap: float  # колко още в сурови единици
+
+
+class MotivationTestOut(BaseModel):
+    """Мотивационна картина за един тест (за самото дете)."""
+    test_code: str
+    test_name: str
+    unit: str
+    higher_better: bool
+    category: str
+
+    latest: float
+    personal_best: Optional[float] = None
+    is_personal_best: bool = False
+    is_new_record: bool = False
+
+    prev: Optional[float] = None
+    delta: Optional[float] = None
+    improved: Optional[bool] = None
+
+    next_goal: Optional[MotivationNextGoalOut] = None
+
+    talent_score: Optional[float] = None
+    talent_label: Optional[str] = None
+
+    peer_percentile: Optional[float] = None
+    peer_sample: int = 0
+    peer_indicative: bool = False
+
+
+class MotivationOut(BaseModel):
+    """Цялостна мотивационна картина за дете (позитивна и проста)."""
+    athlete_id: int
+    athlete_name: Optional[str] = None
+    gender: Optional[str] = None
+    age_band: Optional[str] = None
+    reference_age_band: Optional[str] = None
+    improved_count: int = 0
+    personal_best_count: int = 0
+    talent_index: Optional[float] = None
+    talent_index_label: Optional[str] = None
+    tests: list[MotivationTestOut] = Field(default_factory=list)
+
+
+# =========================
+# Скаутска таблица (всички деца × тестове, две сравнения — само четене)
+# =========================
+class ScoutCellOut(BaseModel):
+    test_code: str
+    raw_value: Optional[float] = None
+    # Сравнение А — национален стандарт 2022 (за собствената възраст).
+    score_2022: Optional[float] = None
+    score_2022_label: Optional[str] = None
+    # Сравнение Б — връстников процентил в системата.
+    peer_percentile: Optional[float] = None
+    peer_sample: int = 0
+    peer_indicative: bool = False
+
+
+class ScoutRowOut(BaseModel):
+    athlete_id: int
+    athlete_name: str
+    age_band: Optional[str] = None
+    gender: Optional[str] = None
+    cells: list[ScoutCellOut] = Field(default_factory=list)
+
+
+class ScoutTestOut(BaseModel):
+    """Дефиниция на колона-тест (за хедъра на таблицата)."""
+    code: str
+    name: str
+    category: TestCategoryLiteral
+    unit: str
+    direction: TestDirectionLiteral
+
+
+class ScoutingTableOut(BaseModel):
+    tests: list[ScoutTestOut] = Field(default_factory=list)
+    rows: list[ScoutRowOut] = Field(default_factory=list)
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+
+# =========================
+# Машина за национални норми (Фаза 2 — само федерация/админ)
+# =========================
+class NationalNormCellOut(BaseModel):
+    """Жива норма за клетка тест × възраст × пол, до стандарт 2022."""
+    test_code: str
+    test_name: Optional[str] = None
+    unit: Optional[str] = None
+    category: Optional[str] = None
+    higher_better: bool = True
+    age_band: str
+    gender: str
+
+    n: int = 0
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    p20: Optional[float] = None
+    p40: Optional[float] = None
+    p60: Optional[float] = None
+    p80: Optional[float] = None
+
+    clubs_count: int = 0
+    regions_count: int = 0
+    coverage: float = 0.0
+    season_count: int = 0
+    eligible_athletes: int = 0
+
+    display_ready: bool = False
+    trust_ready: bool = False
+    confidence: Optional[str] = None
+
+    # Сравнение със стандарт 2022.
+    has_2022: bool = False
+    mean_score_2022: Optional[float] = None
+    mean_label_2022: Optional[str] = None
+
+    is_approved: bool = False
+
+
+class NationalNormMachineOut(BaseModel):
+    cells: list[NationalNormCellOut] = Field(default_factory=list)
+    min_display_sample: int = 5
+    min_trust_sample: int = 20
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+
+class NationalNormActionIn(BaseModel):
+    """Одобряване/оттегляне на жива норма за конкретна клетка."""
+    test_code: str
+    age_band: str
+    gender: str
 
 
 # =========================
@@ -339,6 +520,17 @@ class RegionIndexRow(BaseModel):
     is_indicative: bool = True
 
 
+class ParticipationRow(BaseModel):
+    """Участие по тест: от тестваните деца, колко имат измерен този тест."""
+    test_code: str
+    test_name: str
+    category: Optional[str] = None
+    measured: int = 0
+    tested_total: int = 0
+    participation_pct: Optional[float] = None
+    is_low: bool = False
+
+
 class FederationDashboardOut(BaseModel):
     window_id: Optional[int] = None
     window_label: Optional[str] = None
@@ -349,6 +541,7 @@ class FederationDashboardOut(BaseModel):
     leaders_risk: LeadersRiskTile = Field(default_factory=LeadersRiskTile)
     discipline: DisciplineTile = Field(default_factory=DisciplineTile)
     regional_index: list[RegionIndexRow] = Field(default_factory=list)
+    participation: list[ParticipationRow] = Field(default_factory=list)
     filters: dict[str, Any] = Field(default_factory=dict)
 
 

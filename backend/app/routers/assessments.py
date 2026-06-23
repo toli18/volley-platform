@@ -13,7 +13,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,6 +29,7 @@ from app.models import (
     DevelopmentScore,
     MethodicalIndexSnapshot,
     Team,
+    TeamMember,
     TestDefinition,
     User,
     UserRole,
@@ -46,7 +47,19 @@ from app.schemas.assessment import (
     MethodicalIndexOut,
     ConsentIn,
     ConsentOut,
+    MotivationNextGoalOut,
+    MotivationOut,
+    MotivationTestOut,
+    NationalNormActionIn,
+    NationalNormCellOut,
+    NationalNormMachineOut,
     ResultBulkIn,
+    ScoutCellOut,
+    ScoutRowOut,
+    ScoutTestOut,
+    ScoutingTableOut,
+    TalentProfileOut,
+    TalentTestScoreOut,
     TestDefinitionAdminOut,
     TestDefinitionCreate,
     TestDefinitionOut,
@@ -61,6 +74,18 @@ from app.services.assessment_scoring import (
     compute_session_scores,
     compute_team_methodical_index,
 )
+from app.services.motivation_service import compute_athlete_motivation
+from app.services.norm_producer import (
+    MIN_DISPLAY_SAMPLE,
+    MIN_TRUST_SAMPLE,
+    approve_cell,
+    compute_candidates,
+    refresh_approved_norms,
+    revoke_cell,
+)
+from app.services.peer_norms import birth_year_for_band
+from app.services.scouting_service import build_scouting_table
+from app.services.talent_profile_service import compute_athlete_talent_profile
 from app.services.training_generation import run_generation
 
 # Подреждане на прозорците по фаза в логически ред.
@@ -553,6 +578,10 @@ def finalize_session(
     if team is not None:
         _ensure_team_access(current_user, team)
 
+    # Фаза 2: опресняваме вече одобрените национални норми с новите данни, преди
+    # да оценим — така оценките ползват най-актуалната жива летва. Не активира
+    # нови клетки (само вече одобрените се преизчисляват).
+    refresh_approved_norms(db)
     compute_session_scores(db, session)
     compute_team_methodical_index(db, session.team_id, session.window_id)
     session.status = AssessmentSessionStatus.finalized
@@ -703,6 +732,9 @@ def athlete_results(
                 raw_value=result.raw_value,
                 normalized=result.normalized,
                 is_indicative=bool(result.is_indicative),
+                source=result.norm_source,
+                confidence=result.norm_confidence,
+                explanation=result.norm_explanation,
             )
         )
         bucket["raw_by_code"][test_def.code] = result.raw_value
@@ -724,6 +756,118 @@ def athlete_results(
             )
         )
     return out
+
+
+@router.get("/athletes/{athlete_id}/talent-profile", response_model=TalentProfileOut)
+def athlete_talent_profile(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Профил на таланта: колко дете покрива летвата на по-големите (репер 2022).
+
+    Чисто индикативен, надстроечен изглед — НЕ променя официалната оценка,
+    Development Score, нормализацията или Dashboard. Връща число (0–100) + дума
+    за всеки покрит тест спрямо референтната (по-голяма) възраст за пола.
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    profile = compute_athlete_talent_profile(db, athlete_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+
+    # Обогатяване с имената на тестовете (за по-четим изход).
+    names = {code: name for code, name in db.query(TestDefinition.code, TestDefinition.name).all()}
+    tests = [
+        TalentTestScoreOut(
+            test_code=t.test_code,
+            test_name=names.get(t.test_code),
+            raw_value=t.raw_value,
+            talent_score=t.talent_score,
+            talent_label=t.talent_label,
+        )
+        for t in profile.tests
+    ]
+    return TalentProfileOut(
+        athlete_id=athlete_id,
+        athlete_name=athlete.athlete_name,
+        gender=profile.gender,
+        age_band=profile.age_band,
+        reference_age_band=profile.reference_age_band,
+        covered=profile.covered,
+        is_aspirational=profile.is_aspirational,
+        talent_index=profile.talent_index,
+        talent_index_label=profile.talent_index_label,
+        tests=tests,
+    )
+
+
+@router.get("/athletes/{athlete_id}/motivation", response_model=MotivationOut)
+def athlete_motivation(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Мотивационен изглед за детето: личен рекорд, подобрение, следваща цел,
+    „спрямо големите" (талант) и леко сравнение с връстниците.
+
+    Чисто индикативен, надстроечен слой — НЕ променя официалната оценка,
+    Development Score, нормализацията или Dashboard.
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    profile = compute_athlete_motivation(db, athlete_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+
+    return MotivationOut(
+        athlete_id=profile.athlete_id,
+        athlete_name=profile.athlete_name,
+        gender=profile.gender,
+        age_band=profile.age_band,
+        reference_age_band=profile.reference_age_band,
+        improved_count=profile.improved_count,
+        personal_best_count=profile.personal_best_count,
+        talent_index=profile.talent_index,
+        talent_index_label=profile.talent_index_label,
+        tests=[
+            MotivationTestOut(
+                test_code=t.test_code,
+                test_name=t.test_name,
+                unit=t.unit,
+                higher_better=t.higher_better,
+                category=t.category,
+                latest=t.latest,
+                personal_best=t.personal_best,
+                is_personal_best=t.is_personal_best,
+                is_new_record=t.is_new_record,
+                prev=t.prev,
+                delta=t.delta,
+                improved=t.improved,
+                next_goal=(
+                    MotivationNextGoalOut(
+                        target_raw=t.next_goal.target_raw,
+                        next_level=t.next_goal.next_level,
+                        gap=t.next_goal.gap,
+                    )
+                    if t.next_goal is not None
+                    else None
+                ),
+                talent_score=t.talent_score,
+                talent_label=t.talent_label,
+                peer_percentile=t.peer_percentile,
+                peer_sample=t.peer_sample,
+                peer_indicative=t.peer_indicative,
+            )
+            for t in profile.tests
+        ],
+    )
 
 
 def _consent_out(athlete_id: int, consent) -> ConsentOut:
@@ -838,6 +982,100 @@ def recommend_training(
 
 
 # =========================
+# Скаутска таблица (всички достъпни деца × тестове, две сравнения)
+# =========================
+def _scoped_athletes_query(db: Session, user: User):
+    """Атлетите, които потребителят има право да вижда (по роля)."""
+    role = _role_value(user)
+    query = db.query(Athlete).filter(Athlete.is_active.is_(True))
+    if role in (UserRole.platform_admin.value, UserRole.federation_admin.value):
+        return query
+    if role == UserRole.club_head_coach.value and getattr(user, "club_id", None):
+        return query.filter(Athlete.club_id == user.club_id)
+    return query.filter(Athlete.coach_id == user.id)
+
+
+@router.get("/scouting", response_model=ScoutingTableOut)
+def scouting_table(
+    gender: Optional[str] = Query(None, description="Филтър по пол: male/female"),
+    age_band: Optional[str] = Query(None, description="Възрастова група, напр. U13"),
+    team_id: Optional[int] = Query(None, description="Само деца от този отбор"),
+    test_code: Optional[str] = Query(None, description="Само този тест (иначе всички точкуеми)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Скаутска таблица: деца × тестове, с две сравнения (стандарт 2022 + връстници).
+
+    Само четене — не променя официалните оценки. Достъпът се определя от ролята:
+    треньор вижда своите деца, главен треньор — клуба, админ/федерация — всички.
+    """
+    # Колони: точкуемите тестове от батерията (без антропометрия/контекст).
+    test_query = db.query(TestDefinition).filter(TestDefinition.is_active.is_(True))
+    if test_code:
+        test_query = test_query.filter(TestDefinition.code == test_code)
+    tests = [
+        t
+        for t in test_query.order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc()).all()
+        if _norm_value(t.category) != "anthropometry" and _norm_value(t.direction) != "context"
+    ]
+
+    # Редове: достъпните деца + филтри.
+    athlete_query = _scoped_athletes_query(db, current_user)
+    if gender:
+        athlete_query = athlete_query.filter(Athlete.gender == gender)
+    if age_band:
+        birth_year = birth_year_for_band(age_band)
+        if birth_year is not None:
+            athlete_query = athlete_query.filter(Athlete.birth_year == birth_year)
+    if team_id is not None:
+        member_ids = select(TeamMember.athlete_id).where(TeamMember.team_id == team_id)
+        athlete_query = athlete_query.filter(Athlete.id.in_(member_ids))
+    athletes = athlete_query.order_by(Athlete.athlete_name.asc()).all()
+
+    rows = build_scouting_table(db, athletes, tests)
+
+    return ScoutingTableOut(
+        tests=[
+            ScoutTestOut(
+                code=t.code,
+                name=t.name,
+                category=_norm_value(t.category),
+                unit=t.unit,
+                direction=_norm_value(t.direction),
+            )
+            for t in tests
+        ],
+        rows=[
+            ScoutRowOut(
+                athlete_id=r.athlete_id,
+                athlete_name=r.athlete_name,
+                age_band=r.age_band,
+                gender=r.gender,
+                cells=[
+                    ScoutCellOut(
+                        test_code=c.test_code,
+                        raw_value=c.raw_value,
+                        score_2022=c.score_2022,
+                        score_2022_label=c.score_2022_label,
+                        peer_percentile=c.peer_percentile,
+                        peer_sample=c.peer_sample,
+                        peer_indicative=c.peer_indicative,
+                    )
+                    for c in r.cells
+                ],
+            )
+            for r in rows
+        ],
+        filters={
+            "gender": gender,
+            "age_band": age_band,
+            "team_id": team_id,
+            "test_code": test_code,
+        },
+    )
+
+
+# =========================
 # Федеративно табло v1 (само агрегирано — без лични данни на дете)
 # =========================
 @router.get("/federation/dashboard", response_model=FederationDashboardOut)
@@ -854,3 +1092,130 @@ def federation_dashboard(
     Малките проби се връщат с `is_indicative=true` (cold-start защита).
     """
     return build_federation_dashboard(db, window_id=window_id, gender=gender, age_band=age_band)
+
+
+# =========================
+# Машина за национални норми (Фаза 2 — само федерация/админ)
+# =========================
+def _norm_cell_out(c) -> NationalNormCellOut:
+    return NationalNormCellOut(
+        test_code=c.test_code,
+        age_band=c.age_band,
+        gender=c.gender,
+        n=c.n,
+        mean=c.mean,
+        std=c.std,
+        p20=c.p20,
+        p40=c.p40,
+        p60=c.p60,
+        p80=c.p80,
+        clubs_count=c.clubs_count,
+        regions_count=c.regions_count,
+        coverage=c.coverage,
+        season_count=c.season_count,
+        eligible_athletes=c.eligible_athletes,
+        display_ready=c.display_ready,
+        trust_ready=c.trust_ready,
+        confidence=c.confidence,
+        has_2022=c.has_2022,
+        mean_score_2022=c.mean_score_2022,
+        mean_label_2022=c.mean_label_2022,
+        is_approved=c.is_approved,
+    )
+
+
+def _national_norms_response(
+    db: Session,
+    *,
+    gender: Optional[str],
+    age_band: Optional[str],
+    test_code: Optional[str],
+) -> NationalNormMachineOut:
+    cands = compute_candidates(db, gender=gender, age_band=age_band, test_code=test_code)
+    names = {code: (name, unit, _norm_value(cat)) for code, name, unit, cat in db.query(
+        TestDefinition.code, TestDefinition.name, TestDefinition.unit, TestDefinition.category
+    ).all()}
+    cells = []
+    for c in cands:
+        out = _norm_cell_out(c)
+        meta = names.get(c.test_code)
+        if meta:
+            out.test_name, out.unit, out.category = meta
+        cells.append(out)
+    return NationalNormMachineOut(
+        cells=cells,
+        min_display_sample=MIN_DISPLAY_SAMPLE,
+        min_trust_sample=MIN_TRUST_SAMPLE,
+        filters={"gender": gender, "age_band": age_band, "test_code": test_code},
+    )
+
+
+@router.get("/national-norms", response_model=NationalNormMachineOut)
+def national_norms(
+    gender: Optional[str] = Query(None, description="Филтър по пол: male/female"),
+    age_band: Optional[str] = Query(None, description="Възрастова група, напр. U13"),
+    test_code: Optional[str] = Query(None, description="Само този тест"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_DASHBOARD_ROLES)),
+):
+    """Машина за национални норми: живата българска летва по клетки, до 2022.
+
+    Показва клетки с поне MIN_DISPLAY_SAMPLE деца (индикативно). Само четене —
+    не променя нищо. Активирането като официална основа е през /approve.
+    """
+    return _national_norms_response(db, gender=gender, age_band=age_band, test_code=test_code)
+
+
+@router.post("/national-norms/approve", response_model=NationalNormCellOut)
+def national_norms_approve(
+    payload: NationalNormActionIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_DASHBOARD_ROLES)),
+):
+    """Одобрява живата норма за клетка като официална основа (изисква ≥ праг деца)."""
+    try:
+        approve_cell(db, payload.test_code, payload.age_band, payload.gender)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    cands = compute_candidates(
+        db, gender=payload.gender, age_band=payload.age_band, test_code=payload.test_code
+    )
+    for c in cands:
+        if c.test_code == payload.test_code and c.age_band == payload.age_band and c.gender == payload.gender:
+            return _norm_cell_out(c)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клетката не е намерена след одобрение.")
+
+
+@router.post("/national-norms/revoke", response_model=NationalNormCellOut)
+def national_norms_revoke(
+    payload: NationalNormActionIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_DASHBOARD_ROLES)),
+):
+    """Оттегля одобрението: нормата спира да е официална основа (пада на 2022/кохорта)."""
+    revoke_cell(db, payload.test_code, payload.age_band, payload.gender)
+    cands = compute_candidates(
+        db,
+        gender=payload.gender,
+        age_band=payload.age_band,
+        test_code=payload.test_code,
+        include_below_display=True,
+    )
+    for c in cands:
+        if c.test_code == payload.test_code and c.age_band == payload.age_band and c.gender == payload.gender:
+            return _norm_cell_out(c)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клетката не е намерена.")
+
+
+@router.post("/national-norms/recompute", response_model=NationalNormMachineOut)
+def national_norms_recompute(
+    gender: Optional[str] = Query(None),
+    age_band: Optional[str] = Query(None),
+    test_code: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_DASHBOARD_ROLES)),
+):
+    """Опреснява одобрените норми с текущите данни и връща свежата таблица."""
+    refresh_approved_norms(db)
+    return _national_norms_response(db, gender=gender, age_band=age_band, test_code=test_code)

@@ -158,7 +158,14 @@ def normalize_session_results(db: Session, session: AssessmentSession) -> None:
 
     Антропометрията и context-показателите се пропускат (не се точкуват).
     Прави flush (без commit).
+
+    Изборът на нормативен източник е делегиран на `NormResolver` (ADR-002):
+    тук остава само нормализацията (raw + norm → 0–100) и пропускането на
+    неточкуемите показатели. Поведението е идентично с предишната версия.
     """
+    # Локален import, за да се избегне цикъл (резолверът зависи от този модул).
+    from app.services.norm_resolver import NormResolver
+
     rows = (
         db.query(AssessmentResult, TestDefinition)
         .join(TestDefinition, TestDefinition.code == AssessmentResult.test_code)
@@ -174,7 +181,7 @@ def normalize_session_results(db: Session, session: AssessmentSession) -> None:
         else {}
     )
 
-    cohort_cache: dict[str, tuple[Optional[float], Optional[float], int]] = {}
+    resolver = NormResolver(db, session.window_id)
 
     for result, test_def in rows:
         direction = _enum_value(test_def.direction)
@@ -183,37 +190,41 @@ def normalize_session_results(db: Session, session: AssessmentSession) -> None:
         if category == TestCategory.anthropometry.value or direction == TestDirection.context.value:
             result.normalized = None
             result.is_indicative = True
+            result.norm_source = None
+            result.norm_confidence = None
+            result.norm_explanation = None
             continue
 
         if result.raw_value is None:
             result.normalized = None
             result.is_indicative = True
+            result.norm_source = None
+            result.norm_confidence = None
+            result.norm_explanation = None
             continue
 
         athlete = athletes_map.get(result.athlete_id)
         age_band = age_band_from_birth_year(getattr(athlete, "birth_year", None)) if athlete else None
         gender = getattr(athlete, "gender", None) if athlete else None
 
-        norm = _norm_lookup(db, test_def.code, age_band, gender)
-        if (
-            norm is not None
-            and norm.mean_value is not None
-            and norm.std_value
-            and norm.sample_count >= MIN_NORM_SAMPLE
-        ):
-            result.normalized = _normalize_raw(result.raw_value, direction, norm.mean_value, norm.std_value)
-            result.is_indicative = False
-            continue
+        resolved = resolver.resolve(test_def.code, age_band, gender)
+        if resolved.applicable:
+            if resolved.band_anchors is not None:
+                # Референтен слой по нива (2022) — оценка директно от опорни точки.
+                from app.national_method.national_norms_2022 import score_from_anchors
 
-        # Cold-start: нормализиране спрямо кохортата в прозореца.
-        if test_def.code not in cohort_cache:
-            cohort_cache[test_def.code] = _cohort_stats(db, session.window_id, test_def.code)
-        mean, std, n = cohort_cache[test_def.code]
-        if mean is not None and std is not None and n >= MIN_COHORT_SAMPLE and std > 0:
-            result.normalized = _normalize_raw(result.raw_value, direction, mean, std)
+                result.normalized = score_from_anchors(result.raw_value, resolved.band_anchors)
+            else:
+                result.normalized = _normalize_raw(
+                    result.raw_value, direction, resolved.mean, resolved.std
+                )
         else:
             result.normalized = NEUTRAL_SCORE
-        result.is_indicative = True
+        result.is_indicative = resolved.is_indicative
+        # Адитивни метаданни (ADR-002) — не влияят на score/is_indicative.
+        result.norm_source = resolved.source
+        result.norm_confidence = resolved.confidence
+        result.norm_explanation = resolved.explanation
 
     db.flush()
 

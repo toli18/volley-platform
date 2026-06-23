@@ -82,6 +82,7 @@ export const ADMIN_NAV_SECTIONS = [
     label: "Диагностика",
     items: [
       { id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" },
+      { id: "admin-national-norms", label: "Национални норми", to: "/admin/national-norms", icon: "check" },
       { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "book" },
     ],
   },

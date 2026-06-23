@@ -292,6 +292,9 @@ export default function CoachAssessmentSession() {
         <h2 className="coachMobileSectionTitle" style={{ margin: 0 }}>
           Диагностична сесия
         </h2>
+        <Link to="/coach/assessment/scouting" className="devBack">
+          Скаут таблица →
+        </Link>
         <Link to="/coach/assessment/battery" className="devBack">
           Тестова батерия →
         </Link>

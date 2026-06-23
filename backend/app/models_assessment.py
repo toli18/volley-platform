@@ -160,6 +160,12 @@ class AssessmentResult(Base):
     normalized = Column(Float, nullable=True)  # 0–100 спрямо норма
     percentile = Column(Float, nullable=True)
     is_indicative = Column(Boolean, nullable=False, default=True)  # докато нормите узреят
+    # Norm Resolver метаданни (ADR-002) — кой източник стои зад оценката, колко
+    # ѝ вярваме и кратко обяснение. Nullable за обратна съвместимост; не влизат
+    # в нито едно изчисление (score/Development Score остават непроменени).
+    norm_source = Column(String(24), nullable=True)  # cohort | assessment_norm | neutral | ...
+    norm_confidence = Column(String(16), nullable=True)  # high | medium | low | indicative
+    norm_explanation = Column(String(255), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -191,6 +197,17 @@ class AssessmentNorm(Base):
     # "computed" = норма, изчислена от реални данни (узрява и измества seed-а).
     source = Column(String(16), nullable=False, default="computed")
     battery_version = Column(String(16), nullable=False, default="v1.0")
+
+    # --- Maturity & Confidence metadata (ADR-003, Стъпка 1) ---
+    # Всички са nullable и засега НЕ се ползват от scoring/resolver/dashboard.
+    # Захранват бъдещата Confidence Engine оценка (norm_confidence.py).
+    source_status = Column(String(16), nullable=True)  # active | draft | archived | superseded
+    maturity_level = Column(String(16), nullable=True)  # seed | provisional | validated | mature
+    valid_from = Column(Date, nullable=True)
+    valid_to = Column(Date, nullable=True)
+    coverage = Column(Float, nullable=True)  # дял представителност 0.0–1.0
+    confidence_score = Column(Float, nullable=True)  # по избор: числов confidence 0.0–1.0
+    season_count = Column(Integer, nullable=True)  # брой сезони зад нормата
 
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

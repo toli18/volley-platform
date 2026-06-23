@@ -217,6 +217,66 @@ export default function FederationDashboard() {
             </div>
           </AdminSection>
 
+          <AdminSection title="Участие по тест (качество на данните)">
+            <Card>
+              {!data.participation?.length ? (
+                <EmptyState
+                  title="Няма данни"
+                  description="Появява се след поне една финализирана сесия в прозореца."
+                />
+              ) : (
+                <>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ textAlign: "left", color: "#607693" }}>
+                          <th style={{ padding: "6px 8px" }}>Тест</th>
+                          <th style={{ padding: "6px 8px", textAlign: "right" }}>Измерени</th>
+                          <th style={{ padding: "6px 8px", minWidth: 160 }}>Участие</th>
+                          <th style={{ padding: "6px 8px" }}>Статус</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.participation.map((r) => (
+                          <tr key={r.test_code} style={{ borderTop: "1px solid #eef3fa" }}>
+                            <td style={{ padding: "6px 8px" }}>{r.test_name}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                              {r.measured}/{r.tested_total}
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ flex: 1 }}>
+                                  <Bar
+                                    pct={Number(r.participation_pct) || 0}
+                                    color={r.is_low ? "#b91c1c" : "#0c6a47"}
+                                  />
+                                </div>
+                                <span style={{ minWidth: 42, textAlign: "right" }}>
+                                  {fmtPct(r.participation_pct)}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              {r.is_low ? (
+                                <span className="uiBadge uiBadge--danger">често се пропуска</span>
+                              ) : (
+                                <span className="uiBadge uiBadge--success">добро покритие</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="uiMuted" style={{ fontSize: 12, marginTop: 8 }}>
+                    Дял от тестваните деца, които имат измерен конкретния тест. Нисък дял (под 70%) обикновено
+                    значи пропуснат тест — често по-трудните (напр. точност на подаване).
+                  </p>
+                </>
+              )}
+            </Card>
+          </AdminSection>
+
           <AdminSection title="Развитие по възраст (Δ Development Score)">
             <Card>
               {!data.development_by_age?.length ? (
