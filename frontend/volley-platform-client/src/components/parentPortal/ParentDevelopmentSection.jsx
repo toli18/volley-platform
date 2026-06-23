@@ -4,6 +4,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Card } from "../ui";
 import DevelopmentScoreChart from "../assessment/DevelopmentScoreChart";
+import MotivationView from "../assessment/MotivationView";
 import "../assessment/assessment.css";
 
 const PHASE_LABELS = { baseline: "Входящо", mid: "Междинно", endline: "Изходящо" };
@@ -63,8 +64,11 @@ export default function ParentDevelopmentSection({ isSession, token, path }) {
 
   const scores = data.scores || [];
   const deficits = (data.deficits || []).slice(0, 4);
+  const motivation = data.motivation || null;
+  const hasMotivation = !!(motivation && (motivation.tests || []).length);
 
   return (
+    <>
     <Card title="Развитие">
       {scores.length ? (
         <>
@@ -94,5 +98,12 @@ export default function ParentDevelopmentSection({ isSession, token, path }) {
         <p className="parentPortalHighlightMuted">Все още няма споделени резултати от диагностика.</p>
       )}
     </Card>
+
+    {hasMotivation ? (
+      <Card title="Моят напредък">
+        <MotivationView data={motivation} />
+      </Card>
+    ) : null}
+    </>
   );
 }

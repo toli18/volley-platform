@@ -247,6 +247,7 @@ class TalentProfileOut(BaseModel):
 # =========================
 class MotivationNextGoalOut(BaseModel):
     """Следваща „летва" (ниво 2022) за собствената възраст."""
+    model_config = ConfigDict(from_attributes=True)
     target_raw: float
     next_level: str
     gap: float  # колко още в сурови единици
@@ -254,6 +255,7 @@ class MotivationNextGoalOut(BaseModel):
 
 class MotivationTestOut(BaseModel):
     """Мотивационна картина за един тест (за самото дете)."""
+    model_config = ConfigDict(from_attributes=True)
     test_code: str
     test_name: str
     unit: str
@@ -281,6 +283,7 @@ class MotivationTestOut(BaseModel):
 
 class MotivationOut(BaseModel):
     """Цялостна мотивационна картина за дете (позитивна и проста)."""
+    model_config = ConfigDict(from_attributes=True)
     athlete_id: int
     athlete_name: Optional[str] = None
     gender: Optional[str] = None
@@ -480,6 +483,9 @@ class ParentDevelopmentOut(BaseModel):
     deficits: list[DeficitOut] = Field(default_factory=list)
     main_focus: Optional[str] = None
     secondary_focus: Optional[str] = None
+    # Позитивен мотивационен слой за детето/родителя (рекорди, следваща цел,
+    # % връстници, талант). Надстроечен — не променя официалните оценки.
+    motivation: Optional[MotivationOut] = None
 
 
 # =========================

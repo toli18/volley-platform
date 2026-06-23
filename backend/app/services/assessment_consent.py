@@ -19,6 +19,7 @@ from app.models import (
     DevelopmentScore,
 )
 from app.services.assessment_generator_bridge import find_deficits
+from app.services.motivation_service import compute_athlete_motivation
 
 
 def get_consent(db: Session, athlete_id: int) -> Optional[AssessmentConsent]:
@@ -97,6 +98,10 @@ def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: 
             main_focus = focus_order[0] if focus_order else None
             secondary_focus = focus_order[1] if len(focus_order) > 1 else None
 
+    # Позитивен мотивационен слой (рекорди, следваща цел, % връстници, талант).
+    # Надстроечен — не докосва официалните оценки. None при липса на данни.
+    motivation = compute_athlete_motivation(db, athlete.id)
+
     return {
         "consent_granted": True,
         "athlete_name": athlete.athlete_name,
@@ -108,4 +113,5 @@ def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: 
         "deficits": deficits,
         "main_focus": main_focus,
         "secondary_focus": secondary_focus,
+        "motivation": motivation,
     }
