@@ -7,6 +7,7 @@ import { Button, EmptyState } from "../../components/ui";
 import DevelopmentScoreChart from "../../components/assessment/DevelopmentScoreChart";
 import AthleteRawResultsTable from "../../components/assessment/AthleteRawResultsTable";
 import AthleteMotivationCard from "../../components/assessment/AthleteMotivationCard";
+import AthleteAgeEquivalentCard from "../../components/assessment/AthleteAgeEquivalentCard";
 import DeficitRecommendations from "../../components/assessment/DeficitRecommendations";
 import { openDevelopmentReport } from "../../utils/developmentReport";
 import "../../components/assessment/assessment.css";
@@ -177,6 +178,9 @@ export default function AthleteDevelopmentCard() {
 
       <h3 className="devSectionTitle">За детето — моят напредък</h3>
       <AthleteMotivationCard athleteId={athleteIdNum} />
+
+      <h3 className="devSectionTitle">Възрастов еквивалент</h3>
+      <AthleteAgeEquivalentCard athleteId={athleteIdNum} />
 
       <h3 className="devSectionTitle">Диагноза → предписание</h3>
 

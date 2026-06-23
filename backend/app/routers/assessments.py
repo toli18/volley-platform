@@ -47,6 +47,8 @@ from app.schemas.assessment import (
     MethodicalIndexOut,
     ConsentIn,
     ConsentOut,
+    AgeEquivalentOut,
+    AgeEquivalentTestOut,
     MotivationNextGoalOut,
     MotivationOut,
     MotivationTestOut,
@@ -74,6 +76,7 @@ from app.services.assessment_scoring import (
     compute_session_scores,
     compute_team_methodical_index,
 )
+from app.services.age_equivalent_service import compute_athlete_age_equivalent
 from app.services.motivation_service import compute_athlete_motivation
 from app.services.norm_producer import (
     MIN_DISPLAY_SAMPLE,
@@ -864,6 +867,50 @@ def athlete_motivation(
                 peer_percentile=t.peer_percentile,
                 peer_sample=t.peer_sample,
                 peer_indicative=t.peer_indicative,
+            )
+            for t in profile.tests
+        ],
+    )
+
+
+@router.get("/athletes/{athlete_id}/age-equivalent", response_model=AgeEquivalentOut)
+def athlete_age_equivalent(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Възрастов еквивалент: на каква възраст отговаря представянето на детето
+    (по кривата възраст → средно от живите норми за същия пол).
+
+    Индикативен, надстроечен слой — НЕ променя официалната оценка.
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    profile = compute_athlete_age_equivalent(db, athlete_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+
+    return AgeEquivalentOut(
+        athlete_id=profile.athlete_id,
+        athlete_name=profile.athlete_name,
+        gender=profile.gender,
+        age_band=profile.age_band,
+        own_age=profile.own_age,
+        tests=[
+            AgeEquivalentTestOut(
+                test_code=t.test_code,
+                test_name=t.test_name,
+                unit=t.unit,
+                category=t.category,
+                higher_better=t.higher_better,
+                latest=t.latest,
+                equivalent_age=t.equivalent_age,
+                status=t.status,
+                points_used=t.points_used,
+                delta_years=t.delta_years,
             )
             for t in profile.tests
         ],

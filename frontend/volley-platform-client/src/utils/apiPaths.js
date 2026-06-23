@@ -58,6 +58,7 @@ export const API_PATHS = {
   ASSESSMENT_RESULTS: (athleteId) => `/api/assessments/athletes/${athleteId}/results`,
   ASSESSMENT_TALENT_PROFILE: (athleteId) => `/api/assessments/athletes/${athleteId}/talent-profile`,
   ASSESSMENT_MOTIVATION: (athleteId) => `/api/assessments/athletes/${athleteId}/motivation`,
+  ASSESSMENT_AGE_EQUIVALENT: (athleteId) => `/api/assessments/athletes/${athleteId}/age-equivalent`,
   ASSESSMENT_SCOUTING: "/api/assessments/scouting",
   ASSESSMENT_TEAM_INDEX: (teamId) => `/api/assessments/teams/${teamId}/index`,
   ASSESSMENT_RECOMMEND: (athleteId) => `/api/assessments/athletes/${athleteId}/recommend-training`,

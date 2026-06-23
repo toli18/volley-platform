@@ -294,6 +294,31 @@ class MotivationOut(BaseModel):
 
 
 # =========================
+# Възрастов еквивалент (на каква възраст отговаря представянето — само четене)
+# =========================
+class AgeEquivalentTestOut(BaseModel):
+    test_code: str
+    test_name: str
+    unit: Optional[str] = None
+    category: Optional[str] = None
+    higher_better: bool = True
+    latest: float
+    equivalent_age: float
+    status: str  # in_range | above_oldest | below_youngest
+    points_used: int = 0
+    delta_years: Optional[float] = None
+
+
+class AgeEquivalentOut(BaseModel):
+    athlete_id: int
+    athlete_name: Optional[str] = None
+    gender: Optional[str] = None
+    age_band: Optional[str] = None
+    own_age: Optional[float] = None
+    tests: list[AgeEquivalentTestOut] = Field(default_factory=list)
+
+
+# =========================
 # Скаутска таблица (всички деца × тестове, две сравнения — само четене)
 # =========================
 class ScoutCellOut(BaseModel):
