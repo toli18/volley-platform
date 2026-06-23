@@ -419,6 +419,112 @@ def _participation(
     return out
 
 
+def _talent_pyramid(
+    db: Session, window: AssessmentWindow, age_band: Optional[str]
+) -> list[dict]:
+    """Брой активни деца по възраст и пол (базата) + колко са тествани в прозореца.
+    Това е „пътят на играча" — къде пирамидата е дебела/тънка."""
+    athletes = (
+        db.query(Athlete.id, Athlete.birth_year, Athlete.gender)
+        .filter(Athlete.is_active.is_(True), Athlete.birth_year.isnot(None))
+        .all()
+    )
+    tested_ids = {
+        a
+        for (a,) in db.query(AssessmentResult.athlete_id)
+        .join(AssessmentSession, AssessmentResult.session_id == AssessmentSession.id)
+        .filter(AssessmentSession.window_id == window.id)
+        .distinct()
+        .all()
+    }
+
+    buckets: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"female": 0, "male": 0, "total": 0, "tested": 0}
+    )
+    for aid, birth_year, gender in athletes:
+        band = age_band_from_birth_year(birth_year)
+        if not band:
+            continue
+        if age_band and band != age_band:
+            continue
+        b = buckets[band]
+        if gender == "female":
+            b["female"] += 1
+        elif gender == "male":
+            b["male"] += 1
+        b["total"] += 1
+        if aid in tested_ids:
+            b["tested"] += 1
+
+    out = [
+        {"age_band": band, **vals}
+        for band, vals in buckets.items()
+    ]
+    out.sort(key=lambda r: r["age_band"])
+    return out
+
+
+def _norms_readiness(db: Session) -> dict:
+    """Обобщение от Машината за норми: колко клетки са официални/готови/индикативни."""
+    # Внос тук (а не в началото), за да няма цикличен внос между услугите.
+    from app.services.norm_producer import compute_candidates
+
+    cands = compute_candidates(db, include_below_display=True)
+    official = ready = indicative = low_data = 0
+    for c in cands:
+        if c.is_approved:
+            official += 1
+        elif c.trust_ready:
+            ready += 1
+        elif c.display_ready:
+            indicative += 1
+        else:
+            low_data += 1
+    return {
+        "official": official,
+        "ready": ready,
+        "indicative": indicative,
+        "low_data": low_data,
+        "total_cells": len(cands),
+    }
+
+
+def _trend(db: Session) -> list[dict]:
+    """Динамика през последните прозорци: покритие, средно развитие, приемане."""
+    windows = db.query(AssessmentWindow).all()
+    with_data = {
+        w_id
+        for (w_id,) in db.query(AssessmentSession.window_id)
+        .join(AssessmentResult, AssessmentResult.session_id == AssessmentSession.id)
+        .distinct()
+        .all()
+    }
+    windows = sorted([w for w in windows if w.id in with_data], key=window_sort_key)
+    windows = windows[-6:]
+
+    out = []
+    for w in windows:
+        cov = _coverage(db, w, None)
+        ado = _adoption(db, w)
+        dev_vals = [
+            d
+            for (d,) in db.query(DevelopmentScore.development_score)
+            .filter(DevelopmentScore.window_id == w.id)
+            .all()
+            if d is not None
+        ]
+        out.append(
+            {
+                "window_id": w.id,
+                "window_label": _window_label(w),
+                "coverage_pct": cov.get("coverage_pct"),
+                "avg_development": _avg(dev_vals),
+                "adoption_pct": ado.get("avg_adoption"),
+            }
+        )
+    return out
+
+
 # =========================
 # Публичен интерфейс
 # =========================
@@ -448,5 +554,8 @@ def build_federation_dashboard(
         "discipline": _discipline(db, window),
         "regional_index": _regional_index(db, window),
         "participation": _participation(db, window, gender, age_band),
+        "talent_pyramid": _talent_pyramid(db, window, age_band),
+        "norms_readiness": _norms_readiness(db),
+        "trend": _trend(db),
         "filters": filters,
     }

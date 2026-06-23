@@ -531,6 +531,33 @@ class ParticipationRow(BaseModel):
     is_low: bool = False
 
 
+class TalentPyramidRow(BaseModel):
+    """Пирамида на талантите: брой активни деца по възраст и пол + тествани."""
+    age_band: str
+    female: int = 0
+    male: int = 0
+    total: int = 0
+    tested: int = 0
+
+
+class NormsReadinessTile(BaseModel):
+    """Готовност на националните норми (обобщение от Машината за норми)."""
+    official: int = 0  # одобрени, вече основа за оценката
+    ready: int = 0  # ≥20 деца, чакат одобрение
+    indicative: int = 0  # 5–19 деца, показват се индикативно
+    low_data: int = 0  # 1–4 деца, още не светят
+    total_cells: int = 0
+
+
+class TrendPoint(BaseModel):
+    """Динамика по прозорци: ключови показатели във времето."""
+    window_id: int
+    window_label: str
+    coverage_pct: Optional[float] = None
+    avg_development: Optional[float] = None
+    adoption_pct: Optional[float] = None
+
+
 class FederationDashboardOut(BaseModel):
     window_id: Optional[int] = None
     window_label: Optional[str] = None
@@ -542,6 +569,9 @@ class FederationDashboardOut(BaseModel):
     discipline: DisciplineTile = Field(default_factory=DisciplineTile)
     regional_index: list[RegionIndexRow] = Field(default_factory=list)
     participation: list[ParticipationRow] = Field(default_factory=list)
+    talent_pyramid: list[TalentPyramidRow] = Field(default_factory=list)
+    norms_readiness: NormsReadinessTile = Field(default_factory=NormsReadinessTile)
+    trend: list[TrendPoint] = Field(default_factory=list)
     filters: dict[str, Any] = Field(default_factory=dict)
 
 

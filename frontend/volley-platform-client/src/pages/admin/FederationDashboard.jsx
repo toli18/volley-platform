@@ -1,12 +1,12 @@
 // src/pages/admin/FederationDashboard.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { AdminHero, AdminSection, AdminStatCard, Button, Card, EmptyState } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
 const PHASE_LABELS = { baseline: "Входящо", mid: "Междинно", endline: "Изходящо" };
-const GENDER_LABELS = { male: "Мъже", female: "Жени" };
 
 const normalizeError = (err) => {
   const detail = err?.response?.data?.detail;
@@ -217,6 +217,45 @@ export default function FederationDashboard() {
             </div>
           </AdminSection>
 
+          <AdminSection title="Динамика по прозорци">
+            <Card>
+              {!data.trend?.length ? (
+                <EmptyState title="Няма данни" description="Появява се след поне един финализиран прозорец." />
+              ) : data.trend.length < 2 ? (
+                <p className="uiMuted">
+                  Засега има само един прозорец с данни. Динамиката (посоката във времето) става смислена след
+                  втория финализиран прозорец.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", color: "#607693" }}>
+                        <th style={{ padding: "6px 8px" }}>Прозорец</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Покритие</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Средно развитие</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Приемане</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.trend.map((p) => (
+                        <tr key={p.window_id} style={{ borderTop: "1px solid #eef3fa" }}>
+                          <td style={{ padding: "6px 8px" }}>{p.window_label}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right" }}>{fmtPct(p.coverage_pct)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right" }}>{fmtNum(p.avg_development, 0)}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right" }}>{fmtPct(p.adoption_pct)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="uiMuted" style={{ fontSize: 12, marginTop: 8 }}>
+                    Посока във времето: качваме ли покритието, развитието и приемането на програмата.
+                  </p>
+                </div>
+              )}
+            </Card>
+          </AdminSection>
+
           <AdminSection title="Участие по тест (качество на данните)">
             <Card>
               {!data.participation?.length ? (
@@ -277,6 +316,41 @@ export default function FederationDashboard() {
             </Card>
           </AdminSection>
 
+          <AdminSection title="Готовност на националните норми">
+            <Card>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: "#0c6a47" }}>
+                    {data.norms_readiness?.official ?? 0}
+                  </span>
+                  <span className="uiMuted" style={{ fontSize: 12 }}>Официални (основа за оценка)</span>
+                </div>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: "#1d4ed8" }}>
+                    {data.norms_readiness?.ready ?? 0}
+                  </span>
+                  <span className="uiMuted" style={{ fontSize: 12 }}>Готови за одобрение (≥20)</span>
+                </div>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: "#b45309" }}>
+                    {data.norms_readiness?.indicative ?? 0}
+                  </span>
+                  <span className="uiMuted" style={{ fontSize: 12 }}>Индикативни (5–19)</span>
+                </div>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: "#64748b" }}>
+                    {data.norms_readiness?.low_data ?? 0}
+                  </span>
+                  <span className="uiMuted" style={{ fontSize: 12 }}>Малко данни (&lt;5)</span>
+                </div>
+              </div>
+              <p className="uiMuted" style={{ fontSize: 12, marginTop: 10 }}>
+                Колко близо сме до истински български стандарт по клетки (тест × възраст × пол).{" "}
+                <Link to="/admin/national-norms">Отвори Машината за национални норми →</Link>
+              </p>
+            </Card>
+          </AdminSection>
+
           <AdminSection title="Развитие по възраст (Δ Development Score)">
             <Card>
               {!data.development_by_age?.length ? (
@@ -300,9 +374,45 @@ export default function FederationDashboard() {
             </Card>
           </AdminSection>
 
-          <AdminSection title="Лидери и риск (по Методически Индекс)">
+          <AdminSection title="Пирамида на талантите (активни деца по възраст и пол)">
+            <Card>
+              {!data.talent_pyramid?.length ? (
+                <EmptyState title="Няма данни" description="Появява се при активни деца с попълнена година на раждане." />
+              ) : (
+                <>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {data.talent_pyramid.map((row) => {
+                      const maxTotal = Math.max(...data.talent_pyramid.map((r) => r.total), 1);
+                      const fPct = (row.female / maxTotal) * 100;
+                      const mPct = (row.male / maxTotal) * 100;
+                      return (
+                        <div key={row.age_band} style={{ display: "grid", gap: 4 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#607693" }}>
+                            <span>
+                              <strong style={{ color: "#334155" }}>{row.age_band}</strong> · общо {row.total} · тествани {row.tested}
+                            </span>
+                            <span>Ж {row.female} · М {row.male}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 4, height: 14 }}>
+                            <div style={{ width: `${fPct}%`, background: "#db2777", borderRadius: 4 }} title={`Момичета: ${row.female}`} />
+                            <div style={{ width: `${mPct}%`, background: "#1d4ed8", borderRadius: 4 }} title={`Момчета: ${row.male}`} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="uiMuted" style={{ fontSize: 12, marginTop: 10 }}>
+                    <span style={{ color: "#db2777" }}>■</span> момичета · <span style={{ color: "#1d4ed8" }}>■</span> момчета.
+                    Базата на пирамидата по възрасти — къде е дебела/тънка и каква част е тествана.
+                  </p>
+                </>
+              )}
+            </Card>
+          </AdminSection>
+
+          <AdminSection title="Методически индекс по отбори">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
-              <Card title="Лидери">
+              <Card title="Водещи отбори">
                 {!data.leaders_risk?.leaders?.length ? (
                   <EmptyState title="Няма данни" description="Все още няма изчислени индекси." />
                 ) : (
@@ -316,7 +426,7 @@ export default function FederationDashboard() {
                   </div>
                 )}
               </Card>
-              <Card title="Внимание / риск">
+              <Card title="Отбори за подкрепа">
                 {!data.leaders_risk?.risk?.length ? (
                   <EmptyState title="Няма данни" description="Все още няма изчислени индекси." />
                 ) : (
@@ -324,13 +434,17 @@ export default function FederationDashboard() {
                     {data.leaders_risk.risk.map((t) => (
                       <div key={t.team_id} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                         <span>{t.team_name}</span>
-                        <span className="uiBadge uiBadge--danger">{fmtNum(t.methodical_index, 0)}</span>
+                        <span className="uiBadge">{fmtNum(t.methodical_index, 0)}</span>
                       </div>
                     ))}
                   </div>
                 )}
               </Card>
             </div>
+            <p className="uiMuted" style={{ fontSize: 12, marginTop: 8 }}>
+              „За подкрепа" не е класиране за наказание — това са отборите, на които федерацията може да помогне
+              най-много (методика, материали, обучение).
+            </p>
           </AdminSection>
 
           <AdminSection title="Регионален методически индекс (6-те структури на БФВ)">
@@ -366,47 +480,6 @@ export default function FederationDashboard() {
             </Card>
           </AdminSection>
 
-          <AdminSection title="Национални репери (тест × възраст × пол)">
-            <Card>
-              {!data.norms?.length ? (
-                <EmptyState
-                  title="Няма репери"
-                  description="Реперите се натрупват с данните от прозорците."
-                />
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ textAlign: "left", color: "#607693" }}>
-                        <th style={{ padding: "6px 8px" }}>Тест</th>
-                        <th style={{ padding: "6px 8px" }}>Възраст</th>
-                        <th style={{ padding: "6px 8px" }}>Пол</th>
-                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Средно</th>
-                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Извадка</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.norms.map((r) => (
-                        <tr key={`${r.test_code}-${r.age_band}-${r.gender}`} style={{ borderTop: "1px solid #eef3fa" }}>
-                          <td style={{ padding: "6px 8px" }}>{r.test_name}</td>
-                          <td style={{ padding: "6px 8px" }}>{r.age_band}</td>
-                          <td style={{ padding: "6px 8px" }}>{GENDER_LABELS[r.gender] || r.gender}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right" }}>{fmtNum(r.mean_value, 2)}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                            {r.sample}
-                            {r.is_indicative ? <span style={{ color: "#b91c1c" }}> *</span> : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p className="uiMuted" style={{ fontSize: 12, marginTop: 8 }}>
-                    * индикативно — малка извадка
-                  </p>
-                </div>
-              )}
-            </Card>
-          </AdminSection>
         </>
       )}
     </div>
