@@ -51,6 +51,10 @@ class ScoutCell:
     peer_percentile: Optional[float] = None
     peer_sample: int = 0
     peer_indicative: bool = False
+    # Сравнение В: талант — спрямо най-младата покрита от 2022 летва (по-големите).
+    # Свети и за U9–U12, които нямат собствен 2022 репер. Индикативно.
+    talent_score: Optional[float] = None
+    talent_label: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,8 @@ def build_scouting_table(
     for athlete in athletes:
         age_band = age_band_from_birth_year(athlete.birth_year, ref_year)
         gender = athlete.gender
+        # Референтна летва за таланта: най-младата покрита 2022 група за пола.
+        ref_band = nn2022.reference_age_band(gender)
         cells: list[ScoutCell] = []
 
         for test in test_defs:
@@ -134,6 +140,10 @@ def build_scouting_table(
             # Сравнение А — стандарт 2022 за собствената възраст (None, ако непокрит).
             s2022 = nn2022.score_2022(raw, code, age_band, gender)
             label = nn2022.grade_label(s2022) if s2022 is not None else None
+
+            # Сравнение В — талант спрямо летвата на по-големите (най-младата 2022 група).
+            talent = nn2022.score_2022(raw, code, ref_band, gender) if ref_band else None
+            talent_label = nn2022.grade_label(talent) if talent is not None else None
 
             # Сравнение Б — връстников процентил (същ пол + възраст, без самото дете).
             percentile = None
@@ -159,6 +169,8 @@ def build_scouting_table(
                     peer_percentile=percentile,
                     peer_sample=sample,
                     peer_indicative=indicative,
+                    talent_score=talent,
+                    talent_label=talent_label,
                 )
             )
 

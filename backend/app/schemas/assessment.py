@@ -331,6 +331,9 @@ class ScoutCellOut(BaseModel):
     peer_percentile: Optional[float] = None
     peer_sample: int = 0
     peer_indicative: bool = False
+    # Сравнение В — талант спрямо летвата на по-големите (2022).
+    talent_score: Optional[float] = None
+    talent_label: Optional[str] = None
 
 
 class ScoutRowOut(BaseModel):

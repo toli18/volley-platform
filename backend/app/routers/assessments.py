@@ -1107,6 +1107,8 @@ def scouting_table(
                         peer_percentile=c.peer_percentile,
                         peer_sample=c.peer_sample,
                         peer_indicative=c.peer_indicative,
+                        talent_score=c.talent_score,
+                        talent_label=c.talent_label,
                     )
                     for c in r.cells
                 ],

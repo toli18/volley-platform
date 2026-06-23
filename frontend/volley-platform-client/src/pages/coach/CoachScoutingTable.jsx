@@ -22,6 +22,7 @@ const MODES = [
   { value: "both", label: "Двете сравнения" },
   { value: "2022", label: "Само стандарт 2022" },
   { value: "peers", label: "Само връстници" },
+  { value: "talent", label: "Талант (спрямо по-големите)" },
 ];
 
 function fmt(value) {
@@ -125,12 +126,14 @@ export default function CoachScoutingTable() {
 
   const show2022 = mode === "both" || mode === "2022";
   const showPeers = mode === "both" || mode === "peers";
+  const showTalent = mode === "talent";
 
   // По коя оценка сортираме (следва избрания режим; в „двете" водещ е 2022).
   const cellSortValue = (cell) => {
     if (!cell) return null;
     if (mode === "peers") return cell.peer_percentile;
     if (mode === "2022") return cell.score_2022;
+    if (mode === "talent") return cell.talent_score;
     return cell.score_2022 != null ? cell.score_2022 : cell.peer_percentile;
   };
 
@@ -185,6 +188,7 @@ export default function CoachScoutingTable() {
       header.push(`${t.name}${t.unit ? ` (${t.unit})` : ""}`);
       if (show2022) header.push(`${t.name} · 2022`);
       if (showPeers) header.push(`${t.name} · % връстници`);
+      if (showTalent) header.push(`${t.name} · талант`);
     }
 
     const lines = [header.map(esc).join(sep)];
@@ -202,6 +206,9 @@ export default function CoachScoutingTable() {
           cols.push(
             hasVal && c.peer_percentile != null ? `${fmt(c.peer_percentile)}%${c.peer_indicative ? " *" : ""}` : "",
           );
+        }
+        if (showTalent) {
+          cols.push(hasVal && c.talent_score != null ? `${fmt(c.talent_score)} · ${c.talent_label}` : "");
         }
       }
       lines.push(cols.map(esc).join(sep));
@@ -380,6 +387,16 @@ export default function CoachScoutingTable() {
                               {fmt(c.peer_percentile)}% връст.{c.peer_indicative ? "*" : ""}
                             </span>
                           ) : null}
+                          {showTalent && c.talent_score != null ? (
+                            <span
+                              className={`talentBadge talentBadgeSm ${
+                                LEVEL_CLASS[c.talent_label] || "talentBadge--good"
+                              }`}
+                              title="Спрямо летвата на по-големите (национален стандарт 2022)"
+                            >
+                              {fmt(c.talent_score)} · {c.talent_label}
+                            </span>
+                          ) : null}
                         </td>
                       );
                     })}
@@ -391,8 +408,9 @@ export default function CoachScoutingTable() {
             <p className="assessMuted rawLegend">
               Голямото число е реалната стойност. Цветната значка „· дума" е спрямо националния стандарт
               2022 (за неговата възраст). „% връст." е процентил спрямо всички деца на същата възраст и пол
-              в системата; „*" = малка извадка (индикативно). Кликни върху заглавие на тест, за да подредиш
-              най-добрите най-отгоре (повторен клик обръща реда).
+              в системата; „*" = малка извадка (индикативно). Режим „Талант" сравнява по-малките деца
+              (U9–U12) с летвата на по-големите от 2022 (момичета U13, момчета U14) — индикативно. Кликни
+              върху заглавие на тест, за да подредиш най-добрите най-отгоре (повторен клик обръща реда).
             </p>
           </div>
         </>
