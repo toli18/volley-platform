@@ -1,9 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any
 from datetime import datetime
+
+import os
+import time
+import threading
 
 import httpx
 
@@ -201,6 +205,43 @@ def _list_approved(db: Session):
     )
 
 
+# ------------------------------------------------------------------
+# Кеш на одобрените упражнения.
+#
+# Каталогът е еднакъв за всички и се променя рядко (само при админско
+# одобрение/редакция/триене). Без кеш всеки потребител, който отвори
+# AI генератора или списъка с упражнения, удря базата за целия каталог —
+# при стотици едновременни треньори това сериализира единствения worker.
+#
+# Затова пазим валидирания списък в паметта на процеса за кратко време
+# (TTL) и го инвалидираме при всяка промяна. Отговорът остава идентичен.
+# ------------------------------------------------------------------
+_APPROVED_CACHE: dict[str, Any] = {"data": None, "ts": 0.0}
+_APPROVED_TTL = float(os.getenv("DRILLS_CACHE_TTL", "120"))
+_APPROVED_LOCK = threading.Lock()
+
+
+def _approved_drills_cached(db: Session) -> "List[DrillOut]":
+    now = time.time()
+    cached = _APPROVED_CACHE["data"]
+    if cached is not None and (now - float(_APPROVED_CACHE["ts"])) < _APPROVED_TTL:
+        return cached
+    with _APPROVED_LOCK:
+        # Повторна проверка след взимане на ключалката (друг thread може вече да е презаредил).
+        cached = _APPROVED_CACHE["data"]
+        if cached is not None and (time.time() - float(_APPROVED_CACHE["ts"])) < _APPROVED_TTL:
+            return cached
+        data = [DrillOut.model_validate(d) for d in _list_approved(db)]
+        _APPROVED_CACHE["data"] = data
+        _APPROVED_CACHE["ts"] = time.time()
+        return data
+
+
+def _invalidate_approved_cache() -> None:
+    _APPROVED_CACHE["data"] = None
+    _APPROVED_CACHE["ts"] = 0.0
+
+
 def _list_pending(db: Session):
     return db.query(Drill).filter(Drill.status == "pending").order_by(Drill.id.desc()).all()
 
@@ -210,8 +251,12 @@ def _list_pending(db: Session):
 # ========================
 
 @router.get("", response_model=List[DrillOut])
-def list_drills(db: Session = Depends(get_db)):
-    return _list_approved(db)
+def list_drills(response: Response, db: Session = Depends(get_db)):
+    # Позволяваме на браузъра да преизползва списъка за кратко, за да не тегли
+    # целия каталог при всяко прещракване между екрани. Данните са общи и
+    # рядко се менят, затова кратко кеширане е безопасно.
+    response.headers["Cache-Control"] = "public, max-age=60"
+    return _approved_drills_cached(db)
 
 
 # ========================
@@ -291,6 +336,7 @@ def admin_decide(
     drill.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(drill)
+    _invalidate_approved_cache()
     return drill
 
 
@@ -316,6 +362,7 @@ def admin_update_drill(
     drill.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(drill)
+    _invalidate_approved_cache()
     return drill
 
 
@@ -331,6 +378,7 @@ def admin_delete_drill(
 
     db.delete(drill)
     db.commit()
+    _invalidate_approved_cache()
     return None
 
 
