@@ -669,6 +669,12 @@
 }
 
 @media print {
+  /* Широка таблица → печат в пейзаж с тесни полета, за максимална ширина. */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -698,14 +704,43 @@
     overflow: visible;
   }
 
-  /* На хартия таблицата да се събира по ширината на листа (без хоризонтален скрол). */
+  /* На хартия таблицата да се събира по ширината на листа (без отрязване).
+     Фиксиран layout → колоните делят ширината поравно и текстът се пренася,
+     вместо да излиза извън листа. */
   .scoutPrintArea .assessGrid {
     width: 100%;
     min-width: 0;
+    table-layout: fixed;
+    font-size: 8px;
+  }
+
+  .scoutPrintArea .assessGrid th,
+  .scoutPrintArea .assessGrid td {
+    padding: 2px 3px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  /* Махаме минималната ширина на клетката, иначе сборът надхвърля листа. */
+  .scoutPrintArea .scoutCell {
+    min-width: 0;
+  }
+
+  /* Първата колона (имена) — фиксирана тясна ширина, тестовете делят остатъка. */
+  .scoutPrintArea .assessStickyCol {
+    width: 84px;
+    position: static;
+  }
+
+  .scoutPrintArea .assessTestUnit,
+  .scoutPrintArea .rawUnit {
+    font-size: 7px;
   }
 
   .scoutPrintArea .talentBadge {
     border: 1px solid #cbd5e1;
+    font-size: 7px;
+    padding: 0 2px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
