@@ -186,12 +186,19 @@ function DayCard({ day, ctx }) {
 }
 
 export default function CoachProgramWeek() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const teamId = searchParams.get("team_id");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [offset, setOffset] = useState(0);
+
+  const selectTeam = (id) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("team_id", String(id));
+    else next.delete("team_id");
+    setSearchParams(next);
+  };
 
   useEffect(() => {
     let active = true;
@@ -224,7 +231,32 @@ export default function CoachProgramWeek() {
       <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush">
         Моята програмна седмица
       </h2>
-      {data?.team_name ? (
+      {Array.isArray(data?.available_teams) && data.available_teams.length > 1 ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "6px 0" }}>
+          <label className="coachMobileMuted" style={{ fontSize: 13 }} htmlFor="programTeamSelect">
+            Отбор:
+          </label>
+          <select
+            id="programTeamSelect"
+            value={data?.team_id ? String(data.team_id) : ""}
+            onChange={(e) => selectTeam(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              fontSize: 14,
+              maxWidth: "100%",
+            }}
+          >
+            {data.available_teams.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                {t.name}
+                {t.has_program ? "" : " (без програма)"}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : data?.team_name ? (
         <p className="coachMobileMuted coachMobileGreetingSub">Отбор: {data.team_name}</p>
       ) : null}
 

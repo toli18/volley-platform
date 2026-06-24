@@ -937,10 +937,17 @@ class ProgramWeekWindowOut(BaseModel):
     week_offset: int = 0
 
 
+class ProgramTeamOptionOut(BaseModel):
+    id: int
+    name: Optional[str] = None
+    has_program: bool = False
+
+
 class ProgramWeekOut(BaseModel):
     has_program: bool = False
     team_id: int
     team_name: Optional[str] = None
+    available_teams: List[ProgramTeamOptionOut] = Field(default_factory=list)
     cycle_title: Optional[str] = None
     age_band: Optional[str] = None
     start_date: Optional[str] = None
@@ -968,10 +975,13 @@ class ProgramWeekOut(BaseModel):
     message: Optional[str] = None
 
 
-def _resolve_program_team(db: Session, user: User, team_id: Optional[int]) -> Team:
-    """Намира отбор, достъпен за текущия треньор (или зададения team_id)."""
-    from app.services.program_week_service import _active_instance_for_team
+def _accessible_program_teams(db: Session, user: User) -> list[Team]:
+    """Отборите, достъпни за текущия потребител според ролята.
 
+    - coach: само неговите отбори;
+    - club_head_coach: всички отбори на клуба;
+    - federation_admin / platform_admin: всички активни отбори.
+    """
     q = db.query(Team).filter(Team.is_active.is_(True))
     if user.role == UserRole.coach:
         q = q.filter(Team.coach_id == user.id)
@@ -979,15 +989,24 @@ def _resolve_program_team(db: Session, user: User, team_id: Optional[int]) -> Te
         if not user.club_id:
             raise HTTPException(status_code=422, detail="Head coach has no club")
         q = q.filter(Team.club_id == user.club_id)
-    # federation_admin / platform_admin: без допълнителен филтър (изисква team_id)
+    # federation_admin / platform_admin: без допълнителен филтър.
+    return q.order_by(Team.name.asc(), Team.id.asc()).all()
+
+
+def _resolve_program_team(db: Session, user: User, team_id: Optional[int]) -> Team:
+    """Намира отбор, достъпен за текущия треньор (или зададения team_id)."""
+    from app.services.program_week_service import _active_instance_for_team
+
+    teams = _accessible_program_teams(db, user)
 
     if team_id is not None:
-        team = q.filter(Team.id == team_id).first()
+        team = next((t for t in teams if t.id == team_id), None)
+        if not team and user.role in (UserRole.federation_admin, UserRole.platform_admin):
+            team = db.query(Team).filter(Team.id == team_id, Team.is_active.is_(True)).first()
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
         return team
 
-    teams = q.order_by(Team.id.asc()).all()
     if not teams:
         raise HTTPException(status_code=404, detail="No teams available")
     for t in teams:
@@ -1004,10 +1023,18 @@ def coach_program_week(
     user: User = Depends(require_role(*COACH_ROLES)),
 ):
     """Read-only изглед „Моята програмна седмица" за отбор на треньора."""
-    from app.services.program_week_service import build_program_week
+    from app.services.program_week_service import build_program_week, _active_instance_for_team
 
     team = _resolve_program_team(db, user, team_id)
     data = build_program_week(db, team, week_offset=week_offset)
+    data["available_teams"] = [
+        {
+            "id": t.id,
+            "name": t.name,
+            "has_program": _active_instance_for_team(db, t.id) is not None,
+        }
+        for t in _accessible_program_teams(db, user)
+    ]
     return ProgramWeekOut.model_validate(data)
 
 
