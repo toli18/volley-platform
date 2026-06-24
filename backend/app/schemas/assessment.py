@@ -574,6 +574,20 @@ class TalentPyramidRow(BaseModel):
     tested: int = 0
 
 
+class TalentCatchRow(BaseModel):
+    """Уловът (анонимно): от тестваните деца — колко покриват/надхвърлят летвата
+    на стандарт 2022 за по-голямата възраст, по възраст и пол. Без лични данни —
+    само агрегиран брой; индикативно при малка извадка."""
+    age_band: str
+    gender: str  # female / male
+    scored: int = 0  # деца с талант-отчитане (покрит пол + измерени тестове)
+    excellent: int = 0  # ниво „Отлично"
+    very_good: int = 0  # ниво „Много добро"
+    above_bar: int = 0  # Отлично + Много добро (= „над летвата")
+    avg_talent: Optional[float] = None
+    is_indicative: bool = True
+
+
 class NormsReadinessTile(BaseModel):
     """Готовност на националните норми (обобщение от Машината за норми)."""
     official: int = 0  # одобрени, вече основа за оценката
@@ -604,6 +618,7 @@ class FederationDashboardOut(BaseModel):
     regional_index: list[RegionIndexRow] = Field(default_factory=list)
     participation: list[ParticipationRow] = Field(default_factory=list)
     talent_pyramid: list[TalentPyramidRow] = Field(default_factory=list)
+    talent_catch: list[TalentCatchRow] = Field(default_factory=list)
     norms_readiness: NormsReadinessTile = Field(default_factory=NormsReadinessTile)
     trend: list[TrendPoint] = Field(default_factory=list)
     filters: dict[str, Any] = Field(default_factory=dict)

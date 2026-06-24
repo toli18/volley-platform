@@ -35,6 +35,7 @@ from app.models_assessment import (  # noqa: E402
 )
 from app.services.assessment_dashboard import (  # noqa: E402
     _norms_readiness,
+    _talent_catch,
     _talent_pyramid,
     _trend,
 )
@@ -97,6 +98,36 @@ class DashboardPhase3Tests(unittest.TestCase):
             self.assertEqual(r["female"] + r["male"], r["total"])
             self.assertEqual(r["tested"], r["total"])  # всички са тествани в w2
         self.assertTrue(by_band)
+
+    def test_talent_catch_structure(self):
+        w2 = self.db.get(AssessmentWindow, 2)
+        rows = _talent_catch(self.db, w2, gender=None, age_band=None)
+        # 4 кошчета (U13/U14 × ж/м), всяко с по 2 оценени деца.
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(sum(r["scored"] for r in rows), 8)
+        for r in rows:
+            self.assertEqual(r["excellent"] + r["very_good"], r["above_bar"])
+            self.assertLessEqual(r["above_bar"], r["scored"])
+            self.assertTrue(r["is_indicative"])  # малки кошчета (<5)
+            self.assertIn(r["gender"], ("female", "male"))
+
+    def test_talent_catch_counts_above_bar(self):
+        # Качваме скока на дете 1 (момиче U13) до „Отлично" спрямо U13 (≥219.5).
+        res = (
+            self.db.query(AssessmentResult)
+            .filter(AssessmentResult.athlete_id == 1, AssessmentResult.session_id == 2)
+            .first()
+        )
+        res.raw_value = 230.0
+        self.db.commit()
+        w2 = self.db.get(AssessmentWindow, 2)
+        rows = _talent_catch(self.db, w2, gender="female", age_band="U13")
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["age_band"], "U13")
+        self.assertEqual(row["gender"], "female")
+        self.assertGreaterEqual(row["excellent"], 1)
+        self.assertGreaterEqual(row["above_bar"], 1)
 
     def test_norms_readiness_buckets_sum(self):
         rt = _norms_readiness(self.db)

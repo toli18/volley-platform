@@ -410,6 +410,45 @@ export default function FederationDashboard() {
             </Card>
           </AdminSection>
 
+          <AdminSection title="Уловът — деца над летвата (спрямо стандарт 2022)">
+            <Card>
+              {!data.talent_catch?.length ? (
+                <EmptyState title="Няма данни" description="Появява се при тествани деца с измерени тестове за пол, покрит от стандарт 2022." />
+              ) : (
+                <>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {data.talent_catch.map((row) => {
+                      const genderLabel = row.gender === "female" ? "Момичета" : row.gender === "male" ? "Момчета" : row.gender;
+                      const barPct = row.scored ? (row.above_bar / row.scored) * 100 : 0;
+                      return (
+                        <div key={`${row.age_band}-${row.gender}`} style={{ display: "grid", gap: 4 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#607693" }}>
+                            <span>
+                              <strong style={{ color: "#334155" }}>{row.age_band} · {genderLabel}</strong> · оценени {row.scored}
+                              {row.is_indicative ? <span title="Малка извадка — индикативно"> *</span> : null}
+                            </span>
+                            <span>
+                              над летвата <strong style={{ color: "#16a34a" }}>{row.above_bar}</strong>
+                              {row.avg_talent != null ? ` · ср. ${fmtNum(row.avg_talent, 0)}` : ""}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", height: 14, background: "#eef2f7", borderRadius: 4, overflow: "hidden" }} title={`Отлично: ${row.excellent} · Много добро: ${row.very_good}`}>
+                            <div style={{ width: `${barPct}%`, background: "#16a34a" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="uiMuted" style={{ fontSize: 12, marginTop: 10 }}>
+                    „Над летвата" = деца с ниво <strong>Отлично</strong> или <strong>Много добро</strong> спрямо стандарт 2022 за по-голямата възраст.
+                    Анонимно и индикативно (малка извадка — „*"); надстроечен слой, който не променя официалните оценки.
+                    Поименно — в Скаут таблицата при треньора.
+                  </p>
+                </>
+              )}
+            </Card>
+          </AdminSection>
+
           <AdminSection title="Методически индекс по отбори">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
               <Card title="Водещи отбори">

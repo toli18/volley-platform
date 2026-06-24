@@ -464,6 +464,104 @@ def _talent_pyramid(
     return out
 
 
+def _talent_catch(
+    db: Session,
+    window: AssessmentWindow,
+    gender: Optional[str],
+    age_band: Optional[str],
+) -> list[dict]:
+    """„Уловът" (анонимно): от тестваните в прозореца — колко покриват летвата
+    на стандарт 2022 за по-голямата възраст, агрегирано по възраст и пол.
+
+    Стъпва върху „надстроечния" талант-слой (`talent_profile`) — НЕ променя
+    официалните оценки. Без имена/лични данни — само агрегиран брой; маркира се
+    индикативно при малка извадка, за да не се правят прибързани изводи."""
+    from app.national_method import national_norms_2022 as nn2022
+    from app.national_method.talent_profile import build_talent_profile
+
+    tested_ids = [
+        a
+        for (a,) in db.query(AssessmentResult.athlete_id)
+        .join(AssessmentSession, AssessmentResult.session_id == AssessmentSession.id)
+        .filter(AssessmentSession.window_id == window.id)
+        .distinct()
+        .all()
+    ]
+    if not tested_ids:
+        return []
+
+    athletes = {
+        a.id: a
+        for a in db.query(Athlete)
+        .filter(Athlete.id.in_(tested_ids), Athlete.birth_year.isnot(None))
+        .all()
+    }
+
+    # Всички (непразни) сурови резултати на тестваните деца, за да вземем
+    # последната стойност по тест (по подредба на прозорците).
+    rows = (
+        db.query(
+            AssessmentResult.athlete_id,
+            AssessmentResult.test_code,
+            AssessmentResult.raw_value,
+            AssessmentWindow,
+        )
+        .join(AssessmentSession, AssessmentResult.session_id == AssessmentSession.id)
+        .join(AssessmentWindow, AssessmentWindow.id == AssessmentSession.window_id)
+        .filter(
+            AssessmentResult.athlete_id.in_(tested_ids),
+            AssessmentResult.raw_value.isnot(None),
+        )
+        .all()
+    )
+    ordered = sorted(rows, key=lambda r: window_sort_key(r[3]))
+    latest_by_athlete: dict[int, dict[str, float]] = defaultdict(dict)
+    for aid, test_code, raw_value, _w in ordered:
+        latest_by_athlete[aid][test_code] = raw_value
+
+    buckets: dict[tuple[str, str], dict] = defaultdict(
+        lambda: {"scored": 0, "excellent": 0, "very_good": 0, "above_bar": 0, "sum": 0.0}
+    )
+    for aid, athlete in athletes.items():
+        band = age_band_from_birth_year(athlete.birth_year)
+        if not band:
+            continue
+        if age_band and band != age_band:
+            continue
+        if gender and athlete.gender != gender:
+            continue
+        profile = build_talent_profile(athlete.gender, band, latest_by_athlete.get(aid, {}))
+        if profile.talent_index is None:
+            continue
+        b = buckets[(band, athlete.gender or "—")]
+        b["scored"] += 1
+        b["sum"] += profile.talent_index
+        if profile.talent_index_label == nn2022.LEVEL_EXCELLENT:
+            b["excellent"] += 1
+            b["above_bar"] += 1
+        elif profile.talent_index_label == nn2022.LEVEL_VERY_GOOD:
+            b["very_good"] += 1
+            b["above_bar"] += 1
+
+    out = []
+    for (band, g), v in buckets.items():
+        scored = v["scored"]
+        out.append(
+            {
+                "age_band": band,
+                "gender": g,
+                "scored": scored,
+                "excellent": v["excellent"],
+                "very_good": v["very_good"],
+                "above_bar": v["above_bar"],
+                "avg_talent": round(v["sum"] / scored, 1) if scored else None,
+                "is_indicative": scored < MIN_TILE_SAMPLE,
+            }
+        )
+    out.sort(key=lambda r: (r["age_band"], r["gender"]))
+    return out
+
+
 def _norms_readiness(db: Session) -> dict:
     """Обобщение от Машината за норми: колко клетки са официални/готови/индикативни."""
     # Внос тук (а не в началото), за да няма цикличен внос между услугите.
@@ -555,6 +653,7 @@ def build_federation_dashboard(
         "regional_index": _regional_index(db, window),
         "participation": _participation(db, window, gender, age_band),
         "talent_pyramid": _talent_pyramid(db, window, age_band),
+        "talent_catch": _talent_catch(db, window, gender, age_band),
         "norms_readiness": _norms_readiness(db),
         "trend": _trend(db),
         "filters": filters,
