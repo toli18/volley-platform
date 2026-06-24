@@ -73,6 +73,7 @@ export default function CoachToday() {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [absenceNotices, setAbsenceNotices] = useState([]);
+  const [programWeek, setProgramWeek] = useState(null);
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -107,6 +108,19 @@ export default function CoachToday() {
     };
     load();
   }, [isHeadCoach, myCoachId, today]);
+
+  useEffect(() => {
+    let active = true;
+    axiosInstance
+      .get(API_PATHS.NATIONAL_METHOD_PROGRAM_WEEK, { params: { week_offset: 0 } })
+      .then((res) => {
+        if (active && res.data?.has_program) setProgramWeek(res.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const { todayItems, upcomingItems } = useMemo(() => {
     const sorted = [...items].sort((a, b) => {
@@ -157,6 +171,28 @@ export default function CoachToday() {
                 ))}
               </ul>
             </section>
+          ) : null}
+
+          {programWeek ? (
+            <Link
+              to="/coach/program-week"
+              className="coachMobileCard"
+              style={{ display: "block", textDecoration: "none", color: "inherit", borderLeft: "4px solid #2563eb" }}
+            >
+              <div className="coachMobileEventHead">
+                <span className="coachMobileChip coachMobileChip--train">Програмна седмица</span>
+                {programWeek.team_name ? (
+                  <span className="coachMobileMuted">{programWeek.team_name}</span>
+                ) : null}
+              </div>
+              <p style={{ margin: "4px 0 2px", fontWeight: 600 }}>
+                Мезо {programWeek.meso_index}/{programWeek.total_mesos}
+                {programWeek.week_theme ? ` · ${programWeek.week_theme}` : programWeek.meso_theme ? ` · ${programWeek.meso_theme}` : ""}
+              </p>
+              <p className="coachMobileMuted" style={{ margin: 0 }}>
+                Седмица {programWeek.week_in_meso} от {programWeek.weeks_per_meso} · виж програмата →
+              </p>
+            </Link>
           ) : null}
 
           <h2 className="coachMobileSectionTitle">Днес</h2>

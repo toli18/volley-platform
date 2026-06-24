@@ -134,6 +134,11 @@ export default function CoachTeamHubOverview({
       label: "График на отбора",
       onClick: () => navigate(`/coach/schedule?team_id=${teamIdNum}`),
     },
+    {
+      id: "program-week",
+      label: "Програмна седмица",
+      onClick: () => navigate(`/coach/program-week?team_id=${teamIdNum}`),
+    },
     ...(canManage
       ? [
           { id: "news", label: "Новини", onClick: () => onTab("news") },

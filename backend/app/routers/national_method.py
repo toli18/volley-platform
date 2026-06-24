@@ -852,6 +852,122 @@ def coach_get_cycle(
     return base
 
 
+class ProgramWeekDayOut(BaseModel):
+    date: Optional[str] = None
+    weekday_label: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    location: Optional[str] = None
+    is_cancelled: bool = False
+    execution_status: Optional[str] = None
+    has_program_day: bool = False
+    day_label: Optional[str] = None
+    theme: Optional[str] = None
+    focus: List[str] = Field(default_factory=list)
+    session_goal: Optional[str] = None
+    intensity: Optional[str] = None
+    textbook_slug: Optional[str] = None
+
+
+class ProgramProgressOut(BaseModel):
+    started: bool = False
+    planned: int = 0
+    executed: int = 0
+    rate_pct: int = 0
+    weeks_elapsed: int = 0
+    meso_index: Optional[int] = None
+    total_mesos: Optional[int] = None
+
+
+class ProgramUnmappedDayOut(BaseModel):
+    day_label: Optional[str] = None
+    theme: Optional[str] = None
+    focus: List[str] = Field(default_factory=list)
+    session_goal: Optional[str] = None
+    intensity: Optional[str] = None
+    textbook_slug: Optional[str] = None
+
+
+class ProgramWeekWindowOut(BaseModel):
+    from_date: str
+    to_date: str
+    week_offset: int = 0
+
+
+class ProgramWeekOut(BaseModel):
+    has_program: bool = False
+    team_id: int
+    team_name: Optional[str] = None
+    cycle_title: Optional[str] = None
+    age_band: Optional[str] = None
+    start_date: Optional[str] = None
+    meso_number: Optional[int] = None
+    meso_index: Optional[int] = None
+    total_mesos: Optional[int] = None
+    meso_theme: Optional[str] = None
+    period: Optional[str] = None
+    period_label: Optional[str] = None
+    months_bg: Optional[str] = None
+    week_in_meso: int = 0
+    weeks_per_meso: int = 4
+    week_theme: Optional[str] = None
+    week_focus: List[str] = Field(default_factory=list)
+    week_load: Optional[str] = None
+    week_done: int = 0
+    week_mapped: int = 0
+    started: bool = False
+    completed: bool = False
+    window: ProgramWeekWindowOut
+    days: List[ProgramWeekDayOut] = Field(default_factory=list)
+    unmapped_days: List[ProgramUnmappedDayOut] = Field(default_factory=list)
+    extra_trainings: int = 0
+    progress: Optional[ProgramProgressOut] = None
+    message: Optional[str] = None
+
+
+def _resolve_program_team(db: Session, user: User, team_id: Optional[int]) -> Team:
+    """Намира отбор, достъпен за текущия треньор (или зададения team_id)."""
+    from app.services.program_week_service import _active_instance_for_team
+
+    q = db.query(Team).filter(Team.is_active.is_(True))
+    if user.role == UserRole.coach:
+        q = q.filter(Team.coach_id == user.id)
+    elif user.role == UserRole.club_head_coach:
+        if not user.club_id:
+            raise HTTPException(status_code=422, detail="Head coach has no club")
+        q = q.filter(Team.club_id == user.club_id)
+    # federation_admin / platform_admin: без допълнителен филтър (изисква team_id)
+
+    if team_id is not None:
+        team = q.filter(Team.id == team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+        return team
+
+    teams = q.order_by(Team.id.asc()).all()
+    if not teams:
+        raise HTTPException(status_code=404, detail="No teams available")
+    for t in teams:
+        if _active_instance_for_team(db, t.id) is not None:
+            return t
+    return teams[0]
+
+
+@router.get("/program-week", response_model=ProgramWeekOut)
+def coach_program_week(
+    team_id: Optional[int] = Query(None),
+    week_offset: int = Query(0, ge=-26, le=26),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Read-only изглед „Моята програмна седмица" за отбор на треньора."""
+    from app.services.program_week_service import build_program_week
+
+    team = _resolve_program_team(db, user, team_id)
+    data = build_program_week(db, team, week_offset=week_offset)
+    return ProgramWeekOut.model_validate(data)
+
+
 @router.get("/articles/{article_id}/cycles")
 def coach_article_cycles(
     article_id: int,

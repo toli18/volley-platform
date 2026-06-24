@@ -229,6 +229,7 @@ export const API_PATHS = {
   NATIONAL_METHOD_TEXTBOOK: "/api/national-method/textbook",
   NATIONAL_METHOD_TEXTBOOK_SECTION: (slug) => `/api/national-method/textbook/${encodeURIComponent(slug)}`,
   NATIONAL_METHOD_CONTEXT: "/api/national-method/method-context",
+  NATIONAL_METHOD_PROGRAM_WEEK: "/api/national-method/program-week",
   NATIONAL_METHOD_ARTICLE: (id) => `/api/national-method/articles/${id}`,
   NATIONAL_METHOD_ARTICLE_CYCLES: (id) => `/api/national-method/articles/${id}/cycles`,
   NATIONAL_METHOD_CYCLE: (id) => `/api/national-method/cycles/${id}`,
