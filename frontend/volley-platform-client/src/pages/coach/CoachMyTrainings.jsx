@@ -66,6 +66,19 @@ export default function CoachMyTrainings() {
     navigate("/ai-generator");
   };
 
+  const deleteTraining = async (t) => {
+    const name = t.title || `Тренировка #${t.id}`;
+    const ok = window.confirm(`Да изтрия ли „${name}"? Действието е необратимо.`);
+    if (!ok) return;
+    try {
+      await apiJson(`/trainings/${t.id}`, { method: "DELETE" });
+      toast.success("Тренировката е изтрита.");
+      setItems((prev) => prev.filter((x) => x.id !== t.id));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Неуспешно изтриване");
+    }
+  };
+
   return (
     <div className="coachMobilePage">
       <div className="coachMobileHubLinks" style={{ marginBottom: 8 }}>
@@ -86,8 +99,8 @@ export default function CoachMyTrainings() {
       {!loading && items.length > 0 ? (
         <ul className="coachMobileRosterList">
           {items.map((t) => (
-            <li key={t.id}>
-              <Link to={`/trainings/${t.id}`} className="coachMobileRosterRow">
+            <li key={t.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link to={`/trainings/${t.id}`} className="coachMobileRosterRow" style={{ flex: 1, minWidth: 0 }}>
                 <span>
                   <span className="coachMobileMenuLabel">{t.title || `Тренировка #${t.id}`}</span>
                   <span className="coachMobileMuted coachMobileMenuHint">
@@ -98,6 +111,15 @@ export default function CoachMyTrainings() {
                   ›
                 </span>
               </Link>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => deleteTraining(t)}
+                style={{ flexShrink: 0 }}
+              >
+                Изтрий
+              </Button>
             </li>
           ))}
         </ul>

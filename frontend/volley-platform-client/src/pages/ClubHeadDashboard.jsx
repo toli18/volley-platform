@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+
+const VALID_TABS = ["athletes", "tasks", "schedule", "method"];
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -58,7 +60,11 @@ export default function ClubHeadDashboard() {
   const isHeadCoach = normalizeRole(user) === "club_head_coach";
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState("athletes");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get("tab");
+    return VALID_TABS.includes(t) ? t : "athletes";
+  });
   const [monthKey, setMonthKey] = useState(nowMonth());
   const [period, setPeriod] = useState(() => monthRangeForKey(nowMonth()));
   const [overview, setOverview] = useState(null);

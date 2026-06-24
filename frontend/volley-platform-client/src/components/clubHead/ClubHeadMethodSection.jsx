@@ -98,6 +98,21 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
     }
   };
 
+  const removeInstance = async (inst) => {
+    const ok = window.confirm(
+      `Да премахна ли назначения цикъл за „${inst.team_name}"? След това можете да публикувате нов макро/мезо от формата горе.`
+    );
+    if (!ok) return;
+    try {
+      await axiosInstance.delete(API_PATHS.CLUB_CYCLE_INSTANCE(inst.id));
+      toast.success("Цикълът е премахнат. Изберете нов от формата горе.");
+      setInstanceForm((f) => ({ ...f, team_id: String(inst.team_id) }));
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Грешка");
+    }
+  };
+
   useEffect(() => {
     if (!instanceForm.cycle_id || !instanceForm.start_date) {
       setInstancePreview(null);
@@ -375,6 +390,9 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
                       )}
                       <Button as={Link} to={`/coach/program-week?team_id=${i.team_id}`} size="sm" variant="secondary">
                         Програмна седмица
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => removeInstance(i)}>
+                        Смени/махни
                       </Button>
                     </div>
                   </TableCell>

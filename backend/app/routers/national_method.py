@@ -1243,6 +1243,26 @@ def head_update_cycle_instance(
     }
 
 
+@router.delete("/club/cycle-instances/{instance_id}", status_code=204)
+def head_delete_cycle_instance(
+    instance_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    """Премахва назначен цикъл (макро/мезо) от отбора."""
+    _ensure_head(user)
+    row = (
+        db.query(ClubCycleInstance)
+        .filter(ClubCycleInstance.id == instance_id, ClubCycleInstance.club_id == user.club_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    db.delete(row)
+    db.commit()
+    return None
+
+
 # ---------- Club head: method assignments ----------
 
 
