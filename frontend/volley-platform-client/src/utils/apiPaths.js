@@ -248,6 +248,7 @@ export const API_PATHS = {
   NATIONAL_METHOD_ADMIN_PURGE_LEGACY: "/api/national-method/admin/purge-legacy-library",
   CLUB_CYCLE_INSTANCES: "/api/national-method/club/cycle-instances",
   CLUB_CYCLE_INSTANCE: (id) => `/api/national-method/club/cycle-instances/${id}`,
+  CLUB_CYCLE_INSTANCE_PREVIEW: "/api/national-method/club/cycle-instances/preview",
   CLUB_METHOD_ASSIGNMENTS: "/api/national-method/club/method-assignments",
   MY_METHOD_ASSIGNMENTS: "/api/national-method/method-assignments/my",
   METHOD_ASSIGNMENT_UPDATE: (id) => `/api/national-method/method-assignments/${id}`,

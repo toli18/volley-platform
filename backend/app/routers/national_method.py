@@ -994,6 +994,48 @@ def coach_get_national_drill(
 # ---------- Club head: cycle instances ----------
 
 
+def _instance_position_summary(cycle, start_date_str, custom):
+    """Резюме на текущата позиция (мезо/седмица) за инстанция — за списък и preview."""
+    from datetime import date as _date
+
+    from app.national_method import program_position as pos
+    from app.national_method.annual_program import (
+        meso_definitions_for,
+        resolve_annual_program_band,
+    )
+
+    if not cycle:
+        return None
+    band = resolve_annual_program_band(cycle.age_band)
+    defs = meso_definitions_for(band)
+    if not defs:
+        return None
+    start_date = pos.parse_iso_date(start_date_str) or _date.today()
+    custom = custom or {}
+    override = custom.get("start_meso")
+    cs = cycle.structure_json or {}
+    if override is None and cs.get("meso_number"):
+        override = cs.get("meso_number")
+    p = pos.resolve_position(defs, start_date, _date.today(), start_meso_override=override)
+    meso_number = p.get("meso_number")
+    defn = (
+        next((d for d in defs if int(d["meso_number"]) == int(meso_number)), None)
+        if meso_number
+        else None
+    )
+    return {
+        "meso_number": meso_number,
+        "meso_index": p.get("meso_index"),
+        "total_mesos": p.get("total_mesos"),
+        "week_in_meso": p.get("week_in_meso"),
+        "started": p.get("started"),
+        "completed": p.get("completed"),
+        "meso_theme": (defn or {}).get("theme"),
+        "age_band": band,
+        "resolved_start_meso": pos.resolve_start_meso(defs, start_date, override=override),
+    }
+
+
 @router.get("/club/cycle-instances")
 def head_list_cycle_instances(
     db: Session = Depends(get_db),
@@ -1019,10 +1061,31 @@ def head_list_cycle_instances(
                 "cycle_title": cycle.title_bg if cycle else None,
                 "start_date": r.start_date,
                 "status": r.status,
+                "start_meso": (r.customizations_json or {}).get("start_meso"),
                 "customizations_json": r.customizations_json,
+                "position": _instance_position_summary(cycle, r.start_date, r.customizations_json),
             }
         )
     return out
+
+
+@router.get("/club/cycle-instances/preview")
+def head_preview_cycle_instance(
+    cycle_id: int = Query(...),
+    start_date: str = Query(...),
+    start_meso: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    """Жив преглед: към коя позиция (мезо/седмица) ще стартира програмата."""
+    _ensure_head(user)
+    cycle = db.query(MethodCycle).filter(
+        MethodCycle.id == cycle_id, MethodCycle.status == "published"
+    ).first()
+    if not cycle:
+        raise HTTPException(status_code=404, detail="Published cycle not found")
+    custom = {"start_meso": int(start_meso)} if start_meso else {}
+    return _instance_position_summary(cycle, start_date, custom) or {}
 
 
 @router.post("/club/cycle-instances")
@@ -1054,13 +1117,20 @@ def head_create_cycle_instance(
     return {"id": row.id}
 
 
+class CycleInstanceUpdateIn(BaseModel):
+    start_date: Optional[str] = None
+    status: Optional[str] = None
+    start_meso: Optional[int] = None  # 0 → изчиства override-а
+
+
 @router.patch("/club/cycle-instances/{instance_id}")
 def head_update_cycle_instance(
     instance_id: int,
-    payload: dict,
+    payload: CycleInstanceUpdateIn,
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
+    """Редакция на инстанция: старт дата, статус (active/paused/completed), стартов мезо."""
     _ensure_head(user)
     row = (
         db.query(ClubCycleInstance)
@@ -1069,12 +1139,38 @@ def head_update_cycle_instance(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Instance not found")
-    for k in ("start_date", "customizations_json", "status"):
-        if k in payload:
-            setattr(row, k, payload[k])
-    row.updated_at = _utcnow()
+
+    if payload.status is not None:
+        if payload.status not in ("active", "paused", "completed"):
+            raise HTTPException(status_code=422, detail="Invalid status")
+        row.status = payload.status
+
+    if payload.start_date is not None:
+        from app.national_method import program_position as pos
+
+        if pos.parse_iso_date(payload.start_date) is None:
+            raise HTTPException(status_code=422, detail="Invalid start_date (YYYY-MM-DD)")
+        row.start_date = payload.start_date
+
+    if payload.start_meso is not None:
+        custom = dict(row.customizations_json or {})
+        if int(payload.start_meso) <= 0:
+            custom.pop("start_meso", None)
+        else:
+            custom["start_meso"] = int(payload.start_meso)
+        row.customizations_json = custom
+
     db.commit()
-    return {"ok": True}
+    db.refresh(row)
+    cycle = db.query(MethodCycle).filter(MethodCycle.id == row.cycle_id).first()
+    return {
+        "id": row.id,
+        "team_id": row.team_id,
+        "status": row.status,
+        "start_date": row.start_date,
+        "start_meso": (row.customizations_json or {}).get("start_meso"),
+        "position": _instance_position_summary(cycle, row.start_date, row.customizations_json),
+    }
 
 
 # ---------- Club head: method assignments ----------

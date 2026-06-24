@@ -7,6 +7,12 @@ import { useToast } from "../ToastProvider";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const STATUS_LABELS = {
+  active: "Активен",
+  paused: "На пауза",
+  completed: "Приключен",
+};
+
 function aiPreviewUrl(cycleId, ageBand, week) {
   const params = new URLSearchParams({ ageBand: ageBand || "U14" });
   if (cycleId) params.set("cycleId", String(cycleId));
@@ -20,7 +26,8 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
   const [cycles, setCycles] = useState([]);
   const [instances, setInstances] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [instanceForm, setInstanceForm] = useState({ team_id: "", cycle_id: "", start_date: today() });
+  const [instanceForm, setInstanceForm] = useState({ team_id: "", cycle_id: "", start_date: today(), start_meso: "" });
+  const [instancePreview, setInstancePreview] = useState(null);
   const [assignForm, setAssignForm] = useState({
     assignee_ids: [],
     title_bg: "",
@@ -60,13 +67,51 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
         team_id: Number(instanceForm.team_id),
         cycle_id: Number(instanceForm.cycle_id),
         start_date: instanceForm.start_date,
+        customizations_json: instanceForm.start_meso
+          ? { start_meso: Number(instanceForm.start_meso) }
+          : null,
       });
       toast.success("Цикълът е пуснат към отбора");
+      setInstanceForm((f) => ({ ...f, start_meso: "" }));
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Грешка");
     }
   };
+
+  const updateInstance = async (id, body) => {
+    try {
+      await axiosInstance.patch(API_PATHS.CLUB_CYCLE_INSTANCE(id), body);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Грешка");
+    }
+  };
+
+  useEffect(() => {
+    if (!instanceForm.cycle_id || !instanceForm.start_date) {
+      setInstancePreview(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.CLUB_CYCLE_INSTANCE_PREVIEW, {
+          params: {
+            cycle_id: Number(instanceForm.cycle_id),
+            start_date: instanceForm.start_date,
+            ...(instanceForm.start_meso ? { start_meso: Number(instanceForm.start_meso) } : {}),
+          },
+        });
+        if (alive) setInstancePreview(res.data || null);
+      } catch {
+        if (alive) setInstancePreview(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [instanceForm.cycle_id, instanceForm.start_date, instanceForm.start_meso]);
 
   const createAssignments = async () => {
     if (!assignForm.assignee_ids.length || !assignForm.title_bg.trim()) {
@@ -190,7 +235,33 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
             value={instanceForm.start_date}
             onChange={(e) => setInstanceForm((f) => ({ ...f, start_date: e.target.value }))}
           />
+          <select
+            className="uiInput"
+            value={instanceForm.start_meso}
+            onChange={(e) => setInstanceForm((f) => ({ ...f, start_meso: e.target.value }))}
+          >
+            <option value="">Стартов мезо: авто (по месеца на старта)</option>
+            {Array.from({ length: instancePreview?.total_mesos || 11 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                Мезо {n}
+              </option>
+            ))}
+          </select>
           {selectedCycle?.summary_bg && <p className="uiMuted">{selectedCycle.summary_bg}</p>}
+          {instancePreview ? (
+            <p
+              className="uiMuted"
+              style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 10px" }}
+            >
+              {instancePreview.started === false && instancePreview.meso_index
+                ? `Ще започне от Мезо ${instancePreview.meso_index}/${instancePreview.total_mesos}`
+                : instancePreview.completed
+                ? `Програмата е към края си (Мезо ${instancePreview.meso_index}/${instancePreview.total_mesos})`
+                : `Към днес: Мезо ${instancePreview.meso_index}/${instancePreview.total_mesos}` +
+                  (instancePreview.meso_theme ? ` · ${instancePreview.meso_theme}` : "") +
+                  ` · седмица ${instancePreview.week_in_meso}`}
+            </p>
+          ) : null}
           <Button onClick={publishInstance}>Публикувай към отбора</Button>
         </div>
       </Card>
@@ -204,16 +275,47 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Отбор</TableHead>
-                <TableHead>Цикъл</TableHead>
                 <TableHead>Старт</TableHead>
+                <TableHead>Позиция</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {instances.map((i) => (
                 <TableRow key={i.id}>
                   <TableCell>{i.team_name}</TableCell>
-                  <TableCell>{i.cycle_title}</TableCell>
                   <TableCell>{i.start_date}</TableCell>
+                  <TableCell>
+                    {i.position && i.position.meso_index
+                      ? `Мезо ${i.position.meso_index}/${i.position.total_mesos}` +
+                        (i.position.started && !i.position.completed
+                          ? ` · седм. ${i.position.week_in_meso}`
+                          : "")
+                      : "—"}
+                  </TableCell>
+                  <TableCell>{STATUS_LABELS[i.status] || i.status}</TableCell>
+                  <TableCell>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {i.status === "active" ? (
+                        <>
+                          <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "paused" })}>
+                            Пауза
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "completed" })}>
+                            Приключи
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "active" })}>
+                          Възобнови
+                        </Button>
+                      )}
+                      <Button as={Link} to={`/coach/program-week?team_id=${i.team_id}`} size="sm" variant="secondary">
+                        Програмна седмица
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
