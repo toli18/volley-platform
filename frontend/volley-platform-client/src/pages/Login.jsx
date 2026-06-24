@@ -22,10 +22,17 @@ export default function Login() {
     return "";
   }, [searchParams]);
 
+  // Началната страница според ролята: админ → Админ таблото, иначе → начало.
+  const landingFor = (u) => {
+    const raw = u?.role;
+    const role = String(raw && typeof raw === "object" ? raw.value : raw || "").toLowerCase();
+    return role.includes("admin") ? "/admin" : "/";
+  };
+
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate("/", { replace: true });
+      navigate(landingFor(user), { replace: true });
     }
   }, [user, navigate]);
 
@@ -37,7 +44,7 @@ export default function Login() {
       const result = await login(email, password);
       if (result?.success) {
         toast.success("Успешен вход.");
-        navigate("/", { replace: true });
+        navigate(landingFor(result.user), { replace: true });
       } else {
         const message = result?.error || "Невалиден имейл или парола. Моля, опитай отново.";
         setError(message);

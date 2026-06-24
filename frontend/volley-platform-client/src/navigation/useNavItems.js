@@ -30,18 +30,24 @@ export default function useNavItems() {
       });
     }
 
+    // Упражнения и Генератор не носят стойност за админ (и водят до същия каталог),
+    // затова ги пропускаме за административни роли — те ползват „Админ" менюто.
     const links = [
-      { type: "link", id: "drills", label: "Упражнения", to: "/drills", icon: "drill" },
+      ...(isAdminUser
+        ? []
+        : [{ type: "link", id: "drills", label: "Упражнения", to: "/drills", icon: "drill" }]),
       { type: "link", id: "forum", label: "Форум", to: "/forum", icon: "chat", badge: "forumUnread" },
       ...MEMBER_EXTRA_NAV.filter((x) => filterChild(x, { isHeadCoachUser, isPlatformAdmin })).map((x) => ({
         type: "link",
         ...x,
       })),
       { type: "link", id: "articles", label: "Статии", to: "/articles", icon: "article" },
-      { type: "link", id: "generator", label: "Генератор", to: "/generator", icon: "sparkles" },
+      ...(isAdminUser
+        ? []
+        : [{ type: "link", id: "generator", label: "Генератор", to: "/generator", icon: "sparkles" }]),
     ];
     return links;
-  }, [user, isCoachUser, isHeadCoachUser, isPlatformAdmin]);
+  }, [user, isCoachUser, isHeadCoachUser, isPlatformAdmin, isAdminUser]);
 
   const adminNavSections = useMemo(() => {
     if (!isAdminUser) return [];
