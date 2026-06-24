@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { NavIcon, NavIconChevronDown } from "../../navigation/navIcons";
+import axiosInstance from "../../utils/apiClient";
+import { API_PATHS } from "../../utils/apiPaths";
 
 function pathMatches(pathname, to) {
   if (to === "/") return pathname === "/";
@@ -73,12 +75,30 @@ export default function NavFlyout({ id, label, icon, children, accent }) {
 
 export function NavFlyoutAdmin({ label, sections }) {
   const [open, setOpen] = useState(false);
+  const [pendingTotal, setPendingTotal] = useState(0);
   const rootRef = useRef(null);
   const panelId = useId();
   const location = useLocation();
   const active = sections.some((s) => s.items.some((i) => pathMatches(location.pathname, i.to)));
 
   useEffect(() => setOpen(false), [location.pathname]);
+
+  // Чакащи за модерация (упражнения + статии) — за брояча на групата „Модерация".
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await axiosInstance.get(API_PATHS.ADMIN_ANALYTICS_OVERVIEW);
+        const p = res?.data?.pending || {};
+        if (alive) setPendingTotal((Number(p.drills) || 0) + (Number(p.articles) || 0));
+      } catch {
+        /* броячът е по избор — менюто работи и без него */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -101,13 +121,23 @@ export function NavFlyoutAdmin({ label, sections }) {
       >
         <NavIcon name="shield" size={16} className="appNavLink__icon" />
         <span>{label}</span>
+        {pendingTotal > 0 ? (
+          <span className="appNavLink__badge" title="Чакащи за модерация">
+            {pendingTotal > 99 ? "99+" : pendingTotal}
+          </span>
+        ) : null}
         <NavIconChevronDown className={`appNavLink__chevron ${open ? "appNavLink__chevron--open" : ""}`} />
       </button>
       {open ? (
         <div className="navFlyout__panel navFlyout__panel--admin" id={panelId} role="menu">
           {sections.map((section) => (
             <div key={section.id} className="navFlyout__section">
-              <div className="navFlyout__sectionLabel">{section.label}</div>
+              <div className="navFlyout__sectionLabel">
+                {section.label}
+                {section.showPendingBadge && pendingTotal > 0 ? (
+                  <span className="navFlyout__sectionBadge">{pendingTotal > 99 ? "99+" : pendingTotal}</span>
+                ) : null}
+              </div>
               {section.items.map((item) => (
                 <Link
                   key={item.id}

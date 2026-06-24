@@ -71,28 +71,34 @@ export const ADMIN_NAV_SECTIONS = [
   {
     id: "overview",
     label: "Табло",
-    items: [{ id: "admin-home", label: "Админ табло", to: "/admin", icon: "shield" }],
+    items: [{ id: "admin-home", label: "Админ табло", to: "/admin", icon: "home" }],
   },
   {
-    id: "bvf",
-    label: "БФВ",
-    items: [{ id: "admin-bvf", label: "Библиотека БФВ", to: "/admin/national-library", icon: "book" }],
-  },
-  {
-    id: "assessment",
-    label: "Диагностика",
+    id: "federation",
+    label: "Федерация",
     items: [
       { id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" },
       { id: "admin-national-norms", label: "Национални норми", to: "/admin/national-norms", icon: "check" },
-      { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "book" },
+      { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "calendar" },
     ],
   },
   {
-    id: "drills",
-    label: "Упражнения",
+    // Ежедневната работа — одобряване. Брояч на чакащите се показва на групата.
+    id: "moderation",
+    label: "Модерация",
+    showPendingBadge: true,
+    items: [
+      { id: "admin-pending", label: "Чакащи упражнения", to: "/admin/pending", icon: "tasks" },
+      { id: "admin-articles-pending", label: "Чакащи статии", to: "/admin/articles/pending", icon: "tasks", roles: ["platform_admin"] },
+    ],
+  },
+  {
+    id: "content",
+    label: "Съдържание",
     items: [
       { id: "admin-drills", label: "Всички упражнения", to: "/admin/drills", icon: "drill" },
-      { id: "admin-pending", label: "Чакащи упражнения", to: "/admin/pending", icon: "check" },
+      { id: "admin-articles", label: "Всички статии", to: "/admin/articles", icon: "article", roles: ["platform_admin"] },
+      { id: "admin-bvf", label: "Библиотека БФВ", to: "/admin/national-library", icon: "book" },
     ],
   },
   {
@@ -101,14 +107,6 @@ export const ADMIN_NAV_SECTIONS = [
     items: [
       { id: "admin-coaches", label: "Треньори", to: "/admin/coaches", icon: "teams" },
       { id: "admin-clubs", label: "Клубове", to: "/admin/clubs", icon: "shield" },
-    ],
-  },
-  {
-    id: "articles",
-    label: "Статии",
-    items: [
-      { id: "admin-articles-pending", label: "Чакащи статии", to: "/admin/articles/pending", icon: "article", roles: ["platform_admin"] },
-      { id: "admin-articles", label: "Всички статии", to: "/admin/articles", icon: "article", roles: ["platform_admin"] },
     ],
   },
 ];

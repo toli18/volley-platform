@@ -299,12 +299,29 @@
 }
 
 .navFlyout__sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #94a3b8;
   padding: 4px 10px 6px;
+}
+
+.navFlyout__sectionBadge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  letter-spacing: 0;
 }
 
 .navFlyout__item {

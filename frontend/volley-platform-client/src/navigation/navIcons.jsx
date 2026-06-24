@@ -162,6 +162,9 @@ const ICON_MAP = {
   check: NavIconCheck,
   shield: NavIconShield,
   fees: NavIconFees,
+  tasks: NavIconTasks,
+  bell: NavIconBell,
+  settings: NavIconSettings,
 };
 
 export function NavIcon({ name, className, size }) {
