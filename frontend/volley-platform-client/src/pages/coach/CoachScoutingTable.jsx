@@ -18,11 +18,11 @@ const LEVEL_CLASS = {
 // Възрастови групи за филтъра.
 const AGE_BANDS = ["U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18", "U19"];
 
-const MODES = [
-  { value: "both", label: "Двете сравнения" },
-  { value: "2022", label: "Само стандарт 2022" },
-  { value: "peers", label: "Само връстници" },
-  { value: "talent", label: "Талант (спрямо по-големите)" },
+// Сравнения, които може да се включат едновременно (чекбоксове).
+const COMPARISONS = [
+  { key: "s2022", label: "Стандарт 2022" },
+  { key: "peers", label: "Връстници" },
+  { key: "talent", label: "Талант (спрямо по-големите)" },
 ];
 
 function fmt(value) {
@@ -51,7 +51,10 @@ export default function CoachScoutingTable() {
   const [ageBand, setAgeBand] = useState("");
   const [teamId, setTeamId] = useState("");
   const [testCode, setTestCode] = useState("");
-  const [mode, setMode] = useState("both");
+  // Няколко сравнения едновременно (чекбоксове). По подразбиране 2022 + връстници.
+  const [cmp, setCmp] = useState({ s2022: true, peers: true, talent: false });
+  // Скрива децата без нито един въведен резултат (празни „—" редове).
+  const [onlyTested, setOnlyTested] = useState(true);
 
   const [data, setData] = useState({ tests: [], rows: [] });
   const [loading, setLoading] = useState(true);
@@ -119,22 +122,29 @@ export default function CoachScoutingTable() {
   const cellByCode = useMemo(() => {
     return rows.map((r) => {
       const map = {};
-      for (const c of r.cells || []) map[c.test_code] = c;
-      return { row: r, map };
+      let hasValue = false;
+      for (const c of r.cells || []) {
+        map[c.test_code] = c;
+        if (c.raw_value !== null && c.raw_value !== undefined) hasValue = true;
+      }
+      return { row: r, map, hasValue };
     });
   }, [rows]);
 
-  const show2022 = mode === "both" || mode === "2022";
-  const showPeers = mode === "both" || mode === "peers";
-  const showTalent = mode === "talent";
+  const show2022 = cmp.s2022;
+  const showPeers = cmp.peers;
+  const showTalent = cmp.talent;
+  const anyComparison = show2022 || showPeers || showTalent;
 
-  // По коя оценка сортираме (следва избрания режим; в „двете" водещ е 2022).
+  const toggleCmp = (key) => setCmp((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // По коя оценка сортираме — първото включено сравнение с налична стойност.
   const cellSortValue = (cell) => {
     if (!cell) return null;
-    if (mode === "peers") return cell.peer_percentile;
-    if (mode === "2022") return cell.score_2022;
-    if (mode === "talent") return cell.talent_score;
-    return cell.score_2022 != null ? cell.score_2022 : cell.peer_percentile;
+    if (cmp.s2022 && cell.score_2022 != null) return cell.score_2022;
+    if (cmp.peers && cell.peer_percentile != null) return cell.peer_percentile;
+    if (cmp.talent && cell.talent_score != null) return cell.talent_score;
+    return null;
   };
 
   const toggleSort = (key) => {
@@ -149,7 +159,8 @@ export default function CoachScoutingTable() {
   const sortIndicator = (key) => (sortBy === key ? (sortDir === "desc" ? " ▼" : " ▲") : "");
 
   const sortedRows = useMemo(() => {
-    const arr = [...cellByCode];
+    let arr = [...cellByCode];
+    if (onlyTested) arr = arr.filter((x) => x.hasValue);
     if (!sortBy) return arr;
     arr.sort((a, b) => {
       if (sortBy === "__name__") {
@@ -166,14 +177,14 @@ export default function CoachScoutingTable() {
       return sortDir === "asc" ? c : -c;
     });
     return arr;
-  }, [cellByCode, sortBy, sortDir, mode]);
+  }, [cellByCode, sortBy, sortDir, cmp, onlyTested]);
 
   // Кратко описание на активните филтри (за заглавие при печат и име на файла).
   const filterSummary = () => {
     const g = gender === "female" ? "Момичета" : gender === "male" ? "Момчета" : "Всички";
     const a = ageBand || "всички възрасти";
-    const m = MODES.find((x) => x.value === mode)?.label || "";
-    return `Пол: ${g} · Възраст: ${a} · Сравнение: ${m}`;
+    const m = COMPARISONS.filter((c) => cmp[c.key]).map((c) => c.label).join(" + ") || "няма";
+    return `Пол: ${g} · Възраст: ${a} · Сравнение: ${m}${onlyTested ? " · само тествани" : ""}`;
   };
 
   const exportCsv = () => {
@@ -281,16 +292,24 @@ export default function CoachScoutingTable() {
               ))}
           </select>
         </label>
-        <label className="assessField">
+        <div className="assessField scoutCmpField">
           <span>Сравнение</span>
-          <select value={mode} onChange={(e) => setMode(e.target.value)}>
-            {MODES.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
+          <div className="scoutCmpOptions">
+            {COMPARISONS.map((c) => (
+              <label key={c.key} className="scoutCheck">
+                <input type="checkbox" checked={cmp[c.key]} onChange={() => toggleCmp(c.key)} />
+                {c.label}
+              </label>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
+        <div className="assessField scoutCmpField">
+          <span>Показване</span>
+          <label className="scoutCheck">
+            <input type="checkbox" checked={onlyTested} onChange={() => setOnlyTested((v) => !v)} />
+            Само тествани
+          </label>
+        </div>
       </div>
 
       {loading ? (
@@ -313,6 +332,16 @@ export default function CoachScoutingTable() {
             </Button>
           </div>
 
+          {!sortedRows.length ? (
+            <EmptyState
+              title="Няма тествани деца"
+              description={
+                onlyTested
+                  ? "По тези филтри няма деца с въведени резултати. Изключете режима само тествани, за да видите всички."
+                  : "Няма състезатели по тези филтри."
+              }
+            />
+          ) : (
           <div className="scoutPrintArea">
             <div className="scoutPrintTitle scoutPrintOnly">
               <strong>Скаут таблица</strong>
@@ -408,11 +437,13 @@ export default function CoachScoutingTable() {
             <p className="assessMuted rawLegend">
               Голямото число е реалната стойност. Цветната значка „· дума" е спрямо националния стандарт
               2022 (за неговата възраст). „% връст." е процентил спрямо всички деца на същата възраст и пол
-              в системата; „*" = малка извадка (индикативно). Режим „Талант" сравнява по-малките деца
-              (U9–U12) с летвата на по-големите от 2022 (момичета U13, момчета U13) — индикативно. Кликни
+              в системата; „*" = малка извадка (индикативно). Сравнението „Талант" мери по-малките деца
+              (U9–U12) спрямо летвата на по-големите от 2022 (момичета U13, момчета U13) — индикативно.
+              Може да включиш няколко сравнения едновременно с тикчетата. Кликни
               върху заглавие на тест, за да подредиш най-добрите най-отгоре (повторен клик обръща реда).
             </p>
           </div>
+          )}
         </>
       )}
     </div>

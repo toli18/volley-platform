@@ -531,6 +531,7 @@ class NormReperRow(BaseModel):
 class MethodicalLeaderRow(BaseModel):
     team_id: int
     team_name: str
+    club_name: Optional[str] = None
     methodical_index: Optional[float] = None
 
 

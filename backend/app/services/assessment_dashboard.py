@@ -259,9 +259,15 @@ def _leaders_risk(db: Session, window: AssessmentWindow) -> dict:
         .all()
     )
     ranked = sorted(rows, key=lambda r: r[1], reverse=True)
+    club_map = _team_club_name_map(db, {r[0] for r in rows})
 
     def _row(item):
-        return {"team_id": item[0], "team_name": item[2], "methodical_index": item[1]}
+        return {
+            "team_id": item[0],
+            "team_name": item[2],
+            "club_name": club_map.get(item[0]),
+            "methodical_index": item[1],
+        }
 
     leaders = [_row(r) for r in ranked[:LEADERS_LIMIT]]
     risk = [_row(r) for r in ranked[-LEADERS_LIMIT:][::-1]] if len(ranked) > LEADERS_LIMIT else []
@@ -297,6 +303,38 @@ def _team_city_map(db: Session, team_ids: set[int]) -> dict[int, Optional[str]]:
     for team_id, club_id, coach_id in teams:
         resolved_club = club_id if club_id is not None else coach_club.get(coach_id)
         out[team_id] = club_city.get(resolved_club) if resolved_club is not None else None
+    return out
+
+
+def _team_club_name_map(db: Session, team_ids: set[int]) -> dict[int, Optional[str]]:
+    """Връща team_id → име на клуба (по Team.club_id, иначе по клуба на треньора).
+    За федеративния изглед — отборът да се вижда с клуба си, не само по име."""
+    if not team_ids:
+        return {}
+    teams = (
+        db.query(Team.id, Team.club_id, Team.coach_id)
+        .filter(Team.id.in_(team_ids))
+        .all()
+    )
+    club_ids = {club_id for (_, club_id, _) in teams if club_id is not None}
+    coach_ids = {coach_id for (_, club_id, coach_id) in teams if club_id is None and coach_id}
+
+    coach_club = {}
+    if coach_ids:
+        for uid, c_id in db.query(User.id, User.club_id).filter(User.id.in_(coach_ids)).all():
+            coach_club[uid] = c_id
+            if c_id is not None:
+                club_ids.add(c_id)
+
+    club_name = {}
+    if club_ids:
+        for c_id, name in db.query(Club.id, Club.name).filter(Club.id.in_(club_ids)).all():
+            club_name[c_id] = name
+
+    out: dict[int, Optional[str]] = {}
+    for team_id, club_id, coach_id in teams:
+        resolved_club = club_id if club_id is not None else coach_club.get(coach_id)
+        out[team_id] = club_name.get(resolved_club) if resolved_club is not None else None
     return out
 
 

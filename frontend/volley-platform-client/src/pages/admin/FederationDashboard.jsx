@@ -458,7 +458,10 @@ export default function FederationDashboard() {
                   <div style={{ display: "grid", gap: 8 }}>
                     {data.leaders_risk.leaders.map((t, idx) => (
                       <div key={t.team_id} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <span>{idx + 1}. {t.team_name}</span>
+                        <span>
+                          {idx + 1}. {t.club_name ? <strong>{t.club_name}</strong> : "—"}
+                          <span style={{ color: "#607693" }}> · {t.team_name}</span>
+                        </span>
                         <span className="uiBadge uiBadge--success">{fmtNum(t.methodical_index, 0)}</span>
                       </div>
                     ))}
@@ -472,7 +475,10 @@ export default function FederationDashboard() {
                   <div style={{ display: "grid", gap: 8 }}>
                     {data.leaders_risk.risk.map((t) => (
                       <div key={t.team_id} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <span>{t.team_name}</span>
+                        <span>
+                          {t.club_name ? <strong>{t.club_name}</strong> : "—"}
+                          <span style={{ color: "#607693" }}> · {t.team_name}</span>
+                        </span>
                         <span className="uiBadge">{fmtNum(t.methodical_index, 0)}</span>
                       </div>
                     ))}
