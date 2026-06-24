@@ -237,6 +237,10 @@ class Training(Base):
     coach_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True, index=True)
 
+    # Връзка с програмата: за кой отбор и за кой ден е планирана тренировката.
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    session_date = Column(String(10), nullable=True, index=True)  # YYYY-MM-DD
+
     source = Column(SqlEnum(TrainingSource), nullable=False, default=TrainingSource.manual)
     status = Column(SqlEnum(TrainingStatus), nullable=False, default=TrainingStatus.draft)
 

@@ -98,7 +98,23 @@ function IntensityBadge({ value }) {
   );
 }
 
-function DayCard({ day }) {
+function buildGenerateHref(day, ctx) {
+  const themeForDay = day.has_program_day ? day.theme : ctx.weekTheme;
+  const params = new URLSearchParams();
+  // Програмна връзка (нови параметри, четат се от генератора).
+  if (ctx.teamId) params.set("team_id", String(ctx.teamId));
+  if (day.date) params.set("date", day.date);
+  if (themeForDay) params.set("title", themeForDay);
+  if (day.has_program_day && Array.isArray(day.focus) && day.focus.length) {
+    params.set("focus", day.focus.join(","));
+  }
+  // Контекст за методиката (имена, които генераторът вече разбира).
+  if (ctx.ageBand) params.set("ageBand", ctx.ageBand);
+  if (day.textbook_slug) params.set("textbookSlug", day.textbook_slug);
+  return `/ai-generator?${params.toString()}`;
+}
+
+function DayCard({ day, ctx }) {
   return (
     <article
       className="coachMobileCard"
@@ -143,6 +159,28 @@ function DayCard({ day }) {
           Свободна тренировка (извън програмните теми)
         </p>
       )}
+
+      {!day.is_cancelled ? (
+        <div style={{ marginTop: 8 }}>
+          {day.training_id ? (
+            <Link
+              to={`/trainings/${day.training_id}`}
+              className="coachMobileQuickBtn"
+              style={{ display: "inline-block", background: "#2563eb", color: "#fff", borderColor: "#2563eb" }}
+            >
+              Продължи с тренировката →
+            </Link>
+          ) : (
+            <Link
+              to={buildGenerateHref(day, ctx)}
+              className="coachMobileQuickBtn"
+              style={{ display: "inline-block" }}
+            >
+              Генерирай сега
+            </Link>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -189,6 +227,12 @@ export default function CoachProgramWeek() {
       {data?.team_name ? (
         <p className="coachMobileMuted coachMobileGreetingSub">Отбор: {data.team_name}</p>
       ) : null}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "8px 0 4px" }}>
+        <Link to="/coach/trainings" className="coachMobileQuickBtn" style={{ display: "inline-block" }}>
+          Моите тренировки
+        </Link>
+      </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "10px 0" }}>
         <Button type="button" variant="secondary" size="sm" onClick={() => setOffset((o) => o - 1)}>
@@ -251,7 +295,19 @@ export default function CoachProgramWeek() {
             {data.days.length === 0 ? (
               <p className="coachMobileMuted">Няма насрочени тренировки за прозореца.</p>
             ) : (
-              data.days.map((day, i) => <DayCard key={`${day.date}-${i}`} day={day} />)
+              data.days.map((day, i) => (
+                <DayCard
+                  key={`${day.date}-${i}`}
+                  day={day}
+                  ctx={{
+                    teamId: data.team_id,
+                    ageBand: data.age_band,
+                    mesoNumber: data.meso_number,
+                    weekInMeso: data.week_in_meso,
+                    weekTheme: data.week_theme || data.meso_theme || "",
+                  }}
+                />
+              ))
             )}
 
             {data.extra_trainings > 0 ? (

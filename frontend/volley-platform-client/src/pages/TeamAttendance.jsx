@@ -46,6 +46,8 @@ export default function TeamAttendance() {
   const [attendanceDate, setAttendanceDate] = useState(initialDate);
   const [attendanceTitle, setAttendanceTitle] = useState(initialTitle);
   const [attendanceRows, setAttendanceRows] = useState([]);
+  const [dayTraining, setDayTraining] = useState(null);
+  const [dayTrainingLoading, setDayTrainingLoading] = useState(false);
 
   const teamIdNum = Number(teamId);
   const isHeadCoach = roleValue(user) === "club_head_coach";
@@ -92,6 +94,43 @@ export default function TeamAttendance() {
     };
     run();
   }, [attendanceDate]);
+
+  const loadDayTraining = async () => {
+    if (!teamIdNum || !attendanceDate) {
+      setDayTraining(null);
+      return;
+    }
+    try {
+      setDayTrainingLoading(true);
+      const res = await axiosInstance.get(API_PATHS.AI_TRAINING_FOR_DAY, {
+        params: { team_id: teamIdNum, date: attendanceDate },
+      });
+      setDayTraining(res.data?.training || null);
+    } catch {
+      setDayTraining(null);
+    } finally {
+      setDayTrainingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      await loadDayTraining();
+      if (!active) return;
+    })();
+    return () => {
+      active = false;
+    };
+  }, [teamIdNum, attendanceDate]);
+
+  const generateHref = () => {
+    const p = new URLSearchParams();
+    p.set("team_id", String(teamIdNum));
+    p.set("date", attendanceDate);
+    if (attendanceTitle) p.set("title", attendanceTitle);
+    return `/ai-generator?${p.toString()}`;
+  };
 
   const quickSetAllAttendance = (status) => {
     setAttendanceRows((prev) => prev.map((x) => ({ ...x, status })));
@@ -292,6 +331,28 @@ export default function TeamAttendance() {
               </Table>
             </div>
           </>
+        )}
+      </Card>
+
+      <Card title="Тренировка за деня">
+        {dayTrainingLoading ? (
+          <p className="uiMuted" style={{ margin: 0 }}>Проверка…</p>
+        ) : dayTraining ? (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span>
+              Има генерирана тренировка: <strong>{dayTraining.title}</strong>
+            </span>
+            <Link to={`/trainings/${dayTraining.id}`}>
+              <Button>Продължи с тренировката →</Button>
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="uiMuted">Няма генерирана тренировка за този ден.</span>
+            <Link to={generateHref()}>
+              <Button variant="secondary">Генерирай сега</Button>
+            </Link>
+          </div>
         )}
       </Card>
 

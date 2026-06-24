@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import ClubCycleInstance, MethodCycle, Team, TeamSession
+from app.models import ClubCycleInstance, MethodCycle, Team, TeamSession, Training
 from app.national_method.annual_program import (
     build_meso_structure,
     meso_definitions_for,
@@ -43,6 +43,28 @@ def _week_node(structure: dict[str, Any], week_in_meso: int) -> Optional[dict[st
     if 1 <= week_in_meso <= len(weeks):
         return weeks[week_in_meso - 1]
     return None
+
+
+def _trainings_by_date(
+    db: Session, team_id: int, from_iso: str, to_iso: str
+) -> dict[str, dict[str, Any]]:
+    """Генерирани/записани тренировки за отбора по дата (последната за деня печели)."""
+    rows = (
+        db.query(Training)
+        .filter(
+            Training.team_id == team_id,
+            Training.session_date.isnot(None),
+            Training.session_date >= from_iso,
+            Training.session_date <= to_iso,
+        )
+        .order_by(Training.id.asc())
+        .all()
+    )
+    out: dict[str, dict[str, Any]] = {}
+    for t in rows:
+        status = t.status.value if hasattr(t.status, "value") else t.status
+        out[t.session_date] = {"id": t.id, "title": t.title, "status": status}
+    return out
 
 
 def _session_dates(db: Session, team_id: int, from_iso: str, to_iso: str) -> set[str]:
@@ -200,6 +222,11 @@ def build_program_week(
         db, team.id, window["from_date"], window["to_date"]
     )
 
+    # Генерирани тренировки за прозореца по дата (за бутоните „Продължи"/„Генерирай").
+    window_trainings = _trainings_by_date(
+        db, team.id, window["from_date"], window["to_date"]
+    )
+
     def _exec_status(date_iso: str) -> str:
         if date_iso in window_sessions:
             return "done"
@@ -215,6 +242,7 @@ def build_program_week(
         s = trainings[i]
         pd = program_days[i] if i < len(program_days) else None
         d = pos.parse_iso_date(s.date)
+        tr = window_trainings.get(s.date)
         days_out.append(
             {
                 "date": s.date,
@@ -224,6 +252,8 @@ def build_program_week(
                 "location": s.location,
                 "is_cancelled": bool(getattr(s, "is_cancelled", False)),
                 "execution_status": _exec_status(s.date),
+                "training_id": (tr or {}).get("id"),
+                "training_status": (tr or {}).get("status"),
                 "has_program_day": pd is not None,
                 "day_label": (pd or {}).get("label"),
                 "theme": (pd or {}).get("theme"),

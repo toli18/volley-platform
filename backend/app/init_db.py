@@ -123,6 +123,8 @@ def _init_db_impl() -> None:
                     )
                 )
                 conn.execute(text("ALTER TABLE drills ADD COLUMN IF NOT EXISTS method_source_id INTEGER"))
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN IF NOT EXISTS team_id INTEGER"))
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN IF NOT EXISTS session_date VARCHAR(10)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS source_url VARCHAR(1024)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS author VARCHAR(256)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS series VARCHAR(64)"))
@@ -174,6 +176,12 @@ def _init_db_impl() -> None:
             if "selected_drill_ids" not in training_col_names:
                 conn.execute(text("ALTER TABLE trainings ADD COLUMN selected_drill_ids JSON"))
                 print("✅ Added trainings.selected_drill_ids column")
+            if "team_id" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN team_id INTEGER"))
+                print("✅ Added trainings.team_id column")
+            if "session_date" not in training_col_names:
+                conn.execute(text("ALTER TABLE trainings ADD COLUMN session_date VARCHAR(10)"))
+                print("✅ Added trainings.session_date column")
 
             forum_post_cols = conn.execute(text("PRAGMA table_info(forum_posts)")).fetchall()
             forum_post_col_names = {row[1] for row in forum_post_cols}

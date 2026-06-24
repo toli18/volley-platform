@@ -901,6 +901,8 @@ class ProgramWeekDayOut(BaseModel):
     location: Optional[str] = None
     is_cancelled: bool = False
     execution_status: Optional[str] = None
+    training_id: Optional[int] = None
+    training_status: Optional[str] = None
     has_program_day: bool = False
     day_label: Optional[str] = None
     theme: Optional[str] = None

@@ -170,6 +170,7 @@ export default function AIGenerator() {
     sessionCode: "",
   });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
+  const [programLink, setProgramLink] = useState({ teamId: null, sessionDate: "" });
   const plannerPrefillRef = useRef(false);
   const assignmentId = searchParams.get("assignmentId") || "";
 
@@ -350,6 +351,25 @@ export default function AIGenerator() {
     return () => {
       alive = false;
     };
+  }, [searchParams]);
+
+  useEffect(() => {
+    const teamIdRaw = (searchParams.get("team_id") || "").trim();
+    const date = (searchParams.get("date") || "").trim();
+    const title = (searchParams.get("title") || "").trim();
+    const focus = (searchParams.get("focus") || "").trim();
+    if (!teamIdRaw && !date && !title && !focus) return;
+    const teamId = teamIdRaw ? Number(teamIdRaw) : null;
+    if (teamIdRaw || date) {
+      setProgramLink({ teamId: Number.isFinite(teamId) ? teamId : null, sessionDate: date });
+    }
+    if (title || focus) {
+      setForm((prev) => ({
+        ...prev,
+        ...(title && !prev.trainingTitle ? { trainingTitle: title } : {}),
+        ...(focus ? { mainFocus: focus.split(",")[0].trim() || prev.mainFocus } : {}),
+      }));
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -713,6 +733,8 @@ export default function AIGenerator() {
           trainingTitle: customTitle,
           trainingStatus: "чернова",
           editedBlocks: editableBlocks.length ? editableBlocks : undefined,
+          teamId: programLink.teamId || undefined,
+          sessionDate: programLink.sessionDate || undefined,
         },
       });
       setResult(data || null);
@@ -796,6 +818,16 @@ export default function AIGenerator() {
         <div className="aiGenBvfBanner" role="note">
           <strong>Задача от главния треньор</strong>
           <span>Генерирайте план по зададените цикъл и седмица, после запазете тренировката.</span>
+        </div>
+      ) : null}
+
+      {programLink.sessionDate ? (
+        <div className="aiGenBvfBanner" role="note">
+          <strong>Тренировка за програмен ден</strong>
+          <span>
+            След запис тренировката се закача към отбора за {programLink.sessionDate} и ще се появи в
+            „Моята програмна седмица" с бутон „Продължи с тренировката".
+          </span>
         </div>
       ) : null}
 

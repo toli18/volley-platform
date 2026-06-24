@@ -28,7 +28,7 @@ function attendancePath(it) {
   return `/teams/${it.team_id}/attendance?date=${encodeURIComponent(it.date)}&title=${encodeURIComponent(title)}`;
 }
 
-function EventCard({ item, onAttendance }) {
+function EventCard({ item, onAttendance, programTheme }) {
   const isComp = isCompetitionEvent(item);
   return (
     <article className="coachMobileCard coachMobileEventCard">
@@ -38,6 +38,21 @@ function EventCard({ item, onAttendance }) {
         {item.start_time} – {item.end_time}
         {item.location ? ` · ${item.location}` : ""}
       </p>
+      {!isComp && programTheme?.theme ? (
+        <p
+          style={{
+            margin: "2px 0 6px",
+            fontWeight: 600,
+            fontSize: 13,
+            color: "#2563eb",
+          }}
+        >
+          Тема: {programTheme.theme}
+          {!programTheme.specific ? (
+            <span className="coachMobileMuted" style={{ fontWeight: 400 }}> · седмична</span>
+          ) : null}
+        </p>
+      ) : null}
       {!isComp && item.team_id ? (
         <Button type="button" size="sm" onClick={() => onAttendance(item)}>
           Присъствие
@@ -74,6 +89,7 @@ export default function CoachToday() {
   const [error, setError] = useState("");
   const [absenceNotices, setAbsenceNotices] = useState([]);
   const [programWeek, setProgramWeek] = useState(null);
+  const [programThemes, setProgramThemes] = useState({});
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -111,12 +127,26 @@ export default function CoachToday() {
 
   useEffect(() => {
     let active = true;
-    axiosInstance
-      .get(API_PATHS.NATIONAL_METHOD_PROGRAM_WEEK, { params: { week_offset: 0 } })
-      .then((res) => {
-        if (active && res.data?.has_program) setProgramWeek(res.data);
-      })
-      .catch(() => {});
+    const fetchWeek = (off) =>
+      axiosInstance
+        .get(API_PATHS.NATIONAL_METHOD_PROGRAM_WEEK, { params: { week_offset: off } })
+        .then((res) => res.data)
+        .catch(() => null);
+    Promise.all([fetchWeek(0), fetchWeek(1)]).then(([w0, w1]) => {
+      if (!active) return;
+      if (w0?.has_program) setProgramWeek(w0);
+      const map = {};
+      [w0, w1].forEach((w) => {
+        if (!w || !w.has_program) return;
+        const weekTheme = w.week_theme || w.meso_theme || "";
+        (w.days || []).forEach((d) => {
+          if (!d?.date) return;
+          const specific = d.has_program_day ? d.theme : "";
+          map[d.date] = { theme: specific || weekTheme, specific: Boolean(specific) };
+        });
+      });
+      setProgramThemes(map);
+    });
     return () => {
       active = false;
     };
@@ -200,7 +230,12 @@ export default function CoachToday() {
             <p className="coachMobileMuted">Няма планирани събития за днес.</p>
           ) : (
             todayItems.map((item) => (
-              <EventCard key={`${item.team_id}-${item.date}-${item.start_time}-${item.rule_id || item.competition_id}`} item={item} onAttendance={() => navigate(attendancePath(item))} />
+              <EventCard
+                key={`${item.team_id}-${item.date}-${item.start_time}-${item.rule_id || item.competition_id}`}
+                item={item}
+                programTheme={programThemes[item.date]}
+                onAttendance={() => navigate(attendancePath(item))}
+              />
             ))
           )}
 
@@ -211,6 +246,7 @@ export default function CoachToday() {
                 <EventCard
                   key={`up-${item.team_id}-${item.date}-${item.start_time}`}
                   item={item}
+                  programTheme={programThemes[item.date]}
                   onAttendance={() => navigate(attendancePath(item))}
                 />
               ))}

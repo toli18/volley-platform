@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies.roles import require_role
-from ..models import Drill, Training, TrainingSource, TrainingStatus, User, UserRole
+from ..models import Drill, Team, Training, TrainingSource, TrainingStatus, User, UserRole
 from ..services.bulgarian_training_generator import BLOCK_TO_PLAN_KEY
 from ..services.training_generation import run_generation
 
@@ -50,6 +50,37 @@ class GenerateAndSaveRequest(GenerateRequest):
     trainingTitle: Optional[str] = None
     trainingStatus: Optional[str] = "чернова"
     editedBlocks: Optional[List[Dict[str, Any]]] = None
+    teamId: Optional[int] = None
+    sessionDate: Optional[str] = None  # YYYY-MM-DD
+
+
+@router.get("/for-day")
+def training_for_day(
+    team_id: int = Query(..., description="Отбор"),
+    date: str = Query(..., description="Дата YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)),
+):
+    """Връща последната генерирана тренировка за отбор+ден (или null)."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Отборът не е намерен")
+    is_admin = user.role in (UserRole.platform_admin, UserRole.federation_admin)
+    is_owner = team.coach_id == user.id
+    is_same_club = bool(user.club_id) and team.club_id == user.club_id
+    if not (is_admin or is_owner or is_same_club):
+        raise HTTPException(status_code=403, detail="Нямате достъп до този отбор")
+
+    row = (
+        db.query(Training)
+        .filter(Training.team_id == team_id, Training.session_date == date)
+        .order_by(Training.id.desc())
+        .first()
+    )
+    if not row:
+        return {"training": None}
+    status_val = row.status.value if hasattr(row.status, "value") else row.status
+    return {"training": {"id": row.id, "title": row.title, "status": status_val}}
 
 
 @router.post("/generate")
@@ -109,6 +140,19 @@ def generate_and_save_ai_training(
     status_input = (payload.trainingStatus or "чернова").strip().lower()
     training_status = TrainingStatus.saved if status_input in {"saved", "запазена"} else TrainingStatus.draft
 
+    # Програмна връзка: ако е подаден отбор, проверяваме достъпа и закачаме тренировката към отбор + ден.
+    team_id: Optional[int] = None
+    if payload.teamId is not None:
+        team = db.query(Team).filter(Team.id == payload.teamId).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Отборът не е намерен")
+        is_admin = user.role in (UserRole.platform_admin, UserRole.federation_admin)
+        is_owner = team.coach_id == user.id
+        is_same_club = bool(user.club_id) and team.club_id == user.club_id
+        if not (is_admin or is_owner or is_same_club):
+            raise HTTPException(status_code=403, detail="Нямате достъп до този отбор")
+        team_id = team.id
+
     request_data["sessionReview"] = generated.get("sessionReview")
     request_data["trainingPlanText"] = generated.get("trainingPlanText")
 
@@ -116,6 +160,8 @@ def generate_and_save_ai_training(
         title=title,
         coach_id=user.id,
         club_id=user.club_id,
+        team_id=team_id,
+        session_date=(payload.sessionDate or "").strip() or None,
         source=TrainingSource.generator,
         status=training_status,
         plan=plan,
@@ -141,6 +187,8 @@ def generate_and_save_ai_training(
             "status": training.status.value if hasattr(training.status, "value") else training.status,
             "plan": training.plan,
             "model_version": training.model_version,
+            "team_id": training.team_id,
+            "session_date": training.session_date,
         },
         "session": session,
     }
