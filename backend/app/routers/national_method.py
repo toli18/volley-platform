@@ -622,6 +622,47 @@ def coach_library(
     }
 
 
+@router.get("/annual-cycles")
+def coach_annual_cycles(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Всички публикувани годишни цикли (макро + мезо) по всички възрасти —
+    за избор: възраст → макроцикъл → мезо шаблон."""
+    from app.national_method.annual_program import ensure_annual_program_seeded
+    from app.national_method.content_policy import is_annual_program_cycle
+
+    ensure_annual_program_seeded(db)
+    db.commit()
+
+    rows = (
+        db.query(MethodCycle)
+        .filter(MethodCycle.status == "published")
+        .order_by(MethodCycle.sort_order.asc())
+        .all()
+    )
+    out = []
+    for c in rows:
+        s = c.structure_json or {}
+        if not s.get("annual_program_key") or not is_annual_program_cycle(c):
+            continue
+        out.append(
+            {
+                "id": c.id,
+                "title_bg": c.title_bg,
+                "summary_bg": c.summary_bg,
+                "age_band": c.age_band,
+                "cycle_type": c.cycle_type,
+                "macro_id": s.get("macro_id"),
+                "macro_label": s.get("macro_label"),
+                "meso_number": s.get("meso_number"),
+                "period_label": s.get("period_label"),
+                "months_bg": s.get("months_bg"),
+            }
+        )
+    return out
+
+
 @router.get("/textbook")
 def coach_textbook_index(
     q: Optional[str] = Query(None),

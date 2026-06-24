@@ -24,9 +24,17 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
   const toast = useToast();
   const navigate = useNavigate();
   const [cycles, setCycles] = useState([]);
+  const [annualCycles, setAnnualCycles] = useState([]);
   const [instances, setInstances] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [instanceForm, setInstanceForm] = useState({ team_id: "", cycle_id: "", start_date: today(), start_meso: "" });
+  const [instanceForm, setInstanceForm] = useState({
+    team_id: "",
+    age_band: "",
+    macro_id: "",
+    cycle_id: "",
+    start_date: today(),
+    start_meso: "",
+  });
   const [instancePreview, setInstancePreview] = useState(null);
   const [assignForm, setAssignForm] = useState({
     assignee_ids: [],
@@ -40,12 +48,14 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
 
   const load = useCallback(async () => {
     try {
-      const [lib, inst, asg] = await Promise.all([
+      const [lib, annual, inst, asg] = await Promise.all([
         axiosInstance.get(API_PATHS.NATIONAL_METHOD_LIBRARY),
+        axiosInstance.get(API_PATHS.NATIONAL_METHOD_ANNUAL_CYCLES),
         axiosInstance.get(API_PATHS.CLUB_CYCLE_INSTANCES),
         axiosInstance.get(API_PATHS.CLUB_METHOD_ASSIGNMENTS),
       ]);
       setCycles(lib.data?.cycles || []);
+      setAnnualCycles(Array.isArray(annual.data) ? annual.data : []);
       setInstances(Array.isArray(inst.data) ? inst.data : []);
       setAssignments(Array.isArray(asg.data) ? asg.data : []);
     } catch (e) {
@@ -157,7 +167,31 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
     });
   };
 
-  const selectedCycle = cycles.find((c) => String(c.id) === String(instanceForm.cycle_id));
+  const macroOptions = useMemo(() => {
+    return annualCycles
+      .filter((c) => c.cycle_type === "macro")
+      .sort(
+        (a, b) =>
+          String(a.age_band).localeCompare(String(b.age_band)) || (a.macro_id || 0) - (b.macro_id || 0)
+      );
+  }, [annualCycles]);
+
+  const mesoOptions = useMemo(() => {
+    return annualCycles
+      .filter(
+        (c) =>
+          c.cycle_type === "meso" &&
+          c.age_band === instanceForm.age_band &&
+          (!instanceForm.macro_id || String(c.macro_id) === String(instanceForm.macro_id))
+      )
+      .sort((a, b) => (a.meso_number || 0) - (b.meso_number || 0));
+  }, [annualCycles, instanceForm.age_band, instanceForm.macro_id]);
+
+  const bandMesoCount = useMemo(() => {
+    return annualCycles.filter((c) => c.cycle_type === "meso" && c.age_band === instanceForm.age_band).length;
+  }, [annualCycles, instanceForm.age_band]);
+
+  const selectedCycle = annualCycles.find((c) => String(c.id) === String(instanceForm.cycle_id));
   const assignCycle = cycles.find((c) => String(c.id) === String(assignForm.cycle_id));
   const [assignCycleDetail, setAssignCycleDetail] = useState(null);
 
@@ -211,7 +245,7 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
             value={instanceForm.team_id}
             onChange={(e) => setInstanceForm((f) => ({ ...f, team_id: e.target.value }))}
           >
-            <option value="">Отбор</option>
+            <option value="">1. Отбор</option>
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -220,28 +254,56 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
           </select>
           <select
             className="uiInput"
-            value={instanceForm.cycle_id}
-            onChange={(e) => setInstanceForm((f) => ({ ...f, cycle_id: e.target.value }))}
+            value={instanceForm.macro_id ? `${instanceForm.age_band}|${instanceForm.macro_id}` : ""}
+            onChange={(e) => {
+              const [band, macro] = e.target.value.split("|");
+              setInstanceForm((f) => ({
+                ...f,
+                age_band: band || "",
+                macro_id: macro || "",
+                cycle_id: "",
+                start_meso: "",
+              }));
+            }}
           >
-            <option value="">Мезо шаблон (БФВ)</option>
-            {cycles.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title_bg} ({c.age_band})
+            <option value="">2. Макроцикъл (възраст)</option>
+            {macroOptions.map((c) => (
+              <option key={c.id} value={`${c.age_band}|${c.macro_id}`}>
+                {c.age_band} · {c.macro_label || c.title_bg}
               </option>
             ))}
           </select>
-          <Input
-            type="date"
-            value={instanceForm.start_date}
-            onChange={(e) => setInstanceForm((f) => ({ ...f, start_date: e.target.value }))}
-          />
+          <select
+            className="uiInput"
+            value={instanceForm.cycle_id}
+            onChange={(e) => setInstanceForm((f) => ({ ...f, cycle_id: e.target.value, start_meso: "" }))}
+            disabled={!instanceForm.macro_id}
+          >
+            <option value="">3. Мезо шаблон</option>
+            {mesoOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                Мезо {c.meso_number} — {c.title_bg}
+              </option>
+            ))}
+          </select>
+          <label className="uiMuted" style={{ fontSize: 13 }}>
+            4. Начална дата
+            <Input
+              type="date"
+              value={instanceForm.start_date}
+              onChange={(e) => setInstanceForm((f) => ({ ...f, start_date: e.target.value }))}
+            />
+          </label>
           <select
             className="uiInput"
             value={instanceForm.start_meso}
             onChange={(e) => setInstanceForm((f) => ({ ...f, start_meso: e.target.value }))}
           >
-            <option value="">Стартов мезо: авто (по месеца на старта)</option>
-            {Array.from({ length: instancePreview?.total_mesos || 11 }, (_, i) => i + 1).map((n) => (
+            <option value="">5. Стартов мезо: авто (по месеца на старта)</option>
+            {Array.from(
+              { length: bandMesoCount || instancePreview?.total_mesos || 11 },
+              (_, i) => i + 1
+            ).map((n) => (
               <option key={n} value={n}>
                 Мезо {n}
               </option>
