@@ -476,7 +476,11 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding-bottom: 12px;
 }
 
