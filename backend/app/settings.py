@@ -73,6 +73,19 @@ class Settings(BaseSettings):
         env="PARENT_PORTAL_PUBLIC_URL",
         description="Base URL for links in push notifications (e.g. https://volley-platform.vercel.app)",
     )
+    api_public_url: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "API_PUBLIC_URL",
+            "api_public_url",
+            "RAILWAY_PUBLIC_DOMAIN",
+        ),
+        description=(
+            "Public base URL of THIS backend, used to build absolute links to "
+            "/static files (e.g. club logos shown in push notifications). On "
+            "Railway, RAILWAY_PUBLIC_DOMAIN is picked up automatically."
+        ),
+    )
 
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":

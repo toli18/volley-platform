@@ -117,20 +117,39 @@ def _send_web_push(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
         return "fail", str(exc)
 
 
+def _api_base() -> str:
+    """Публичен адрес на този backend (за абсолютни /static линкове)."""
+    raw = (settings.api_public_url or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    # Railway подава само домейна (без схема).
+    return f"https://{raw}"
+
+
 def club_icon_url_for_athlete(db: Session, athlete_id: int) -> str | None:
     """Абсолютен URL на логото на клуба, от който идва известието.
 
-    Връща None, ако клубът няма качено лого или то е относителен път —
-    тогава service worker-ът показва логото на федерацията (fallback).
+    Поддържа както абсолютни (http/https) лога, така и относителни
+    /static/... пътища, сервирани от backend-а. Връща None само ако клубът
+    няма лого (или не може да се построи абсолютен URL) — тогава service
+    worker-ът показва логото на федерацията (fallback).
     """
     club_id = db.query(Athlete.club_id).filter(Athlete.id == int(athlete_id)).scalar()
     if not club_id:
         return None
     logo = db.query(Club.logo_url).filter(Club.id == int(club_id)).scalar()
     logo = (logo or "").strip()
+    if not logo:
+        return None
     if logo.startswith("http://") or logo.startswith("https://"):
         return logo
-    return None
+    base = _api_base()
+    if not base:
+        return None
+    path = logo if logo.startswith("/") else f"/{logo}"
+    return f"{base}{path}"
 
 
 def notify_athlete(
