@@ -403,19 +403,13 @@
 
   <!-- 5 — DEMO: ATTENDANCE (mobile) -->
   <section class="slide">
-    <div class="demoRow">
-      <div class="shot"><img src="screenshots/attendance.png" alt="Присъствие" data-cap="Присъствие (мобилно)" data-file="screenshots/attendance.png" /></div>
-      <div class="copy">
-        <div class="kicker">Демо · В залата · от телефона</div>
-        <h2>Присъствие за 20 секунди</h2>
-        <ul class="points">
-          <li><span class="k">✅</span><div>Тап по списъка: <b>Тук · Закъсня · Няма · Извинен</b></div></li>
-          <li><span class="k">🏷️</span><div>Зелен бадж „Извинение от родител“ до детето</div></li>
-          <li><span class="k">📝</span><div>Бележка към всеки състезател при нужда</div></li>
-        </ul>
-        <div class="scenario"><b>Сценарий:</b> До „Александър Николов“ свети „Извинение от родител“ — знаеш защо го няма, преди да попиташ. Минаваш списъка с пръст и готово.</div>
-      </div>
+    <div class="kicker">Демо · В залата · от телефона</div>
+    <h2>Присъствие за 20 секунди</h2>
+    <div class="grid two" style="height: 62vh;">
+      <div class="shot"><img src="screenshots/attendance.png" alt="Присъствие" data-cap="Тап: Тук · Закъсня · Няма · Извинен" data-file="screenshots/attendance.png" /></div>
+      <div class="shot"><img src="screenshots/attendance-training.png" alt="Тренировка за деня" data-cap="След присъствието — Продължи с тренировката" data-file="screenshots/attendance-training.png" /></div>
     </div>
+    <div class="scenario"><b>Сценарий:</b> Минавам списъка с пръст — тук, няма, извинен. Веднага отдолу се появява „Тренировка за деня“ с бутон „Продължи с тренировката“ и отварям готовия план за деня.</div>
     <div class="noteData">
       <h4>Демо · Присъствие <span class="time">~1 мин</span></h4>
       <div class="content">
@@ -473,14 +467,19 @@
 
   <!-- 7b — DEMO: MY PROGRAM WEEK (живата БФВ програма) -->
   <section class="slide">
-    <div class="kicker">Демо · Методиката, жива всеки ден</div>
-    <h2>Моята програмна седмица</h2>
-    <ul class="points">
-      <li><span class="k">📍</span><div>Платформата знае <b>коя седмица от годишната програма</b> на БФВ сме — спрямо календара</div></li>
-      <li><span class="k">🎯</span><div><b>Темата за деня</b> излиза автоматично до всяка тренировка в графика</div></li>
-      <li><span class="k">🧭</span><div>Виждаш мезоцикъл, седмица и фокус — без да ровиш в документи</div></li>
-    </ul>
-    <div class="scenario"><b>Сценарий:</b> Избирам U16 → платформата показва „Мезоцикъл 3, седмица 2, тема: блок и защита“. Темата стои до днешната тренировка. Методиката не е PDF в чекмеджето — тя е в джоба ми.</div>
+    <div class="demoRow">
+      <div class="shot"><img src="screenshots/program-today.png" alt="Програмна седмица" data-cap="Начало — програмна седмица + тема за деня" data-file="screenshots/program-today.png" /></div>
+      <div class="copy">
+        <div class="kicker">Демо · Методиката, жива всеки ден</div>
+        <h2>Моята програмна седмица</h2>
+        <ul class="points">
+          <li><span class="k">📍</span><div>Платформата знае <b>коя седмица от годишната програма</b> на БФВ сме — спрямо календара</div></li>
+          <li><span class="k">🎯</span><div><b>Темата за деня</b> излиза автоматично до всяка тренировка в графика</div></li>
+          <li><span class="k">🧭</span><div>Виждаш мезоцикъл, седмица и фокус — без да ровиш в документи</div></li>
+        </ul>
+        <div class="scenario"><b>Сценарий:</b> Влизам сутрин — горе свети „Мезо 1/11 · Седмица 1 от 4“ и темата за деня стои до всяка тренировка. Методиката не е PDF в чекмеджето — тя е в джоба ми.</div>
+      </div>
+    </div>
     <div class="noteData">
       <h4>Демо · Моята програмна седмица <span class="time">~1 мин</span></h4>
       <div class="content">
@@ -500,7 +499,7 @@
     <h2>От програмата към готова тренировка</h2>
     <div class="grid two" style="height: 68vh;">
       <div class="shot"><img src="screenshots/ai-generator.png" alt="AI генератор" data-cap="AI генератор на тренировки" data-file="screenshots/ai-generator.png" /></div>
-      <div class="shot"><img src="screenshots/training.png" alt="Готова тренировка" data-cap="Готова тренировка с упражнения" data-file="screenshots/training.png" /></div>
+      <div class="shot"><img src="screenshots/training.png" alt="Готова тренировка" data-cap="Готова тренировка — timeline по фази от конспекта" data-file="screenshots/training.png" /></div>
     </div>
     <div class="scenario"><b>Сценарий:</b> 5 минути преди тренировка натискаш „Генерирай“ — получаваш план по фази (загрявка, техника, игрова част) с упражнения, който нагласяш за минути.</div>
     <div class="noteData">
@@ -561,6 +560,33 @@
           <li>Това заменя хаотичните Вайбър групи; историята на чата е на едно място.</li>
           <li>Чатът има емоджи и <b>волейболни GIF-ове</b> (България, Атака, Блок, Победа…) — забавно за младите състезатели.</li>
           <li>Известия на телефона при ново съобщение.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10b — DEMO: ATHLETE DEVELOPMENT (статистика на състезателя) -->
+  <section class="slide">
+    <div class="demoRow">
+      <div class="shot"><img src="screenshots/athlete-development.png" alt="Моето развитие" data-cap="Моето развитие — тестове, лични рекорди, сравнение" data-file="screenshots/athlete-development.png" /></div>
+      <div class="copy">
+        <div class="kicker">Демо · Развитие на състезателя</div>
+        <h2>Виждаш как расте всяко дете</h2>
+        <ul class="points">
+          <li><span class="k">📈</span><div>Резултати от диагностика по тестове — <b>отскок, подаване, медицинска топка</b></div></li>
+          <li><span class="k">🏅</span><div>Лични рекорди и подобрени тестове за всеки състезател</div></li>
+          <li><span class="k">📊</span><div>Ориентир „спрямо връстниците“ и „спрямо големите“ — къде е детето</div></li>
+        </ul>
+        <div class="scenario"><b>Сценарий:</b> Отварям картона на състезателя — виждам числата от последните измервания и дали се подобрява. Това е обективна основа за разговор с детето и родителя.</div>
+      </div>
+    </div>
+    <div class="noteData">
+      <h4>Демо · Развитие на състезателя <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Послание: „Не на усещане — на числа.“ Виждаме развитието на всяко дете във времето.</li>
+          <li>Тестовете са по методиката; стойностите „спрямо връстниците/големите“ са <b>ориентир</b>, не оценка.</li>
+          <li>Връзка към Федерацията: оттук излиза реална статистика за развитието на талантите.</li>
         </ul>
       </div>
     </div>
@@ -702,6 +728,24 @@
     </div>
   </section>
 
+  <!-- FEDERATION PROOF — REPORTS & STATS -->
+  <section class="slide">
+    <div class="kicker">Демо · Справки и статистика</div>
+    <h2>Числата, събрани автоматично</h2>
+    <div class="shot" style="height: 64vh; margin-top: 12px;"><img src="screenshots/club-stats.png" alt="Клубна статистика" data-cap="Справка по състезатели · филтри по пол/възраст/отбор · Експорт CSV / Печат PDF" data-file="screenshots/club-stats.png" /></div>
+    <div class="scenario"><b>Сценарий:</b> Един екран с резултатите на всички състезатели — филтрирам по възраст и отбор, цветовете показват къде стоят спрямо нормите и с един бутон експортирам в CSV или PDF за отчет.</div>
+    <div class="noteData">
+      <h4>Демо · Справки и статистика <span class="time">~1 мин</span></h4>
+      <div class="content">
+        <ul>
+          <li>Това е „доказателството“ след обещанието за отчети: реална таблица с числа, не PowerPoint.</li>
+          <li>Покажи филтрите (пол, възраст, отбор) и <b>Експорт CSV / Печат PDF</b> — готово за отчет към Федерацията.</li>
+          <li>Цветовете са ориентир спрямо нормите — бърз поглед кои деца изпъкват и кои имат нужда от внимание.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
   <!-- 12 — HOW TO START -->
   <section class="slide">
     <div class="kicker">6 · Как започваме</div>
@@ -727,7 +771,7 @@
   <!-- BETA CTA -->
   <section class="slide">
     <div class="kicker">Призив за действие</div>
-    <h2>Търсим 10 клуба за Бета</h2>
+    <h2>Търсим първите 10 клуба от всеки регион</h2>
     <div class="grid three" style="margin-top: 20px;">
       <div class="card"><span class="ico">🎁</span><h3>Безплатно този сезон</h3><p>Пълен достъп без такса за избраните бета-клубове през сезона.</p></div>
       <div class="card"><span class="ico">📞</span><h3>Директна поддръжка</h3><p>Лична линия за въпроси и бързи поправки — говориш директно с екипа.</p></div>
@@ -738,7 +782,7 @@
       <h4>Призив за действие · Бета <span class="time">~1 мин</span></h4>
       <div class="content">
         <ul>
-          <li>Конкретно предложение: „Стартираме <b>Бета програма</b> и търсим [10] клуба за този сезон — безплатно.“</li>
+          <li>Конкретно предложение: „Стартираме <b>Бета програма</b> и търсим първите 10 клуба от всеки регион за този сезон — безплатно.“</li>
           <li>В замяна искаш само едно: <b>честна обратна връзка</b>.</li>
           <li>Ясен следващ ход: „Който иска — остава 2 минути след семинара или сканира кода сега.“</li>
           <li>Към ръководството: „Каня Федерацията за <b>официален партньор</b> — внедряваме заедно, под вашата методика и име.“</li>
