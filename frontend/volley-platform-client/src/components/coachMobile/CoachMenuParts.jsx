@@ -5,7 +5,7 @@ import { NavIcon } from "../../navigation/navIcons";
 export function MenuGroup({ title, children }) {
   return (
     <section className="coachMobileMenuGroup">
-      <h2 className="coachMobileSectionTitle">{title}</h2>
+      {title ? <h2 className="coachMobileSectionTitle">{title}</h2> : null}
       <ul className="coachMobileMenuList">{children}</ul>
     </section>
   );
