@@ -149,6 +149,92 @@ export function NavIconSettings(props) {
   );
 }
 
+export function NavIconEuro(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M18 7.5A6.5 6.5 0 1 0 18 16.5" />
+      <path {...stroke} d="M4 11h9M4 14h7" />
+    </Svg>
+  );
+}
+
+export function NavIconClipboardCheck(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect {...stroke} x="9" y="3" width="6" height="4" rx="1" />
+      <path {...stroke} d="m9 13.5 2 2 4-4" />
+    </Svg>
+  );
+}
+
+export function NavIconChart(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M4 20h16" />
+      <path {...stroke} d="M8 20v-6M12 20V8M16 20v-9" />
+    </Svg>
+  );
+}
+
+export function NavIconTable(props) {
+  return (
+    <Svg {...props}>
+      <rect {...stroke} x="4" y="5" width="16" height="14" rx="1.5" />
+      <path {...stroke} d="M4 10h16M4 14.5h16M9.5 5v14M14.5 5v14" />
+    </Svg>
+  );
+}
+
+export function NavIconStopwatch(props) {
+  return (
+    <Svg {...props}>
+      <circle {...stroke} cx="12" cy="14" r="7" />
+      <path {...stroke} d="M12 14V10M10 2h4M18.6 6.4 20 5" />
+    </Svg>
+  );
+}
+
+export function NavIconTarget(props) {
+  return (
+    <Svg {...props}>
+      <circle {...stroke} cx="12" cy="12" r="8" />
+      <circle {...stroke} cx="12" cy="12" r="4" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+export function NavIconLayers(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
+      <path {...stroke} d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5" />
+    </Svg>
+  );
+}
+
+export function NavIconForum(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M3 5.5A1.5 1.5 0 0 1 4.5 4h9A1.5 1.5 0 0 1 15 5.5v5A1.5 1.5 0 0 1 13.5 12H7l-4 3V5.5Z" />
+      <path {...stroke} d="M9 15v.5A1.5 1.5 0 0 0 10.5 17H17l4 3v-9.5A1.5 1.5 0 0 0 19.5 9H18" />
+    </Svg>
+  );
+}
+
+export function NavIconBoard(props) {
+  return (
+    <Svg {...props}>
+      <rect {...stroke} x="3" y="4" width="18" height="13" rx="1.5" />
+      <path {...stroke} d="M12 17v3M8 20h8" />
+      <circle {...stroke} cx="8" cy="9" r="1.3" />
+      <circle {...stroke} cx="15" cy="12" r="1.3" />
+      <path {...stroke} d="m9.2 9.6 4.6 1.8" />
+    </Svg>
+  );
+}
+
 const ICON_MAP = {
   home: NavIconHome,
   teams: NavIconTeams,
@@ -165,6 +251,15 @@ const ICON_MAP = {
   tasks: NavIconTasks,
   bell: NavIconBell,
   settings: NavIconSettings,
+  euro: NavIconEuro,
+  clipboardCheck: NavIconClipboardCheck,
+  chart: NavIconChart,
+  table: NavIconTable,
+  stopwatch: NavIconStopwatch,
+  target: NavIconTarget,
+  layers: NavIconLayers,
+  forum: NavIconForum,
+  board: NavIconBoard,
 };
 
 export function NavIcon({ name, className, size }) {

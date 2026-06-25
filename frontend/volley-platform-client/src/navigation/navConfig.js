@@ -26,12 +26,12 @@ export const COACH_PRIMARY_NAV = [
     children: [
       { id: "teams", label: "Отбори", to: "/teams", icon: "teams" },
       { id: "schedule", label: "Месечен график", to: "/teams/schedule", icon: "calendar" },
-      { id: "fees", label: "Месечни такси", to: "/monthly-fees", icon: "fees" },
-      { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "calendar" },
-      { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "check" },
-      { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "check" },
-      { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "teams" },
-      { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "book" },
+      { id: "fees", label: "Месечни такси", to: "/monthly-fees", icon: "euro" },
+      { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
+      { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck" },
+      { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart" },
+      { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table" },
+      { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch" },
       {
         id: "club-head",
         label: "Клубен преглед",
@@ -48,7 +48,7 @@ export const COACH_PRIMARY_NAV = [
     icon: "book",
     children: [
       { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book" },
-      { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "calendar" },
+      { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "layers" },
       { id: "club-method", label: "Методика БФВ (клуб)", to: "/club-head?tab=method", icon: "shield", headCoachOnly: true },
       { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true },
       { id: "articles", label: "Статии", to: "/articles", icon: "article" },
@@ -59,7 +59,7 @@ export const COACH_PRIMARY_NAV = [
   },
   { type: "link", id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
   { type: "link", id: "chat", label: "Чат", to: "/chat", icon: "chat" },
-  { type: "link", id: "forum", label: "Форум", to: "/forum", icon: "chat", badge: "forumUnread" },
+  { type: "link", id: "forum", label: "Форум", to: "/forum", icon: "forum", badge: "forumUnread" },
 ];
 
 /** @type {NavLinkItem[]} */
@@ -80,7 +80,7 @@ export const ADMIN_NAV_SECTIONS = [
     items: [
       { id: "admin-federation", label: "Федеративно табло", to: "/admin/federation", icon: "shield" },
       { id: "admin-national-norms", label: "Национални норми", to: "/admin/national-norms", icon: "check" },
-      { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "calendar" },
+      { id: "admin-battery", label: "Тестова батерия", to: "/admin/assessment-battery", icon: "stopwatch" },
     ],
   },
   {
@@ -126,28 +126,28 @@ export const COACH_MOBILE_TABS = [
 export const COACH_CLUB_HUB_LINKS = [
   { id: "teams", label: "Отбори", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
   { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar", hint: "Календар на тренировки" },
-  { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "fees" },
-  { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "calendar", hint: "Текуща позиция, теми и тренировки" },
-  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "check", hint: "По отбори" },
-  { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "check", hint: "Сесии и развитие" },
-  { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "teams", hint: "Деца × тестове · сравнения" },
-  { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "book", hint: "Каталог с протоколи" },
+  { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
+  { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target", hint: "Текуща позиция, теми и тренировки" },
+  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По отбори" },
+  { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart", hint: "Сесии и развитие" },
+  { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table", hint: "Деца × тестове · сравнения" },
+  { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch", hint: "Каталог с протоколи" },
   { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
 ];
 
 /** @type {NavLinkItem[]} */
 export const COACH_BVF_HUB_LINKS = [
   { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book", hint: "Методика и конспекти" },
-  { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "calendar", hint: "Мезоцикли и планиране" },
+  { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "layers", hint: "Мезоцикли и планиране" },
   { id: "club-method", label: "Методика БФВ (клуб)", to: "/club-head?tab=method", icon: "shield", headCoachOnly: true, hint: "Цикли и задачи към треньорите" },
   { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
 ];
 
 /** @type {NavLinkItem[]} */
 export const COACH_MORE_QUICK_LINKS = [
-  { id: "forum", label: "Форум", to: "/forum", icon: "chat" },
+  { id: "forum", label: "Форум", to: "/forum", icon: "forum" },
   { id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
-  { id: "coach-board", label: "Дъска", to: "/coach-board", icon: "training" },
+  { id: "coach-board", label: "Дъска", to: "/coach-board", icon: "board" },
 ];
 
 /** @type {{ title: string, links: NavLinkItem[] }[]} */
@@ -157,14 +157,14 @@ export const COACH_MORE_MENU_SECTIONS = [
     links: [
       { id: "articles", label: "Статии", to: "/articles", icon: "article" },
       { id: "my-articles", label: "Моите статии", to: "/articles/my", icon: "article" },
-      { id: "forum", label: "Форум", to: "/forum", icon: "chat" },
+      { id: "forum", label: "Форум", to: "/forum", icon: "forum" },
       { id: "drills", label: "Упражнения", to: "/drills", icon: "drill" },
       { id: "my-drills", label: "Моите упражнения", to: "/my-drills", icon: "drill" },
     ],
   },
   {
     title: "Инструменти",
-    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board", icon: "training", accent: true }],
+    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board", icon: "board", accent: true }],
   },
   {
     title: "Друго",
