@@ -12,7 +12,7 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Volley Coach Platform";
   const options = {
     body: data.body || "",
-    icon: "/bfvb-logo.png",
+    icon: data.icon || "/bfvb-logo.png",
     badge: "/bfvb-logo.png",
     data: { url: data.url || "/room/portal" },
   };

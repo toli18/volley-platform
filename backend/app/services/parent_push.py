@@ -7,7 +7,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import ParentPushSubscription
+from app.models import Athlete, Club, ParentPushSubscription
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,22 @@ def _send_web_push(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
         return "fail", str(exc)
 
 
+def club_icon_url_for_athlete(db: Session, athlete_id: int) -> str | None:
+    """Абсолютен URL на логото на клуба, от който идва известието.
+
+    Връща None, ако клубът няма качено лого или то е относителен път —
+    тогава service worker-ът показва логото на федерацията (fallback).
+    """
+    club_id = db.query(Athlete.club_id).filter(Athlete.id == int(athlete_id)).scalar()
+    if not club_id:
+        return None
+    logo = db.query(Club.logo_url).filter(Club.id == int(club_id)).scalar()
+    logo = (logo or "").strip()
+    if logo.startswith("http://") or logo.startswith("https://"):
+        return logo
+    return None
+
+
 def notify_athlete(
     db: Session,
     athlete_id: int,
@@ -137,10 +153,13 @@ def notify_athlete(
     sent = 0
     stale: list[ParentPushSubscription] = []
     errors: list[str] = []
+    icon_url = club_icon_url_for_athlete(db, athlete_id)
     for sub in subs:
         portal = (sub.portal or PORTAL_PARENT).strip() or PORTAL_PARENT
         target_url = url or portal_url_for_portal(portal)
         payload = {"title": title, "body": body, "url": target_url}
+        if icon_url:
+            payload["icon"] = icon_url
         result, detail = _send_web_push(sub, payload)
         if result == "ok":
             sent += 1
@@ -172,11 +191,14 @@ def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PA
         return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this portal"]}
     subs_info = [_push_sub_info(s) for s in subs]
     target_url = portal_url_for_portal(portal)
+    icon_url = club_icon_url_for_athlete(db, athlete_id)
     payload = {
         "title": "Тестово известие",
         "body": "Ако виждате това, известията работят.",
         "url": target_url,
     }
+    if icon_url:
+        payload["icon"] = icon_url
     sent = 0
     stale_ids: list[int] = []
     errors: list[str] = []
