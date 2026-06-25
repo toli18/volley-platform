@@ -403,13 +403,19 @@
 
   <!-- 5 — DEMO: ATTENDANCE (mobile) -->
   <section class="slide">
-    <div class="kicker">Демо · В залата · от телефона</div>
-    <h2>Присъствие за 20 секунди</h2>
-    <div class="grid two" style="height: 62vh;">
+    <div class="demoRow">
       <div class="shot"><img src="screenshots/attendance.png" alt="Присъствие" data-cap="Тап: Тук · Закъсня · Няма · Извинен" data-file="screenshots/attendance.png" /></div>
-      <div class="shot"><img src="screenshots/attendance-training.png" alt="Тренировка за деня" data-cap="След присъствието — Продължи с тренировката" data-file="screenshots/attendance-training.png" /></div>
+      <div class="copy">
+        <div class="kicker">Демо · В залата · от телефона</div>
+        <h2>Присъствие за 20 секунди</h2>
+        <ul class="points">
+          <li><span class="k">✅</span><div>Тап по списъка: <b>Тук · Закъсня · Няма · Извинен</b></div></li>
+          <li><span class="k">🏷️</span><div>Зелен бадж „Извинение от родител“ до детето</div></li>
+          <li><span class="k">📝</span><div>Бележка към всеки състезател при нужда</div></li>
+        </ul>
+        <div class="scenario"><b>Сценарий:</b> Минавам списъка с пръст — тук, няма, извинен. До „Александър“ свети „Извинение от родител“ — знам защо го няма, без да питам.</div>
+      </div>
     </div>
-    <div class="scenario"><b>Сценарий:</b> Минавам списъка с пръст — тук, няма, извинен. Веднага отдолу се появява „Тренировка за деня“ с бутон „Продължи с тренировката“ и отварям готовия план за деня.</div>
     <div class="noteData">
       <h4>Демо · Присъствие <span class="time">~1 мин</span></h4>
       <div class="content">
@@ -493,22 +499,25 @@
     </div>
   </section>
 
-  <!-- 8 — DEMO: AI GENERATOR + TRAINING -->
+  <!-- 8 — DEMO: PRE-GENERATED TRAINING AFTER ATTENDANCE -->
   <section class="slide">
-    <div class="kicker">Демо · Подготовка за минути</div>
-    <h2>От програмата към готова тренировка</h2>
-    <div class="grid two" style="height: 68vh;">
-      <div class="shot"><img src="screenshots/ai-generator.png" alt="AI генератор" data-cap="AI генератор на тренировки" data-file="screenshots/ai-generator.png" /></div>
-      <div class="shot"><img src="screenshots/training.png" alt="Готова тренировка" data-cap="Готова тренировка — timeline по фази от конспекта" data-file="screenshots/training.png" /></div>
+    <div class="kicker">Демо · От програмата към готова тренировка</div>
+    <h2>След присъствието — тренировката вече те чака</h2>
+    <div class="demoFour">
+      <div class="shot"><img src="screenshots/attendance.png" alt="Присъствие" data-cap="1 · Отмятам присъствието" data-file="screenshots/attendance.png" /></div>
+      <div class="shot"><img src="screenshots/attendance-training.png" alt="Тренировка за деня" data-cap="2 · „Продължи с тренировката“" data-file="screenshots/attendance-training.png" /></div>
+      <div class="shot"><img src="screenshots/training.png" alt="Timeline на тренировката" data-cap="3 · Timeline по фази от конспекта" data-file="screenshots/training.png" /></div>
+      <div class="shot"><img src="screenshots/training-plan.png" alt="Текстов план" data-cap="4 · Пълен текстов план (методика БФВ)" data-file="screenshots/training-plan.png" /></div>
     </div>
-    <div class="scenario"><b>Сценарий:</b> 5 минути преди тренировка натискаш „Генерирай“ — получаваш план по фази (загрявка, техника, игрова част) с упражнения, който нагласяш за минути.</div>
+    <div class="scenario"><b>Сценарий:</b> Тренировката за деня е <b>генерирана още в началото на седмицата</b> от програмата (слайд 9). Затова, щом отметна присъствието, отдолу веднага изскача „Продължи с тренировката“ — отварям я и водя готовия план по фази. Не съставям нищо на момента.</div>
     <div class="noteData">
-      <h4>Демо · AI генератор <span class="time">~1 мин</span></h4>
+      <h4>Демо · Готовата тренировка <span class="time">~1.5 мин</span></h4>
       <div class="content">
         <ul>
-          <li>AI помощникът е <b>стартова точка</b>, не заместител на треньора — маха „празния лист“.</li>
-          <li>Покажи, че планът идва с контекст от годишната програма и конспект от учебника.</li>
-          <li>Готовата тренировка е структурирана по фази и може да се редактира и запази.</li>
+          <li>Свържи със слайд 9: „Помните програмната седмица? Тренировката за деня вече е генерирана от програмата в началото на седмицата.“</li>
+          <li>Логиката: <b>отмятам присъствие → „Продължи с тренировката“ → готовият план</b> се отваря сам.</li>
+          <li>Планът идва по фази (timeline от конспекта) и с пълен текстов план по методиката на БФВ — редактируем, ако искам.</li>
+          <li>Послание: треньорът не започва от „празен лист“ — само води тренировката.</li>
         </ul>
       </div>
     </div>
@@ -731,16 +740,19 @@
   <!-- FEDERATION PROOF — REPORTS & STATS -->
   <section class="slide">
     <div class="kicker">Демо · Справки и статистика</div>
-    <h2>Числата, събрани автоматично</h2>
-    <div class="shot" style="height: 64vh; margin-top: 12px;"><img src="screenshots/club-stats.png" alt="Клубна статистика" data-cap="Справка по състезатели · филтри по пол/възраст/отбор · Експорт CSV / Печат PDF" data-file="screenshots/club-stats.png" /></div>
-    <div class="scenario"><b>Сценарий:</b> Един екран с резултатите на всички състезатели — филтрирам по възраст и отбор, цветовете показват къде стоят спрямо нормите и с един бутон експортирам в CSV или PDF за отчет.</div>
+    <h2>От въвеждането до готовия отчет</h2>
+    <div class="grid two" style="height: 62vh;">
+      <div class="shot"><img src="screenshots/club-assessment.png" alt="Въвеждане на измервания" data-cap="Въвеждам: тестове по състезател (отборна карта best-8)" data-file="screenshots/club-assessment.png" /></div>
+      <div class="shot"><img src="screenshots/club-stats.png" alt="Клубна статистика" data-cap="Излиза: справка с филтри · Експорт CSV / Печат PDF" data-file="screenshots/club-stats.png" /></div>
+    </div>
+    <div class="scenario"><b>Сценарий:</b> Веднъж въвеждам измерванията на тестовата сесия (ляво). Платформата сама ги превръща в справка по състезатели с филтри по пол, възраст и отбор (дясно) — цветовете показват къде стоят спрямо нормите, а с един бутон експортирам в CSV или PDF за отчет.</div>
     <div class="noteData">
       <h4>Демо · Справки и статистика <span class="time">~1 мин</span></h4>
       <div class="content">
         <ul>
-          <li>Това е „доказателството“ след обещанието за отчети: реална таблица с числа, не PowerPoint.</li>
-          <li>Покажи филтрите (пол, възраст, отбор) и <b>Експорт CSV / Печат PDF</b> — готово за отчет към Федерацията.</li>
-          <li>Цветовете са ориентир спрямо нормите — бърз поглед кои деца изпъкват и кои имат нужда от внимание.</li>
+          <li>Покажи веригата: <b>въвеждам веднъж (ляво) → готов отчет (дясно)</b>. Числата не се събират на ръка.</li>
+          <li>Това е „доказателството“ след обещанието за отчети: реални таблици с числа, не PowerPoint.</li>
+          <li>Покажи филтрите и <b>Експорт CSV / Печат PDF</b> — готово за отчет към Федерацията; цветовете са ориентир спрямо нормите.</li>
         </ul>
       </div>
     </div>
