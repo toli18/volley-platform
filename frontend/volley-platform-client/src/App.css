@@ -473,8 +473,8 @@
 }
 
 .navMobileLinks {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   flex: 1 1 auto;
   min-height: 0;
@@ -482,6 +482,11 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding-bottom: 12px;
+}
+
+/* децата не се свиват → всеки раздел е с пълна височина, а скролва целият списък */
+.navMobileLinks > * {
+  flex: 0 0 auto;
 }
 
 .appNavLink--sheet {
@@ -506,17 +511,6 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(226, 236, 255, 0.65);
-}
-
-@media (min-width: 520px) and (max-width: 960px) {
-  .navMobileLinks {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-
-  .navMobileSectionLabel {
-    grid-column: 1 / -1;
-  }
 }
 
 .appContent {
