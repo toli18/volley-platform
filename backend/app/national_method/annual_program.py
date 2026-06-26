@@ -405,9 +405,10 @@ def _textbook_plan_index() -> dict[str, dict[str, list[str]]]:
             key = "podg_trans"
         else:
             key = "podg"
+        stype = (sec.get("session_type") or "technique").strip().lower()
         bucket = out.setdefault(band, {}).setdefault(key, [])
-        if slug not in bucket:
-            bucket.append({"slug": slug, "code": code})
+        if not any(e["slug"] == slug for e in bucket):
+            bucket.append({"slug": slug, "code": code, "type": stype})
     for band in out:
         for key in out[band]:
             out[band][key].sort(key=lambda x: x["code"])
@@ -465,25 +466,21 @@ _PREP_MESO_START: dict[int, float] = {
 }
 
 
-def plan_slug_for_session(
+def _raw_session_entry(
     age_band: str,
     period: str,
     meso_number: int,
     week: int,
     day: int,
     sessions_per_week: int,
-) -> tuple[str | None, str | None]:
-    """Връща (textbook_slug, session_code) за конкретна тренировка (мезо/седмица/ден).
+) -> dict[str, Any] | None:
+    """Базово разпределение (преди типовото пренареждане) — връща entry от пула.
 
     Логика по пул:
-      • MINI и СЪСТ (състезателен): последователно обхождане на пула —
-        тренировка по тренировка, всеки мезо със своя начална точка (без
-        припокриване със съседите).
-      • Подготвителен период (U13–U18): плъзгащ прозорец в прогресионния пул,
-        чието начало се мести с нивото на мезоцикъла → реална прогресия от
-        основи (мезо 1) към напреднало (мезо 8) и по-малко повторение.
-      • Преходен период (U13–U18): отделен преходен/възстановителен пул
-        (нисък товар, оценка), различен от подготвителния.
+      • MINI и СЪСТ (състезателен): последователно обхождане на пула.
+      • Подготвителен период (U13–U18): плъзгащ прозорец в прогресионния пул
+        според нивото на мезоцикъла (основи → напреднало).
+      • Преходен период (U13–U18): преходен/възстановителен пул + леки основи.
     Подготвителни и състезателни конспекти НИКОГА не се смесват.
     """
     idx = _textbook_plan_index()
@@ -496,38 +493,113 @@ def plan_slug_for_session(
     ordinal_in_meso = (max(1, int(week)) - 1) * n + (max(1, int(day)) - 1)
     pool_key = _meso_pool_key(band, period, meso_number)
 
-    # MINI и състезателен период — последователно обхождане (оптимално).
     if band == "mini" or pool_key == "sast":
         pool = plans.get(pool_key) or []
         if not pool:
-            return None, None
+            return None
         offset = _phase_training_offset(band, period, meso_number, n)
-        entry = pool[(offset + ordinal_in_meso) % len(pool)]
-        return entry["slug"], entry.get("code")
+        return pool[(offset + ordinal_in_meso) % len(pool)]
 
-    # Преходен мезоцикъл (U13–U18) — преходен/възстановителен пул, допълнен с
-    # няколко леки основи (поддържаща техника при нисък товар), за да има
-    # достатъчно разнообразие. Лек офсет различава двата преходни мезоцикъла.
     if period == "transition":
         basics = plans.get("podg") or []
         tpool = list(plans.get("podg_trans") or []) + basics[:3]
         if not tpool:
             tpool = basics
         if not tpool:
-            return None, None
+            return None
         toff = 0 if meso_number <= 6 else 2
-        entry = tpool[(toff + ordinal_in_meso) % len(tpool)]
-        return entry["slug"], entry.get("code")
+        return tpool[(toff + ordinal_in_meso) % len(tpool)]
 
-    # Подготвителен мезоцикъл (U13–U18) — плъзгащ прозорец по нивото на мезото.
     ppool = plans.get("podg") or []
     if not ppool:
-        return None, None
+        return None
     window = min(_PREP_WINDOW, len(ppool))
     span = max(0, len(ppool) - window)
     start = int(round(_PREP_MESO_START.get(meso_number, 0.0) * span))
-    entry = ppool[start + (ordinal_in_meso % window)]
-    return entry["slug"], entry.get("code")
+    return ppool[start + (ordinal_in_meso % window)]
+
+
+# Тип конспект, очакван от ролята на тренировъчния ден (виж cycle_days.DAY_ROLES_*).
+# 4 трен./седм.: ден 1–2 техника, ден 3 комплекс, ден 4 игра. 3 трен.: т/к/и.
+def _day_role_type(day: int, sessions_per_week: int) -> str:
+    n = max(1, int(sessions_per_week or 1))
+    if n >= 4:
+        return {1: "technique", 2: "technique", 3: "complex"}.get(int(day), "game")
+    return {1: "technique", 2: "complex"}.get(int(day), "game")
+
+
+# Кои типове конспекти са приемливи за дадена роля (от точно към съвместимо).
+_ROLE_COMPAT: dict[str, tuple[str, ...]] = {
+    "technique": ("technique", "complex"),
+    "complex": ("complex", "technique", "game"),
+    "game": ("game", "complex", "technique"),
+}
+# Ред на запълване — първо най-оскъдните типове дни (игра), за да получат
+# подходящ конспект, преди техническите дни да „изядат" малкото игрови.
+_ROLE_FILL_PRIORITY = {"game": 0, "complex": 1, "technique": 2}
+
+
+@lru_cache(maxsize=256)
+def _meso_day_plan(
+    age_band: str,
+    period: str,
+    meso_number: int,
+    sessions_per_week: int,
+) -> dict[tuple[int, int], tuple[str | None, str | None]]:
+    """Пренарежда конспектите на мезоцикъла така, че типът да пасне на ролята на деня.
+
+    Запазва СЪЩИЯ набор конспекти за мезоцикъла (значи прогресията, покритието
+    и разнообразието от базовото разпределение остават непокътнати) — само
+    разменя по кои дни се падат, за да съвпаднат с ролята (техника/комплекс/игра).
+    """
+    n = max(1, int(sessions_per_week or 1))
+    slots: list[tuple[int, int, str]] = []
+    items: list[dict[str, Any]] = []
+    for week in range(1, 5):
+        for day in range(1, n + 1):
+            slots.append((week, day, _day_role_type(day, n)))
+            items.append(_raw_session_entry(age_band, period, meso_number, week, day, n) or {})
+
+    available = list(items)
+
+    def take(role_type: str) -> dict[str, Any]:
+        for accepted in _ROLE_COMPAT.get(role_type, (role_type,)):
+            for i, it in enumerate(available):
+                if it.get("type") == accepted:
+                    return available.pop(i)
+        return available.pop(0)  # резервен вариант (напр. възстановителни конспекти)
+
+    result: dict[tuple[int, int], tuple[str | None, str | None]] = {}
+    for week, day, role_type in sorted(
+        slots, key=lambda s: _ROLE_FILL_PRIORITY.get(s[2], 3)
+    ):
+        entry = take(role_type)
+        result[(week, day)] = (entry.get("slug"), entry.get("code"))
+    return result
+
+
+def plan_slug_for_session(
+    age_band: str,
+    period: str,
+    meso_number: int,
+    week: int,
+    day: int,
+    sessions_per_week: int,
+) -> tuple[str | None, str | None]:
+    """Връща (textbook_slug, session_code) за конкретна тренировка (мезо/седмица/ден).
+
+    За U13–U18 конспектите се пренареждат така, че типът (техника/комплекс/игра)
+    да съответства на ролята на тренировъчния ден, без да се променя наборът
+    конспекти за мезоцикъла. MINI запазва оригиналното последователно обхождане.
+    """
+    band = _normalize_plan_band(age_band)
+    if band == "mini":
+        entry = _raw_session_entry(age_band, period, meso_number, week, day, sessions_per_week)
+        if not entry:
+            return None, None
+        return entry.get("slug"), entry.get("code")
+    plan = _meso_day_plan(age_band, period, meso_number, max(1, int(sessions_per_week or 1)))
+    return plan.get((int(week), int(day)), (None, None))
 
 
 def plan_slug_for_meso_week(
