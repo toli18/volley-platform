@@ -2,6 +2,16 @@
 const PARENT_REFRESH = "PARENT_PORTAL_REFRESH";
 const ROOM_REFRESH = "TEAM_ROOM_REFRESH";
 
+// Активирай новата версия веднага, без да чакаме всички табове да се затворят,
+// за да стигат бързо промените (напр. логото в известията) до устройствата.
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
