@@ -359,9 +359,33 @@ WEEK_PROGRESS = (
 )
 
 
+# Ключови думи в заглавието, които маркират конспект като преходен/възстановителен
+# (използват се за отделен преходен пул, различен от прогресионния подготвителен).
+_TRANSITION_TITLE_KEYWORDS = (
+    "преходна",
+    "възстанов",
+    "регенерац",
+    "профилактика",
+    "активна почивка",
+)
+
+
+def _is_transition_prep_title(title: str | None) -> bool:
+    t = (title or "").lower()
+    return any(k in t for k in _TRANSITION_TITLE_KEYWORDS)
+
+
 @lru_cache(maxsize=1)
 def _textbook_plan_index() -> dict[str, dict[str, list[str]]]:
-    """Индекс slug-ове на конспекти по възраст и фаза (ПОДГ/СЪСТ)."""
+    """Индекс slug-ове на конспекти по възраст и пул.
+
+    Пулове:
+      • ``podg``       — прогресионни подготвителни конспекти (основи → напреднало);
+      • ``podg_trans`` — преходни/възстановителни конспекти (нисък товар, оценка);
+      • ``sast``       — състезателни конспекти.
+    Разделянето позволява степенувана прогресия в подготвителния период и
+    отделно поведение за преходните мезоцикли.
+    """
     if not TEXTBOOK_JSON.is_file():
         return {}
     data = json.loads(TEXTBOOK_JSON.read_text(encoding="utf-8"))
@@ -375,7 +399,12 @@ def _textbook_plan_index() -> dict[str, dict[str, list[str]]]:
         code = sec.get("session_code") or ""
         if not band or not slug or phase not in ("ПОДГ", "СЪСТ"):
             continue
-        key = "podg" if phase == "ПОДГ" else "sast"
+        if phase == "СЪСТ":
+            key = "sast"
+        elif _is_transition_prep_title(sec.get("title_bg")):
+            key = "podg_trans"
+        else:
+            key = "podg"
         bucket = out.setdefault(band, {}).setdefault(key, [])
         if slug not in bucket:
             bucket.append({"slug": slug, "code": code})
@@ -423,6 +452,19 @@ def _phase_training_offset(
     return offset
 
 
+# Подготвителна прогресия (U13–U18): всеки подготвителен мезоцикъл ползва
+# „плъзгащ прозорец" в прогресионния пул (основи → напреднало). Стойностите са
+# относителна позиция 0..1 на началото на прозореца според нивото на мезото.
+_PREP_WINDOW = 6
+_PREP_MESO_START: dict[int, float] = {
+    1: 0.00,  # въвеждане / основи
+    2: 0.25,
+    3: 0.50,
+    7: 0.75,
+    8: 1.00,  # предсезон / най-напреднало
+}
+
+
 def plan_slug_for_session(
     age_band: str,
     period: str,
@@ -433,13 +475,16 @@ def plan_slug_for_session(
 ) -> tuple[str | None, str | None]:
     """Връща (textbook_slug, session_code) за конкретна тренировка (мезо/седмица/ден).
 
-    Ротация на конспектите: фазовият пул (ПОДГ за подготвителен/преходен,
-    СЪСТ за състезателен) се обхожда последователно — тренировка по тренировка.
-    Така:
-      • всяка тренировка в седмицата получава различен конспект (при пул ≥ дни);
-      • всеки мезо стартира от различна точка (без припокриване със съседите);
-      • няма „преливане" към един и същ конспект в края на периода;
-      • подготвителни и състезателни конспекти НИКОГА не се смесват.
+    Логика по пул:
+      • MINI и СЪСТ (състезателен): последователно обхождане на пула —
+        тренировка по тренировка, всеки мезо със своя начална точка (без
+        припокриване със съседите).
+      • Подготвителен период (U13–U18): плъзгащ прозорец в прогресионния пул,
+        чието начало се мести с нивото на мезоцикъла → реална прогресия от
+        основи (мезо 1) към напреднало (мезо 8) и по-малко повторение.
+      • Преходен период (U13–U18): отделен преходен/възстановителен пул
+        (нисък товар, оценка), различен от подготвителния.
+    Подготвителни и състезателни конспекти НИКОГА не се смесват.
     """
     idx = _textbook_plan_index()
     band = _normalize_plan_band(age_band)
@@ -447,14 +492,41 @@ def plan_slug_for_session(
     if not plans and band == "U13":
         plans = idx.get("U14", {})
 
-    pool = plans.get(_meso_pool_key(band, period, meso_number)) or []
-    if not pool:
-        return None, None
-
     n = max(1, int(sessions_per_week or 1))
-    offset = _phase_training_offset(band, period, meso_number, n)
-    ordinal = offset + (max(1, int(week)) - 1) * n + (max(1, int(day)) - 1)
-    entry = pool[ordinal % len(pool)]
+    ordinal_in_meso = (max(1, int(week)) - 1) * n + (max(1, int(day)) - 1)
+    pool_key = _meso_pool_key(band, period, meso_number)
+
+    # MINI и състезателен период — последователно обхождане (оптимално).
+    if band == "mini" or pool_key == "sast":
+        pool = plans.get(pool_key) or []
+        if not pool:
+            return None, None
+        offset = _phase_training_offset(band, period, meso_number, n)
+        entry = pool[(offset + ordinal_in_meso) % len(pool)]
+        return entry["slug"], entry.get("code")
+
+    # Преходен мезоцикъл (U13–U18) — преходен/възстановителен пул, допълнен с
+    # няколко леки основи (поддържаща техника при нисък товар), за да има
+    # достатъчно разнообразие. Лек офсет различава двата преходни мезоцикъла.
+    if period == "transition":
+        basics = plans.get("podg") or []
+        tpool = list(plans.get("podg_trans") or []) + basics[:3]
+        if not tpool:
+            tpool = basics
+        if not tpool:
+            return None, None
+        toff = 0 if meso_number <= 6 else 2
+        entry = tpool[(toff + ordinal_in_meso) % len(tpool)]
+        return entry["slug"], entry.get("code")
+
+    # Подготвителен мезоцикъл (U13–U18) — плъзгащ прозорец по нивото на мезото.
+    ppool = plans.get("podg") or []
+    if not ppool:
+        return None, None
+    window = min(_PREP_WINDOW, len(ppool))
+    span = max(0, len(ppool) - window)
+    start = int(round(_PREP_MESO_START.get(meso_number, 0.0) * span))
+    entry = ppool[start + (ordinal_in_meso % window)]
     return entry["slug"], entry.get("code")
 
 
