@@ -170,8 +170,11 @@ export default function AIGenerator() {
     sessionCode: "",
   });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
-  const [programLink, setProgramLink] = useState({ teamId: null, sessionDate: "" });
+  const [programLink, setProgramLink] = useState({ teamId: null, sessionDate: "", dayTheme: "", dayFocus: [] });
   const plannerPrefillRef = useRef(false);
+  // Фокусът, подаден от програмния ден ("Моята програмна седмица"). Когато е
+  // наличен, той е водещ — препоръката на конспекта не бива да го пренаписва.
+  const programDayFocusRef = useRef([]);
   const assignmentId = searchParams.get("assignmentId") || "";
 
   const sessionReview = useMemo(
@@ -330,13 +333,21 @@ export default function AIGenerator() {
         }
         const rec = ctx?.recommended;
         if (rec && plannerPrefillRef.current) {
+          // Ако идваме от програмен ден с конкретен фокус, той е водещ — не
+          // позволяваме препоръката на конспекта да го пренапише. Периодът и
+          // интензитетът от конспекта остават (те не са в конфликт).
+          const keepProgramFocus = programDayFocusRef.current.length > 0;
           setForm((prev) => ({
             ...prev,
             ...(ctx?.age_band && ctx.age_band !== band
               ? { ageRange: ctx.age_band, age: AGE_BAND_TO_YEARS[ctx.age_band] ?? prev.age }
               : {}),
-            mainFocus: rec.mainFocus || prev.mainFocus,
-            secondaryFocus: rec.secondaryFocus || prev.secondaryFocus,
+            ...(keepProgramFocus
+              ? {}
+              : {
+                  mainFocus: rec.mainFocus || prev.mainFocus,
+                  secondaryFocus: rec.secondaryFocus || prev.secondaryFocus,
+                }),
             periodPhase: rec.periodPhase || prev.periodPhase,
             intensityTarget: rec.intensityTarget || prev.intensityTarget,
           }));
@@ -360,14 +371,25 @@ export default function AIGenerator() {
     const focus = (searchParams.get("focus") || "").trim();
     if (!teamIdRaw && !date && !title && !focus) return;
     const teamId = teamIdRaw ? Number(teamIdRaw) : null;
+    const focusTokens = focus
+      ? focus.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+    // Фокусът на програмния ден е водещ за генератора.
+    programDayFocusRef.current = focusTokens;
     if (teamIdRaw || date) {
-      setProgramLink({ teamId: Number.isFinite(teamId) ? teamId : null, sessionDate: date });
+      setProgramLink({
+        teamId: Number.isFinite(teamId) ? teamId : null,
+        sessionDate: date,
+        dayTheme: title,
+        dayFocus: focusTokens,
+      });
     }
-    if (title || focus) {
+    if (title || focusTokens.length) {
       setForm((prev) => ({
         ...prev,
         ...(title && !prev.trainingTitle ? { trainingTitle: title } : {}),
-        ...(focus ? { mainFocus: focus.split(",")[0].trim() || prev.mainFocus } : {}),
+        ...(focusTokens.length ? { mainFocus: focusTokens[0] } : {}),
+        ...(focusTokens.length > 1 ? { secondaryFocus: focusTokens[1] } : {}),
       }));
     }
   }, [searchParams]);
@@ -510,6 +532,21 @@ export default function AIGenerator() {
 
   useEffect(() => {
     if (!options.skills.length) return;
+    // Идване от програмен ден: пазим точно фокусите на деня, без да ги
+    // "коригираме" към най-близкото умение от базата.
+    const programFocus = programDayFocusRef.current;
+    if (programFocus.length) {
+      setForm((prev) => {
+        const next = {};
+        if (prev.mainFocus !== programFocus[0]) next.mainFocus = programFocus[0];
+        if (programFocus[1] && prev.secondaryFocus !== programFocus[1]) {
+          next.secondaryFocus = programFocus[1];
+        }
+        return Object.keys(next).length ? { ...prev, ...next } : prev;
+      });
+      plannerPrefillRef.current = false;
+      return;
+    }
     setForm((prev) => {
       const selectable = options.skills;
       const resolve = (raw) => resolveToSelectableSkill(raw, selectable) || raw;
@@ -823,8 +860,20 @@ export default function AIGenerator() {
 
       {programLink.sessionDate ? (
         <div className="aiGenBvfBanner" role="note">
-          <strong>Тренировка за програмен ден</strong>
+          <strong>Тема за деня (от програмната седмица)</strong>
           <span>
+            {programLink.dayTheme ? (
+              <>
+                <b>{programLink.dayTheme}</b>
+                <br />
+              </>
+            ) : null}
+            {programLink.dayFocus?.length ? (
+              <>
+                Фокус: {programLink.dayFocus.join(", ")}
+                <br />
+              </>
+            ) : null}
             След запис тренировката се закача към отбора за {programLink.sessionDate} и ще се появи в
             „Моята програмна седмица" с бутон „Продължи с тренировката".
           </span>
@@ -833,7 +882,7 @@ export default function AIGenerator() {
 
       {bvfMethodHint?.principles?.length || bvfMethodHint?.textbook ? (
         <div className="aiGenBvfBanner" role="note">
-          <strong>Контекст от националната методика</strong>
+          <strong>Методически конспект (от учебника на БФВ)</strong>
           <span>
             {bvfMethodHint.textbook?.title
               ? `Учебник: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""}`
