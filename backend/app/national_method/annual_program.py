@@ -385,56 +385,89 @@ def _textbook_plan_index() -> dict[str, dict[str, list[str]]]:
     return out
 
 
-def plan_slug_for_meso_week(
+def _meso_pool_key(band: str, period: str, meso_number: int) -> str:
+    """Коя фаза-пул ползва даден мезо: ПОДГ (podg) или СЪСТ (sast).
+
+    Подготвителен и преходен → ПОДГ. Състезателен → СЪСТ. За мини волейбол
+    финалните турнирни мезоцикли (≥5, вкл. преходния финал) ползват СЪСТ,
+    за да паснат тематично на турнирните конспекти.
+    """
+    if band == "mini":
+        if period in ("competitive", "transition") and meso_number >= 5:
+            return "sast"
+        return "podg"
+    return "sast" if period == "competitive" else "podg"
+
+
+def _phase_training_offset(
+    band: str,
+    period: str,
+    meso_number: int,
+    sessions_per_week: int,
+    weeks_per_meso: int = 4,
+) -> int:
+    """Брой тренировки от СЪЩАТА фаза преди този мезо.
+
+    Дава на всеки мезоцикъл собствена начална точка в пула, така че съседните
+    мезоцикли да не се припокриват и да няма „преливане" към един и същ
+    конспект в края на сезона.
+    """
+    defs = meso_definitions_for(band)
+    target_key = _meso_pool_key(band, period, meso_number)
+    offset = 0
+    for d in defs:
+        if d["meso_number"] == meso_number:
+            break
+        if _meso_pool_key(band, d["period"], d["meso_number"]) == target_key:
+            offset += max(1, weeks_per_meso) * max(1, sessions_per_week)
+    return offset
+
+
+def plan_slug_for_session(
     age_band: str,
     period: str,
     meso_number: int,
     week: int,
+    day: int,
+    sessions_per_week: int,
 ) -> tuple[str | None, str | None]:
-    """Връща (textbook_slug, session_code) за седмица в мезо."""
+    """Връща (textbook_slug, session_code) за конкретна тренировка (мезо/седмица/ден).
+
+    Ротация на конспектите: фазовият пул (ПОДГ за подготвителен/преходен,
+    СЪСТ за състезателен) се обхожда последователно — тренировка по тренировка.
+    Така:
+      • всяка тренировка в седмицата получава различен конспект (при пул ≥ дни);
+      • всеки мезо стартира от различна точка (без припокриване със съседите);
+      • няма „преливане" към един и същ конспект в края на периода;
+      • подготвителни и състезателни конспекти НИКОГА не се смесват.
+    """
     idx = _textbook_plan_index()
     band = _normalize_plan_band(age_band)
     plans = idx.get(band, {})
     if not plans and band == "U13":
         plans = idx.get("U14", {})
 
-    if band == "mini":
-        if period in ("competitive", "transition") and meso_number >= 5:
-            pool = plans.get("sast") or []
-            if not pool:
-                return None, None
-            if meso_number >= 9:
-                plan_index = 16 + week - 1
-            else:
-                plan_index = (meso_number - 5) * 4 + week - 1
-            plan_index = max(0, min(plan_index, len(pool) - 1))
-        else:
-            pool = plans.get("podg") or []
-            if not pool:
-                return None, None
-            plan_index = (meso_number - 1) * 4 + week - 1
-            plan_index = max(0, min(plan_index, len(pool) - 1))
-        entry = pool[plan_index]
-        return entry["slug"], entry.get("code")
-
-    if period in ("prep", "transition"):
-        pool = plans.get("podg") or []
-    elif period == "competitive":
-        pool = plans.get("sast") or []
-    else:
-        pool = []
+    pool = plans.get(_meso_pool_key(band, period, meso_number)) or []
     if not pool:
         return None, None
-    if period == "competitive":
-        plan_index = min((meso_number - 4) * 4 + week - 1, len(pool) - 1)
-        plan_index = max(0, plan_index)
-    elif period == "prep":
-        plan_index = min(meso_number + week - 2, len(pool) - 1)
-        plan_index = max(0, plan_index)
-    else:
-        plan_index = min(max(week, 1), len(pool)) - 1
-    entry = pool[plan_index]
+
+    n = max(1, int(sessions_per_week or 1))
+    offset = _phase_training_offset(band, period, meso_number, n)
+    ordinal = offset + (max(1, int(week)) - 1) * n + (max(1, int(day)) - 1)
+    entry = pool[ordinal % len(pool)]
     return entry["slug"], entry.get("code")
+
+
+def plan_slug_for_meso_week(
+    age_band: str,
+    period: str,
+    meso_number: int,
+    week: int,
+) -> tuple[str | None, str | None]:
+    """Седмично ниво = първата тренировка от седмицата (за обратния индекс/таблици)."""
+    band = _normalize_plan_band(age_band)
+    n = 1 if band == "mini" else 4
+    return plan_slug_for_session(age_band, period, meso_number, week, 1, n)
 
 
 @lru_cache(maxsize=1)
@@ -518,16 +551,32 @@ def build_meso_structure(defn: dict[str, Any], age_band: str) -> dict[str, Any]:
         cycle_type="meso",
         age_band=age_band,
     )
-    slug, code = plan_slug_for_meso_week(age_band, period, meso_number, 1)
+    n_sessions = int(structure.get("sessions_per_week") or 0) or (
+        1 if _normalize_plan_band(age_band) == "mini" else 4
+    )
 
     for week in structure.get("weeks") or []:
-        w_slug = week.get("textbook_slug") or slug
-        w_code = week.get("session_code") or code
+        w_num = int(week.get("week") or 1)
+        # Различен конспект за всяка тренировка в седмицата (ротация през пула).
         for day in week.get("days") or []:
-            if w_slug and not day.get("textbook_slug"):
-                day["textbook_slug"] = w_slug
-            if w_code and not day.get("session_code"):
-                day["session_code"] = w_code
+            d_num = int(day.get("day") or 1)
+            d_slug, d_code = plan_slug_for_session(
+                age_band, period, meso_number, w_num, d_num, n_sessions
+            )
+            if d_slug:
+                day["textbook_slug"] = d_slug
+            if d_code:
+                day["session_code"] = d_code
+        # Седмично ниво (за таблицата на цикъла) = първата тренировка от седмицата.
+        ws, wc = plan_slug_for_session(
+            age_band, period, meso_number, w_num, 1, n_sessions
+        )
+        if ws:
+            week["textbook_slug"] = ws
+        if wc:
+            week["session_code"] = wc
+
+    slug, code = plan_slug_for_meso_week(age_band, period, meso_number, 1)
 
     structure.update(
         {
