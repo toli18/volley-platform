@@ -92,6 +92,7 @@ def _build_drill_kwargs(row: dict) -> dict:
 _SYNC_REFRESH_FIELDS = (
     "skill_focus", "skill_domains", "game_phases",
     "tactical_focus", "technical_focus", "position_focus", "zone_focus",
+    "image_urls", "video_urls",
 )
 
 
