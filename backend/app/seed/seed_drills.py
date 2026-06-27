@@ -93,6 +93,7 @@ _SYNC_REFRESH_FIELDS = (
     "skill_focus", "skill_domains", "game_phases",
     "tactical_focus", "technical_focus", "position_focus", "zone_focus",
     "image_urls", "video_urls",
+    "rpe", "intensity_type",
 )
 
 
