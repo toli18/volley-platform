@@ -5,7 +5,7 @@ export function resolveMediaUrl(url) {
   if (!u) return "";
   if (u.toLowerCase() === "няма данни" || u.toLowerCase() === "n/a") return "";
   if (u.startsWith("/")) {
-    const base = axiosInstance?.defaults?.baseURL || "";
+    const base = (axiosInstance?.defaults?.baseURL || "").replace(/\/+$/, "");
     return `${base}${u}`;
   }
   return u;
