@@ -79,7 +79,14 @@ def navbar_feed(
             logger.exception("navbar_feed: fee activity failed")
             fee_activity = {"items": [], "unread_hint": 0}
         try:
-            task_reports = club_assignment_activity(limit=24, db=db, current_user=current_user)
+            task_reports = club_assignment_activity(
+                limit=24,
+                assigned_to=None,
+                updated_from=None,
+                updated_to=None,
+                db=db,
+                current_user=current_user,
+            )
         except Exception:  # noqa: BLE001
             logger.exception("navbar_feed: club assignment activity failed")
             task_reports = {"items": []}

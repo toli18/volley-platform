@@ -54,7 +54,7 @@ def _ensure_schema() -> None:
             for name, ddl in (
                 ("source_url", "ALTER TABLE method_articles ADD COLUMN source_url VARCHAR(1024)"),
                 ("author", "ALTER TABLE method_articles ADD COLUMN author VARCHAR(256)"),
-                ("series", "ALTER TABLE method_articles ADD COLUMN series VARCHAR(64)"),
+                ("series", "ALTER TABLE method_articles ADD COLUMN series VARCHAR(160)"),
                 ("summary_bg", "ALTER TABLE method_articles ADD COLUMN summary_bg TEXT"),
                 ("key_points", "ALTER TABLE method_articles ADD COLUMN key_points JSON"),
                 ("content_origin", "ALTER TABLE method_articles ADD COLUMN content_origin VARCHAR(32)"),
@@ -111,7 +111,7 @@ def import_to_db(force: bool = False, replace_vc: bool = False) -> dict:
                 "sort_order": int(sec.get("sort_order") or 0),
                 "published_at": now,
                 "summary_bg": sec.get("summary_bg"),
-                "series": slug,
+                "series": slug[:160],
                 "content_origin": ORIGIN,
                 "key_points": {
                     "slug": slug,

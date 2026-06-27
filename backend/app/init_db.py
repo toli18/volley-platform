@@ -128,6 +128,9 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS source_url VARCHAR(1024)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS author VARCHAR(256)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS series VARCHAR(64)"))
+                # Някои slug-ове на секции от учебника стигат до 80 символа —
+                # разширяваме идемпотентно, иначе импортът гърми с StringDataRightTruncation.
+                conn.execute(text("ALTER TABLE method_articles ALTER COLUMN series TYPE VARCHAR(160)"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS summary_bg TEXT"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS key_points JSONB"))
                 conn.execute(text("ALTER TABLE method_articles ADD COLUMN IF NOT EXISTS content_origin VARCHAR(32)"))
@@ -236,12 +239,12 @@ def _init_db_impl() -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Club logo sync skipped: {exc}")
 
-        # Drills seed само ако таблицата е празна
-        if not _table_has_rows(db, Drill):
+        # Drills: идемпотентна синхронизация от CSV (добавя липсващите,
+        # опреснява таговете на seed упражненията, не пипа потребителските)
+        try:
             seed_drills(db)
-            print("✅ Drills seeded")
-        else:
-            print("ℹ️ Drills already exist - seeding skipped")
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ Drills sync skipped: {exc}")
 
         try:
             seed_national_method(db)

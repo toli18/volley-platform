@@ -945,7 +945,7 @@ class MethodArticle(Base):
     published_at = Column(DateTime, nullable=True)
     source_url = Column(String(1024), nullable=True)
     author = Column(String(256), nullable=True)
-    series = Column(String(64), nullable=True, index=True)
+    series = Column(String(160), nullable=True, index=True)
     summary_bg = Column(Text, nullable=True)
     key_points = Column(JSON, nullable=True)
     content_origin = Column(String(32), nullable=True, index=True)
