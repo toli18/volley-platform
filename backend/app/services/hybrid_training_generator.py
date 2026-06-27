@@ -556,7 +556,7 @@ def _coverage_from_blocks(blocks: List[Dict[str, Any]]) -> Dict[str, Dict[str, i
 
 def normalizeSkill(skill: Any) -> str:
     s = _norm(skill)
-    if s in {"посрещане", "приемане", "serve receive", "serve-receive", "reception", "прием", "посрещ"}:
+    if s in {"посрещане", "приемане", "serve receive", "serve-receive", "reception", "receive", "прием", "посрещ"}:
         return "посрещане"
     if s in {"разпределение", "пас", "разиграване", "setting", "set", "подаване"}:
         return "разпределение"
