@@ -310,7 +310,10 @@ export default function AIGenerator() {
       sessionCode,
     });
     plannerPrefillRef.current = Boolean(cycleIdRaw || textbookSlug || sessionCode);
-    setForm((prev) => ({ ...prev, ageRange: band, age: ageYears }));
+    // Полето "Възрастов диапазон" приема само диапазони (12-14, 14-16, ...),
+    // затова при конкретна група (U16) задаваме конкретната възраст, за да се
+    // покаже стойността, вместо да остане празно "По конкретна възраст".
+    setForm((prev) => ({ ...prev, ageRange: "", age: ageYears }));
 
     let alive = true;
     (async () => {
@@ -340,7 +343,7 @@ export default function AIGenerator() {
           setForm((prev) => ({
             ...prev,
             ...(ctx?.age_band && ctx.age_band !== band
-              ? { ageRange: ctx.age_band, age: AGE_BAND_TO_YEARS[ctx.age_band] ?? prev.age }
+              ? { ageRange: "", age: AGE_BAND_TO_YEARS[ctx.age_band] ?? prev.age }
               : {}),
             ...(keepProgramFocus
               ? {}

@@ -407,6 +407,46 @@ def period_phase_from_annual(annual_ctx: dict[str, Any] | None) -> str:
     return "inseason"
 
 
+def period_phase_from_textbook(textbook_ctx: dict[str, Any] | None) -> str | None:
+    """Извежда периода от кода/slug на конспекта (ПОДГ/СЪСТ/ПРЕХ).
+
+    Кодовете на план-конспектите носят периода директно (напр. U16-ПОДГ-05),
+    затова при вход от учебника това е по-надеждният сигнал от годишния цикъл.
+    """
+    if not textbook_ctx:
+        return None
+    s = f"{textbook_ctx.get('session_code') or ''} {textbook_ctx.get('slug') or ''}".lower()
+    if "подг" in s or "podg" in s:
+        return "prep"
+    if "съст" in s or "sast" in s or "sŭst" in s:
+        return "inseason"
+    if "прех" in s or "preh" in s:
+        return "offseason"
+    return None
+
+
+def focus_skills_from_textbook(textbook_ctx: dict[str, Any] | None) -> list[str]:
+    """Извежда основните умения от заглавието/резюмето на конспекта."""
+    if not textbook_ctx:
+        return []
+    text = " ".join(
+        str(textbook_ctx.get(k) or "")
+        for k in ("title", "summary", "session_code", "category")
+    ).lower()
+    found: list[str] = []
+    for kw, skill in (
+        ("спася", "Защита"), ("плонж", "Защита"), ("гмурк", "Защита"), ("защит", "Защита"),
+        ("посрещан", "Посрещане"), ("прием", "Посрещане"),
+        ("разпредел", "Разпределение"), ("вдига", "Разпределение"),
+        ("сервис", "Сервис"), ("начален удар", "Сервис"),
+        ("атак", "Атака"), ("забив", "Атака"), ("нападен", "Атака"),
+        ("блок", "Блок"),
+    ):
+        if kw in text and skill not in found:
+            found.append(skill)
+    return found
+
+
 def intensity_label_from_load(load: str | None, intensity: str) -> str:
     l = (load or "средна").lower()
     if "средна" in l and "висок" in l:
@@ -494,12 +534,23 @@ def build_session_review(
     """Структуриран контекст за преглед + препоръчани настройки на генератора."""
     load = (week_ctx or {}).get("load") or "средна"
     period_phase = period_phase_from_annual(annual_ctx)
+    # Кодът на конспекта (ПОДГ/СЪСТ/ПРЕХ) е водещ, когато е наличен.
+    tb_phase = period_phase_from_textbook(textbook_ctx)
+    if tb_phase:
+        period_phase = tb_phase
     intensity = intensity_from_load(load)
     focus = _focus_tokens(day_ctx, week_ctx)
     main_focus, secondary_focus = suggest_focus_skills(age_band, (week_ctx or {}).get("week"))
     if focus:
         main_focus = _skill_from_token(focus[0])
         secondary_focus = _skill_from_token(focus[1] if len(focus) > 1 else "атака")
+    else:
+        # Без дневен/седмичен фокус — извеждаме умението от конспекта.
+        tb_focus = focus_skills_from_textbook(textbook_ctx)
+        if tb_focus:
+            main_focus = tb_focus[0]
+            if len(tb_focus) > 1:
+                secondary_focus = tb_focus[1]
 
     timeline = map_textbook_timeline((textbook_ctx or {}).get("session_blocks"))
     block_guide = build_block_guide(timeline, total_minutes)
