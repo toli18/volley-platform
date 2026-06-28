@@ -82,7 +82,8 @@
     <h2>Готови да започнете?</h2>
     <p>Заявете достъп за вашия клуб — ще ви активираме и ще ви помогнем с първите стъпки.</p>
     <div class="linkRow">
-      <a class="primary" href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">Вход за треньори</a>
+      <a class="primary" id="requestBtn" href="mailto:volley-platform@outlook.com">Заяви достъп</a>
+      <a href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">Вход за треньори</a>
       <a href="/instructions/">Инструкция за треньори</a>
       <a href="/terms/">Общи условия</a>
       <a href="/privacy/">Поверителност</a>
@@ -91,5 +92,32 @@
 
   <footer>Volley Coach Platform · Българска федерация по волейбол</footer>
 </div>
+
+<script>
+  (function () {
+    var btn = document.getElementById("requestBtn");
+    if (!btn) return;
+    var subject = "Заявка за достъп — Volley Coach Platform";
+    var body = [
+      "Здравейте,",
+      "",
+      "Желаем достъп до Volley Coach Platform за нашия клуб.",
+      "",
+      "Клуб: ",
+      "Град: ",
+      "Брой отбори: ",
+      "Брой треньори: ",
+      "Лице за контакт: ",
+      "Телефон: ",
+      "",
+      "Поздрави,",
+    ].join("\n");
+    btn.href =
+      "mailto:volley-platform@outlook.com?subject=" +
+      encodeURIComponent(subject) +
+      "&body=" +
+      encodeURIComponent(body);
+  })();
+</script>
 </body>
 </html>
