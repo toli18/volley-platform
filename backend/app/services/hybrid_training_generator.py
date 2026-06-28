@@ -567,16 +567,18 @@ def inferPhase(drill: Dict[str, Any]) -> str:
     category = _norm(drill.get("category"))
     goal_desc = f"{_norm(drill.get('training_goal'))} {_norm(drill.get('description'))} {_norm(drill.get('goal'))}"
 
-    if "загрявка" in category or "ловкост" in category:
+    # Канонични категории (Загрявка / Физическа / Техническа / Тактическа /
+    # Комплексна / Игрова подготовка) + legacy подниза за съвместимост.
+    if any(k in category for k in ("загрявка", "разгрявка", "физическа", "физика", "ловкост")):
         return "Активиране"
-    if "основна фаза 1" in category or "техническа подготовка" in category:
+    if any(k in category for k in ("техническа", "техника", "основна фаза 1", "умение")):
         return "Изграждане"
-    if "основна фаза 2" in category or "тактика" in category:
+    if any(k in category for k in ("тактическа", "тактика", "комплексна", "основна фаза 2", "система", "преход")):
         return "Интеграция"
-    if ("игрова ситуация" in category or "затваряне" in category) and any(
-        kw in goal_desc for kw in ["точки", "гейм", "сет", "резултат"]
-    ):
-        return "Състезателност"
+    if any(k in category for k in ("игрова", "игра", "затваряне")):
+        if any(kw in goal_desc for kw in ["точки", "гейм", "сет", "резултат", "мач"]):
+            return "Състезателност"
+        return "Интеграция"
 
     if any(kw in goal_desc for kw in ["точки", "гейм", "сет", "резултат", "мач"]):
         return "Състезателност"
