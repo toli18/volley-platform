@@ -335,7 +335,10 @@ export default function AIGenerator() {
           setCycleParams((prev) => ({ ...prev, textbookSlug: resolvedSlug }));
         }
         const rec = ctx?.recommended;
-        if (rec && plannerPrefillRef.current) {
+        // NB: не зависим от plannerPrefillRef тук — ефектът за уменията може да
+        // го е нулирал, докато чакаме контекста (race). Този ефект тече само при
+        // навигация от конспект, затова наличието на rec е достатъчно условие.
+        if (rec) {
           // Ако идваме от програмен ден с конкретен фокус, той е водещ — не
           // позволяваме препоръката на конспекта да го пренапише. Периодът и
           // интензитетът от конспекта остават (те не са в конфликт).
