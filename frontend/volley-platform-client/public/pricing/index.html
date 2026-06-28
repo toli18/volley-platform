@@ -79,12 +79,20 @@
   </div>
 
   <div class="finish">
-    <h2>Готови да започнете?</h2>
-    <p>Заявете достъп за вашия клуб — ще ви активираме и ще ви помогнем с първите стъпки.</p>
+    <h2>Заяви достъп за вашия клуб</h2>
+    <p>Пишете ни с името на клуба, града и броя отбори/треньори — активираме до 24 часа.</p>
+    <div class="emailbox">
+      <span id="reqEmail">volley-platform@outlook.com</span>
+      <button type="button" id="copyEmail">Копирай</button>
+    </div>
     <div class="linkRow">
-      <a class="primary" id="requestBtn" href="mailto:volley-platform@outlook.com">Заяви достъп</a>
+      <a class="primary" id="mailtoBtn" href="mailto:volley-platform@outlook.com">Отвори имейл</a>
+      <a id="gmailBtn" target="_blank" rel="noreferrer" href="https://mail.google.com/">Gmail</a>
+      <a id="outlookBtn" target="_blank" rel="noreferrer" href="https://outlook.live.com/">Outlook</a>
+    </div>
+    <div class="linkRow" style="margin-top: 12px;">
       <a href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">Вход за треньори</a>
-      <a href="/instructions/">Инструкция за треньори</a>
+      <a href="/instructions/">Инструкция</a>
       <a href="/terms/">Общи условия</a>
       <a href="/privacy/">Поверителност</a>
     </div>
@@ -95,8 +103,7 @@
 
 <script>
   (function () {
-    var btn = document.getElementById("requestBtn");
-    if (!btn) return;
+    var email = "volley-platform@outlook.com";
     var subject = "Заявка за достъп — Volley Coach Platform";
     var body = [
       "Здравейте,",
@@ -112,11 +119,34 @@
       "",
       "Поздрави,",
     ].join("\n");
-    btn.href =
-      "mailto:volley-platform@outlook.com?subject=" +
-      encodeURIComponent(subject) +
-      "&body=" +
-      encodeURIComponent(body);
+    var es = encodeURIComponent(subject);
+    var eb = encodeURIComponent(body);
+
+    var mailto = document.getElementById("mailtoBtn");
+    if (mailto) mailto.href = "mailto:" + email + "?subject=" + es + "&body=" + eb;
+
+    var gmail = document.getElementById("gmailBtn");
+    if (gmail) gmail.href = "https://mail.google.com/mail/?view=cm&fs=1&to=" + email + "&su=" + es + "&body=" + eb;
+
+    var outlook = document.getElementById("outlookBtn");
+    if (outlook) outlook.href = "https://outlook.live.com/mail/0/deeplink/compose?to=" + email + "&subject=" + es + "&body=" + eb;
+
+    var copyBtn = document.getElementById("copyEmail");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", function () {
+        var done = function () {
+          copyBtn.textContent = "Копирано ✓";
+          setTimeout(function () { copyBtn.textContent = "Копирай"; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(email).then(done).catch(function () {
+            copyBtn.textContent = email;
+          });
+        } else {
+          copyBtn.textContent = email;
+        }
+      });
+    }
   })();
 </script>
 </body>
