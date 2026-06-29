@@ -223,7 +223,8 @@
 
     function openCheckout(baseUrl, club, contact) {
       var u = baseUrl + (baseUrl.indexOf("?") === -1 ? "?" : "&");
-      u += "checkout[custom][club_name]=" + encodeURIComponent(club);
+      u += "checkout[name]=" + encodeURIComponent(club);
+      u += "&checkout[custom][club_name]=" + encodeURIComponent(club);
       if (contact) u += "&checkout[custom][contact]=" + encodeURIComponent(contact);
       u += "&embed=1";
       if (ensureLemon()) {
