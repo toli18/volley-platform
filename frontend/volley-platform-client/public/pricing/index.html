@@ -6,6 +6,58 @@
 <title>Volley Coach Platform — Цени</title>
 <meta name="description" content="Прозрачни цени за клубен абонамент към Volley Coach Platform — пълен достъп до методиката на БФВ, AI генератор на тренировки и управление на клуба." />
 <link rel="stylesheet" href="/legal.css" />
+<style>
+  .buy { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .buyBtn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; cursor: pointer; font-family: inherit; font-size: 16px; font-weight: 700;
+    padding: 13px 18px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, var(--blue), var(--accent)); color: #fff;
+    text-decoration: none; transition: filter 0.15s ease;
+  }
+  .buyBtn:hover { filter: brightness(1.08); }
+  .buyBtn.alt {
+    background: rgba(255, 255, 255, 0.06); color: var(--ink);
+    border: 1px solid var(--line); font-weight: 600; font-size: 14px; padding: 10px 16px;
+  }
+  .buyBtn.alt:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+  .card { justify-content: space-between; }
+  .card .contact {
+    margin-top: 18px; text-align: center; font-size: 14px; color: var(--muted);
+  }
+  .card .contact a { font-weight: 600; }
+
+  .lsModal {
+    position: fixed; inset: 0; z-index: 9999; padding: 20px;
+    background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .lsModal.open { display: flex; }
+  .lsBox {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 26px 24px; max-width: 440px; width: 100%;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  }
+  .lsBox h3 { margin: 0 0 6px; font-size: 21px; }
+  .lsBox .hint { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  .lsField { margin-bottom: 14px; }
+  .lsField label { display: block; font-size: 14px; margin-bottom: 6px; color: var(--ink); }
+  .lsField input {
+    width: 100%; padding: 12px 14px; border-radius: 10px; font-size: 15px;
+    border: 1px solid var(--line); background: rgba(255, 255, 255, 0.05);
+    color: var(--ink); font-family: inherit;
+  }
+  .lsField input:focus { outline: none; border-color: var(--accent); }
+  .lsActions { display: flex; gap: 10px; margin-top: 20px; }
+  .lsActions button {
+    flex: 1; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit; border: none;
+  }
+  .lsActions .go { background: linear-gradient(135deg, var(--blue), var(--accent)); color: #fff; }
+  .lsActions .go:hover { filter: brightness(1.08); }
+  .lsActions .cancel { background: rgba(255, 255, 255, 0.06); color: var(--ink); border: 1px solid var(--line); }
+  .lsActions .cancel:hover { border-color: var(--accent); color: var(--accent); }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -31,6 +83,10 @@
         <li>Присъствия, месечни такси, диагностика</li>
         <li>Родителски портал, известия и чат</li>
       </ul>
+      <div class="buy">
+        <a class="buyBtn" data-checkout="CLUB_YEAR">Плати €240 / година</a>
+        <a class="buyBtn alt" data-checkout="CLUB_3MO">или €75 / 3 месеца</a>
+      </div>
     </div>
 
     <div class="card">
@@ -43,6 +99,10 @@
         <li>Конспекти и задачи от клубния ръководител</li>
         <li>Единна методика за целия треньорски щаб</li>
       </ul>
+      <div class="buy">
+        <a class="buyBtn" data-checkout="COACH_YEAR">Плати €49 / година</a>
+        <a class="buyBtn alt" data-checkout="COACH_3MO">или €15 / 3 месеца</a>
+      </div>
     </div>
 
     <div class="card">
@@ -54,6 +114,9 @@
         <li>Влиза в сила при 4 и повече треньора</li>
         <li>За клубове с голям треньорски щаб</li>
       </ul>
+      <div class="buy">
+        <a class="buyBtn" data-checkout="CLUBCAP_YEAR">Плати €400 / година</a>
+      </div>
     </div>
 
     <div class="card">
@@ -65,6 +128,7 @@
         <li>Единен достъп за всички клубове в региона</li>
         <li>Обучения и поддръжка</li>
       </ul>
+      <p class="contact">Свържете се с нас за оферта: <a href="mailto:volley-platform@outlook.com">volley-platform@outlook.com</a></p>
     </div>
   </div>
 
@@ -74,8 +138,9 @@
   </div>
 
   <div class="tip">
-    <b>Как се плаща:</b> по банков превод срещу фактура. Достъпът се активира до 1 работен ден след
-    плащането. Годишният абонамент е по-изгоден от тримесечния. Цените са с лев еквивалент по фиксирания курс.
+    <b>Как се плаща:</b> онлайн с банкова карта през защитен чекаут — фактурата се издава автоматично
+    на имейла ви. Достъпът се активира до 1 работен ден след плащането. Годишният абонамент е по-изгоден
+    от тримесечния. Цените са с лев еквивалент по фиксирания курс.
   </div>
 
   <div class="finish">
@@ -101,7 +166,114 @@
   <footer>Volley Coach Platform · Българска федерация по волейбол</footer>
 </div>
 
+<div class="lsModal" id="lsModal" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
+  <div class="lsBox">
+    <h3 id="lsTitle">Данни за клуба</h3>
+    <p class="hint">Попълнете данните, за да активираме достъпа на правилния клуб веднага след плащането.</p>
+    <div class="lsField">
+      <label for="lsClub">Име на клуба *</label>
+      <input id="lsClub" type="text" autocomplete="organization" placeholder="напр. ВК Левски София" />
+    </div>
+    <div class="lsField">
+      <label for="lsContact">Лице за контакт</label>
+      <input id="lsContact" type="text" autocomplete="name" placeholder="Име и фамилия" />
+    </div>
+    <div class="lsActions">
+      <button type="button" class="cancel" id="lsCancel">Отказ</button>
+      <button type="button" class="go" id="lsGo">Към плащане →</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script>
 <script>
+  /* =====================================================================
+     LEMON SQUEEZY ЧЕКАУТ ЛИНКОВЕ
+     ---------------------------------------------------------------------
+     Постави тук линковете, които копираш от Lemon Squeezy за всеки план.
+     (Lemon Squeezy → Products → отвори варианта → бутон "Share" → копирай URL)
+     Линкът изглежда така:
+       https://ТВОЯТ-МАГАЗИН.lemonsqueezy.com/buy/xxxxxxxx-xxxx-xxxx
+     Докато едно поле е празно (""), съответният бутон води към имейл заявка.
+     ===================================================================== */
+  var CHECKOUTS = {
+    CLUB_YEAR:    "https://volley-platform.lemonsqueezy.com/checkout/buy/2ceabcdf-63e8-4ef5-b2f2-e46368f1a7bd",  // Клубен абонамент — €240 / година
+    CLUB_3MO:     "https://volley-platform.lemonsqueezy.com/checkout/buy/495d0b3a-1b92-4e41-860b-27249e35bdd8",  // Клубен абонамент — €75 / 3 месеца
+    COACH_YEAR:   "https://volley-platform.lemonsqueezy.com/checkout/buy/1c9567b1-7cf0-4006-b41a-2381685ad779",  // Всеки следващ треньор — €49 / година
+    COACH_3MO:    "https://volley-platform.lemonsqueezy.com/checkout/buy/dd5603a2-dec9-435a-b490-ebff00a13600",  // Всеки следващ треньор — €15 / 3 месеца
+    CLUBCAP_YEAR: "https://volley-platform.lemonsqueezy.com/checkout/buy/7d3276ac-547d-4f77-98e9-8fd576ae5d40"   // Таван „цял клуб“ — €400 / година
+  };
+
+  (function () {
+    var fallbackEmail = "volley-platform@outlook.com";
+    var fallbackSubject = "Заявка за абонамент — Volley Coach Platform";
+
+    var modal = document.getElementById("lsModal");
+    var clubInput = document.getElementById("lsClub");
+    var contactInput = document.getElementById("lsContact");
+    var pendingUrl = "";
+
+    function ensureLemon() {
+      if (window.LemonSqueezy && window.LemonSqueezy.Url) return true;
+      if (typeof window.createLemonSqueezy === "function") {
+        try { window.createLemonSqueezy(); } catch (e) {}
+      }
+      return !!(window.LemonSqueezy && window.LemonSqueezy.Url);
+    }
+
+    function openCheckout(baseUrl, club, contact) {
+      var u = baseUrl + (baseUrl.indexOf("?") === -1 ? "?" : "&");
+      u += "checkout[custom][club_name]=" + encodeURIComponent(club);
+      if (contact) u += "&checkout[custom][contact]=" + encodeURIComponent(contact);
+      u += "&embed=1";
+      if (ensureLemon()) {
+        window.LemonSqueezy.Url.Open(u);
+      } else {
+        window.open(u, "_blank");
+      }
+    }
+
+    function showModal(url) {
+      pendingUrl = url;
+      clubInput.value = "";
+      contactInput.value = "";
+      clubInput.style.borderColor = "";
+      modal.classList.add("open");
+      setTimeout(function () { clubInput.focus(); }, 50);
+    }
+    function hideModal() { modal.classList.remove("open"); pendingUrl = ""; }
+
+    document.querySelectorAll("a.buyBtn[data-checkout]").forEach(function (btn) {
+      var key = btn.getAttribute("data-checkout");
+      var url = CHECKOUTS[key];
+      if (url) {
+        btn.setAttribute("href", "#");
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          showModal(url);
+        });
+      } else {
+        var body = "Здравейте,\n\nЖелаем да закупим абонамент (" + key + ") за нашия клуб.\n\nКлуб: \nГрад: \nЛице за контакт: \nТелефон: \n\nПоздрави,";
+        btn.setAttribute("href", "mailto:" + fallbackEmail +
+          "?subject=" + encodeURIComponent(fallbackSubject) +
+          "&body=" + encodeURIComponent(body));
+      }
+    });
+
+    document.getElementById("lsGo").addEventListener("click", function () {
+      var club = clubInput.value.trim();
+      if (!club) { clubInput.style.borderColor = "#ef4444"; clubInput.focus(); return; }
+      var url = pendingUrl;
+      hideModal();
+      openCheckout(url, club, contactInput.value.trim());
+    });
+    document.getElementById("lsCancel").addEventListener("click", hideModal);
+    modal.addEventListener("click", function (e) { if (e.target === modal) hideModal(); });
+    clubInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("lsGo").click(); }
+    });
+  })();
+
   (function () {
     var email = "volley-platform@outlook.com";
     var subject = "Заявка за достъп — Volley Coach Platform";
