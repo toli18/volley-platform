@@ -48,9 +48,29 @@ export function ToastProvider({ children }) {
                 background: theme.bg,
                 border: `1px solid ${theme.border}`,
                 color: theme.color,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
               }}
             >
-              {toast.message}
+              <span style={{ flex: 1, minWidth: 0 }}>{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                aria-label="Затвори"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  lineHeight: 1,
+                  padding: 0,
+                  opacity: 0.6,
+                }}
+              >
+                ×
+              </button>
             </div>
           );
         })}
