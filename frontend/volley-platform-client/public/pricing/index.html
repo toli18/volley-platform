@@ -151,11 +151,6 @@
       <button type="button" id="copyEmail">Копирай</button>
     </div>
     <div class="linkRow">
-      <a class="primary" id="mailtoBtn" href="mailto:volley-platform@outlook.com">Отвори имейл</a>
-      <a id="gmailBtn" target="_blank" rel="noreferrer" href="https://mail.google.com/">Gmail</a>
-      <a id="outlookBtn" target="_blank" rel="noreferrer" href="https://outlook.live.com/">Outlook</a>
-    </div>
-    <div class="linkRow" style="margin-top: 12px;">
       <a href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">Вход за треньори</a>
       <a href="/instructions/">Инструкция</a>
       <a href="/terms/">Общи условия</a>
@@ -277,32 +272,6 @@
 
   (function () {
     var email = "volley-platform@outlook.com";
-    var subject = "Заявка за достъп — Volley Coach Platform";
-    var body = [
-      "Здравейте,",
-      "",
-      "Желаем достъп до Volley Coach Platform за нашия клуб.",
-      "",
-      "Клуб: ",
-      "Град: ",
-      "Брой отбори: ",
-      "Брой треньори: ",
-      "Лице за контакт: ",
-      "Телефон: ",
-      "",
-      "Поздрави,",
-    ].join("\n");
-    var es = encodeURIComponent(subject);
-    var eb = encodeURIComponent(body);
-
-    var mailto = document.getElementById("mailtoBtn");
-    if (mailto) mailto.href = "mailto:" + email + "?subject=" + es + "&body=" + eb;
-
-    var gmail = document.getElementById("gmailBtn");
-    if (gmail) gmail.href = "https://mail.google.com/mail/?view=cm&fs=1&to=" + email + "&su=" + es + "&body=" + eb;
-
-    var outlook = document.getElementById("outlookBtn");
-    if (outlook) outlook.href = "https://outlook.live.com/mail/0/deeplink/compose?to=" + email + "&subject=" + es + "&body=" + eb;
 
     var copyBtn = document.getElementById("copyEmail");
     if (copyBtn) {
