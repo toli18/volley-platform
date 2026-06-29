@@ -33,6 +33,17 @@ export default function Teams() {
   const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", gender: "", is_active: true });
   const [assignTeam, setAssignTeam] = useState(null);
   const [assignCoachId, setAssignCoachId] = useState("");
+  const [showAthleteForm, setShowAthleteForm] = useState(false);
+  const [athleteForm, setAthleteForm] = useState({
+    athlete_name: "",
+    athlete_phone: "",
+    parent_name: "",
+    parent_phone: "",
+    birth_year: "",
+    gender: "",
+    notes: "",
+    is_active: true,
+  });
 
   const roleRaw = user?.role;
   const roleValue = typeof roleRaw === "object" && roleRaw && "value" in roleRaw ? roleRaw.value : roleRaw;
@@ -153,6 +164,51 @@ export default function Teams() {
     }
   };
 
+  const resetAthleteForm = () => {
+    setAthleteForm({
+      athlete_name: "",
+      athlete_phone: "",
+      parent_name: "",
+      parent_phone: "",
+      birth_year: "",
+      gender: "",
+      notes: "",
+      is_active: true,
+    });
+  };
+
+  const saveAthlete = async () => {
+    if (!athleteForm.athlete_name.trim()) {
+      toast.error("Името на състезателя е задължително.");
+      return;
+    }
+    if (!athleteForm.gender) {
+      toast.error("Избери пол на състезателя.");
+      return;
+    }
+    const payload = {
+      athlete_name: athleteForm.athlete_name.trim(),
+      athlete_phone: athleteForm.athlete_phone.trim() || null,
+      parent_name: athleteForm.parent_name.trim() || null,
+      parent_phone: athleteForm.parent_phone.trim() || null,
+      birth_year: athleteForm.birth_year ? Number(athleteForm.birth_year) : null,
+      gender: athleteForm.gender,
+      notes: athleteForm.notes.trim() || null,
+      is_active: Boolean(athleteForm.is_active),
+    };
+    try {
+      setBusy(true);
+      await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
+      resetAthleteForm();
+      setShowAthleteForm(false);
+      toast.success("Състезателят е създаден.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно създаване на състезател."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openAssignCoach = (team) => {
     setAssignTeam(team);
     setAssignCoachId(String(team?.coach_id || ""));
@@ -184,9 +240,14 @@ export default function Teams() {
         title="Отбори"
         subtitle="Първо избери отбор, после отвори отделния му екран."
         actions={
-          <Link to="/teams/schedule">
-            <Button>График</Button>
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
+              Нов състезател
+            </Button>
+            <Link to="/teams/schedule">
+              <Button>График</Button>
+            </Link>
+          </div>
         }
       />
 
@@ -345,6 +406,69 @@ export default function Teams() {
               <div className="uiModalActions">
                 <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
                 <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showAthleteForm && (
+        <div onClick={() => !busy && setShowAthleteForm(false)} className="uiModalOverlay">
+          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
+            <h3 className="uiModalTitle">Нов състезател</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Input
+                placeholder="Име на състезател"
+                value={athleteForm.athlete_name}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
+              />
+              <Input
+                placeholder="Телефон на състезател"
+                value={athleteForm.athlete_phone}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Име на родител"
+                value={athleteForm.parent_name}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
+              />
+              <Input
+                placeholder="Телефон на родител"
+                value={athleteForm.parent_phone}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Година на раждане"
+                value={athleteForm.birth_year}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
+              />
+              <Input
+                as="select"
+                value={athleteForm.gender}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
+              >
+                <option value="">Пол</option>
+                <option value="male">Мъж</option>
+                <option value="female">Жена</option>
+              </Input>
+              <Input
+                as="textarea"
+                rows={2}
+                placeholder="Бележка"
+                value={athleteForm.notes}
+                onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={athleteForm.is_active}
+                  onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
+                />
+                Активен състезател
+              </label>
+              <div className="uiModalActions">
+                <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
               </div>
             </div>
           </section>
