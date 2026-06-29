@@ -2,6 +2,17 @@
 <html lang="bg">
 <head>
 <meta charset="UTF-8" />
+<script>
+  (function () {
+    try {
+      var keys = ["access_token", "token", "parent_access_token", "athlete_room_access_token"];
+      for (var i = 0; i < keys.length; i++) {
+        var v = localStorage.getItem(keys[i]);
+        if (v && v !== "null" && v !== "undefined") { window.location.replace("/"); return; }
+      }
+    } catch (e) {}
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Volley Coach Platform — Политика за поверителност</title>
 <meta name="description" content="Политика за поверителност и защита на личните данни (GDPR) на Volley Coach Platform." />
@@ -18,12 +29,6 @@
   <h1>Политика за поверителност (GDPR)</h1>
   <p class="lead">Как събираме, използваме и защитаваме личните данни в платформата, в съответствие с Регламент (ЕС) 2016/679 (GDPR) и българското законодателство.</p>
   <p class="updated">Последна актуализация: 29.06.2026 г.</p>
-
-  <div class="disclaimer">
-    <b>Чернова за юридически преглед.</b> Платформата обработва данни на <b>непълнолетни</b> спортисти.
-    Това изисква специално внимание. Попълнете полетата в <span class="fill">[ ... ]</span> и задължително
-    дайте документа за преглед на юрист/специалист по лични данни преди публикуване.
-  </div>
 
   <nav class="toc">
     <h2>Съдържание</h2>
@@ -43,9 +48,10 @@
 
   <section class="doc" id="administrator">
     <h2>1. Администратор на данните</h2>
-    <p>Администратор на личните данни е <b>„Волей Платформа“ ЕООД</b>, със седалище в Република България
-      (ЕИК и пълен адрес — <span class="fill">[предстои вписване]</span>). За въпроси относно обработката
-      на данни се свържете на <a href="mailto:volley-platform@outlook.com">volley-platform@outlook.com</a>.</p>
+    <p>Администратор на личните данни е <b>„Волей Платформа“ ЕООД</b>, със седалище и адрес на управление:
+      гр. Каспичан, ул. „Мадарски конник“ № 5, Република България (ЕИК — <span class="fill">[предстои вписване]</span>).
+      За въпроси относно обработката на данни се свържете на
+      <a href="mailto:volley-platform@outlook.com">volley-platform@outlook.com</a>.</p>
   </section>
 
   <section class="doc" id="danni">
