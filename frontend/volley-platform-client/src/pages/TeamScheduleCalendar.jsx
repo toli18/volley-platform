@@ -8,7 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import MobileDrawer from "../components/shell/MobileDrawer";
-import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
+import { Button, Card, EmptyState, Input, Modal, PageHero } from "../components/ui";
 import useMediaQuery from "../utils/useMediaQuery";
 import {
   COMPETITION_KIND_OPTIONS,
@@ -710,103 +710,103 @@ export default function TeamScheduleCalendar() {
 
   const scheduleModals = (
     <>
-      {addOpen ? (
-        <div className="uiModalOverlay" onClick={() => !busy && setAddOpen(false)}>
-          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="uiModalTitle">Добавяне на тренировка</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input as="select" value={addForm.team_id} onChange={(e) => setAddForm((p) => ({ ...p, team_id: e.target.value }))}>
-                <option value="">Избери отбор</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.name}</option>
-                ))}
-              </Input>
-              {isHeadCoach ? (
-                <Input as="select" value={addForm.coach_id} onChange={(e) => setAddForm((p) => ({ ...p, coach_id: e.target.value }))}>
-                  <option value="">Избери треньор</option>
-                  {coaches.map((c) => (
-                    <option key={c.id} value={String(c.id)}>{c.name}</option>
-                  ))}
-                </Input>
-              ) : null}
-              <Input type="date" value={addForm.date} onChange={(e) => setAddForm((p) => ({ ...p, date: e.target.value }))} />
-              <Input placeholder="Зала" value={addForm.location} onChange={(e) => setAddForm((p) => ({ ...p, location: e.target.value }))} />
-              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-                <Input type="time" value={addForm.start_time} onChange={(e) => setAddForm((p) => ({ ...p, start_time: e.target.value }))} />
-                <Input type="time" value={addForm.end_time} onChange={(e) => setAddForm((p) => ({ ...p, end_time: e.target.value }))} />
-              </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(addForm.repeat_weekly)}
-                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
-                />
-                Повтаряй всяка седмица
-              </label>
-              {addForm.repeat_weekly ? (
-                <Input
-                  type="date"
-                  value={addForm.repeat_to}
-                  onChange={(e) => setAddForm((p) => ({ ...p, repeat_to: e.target.value }))}
-                  placeholder="Повтаряй до"
-                />
-              ) : null}
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={addTraining}>Запази</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        dismissable={!busy}
+        title="Добавяне на тренировка"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input as="select" value={addForm.team_id} onChange={(e) => setAddForm((p) => ({ ...p, team_id: e.target.value }))}>
+            <option value="">Избери отбор</option>
+            {teams.map((t) => (
+              <option key={t.id} value={String(t.id)}>{t.name}</option>
+            ))}
+          </Input>
+          {isHeadCoach ? (
+            <Input as="select" value={addForm.coach_id} onChange={(e) => setAddForm((p) => ({ ...p, coach_id: e.target.value }))}>
+              <option value="">Избери треньор</option>
+              {coaches.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </Input>
+          ) : null}
+          <Input type="date" value={addForm.date} onChange={(e) => setAddForm((p) => ({ ...p, date: e.target.value }))} />
+          <Input placeholder="Зала" value={addForm.location} onChange={(e) => setAddForm((p) => ({ ...p, location: e.target.value }))} />
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+            <Input type="time" value={addForm.start_time} onChange={(e) => setAddForm((p) => ({ ...p, start_time: e.target.value }))} />
+            <Input type="time" value={addForm.end_time} onChange={(e) => setAddForm((p) => ({ ...p, end_time: e.target.value }))} />
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(addForm.repeat_weekly)}
+              onChange={(e) => setAddForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
+            />
+            Повтаряй всяка седмица
+          </label>
+          {addForm.repeat_weekly ? (
+            <Input
+              type="date"
+              value={addForm.repeat_to}
+              onChange={(e) => setAddForm((p) => ({ ...p, repeat_to: e.target.value }))}
+              placeholder="Повтаряй до"
+            />
+          ) : null}
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={addTraining}>Запази</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>Отказ</Button>
+          </div>
         </div>
-      ) : null}
+      </Modal>
 
-      {editOcc ? (
-        <div className="uiModalOverlay" onClick={() => !busy && setEditOcc(null)}>
-          <section className="uiModal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="uiModalTitle">Корекция на тренировка</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input type="date" value={editForm.date} onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))} />
-              <Input as="select" value={editForm.team_id} onChange={(e) => setEditForm((p) => ({ ...p, team_id: e.target.value }))}>
-                <option value="">Избери отбор</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.name}</option>
-                ))}
-              </Input>
-              <Input as="select" value={editForm.coach_id} onChange={(e) => setEditForm((p) => ({ ...p, coach_id: e.target.value }))}>
-                <option value="">Избери треньор</option>
-                {(isHeadCoach ? coaches : [{ id: currentUserId, name: user?.name || "Треньор" }]).map((c) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
-                ))}
-              </Input>
-              <Input placeholder="Зала" value={editForm.location} onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))} />
-              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-                <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((p) => ({ ...p, start_time: e.target.value }))} />
-                <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((p) => ({ ...p, end_time: e.target.value }))} />
-              </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(editForm.repeat_weekly)}
-                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
-                />
-                Повтаряй всяка седмица
-              </label>
-              {editForm.repeat_weekly ? (
-                <Input
-                  type="date"
-                  value={editForm.repeat_to}
-                  onChange={(e) => setEditForm((p) => ({ ...p, repeat_to: e.target.value }))}
-                  placeholder="Повтаряй до"
-                />
-              ) : null}
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveOverride}>Запази корекция</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setEditOcc(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(editOcc)}
+        onClose={() => setEditOcc(null)}
+        dismissable={!busy}
+        title="Корекция на тренировка"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input type="date" value={editForm.date} onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))} />
+          <Input as="select" value={editForm.team_id} onChange={(e) => setEditForm((p) => ({ ...p, team_id: e.target.value }))}>
+            <option value="">Избери отбор</option>
+            {teams.map((t) => (
+              <option key={t.id} value={String(t.id)}>{t.name}</option>
+            ))}
+          </Input>
+          <Input as="select" value={editForm.coach_id} onChange={(e) => setEditForm((p) => ({ ...p, coach_id: e.target.value }))}>
+            <option value="">Избери треньор</option>
+            {(isHeadCoach ? coaches : [{ id: currentUserId, name: user?.name || "Треньор" }]).map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </Input>
+          <Input placeholder="Зала" value={editForm.location} onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))} />
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+            <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((p) => ({ ...p, start_time: e.target.value }))} />
+            <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((p) => ({ ...p, end_time: e.target.value }))} />
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(editForm.repeat_weekly)}
+              onChange={(e) => setEditForm((p) => ({ ...p, repeat_weekly: e.target.checked }))}
+            />
+            Повтаряй всяка седмица
+          </label>
+          {editForm.repeat_weekly ? (
+            <Input
+              type="date"
+              value={editForm.repeat_to}
+              onChange={(e) => setEditForm((p) => ({ ...p, repeat_to: e.target.value }))}
+              placeholder="Повтаряй до"
+            />
+          ) : null}
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={saveOverride}>Запази корекция</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setEditOcc(null)}>Отказ</Button>
+          </div>
         </div>
-      ) : null}
+      </Modal>
 
       <CompetitionEventModal
         open={compOpen}

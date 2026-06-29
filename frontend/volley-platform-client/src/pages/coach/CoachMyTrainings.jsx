@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { apiJson } from "../../utils/apiClient";
 import { useToast } from "../../components/ToastProvider";
-import { Button, EmptyState } from "../../components/ui";
+import { Button, EmptyState, Modal } from "../../components/ui";
 
 function fmtDate(v) {
   try {
@@ -125,25 +125,27 @@ export default function CoachMyTrainings() {
         </ul>
       ) : null}
 
-      {newOpen ? (
-        <div className="uiModalOverlay" onClick={() => !creating && setNewOpen(false)} role="presentation">
-          <section className="uiModal uiModal--compact coachMobileNewTrainingModal" onClick={(e) => e.stopPropagation()} role="dialog">
-            <h3 className="uiModalTitle">Нова тренировка</h3>
-            <p className="coachMobileMuted">Изберете как да създадете тренировката.</p>
-            <div className="coachMobileNewTrainingChoices">
-              <Button type="button" disabled={creating} onClick={createManual}>
-                Ръчна тренировка
-              </Button>
-              <Button type="button" variant="secondary" disabled={creating} onClick={openAi}>
-                AI генерирана
-              </Button>
-              <Button type="button" variant="secondary" disabled={creating} onClick={() => setNewOpen(false)}>
-                Отказ
-              </Button>
-            </div>
-          </section>
+      <Modal
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        dismissable={!creating}
+        title="Нова тренировка"
+        size="compact"
+        className="coachMobileNewTrainingModal"
+      >
+        <p className="coachMobileMuted">Изберете как да създадете тренировката.</p>
+        <div className="coachMobileNewTrainingChoices">
+          <Button type="button" disabled={creating} onClick={createManual}>
+            Ръчна тренировка
+          </Button>
+          <Button type="button" variant="secondary" disabled={creating} onClick={openAi}>
+            AI генерирана
+          </Button>
+          <Button type="button" variant="secondary" disabled={creating} onClick={() => setNewOpen(false)}>
+            Отказ
+          </Button>
         </div>
-      ) : null}
+      </Modal>
     </div>
   );
 }

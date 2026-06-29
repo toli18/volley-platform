@@ -10,7 +10,7 @@ import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import ClubHeadMethodSection from "../components/clubHead/ClubHeadMethodSection";
 import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
-import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 
@@ -1042,32 +1042,33 @@ export default function ClubHeadDashboard() {
 
       {tab === "method" && <ClubHeadMethodSection teams={teams} coaches={transferCoaches} />}
 
-      {payAthlete && (
-        <div onClick={() => !busy && setPayAthlete(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Плащане: {payAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input type="month" value={payForm.month_key} onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))} />
-              <Input
-                type="number"
-                step="0.01"
-                placeholder={AMOUNT_INPUT_PLACEHOLDER}
-                value={payForm.amount}
-                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
-              />
-              <Input
-                placeholder="Бележка (по желание)"
-                value={payForm.note}
-                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
-              />
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={savePay}>Запиши</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setPayAthlete(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(payAthlete)}
+        onClose={() => setPayAthlete(null)}
+        dismissable={!busy}
+        title={`Плащане: ${payAthlete?.athlete_name || ""}`}
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input type="month" value={payForm.month_key} onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))} />
+          <Input
+            type="number"
+            step="0.01"
+            placeholder={AMOUNT_INPUT_PLACEHOLDER}
+            value={payForm.amount}
+            onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+          />
+          <Input
+            placeholder="Бележка (по желание)"
+            value={payForm.note}
+            onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
+          />
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={savePay}>Запиши</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setPayAthlete(null)}>Отказ</Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       <CompetitionEventModal
         open={compOpen}
@@ -1088,29 +1089,30 @@ export default function ClubHeadDashboard() {
         onDelete={deleteCompetition}
       />
 
-      {transferAthlete && (
-        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input as="select" value={transferCoachId} onChange={(e) => setTransferCoachId(e.target.value)}>
-                <option value="">Избери треньор</option>
-                {transferCoaches
-                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
-                  .map((c) => (
-                    <option key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))}
-              </Input>
-              <div className="uiModalActions">
-                <Button disabled={busy || !transferCoachId} onClick={transferAth}>Прехвърли</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(transferAthlete)}
+        onClose={() => setTransferAthlete(null)}
+        dismissable={!busy}
+        title={`Прехвърли: ${transferAthlete?.athlete_name || ""}`}
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input as="select" value={transferCoachId} onChange={(e) => setTransferCoachId(e.target.value)}>
+            <option value="">Избери треньор</option>
+            {transferCoaches
+              .filter((c) => String(c.id) !== String(transferAthlete?.coach_id))
+              .map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+          </Input>
+          <div className="uiModalActions">
+            <Button disabled={busy || !transferCoachId} onClick={transferAth}>Прехвърли</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>Отказ</Button>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

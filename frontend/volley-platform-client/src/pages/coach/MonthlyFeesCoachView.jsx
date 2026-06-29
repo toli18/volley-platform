@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
-import { Button, EmptyState, Input } from "../../components/ui";
+import { Button, EmptyState, Input, Modal } from "../../components/ui";
 
 const TABS = [
   { id: "list", label: "Списък" },
@@ -81,36 +81,39 @@ function NewAthleteForm({ athleteForm, setAthleteForm, busy, onSave, onReset }) 
 }
 
 function AthleteActionsSheet({ athlete, isHeadCoach, busy, onClose, onEdit, onDelete, onReport, onTransfer }) {
-  if (!athlete) return null;
   return (
-    <div className="uiModalOverlay" onClick={onClose} role="presentation">
-      <section className="uiModal uiModal--compact feesCoachActionSheet" onClick={(e) => e.stopPropagation()} role="dialog">
-        <h3 className="uiModalTitle">{athlete.athlete_name}</h3>
-        <div className="feesCoachActionSheetBtns">
-          <Button variant="secondary" block onClick={() => { onEdit(athlete); onClose(); }}>
-            Редактирай
-          </Button>
-          <Button variant="secondary" block onClick={() => { onReport(athlete); onClose(); }}>
-            Отчет
-          </Button>
-          {isHeadCoach ? (
-            <Button variant="secondary" block onClick={() => { onTransfer(athlete); onClose(); }}>
-              Прехвърли
-            </Button>
-          ) : null}
-          <Button variant="danger" block disabled={busy} onClick={() => { onDelete(athlete); onClose(); }}>
-            Изтрий
-          </Button>
-        </div>
-        <Button variant="ghost" block onClick={onClose}>
-          Затвори
+    <Modal
+      open={Boolean(athlete)}
+      onClose={onClose}
+      title={athlete?.athlete_name || ""}
+      size="compact"
+      className="feesCoachActionSheet"
+    >
+      <div className="feesCoachActionSheetBtns">
+        <Button variant="secondary" block onClick={() => { onEdit(athlete); onClose(); }}>
+          Редактирай
         </Button>
-      </section>
-    </div>
+        <Button variant="secondary" block onClick={() => { onReport(athlete); onClose(); }}>
+          Отчет
+        </Button>
+        {isHeadCoach ? (
+          <Button variant="secondary" block onClick={() => { onTransfer(athlete); onClose(); }}>
+            Прехвърли
+          </Button>
+        ) : null}
+        <Button variant="danger" block disabled={busy} onClick={() => { onDelete(athlete); onClose(); }}>
+          Изтрий
+        </Button>
+      </div>
+      <Button variant="ghost" block onClick={onClose}>
+        Затвори
+      </Button>
+    </Modal>
   );
 }
 
 function MoreSheet({
+  open,
   busy,
   isHeadCoach,
   coachFilter,
@@ -124,43 +127,40 @@ function MoreSheet({
   onClose,
 }) {
   return (
-    <div className="uiModalOverlay" onClick={onClose} role="presentation">
-      <section className="uiModal uiModal--compact feesCoachMoreSheet" onClick={(e) => e.stopPropagation()} role="dialog">
-        <h3 className="uiModalTitle">Още действия</h3>
-        {isHeadCoach ? (
-          <Input
-            as="select"
-            value={coachFilter}
-            onChange={(e) => setCoachFilter(e.target.value)}
-          >
-            <option value="">Всички треньори</option>
-            {clubCoaches.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Input>
-        ) : null}
+    <Modal open={open} onClose={onClose} title="Още действия" size="compact" className="feesCoachMoreSheet">
+      {isHeadCoach ? (
         <Input
-          type="month"
-          value={remindMonth}
-          onChange={(e) => setRemindMonth(e.target.value)}
-          aria-label="Месец за напомняне"
-        />
-        <Button type="button" variant="secondary" block disabled={busy} onClick={() => { onRemind(); onClose(); }}>
-          Напомни неплатили
-        </Button>
-        <Button type="button" block disabled={busy} onClick={() => { onImportClick(); onClose(); }}>
-          Импорт (CSV/XLSX)
-        </Button>
-        <Button type="button" variant="secondary" block onClick={onTemplate}>
-          Шаблон за импорт
-        </Button>
-        <Button variant="ghost" block onClick={onClose}>
-          Затвори
-        </Button>
-      </section>
-    </div>
+          as="select"
+          value={coachFilter}
+          onChange={(e) => setCoachFilter(e.target.value)}
+        >
+          <option value="">Всички треньори</option>
+          {clubCoaches.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Input>
+      ) : null}
+      <Input
+        type="month"
+        value={remindMonth}
+        onChange={(e) => setRemindMonth(e.target.value)}
+        aria-label="Месец за напомняне"
+      />
+      <Button type="button" variant="secondary" block disabled={busy} onClick={() => { onRemind(); onClose(); }}>
+        Напомни неплатили
+      </Button>
+      <Button type="button" block disabled={busy} onClick={() => { onImportClick(); onClose(); }}>
+        Импорт (CSV/XLSX)
+      </Button>
+      <Button type="button" variant="secondary" block onClick={onTemplate}>
+        Шаблон за импорт
+      </Button>
+      <Button variant="ghost" block onClick={onClose}>
+        Затвори
+      </Button>
+    </Modal>
   );
 }
 
@@ -338,21 +338,20 @@ export default function MonthlyFeesCoachView({
         onChange={onImportFile}
       />
 
-      {moreOpen ? (
-        <MoreSheet
-          busy={busy}
-          isHeadCoach={isHeadCoach}
-          coachFilter={coachFilter}
-          setCoachFilter={setCoachFilter}
-          clubCoaches={clubCoaches}
-          remindMonth={remindMonth}
-          setRemindMonth={setRemindMonth}
-          onRemind={onRemind}
-          onImportClick={() => importInputRef.current?.click()}
-          onTemplate={onTemplate}
-          onClose={() => setMoreOpen(false)}
-        />
-      ) : null}
+      <MoreSheet
+        open={moreOpen}
+        busy={busy}
+        isHeadCoach={isHeadCoach}
+        coachFilter={coachFilter}
+        setCoachFilter={setCoachFilter}
+        clubCoaches={clubCoaches}
+        remindMonth={remindMonth}
+        setRemindMonth={setRemindMonth}
+        onRemind={onRemind}
+        onImportClick={() => importInputRef.current?.click()}
+        onTemplate={onTemplate}
+        onClose={() => setMoreOpen(false)}
+      />
 
       <AthleteActionsSheet
         athlete={actionAthlete}

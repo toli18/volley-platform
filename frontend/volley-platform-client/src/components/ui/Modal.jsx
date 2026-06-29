@@ -24,7 +24,7 @@ const FOCUSABLE_SELECTOR = [
  *  - size: "" | "compact" | "wide"
  *  - dismissable: boolean (default true) — when false, Escape/overlay won't close
  */
-export default function Modal({ open, onClose, title, size = "", dismissable = true, children }) {
+export default function Modal({ open, onClose, title, size = "", dismissable = true, className = "", children }) {
   const dialogRef = useRef(null);
   const lastActiveRef = useRef(null);
   const autoId = useId();
@@ -99,7 +99,7 @@ export default function Modal({ open, onClose, title, size = "", dismissable = t
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={cx("uiModal", size === "compact" && "uiModal--compact", size === "wide" && "uiModal--wide")}
+        className={cx("uiModal", size === "compact" && "uiModal--compact", size === "wide" && "uiModal--wide", className)}
       >
         {title ? (
           <h3 className="uiModalTitle" id={titleId}>

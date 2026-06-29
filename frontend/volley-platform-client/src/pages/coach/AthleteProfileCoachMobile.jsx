@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import { parentLoginPath } from "../../utils/parentAuth";
 import { formatMoney } from "../../utils/currency";
-import { Button, EmptyState } from "../../components/ui";
+import { Button, EmptyState, Modal } from "../../components/ui";
 
 const TABS = [
   { id: "overview", label: "Преглед" },
@@ -79,30 +79,26 @@ const paymentPaid = (row) => {
 };
 
 function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack }) {
-  if (!open) return null;
   return (
-    <div className="uiModalOverlay" onClick={onClose} role="presentation">
-      <section className="uiModal uiModal--compact athleteProfileMoreSheet" onClick={(e) => e.stopPropagation()} role="dialog">
-        <h3 className="uiModalTitle">Още</h3>
-        <div className="athleteProfileMoreBtns">
-          <Button type="button" variant="secondary" block onClick={() => { onHistory(); onClose(); }}>
-            История
-          </Button>
-          <Button type="button" variant="secondary" block as={Link} to={parentLoginPath()} target="_blank" rel="noreferrer" onClick={onClose}>
-            Родителски вход
-          </Button>
-          <Button type="button" variant="secondary" block onClick={() => { onCopyParent(); onClose(); }}>
-            Копирай линк
-          </Button>
-          <Button type="button" variant="ghost" block onClick={() => { onBack(); onClose(); }}>
-            Назад
-          </Button>
-        </div>
-        <Button type="button" variant="ghost" block onClick={onClose}>
-          Затвори
+    <Modal open={open} onClose={onClose} title="Още" size="compact" className="athleteProfileMoreSheet">
+      <div className="athleteProfileMoreBtns">
+        <Button type="button" variant="secondary" block onClick={() => { onHistory(); onClose(); }}>
+          История
         </Button>
-      </section>
-    </div>
+        <Button type="button" variant="secondary" block as={Link} to={parentLoginPath()} target="_blank" rel="noreferrer" onClick={onClose}>
+          Родителски вход
+        </Button>
+        <Button type="button" variant="secondary" block onClick={() => { onCopyParent(); onClose(); }}>
+          Копирай линк
+        </Button>
+        <Button type="button" variant="ghost" block onClick={() => { onBack(); onClose(); }}>
+          Назад
+        </Button>
+      </div>
+      <Button type="button" variant="ghost" block onClick={onClose}>
+        Затвори
+      </Button>
+    </Modal>
   );
 }
 

@@ -7,7 +7,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
-import { Button, Card, EmptyState, Input, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { Button, Card, EmptyState, Input, Modal, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { filterFeesAthletes } from "../utils/feesAthleteSearch";
 
@@ -252,24 +252,6 @@ export default function MonthlyFees() {
     if (busy) return;
     setEditAthlete(null);
   };
-
-  useEffect(() => {
-    if (!payAthlete && !editAthlete) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const onKeyDown = (event) => {
-      if (event.key !== "Escape") return;
-      if (payAthlete) closePayModal();
-      else if (editAthlete) closeEditModal();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [payAthlete, editAthlete, busy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -573,141 +555,143 @@ export default function MonthlyFees() {
 
   const feesModals = (
     <>
-      {payAthlete && (
-        <div onClick={closePayModal} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Плащане: {selectedAthleteName}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                type="month"
-                value={payForm.month_key}
-                onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
-              />
-              {checkingMonthPaid && <small className="uiFieldHint">Проверка за съществуващо плащане...</small>}
-              {monthAlreadyPaid && (
-                <small className="uiFieldError">
-                  За този месец вече е отбелязано плащане. Не може дублиране.
-                </small>
-              )}
-              <Input
-                type="number"
-                step="0.01"
-                placeholder={AMOUNT_INPUT_PLACEHOLDER}
-                value={payForm.amount}
-                onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
-              />
-              <Input
-                placeholder="Бележка (по желание)"
-                value={payForm.note}
-                onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
-              />
-              <div className="uiModalActions">
-                <Button disabled={busy || monthAlreadyPaid || checkingMonthPaid} onClick={savePayment}>
-                  Запиши плащане
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={closePayModal}>
-                  Затвори
-                </Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(payAthlete)}
+        onClose={closePayModal}
+        dismissable={!busy}
+        title={`Плащане: ${selectedAthleteName}`}
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input
+            type="month"
+            value={payForm.month_key}
+            onChange={(e) => setPayForm((p) => ({ ...p, month_key: e.target.value }))}
+          />
+          {checkingMonthPaid && <small className="uiFieldHint">Проверка за съществуващо плащане...</small>}
+          {monthAlreadyPaid && (
+            <small className="uiFieldError">
+              За този месец вече е отбелязано плащане. Не може дублиране.
+            </small>
+          )}
+          <Input
+            type="number"
+            step="0.01"
+            placeholder={AMOUNT_INPUT_PLACEHOLDER}
+            value={payForm.amount}
+            onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+          />
+          <Input
+            placeholder="Бележка (по желание)"
+            value={payForm.note}
+            onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
+          />
+          <div className="uiModalActions">
+            <Button disabled={busy || monthAlreadyPaid || checkingMonthPaid} onClick={savePayment}>
+              Запиши плащане
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={closePayModal}>
+              Затвори
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
-      {editAthlete && (
-        <div onClick={closeEditModal} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal">
-            <h3 className="uiModalTitle">Редакция: {editAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                placeholder="Име на състезател"
-                value={editForm.athlete_name}
-                onChange={(e) => setEditForm((p) => ({ ...p, athlete_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на състезател"
-                value={editForm.athlete_phone}
-                onChange={(e) => setEditForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Име на родител"
-                value={editForm.parent_name}
-                onChange={(e) => setEditForm((p) => ({ ...p, parent_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на родител"
-                value={editForm.parent_phone}
-                onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Година на раждане"
-                value={editForm.birth_year}
-                onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
-              />
-              <Input
-                as="select"
-                value={editForm.gender}
-                onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
-              >
-                <option value="">Пол</option>
-                <option value="male">Мъж</option>
-                <option value="female">Жена</option>
-              </Input>
-              <Input
-                as="textarea"
-                rows={2}
-                placeholder="Бележка"
-                value={editForm.notes}
-                onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-              />
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={editForm.is_active}
-                  onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
-                />
-                Активен състезател
-              </label>
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveEditedAthlete}>
-                  Запази промените
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
-                  Затвори
-                </Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(editAthlete)}
+        onClose={closeEditModal}
+        dismissable={!busy}
+        title={`Редакция: ${editAthlete?.athlete_name || ""}`}
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input
+            placeholder="Име на състезател"
+            value={editForm.athlete_name}
+            onChange={(e) => setEditForm((p) => ({ ...p, athlete_name: e.target.value }))}
+          />
+          <Input
+            placeholder="Телефон на състезател"
+            value={editForm.athlete_phone}
+            onChange={(e) => setEditForm((p) => ({ ...p, athlete_phone: e.target.value }))}
+          />
+          <Input
+            placeholder="Име на родител"
+            value={editForm.parent_name}
+            onChange={(e) => setEditForm((p) => ({ ...p, parent_name: e.target.value }))}
+          />
+          <Input
+            placeholder="Телефон на родител"
+            value={editForm.parent_phone}
+            onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
+          />
+          <Input
+            placeholder="Година на раждане"
+            value={editForm.birth_year}
+            onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
+          />
+          <Input
+            as="select"
+            value={editForm.gender}
+            onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
+          >
+            <option value="">Пол</option>
+            <option value="male">Мъж</option>
+            <option value="female">Жена</option>
+          </Input>
+          <Input
+            as="textarea"
+            rows={2}
+            placeholder="Бележка"
+            value={editForm.notes}
+            onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
+          />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={editForm.is_active}
+              onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
+            />
+            Активен състезател
+          </label>
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={saveEditedAthlete}>
+              Запази промените
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
+              Затвори
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
-      {transferAthlete && (
-        <div onClick={() => !busy && setTransferAthlete(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Прехвърли: {transferAthlete.athlete_name}</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <select className="uiInput" value={targetCoachId} onChange={(e) => setTargetCoachId(e.target.value)}>
-                <option value="">Избери треньор</option>
-                {clubCoaches
-                  .filter((c) => String(c.id) !== String(transferAthlete.coach_id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
-              <div className="uiModalActions">
-                <Button disabled={busy || !targetCoachId} onClick={transferToCoach}>
-                  Прехвърли
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>
-                  Отказ
-                </Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(transferAthlete)}
+        onClose={() => setTransferAthlete(null)}
+        dismissable={!busy}
+        title={`Прехвърли: ${transferAthlete?.athlete_name || ""}`}
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <select className="uiInput" value={targetCoachId} onChange={(e) => setTargetCoachId(e.target.value)}>
+            <option value="">Избери треньор</option>
+            {clubCoaches
+              .filter((c) => String(c.id) !== String(transferAthlete?.coach_id))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+          <div className="uiModalActions">
+            <Button disabled={busy || !targetCoachId} onClick={transferToCoach}>
+              Прехвърли
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setTransferAthlete(null)}>
+              Отказ
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 

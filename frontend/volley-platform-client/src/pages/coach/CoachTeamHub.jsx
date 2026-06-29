@@ -10,7 +10,7 @@ import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { useToast } from "../../components/ToastProvider";
-import { Button, EmptyState, Input } from "../../components/ui";
+import { Button, EmptyState, Input, Modal } from "../../components/ui";
 
 const genderSuffix = (g) => {
   if (g === "male") return " · М";
@@ -247,40 +247,41 @@ export default function CoachTeamHub() {
             Пълен състав (десктоп)
           </Link>
 
-          {addOpen && canManageRoster ? (
-            <div className="uiModalOverlay" onClick={() => !busy && setAddOpen(false)} role="presentation">
-              <section className="uiModal uiModal--compact" onClick={(e) => e.stopPropagation()} role="dialog">
-                <h3 className="uiModalTitle">Добави състезател</h3>
-                <Input
-                  placeholder="Търси по име или година..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                />
-                <ul className="coachMobileAddAthleteList">
-                  {visibleCandidates.length === 0 ? (
-                    <li className="coachMobileMuted">Няма свободни състезатели.</li>
-                  ) : (
-                    visibleCandidates.slice(0, 20).map((a) => (
-                      <li key={a.id}>
-                        <button type="button" className="coachMobileAddAthleteRow" disabled={busy} onClick={() => addMember(a.id)}>
-                          <span>
-                            {a.athlete_name}
-                            {genderSuffix(a.gender)}
-                          </span>
-                          <span className="coachMobileMuted">{a.birth_year || ""}</span>
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                <div className="uiModalActions" style={{ marginTop: 10 }}>
-                  <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>
-                    Затвори
-                  </Button>
-                </div>
-              </section>
+          <Modal
+            open={addOpen && canManageRoster}
+            onClose={() => setAddOpen(false)}
+            dismissable={!busy}
+            title="Добави състезател"
+            size="compact"
+          >
+            <Input
+              placeholder="Търси по име или година..."
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+            />
+            <ul className="coachMobileAddAthleteList">
+              {visibleCandidates.length === 0 ? (
+                <li className="coachMobileMuted">Няма свободни състезатели.</li>
+              ) : (
+                visibleCandidates.slice(0, 20).map((a) => (
+                  <li key={a.id}>
+                    <button type="button" className="coachMobileAddAthleteRow" disabled={busy} onClick={() => addMember(a.id)}>
+                      <span>
+                        {a.athlete_name}
+                        {genderSuffix(a.gender)}
+                      </span>
+                      <span className="coachMobileMuted">{a.birth_year || ""}</span>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+            <div className="uiModalActions" style={{ marginTop: 10 }}>
+              <Button variant="secondary" disabled={busy} onClick={() => setAddOpen(false)}>
+                Затвори
+              </Button>
             </div>
-          ) : null}
+          </Modal>
         </section>
       ) : null}
 

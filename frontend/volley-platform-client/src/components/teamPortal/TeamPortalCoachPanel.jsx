@@ -7,7 +7,7 @@ import { useToast } from "../ToastProvider";
 import { teamRoomLoginPath, teamRoomLoginUrl } from "../../utils/teamRoomAuth";
 import TeamPortalCoachChat from "./TeamPortalCoachChat";
 import TeamPortalCoachNews from "./TeamPortalCoachNews";
-import { Button, Card, Input } from "../ui";
+import { Button, Card, Input, Modal } from "../ui";
 
 const normalizeError = (err, fallback = "Грешка.") => {
   const detail = err?.response?.data?.detail;
@@ -165,42 +165,44 @@ export default function TeamPortalCoachPanel({ teamId, teamName, coach }) {
 
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={onImageSelected} />
 
-      {textOpen ? (
-        <TeamPortalTextModal
-          busy={busy}
-          textBody={textBody}
-          setTextBody={setTextBody}
-          postText={postText}
-          setTextOpen={setTextOpen}
-        />
-      ) : null}
+      <TeamPortalTextModal
+        open={textOpen}
+        busy={busy}
+        textBody={textBody}
+        setTextBody={setTextBody}
+        postText={postText}
+        setTextOpen={setTextOpen}
+      />
 
       <TeamPortalCoachChat teamId={teamId} />
     </>
   );
 }
 
-export function TeamPortalTextModal({ busy, textBody, setTextBody, postText, setTextOpen }) {
+export function TeamPortalTextModal({ open, busy, textBody, setTextBody, postText, setTextOpen }) {
   return (
-    <div className="uiModalOverlay" onClick={() => !busy && setTextOpen(false)} role="presentation">
-      <section className="uiModal uiModal--compact" onClick={(e) => e.stopPropagation()} role="dialog">
-        <h3 className="uiModalTitle">Ново обявление</h3>
-        <Input
-          as="textarea"
-          rows={5}
-          placeholder="Текст за отбора (тренировка, събиране, турнир...)"
-          value={textBody}
-          onChange={(e) => setTextBody(e.target.value)}
-        />
-        <div className="uiModalActions" style={{ marginTop: 10 }}>
-          <Button disabled={busy} onClick={postText}>
-            Публикувай
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => setTextOpen(false)}>
-            Отказ
-          </Button>
-        </div>
-      </section>
-    </div>
+    <Modal
+      open={open}
+      onClose={() => setTextOpen(false)}
+      dismissable={!busy}
+      title="Ново обявление"
+      size="compact"
+    >
+      <Input
+        as="textarea"
+        rows={5}
+        placeholder="Текст за отбора (тренировка, събиране, турнир...)"
+        value={textBody}
+        onChange={(e) => setTextBody(e.target.value)}
+      />
+      <div className="uiModalActions" style={{ marginTop: 10 }}>
+        <Button disabled={busy} onClick={postText}>
+          Публикувай
+        </Button>
+        <Button variant="secondary" disabled={busy} onClick={() => setTextOpen(false)}>
+          Отказ
+        </Button>
+      </div>
+    </Modal>
   );
 }

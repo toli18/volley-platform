@@ -4,7 +4,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
 import ChatComposerTools from "../chat/ChatComposerTools";
-import { Button, Card, Input } from "../ui";
+import { Button, Card, Input, Modal } from "../ui";
 
 const RETENTION_DAYS = 15;
 
@@ -72,9 +72,7 @@ function ChatReadSheet({ teamId, message, onClose }) {
   const rosterCount = detail?.roster_count ?? message.roster_count ?? 0;
 
   return (
-    <div className="uiModalOverlay" onClick={onClose} role="presentation">
-      <section className="uiModal uiModal--compact coachChatReadSheet" onClick={(e) => e.stopPropagation()} role="dialog">
-        <h3 className="uiModalTitle">Прочитания</h3>
+    <Modal open onClose={onClose} title="Прочитания" size="compact" className="coachChatReadSheet">
         <p className="coachMobileMuted" style={{ marginTop: 0 }}>
           {message.read_count ?? readBy.length} от {rosterCount} състезатели
         </p>
@@ -115,8 +113,7 @@ function ChatReadSheet({ teamId, message, onClose }) {
             Затвори
           </Button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
 

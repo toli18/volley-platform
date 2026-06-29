@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { useToast } from "../ToastProvider";
-import { Button, EmptyState, Input } from "../ui";
+import { Button, EmptyState, Input, Modal } from "../ui";
 
 const normalizeError = (err, fallback = "Грешка при промяна на тренировката.") => {
   const detail = err?.response?.data?.detail;
@@ -144,14 +144,8 @@ export default function TrainingSessionAdjustModal({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="uiModalOverlay" onClick={() => !busy && onClose()} role="presentation">
-      <section className="uiModal uiModal--wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="trainingAdjustTitle">
-        <h3 id="trainingAdjustTitle" className="uiModalTitle">
-          Тренировка за {date}
-        </h3>
+    <Modal open={open} onClose={onClose} dismissable={!busy} title={`Тренировка за ${date || ""}`} size="wide">
         <p className="uiHint" style={{ marginTop: 0 }}>
           Отмяна или корекция (зала, час) се отразява веднага в родителския график.
         </p>
@@ -243,7 +237,6 @@ export default function TrainingSessionAdjustModal({
             Затвори
           </Button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
