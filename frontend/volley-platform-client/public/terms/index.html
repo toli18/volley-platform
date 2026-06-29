@@ -2,17 +2,6 @@
 <html lang="bg">
 <head>
 <meta charset="UTF-8" />
-<script>
-  (function () {
-    try {
-      var keys = ["access_token", "token", "parent_access_token", "athlete_room_access_token"];
-      for (var i = 0; i < keys.length; i++) {
-        var v = localStorage.getItem(keys[i]);
-        if (v && v !== "null" && v !== "undefined") { window.location.replace("/"); return; }
-      }
-    } catch (e) {}
-  })();
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Volley Coach Platform — Общи условия</title>
 <meta name="description" content="Общи условия за ползване на Volley Coach Platform." />
