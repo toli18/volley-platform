@@ -5,7 +5,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
-import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const normalizeError = (err, fallback = "Грешка при работа с отборите.") => {
   const detail = err?.response?.data?.detail;
@@ -370,138 +370,141 @@ export default function Teams() {
         </div>
       </Card>
 
-      {editTeam && (
-        <div onClick={() => !busy && setEditTeam(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Редакция на отбор</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                placeholder="Име на отбор"
-                value={editTeamForm.name}
-                onChange={(e) => setEditTeamForm((p) => ({ ...p, name: e.target.value }))}
-              />
-              <Input
-                placeholder="Възрастова група"
-                value={editTeamForm.age_group}
-                onChange={(e) => setEditTeamForm((p) => ({ ...p, age_group: e.target.value }))}
-              />
-              <Input
-                placeholder="Сезон"
-                value={editTeamForm.season}
-                onChange={(e) => setEditTeamForm((p) => ({ ...p, season: e.target.value }))}
-              />
-              <Input as="select" value={editTeamForm.gender} onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}>
-                <option value="">Избери тип на отбора</option>
-                <option value="male">Мъжки</option>
-                <option value="female">Женски</option>
-              </Input>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={editTeamForm.is_active}
-                  onChange={(e) => setEditTeamForm((p) => ({ ...p, is_active: e.target.checked }))}
-                />
-                Активен отбор
-              </label>
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(editTeam)}
+        onClose={() => setEditTeam(null)}
+        dismissable={!busy}
+        title="Редакция на отбор"
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input
+            placeholder="Име на отбор"
+            value={editTeamForm.name}
+            onChange={(e) => setEditTeamForm((p) => ({ ...p, name: e.target.value }))}
+          />
+          <Input
+            placeholder="Възрастова група"
+            value={editTeamForm.age_group}
+            onChange={(e) => setEditTeamForm((p) => ({ ...p, age_group: e.target.value }))}
+          />
+          <Input
+            placeholder="Сезон"
+            value={editTeamForm.season}
+            onChange={(e) => setEditTeamForm((p) => ({ ...p, season: e.target.value }))}
+          />
+          <Input as="select" value={editTeamForm.gender} onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}>
+            <option value="">Избери тип на отбора</option>
+            <option value="male">Мъжки</option>
+            <option value="female">Женски</option>
+          </Input>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={editTeamForm.is_active}
+              onChange={(e) => setEditTeamForm((p) => ({ ...p, is_active: e.target.checked }))}
+            />
+            Активен отбор
+          </label>
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
-      {showAthleteForm && (
-        <div onClick={() => !busy && setShowAthleteForm(false)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Нов състезател</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              <Input
-                placeholder="Име на състезател"
-                value={athleteForm.athlete_name}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на състезател"
-                value={athleteForm.athlete_phone}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Име на родител"
-                value={athleteForm.parent_name}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
-              />
-              <Input
-                placeholder="Телефон на родител"
-                value={athleteForm.parent_phone}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Година на раждане"
-                value={athleteForm.birth_year}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
-              />
-              <Input
-                as="select"
-                value={athleteForm.gender}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
-              >
-                <option value="">Пол</option>
-                <option value="male">Мъж</option>
-                <option value="female">Жена</option>
-              </Input>
-              <Input
-                as="textarea"
-                rows={2}
-                placeholder="Бележка"
-                value={athleteForm.notes}
-                onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
-              />
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={athleteForm.is_active}
-                  onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
-                />
-                Активен състезател
-              </label>
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={showAthleteForm}
+        onClose={() => setShowAthleteForm(false)}
+        dismissable={!busy}
+        title="Нов състезател"
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input
+            placeholder="Име на състезател"
+            value={athleteForm.athlete_name}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
+          />
+          <Input
+            placeholder="Телефон на състезател"
+            value={athleteForm.athlete_phone}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
+          />
+          <Input
+            placeholder="Име на родител"
+            value={athleteForm.parent_name}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
+          />
+          <Input
+            placeholder="Телефон на родител"
+            value={athleteForm.parent_phone}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
+          />
+          <Input
+            placeholder="Година на раждане"
+            value={athleteForm.birth_year}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
+          />
+          <Input
+            as="select"
+            value={athleteForm.gender}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
+          >
+            <option value="">Пол</option>
+            <option value="male">Мъж</option>
+            <option value="female">Жена</option>
+          </Input>
+          <Input
+            as="textarea"
+            rows={2}
+            placeholder="Бележка"
+            value={athleteForm.notes}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
+          />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={athleteForm.is_active}
+              onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
+            />
+            Активен състезател
+          </label>
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
-      {assignTeam && (
-        <div onClick={() => !busy && setAssignTeam(null)} className="uiModalOverlay">
-          <section onClick={(e) => e.stopPropagation()} className="uiModal uiModal--compact">
-            <h3 className="uiModalTitle">Назначи треньор на отбор</h3>
-            <div style={{ color: "#607693", fontSize: 13 }}>
-              Отбор: <strong>{assignTeam.name}</strong>
-            </div>
-            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-              <Input as="select" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
-                <option value="">Избери треньор</option>
-                {coaches.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name} {c.email ? `(${c.email})` : ""}
-                  </option>
-                ))}
-              </Input>
-              <div style={{ color: "#607693", fontSize: 12 }}>
-                Ще се смени треньорът на отбора и активните състезатели в този отбор ще бъдат прехвърлени към новия треньор.
-              </div>
-              <div className="uiModalActions">
-                <Button disabled={busy} onClick={saveAssignCoach}>Запази</Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setAssignTeam(null)}>Отказ</Button>
-              </div>
-            </div>
-          </section>
+      <Modal
+        open={Boolean(assignTeam)}
+        onClose={() => setAssignTeam(null)}
+        dismissable={!busy}
+        title="Назначи треньор на отбор"
+        size="compact"
+      >
+        <div style={{ color: "#607693", fontSize: 13 }}>
+          Отбор: <strong>{assignTeam?.name}</strong>
         </div>
-      )}
+        <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+          <Input as="select" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
+            <option value="">Избери треньор</option>
+            {coaches.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name} {c.email ? `(${c.email})` : ""}
+              </option>
+            ))}
+          </Input>
+          <div style={{ color: "#607693", fontSize: 12 }}>
+            Ще се смени треньорът на отбора и активните състезатели в този отбор ще бъдат прехвърлени към новия треньор.
+          </div>
+          <div className="uiModalActions">
+            <Button disabled={busy} onClick={saveAssignCoach}>Запази</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setAssignTeam(null)}>Отказ</Button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

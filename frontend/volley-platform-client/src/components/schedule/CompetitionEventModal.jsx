@@ -1,4 +1,4 @@
-import { Button, Input } from "../ui";
+import { Button, Input, Modal } from "../ui";
 import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
 
 export default function CompetitionEventModal({
@@ -14,12 +14,13 @@ export default function CompetitionEventModal({
   onSave,
   onDelete,
 }) {
-  if (!open) return null;
-
   return (
-    <div className="uiModalOverlay" onClick={() => !busy && onClose()}>
-      <section className="uiModal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="uiModalTitle">{editId ? "Редакция на състезание" : "Ново състезание"}</h3>
+    <Modal
+      open={open}
+      onClose={onClose}
+      dismissable={!busy}
+      title={editId ? "Редакция на състезание" : "Ново състезание"}
+    >
         <div style={{ display: "grid", gap: 8 }}>
           <Input as="select" value={form.team_id} onChange={(e) => setForm((p) => ({ ...p, team_id: e.target.value }))}>
             <option value="">Избери отбор</option>
@@ -67,7 +68,6 @@ export default function CompetitionEventModal({
             {editId ? "Запази" : "Създай"}
           </Button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
