@@ -214,13 +214,8 @@ export default function TeamAttendance() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
+        <div style={{ marginBottom: 12 }}>
           <Input placeholder="Заглавие на тренировка (по желание)" value={attendanceTitle} onChange={(e) => setAttendanceTitle(e.target.value)} />
-          <div className="teamAttendanceDesktop" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-            <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
-              Запази присъствие
-            </Button>
-          </div>
         </div>
 
         {attendanceRows.length === 0 ? (
@@ -335,25 +330,32 @@ export default function TeamAttendance() {
       </Card>
 
       <Card title="Тренировка за деня">
-        {dayTrainingLoading ? (
-          <p className="uiMuted" style={{ margin: 0 }}>Проверка…</p>
-        ) : dayTraining ? (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <span>
-              Има генерирана тренировка: <strong>{dayTraining.title}</strong>
-            </span>
-            <Link to={`/trainings/${dayTraining.id}`}>
-              <Button>Продължи с тренировката →</Button>
-            </Link>
+            {dayTrainingLoading ? (
+              <p className="uiMuted" style={{ margin: 0 }}>Проверка…</p>
+            ) : dayTraining ? (
+              <>
+                <span>
+                  Има генерирана тренировка: <strong>{dayTraining.title}</strong>
+                </span>
+                <Link to={`/trainings/${dayTraining.id}`}>
+                  <Button>Продължи с тренировката →</Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <span className="uiMuted">Няма генерирана тренировка за този ден.</span>
+                <Link to={generateHref()}>
+                  <Button variant="secondary">Генерирай сега</Button>
+                </Link>
+              </>
+            )}
           </div>
-        ) : (
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="uiMuted">Няма генерирана тренировка за този ден.</span>
-            <Link to={generateHref()}>
-              <Button variant="secondary">Генерирай сега</Button>
-            </Link>
-          </div>
-        )}
+          <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
+            Запази присъствие
+          </Button>
+        </div>
       </Card>
 
       <TrainingSessionAdjustModal
