@@ -14,14 +14,7 @@ import {
 import { extractTocItems, toDisplayHtml } from "../utils/richText";
 import "../components/articles/articles.css";
 import { Button, EmptyState, Input, PageHero } from "../components/ui";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на статията.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на статията.";
-};
+import { normalizeError } from "../utils/normalizeError";
 
 export default function ArticleDetails() {
   const { id } = useParams();

@@ -11,14 +11,7 @@ import {
 import "../../components/articles/articles.css";
 import { AdminHero, Button, Card, Input } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при модерация.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при модерация.";
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function AdminArticleModeration() {
   const { id } = useParams();

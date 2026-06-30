@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { normalizeError } from "../utils/normalizeError";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 import { toPlainTextSnippet } from "../utils/richText";
@@ -28,13 +29,6 @@ const SUGGESTED_TAGS = [
   "упражнения",
 ];
 
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на форума.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на форума.";
-};
 
 export default function Forum() {
   const [posts, setPosts] = useState([]);

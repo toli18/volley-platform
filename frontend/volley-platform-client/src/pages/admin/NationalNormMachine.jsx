@@ -5,6 +5,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { AdminHero, AdminSection, Button, Card, EmptyState } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
+import { normalizeError } from "../../utils/normalizeError";
 import "../../components/assessment/assessment.css";
 
 const GENDER_LABELS = { male: "Момчета", female: "Момичета" };
@@ -15,14 +16,6 @@ const CONFIDENCE = {
   medium: { label: "Средно", cls: "uiBadge--info" },
   low: { label: "Ниско", cls: "uiBadge--warning" },
   indicative: { label: "Индикативно", cls: "uiBadge--danger" },
-};
-
-const normalizeError = (err, fallback) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 const fmtNum = (v, digits = 1) =>

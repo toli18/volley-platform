@@ -3,6 +3,7 @@ import { useState } from "react";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState, Input } from "../ui";
+import { normalizeError } from "../../utils/normalizeError";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -10,12 +11,6 @@ const formatNoticeDate = (iso) => {
   if (!iso) return "—";
   const [y, m, d] = String(iso).split("-");
   return `${d}.${m}.${y}`;
-};
-
-const normalizeError = (err, fallback = "Неуспешно записване.") => {
-  const detail = err?.response?.data?.detail;
-  if (typeof detail === "string") return detail;
-  return err?.message || fallback;
 };
 
 export default function ParentAbsenceNoticeSection({

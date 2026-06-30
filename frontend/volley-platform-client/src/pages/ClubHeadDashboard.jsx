@@ -11,6 +11,7 @@ import CompetitionEventModal from "../components/schedule/CompetitionEventModal"
 import ClubHeadMethodSection from "../components/clubHead/ClubHeadMethodSection";
 import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 
@@ -37,14 +38,6 @@ const monthRangeForKey = (monthKey) => {
   const lastDay = new Date(year, month, 0).getDate(); // month is 1-12
   const to_date = `${monthKey}-${String(lastDay).padStart(2, "0")}`;
   return { from_date, to_date };
-};
-
-const normalizeError = (err, fallback = "Грешка при зареждане на таблото на главния треньор.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 const normalizeRole = (user) => {

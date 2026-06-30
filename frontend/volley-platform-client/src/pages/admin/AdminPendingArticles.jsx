@@ -5,14 +5,7 @@ import ArticleCard from "../../components/articles/ArticleCard";
 import "../../components/articles/articles.css";
 import { AdminHero, Button, EmptyState, Input } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на чакащите статии.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на чакащите статии.";
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function AdminPendingArticles() {
   const [articles, setArticles] = useState([]);

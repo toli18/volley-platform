@@ -5,14 +5,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { AdminHero, AdminSection, AdminStatCard, Button, Card, EmptyState } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на админ статистиките.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на админ статистиките.";
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);

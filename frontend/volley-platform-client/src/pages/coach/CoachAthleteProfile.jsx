@@ -8,14 +8,7 @@ import { parentLoginUrl } from "../../utils/parentAuth";
 import { useToast } from "../../components/ToastProvider";
 import { EmptyState } from "../../components/ui";
 import AthleteProfileCoachMobile from "./AthleteProfileCoachMobile";
-
-const normalizeError = (err, fallback = "Грешка.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function CoachAthleteProfile() {
   const { athleteId } = useParams();

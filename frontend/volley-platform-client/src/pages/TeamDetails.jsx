@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import TeamPortalCoachPanel, { TeamPortalHeroActions, useTeamPortalCoach } from "../components/teamPortal/TeamPortalCoachPanel";
@@ -19,14 +20,6 @@ const teamGenderLabel = (g) => {
   if (g === "male") return "Мъжки";
   if (g === "female") return "Женски";
   return "—";
-};
-
-const normalizeError = (err, fallback = "Грешка при работа с отбора.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 export default function TeamDetails() {

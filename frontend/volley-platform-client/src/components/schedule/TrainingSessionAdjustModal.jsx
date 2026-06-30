@@ -5,14 +5,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { useToast } from "../ToastProvider";
 import { Button, EmptyState, Input, Modal } from "../ui";
-
-const normalizeError = (err, fallback = "Грешка при промяна на тренировката.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function TrainingSessionAdjustModal({
   open,

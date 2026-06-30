@@ -9,6 +9,7 @@ import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import MobileDrawer from "../components/shell/MobileDrawer";
 import { Button, Card, EmptyState, Input, Modal, PageHero } from "../components/ui";
+import { normalizeError } from "../utils/normalizeError";
 import useMediaQuery from "../utils/useMediaQuery";
 import {
   COMPETITION_KIND_OPTIONS,
@@ -55,14 +56,6 @@ const monthRange = (monthKey) => {
   const end = new Date(y, m, 0).getDate();
   const to = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(end).padStart(2, "0")}`;
   return { from, to };
-};
-
-const normalizeError = (err, fallback = "Грешка при работа с графика.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 const roleValue = (user) => {

@@ -12,14 +12,7 @@ import {
 import "../components/articles/articles.css";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на статиите.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на статиите.";
-};
+import { normalizeError } from "../utils/normalizeError";
 
 export default function Articles() {
   const { user } = useAuth();

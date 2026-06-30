@@ -11,19 +11,12 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { useToast } from "../../components/ToastProvider";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
+import { normalizeError } from "../../utils/normalizeError";
 
 const genderSuffix = (g) => {
   if (g === "male") return " · М";
   if (g === "female") return " · Ж";
   return "";
-};
-
-const normalizeError = (err, fallback = "Грешка.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 const SECTIONS = [

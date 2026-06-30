@@ -8,15 +8,9 @@ import { resolveMediaUrl } from "../components/articles/articleUtils";
 import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
 import { toDisplayHtml } from "../utils/richText";
+import { normalizeError } from "../utils/normalizeError";
 
 const QUICK_EMOJIS = ["🏐", "🔥", "💪", "🎯", "📈", "🧱", "👏", "🤝"];
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при работа с темата.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при работа с темата.";
-};
 
 export default function ForumTopic() {
   const { id } = useParams();

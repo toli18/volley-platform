@@ -8,13 +8,7 @@ import { teamRoomLoginPath, teamRoomLoginUrl } from "../../utils/teamRoomAuth";
 import TeamPortalCoachChat from "./TeamPortalCoachChat";
 import TeamPortalCoachNews from "./TeamPortalCoachNews";
 import { Button, Card, Input, Modal } from "../ui";
-
-const normalizeError = (err, fallback = "Грешка.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  return fallback;
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export function useTeamPortalCoach(teamId) {
   const toast = useToast();

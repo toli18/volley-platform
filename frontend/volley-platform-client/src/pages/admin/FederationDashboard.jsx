@@ -5,16 +5,9 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { AdminHero, AdminSection, AdminStatCard, Button, Card, EmptyState } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
+import { normalizeError } from "../../utils/normalizeError";
 
 const PHASE_LABELS = { baseline: "Входящо", mid: "Междинно", endline: "Изходящо" };
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на федеративното табло.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на федеративното табло.";
-};
 
 const fmtPct = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : `${Math.round(Number(v))}%`);
 const fmtNum = (v, digits = 1) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(digits));

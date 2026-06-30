@@ -3,17 +3,10 @@ import { Link } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
-
-const normalizeError = (err, fallback = "Грешка при работа с отборите.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
-};
 
 const teamGenderLabel = (gender) => {
   if (gender === "male") return "Мъжки";

@@ -5,14 +5,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
-
-const normalizeError = (err, fallback = "Грешка при работа с отчета.") => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
-};
+import { normalizeError } from "../utils/normalizeError";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 

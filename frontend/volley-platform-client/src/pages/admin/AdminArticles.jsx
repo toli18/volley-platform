@@ -5,14 +5,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { statusMeta } from "../../components/articles/articleUtils";
 import { AdminActionsRow, AdminHero, AdminSection, Button, Card, EmptyState, Input } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане.";
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 export default function AdminArticles() {
   const navigate = useNavigate();

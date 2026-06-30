@@ -4,14 +4,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { statusMeta } from "../components/articles/articleUtils";
 import { Button, Card, EmptyState, Input, PageHero } from "../components/ui";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на твоите статии.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на твоите статии.";
-};
+import { normalizeError } from "../utils/normalizeError";
 
 const statusLabel = (value) => {
   const key = String(value || "").toUpperCase();

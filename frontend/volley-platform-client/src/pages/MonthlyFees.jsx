@@ -8,16 +8,9 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, Input, Modal, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { filterFeesAthletes } from "../utils/feesAthleteSearch";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при обработка на месечните такси.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при обработка на месечните такси.";
-};
 
 const currentMonthKey = () => {
   const d = new Date();

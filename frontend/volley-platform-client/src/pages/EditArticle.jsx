@@ -7,6 +7,7 @@ import RichTextToolbar from "../components/RichTextToolbar";
 import { Button, PageHero } from "../components/ui";
 import { clearDraft, editDraftKey, hasMeaningfulDraft, loadDraft, saveDraft } from "../utils/articleDrafts";
 import { normalizePastedHtmlFragment, toDisplayHtml, toEmbeddableImageUrl } from "../utils/richText";
+import { normalizeError } from "../utils/normalizeError";
 
 const SLASH_COMMANDS = [
   { id: "heading", key: "заглавие", label: "/заглавие", insert: "\n## Заглавие\n" },
@@ -15,14 +16,6 @@ const SLASH_COMMANDS = [
   { id: "list", key: "списък", label: "/списък", insert: "\n- Точка 1\n- Точка 2\n" },
   { id: "image", key: "снимка", label: "/снимка", insert: "" },
 ];
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при заявката.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при заявката.";
-};
 
 export default function EditArticle() {
   const { id } = useParams();

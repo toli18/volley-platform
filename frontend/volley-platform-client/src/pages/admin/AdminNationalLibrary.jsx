@@ -18,14 +18,7 @@ import {
   ResponsiveDataView,
 } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail[0]?.msg || "Грешка (422)";
-  return "Грешка";
-};
+import { normalizeError } from "../../utils/normalizeError";
 
 const IMPORT_TIMEOUT_MS = 180000;
 

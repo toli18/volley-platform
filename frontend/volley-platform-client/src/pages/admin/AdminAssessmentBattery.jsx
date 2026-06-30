@@ -4,6 +4,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { AdminHero, AdminSection, Button, Card, EmptyState, Input } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
+import { normalizeError } from "../../utils/normalizeError";
 
 const CATEGORY_LABELS = {
   technical: "Технически",
@@ -52,14 +53,6 @@ const EMPTY_FORM = {
   age_max: "",
   battery_version: "",
   sort_order: 0,
-};
-
-const normalizeError = (err, fallback) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || fallback;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || fallback;
-  return fallback;
 };
 
 export default function AdminAssessmentBattery() {

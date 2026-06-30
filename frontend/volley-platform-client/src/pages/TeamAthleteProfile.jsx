@@ -7,14 +7,7 @@ import { parentLoginPath, parentLoginUrl } from "../utils/parentAuth";
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { formatMoney } from "../utils/currency";
-
-const normalizeError = (err) => {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return err?.message || "Грешка при зареждане на профила.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail?.[0]?.msg || "Невалидни данни (422).";
-  return "Грешка при зареждане на профила.";
-};
+import { normalizeError } from "../utils/normalizeError";
 
 const fmtMissing = (value) => {
   if (value == null || value === "") return "няма данни";
