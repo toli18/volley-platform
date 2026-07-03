@@ -107,9 +107,7 @@ export default function Login() {
           marginTop: 18,
         }}
       >
-        <Button as="a" href="/pricing/" variant="ghost" size="sm">Цени</Button>
         <Button as="a" href="/instructions/" variant="ghost" size="sm">Инструкция</Button>
-        <Button as="a" href="/terms/" variant="ghost" size="sm">Общи условия</Button>
         <Button as="a" href="/privacy/" variant="ghost" size="sm">Поверителност</Button>
       </div>
     </div>
