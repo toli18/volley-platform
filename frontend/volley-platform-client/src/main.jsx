@@ -67,6 +67,7 @@ const AdminPendingDrill = React.lazy(() => import("./pages/admin/AdminPendingDri
 const AdminEditDrill = React.lazy(() => import("./pages/admin/AdminEditDrill.jsx"));
 const AdminCoaches = React.lazy(() => import("./pages/admin/AdminCoaches.jsx"));
 const AdminClubs = React.lazy(() => import("./pages/admin/AdminClubs.jsx"));
+const AdminPilotRequests = React.lazy(() => import("./pages/admin/AdminPilotRequests.jsx"));
 const AdminPendingArticles = React.lazy(() => import("./pages/admin/AdminPendingArticles.jsx"));
 const AdminArticleModeration = React.lazy(() => import("./pages/admin/AdminArticleModeration.jsx"));
 const AdminArticles = React.lazy(() => import("./pages/admin/AdminArticles.jsx"));
@@ -223,6 +224,7 @@ const router = createBrowserRouter([
 
           { path: "coaches/*", element: <AdminCoaches /> },
           { path: "clubs/*", element: <AdminClubs /> },
+          { path: "pilot-requests", element: <AdminPilotRequests /> },
           { path: "articles", element: <AdminArticles /> },
           { path: "articles/pending", element: <AdminPendingArticles /> },
           { path: "articles/:id", element: <AdminArticleModeration /> },

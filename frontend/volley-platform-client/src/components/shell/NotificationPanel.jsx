@@ -5,6 +5,7 @@ import { formatMoney } from "../../utils/currency";
 
 export default function NotificationPanel({
   isHeadCoachUser,
+  isPlatformAdmin,
   unifiedFeedItems,
   onClose,
   markFeeItemSeen,
@@ -12,6 +13,8 @@ export default function NotificationPanel({
   markAllClubFeedSeen,
   markForumItemRead,
   markAllForumRead,
+  markPilotItemSeen,
+  markAllPilotSeen,
 }) {
   return (
     <div id="nav-notifications-panel" className="navShellPanel navShellPanel--wide" role="region" aria-label="Известия">
@@ -21,6 +24,11 @@ export default function NotificationPanel({
           <button type="button" className="navShellPanel__linkBtn" onClick={markAllForumRead}>
             Форум: всички
           </button>
+          {isPlatformAdmin ? (
+            <button type="button" className="navShellPanel__linkBtn" onClick={markAllPilotSeen}>
+              Пилот: всички
+            </button>
+          ) : null}
           {isHeadCoachUser ? (
             <button type="button" className="navShellPanel__linkBtn" onClick={markAllClubFeedSeen}>
               Клуб: прочетени
@@ -29,7 +37,11 @@ export default function NotificationPanel({
         </div>
       </div>
       <span className="navShellPanel__hint">
-        {isHeadCoachUser ? "Форум, такси и задачи (клуб) на едно място." : "Форум известия."}
+        {isPlatformAdmin
+          ? "Пилотни заявки, форум и клуб на едно място."
+          : isHeadCoachUser
+            ? "Форум, такси и задачи (клуб) на едно място."
+            : "Форум известия."}
       </span>
       {unifiedFeedItems.length === 0 ? <span className="navShellPanel__empty">Няма известия.</span> : null}
       {unifiedFeedItems.map((row) => {
@@ -54,6 +66,26 @@ export default function NotificationPanel({
               <div className="navShellPanel__tag">Форум</div>
               <div>{item.message}</div>
               <div className="navShellPanel__rowMeta">{new Date(item.created_at || "").toLocaleString("bg-BG")}</div>
+            </Link>
+          );
+        }
+        if (row.kind === "pilot") {
+          const item = row.pilot;
+          return (
+            <Link
+              key={row.key}
+              to="/admin/pilot-requests"
+              onClick={() => {
+                markPilotItemSeen(item.id);
+                onClose();
+              }}
+              className={`navShellPanel__row navShellPanel__row--task ${row.unread ? "navShellPanel__row--unread" : ""}`}
+            >
+              <div className="navShellPanel__tag">Пилот · клуб</div>
+              <div className="navShellPanel__rowTitle">{item.club_name}</div>
+              <div className="navShellPanel__rowMeta">
+                {[item.city, item.region].filter(Boolean).join(" · ") || "—"} · {item.contact_name}
+              </div>
             </Link>
           );
         }

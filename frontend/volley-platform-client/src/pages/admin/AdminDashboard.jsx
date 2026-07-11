@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   }, []);
 
   const links = [
+    { to: "/admin/pilot-requests", label: "Пилотни заявки (от /pilot/)" },
     { to: "/admin/coaches", label: "Треньори (създаване)" },
     { to: "/admin/drills", label: "Всички упражнения (редакция / изтриване)" },
     { to: "/admin/pending", label: "Упражнения за одобрение" },

@@ -1037,6 +1037,37 @@ class MethodAssignment(Base):
 
 
 # =========================
+# Pilot program (public landing → admin inbox)
+# =========================
+class PilotRequestStatus(str, Enum):
+    new = "new"
+    contacted = "contacted"
+    activated = "activated"
+    declined = "declined"
+
+
+class PilotRequest(Base):
+    __tablename__ = "pilot_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_name = Column(String(255), nullable=False)
+    city = Column(String(120), nullable=True)
+    region = Column(String(64), nullable=True)
+    teams_count = Column(String(32), nullable=True)
+    coaches_count = Column(String(32), nullable=True)
+    contact_name = Column(String(255), nullable=False)
+    note = Column(Text, nullable=True)
+    status = Column(
+        SqlEnum(PilotRequestStatus, name="pilotrequeststatus", native_enum=False),
+        nullable=False,
+        default=PilotRequestStatus.new,
+    )
+    admin_seen = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# =========================
 # Methodical Assessment Layer v1
 # Дефинирани в отделен модул за по-малък diff; импортирани тук, за да се
 # регистрират към общия Base/metadata и да са достъпни през `app.models`.

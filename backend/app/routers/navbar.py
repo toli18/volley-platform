@@ -21,7 +21,7 @@ from app.models import User, UserRole
 from app.routers.forum import get_forum_notifications
 from app.routers.training_assignments import club_assignment_activity, my_assignments
 from app.routers.national_method import coach_my_method_assignments
-from app.routers.fees import recent_fee_payment_activity
+from app.routers.pilot_requests import list_pilot_requests_for_admin
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -46,6 +46,7 @@ def navbar_feed(
     role = _role_value(current_user)
     is_coach_like = role in (UserRole.coach.value, UserRole.club_head_coach.value)
     is_head = role == UserRole.club_head_coach.value
+    is_platform_admin = role == UserRole.platform_admin.value
 
     # Всяка част е защитена поотделно: ако някоя заявка гръмне, връщаме празна
     # стойност вместо да проваляме целия feed (същото поведение като старите
@@ -91,10 +92,19 @@ def navbar_feed(
             logger.exception("navbar_feed: club assignment activity failed")
             task_reports = {"items": []}
 
+    pilot_requests = {"items": [], "unread_count": 0}
+    if is_platform_admin:
+        try:
+            pilot_requests = list_pilot_requests_for_admin(db, limit=12)
+        except Exception:  # noqa: BLE001
+            logger.exception("navbar_feed: pilot requests failed")
+            pilot_requests = {"items": [], "unread_count": 0}
+
     return {
         "forum": forum,
         "tasks_training": tasks_training,
         "tasks_method": tasks_method,
         "fee_activity": fee_activity,
         "task_reports": task_reports,
+        "pilot_requests": pilot_requests,
     }

@@ -30,7 +30,7 @@ from app.routers.team_portal import router as team_portal_router
 from app.routers.team_chat import router as team_chat_router
 from app.routers.national_method import router as national_method_router
 from app.routers.navbar import router as navbar_router
-from app.routers.assessments import router as assessments_router
+from app.routers.pilot_requests import router as pilot_requests_router
 from app.routers import articles
 
 
@@ -93,6 +93,7 @@ app.include_router(navbar_router, prefix="/api", tags=["Navbar Feed"])
 app.include_router(national_method_router)
 # prefix="/api/assessments" и tags са дефинирани в самия router (виж assessments.py)
 app.include_router(assessments_router)
+app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])
 
 # --- Root ---
 @app.get("/")

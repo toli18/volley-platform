@@ -27,7 +27,7 @@ function startVisiblePoll(load, intervalMs) {
 }
 
 export default function useNavbarFeed() {
-  const { user, isCoachUser, isHeadCoachUser } = useNavRoles();
+  const { user, isCoachUser, isHeadCoachUser, isPlatformAdmin } = useNavRoles();
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -37,6 +37,8 @@ export default function useNavbarFeed() {
   const [feeUnreadCount, setFeeUnreadCount] = useState(0);
   const [taskReports, setTaskReports] = useState([]);
   const [taskReportsUnread, setTaskReportsUnread] = useState(0);
+  const [pilotRequests, setPilotRequests] = useState([]);
+  const [pilotUnreadCount, setPilotUnreadCount] = useState(0);
   const [clubSeenTick, setClubSeenTick] = useState(0);
 
   const combinedUnreadCount = useMemo(() => {
@@ -45,8 +47,11 @@ export default function useNavbarFeed() {
       n += Number(feeUnreadCount) || 0;
       n += Number(taskReportsUnread) || 0;
     }
+    if (isPlatformAdmin) {
+      n += Number(pilotUnreadCount) || 0;
+    }
     return n;
-  }, [unreadCount, feeUnreadCount, taskReportsUnread, isHeadCoachUser]);
+  }, [unreadCount, feeUnreadCount, taskReportsUnread, pilotUnreadCount, isHeadCoachUser, isPlatformAdmin]);
 
   const unifiedFeedItems = useMemo(() => {
     let feeSeen = new Set();
@@ -63,10 +68,24 @@ export default function useNavbarFeed() {
         taskSeen = new Set();
       }
     }
+    let pilotSeen = new Set();
+    if (isPlatformAdmin && user?.id) {
+      try {
+        pilotSeen = new Set(JSON.parse(localStorage.getItem(`vp-pilot-requests-seen-${user.id}`) || "[]"));
+      } catch {
+        pilotSeen = new Set();
+      }
+    }
     const out = [];
     (notifications || []).forEach((n) => {
       out.push({ kind: "forum", key: `forum-${n.id}`, ts: n.created_at, unread: !n.is_read, forum: n });
     });
+    if (isPlatformAdmin) {
+      (pilotRequests || []).forEach((p) => {
+        const unread = !p.admin_seen && !pilotSeen.has(Number(p.id));
+        out.push({ kind: "pilot", key: `pilot-${p.id}`, ts: p.created_at, unread, pilot: p });
+      });
+    }
     if (isHeadCoachUser) {
       (feeAlerts || []).forEach((f) => {
         out.push({ kind: "fee", key: `fee-${f.id}`, ts: f.paid_at, unread: !feeSeen.has(f.id), fee: f });
@@ -77,7 +96,7 @@ export default function useNavbarFeed() {
     }
     out.sort((a, b) => new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime());
     return out.slice(0, 28);
-  }, [notifications, feeAlerts, taskReports, isHeadCoachUser, user, clubSeenTick]);
+  }, [notifications, feeAlerts, taskReports, pilotRequests, isHeadCoachUser, isPlatformAdmin, user, clubSeenTick]);
 
   const markFeeItemSeen = useCallback(
     (paymentId) => {
@@ -126,6 +145,43 @@ export default function useNavbarFeed() {
     }
   }, [user, feeAlerts, taskReports]);
 
+  const markPilotItemSeen = useCallback(
+    async (requestId) => {
+      if (!user?.id) return;
+      const key = `vp-pilot-requests-seen-${user.id}`;
+      try {
+        const arr = JSON.parse(localStorage.getItem(key) || "[]");
+        const next = Array.from(new Set([...arr.map(Number), Number(requestId)]));
+        localStorage.setItem(key, JSON.stringify(next));
+        setPilotUnreadCount(pilotRequests.filter((x) => !x.admin_seen && !next.includes(Number(x.id))).length);
+        setClubSeenTick((x) => x + 1);
+      } catch {
+        // ignore
+      }
+      try {
+        await axiosInstance.patch(API_PATHS.PILOT_REQUEST_UPDATE(requestId), { admin_seen: true });
+        setPilotRequests((prev) => prev.map((x) => (x.id === requestId ? { ...x, admin_seen: true } : x)));
+      } catch {
+        // ignore
+      }
+    },
+    [user, pilotRequests],
+  );
+
+  const markAllPilotSeen = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      await axiosInstance.post(API_PATHS.PILOT_REQUESTS_READ_ALL);
+      const key = `vp-pilot-requests-seen-${user.id}`;
+      localStorage.setItem(key, JSON.stringify(pilotRequests.map((x) => x.id)));
+      setPilotRequests((prev) => prev.map((x) => ({ ...x, admin_seen: true })));
+      setPilotUnreadCount(0);
+      setClubSeenTick((x) => x + 1);
+    } catch {
+      // ignore
+    }
+  }, [user, pilotRequests]);
+
   const markForumItemRead = useCallback((item) => {
     setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
     setUnreadCount((prev) => Math.max(0, prev - (item.is_read ? 0 : 1)));
@@ -151,6 +207,8 @@ export default function useNavbarFeed() {
       setFeeUnreadCount(0);
       setTaskReports([]);
       setTaskReportsUnread(0);
+      setPilotRequests([]);
+      setPilotUnreadCount(0);
       return;
     }
     let cancelled = false;
@@ -191,8 +249,24 @@ export default function useNavbarFeed() {
       }
     };
 
-    // Резервен вариант (старите отделни заявки) — ползва се само ако агрегираният
-    // endpoint липсва/гръмне (напр. при разминаване между деплоя на фронта и бекенда).
+    const applyPilotRequests = (data) => {
+      const list = Array.isArray(data?.items) ? data.items : [];
+      setPilotRequests(list);
+      setPilotUnreadCount(Number(data?.unread_count) || 0);
+      if (isPlatformAdmin && user?.id) {
+        try {
+          const seen = JSON.parse(localStorage.getItem(`vp-pilot-requests-seen-${user.id}`) || "[]");
+          const extra = list.filter((x) => !x.admin_seen && !seen.includes(Number(x.id))).length;
+          if (extra > (Number(data?.unread_count) || 0)) {
+            setPilotUnreadCount(extra);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    // Резервен вариант
     const loadLegacy = async () => {
       const forumRes = await axiosInstance
         .get(API_PATHS.FORUM_NOTIFICATIONS, { params: { limit: 8 } })
@@ -227,6 +301,16 @@ export default function useNavbarFeed() {
         applyFeeActivity([]);
         applyTaskReports([]);
       }
+
+      if (isPlatformAdmin) {
+        const pilotRes = await axiosInstance
+          .get(API_PATHS.PILOT_REQUESTS, { params: { limit: 12 } })
+          .catch(() => ({ data: { items: [], unread_count: 0 } }));
+        if (cancelled) return;
+        applyPilotRequests(pilotRes.data);
+      } else {
+        applyPilotRequests({ items: [], unread_count: 0 });
+      }
     };
 
     const load = async () => {
@@ -238,6 +322,7 @@ export default function useNavbarFeed() {
         applyTasks(data.tasks_training, data.tasks_method);
         applyFeeActivity(data.fee_activity?.items);
         applyTaskReports(data.task_reports?.items);
+        applyPilotRequests(data.pilot_requests);
       } catch {
         if (cancelled) return;
         try {
@@ -254,11 +339,12 @@ export default function useNavbarFeed() {
       cancelled = true;
       stop();
     };
-  }, [user, isCoachUser, isHeadCoachUser]);
+  }, [user, isCoachUser, isHeadCoachUser, isPlatformAdmin]);
 
   return {
     isCoachUser,
     isHeadCoachUser,
+    isPlatformAdmin,
     newTaskCount,
     tasks,
     combinedUnreadCount,
@@ -269,6 +355,8 @@ export default function useNavbarFeed() {
     markAllClubFeedSeen,
     markForumItemRead,
     markAllForumRead,
+    markPilotItemSeen,
+    markAllPilotSeen,
     setNotifications,
     setUnreadCount,
   };

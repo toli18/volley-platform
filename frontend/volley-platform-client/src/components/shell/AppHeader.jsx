@@ -72,11 +72,14 @@ export default function AppHeader() {
 
   const feedProps = {
     unifiedFeedItems: feed.unifiedFeedItems,
+    isPlatformAdmin: feed.isPlatformAdmin,
     markFeeItemSeen: feed.markFeeItemSeen,
     markTaskItemSeen: feed.markTaskItemSeen,
     markAllClubFeedSeen: feed.markAllClubFeedSeen,
     markForumItemRead: feed.markForumItemRead,
     markAllForumRead: feed.markAllForumRead,
+    markPilotItemSeen: feed.markPilotItemSeen,
+    markAllPilotSeen: feed.markAllPilotSeen,
   };
 
   return (
@@ -157,7 +160,7 @@ export default function AppHeader() {
                   }}
                 />
                 {notificationsOpen ? (
-                  <NotificationPanel {...feedProps} isHeadCoachUser={isHeadCoachUser} onClose={() => setNotificationsOpen(false)} />
+                  <NotificationPanel {...feedProps} isHeadCoachUser={isHeadCoachUser} isPlatformAdmin={feed.isPlatformAdmin} onClose={() => setNotificationsOpen(false)} />
                 ) : null}
               </div>
               <ProfileMenu
