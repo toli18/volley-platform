@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Пилотна програма — 1 страница (PDF)</title>
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+<style>
+  .printPage {
+    border: 1px solid var(--line); border-radius: 16px; padding: 28px 32px;
+    background: rgba(255,255,255,0.03); margin-top: 16px;
+  }
+  .printPage h1 { font-size: 26px; margin: 0 0 4px; }
+  .printPage .sub { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .printPage .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .printPage h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin: 0 0 8px; }
+  .printPage ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .printPage li { margin: 4px 0; }
+  .printPage .box { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 14px; font-size: 14px; }
+  @media print {
+    .printPage { border: none; padding: 0; }
+    .printPage .cols { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="noPrint">
+    <p class="lead">Распечатайте като PDF: <b>Ctrl+P</b> → „Запази като PDF“. Подходящо за имейл към клуб или БФВ.</p>
+    <div class="linkRow" style="justify-content:flex-start;">
+      <button type="button" class="btn" onclick="window.print()">Печат / PDF</button>
+      <a class="btn outline" href="/pilot/">Пилотна страница</a>
+      <a class="btn outline" href="/outreach/">Outreach материали</a>
+    </div>
+  </div>
+
+  <div class="printPage">
+    <h1>Volley Coach Platform</h1>
+    <p class="sub muted">Пилотна програма „Методика в джоба на треньора“ · сезон 2026/27 · volley-platform.vercel.app/pilot</p>
+
+    <p><b>Едно изречение:</b> Времето на треньора е в залата — не в тетрадката. Методиката на БФВ е в джоба му всеки ден.</p>
+
+    <div class="cols">
+      <div>
+        <h2>Какво получава клубът</h2>
+        <ul>
+          <li>Учебник, конспекти и годишна програма на БФВ</li>
+          <li>AI тренировки от конспект (1 клик)</li>
+          <li>Присъствие, график, такси, родителски портал</li>
+          <li>Чат, диагностика, форум</li>
+        </ul>
+        <h2 style="margin-top:14px;">Пилотна оферта</h2>
+        <ul>
+          <li><b>1-ви треньор: безплатно 12 месеца</b></li>
+          <li>2-ри/3-ти треньор: €49/год</li>
+          <li>Onboarding + видео инструкция</li>
+          <li>Условие: реално ползване + кратък отзив</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Как започвате</h2>
+        <ol class="steps" style="margin-top:0;">
+          <li>Заявка на volley-platform@outlook.com</li>
+          <li>Активиране до 24 часа</li>
+          <li>1 отбор · 1 седмица · присъствие + AI тренировка</li>
+        </ol>
+        <h2 style="margin-top:14px;">След пилота (цени)</h2>
+        <ul>
+          <li>Клубен абонамент: €240/год (≈ €20/мес)</li>
+          <li>+ €49/год на доп. треньор</li>
+          <li>Таван цял клуб: €400/год</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box">
+      <b>За БФВ:</b> Пилот с 5–10 клуба (по 1 от регион) · обратна връзка кои конспекти се ползват ·
+      агрегирана статистика без лични данни на деца · искаме: имейл към клубовете, 1 методист контакт, 15 мин demo на следващ форум.
+    </div>
+
+    <p class="muted" style="font-size:13px; margin-top:16px;">
+      Контакт: volley-platform@outlook.com · Инструкция: volley-platform.vercel.app/instructions
+    </p>
+  </div>
+</div>
+</body>
+</html>

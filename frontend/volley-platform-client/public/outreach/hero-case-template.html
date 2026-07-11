@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Шаблон — Hero казус (с числа)</title>
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/presentation/logo.png" alt="" onerror="this.style.display='none'" />
+    <div><b>Outreach</b><small>Казус след 4–6 седмици пилот</small></div>
+  </div>
+
+  <h1>Hero казус — шаблон</h1>
+  <p class="lead">Попълни след 4–6 седмици реална употреба. Използвай в имейли към БФВ, на сайта и в разговори с нови клубове.</p>
+
+  <div class="copyToolbar noPrint">
+    <button type="button" class="btn" id="copyCase">Копирай казуса</button>
+    <button type="button" class="btn outline" onclick="window.print()">Печат / PDF</button>
+  </div>
+
+  <div class="printPage" id="caseBody">
+    <h2 style="margin-top:0;">Казус: [Име на клуб], [град]</h2>
+    <p class="muted">Период: [дата старт] — [дата] · Възраст: [U14/U16/...] · [N] отбора, [M] треньора</p>
+
+    <h3>Предизвикателство</h3>
+    <p>[1–2 изречения: какво беше проблемът преди — време за админ, разпръснати конспекти, Viber групи, и т.н.]</p>
+
+    <h3>Какво направихме</h3>
+    <ul>
+      <li>Активирахме [N] отбор с [M] треньора</li>
+      <li>Годишна програма БФВ + „Моята програмна седмица“</li>
+      <li>Присъствие от телефона + родителски портал</li>
+      <li>[X] AI тренировки генерирани от конспекти</li>
+    </ul>
+
+    <h3>Резултати (числа)</h3>
+    <ul>
+      <li><b>[X] часа седмично</b> спестено административно време (оценка на треньора)</li>
+      <li><b>[Y] тренировки</b> по методиката на БФВ за [Z] седмици</li>
+      <li><b>[W] родители</b> в портала / [V]% присъствие отбелязано digital</li>
+      <li><b>[Q] конспекта</b> от учебника използвани най-често: [списък]</li>
+    </ul>
+
+    <h3>Цитат от треньора</h3>
+    <p><i>„[Директен цитат 1–2 изречения — напр. „Преди губех час за планиране, сега отварям телефона след присъствието и тренировката е готова.“]“</i></p>
+    <p>— [Име], [длъжност], [Клуб]</p>
+
+    <h3>Следваща стъпка</h3>
+    <p>Клубът [продължава с платен абонамент / разширява на 2-ри треньор / препоръчва на друг клуб].</p>
+  </div>
+
+  <div class="tip">
+    <b>Минимум за валиден казус:</b> поне 1 число (часове ИЛИ брой тренировки) + 1 цитат от треньор.
+  </div>
+
+  <footer><a href="/outreach/">← Outreach материали</a></footer>
+</div>
+
+<script>
+document.getElementById("copyCase").addEventListener("click", function () {
+  navigator.clipboard.writeText(document.getElementById("caseBody").innerText);
+  this.textContent = "Копирано ✓";
+  setTimeout(function () { document.getElementById("copyCase").textContent = "Копирай казуса"; }, 2000);
+});
+</script>
+</body>
+</html>

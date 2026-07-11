@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volley Coach — Пилотна програма</title>
+<meta name="description" content="Пилотна програма „Методика в джоба на треньора“ — пълен достъп за избрани клубове, изградено около методиката на БФВ." />
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <img src="/presentation/logo.png" alt="БФВ" onerror="this.style.display='none'" />
+    <div><b>Volley Coach Platform</b><small>Пилотна програма · сезон 2026/27</small></div>
+  </div>
+
+  <span class="tag">Ограничен брой места · по 1 клуб от регион</span>
+  <h1>Методика в джоба на треньора</h1>
+  <p class="lead">Един инструмент вместо пет: присъствие, такси, график, родители и тренировки по методиката на БФВ — с AI генератор от конспектите в учебника.</p>
+
+  <div class="grid3">
+    <div class="card highlight">
+      <h3>1-ви треньор безплатно</h3>
+      <p>12 месеца пълен достъп за първия треньорски акаунт на клуба.</p>
+    </div>
+    <div class="card">
+      <h3>Директна поддръжка</h3>
+      <p>Onboarding, видео инструкция и лична линия за въпроси през сезона.</p>
+    </div>
+    <div class="card">
+      <h3>Влияние върху продукта</h3>
+      <p>Вашата обратна връзка оформя платформата за българския волейбол.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Условие за пилота:</b> реално ползване (мин. 1 отбор, присъствие + поне 2 AI тренировки от конспект за 30 дни)
+    и кратък отзив с числа след 4–6 седмици. 2-ри и 3-ти треньор: €49/год.
+  </div>
+
+  <section class="doc">
+    <h2>Какво получава клубът</h2>
+    <ul>
+      <li>Учебник и конспекти на БФВ + годишна програма по възраст</li>
+      <li>AI генератор на тренировки от конспект (1 клик от учебника)</li>
+      <li>Присъствие в залата, график, месечни такси, родителски портал</li>
+      <li>Чат с отбора, диагностика, форум с треньори</li>
+    </ul>
+  </section>
+
+  <section class="doc">
+    <h2>Как започвате (3 стъпки)</h2>
+    <ol class="steps">
+      <li><b>Заявка</b> — попълнете формата по-долу (или имейл до volley-platform@outlook.com)</li>
+      <li><b>Активиране до 24 ч.</b> — създаваме клуба и първия треньорски акаунт</li>
+      <li><b>Един отбор, една седмица</b> — пробвате присъствие + 1 тренировка от конспект</li>
+    </ol>
+  </section>
+
+  <div class="finish">
+    <h2>Запишете клуба в пилота</h2>
+    <p>Оставете контакт — ще се свържем в рамките на 1 работен ден.</p>
+    <div class="linkRow">
+      <button type="button" class="btn" id="openPilotForm" style="border:none;">Заяви пилотен достъп</button>
+      <a class="btn outline" href="/instructions/" style="display:inline-flex;">Инструкция</a>
+      <a class="btn outline" href="/pricing/" style="display:inline-flex;">Цени след пилота</a>
+    </div>
+  </div>
+
+  <footer>
+    Volley Coach Platform · <a href="mailto:volley-platform@outlook.com">volley-platform@outlook.com</a>
+    · <a href="/outreach/">Материали за outreach</a>
+  </footer>
+</div>
+
+<div class="modal" id="pilotModal" role="dialog" aria-modal="true">
+  <div class="modalBox">
+    <h3>Заявка за пилотен достъп</h3>
+    <p class="hint">Попълнете полетата и изберете как да изпратите заявката.</p>
+    <div class="field"><label for="fClub">Клуб *</label><input id="fClub" type="text" placeholder="Име на клуба" /></div>
+    <div class="field"><label for="fCity">Град</label><input id="fCity" type="text" placeholder="Град" /></div>
+    <div class="field"><label for="fTeams">Брой отбори</label><input id="fTeams" type="text" placeholder="напр. 3" /></div>
+    <div class="field"><label for="fCoaches">Брой треньори</label><input id="fCoaches" type="text" placeholder="напр. 2" /></div>
+    <div class="field"><label for="fContact">Лице за контакт *</label><input id="fContact" type="text" placeholder="Име и телефон" /></div>
+    <div class="field"><label for="fNote">Бележка</label><textarea id="fNote" placeholder="Какво искате да пробвате първо?"></textarea></div>
+    <div class="modalActions">
+      <button type="button" class="btn outline" id="closeModal">Затвори</button>
+      <a class="btn" id="sendGmail" target="_blank" rel="noreferrer">Gmail</a>
+      <a class="btn" id="sendOutlook" target="_blank" rel="noreferrer">Outlook</a>
+      <button type="button" class="btn outline" id="copyBody">Копирай текст</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var email = "volley-platform@outlook.com";
+  var subject = "Заявка за пилотен достъп — Volley Coach Platform";
+  var modal = document.getElementById("pilotModal");
+
+  function body() {
+    return [
+      "Здравейте,",
+      "",
+      "Желаем да участваме в пилотната програма „Методика в джоба на треньора“.",
+      "",
+      "Клуб: " + (document.getElementById("fClub").value.trim() || "—"),
+      "Град: " + (document.getElementById("fCity").value.trim() || "—"),
+      "Брой отбори: " + (document.getElementById("fTeams").value.trim() || "—"),
+      "Брой треньори: " + (document.getElementById("fCoaches").value.trim() || "—"),
+      "Лице за контакт: " + (document.getElementById("fContact").value.trim() || "—"),
+      "",
+      "Бележка: " + (document.getElementById("fNote").value.trim() || "—"),
+      "",
+      "Поздрави,"
+    ].join("\n");
+  }
+
+  function validate() {
+    var club = document.getElementById("fClub").value.trim();
+    var contact = document.getElementById("fContact").value.trim();
+    if (!club || !contact) {
+      alert("Моля, попълнете поне Клуб и Лице за контакт.");
+      return false;
+    }
+    return true;
+  }
+
+  function updateLinks() {
+    var b = encodeURIComponent(body());
+    var s = encodeURIComponent(subject);
+    document.getElementById("sendGmail").href =
+      "https://mail.google.com/mail/?view=cm&fs=1&to=" + email + "&su=" + s + "&body=" + b;
+    document.getElementById("sendOutlook").href =
+      "https://outlook.live.com/mail/0/deeplink/compose?to=" + email + "&subject=" + s + "&body=" + b;
+  }
+
+  ["fClub", "fCity", "fTeams", "fCoaches", "fContact", "fNote"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", updateLinks);
+  });
+
+  document.getElementById("openPilotForm").addEventListener("click", function () {
+    modal.classList.add("open");
+    updateLinks();
+    document.getElementById("fClub").focus();
+  });
+  document.getElementById("closeModal").addEventListener("click", function () { modal.classList.remove("open"); });
+  modal.addEventListener("click", function (e) { if (e.target === modal) modal.classList.remove("open"); });
+
+  document.getElementById("sendGmail").addEventListener("click", function (e) { if (!validate()) e.preventDefault(); });
+  document.getElementById("sendOutlook").addEventListener("click", function (e) { if (!validate()) e.preventDefault(); });
+
+  document.getElementById("copyBody").addEventListener("click", function () {
+    if (!validate()) return;
+    var text = "До: " + email + "\nТема: " + subject + "\n\n" + body();
+    navigator.clipboard.writeText(text).then(function () {
+      document.getElementById("copyBody").textContent = "Копирано ✓";
+      setTimeout(function () { document.getElementById("copyBody").textContent = "Копирай текст"; }, 2000);
+    });
+  });
+
+  updateLinks();
+})();
+</script>
+</body>
+</html>

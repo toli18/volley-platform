@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Шаблон — Follow-up имейл към клуб</title>
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/presentation/logo.png" alt="" onerror="this.style.display='none'" />
+    <div><b>Outreach</b><small>Follow-up след семинар → клуб</small></div>
+  </div>
+
+  <h1>Имейл към клуб (след семинар)</h1>
+  <p class="lead">Личен follow-up до треньори/клубове от семинара. Персонализирай [име] и [клуб].</p>
+
+  <div class="copyToolbar noPrint">
+    <button type="button" class="btn" id="copyAll">Копирай целия имейл</button>
+    <a class="btn outline" id="openGmail" target="_blank" rel="noreferrer">Отвори в Gmail</a>
+    <a class="btn outline" id="openOutlook" target="_blank" rel="noreferrer">Отвори в Outlook</a>
+  </div>
+
+  <p><b>Тема:</b> <span id="subjectLine">Volley Coach — пилотен достъп за [клуб]</span></p>
+
+  <div class="copyBlock" id="emailBody">Здравейте, [име],
+
+Благодаря, че се запознахте с Volley Coach Platform на семинара в Стара Загора.
+
+Предлагам да започнем просто: един отбор, една седмица — присъствие в залата + една AI тренировка от конспект на БФВ. Без ангажимент за целия клуб.
+
+Пилотна оферта за първите клубове:
+• 1-ви треньор — безплатно 12 месеца
+• Директна поддръжка и onboarding
+• В замяна — кратък отзив след 4–6 седмици
+
+Полезни линкове:
+• Пилотна програма: https://volley-platform.vercel.app/pilot/
+• Инструкция (10 мин): https://volley-platform.vercel.app/instructions/
+• Цени след пилота: https://volley-platform.vercel.app/pricing/
+
+Ако сте съгласни — отговорете с името на клуба и колко отбора/треньори имате. Активирам до 24 часа.
+
+Поздрави,
+Anatoli Penev
+Volley Coach Platform
+volley-platform@outlook.com</div>
+
+  <div class="tip">
+    <b>SMS/Viber (кратко):</b> „Здравей, Anatoli от Volley Coach. След семинара — предлагам 1 отбор безплатно 12 мес. Пилот: volley-platform.vercel.app/pilot — пиши ако искаш да пробваме.“
+  </div>
+
+  <footer><a href="/outreach/">← Outreach материали</a></footer>
+</div>
+
+<script>
+(function () {
+  var email = "volley-platform@outlook.com";
+  var sub = document.getElementById("subjectLine").textContent;
+  var body = document.getElementById("emailBody").textContent;
+  var encS = encodeURIComponent(sub);
+  var encB = encodeURIComponent(body);
+  document.getElementById("openGmail").href = "https://mail.google.com/mail/?view=cm&fs=1&to=" + email + "&su=" + encS + "&body=" + encB;
+  document.getElementById("openOutlook").href = "https://outlook.live.com/mail/0/deeplink/compose?to=" + email + "&subject=" + encS + "&body=" + encB;
+  document.getElementById("copyAll").addEventListener("click", function () {
+    navigator.clipboard.writeText("Тема: " + sub + "\n\n" + body).then(function () {
+      document.getElementById("copyAll").textContent = "Копирано ✓";
+      setTimeout(function () { document.getElementById("copyAll").textContent = "Копирай целия имейл"; }, 2000);
+    });
+  });
+})();
+</script>
+</body>
+</html>
