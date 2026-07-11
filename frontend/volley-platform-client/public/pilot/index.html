@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Volley Coach — Пилотна програма</title>
-<meta name="description" content="Пилотна програма „Методика в джоба на треньора“ — пълен достъп за избрани клубове, изградено около методиката на БФВ." />
+<meta name="description" content="Пилотна програма „Методика в джоба на треньора“ — пълен достъп за 18 избрани клуба (6 региона × 3), изградено около методиката на БФВ." />
 <link rel="stylesheet" href="/legal.css" />
 <link rel="stylesheet" href="/outreach/outreach.css" />
 </head>
@@ -16,14 +16,14 @@
     <div><b>Volley Coach Platform</b><small>Пилотна програма · сезон 2026/27</small></div>
   </div>
 
-  <span class="tag">Ограничен брой места · по 1 клуб от регион</span>
+  <span class="tag">18 клуба · 6 региона по 3 · 12 месеца пълен достъп</span>
   <h1>Методика в джоба на треньора</h1>
   <p class="lead">Един инструмент вместо пет: присъствие, такси, график, родители и тренировки по методиката на БФВ — с AI генератор от конспектите в учебника.</p>
 
   <div class="grid3">
     <div class="card highlight">
-      <h3>1-ви треньор безплатно</h3>
-      <p>12 месеца пълен достъп за първия треньорски акаунт на клуба.</p>
+      <h3>Пълен достъп за клуба</h3>
+      <p>12 месеца за всички треньорски акаунти на избрания клуб — без ограничения по брой отбори.</p>
     </div>
     <div class="card">
       <h3>Директна поддръжка</h3>
@@ -36,8 +36,9 @@
   </div>
 
   <div class="note">
-    <b>Условие за пилота:</b> реално ползване (мин. 1 отбор, присъствие + поне 2 AI тренировки от конспект за 30 дни)
-    и кратък отзив с числа след 4–6 седмици. 2-ри и 3-ти треньор: €49/год.
+    <b>Условие за участие:</b> реално ползване (мин. 1 отбор, присъствие + поне 2 AI тренировки от конспект за 30 дни)
+    и кратък отзив с числа след 4–6 седмици. Местата са ограничени — по 3 клуба от всеки от 6-те региона на БФВ
+    (Витоша, Струма, Тракия, Странджа, Добруджа, Хемус).
   </div>
 
   <section class="doc">
@@ -54,7 +55,7 @@
     <h2>Как започвате (3 стъпки)</h2>
     <ol class="steps">
       <li><b>Заявка</b> — попълнете формата по-долу (или имейл до volley-platform@outlook.com)</li>
-      <li><b>Активиране до 24 ч.</b> — създаваме клуба и първия треньорски акаунт</li>
+      <li><b>Активиране до 24 ч.</b> — създаваме клуба и треньорските акаунти</li>
       <li><b>Един отбор, една седмица</b> — пробвате присъствие + 1 тренировка от конспект</li>
     </ol>
   </section>
@@ -64,8 +65,8 @@
     <p>Оставете контакт — ще се свържем в рамките на 1 работен ден.</p>
     <div class="linkRow">
       <button type="button" class="btn" id="openPilotForm" style="border:none;">Заяви пилотен достъп</button>
+      <a class="btn outline" href="/pilot/demo/" style="display:inline-flex;">Видео демо</a>
       <a class="btn outline" href="/instructions/" style="display:inline-flex;">Инструкция</a>
-      <a class="btn outline" href="/pricing/" style="display:inline-flex;">Цени след пилота</a>
     </div>
   </div>
 
@@ -81,6 +82,18 @@
     <p class="hint">Попълнете полетата и изберете как да изпратите заявката.</p>
     <div class="field"><label for="fClub">Клуб *</label><input id="fClub" type="text" placeholder="Име на клуба" /></div>
     <div class="field"><label for="fCity">Град</label><input id="fCity" type="text" placeholder="Град" /></div>
+    <div class="field">
+      <label for="fRegion">Регион (БФВ)</label>
+      <select id="fRegion">
+        <option value="">— изберете —</option>
+        <option>Витоша</option>
+        <option>Струма</option>
+        <option>Тракия</option>
+        <option>Странджа</option>
+        <option>Добруджа</option>
+        <option>Хемус</option>
+      </select>
+    </div>
     <div class="field"><label for="fTeams">Брой отбори</label><input id="fTeams" type="text" placeholder="напр. 3" /></div>
     <div class="field"><label for="fCoaches">Брой треньори</label><input id="fCoaches" type="text" placeholder="напр. 2" /></div>
     <div class="field"><label for="fContact">Лице за контакт *</label><input id="fContact" type="text" placeholder="Име и телефон" /></div>
@@ -108,6 +121,7 @@
       "",
       "Клуб: " + (document.getElementById("fClub").value.trim() || "—"),
       "Град: " + (document.getElementById("fCity").value.trim() || "—"),
+      "Регион (БФВ): " + (document.getElementById("fRegion").value.trim() || "—"),
       "Брой отбори: " + (document.getElementById("fTeams").value.trim() || "—"),
       "Брой треньори: " + (document.getElementById("fCoaches").value.trim() || "—"),
       "Лице за контакт: " + (document.getElementById("fContact").value.trim() || "—"),
@@ -137,8 +151,9 @@
       "https://outlook.live.com/mail/0/deeplink/compose?to=" + email + "&subject=" + s + "&body=" + b;
   }
 
-  ["fClub", "fCity", "fTeams", "fCoaches", "fContact", "fNote"].forEach(function (id) {
+  ["fClub", "fCity", "fRegion", "fTeams", "fCoaches", "fContact", "fNote"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", updateLinks);
+    document.getElementById(id).addEventListener("change", updateLinks);
   });
 
   document.getElementById("openPilotForm").addEventListener("click", function () {

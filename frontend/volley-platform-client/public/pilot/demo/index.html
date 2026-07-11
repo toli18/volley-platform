@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volley Coach — Видео демо</title>
+<meta name="description" content="Кратко видео демо на Volley Coach Platform — методика на БФВ, присъствие и AI тренировки от конспект." />
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+<style>
+  .videoWrap {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    margin: 24px auto 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: rgba(0,0,0,0.35);
+  }
+  .videoWrap iframe,
+  .videoWrap video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: contain;
+    background: #000;
+  }
+  .videoPlaceholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .videoPlaceholder .ico { font-size: 48px; opacity: 0.6; }
+  .chapters {
+    max-width: 960px;
+    margin: 28px auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .chapter {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.03);
+    font-size: 14px;
+  }
+  .chapter b { color: var(--accent); display: block; margin-bottom: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <img src="/presentation/logo.png" alt="" onerror="this.style.display='none'" />
+    <div><b>Volley Coach Platform</b><small>Видео демо · ~2 мин</small></div>
+  </div>
+
+  <h1>Методика в джоба на треньора</h1>
+  <p class="lead">Кратко представяне: присъствие в залата, план по методиката на БФВ и годишна програма с AI от конспект.</p>
+
+  <div class="videoWrap" id="videoWrap">
+    <video controls playsinline preload="metadata" poster="/pilot/demo/poster.jpg">
+      <source src="/pilot/demo/volley-coach-demo.mp4" type="video/mp4" />
+    </video>
+  </div>
+
+  <div class="chapters">
+    <div class="chapter"><b>0:00 – 0:38</b> Присъствие → „Продължи с тренировката“</div>
+    <div class="chapter"><b>0:38 – 1:02</b> Готов план по фази и упражнения</div>
+    <div class="chapter"><b>1:02 – 1:17</b> Учебник БФВ — официална методика</div>
+    <div class="chapter"><b>1:17 – 1:42</b> Годишна програма → „Генерирай с AI“</div>
+  </div>
+
+  <div class="finish" style="margin-top:32px;">
+    <h2>Искате да участвате?</h2>
+    <p>18 клуба от 6-те региона на БФВ — по 3 клуба, 12 месеца пълен достъп.</p>
+    <div class="linkRow">
+      <a class="btn" href="/pilot/">Заяви пилотен достъп</a>
+      <a class="btn outline" href="/instructions/">Инструкция за треньори</a>
+    </div>
+  </div>
+
+  <footer>
+    Volley Coach Platform · <a href="mailto:volley-platform@outlook.com">volley-platform@outlook.com</a>
+    · <a href="/pilot/">← Пилотна програма</a>
+  </footer>
+</div>
+</body>
+</html>

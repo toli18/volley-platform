@@ -29,6 +29,7 @@ backend/app/seed/data/bvf_export_progress.json
 # Local scratch / extraction artifacts
 tmp_*
 tmp_vc.*
+frontend/volley-platform-client/public/pilot/demo/raw/
 backend/app/scripts/parse_vc_*.py
 backend/app/scripts/analyze_vc_bundle.py
 backend/app/scripts/dump_components.py
