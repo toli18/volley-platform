@@ -31,6 +31,7 @@ from app.routers.team_chat import router as team_chat_router
 from app.routers.national_method import router as national_method_router
 from app.routers.navbar import router as navbar_router
 from app.routers.pilot_requests import router as pilot_requests_router
+from app.routers.assessments import router as assessments_router
 from app.routers import articles
 
 
