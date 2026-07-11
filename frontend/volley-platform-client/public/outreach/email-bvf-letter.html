@@ -11,56 +11,52 @@
 <div class="wrap">
   <div class="top">
     <img src="/presentation/logo.png" alt="" onerror="this.style.display='none'" />
-    <div><b>Outreach</b><small>Писмо до методист / БФВ</small></div>
+    <div><b>Outreach</b><small>Писмо до БФВ — само споделяне</small></div>
   </div>
 
-  <h1>Писмо до БФВ (методист)</h1>
-  <p class="lead">Тон: партньорство и методика. Без оправдания, без цени, без натиск за пари. Цел: канал + легитимност.</p>
+  <h1>Писмо до БФВ</h1>
+  <p class="lead">Културно, без претенции. Единствената молба: да препратят 3 линка към клубовете — от техния имейл или Facebook. Без семинар, без live demo, без среща.</p>
 
   <div class="copyToolbar noPrint">
     <button type="button" class="btn" id="copyAll">Копирай писмото</button>
-    <a class="btn outline" href="/outreach/pilot-one-pager.html">1-страничен PDF</a>
+    <button type="button" class="btn outline" id="copyFb">Копирай Facebook пост</button>
   </div>
 
-  <p><b>Тема:</b> Пилотна програма „Методика в джоба на треньора“ — предложение за съвместна инициатива</p>
+  <p><b>Тема:</b> Volley Coach — материали за клубовете (по желание за споделяне)</p>
 
-  <div class="copyBlock" id="letterBody">Уважаеми [име на методист],
+  <div class="copyBlock" id="letterBody">Уважаеми [име],
 
-Представям Volley Coach Platform — дигитален инструмент, изграден около официалната методика на БФВ (учебник, конспекти, годишна програма), с AI генератор на тренировки от конспектите.
+Подготвих Volley Coach Platform — инструмент около методиката на БФВ: учебник, конспекти, присъствие, график, родители и AI тренировки от конспект.
 
-Подготвих кратко видео демо и структурирана пилотна програма за сезон 2026/27, с която методиката влиза в залата — не само на хартия.
+Не искам среща, семинар или ангажимент от ваша страна. Само една молба, ако намерите за полезно:
 
-Предложение „Методика в джоба на треньора“:
+Да препратите към клубовете (имейл или Facebook страница на БФВ) следните три линка:
 
-Обхват: 18 клуба — по 3 от всеки от 6-те региона на БФВ (Витоша, Струма, Тракия, Странджа, Добруджа, Хемус).
-Срок: 12 месеца пълен достъп за всички треньори на избраните клубове.
+• Пилотна програма (заявка от клуб): https://volley-platform.vercel.app/pilot/
+• Кратко видео (~2 мин): https://volley-platform.vercel.app/pilot/demo/
+• Наръчник за родители: https://volley-platform.vercel.app/presentation-parents/
 
-Какво получава БФВ (без финансов ангажимент):
-• реално ползване на методиката в залата
-• обратна връзка: кои конспекти/седмици се ползват, къде има пропуски
-• агрегирана статистика (без лични данни на деца)
+Пилотът е за ограничен брой клубове (18 — по региони). Клубовете, които се интересуват, попълват формата — ние активираме акаунтите.
 
-Какво получават клубовете:
-• пълен достъп 12 месеца + onboarding
-• видео демо: https://volley-platform.vercel.app/pilot/demo
-• заявка: https://volley-platform.vercel.app/pilot/
-
-Какво моля от БФВ:
-1. Имейл/публикация към клубовете с покана за пилота (линк: https://volley-platform.vercel.app/pilot/)
-2. Един методист като контакт за синхронизация на методиката
-3. 15 минути live demo (телефон) на следващ треньорски форум
-
-Финансов контекст (за прозрачност): платформата се поддържа на собствени средства. Не търся субсидия или exclusivity на този етап — само канал и методическа обратна връзка. Ако след годината пилотът покаже смисъл, евентуален символичен принос от клубовете би покривал единствено техническата издръжка на сървъра — без търговска маржа.
-
-Прикачам 1-странично резюме. Готов съм за кратка среща на 15 мин.
+Благодаря за вниманието.
 
 С уважение,
 Anatoli Penev
-Volley Coach Platform
-https://volley-platform.vercel.app/pilot/</div>
+Volley Coach Platform</div>
+
+  <h2>Facebook пост (от името на БФВ)</h2>
+  <p class="lead">Кратък текст — копирай в страницата на федерацията. Без продажба, без „запишете се на семинар“.</p>
+
+  <div class="copyBlock" id="fbBody">Volley Coach Platform — дигитален помощник за треньори и родители, изграден около методиката на БФВ.
+
+Кратко видео: volley-platform.vercel.app/pilot/demo
+Наръчник за родители: volley-platform.vercel.app/presentation-parents
+Пилотна програма за клубове: volley-platform.vercel.app/pilot/
+
+Информация за заинтересованите клубове.</div>
 
   <div class="note">
-    <b>Съвет:</b> Изпращай, когато имаш 2–3 активни пилотни клуба или силно видео. Фокус: полза за методиката, не продажба.
+    <b>Кога да изпратиш:</b> След 2–3 активни пилотни клуба или когато имаш готово видео. Тонът е „информация“, не „моля за участие“.
   </div>
 
   <footer><a href="/outreach/">← Outreach материали</a></footer>
@@ -69,9 +65,13 @@ https://volley-platform.vercel.app/pilot/</div>
 <script>
 (function () {
   var body = document.getElementById("letterBody").textContent;
-  var sub = "Пилотна програма „Методика в джоба на треньора“ — предложение за съвместна инициатива";
+  var fb = document.getElementById("fbBody").textContent;
+  var sub = "Volley Coach — материали за клубовете (по желание за споделяне)";
   document.getElementById("copyAll").addEventListener("click", function () {
     navigator.clipboard.writeText("Тема: " + sub + "\n\n" + body);
+  });
+  document.getElementById("copyFb").addEventListener("click", function () {
+    navigator.clipboard.writeText(fb.trim());
   });
 })();
 </script>
