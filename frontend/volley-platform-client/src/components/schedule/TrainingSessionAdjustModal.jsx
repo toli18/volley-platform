@@ -223,7 +223,7 @@ export default function TrainingSessionAdjustModal({
         )}
 
         <div className="uiModalActions" style={{ marginTop: 16 }}>
-          <Link to="/teams/schedule">
+          <Link to="/coach/schedule">
             <Button variant="secondary" type="button">Пълен график</Button>
           </Link>
           <Button variant="secondary" type="button" disabled={busy} onClick={onClose}>

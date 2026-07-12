@@ -237,7 +237,7 @@ export default function Teams() {
             <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
               Нов състезател
             </Button>
-            <Link to="/teams/schedule">
+            <Link to="/coach/schedule">
               <Button>График</Button>
             </Link>
           </div>

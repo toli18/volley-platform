@@ -8,7 +8,6 @@ const COACH_FOREIGN_PREFIXES = [
   "/national-library",
   "/my-trainings",
   "/trainings",
-  "/monthly-fees",
   "/teams",
   "/club-head",
   "/method-guidelines",
@@ -26,8 +25,6 @@ const FOREIGN_TITLES = [
   ["/textbook", "Учебник БФВ"],
   ["/national-library", "Годишна програма"],
   ["/my-trainings", "Моите тренировки"],
-  ["/monthly-fees", "Месечни такси"],
-  ["/teams/schedule", "Месечен график"],
   ["/teams", "Отбори"],
   ["/club-head", "Клубен преглед"],
   ["/method-guidelines", "Методически насоки"],
@@ -63,7 +60,6 @@ export function coachForeignBackTarget(pathname) {
   }
   if (
     pathname.startsWith("/teams") ||
-    pathname.startsWith("/monthly-fees") ||
     pathname.startsWith("/my-trainings") ||
     pathname.startsWith("/trainings") ||
     pathname.startsWith("/club-head")

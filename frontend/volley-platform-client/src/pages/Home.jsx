@@ -293,7 +293,7 @@ export default function Home() {
             <Button as={Link} to="/coach-board">
               Тактическа дъска
             </Button>
-            <Button as={Link} to="/teams/schedule" variant="secondary">
+            <Button as={Link} to="/coach/schedule" variant="secondary">
               График
             </Button>
           </div>
@@ -377,7 +377,7 @@ export default function Home() {
       <Card
         title="График за следващите 7 дни"
         actions={
-          <Button as={Link} to="/teams/schedule" variant="secondary" size="sm">
+          <Button as={Link} to="/coach/schedule" variant="secondary" size="sm">
             Пълен график
           </Button>
         }
@@ -438,7 +438,7 @@ export default function Home() {
               );
             })}
             {scheduleItems.length > 6 && (
-              <Link to="/teams/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              <Link to="/coach/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
                 + още {scheduleItems.length - 6} в пълния график →
               </Link>
             )}
@@ -592,7 +592,7 @@ export default function Home() {
       <Card
         title={`Дължими такси (${monthKey})`}
         actions={
-          <Button as={Link} to="/monthly-fees" variant="secondary" size="sm">
+          <Button as={Link} to="/coach/fees" variant="secondary" size="sm">
             Отвори Месечни Такси
           </Button>
         }

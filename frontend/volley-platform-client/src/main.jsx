@@ -32,7 +32,6 @@ const TeamDetails = React.lazy(() => import("./pages/TeamDetails.jsx"));
 const TeamAttendance = React.lazy(() => import("./pages/TeamAttendance.jsx"));
 const TeamAttendanceReport = React.lazy(() => import("./pages/TeamAttendanceReport.jsx"));
 const TeamAthleteProfile = React.lazy(() => import("./pages/TeamAthleteProfile.jsx"));
-const TeamScheduleCalendar = React.lazy(() => import("./pages/TeamScheduleCalendar.jsx"));
 const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
 const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamRoomLogin = React.lazy(() => import("./pages/TeamRoomLogin.jsx"));
@@ -83,6 +82,18 @@ const MethodGuidelines = React.lazy(() => import("./pages/MethodGuidelines.jsx")
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import AdminGuard from "./auth/AdminGuard.jsx";
 import { AuthProvider } from "./auth/AuthContext.jsx";
+import {
+  CoachMobileCanonicalRedirect,
+  RedirectPreserveSearch,
+} from "./components/routing/coachCanonicalRoutes.jsx";
+
+function LegacyChatRoute() {
+  return (
+    <CoachMobileCanonicalRedirect to="/coach/chat">
+      <CoachChat />
+    </CoachMobileCanonicalRedirect>
+  );
+}
 
 // Prevent white-screen after deploy when browser has stale cached chunk references.
 if (typeof window !== "undefined") {
@@ -166,14 +177,14 @@ const router = createBrowserRouter([
           { path: "articles/:id/edit", element: <EditArticle /> },
           { path: "forum", element: <Forum /> },
           { path: "forum/:id", element: <ForumTopic /> },
-          { path: "monthly-fees", element: <MonthlyFees /> },
+          { path: "monthly-fees", element: <RedirectPreserveSearch to="/coach/fees" /> },
           { path: "teams", element: <Teams /> },
-          { path: "teams/schedule", element: <TeamScheduleCalendar /> },
+          { path: "teams/schedule", element: <RedirectPreserveSearch to="/coach/schedule" /> },
           { path: "teams/:teamId", element: <TeamDetails /> },
           { path: "teams/:teamId/attendance", element: <TeamAttendance /> },
           { path: "teams/:teamId/report", element: <TeamAttendanceReport /> },
           { path: "teams/athletes/:athleteId", element: <TeamAthleteProfile /> },
-          { path: "chat", element: <CoachChat /> },
+          { path: "chat", element: <LegacyChatRoute /> },
           { path: "club-head", element: <ClubHeadDashboard /> },
           { path: "coach-board", element: <CoachBoard /> },
           {

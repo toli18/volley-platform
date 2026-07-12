@@ -25,8 +25,8 @@ export const COACH_PRIMARY_NAV = [
     icon: "teams",
     children: [
       { id: "teams", label: "Отбори", to: "/teams", icon: "teams" },
-      { id: "schedule", label: "Месечен график", to: "/teams/schedule", icon: "calendar" },
-      { id: "fees", label: "Месечни такси", to: "/monthly-fees", icon: "euro" },
+      { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
+      { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
       { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
       { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck" },
       { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart" },

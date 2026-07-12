@@ -94,7 +94,7 @@ export default function NotificationPanel({
           return (
             <Link
               key={row.key}
-              to={`/monthly-fees?athlete_id=${item.athlete_id}`}
+              to={`/coach/fees?athlete_id=${item.athlete_id}`}
               onClick={() => {
                 markFeeItemSeen(item.id);
                 onClose();
