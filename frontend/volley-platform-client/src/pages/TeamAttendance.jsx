@@ -157,7 +157,7 @@ export default function TeamAttendance() {
   if (!team) {
     return (
       <div className="uiPage">
-        <PageHero title="Присъствие" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/teams"><Button variant="secondary">Назад</Button></Link>} />
+        <PageHero title="Присъствие" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/coach/teams"><Button variant="secondary">Назад</Button></Link>} />
       </div>
     );
   }

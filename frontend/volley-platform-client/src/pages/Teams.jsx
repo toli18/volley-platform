@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
+import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const teamGenderLabel = (gender) => {
@@ -17,6 +18,9 @@ const teamGenderLabel = (gender) => {
 export default function Teams() {
   const toast = useToast();
   const { user } = useAuth();
+  const location = useLocation();
+  const isCoachShell = location.pathname.startsWith("/coach/teams");
+  const isMobileCoachShell = useIsCoachMobileShell();
   const [busy, setBusy] = useState(false);
 
   const [teams, setTeams] = useState([]);
@@ -41,11 +45,24 @@ export default function Teams() {
   const roleRaw = user?.role;
   const roleValue = typeof roleRaw === "object" && roleRaw && "value" in roleRaw ? roleRaw.value : roleRaw;
   const isHeadCoach = String(roleValue || "").toLowerCase() === "club_head_coach";
+  const currentUserId = Number(user?.id || 0);
+
+  const normalizeTeamsList = (list) => {
+    let out = Array.isArray(list) ? [...list] : [];
+    if (!isHeadCoach) {
+      out = out.filter((t) => Number(t?.coach_id) === currentUserId);
+      out = out.filter((t) => t.is_active !== false);
+    }
+    out.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "bg"));
+    return out;
+  };
+
+  const teamDetailPath = (teamId) => `/coach/teams/${teamId}`;
 
   const loadTeams = async () => {
     const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
     const list = Array.isArray(res.data) ? res.data : [];
-    setTeams(list);
+    setTeams(normalizeTeamsList(list));
   };
 
   const loadCoaches = async () => {
@@ -228,25 +245,47 @@ export default function Teams() {
   };
 
   return (
-    <div className="uiPage">
-      <PageHero
-        title="Отбори"
-        subtitle="Първо избери отбор, после отвори отделния му екран."
-        actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
-              Нов състезател
-            </Button>
-            <Link to="/coach/schedule">
-              <Button>График</Button>
-            </Link>
-          </div>
-        }
-      />
+    <div className={`uiPage ${isCoachShell ? "uiPage--coachTeams" : ""}`.trim()}>
+      {isMobileCoachShell ? (
+        <h2 className="coachMobileSectionTitle">Отбори</h2>
+      ) : (
+        <PageHero
+          title="Отбори"
+          subtitle="Първо избери отбор, после отвори отделния му екран."
+          actions={
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
+                Нов състезател
+              </Button>
+              <Link to="/coach/schedule">
+                <Button>График</Button>
+              </Link>
+            </div>
+          }
+        />
+      )}
+
+      {isMobileCoachShell ? (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <Button variant="secondary" size="sm" onClick={() => setShowAthleteForm(true)}>
+            Нов състезател
+          </Button>
+          <Button as={Link} to="/coach/schedule" size="sm">
+            График
+          </Button>
+        </div>
+      ) : null}
 
       <Card title="Списък отбори">
         {teams.length === 0 ? (
-          <EmptyState title="Няма създадени отбори" description="Създай първия отбор от формата по-долу." />
+          <EmptyState
+            title="Няма създадени отбори"
+            description={
+              isHeadCoach
+                ? "Създай първия отбор от формата по-долу."
+                : "Помолете главния треньор да ви назначи отбор или да създаде нов."
+            }
+          />
         ) : (
           <>
             <div className="teamsMobileList" aria-label="Отбори (мобилен изглед)">
@@ -265,7 +304,7 @@ export default function Teams() {
                     </span>
                   </div>
                   <div className="teamsMobileActions">
-                    <Link to={`/teams/${team.id}`} style={{ display: "block" }}>
+                    <Link to={teamDetailPath(team.id)} style={{ display: "block" }}>
                       <Button size="sm" block>
                         Отвори
                       </Button>
@@ -316,7 +355,7 @@ export default function Teams() {
                       </TableCell>
                       <TableCell>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Link to={`/teams/${team.id}`}>
+                          <Link to={teamDetailPath(team.id)}>
                             <Button size="sm">Отвори</Button>
                           </Link>
                           <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>

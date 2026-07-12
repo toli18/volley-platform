@@ -258,7 +258,7 @@ export default function Home() {
           kind: "absence",
           text: `Извинение от родител: ${n.athlete_name} ще липсва на ${formatShortDate(n.notice_date)}${n.team_name ? ` · ${n.team_name}` : ""}${n.note ? ` (${n.note})` : ""}`,
           at: n.created_at,
-          to: n.team_id ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}` : "/teams",
+          to: n.team_id ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}` : "/coach/teams",
         }));
 
         const otherAlerts = [...forumNotifications, ...articleStatusAlerts, ...drillStatusAlerts].sort(

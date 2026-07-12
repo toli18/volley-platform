@@ -49,7 +49,7 @@ export default function TeamAthleteProfile() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const fromPath = new URLSearchParams(location.search).get("from") || "/teams";
+  const fromPath = new URLSearchParams(location.search).get("from") || "/coach/teams";
 
   const feesHref = useMemo(() => {
     const id = profile?.athlete_id;

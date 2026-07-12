@@ -919,7 +919,7 @@ export default function TeamScheduleCalendar() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={() => openAddForDate(todayKey())}>+ Тренировка</Button>
             <Button variant="secondary" onClick={() => openCompetitionForDate(todayKey())}>+ Състезание</Button>
-            <Link to="/teams">
+            <Link to="/coach/teams">
               <Button variant="secondary">Назад към Отбори</Button>
             </Link>
           </div>

@@ -65,7 +65,7 @@ export default function TeamAttendanceReport() {
   if (!team) {
     return (
       <div className="uiPage">
-        <PageHero title="Отчет присъствие" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/teams"><Button variant="secondary">Назад</Button></Link>} />
+        <PageHero title="Отчет присъствие" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/coach/teams"><Button variant="secondary">Назад</Button></Link>} />
       </div>
     );
   }

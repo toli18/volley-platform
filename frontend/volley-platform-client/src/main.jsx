@@ -40,7 +40,6 @@ const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 const CoachMobileLayout = React.lazy(() => import("./components/coachMobile/CoachMobileLayout.jsx"));
 const CoachToday = React.lazy(() => import("./pages/coach/CoachToday.jsx"));
-const CoachTeamsList = React.lazy(() => import("./pages/coach/CoachTeamsList.jsx"));
 const CoachTeamHub = React.lazy(() => import("./pages/coach/CoachTeamHub.jsx"));
 const CoachSchedule = React.lazy(() => import("./pages/coach/CoachSchedule.jsx"));
 const CoachMenu = React.lazy(() => import("./pages/coach/CoachMenu.jsx"));
@@ -178,7 +177,7 @@ const router = createBrowserRouter([
           { path: "forum", element: <Forum /> },
           { path: "forum/:id", element: <ForumTopic /> },
           { path: "monthly-fees", element: <RedirectPreserveSearch to="/coach/fees" /> },
-          { path: "teams", element: <Teams /> },
+          { path: "teams", element: <RedirectPreserveSearch to="/coach/teams" /> },
           { path: "teams/schedule", element: <RedirectPreserveSearch to="/coach/schedule" /> },
           { path: "teams/:teamId", element: <TeamDetails /> },
           { path: "teams/:teamId/attendance", element: <TeamAttendance /> },
@@ -193,7 +192,7 @@ const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="today" replace /> },
               { path: "today", element: <CoachToday /> },
-              { path: "teams", element: <CoachTeamsList /> },
+              { path: "teams", element: <Teams /> },
               { path: "teams/:teamId", element: <CoachTeamHub /> },
               { path: "teams/:teamId/attendance-month", element: <CoachTeamAttendanceMonth /> },
               { path: "attendance", element: <CoachAttendanceTeams /> },

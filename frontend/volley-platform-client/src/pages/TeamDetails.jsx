@@ -196,7 +196,7 @@ export default function TeamDetails() {
   if (!team) {
     return (
       <div className="uiPage">
-        <PageHero title="Отбор" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/teams"><Button variant="secondary">Назад</Button></Link>} />
+        <PageHero title="Отбор" subtitle="Отборът не е намерен или нямаш достъп." actions={<Link to="/coach/teams"><Button variant="secondary">Назад</Button></Link>} />
       </div>
     );
   }
@@ -215,7 +215,7 @@ export default function TeamDetails() {
             <Link to={`/teams/${teamIdNum}/report`}>
               <Button variant="secondary">Отчет</Button>
             </Link>
-            <Link to="/teams">
+            <Link to="/coach/teams">
               <Button variant="secondary">Назад към Отбори</Button>
             </Link>
           </div>

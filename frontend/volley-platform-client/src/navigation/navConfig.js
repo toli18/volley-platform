@@ -24,7 +24,7 @@ export const COACH_PRIMARY_NAV = [
     label: "Клуб & Отбори",
     icon: "teams",
     children: [
-      { id: "teams", label: "Отбори", to: "/teams", icon: "teams" },
+      { id: "teams", label: "Отбори", to: "/coach/teams", icon: "teams" },
       { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
       { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
       { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
