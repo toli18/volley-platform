@@ -3,6 +3,10 @@
     {
       "source": "/backend-api/:path*",
       "destination": "https://volley-platform-production.up.railway.app/:path*"
+    },
+    {
+      "source": "/((?!backend-api/).*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -13,9 +17,5 @@
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/index.html" }
   ]
 }
