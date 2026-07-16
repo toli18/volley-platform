@@ -9,6 +9,11 @@ import { createDraftKey, hasMeaningfulDraft, loadDraft } from "../utils/articleD
 import CoachMethodAssignments from "../components/coach/CoachMethodAssignments";
 import Drills from "./Drills";
 import { normalizePlan } from "../utils/trainingPlanNormalize";
+import {
+  buildFeeOverdueLists,
+  feesLookbackFromMonth,
+  loadCoachAttendanceRegularity,
+} from "../utils/coachDashboardStats";
 
 const currentMonthKey = () => {
   const d = new Date();
@@ -84,6 +89,8 @@ export default function Home() {
   const [activityItems, setActivityItems] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
   const [scheduleItems, setScheduleItems] = useState([]);
+  const [attendanceRank, setAttendanceRank] = useState({ top: [], bottom: [], sessionLimit: 10 });
+  const [feeOverdue, setFeeOverdue] = useState({ late10: [], late30: [], overTwo: [] });
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("today");
 
@@ -124,9 +131,10 @@ export default function Home() {
           notificationsRes,
           scheduleRes,
           absenceRes,
+          teamsRes,
         ] = await Promise.allSettled([
           axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, {
-            params: { from_month: monthKey, to_month: monthKey },
+            params: { from_month: feesLookbackFromMonth(monthKey), to_month: monthKey },
           }),
           axiosInstance.get(API_PATHS.FORUM_POSTS_LIST, {
             params: { page: 1, page_size: 5 },
@@ -145,18 +153,32 @@ export default function Home() {
             },
           }),
           axiosInstance.get(API_PATHS.COACH_ABSENCE_NOTICES),
+          axiosInstance.get(API_PATHS.TEAMS_LIST),
         ]);
 
         const feesRows = feesRes.status === "fulfilled" && Array.isArray(feesRes.value.data?.rows) ? feesRes.value.data.rows : [];
         const unpaid = feesRows.filter((row) => {
-          const month = Array.isArray(row.months) ? row.months[0] : null;
-          return !month?.paid;
+          const month = Array.isArray(row.months) ? row.months.find((m) => m?.month_key === monthKey) : null;
+          return month ? !month.paid : false;
         }).length;
         setFeesSummary({
-          total: feesRes.status === "fulfilled" ? Number(feesRes.value.data?.total_athletes) || feesRows.length : 0,
+          total: feesRows.length,
           paid: Math.max(0, feesRows.length - unpaid),
           unpaid,
         });
+        setFeeOverdue(buildFeeOverdueLists(feesRows));
+
+        let teamList = teamsRes.status === "fulfilled" && Array.isArray(teamsRes.value.data) ? teamsRes.value.data : [];
+        if (!isHeadCoach && myCoachId) {
+          teamList = teamList.filter((t) => Number(t?.coach_id) === myCoachId);
+        }
+        teamList = teamList.filter((t) => t.is_active !== false);
+        try {
+          const regularity = await loadCoachAttendanceRegularity(axiosInstance, teamList, { sessionLimit: 10 });
+          setAttendanceRank(regularity);
+        } catch {
+          setAttendanceRank({ top: [], bottom: [], sessionLimit: 10 });
+        }
 
         const forumList = forumRes.status === "fulfilled" && Array.isArray(forumRes.value.data?.items) ? forumRes.value.data.items : [];
         setForumItems(forumList.slice(0, 5));
@@ -589,6 +611,60 @@ export default function Home() {
         )}
       </Card>
 
+      <Card title={`Присъствие — последни ${attendanceRank.sessionLimit || 10} тренировки`}>
+        {loading ? (
+          <p style={{ marginTop: 10 }}>Зареждане...</p>
+        ) : !attendanceRank.top?.length && !attendanceRank.bottom?.length ? (
+          <EmptyState
+            title="Няма данни за присъствие"
+            description="Нужни са записани тренировки с присъствие за отборите ти."
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 14,
+              marginTop: 10,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 8, color: "#166534" }}>Топ 3 най-редовни</div>
+              {attendanceRank.top.length === 0 ? (
+                <p style={{ color: "#64748b", margin: 0 }}>Няма данни</p>
+              ) : (
+                <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                  {attendanceRank.top.map((a) => (
+                    <li key={`top-${a.athlete_id}`}>
+                      <strong>{a.athlete_name}</strong>{" "}
+                      <span className="uiBadge uiBadge--success">{a.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 8, color: "#9f1239" }}>Топ 3 най-нередовни</div>
+              {attendanceRank.bottom.length === 0 ? (
+                <p style={{ color: "#64748b", margin: 0 }}>Няма данни</p>
+              ) : (
+                <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                  {attendanceRank.bottom.map((a) => (
+                    <li key={`bot-${a.athlete_id}`}>
+                      <strong>{a.athlete_name}</strong>{" "}
+                      <span className="uiBadge uiBadge--danger">{a.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        )}
+        <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
+          Брои се присъства + закъснял спрямо последните {attendanceRank.sessionLimit || 10} тренировки по отборите ти.
+        </p>
+      </Card>
+
       <Card
         title={`Дължими такси (${monthKey})`}
         actions={
@@ -612,6 +688,70 @@ export default function Home() {
             </span>
           </div>
         )}
+      </Card>
+
+      <Card title="Закъснели плащания">
+        {loading ? (
+          <p style={{ marginTop: 10 }}>Зареждане...</p>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 14,
+              marginTop: 10,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с 10+ дни</div>
+              {feeOverdue.late10.length === 0 ? (
+                <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+                  {feeOverdue.late10.map((a) => (
+                    <li key={`l10-${a.athlete_id}`}>
+                      <strong>{a.athlete_name}</strong>{" "}
+                      <span className="uiBadge uiBadge--warning">{a.days_overdue} дни</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с 30+ дни</div>
+              {feeOverdue.late30.length === 0 ? (
+                <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+                  {feeOverdue.late30.map((a) => (
+                    <li key={`l30-${a.athlete_id}`}>
+                      <strong>{a.athlete_name}</strong>{" "}
+                      <span className="uiBadge uiBadge--danger">{a.days_overdue} дни</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Над 2 неплатени такси</div>
+              {feeOverdue.overTwo.length === 0 ? (
+                <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
+                  {feeOverdue.overTwo.map((a) => (
+                    <li key={`o2-${a.athlete_id}`}>
+                      <strong>{a.athlete_name}</strong>{" "}
+                      <span className="uiBadge uiBadge--danger">{a.unpaid_months} такси</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+        <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
+          Падеж: 10-о число на месеца. „10+ дни“ = 10–29 дни след падежа; „30+ дни“ = 30 или повече.
+        </p>
       </Card>
 
       </>

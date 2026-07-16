@@ -55,6 +55,8 @@ export default function CoachScoutingTable() {
   const [cmp, setCmp] = useState({ s2022: true, peers: true, talent: false });
   // Скрива децата без нито един въведен резултат (празни „—" редове).
   const [onlyTested, setOnlyTested] = useState(true);
+  // Показва ръст / тегло / разтег като колони в началото на таблицата.
+  const [showAnthro, setShowAnthro] = useState(false);
 
   const [data, setData] = useState({ tests: [], rows: [] });
   const [loading, setLoading] = useState(true);
@@ -95,7 +97,7 @@ export default function CoachScoutingTable() {
       try {
         setLoading(true);
         setError("");
-        const params = {};
+        const params = { include_anthropometry: showAnthro };
         if (gender) params.gender = gender;
         if (ageBand) params.age_band = ageBand;
         if (teamId) params.team_id = Number(teamId);
@@ -114,10 +116,16 @@ export default function CoachScoutingTable() {
     return () => {
       alive = false;
     };
-  }, [gender, ageBand, teamId, testCode]);
+  }, [gender, ageBand, teamId, testCode, showAnthro]);
 
   const tests = data.tests || [];
   const rows = data.rows || [];
+
+  const testByCode = useMemo(() => {
+    const map = {};
+    for (const t of tests) map[t.code] = t;
+    return map;
+  }, [tests]);
 
   const cellByCode = useMemo(() => {
     return rows.map((r) => {
@@ -138,13 +146,20 @@ export default function CoachScoutingTable() {
 
   const toggleCmp = (key) => setCmp((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // По коя оценка сортираме — първото включено сравнение с налична стойност.
-  const cellSortValue = (cell) => {
+  // По коя оценка сортираме — сравнение ако има, иначе сурова стойност (за антропометрия).
+  const cellSortValue = (cell, testCodeKey) => {
     if (!cell) return null;
     if (cmp.s2022 && cell.score_2022 != null) return cell.score_2022;
     if (cmp.peers && cell.peer_percentile != null) return cell.peer_percentile;
     if (cmp.talent && cell.talent_score != null) return cell.talent_score;
-    return null;
+    if (cell.raw_value === null || cell.raw_value === undefined) return null;
+    const raw = Number(cell.raw_value);
+    if (!Number.isFinite(raw)) return null;
+    const meta = testByCode[testCodeKey];
+    const direction = String(meta?.direction || "").toLowerCase();
+    // За timed/lower-better тестове по-малкото е по-добро → обръщаме за desc = най-добрите горе.
+    if (direction === "lower" || direction === "lower_better" || direction === "asc") return -raw;
+    return raw;
   };
 
   const toggleSort = (key) => {
@@ -167,8 +182,8 @@ export default function CoachScoutingTable() {
         const c = String(a.row.athlete_name).localeCompare(String(b.row.athlete_name), "bg");
         return sortDir === "asc" ? c : -c;
       }
-      const va = cellSortValue(a.map[sortBy]);
-      const vb = cellSortValue(b.map[sortBy]);
+      const va = cellSortValue(a.map[sortBy], sortBy);
+      const vb = cellSortValue(b.map[sortBy], sortBy);
       // Празните клетки винаги най-отдолу, независимо от посоката.
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
@@ -177,14 +192,16 @@ export default function CoachScoutingTable() {
       return sortDir === "asc" ? c : -c;
     });
     return arr;
-  }, [cellByCode, sortBy, sortDir, cmp, onlyTested]);
+  }, [cellByCode, sortBy, sortDir, cmp, onlyTested, testByCode]);
 
   // Кратко описание на активните филтри (за заглавие при печат и име на файла).
   const filterSummary = () => {
     const g = gender === "female" ? "Момичета" : gender === "male" ? "Момчета" : "Всички";
     const a = ageBand || "всички възрасти";
     const m = COMPARISONS.filter((c) => cmp[c.key]).map((c) => c.label).join(" + ") || "няма";
-    return `Пол: ${g} · Възраст: ${a} · Сравнение: ${m}${onlyTested ? " · само тествани" : ""}`;
+    return `Пол: ${g} · Възраст: ${a} · Сравнение: ${m}${onlyTested ? " · само тествани" : ""}${
+      showAnthro ? " · антропометрия" : ""
+    }`;
   };
 
   const exportCsv = () => {
@@ -308,6 +325,10 @@ export default function CoachScoutingTable() {
           <label className="scoutCheck">
             <input type="checkbox" checked={onlyTested} onChange={() => setOnlyTested((v) => !v)} />
             Само тествани
+          </label>
+          <label className="scoutCheck">
+            <input type="checkbox" checked={showAnthro} onChange={() => setShowAnthro((v) => !v)} />
+            Покажи антропометрия
           </label>
         </div>
       </div>
@@ -439,8 +460,9 @@ export default function CoachScoutingTable() {
               2022 (за неговата възраст). „% връст." е процентил спрямо всички деца на същата възраст и пол
               в системата; „*" = малка извадка (индикативно). Сравнението „Талант" мери по-малките деца
               (U9–U12) спрямо летвата на по-големите от 2022 (момичета U13, момчета U13) — индикативно.
-              Може да включиш няколко сравнения едновременно с тикчетата. Кликни
-              върху заглавие на тест, за да подредиш най-добрите най-отгоре (повторен клик обръща реда).
+              Може да включиш няколко сравнения едновременно с тикчетата. Включи „Покажи антропометрия"
+              за колони ръст / тегло / разтег. Кликни върху заглавие на тест, за да подредиш най-добрите
+              най-отгоре (повторен клик обръща реда).
             </p>
           </div>
           )}

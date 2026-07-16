@@ -1048,6 +1048,10 @@ def scouting_table(
     age_band: Optional[str] = Query(None, description="Възрастова група, напр. U13"),
     team_id: Optional[int] = Query(None, description="Само деца от този отбор"),
     test_code: Optional[str] = Query(None, description="Само този тест (иначе всички точкуеми)"),
+    include_anthropometry: bool = Query(
+        False,
+        description="Включи колони за ръст/тегло/разтег (антропометрия)",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_READ_ROLES)),
 ):
@@ -1056,15 +1060,24 @@ def scouting_table(
     Само четене — не променя официалните оценки. Достъпът се определя от ролята:
     треньор вижда своите деца, главен треньор — клуба, админ/федерация — всички.
     """
-    # Колони: точкуемите тестове от батерията (без антропометрия/контекст).
+    # Колони: точкуеми тестове; антропометрията е опционална (toggle от UI).
     test_query = db.query(TestDefinition).filter(TestDefinition.is_active.is_(True))
     if test_code:
         test_query = test_query.filter(TestDefinition.code == test_code)
-    tests = [
-        t
-        for t in test_query.order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc()).all()
-        if _norm_value(t.category) != "anthropometry" and _norm_value(t.direction) != "context"
-    ]
+    scored: list[TestDefinition] = []
+    anthro: list[TestDefinition] = []
+    for t in test_query.order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc()).all():
+        cat = _norm_value(t.category)
+        direction = _norm_value(t.direction)
+        if cat == "anthropometry":
+            if include_anthropometry:
+                anthro.append(t)
+            continue
+        if direction == "context":
+            continue
+        scored.append(t)
+    # Антропометрията е в началото — по-лесно сравнение по ръст/разтег/кг.
+    tests = [*anthro, *scored]
 
     # Редове: достъпните деца + филтри.
     athlete_query = _scoped_athletes_query(db, current_user)
@@ -1120,6 +1133,7 @@ def scouting_table(
             "age_band": age_band,
             "team_id": team_id,
             "test_code": test_code,
+            "include_anthropometry": include_anthropometry,
         },
     )
 
