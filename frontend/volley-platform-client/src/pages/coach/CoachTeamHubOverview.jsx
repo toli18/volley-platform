@@ -73,6 +73,7 @@ export default function CoachTeamHubOverview({
   const [attendanceHint, setAttendanceHint] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetStep, setSheetStep] = useState(1);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState([]);
   const [sheetForm, setSheetForm] = useState({
     competition: "",
@@ -151,6 +152,7 @@ export default function CoachTeamHubOverview({
   const openTeamSheet = () => {
     const ids = roster.map((m) => Number(m.athlete_id)).filter(Boolean);
     setSelectedAthleteIds(ids.slice(0, SHEET_MAX_PLAYERS));
+    setSheetStep(1);
     setSheetForm({
       competition: "",
       venue_city: "",
@@ -162,6 +164,16 @@ export default function CoachTeamHubOverview({
       assistant_2: "",
     });
     setSheetOpen(true);
+  };
+
+  const closeTeamSheet = () => {
+    if (sheetBusy) return;
+    setSheetOpen(false);
+    setSheetStep(1);
+  };
+
+  const goToAthletesStep = () => {
+    setSheetStep(2);
   };
 
   const toggleAthlete = (athleteId) => {
@@ -217,6 +229,7 @@ export default function CoachTeamHubOverview({
       a.click();
       URL.revokeObjectURL(url);
       setSheetOpen(false);
+      setSheetStep(1);
       toast.success("Тимовият лист е генериран.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно генериране на тимов лист."));
@@ -323,134 +336,152 @@ export default function CoachTeamHubOverview({
 
       <Modal
         open={sheetOpen}
-        onClose={() => !sheetBusy && setSheetOpen(false)}
+        onClose={closeTeamSheet}
         dismissable={!sheetBusy}
-        title="Генерирай тимов лист (О-2)"
+        title={sheetStep === 1 ? "Тимов лист (О-2) · Стъпка 1" : "Тимов лист (О-2) · Стъпка 2"}
         size="compact"
       >
         <div style={{ display: "grid", gap: 8 }}>
-          <Input
-            placeholder="Състезание"
-            value={sheetForm.competition}
-            onChange={(e) => setSheetForm((p) => ({ ...p, competition: e.target.value }))}
-          />
-          <Input
-            placeholder="Място / град на състезанието"
-            value={sheetForm.venue_city}
-            onChange={(e) => setSheetForm((p) => ({ ...p, venue_city: e.target.value }))}
-          />
-          <Input
-            placeholder="Възраст"
-            value={sheetForm.age_group}
-            onChange={(e) => setSheetForm((p) => ({ ...p, age_group: e.target.value }))}
-          />
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата</span>
-            <Input
-              type="date"
-              value={sheetForm.sheet_date}
-              onChange={(e) => setSheetForm((p) => ({ ...p, sheet_date: e.target.value }))}
-            />
-          </label>
-          <Input
-            placeholder="Цвят на екип"
-            value={sheetForm.jersey_color}
-            onChange={(e) => setSheetForm((p) => ({ ...p, jersey_color: e.target.value }))}
-          />
-          <Input
-            placeholder="Старши треньор"
-            value={sheetForm.head_coach}
-            onChange={(e) => setSheetForm((p) => ({ ...p, head_coach: e.target.value }))}
-          />
-          <Input
-            placeholder="Помощник-треньор 1"
-            value={sheetForm.assistant_1}
-            onChange={(e) => setSheetForm((p) => ({ ...p, assistant_1: e.target.value }))}
-          />
-          <Input
-            placeholder="Помощник-треньор 2"
-            value={sheetForm.assistant_2}
-            onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
-          />
-
-          <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-                Състезатели ({selectedAthleteIds.length}/{SHEET_MAX_PLAYERS})
-              </span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  disabled={sheetBusy || roster.length === 0}
-                  onClick={selectAllAthletes}
-                  style={{ border: "none", background: "none", color: "#0f766e", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
-                >
-                  Всички
-                </button>
-                <button
-                  type="button"
-                  disabled={sheetBusy || selectedAthleteIds.length === 0}
-                  onClick={() => setSelectedAthleteIds([])}
-                  style={{ border: "none", background: "none", color: "#64748b", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
-                >
-                  Изчисти
-                </button>
-              </div>
-            </div>
-            {roster.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Няма състезатели в отбора.</p>
-            ) : (
-              <div
-                style={{
-                  maxHeight: 220,
-                  overflow: "auto",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 12,
-                  padding: "6px 8px",
-                  background: "#f8fafc",
-                }}
-              >
-                {roster.map((m) => {
-                  const id = Number(m.athlete_id);
-                  const checked = selectedAthleteIds.includes(id);
-                  return (
-                    <label
-                      key={id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "7px 4px",
-                        borderBottom: "1px solid #eef2f7",
-                        cursor: "pointer",
-                        fontSize: 14,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={sheetBusy}
-                        onChange={() => toggleAthlete(id)}
-                      />
-                      <span>{m.athlete_name || m.name || `Състезател #${id}`}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
-            Изберете до 14 състезатели. СЕК остава празен; година, място, ръст и разтег се попълват автоматично.
+          <p style={{ margin: 0, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+            {sheetStep === 1 ? "Попълнете данните за листа" : "Изберете състезателите (до 14)"}
           </p>
-          <div className="uiModalActions">
-            <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
-              {sheetBusy ? "Генериране..." : "Изтегли PDF"}
-            </Button>
-            <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetOpen(false)}>
-              Отказ
-            </Button>
-          </div>
+
+          {sheetStep === 1 ? (
+            <>
+              <Input
+                placeholder="Състезание"
+                value={sheetForm.competition}
+                onChange={(e) => setSheetForm((p) => ({ ...p, competition: e.target.value }))}
+              />
+              <Input
+                placeholder="Място / град на състезанието"
+                value={sheetForm.venue_city}
+                onChange={(e) => setSheetForm((p) => ({ ...p, venue_city: e.target.value }))}
+              />
+              <Input
+                placeholder="Възраст"
+                value={sheetForm.age_group}
+                onChange={(e) => setSheetForm((p) => ({ ...p, age_group: e.target.value }))}
+              />
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата</span>
+                <Input
+                  type="date"
+                  value={sheetForm.sheet_date}
+                  onChange={(e) => setSheetForm((p) => ({ ...p, sheet_date: e.target.value }))}
+                />
+              </label>
+              <Input
+                placeholder="Цвят на екип"
+                value={sheetForm.jersey_color}
+                onChange={(e) => setSheetForm((p) => ({ ...p, jersey_color: e.target.value }))}
+              />
+              <Input
+                placeholder="Старши треньор"
+                value={sheetForm.head_coach}
+                onChange={(e) => setSheetForm((p) => ({ ...p, head_coach: e.target.value }))}
+              />
+              <Input
+                placeholder="Помощник-треньор 1"
+                value={sheetForm.assistant_1}
+                onChange={(e) => setSheetForm((p) => ({ ...p, assistant_1: e.target.value }))}
+              />
+              <Input
+                placeholder="Помощник-треньор 2"
+                value={sheetForm.assistant_2}
+                onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
+              />
+              <div className="uiModalActions">
+                <Button disabled={sheetBusy} onClick={goToAthletesStep}>
+                  Напред · Състезатели
+                </Button>
+                <Button variant="secondary" disabled={sheetBusy} onClick={closeTeamSheet}>
+                  Отказ
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                    Състезатели ({selectedAthleteIds.length}/{SHEET_MAX_PLAYERS})
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      disabled={sheetBusy || roster.length === 0}
+                      onClick={selectAllAthletes}
+                      style={{ border: "none", background: "none", color: "#0f766e", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
+                    >
+                      Всички
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sheetBusy || selectedAthleteIds.length === 0}
+                      onClick={() => setSelectedAthleteIds([])}
+                      style={{ border: "none", background: "none", color: "#64748b", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
+                    >
+                      Изчисти
+                    </button>
+                  </div>
+                </div>
+                {roster.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Няма състезатели в отбора.</p>
+                ) : (
+                  <div
+                    style={{
+                      maxHeight: 320,
+                      overflow: "auto",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      padding: "6px 8px",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    {roster.map((m) => {
+                      const id = Number(m.athlete_id);
+                      const checked = selectedAthleteIds.includes(id);
+                      return (
+                        <label
+                          key={id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "7px 4px",
+                            borderBottom: "1px solid #eef2f7",
+                            cursor: "pointer",
+                            fontSize: 14,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={sheetBusy}
+                            onChange={() => toggleAthlete(id)}
+                          />
+                          <span>{m.athlete_name || m.name || `Състезател #${id}`}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+                СЕК остава празен; година, място, ръст и разтег се попълват автоматично.
+              </p>
+              <div className="uiModalActions">
+                <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
+                  {sheetBusy ? "Генериране..." : "Изтегли PDF"}
+                </Button>
+                <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetStep(1)}>
+                  Назад
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </section>
