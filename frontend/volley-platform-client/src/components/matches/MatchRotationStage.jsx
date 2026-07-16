@@ -42,7 +42,7 @@ export default function MatchRotationStage({
         libero={libero}
         showServe
         title={title}
-        subtitle={subtitle}
+        subtitle={`${subtitle} · SAQUE`}
         rearrangeable={rearrangeable}
         swapOnClick={rearrangeable}
         onSwapZones={onSwapZones}

@@ -32,6 +32,7 @@ from app.schemas.matches import (
 from app.services.match_five_one import (
     apply_formation_display,
     assign_roles_from_r1,
+    athlete_roles_on_court,
     phase_from_serve,
 )
 from app.services.match_live import action_point_side, apply_point, is_set_won
@@ -97,10 +98,17 @@ def _court_for_rotation(
         for aid, rp in roster.items()
     }
     roles = assign_roles_from_r1(starting, pos_by_athlete)
+    role_by_athlete: dict[int, str] = {}
 
     # Fallback: if roles incomplete, show pure rotational BASE
     if len(roles) >= 6 and {"A", "O", "P1", "P2", "C1", "C2"}.issubset(roles):
         display_zones = apply_formation_display(
+            rotation=int(rotation),
+            phase=phase,
+            role_to_athlete=roles,
+            libero_athlete_id=libero_id,
+        )
+        role_by_athlete = athlete_roles_on_court(
             rotation=int(rotation),
             phase=phase,
             role_to_athlete=roles,
@@ -115,7 +123,6 @@ def _court_for_rotation(
     for zone, aid in sorted(display_zones.items()):
         rp = roster.get(int(aid))
         if not rp:
-            # либеро may not be in "position" map the same way
             if libero_id and int(aid) == libero_id:
                 court.append(
                     MatchCourtPlayerRead(
@@ -125,6 +132,7 @@ def _court_for_rotation(
                         athlete_name=names.get(int(aid), ""),
                         jersey_number=int(roster[libero_id].jersey_number) if libero_id in roster else 0,
                         position="L",
+                        role=role_by_athlete.get(int(aid), "L"),
                     )
                 )
             continue
@@ -137,6 +145,7 @@ def _court_for_rotation(
                 athlete_name=names.get(int(aid), ""),
                 jersey_number=int(rp.jersey_number),
                 position=pos,
+                role=role_by_athlete.get(int(aid)),
             )
         )
 

@@ -22,6 +22,11 @@ from app.schemas.matches import (
     MatchRotationRead,
     MatchUpdate,
 )
+from app.services.match_five_one import (
+    apply_formation_display,
+    assign_roles_from_r1,
+    athlete_roles_on_court,
+)
 from app.services.match_rotations import ZONE_LABELS_BG, build_rotations_5_1
 
 router = APIRouter(prefix="/api/teams/{team_id}/matches", tags=["Matches"])
@@ -115,7 +120,13 @@ def _roster_by_athlete(roster: list[MatchRosterPlayerRead]) -> dict[int, MatchRo
     return {int(p.athlete_id): p for p in roster}
 
 
-def _court_player(zone: int, athlete_id: int, roster_map: dict[int, MatchRosterPlayerRead]) -> MatchCourtPlayerRead:
+def _court_player(
+    zone: int,
+    athlete_id: int,
+    roster_map: dict[int, MatchRosterPlayerRead],
+    *,
+    role: str | None = None,
+) -> MatchCourtPlayerRead:
     info = roster_map.get(int(athlete_id))
     if not info:
         raise HTTPException(status_code=422, detail=f"Състезател {athlete_id} не е в мачовия състав")
@@ -126,6 +137,7 @@ def _court_player(zone: int, athlete_id: int, roster_map: dict[int, MatchRosterP
         athlete_name=info.athlete_name,
         jersey_number=info.jersey_number,
         position=info.position,
+        role=role,
     )
 
 
@@ -150,6 +162,7 @@ def _load_lineup_and_rotations(
                 athlete_name=lib.athlete_name,
                 jersey_number=lib.jersey_number,
                 position=lib.position,
+                role="L",
             )
         return MatchLineupRead(slots=[], libero=libero, complete=False), []
 
@@ -168,6 +181,7 @@ def _load_lineup_and_rotations(
             athlete_name=lib.athlete_name,
             jersey_number=lib.jersey_number,
             position=lib.position,
+            role="L",
         )
 
     lineup = MatchLineupRead(slots=lineup_slots, libero=libero_read, complete=True)
@@ -175,14 +189,40 @@ def _load_lineup_and_rotations(
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     rotations_out: list[MatchRotationRead] = []
     if system == "5-1":
+        pos_by_athlete = {int(p.athlete_id): str(p.position) for p in roster}
+        roles = assign_roles_from_r1(starting, pos_by_athlete)
+        roles_ok = len(roles) >= 6 and {"A", "O", "P1", "P2", "C1", "C2"}.issubset(roles)
         try:
             computed = build_rotations_5_1(starting, libero_athlete_id=libero_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         for item in computed:
-            rot_slots = [_court_player(z, aid, roster_map) for z, aid in sorted(item["zones"].items())]
+            rot_num = int(item["rotation"])
+            if roles_ok:
+                # Показваме SAQUE формация (специализирани позиции) — като колоната на графиката
+                display = apply_formation_display(
+                    rotation=rot_num,
+                    phase="serve",
+                    role_to_athlete=roles,
+                    libero_athlete_id=libero_id,
+                )
+                role_map = athlete_roles_on_court(
+                    rotation=rot_num,
+                    phase="serve",
+                    role_to_athlete=roles,
+                    libero_athlete_id=libero_id,
+                )
+                rot_slots = [
+                    _court_player(z, aid, roster_map, role=role_map.get(int(aid)))
+                    for z, aid in sorted(display.items())
+                ]
+                on_court = {int(p.athlete_id) for p in rot_slots}
+                lib_slot = libero_read if libero_read and libero_id not in on_court else None
+            else:
+                rot_slots = [_court_player(z, aid, roster_map) for z, aid in sorted(item["zones"].items())]
+                lib_slot = libero_read
             rotations_out.append(
-                MatchRotationRead(rotation=item["rotation"], slots=rot_slots, libero=libero_read)
+                MatchRotationRead(rotation=rot_num, slots=rot_slots, libero=lib_slot)
             )
     return lineup, rotations_out
 

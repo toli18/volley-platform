@@ -93,6 +93,7 @@ class MatchCourtPlayerRead(BaseModel):
     athlete_name: str
     jersey_number: int
     position: MatchPositionLiteral
+    role: Optional[str] = None  # A/O/P1/P2/C1/C2/L — за 5-1 графика
 
 
 class MatchLineupRead(BaseModel):

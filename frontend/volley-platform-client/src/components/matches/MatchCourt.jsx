@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { nearestZone, zonePosition } from "../../utils/matchCourtLayout";
+import { nearestZone, playerCourtPosition, zonePosition } from "../../utils/matchCourtLayout";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
 const LONG_PRESS_MS = 380;
@@ -184,7 +184,14 @@ export default function MatchCourt({
     const isHover = dragging.current && Number(hoverZone) === zone && Number(dragFrom) !== zone;
     const isServe = showServe && zone === 1;
     const color = player ? positionColor(player.position) : undefined;
-    const pos = zonePosition({ zone, phase: layoutPhase, rotation });
+    const pos = isTactical
+      ? playerCourtPosition({
+          role: player?.role,
+          zone,
+          phase: layoutPhase,
+          rotation,
+        })
+      : zonePosition({ zone, phase: "grid", rotation: 1 });
 
     const style = isTactical
       ? {
