@@ -6533,11 +6533,19 @@
   color: #e2e8f0;
 }
 .matchCourtBoard--tactical {
-  padding: 10px 8px 12px;
+  padding: 8px 8px 10px;
   overflow: hidden;
+  max-width: 520px;
+  margin-inline: auto;
+  width: 100%;
 }
 .matchCourtBoard--lg {
   padding: 8px 6px 10px;
+  max-width: 560px;
+}
+.matchLivePage .matchCourtBoard--tactical,
+.matchRotStage .matchCourtBoard--tactical {
+  max-width: 440px;
 }
 .matchCourtBoardHead {
   text-align: center;
@@ -6562,65 +6570,65 @@
   padding: 8px 6px 12px;
 }
 .matchCourtStage--perspective {
-  perspective: 1100px;
-  perspective-origin: 50% 18%;
-  padding: 4px 4px 28px;
+  perspective: 900px;
+  perspective-origin: 50% 22%;
+  padding: 2px 8px 18px;
 }
 .matchCourtPlane {
   position: relative;
 }
 .matchCourtPlane--3d {
-  transform: rotateX(52deg) scale(1.06);
-  transform-origin: 50% 40%;
+  transform: rotateX(40deg) scale(0.94);
+  transform-origin: 50% 42%;
   transform-style: preserve-3d;
   will-change: transform;
 }
 .matchCourtNetComplex {
   position: relative;
   z-index: 3;
-  height: 28px;
-  margin: 0 4% -6px;
+  height: 22px;
+  margin: 0 5% -4px;
   display: grid;
-  grid-template-columns: 10px 1fr 10px;
+  grid-template-columns: 8px 1fr 8px;
   align-items: end;
   gap: 2px;
-  transform: translateZ(18px);
+  transform: translateZ(12px);
 }
 .matchCourtNetPost {
-  height: 26px;
-  border-radius: 3px;
+  height: 20px;
+  border-radius: 2px;
   background: linear-gradient(180deg, #f87171, #991b1b);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 .matchCourtNetMesh {
-  height: 16px;
+  height: 12px;
   margin-bottom: 2px;
   border-radius: 2px;
   background:
     repeating-linear-gradient(
       90deg,
       rgba(226, 232, 240, 0.55) 0 1px,
-      transparent 1px 7px
+      transparent 1px 6px
     ),
     repeating-linear-gradient(
       0deg,
       rgba(226, 232, 240, 0.35) 0 1px,
-      transparent 1px 5px
+      transparent 1px 4px
     ),
     linear-gradient(180deg, #94a3b8, #64748b);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(248, 250, 252, 0.35);
 }
 .matchCourtNetBall {
   position: absolute;
   left: 50%;
-  top: -10px;
-  width: 18px;
-  height: 18px;
-  margin-left: -9px;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
   border-radius: 999px;
   background: radial-gradient(circle at 32% 28%, #fff7ed, #fb923c 42%, #9a3412 78%);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
   z-index: 4;
 }
 .matchCourtField {
@@ -6645,39 +6653,40 @@
 .matchCourtField--tactical {
   display: block;
   min-height: 0;
-  aspect-ratio: 1.05 / 1;
+  aspect-ratio: 1.12 / 1;
   width: 100%;
   padding: 0;
   border-radius: 10px;
-  border: 2.5px solid rgba(248, 250, 252, 0.55);
+  border: 2px solid rgba(248, 250, 252, 0.5);
   background:
     linear-gradient(180deg, rgba(13, 148, 136, 0.28) 0%, rgba(15, 23, 42, 0.15) 40%, rgba(2, 6, 23, 0.55) 100%),
     repeating-linear-gradient(
       0deg,
       transparent 0,
-      transparent 31px,
-      rgba(255, 255, 255, 0.045) 31px,
-      rgba(255, 255, 255, 0.045) 32px
+      transparent 28px,
+      rgba(255, 255, 255, 0.04) 28px,
+      rgba(255, 255, 255, 0.04) 29px
     ),
     repeating-linear-gradient(
       90deg,
       transparent 0,
-      transparent 31px,
-      rgba(255, 255, 255, 0.045) 31px,
-      rgba(255, 255, 255, 0.045) 32px
+      transparent 28px,
+      rgba(255, 255, 255, 0.04) 28px,
+      rgba(255, 255, 255, 0.04) 29px
     ),
     #0f766e;
   box-shadow:
-    inset 0 0 50px rgba(0, 0, 0, 0.45),
-    0 24px 40px rgba(0, 0, 0, 0.45);
+    inset 0 0 40px rgba(0, 0, 0, 0.4),
+    0 16px 28px rgba(0, 0, 0, 0.4);
   overflow: visible;
 }
 .matchCourtBoard--lg .matchCourtField--tactical {
-  aspect-ratio: 1.08 / 1;
-  min-height: 360px;
+  aspect-ratio: 1.1 / 1;
+  min-height: 260px;
 }
 .matchCourtBoard--md .matchCourtField--tactical {
-  min-height: 280px;
+  min-height: 220px;
+  max-height: 280px;
 }
 .matchCourtGridlines {
   position: absolute;
@@ -6746,13 +6755,13 @@
 .matchChipSlot--abs {
   position: absolute;
   min-height: 0;
-  width: 88px;
+  width: 72px;
   margin: 0;
   padding: 0;
-  transform: translate(-50%, -50%) rotateX(-52deg);
+  transform: translate(-50%, -50%) rotateX(-40deg);
   transform-origin: center center;
   z-index: 2;
-  transition: left 0.35s cubic-bezier(0.22, 1, 0.36, 1), top 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .matchChipSlot--abs.matchChipSlot--drag {
   z-index: 6;
@@ -6790,10 +6799,13 @@ button.matchChipSlot:not(:disabled) {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .matchChipSlot--abs .matchChipZoneBadge {
-  top: -4px;
+  top: -2px;
   left: auto;
-  right: 4px;
+  right: 2px;
   transform: none;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
 }
 .matchChipStack {
   display: grid;
@@ -6819,16 +6831,27 @@ button.matchChipSlot:not(:disabled) {
   border: 2px solid rgba(255, 255, 255, 0.25);
 }
 .matchCourtBoard--tactical .matchChipCircle {
-  width: 62px;
-  height: 62px;
-  font-size: 20px;
-  border-width: 3px;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+  width: 44px;
+  height: 44px;
+  font-size: 12px;
+  border-width: 2px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
 }
 .matchCourtBoard--lg .matchChipCircle {
-  width: 70px;
-  height: 70px;
-  font-size: 22px;
+  width: 48px;
+  height: 48px;
+  font-size: 13px;
+}
+/* Преден ред = триъгълник (като на графиката) */
+.matchChipCircle--tri {
+  width: 46px;
+  height: 40px;
+  border-radius: 6px 6px 4px 4px;
+  clip-path: polygon(50% 4%, 4% 96%, 96% 96%);
+  border: none;
+  font-size: 11px;
+  padding-top: 10px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
 }
 .matchChipCircle--sm {
   width: 32px;
@@ -6850,10 +6873,10 @@ button.matchChipSlot:not(:disabled) {
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
 .matchCourtBoard--tactical .matchChipTag {
-  max-width: 108px;
-  padding: 4px 10px;
+  max-width: 88px;
+  padding: 2px 7px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 10px;
   background: rgba(2, 6, 23, 0.92);
 }
 .matchChipEmpty {
@@ -6908,20 +6931,27 @@ button.matchChipSlot:not(:disabled) {
 }
 
 @media (max-width: 720px) {
-  .matchCourtBoard--lg .matchCourtField--tactical {
-    min-height: 300px;
+  .matchCourtBoard--lg .matchCourtField--tactical,
+  .matchCourtBoard--md .matchCourtField--tactical {
+    min-height: 200px;
+    max-height: 240px;
   }
   .matchCourtBoard--tactical .matchChipCircle {
-    width: 54px;
-    height: 54px;
-    font-size: 17px;
+    width: 40px;
+    height: 40px;
+    font-size: 11px;
   }
-  .matchCourtBoard--lg .matchChipCircle {
-    width: 58px;
-    height: 58px;
+  .matchChipCircle--tri {
+    width: 42px;
+    height: 36px;
+    font-size: 10px;
   }
   .matchChipSlot--abs {
-    width: 76px;
+    width: 64px;
+  }
+  .matchLivePage .matchCourtBoard--tactical,
+  .matchRotStage .matchCourtBoard--tactical {
+    max-width: 360px;
   }
 }
 
@@ -7369,14 +7399,19 @@ button.matchChipSlot:not(:disabled) {
 .matchLiveGrid {
   display: grid;
   gap: 12px;
+  justify-items: center;
 }
 @media (min-width: 960px) {
   .matchLiveGrid {
-    grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.85fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr);
     align-items: start;
+    justify-items: stretch;
+  }
+  .matchLiveGrid > .matchCourtBoard {
+    justify-self: center;
   }
 }
-.matchLivePage .matchCourtBoard--lg {
+.matchLivePage .matchCourtBoard--md {
   min-height: 0;
 }
 .matchLiveStatsPanel {

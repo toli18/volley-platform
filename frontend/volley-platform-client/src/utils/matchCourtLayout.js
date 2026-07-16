@@ -1,203 +1,29 @@
 /**
- * Координати по РОЛЯ от графиката ROTACION SISTEMAS 5-1.
- * x/y %: мрежа горе (y→0), крайна линия долу (y→100); ляво→дясно x.
+ * Координати по РОЛЯ — ROTACION SISTEMAS 5-1 (по-компактно поле, по-плътни стекове).
+ * x/y %: мрежа y≈8–18 · attack ≈42 · задни посрещачи ≈52–68 · сервис ≈78–88
  *
- * Наша R ↔ испанска Rotación (зона на A):
- * R1→1, R2→6, R3→5, R4→4, R5→3, R6→2
+ * Наша R ↔ испанска: R1→1, R2→6, R3→5, R4→4, R5→3, R6→2
  */
 
 export const BASE_ZONE_XY = {
-  4: { x: 17, y: 18 },
-  3: { x: 50, y: 15 },
-  2: { x: 83, y: 18 },
-  5: { x: 17, y: 70 },
-  6: { x: 50, y: 68 },
-  1: { x: 83, y: 72 },
+  4: { x: 18, y: 16 },
+  3: { x: 50, y: 14 },
+  2: { x: 82, y: 16 },
+  5: { x: 18, y: 66 },
+  6: { x: 50, y: 64 },
+  1: { x: 82, y: 68 },
 };
 
 export const GRID_ZONE_XY = { ...BASE_ZONE_XY };
 
-/** SAQUE — специализирани атакуващи позиции */
-const SERVE_ROLE_XY = {
-  1: {
-    P1: { x: 16, y: 11 },
-    C1: { x: 50, y: 9 },
-    O: { x: 84, y: 11 },
-    P2: { x: 22, y: 58 },
-    C2: { x: 50, y: 62 },
-    L: { x: 50, y: 62 },
-    A: { x: 86, y: 82 },
-  },
-  2: {
-    P2: { x: 16, y: 11 },
-    C1: { x: 50, y: 9 },
-    O: { x: 84, y: 11 },
-    C2: { x: 28, y: 60 },
-    L: { x: 28, y: 60 },
-    A: { x: 58, y: 48 },
-    P1: { x: 86, y: 78 },
-  },
-  3: {
-    O: { x: 16, y: 11 },
-    P2: { x: 48, y: 12 },
-    C2: { x: 82, y: 11 },
-    L: { x: 82, y: 11 },
-    A: { x: 34, y: 52 },
-    P1: { x: 58, y: 64 },
-    C1: { x: 84, y: 72 },
-  },
-  4: {
-    P2: { x: 16, y: 12 },
-    C2: { x: 48, y: 10 },
-    L: { x: 48, y: 10 },
-    A: { x: 78, y: 14 },
-    P1: { x: 24, y: 62 },
-    C1: { x: 52, y: 58 },
-    O: { x: 88, y: 80 },
-  },
-  5: {
-    P1: { x: 16, y: 11 },
-    C2: { x: 48, y: 12 },
-    L: { x: 48, y: 12 },
-    A: { x: 80, y: 14 },
-    C1: { x: 30, y: 58 },
-    O: { x: 66, y: 60 },
-    P2: { x: 86, y: 78 },
-  },
-  6: {
-    P1: { x: 18, y: 12 },
-    C1: { x: 50, y: 10 },
-    A: { x: 78, y: 14 },
-    O: { x: 30, y: 62 },
-    P2: { x: 58, y: 66 },
-    C2: { x: 84, y: 76 },
-    L: { x: 84, y: 76 },
-  },
-};
-
-/**
- * RECEPCIÓN — стекове като на графиката:
- * A скрит зад/до преден играч; трима в линия на посрещане.
- */
-const RECEIVE_ROLE_XY = {
-  1: {
-    O: { x: 14, y: 10 },
-    C1: { x: 40, y: 9 },
-    P1: { x: 72, y: 14 },
-    A: { x: 80, y: 28 },
-    P2: { x: 28, y: 58 },
-    C2: { x: 54, y: 64 },
-    L: { x: 54, y: 64 },
-  },
-  2: {
-    C1: { x: 18, y: 10 },
-    O: { x: 44, y: 10 },
-    P1: { x: 74, y: 16 },
-    A: { x: 68, y: 32 },
-    C2: { x: 26, y: 60 },
-    L: { x: 26, y: 60 },
-    P2: { x: 52, y: 66 },
-  },
-  3: {
-    O: { x: 16, y: 11 },
-    P2: { x: 48, y: 12 },
-    C2: { x: 78, y: 12 },
-    L: { x: 78, y: 12 },
-    A: { x: 58, y: 30 },
-    P1: { x: 28, y: 60 },
-    C1: { x: 72, y: 64 },
-  },
-  4: {
-    C2: { x: 20, y: 14 },
-    L: { x: 20, y: 14 },
-    P2: { x: 44, y: 12 },
-    O: { x: 78, y: 12 },
-    A: { x: 62, y: 36 },
-    C1: { x: 28, y: 62 },
-    P1: { x: 56, y: 66 },
-  },
-  5: {
-    C2: { x: 16, y: 11 },
-    L: { x: 16, y: 11 },
-    O: { x: 42, y: 10 },
-    P1: { x: 72, y: 14 },
-    A: { x: 56, y: 34 },
-    P2: { x: 30, y: 62 },
-    C1: { x: 78, y: 60 },
-  },
-  6: {
-    O: { x: 14, y: 10 },
-    P1: { x: 46, y: 11 },
-    C1: { x: 76, y: 12 },
-    A: { x: 82, y: 28 },
-    P2: { x: 28, y: 60 },
-    C2: { x: 54, y: 66 },
-    L: { x: 54, y: 66 },
-  },
-};
-
-/** DEFENSA */
-const DEFENSE_ROLE_XY = {
-  1: {
-    P1: { x: 14, y: 13 },
-    C1: { x: 50, y: 11 },
-    O: { x: 86, y: 13 },
-    P2: { x: 20, y: 64 },
-    A: { x: 50, y: 72 },
-    C2: { x: 82, y: 64 },
-    L: { x: 82, y: 64 },
-  },
-  2: {
-    P2: { x: 14, y: 13 },
-    C1: { x: 50, y: 11 },
-    O: { x: 86, y: 13 },
-    C2: { x: 24, y: 64 },
-    L: { x: 24, y: 64 },
-    A: { x: 54, y: 54 },
-    P1: { x: 84, y: 70 },
-  },
-  3: {
-    O: { x: 16, y: 13 },
-    P2: { x: 48, y: 13 },
-    C2: { x: 84, y: 12 },
-    L: { x: 84, y: 12 },
-    A: { x: 36, y: 56 },
-    P1: { x: 60, y: 66 },
-    C1: { x: 84, y: 68 },
-  },
-  4: {
-    P2: { x: 16, y: 13 },
-    C2: { x: 50, y: 11 },
-    L: { x: 50, y: 11 },
-    A: { x: 80, y: 15 },
-    P1: { x: 22, y: 66 },
-    C1: { x: 52, y: 60 },
-    O: { x: 86, y: 74 },
-  },
-  5: {
-    P1: { x: 16, y: 13 },
-    C2: { x: 50, y: 13 },
-    L: { x: 50, y: 13 },
-    A: { x: 82, y: 14 },
-    C1: { x: 28, y: 62 },
-    O: { x: 66, y: 64 },
-    P2: { x: 86, y: 72 },
-  },
-  6: {
-    P1: { x: 18, y: 13 },
-    C1: { x: 50, y: 11 },
-    A: { x: 80, y: 14 },
-    O: { x: 30, y: 64 },
-    P2: { x: 58, y: 68 },
-    C2: { x: 84, y: 70 },
-    L: { x: 84, y: 70 },
-  },
-};
-
-const PHASE_ROLE_TABLE = {
-  serve: SERVE_ROLE_XY,
-  receive: RECEIVE_ROLE_XY,
-  defense: DEFENSE_ROLE_XY,
+/** Легална предна линия по ротация (триъгълници на графиката). */
+export const FRONT_ROLES_BY_ROT = {
+  1: ["O", "C1", "P1"],
+  2: ["P2", "O", "C1"],
+  3: ["C2", "P2", "O"],
+  4: ["A", "C2", "P2"],
+  5: ["P1", "A", "C2"],
+  6: ["C1", "P1", "A"],
 };
 
 function clampRot(rotation) {
@@ -207,19 +33,195 @@ function clampRot(rotation) {
   return r;
 }
 
-/** Позиция за играч: предпочита роля от графиката, иначе зона. */
-export function playerCourtPosition({ role, zone, phase = "grid", rotation = 1 }) {
-  if (phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
-    return { ...(GRID_ZONE_XY[Number(zone)] || { x: 50, y: 50 }) };
-  }
-  const rot = clampRot(rotation);
-  const table = PHASE_ROLE_TABLE[phase][rot] || PHASE_ROLE_TABLE[phase][1];
+export function isFrontRole(role, rotation = 1) {
   const key = String(role || "").toUpperCase();
-  if (key && table[key]) return { ...table[key] };
-  if (key === "L" && table.C2) return { ...table.C2 };
-  // без роля — през zone→role огледало
-  return zonePosition({ zone, phase, rotation: rot });
+  if (!key || key === "L") return false;
+  const front = FRONT_ROLES_BY_ROT[clampRot(rotation)] || [];
+  return front.includes(key);
 }
+
+/** SAQUE — предните на мрежата, сервитьорът дълбоко дясно/зад. */
+const SERVE_ROLE_XY = {
+  1: {
+    P1: { x: 15, y: 10 },
+    C1: { x: 50, y: 8 },
+    O: { x: 85, y: 10 },
+    P2: { x: 20, y: 55 },
+    C2: { x: 50, y: 58 },
+    L: { x: 50, y: 58 },
+    A: { x: 88, y: 84 },
+  },
+  2: {
+    P2: { x: 15, y: 10 },
+    C1: { x: 50, y: 8 },
+    O: { x: 85, y: 10 },
+    C2: { x: 24, y: 56 },
+    L: { x: 24, y: 56 },
+    A: { x: 55, y: 46 },
+    P1: { x: 88, y: 80 },
+  },
+  3: {
+    O: { x: 15, y: 10 },
+    P2: { x: 48, y: 10 },
+    C2: { x: 84, y: 10 },
+    L: { x: 84, y: 10 },
+    A: { x: 32, y: 50 },
+    P1: { x: 56, y: 60 },
+    C1: { x: 86, y: 78 },
+  },
+  4: {
+    P2: { x: 15, y: 11 },
+    C2: { x: 48, y: 9 },
+    L: { x: 48, y: 9 },
+    A: { x: 80, y: 12 },
+    P1: { x: 22, y: 58 },
+    C1: { x: 52, y: 54 },
+    O: { x: 88, y: 82 },
+  },
+  5: {
+    P1: { x: 15, y: 10 },
+    C2: { x: 48, y: 10 },
+    L: { x: 48, y: 10 },
+    A: { x: 82, y: 12 },
+    C1: { x: 28, y: 55 },
+    O: { x: 64, y: 58 },
+    P2: { x: 88, y: 80 },
+  },
+  6: {
+    P1: { x: 16, y: 11 },
+    C1: { x: 50, y: 9 },
+    A: { x: 80, y: 12 },
+    O: { x: 28, y: 58 },
+    P2: { x: 56, y: 62 },
+    C2: { x: 86, y: 78 },
+    L: { x: 86, y: 78 },
+  },
+};
+
+/**
+ * RECEPCIÓN — плътни стекове (A почти до предния),
+ * посрещачи в ясна W/линия, пунктирани зони на графиката.
+ */
+const RECEIVE_ROLE_XY = {
+  1: {
+    O: { x: 12, y: 9 },
+    C1: { x: 38, y: 8 },
+    P1: { x: 70, y: 11 },
+    A: { x: 76, y: 22 },
+    P2: { x: 26, y: 54 },
+    C2: { x: 52, y: 60 },
+    L: { x: 52, y: 60 },
+  },
+  2: {
+    C1: { x: 16, y: 9 },
+    O: { x: 42, y: 8 },
+    P1: { x: 72, y: 12 },
+    A: { x: 66, y: 24 },
+    C2: { x: 24, y: 56 },
+    L: { x: 24, y: 56 },
+    P2: { x: 50, y: 62 },
+  },
+  3: {
+    O: { x: 14, y: 9 },
+    P2: { x: 46, y: 10 },
+    C2: { x: 78, y: 10 },
+    L: { x: 78, y: 10 },
+    A: { x: 56, y: 24 },
+    P1: { x: 26, y: 56 },
+    C1: { x: 70, y: 60 },
+  },
+  4: {
+    C2: { x: 18, y: 12 },
+    L: { x: 18, y: 12 },
+    P2: { x: 42, y: 10 },
+    O: { x: 78, y: 10 },
+    A: { x: 58, y: 28 },
+    C1: { x: 26, y: 58 },
+    P1: { x: 54, y: 62 },
+  },
+  5: {
+    C2: { x: 14, y: 9 },
+    L: { x: 14, y: 9 },
+    O: { x: 40, y: 8 },
+    P1: { x: 70, y: 11 },
+    A: { x: 54, y: 26 },
+    P2: { x: 28, y: 58 },
+    C1: { x: 76, y: 56 },
+  },
+  6: {
+    O: { x: 12, y: 9 },
+    P1: { x: 44, y: 9 },
+    C1: { x: 74, y: 10 },
+    A: { x: 80, y: 22 },
+    P2: { x: 26, y: 56 },
+    C2: { x: 52, y: 62 },
+    L: { x: 52, y: 62 },
+  },
+};
+
+/** DEFENSA — предни на блок, задни в dig база. */
+const DEFENSE_ROLE_XY = {
+  1: {
+    P1: { x: 13, y: 11 },
+    C1: { x: 50, y: 9 },
+    O: { x: 87, y: 11 },
+    P2: { x: 18, y: 60 },
+    A: { x: 50, y: 68 },
+    C2: { x: 84, y: 60 },
+    L: { x: 84, y: 60 },
+  },
+  2: {
+    P2: { x: 13, y: 11 },
+    C1: { x: 50, y: 9 },
+    O: { x: 87, y: 11 },
+    C2: { x: 22, y: 60 },
+    L: { x: 22, y: 60 },
+    A: { x: 52, y: 50 },
+    P1: { x: 86, y: 68 },
+  },
+  3: {
+    O: { x: 14, y: 11 },
+    P2: { x: 48, y: 11 },
+    C2: { x: 86, y: 10 },
+    L: { x: 86, y: 10 },
+    A: { x: 34, y: 52 },
+    P1: { x: 58, y: 62 },
+    C1: { x: 86, y: 68 },
+  },
+  4: {
+    P2: { x: 14, y: 11 },
+    C2: { x: 50, y: 9 },
+    L: { x: 50, y: 9 },
+    A: { x: 82, y: 12 },
+    P1: { x: 20, y: 62 },
+    C1: { x: 52, y: 56 },
+    O: { x: 88, y: 76 },
+  },
+  5: {
+    P1: { x: 14, y: 11 },
+    C2: { x: 50, y: 11 },
+    L: { x: 50, y: 11 },
+    A: { x: 84, y: 12 },
+    C1: { x: 26, y: 58 },
+    O: { x: 64, y: 60 },
+    P2: { x: 88, y: 74 },
+  },
+  6: {
+    P1: { x: 16, y: 11 },
+    C1: { x: 50, y: 9 },
+    A: { x: 82, y: 12 },
+    O: { x: 28, y: 60 },
+    P2: { x: 56, y: 64 },
+    C2: { x: 86, y: 70 },
+    L: { x: 86, y: 70 },
+  },
+};
+
+const PHASE_ROLE_TABLE = {
+  serve: SERVE_ROLE_XY,
+  receive: RECEIVE_ROLE_XY,
+  defense: DEFENSE_ROLE_XY,
+};
 
 const FORMATION_ZONE_ROLE = {
   serve: {
@@ -248,6 +250,18 @@ const FORMATION_ZONE_ROLE = {
   },
 };
 
+export function playerCourtPosition({ role, zone, phase = "grid", rotation = 1 }) {
+  if (phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
+    return { ...(GRID_ZONE_XY[Number(zone)] || { x: 50, y: 50 }) };
+  }
+  const rot = clampRot(rotation);
+  const table = PHASE_ROLE_TABLE[phase][rot] || PHASE_ROLE_TABLE[phase][1];
+  const key = String(role || "").toUpperCase();
+  if (key && table[key]) return { ...table[key] };
+  if (key === "L" && table.C2) return { ...table.C2 };
+  return zonePosition({ zone, phase, rotation: rot });
+}
+
 export function zonePosition({ zone, phase = "grid", rotation = 1 }) {
   const z = Number(zone);
   if (phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
@@ -257,7 +271,6 @@ export function zonePosition({ zone, phase = "grid", rotation = 1 }) {
   const role = FORMATION_ZONE_ROLE[phase]?.[rot]?.[z];
   const table = PHASE_ROLE_TABLE[phase][rot] || PHASE_ROLE_TABLE[phase][1];
   if (role && table[role]) return { ...table[role] };
-  if (role === "C2" && table.L) return { ...table.L };
   return { ...(BASE_ZONE_XY[z] || { x: 50, y: 50 }) };
 }
 

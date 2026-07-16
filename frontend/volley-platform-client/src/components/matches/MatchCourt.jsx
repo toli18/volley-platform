@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { nearestZone, playerCourtPosition, zonePosition } from "../../utils/matchCourtLayout";
+import { isFrontRole, nearestZone, playerCourtPosition, zonePosition } from "../../utils/matchCourtLayout";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
 const LONG_PRESS_MS = 380;
@@ -184,6 +184,8 @@ export default function MatchCourt({
     const isHover = dragging.current && Number(hoverZone) === zone && Number(dragFrom) !== zone;
     const isServe = showServe && zone === 1;
     const color = player ? positionColor(player.position) : undefined;
+    const front = player?.role ? isFrontRole(player.role, rotation) : [2, 3, 4].includes(Number(zone));
+    const label = player?.role && layoutPhase !== "grid" ? player.role : player ? positionShort(player.position) : null;
     const pos = isTactical
       ? playerCourtPosition({
           role: player?.role,
@@ -209,7 +211,7 @@ export default function MatchCourt({
           player ? " matchChipSlot--filled" : ""
         }${isServe ? " matchChipSlot--serve" : ""}${isDrag ? " matchChipSlot--drag" : ""}${
           isHover ? " matchChipSlot--drop" : ""
-        }`}
+        }${front && player ? " matchChipSlot--front" : ""}${!front && player ? " matchChipSlot--back" : ""}`}
         disabled={!canInteract}
         data-zone={zone}
         style={style}
@@ -225,8 +227,12 @@ export default function MatchCourt({
         <span className="matchChipZoneBadge">{zone}</span>
         {player ? (
           <span className="matchChipStack">
-            <span className="matchChipCircle" style={{ background: color }}>
-              {positionShort(player.position)}
+            <span
+              className={`matchChipCircle${front ? " matchChipCircle--tri" : ""}`}
+              style={{ background: color }}
+              title={player.role || positionShort(player.position)}
+            >
+              {label}
             </span>
             <span className="matchChipTag">
               {player.jersey_number} {shortPlayerName(player.athlete_name)}

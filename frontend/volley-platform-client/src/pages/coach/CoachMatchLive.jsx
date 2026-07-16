@@ -284,7 +284,7 @@ export default function CoachMatchLive() {
         <MatchCourt
           variant="pro"
           layout="tactical"
-          size="lg"
+          size="md"
           phase={activePhase}
           rotation={mset?.rotation ?? 1}
           slots={state.court || []}
