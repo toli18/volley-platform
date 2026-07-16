@@ -6813,6 +6813,192 @@ button.matchChipSlot:not(:disabled) {
   padding: 4px;
   justify-self: center;
 }
+.matchRotStageLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+.matchCourtHint {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.matchChipSlot--drag {
+  opacity: 0.55;
+}
+.matchChipSlot--drop .matchChipCircle,
+.matchChipSlot--drop .matchChipEmpty {
+  box-shadow: 0 0 0 3px #4ade80;
+}
+
+/* Starting lineup print card */
+.matchLineupOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: rgba(15, 23, 42, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.matchLineupModal {
+  width: min(520px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #0f172a;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+.matchLineupModalTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #e2e8f0;
+}
+.matchLineupClose {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.matchLineupSheet {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 4px;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+}
+.matchLineupSheetHead {
+  display: grid;
+  grid-template-columns: 70px 1fr 80px;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #0f172a;
+}
+.matchLineupLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+.matchLineupValue {
+  font-size: 16px;
+  font-weight: 800;
+}
+.matchLineupOpp {
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+}
+.matchLineupTeamBlock {
+  text-align: center;
+}
+.matchLineupGrid {
+  display: grid;
+  gap: 6px;
+}
+.matchLineupRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.matchLineupCell {
+  border: 1.5px solid #0f172a;
+  border-radius: 4px;
+  min-height: 88px;
+  padding: 6px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 2px;
+  position: relative;
+}
+.matchLineupCell--serve {
+  border-width: 2.5px;
+}
+.matchLineupRoman {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+}
+.matchLineupNum {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+.matchLineupName {
+  font-size: 12px;
+  font-weight: 700;
+}
+.matchLineupPos {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f766e;
+}
+.matchLineupServe {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #b45309;
+}
+.matchLineupEmpty {
+  color: #94a3b8;
+}
+.matchLineupActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.matchLineupPrintBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  background: #06b6d4;
+  color: #042f2e;
+  font-weight: 900;
+  cursor: pointer;
+}
+.matchLineupCancelBtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  padding: 12px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #match-lineup-print-sheet,
+  #match-lineup-print-sheet * {
+    visibility: visible !important;
+  }
+  #match-lineup-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
 
 .matchStepTabs {
   display: grid;

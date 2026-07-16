@@ -9,10 +9,13 @@ export default function MatchRotationStage({
   onRotate,
   onBack,
   onEditLineup,
+  onShowLineupCard,
   onPrev,
   onNext,
+  onSwapZones,
   canPrev = true,
   canNext = true,
+  rearrangeable = true,
 }) {
   const title = opponentName ? `vs ${opponentName}` : "Ротация";
   const subtitle = `РОТАЦИЯ ${rotation} · ${system}`;
@@ -35,6 +38,9 @@ export default function MatchRotationStage({
         showServe
         title={title}
         subtitle={subtitle}
+        rearrangeable={rearrangeable}
+        swapOnClick={rearrangeable}
+        onSwapZones={onSwapZones}
       />
 
       <div className="matchRotStageBar">
@@ -55,11 +61,18 @@ export default function MatchRotationStage({
         </button>
       </div>
 
-      {onEditLineup ? (
-        <button type="button" className="matchRotEditLink" onClick={onEditLineup}>
-          Редактирай шестицата
-        </button>
-      ) : null}
+      <div className="matchRotStageLinks">
+        {onShowLineupCard ? (
+          <button type="button" className="matchRotEditLink" onClick={onShowLineupCard}>
+            Стартова карта / Print
+          </button>
+        ) : null}
+        {onEditLineup ? (
+          <button type="button" className="matchRotEditLink" onClick={onEditLineup}>
+            Редактирай шестицата
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

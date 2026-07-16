@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import MatchCourt from "../../components/matches/MatchCourt";
 import MatchRotationStage from "../../components/matches/MatchRotationStage";
+import StartingLineupCard from "../../components/matches/StartingLineupCard";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { reverseRotateZones, swapZoneAthletes } from "../../utils/matchCourtMath";
 import {
   MATCH_MAX_ROSTER,
   MATCH_POSITIONS,
@@ -34,6 +36,7 @@ export default function CoachMatchSetup() {
   const [activeZone, setActiveZone] = useState(1);
   const [rotationView, setRotationView] = useState(1);
   const [step, setStep] = useState("roster");
+  const [lineupCardOpen, setLineupCardOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -251,6 +254,59 @@ export default function CoachMatchSetup() {
       if (Number(liberoId) === id) setLiberoId("");
       return next;
     });
+  };
+
+  const persistLineupMap = async (zoneMap, nextLiberoId = liberoId) => {
+    const missing = ZONE_ORDER.filter((z) => !zoneMap[z]);
+    if (missing.length) {
+      toast.error("Попълнете всички 6 зони преди размяна.");
+      return null;
+    }
+    const slots = ZONE_ORDER.map((zone) => ({ zone, athlete_id: Number(zoneMap[zone]) }));
+    const res = await axiosInstance.put(API_PATHS.TEAM_MATCH_LINEUP(teamIdNum, matchIdNum), {
+      slots,
+      libero_athlete_id: nextLiberoId ? Number(nextLiberoId) : null,
+    });
+    applyMatchState(res.data);
+    return res.data;
+  };
+
+  const swapOnLineupStep = async (fromZone, toZone) => {
+    const next = swapZoneAthletes(zones, fromZone, toZone);
+    setZones(next);
+    setActiveZone(toZone);
+    if (ZONE_ORDER.every((z) => next[z])) {
+      try {
+        setBusy(true);
+        await persistLineupMap(next, liberoId);
+      } catch (err) {
+        toast.error(normalizeError(err, "Неуспешна размяна."));
+      } finally {
+        setBusy(false);
+      }
+    }
+  };
+
+  const swapOnRotationView = async (fromZone, toZone) => {
+    const list = match?.rotations || [];
+    const rot = list.find((r) => Number(r.rotation) === Number(rotationView)) || list[0];
+    if (!rot?.slots?.length) return;
+    const visible = {};
+    for (const s of rot.slots) visible[s.zone] = s.athlete_id;
+    const swappedVisible = swapZoneAthletes(visible, fromZone, toZone);
+    const stepsBack = Math.max(0, Number(rot.rotation) - 1);
+    const newStart = reverseRotateZones(swappedVisible, stepsBack);
+    setZones(newStart);
+    try {
+      setBusy(true);
+      await persistLineupMap(newStart, liberoId);
+      toast.success("Размяната е записана.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешна размяна."));
+      await load();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const saveLineup = async () => {
@@ -481,8 +537,10 @@ export default function CoachMatchSetup() {
             libero={liberoPreview}
             activeZone={activeZone}
             editable
+            rearrangeable
             showServe
             onZoneClick={setActiveZone}
+            onSwapZones={swapOnLineupStep}
             title={meta.opponent_name ? `vs ${meta.opponent_name}` : teamName}
             subtitle={`СТАРТОВА ШЕСТИЦА · ${meta.system || "5-1"}`}
           />
@@ -577,15 +635,28 @@ export default function CoachMatchSetup() {
               libero={currentRotation.libero}
               canPrev={Number(rotationView) > 1}
               canNext={Number(rotationView) < maxRotation}
+              rearrangeable={!busy}
+              onSwapZones={swapOnRotationView}
               onPrev={() => goRotation(Number(rotationView) - 1)}
               onNext={() => goRotation(Number(rotationView) + 1)}
               onBack={() => goRotation(1)}
               onRotate={() => goRotation(Number(rotationView) >= maxRotation ? 1 : Number(rotationView) + 1)}
               onEditLineup={() => setStep("lineup")}
+              onShowLineupCard={() => setLineupCardOpen(true)}
             />
             <Button variant="secondary" disabled={busy} onClick={() => navigate(`/coach/teams/${teamIdNum}/matches`)}>
               Към списъка с мачове
             </Button>
+            <StartingLineupCard
+              open={lineupCardOpen}
+              onClose={() => setLineupCardOpen(false)}
+              teamName={teamName}
+              system={match.system}
+              opponentName={match.opponent_name || ""}
+              setNumber="1"
+              slots={match.lineup?.slots || []}
+              libero={match.lineup?.libero || null}
+            />
           </>
         ) : (
           <EmptyState title="Няма ротации" description="Запишете стартовата шестица първо." />
