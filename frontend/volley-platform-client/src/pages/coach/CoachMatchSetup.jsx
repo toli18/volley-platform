@@ -245,15 +245,19 @@ export default function CoachMatchSetup() {
   const assignToActiveZone = (athleteId) => {
     const id = Number(athleteId);
     if (!activeZone) return;
-    setZones((prev) => {
-      const next = { ...prev };
-      for (const [zone, aid] of Object.entries(next)) {
-        if (Number(aid) === id) delete next[zone];
-      }
-      next[activeZone] = id;
-      if (Number(liberoId) === id) setLiberoId("");
-      return next;
-    });
+    const next = { ...zones };
+    for (const [zone, aid] of Object.entries(next)) {
+      if (Number(aid) === id) delete next[Number(zone)];
+    }
+    next[activeZone] = id;
+    setZones(next);
+    if (Number(liberoId) === id) setLiberoId("");
+
+    // След избор — към следващата празна зона (по ред 1→6)
+    const fromIdx = ZONE_ORDER.indexOf(Number(activeZone));
+    const searchOrder = [...ZONE_ORDER.slice(fromIdx + 1), ...ZONE_ORDER.slice(0, fromIdx)];
+    const nextEmpty = searchOrder.find((z) => !next[z]);
+    if (nextEmpty) setActiveZone(nextEmpty);
   };
 
   const persistLineupMap = async (zoneMap, nextLiberoId = liberoId) => {
@@ -529,7 +533,8 @@ export default function CoachMatchSetup() {
       {step === "lineup" ? (
         <>
           <p className="coachMobileMuted" style={{ margin: 0, fontSize: 13 }}>
-            Изберете зона (синият номер), после състезател. R1 = тази подредба.
+            Кликни зона (син номер), после състезател от списъка. След избор минава към следващата празна.
+            {ZONE_ORDER.every((z) => zones[z]) ? " После можеш да влачиш за размяна." : ""}
           </p>
           <MatchCourt
             variant="pro"
@@ -537,7 +542,7 @@ export default function CoachMatchSetup() {
             libero={liberoPreview}
             activeZone={activeZone}
             editable
-            rearrangeable
+            rearrangeable={ZONE_ORDER.every((z) => zones[z])}
             showServe
             onZoneClick={setActiveZone}
             onSwapZones={swapOnLineupStep}

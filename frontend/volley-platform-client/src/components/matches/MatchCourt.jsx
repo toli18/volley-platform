@@ -63,9 +63,7 @@ export default function MatchCourt({
 
     const isTouch = e.pointerType === "touch";
     if (rearrangeable && !isTouch) {
-      // Mouse: start drag immediately
-      dragging.current = true;
-      setDragFrom(zone);
+      // Mouse: wait for movement before drag so a plain click can select a zone
       setSelectZone(null);
       e.currentTarget.setPointerCapture?.(e.pointerId);
       return;
@@ -92,6 +90,12 @@ export default function MatchCourt({
     if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
       moved.current = true;
       clearLongPress();
+      // Mouse: begin drag only after the pointer actually moves
+      if (!dragging.current && startZone.current != null && e.pointerType !== "touch") {
+        dragging.current = true;
+        setDragFrom(startZone.current);
+        setSelectZone(null);
+      }
     }
     if (dragging.current) {
       setHoverZone(zone);
@@ -102,9 +106,13 @@ export default function MatchCourt({
     clearLongPress();
     const from = startZone.current;
 
-    if (rearrangeable && dragging.current && dragFrom != null) {
+    if (rearrangeable && dragging.current && dragFrom != null && moved.current) {
       const target = hoverZone || zone;
-      finishSwap(dragFrom, target);
+      if (target != null && Number(target) !== Number(dragFrom)) {
+        finishSwap(dragFrom, target);
+      } else if (from) {
+        onZoneClick?.(from);
+      }
       dragging.current = false;
       setDragFrom(null);
       setHoverZone(null);
