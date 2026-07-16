@@ -261,6 +261,11 @@ export default function CoachTeamHubOverview({
       label: "Генерирай тимов лист",
       onClick: openTeamSheet,
     },
+    {
+      id: "matches",
+      label: "Мач / Ротации",
+      onClick: () => navigate(`/coach/teams/${teamIdNum}/matches`),
+    },
     ...(canManage
       ? [
           { id: "news", label: "Новини", onClick: () => onTab("news") },

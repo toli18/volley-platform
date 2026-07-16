@@ -1090,3 +1090,11 @@ from .models_assessment import (  # noqa: E402,F401
     AssessmentConsent,
     BatteryAuditLog,
 )
+from .models_matches import (  # noqa: E402,F401
+    MatchStatus,
+    MatchSystem,
+    MatchPosition,
+    Match,
+    MatchRosterPlayer,
+    MatchLineupSlot,
+)

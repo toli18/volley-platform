@@ -32,6 +32,7 @@ from app.routers.national_method import router as national_method_router
 from app.routers.navbar import router as navbar_router
 from app.routers.pilot_requests import router as pilot_requests_router
 from app.routers.assessments import router as assessments_router
+from app.routers.matches import router as matches_router
 from app.routers import articles
 
 
@@ -94,6 +95,7 @@ app.include_router(navbar_router, prefix="/api", tags=["Navbar Feed"])
 app.include_router(national_method_router)
 # prefix="/api/assessments" и tags са дефинирани в самия router (виж assessments.py)
 app.include_router(assessments_router)
+app.include_router(matches_router)
 app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])
 
 # --- Root ---

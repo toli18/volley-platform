@@ -6520,6 +6520,149 @@
   gap: 12px;
 }
 
+/* Match / Rotations court */
+.matchCourtWrap {
+  display: grid;
+  gap: 8px;
+}
+.matchCourtNet {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 4px 0;
+  border-bottom: 3px solid #0f766e;
+}
+.matchCourt {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 55%, #f8fafc 100%);
+  border: 1px solid #bbf7d0;
+}
+.matchCourtRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.matchCourtZone {
+  min-height: 72px;
+  border-radius: 12px;
+  border: 1px dashed #94a3b8;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 6px 4px;
+  display: grid;
+  place-content: center;
+  gap: 1px;
+  cursor: default;
+  text-align: center;
+}
+button.matchCourtZone {
+  cursor: pointer;
+}
+.matchCourtZone--filled {
+  border-style: solid;
+  border-color: #0f766e;
+  background: #fff;
+}
+.matchCourtZone--active {
+  box-shadow: 0 0 0 2px #0f766e;
+}
+.matchCourtZoneLabel {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+}
+.matchCourtJersey {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+.matchCourtPos {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f766e;
+}
+.matchCourtName {
+  font-size: 10px;
+  color: #475569;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matchCourtEmpty {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.matchCourtLibero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.matchCourtLiberoTag {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.matchStepTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.matchStepTab {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+}
+.matchStepTab--active {
+  background: #ecfdf5;
+  border-color: #0f766e;
+  color: #0f766e;
+}
+.matchRotTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.matchRotTab {
+  min-width: 44px;
+  border-radius: 10px;
+  border: 1px solid #d8e1ec;
+  background: #fff;
+  padding: 8px 10px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.matchRotTab--active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
 .coachMobileHubMeta {
   margin: 0;
   font-size: 13px;

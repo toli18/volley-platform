@@ -108,6 +108,7 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS birth_date DATE"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS place_of_birth VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS libero_athlete_id INTEGER"))
                 # Placeholder дати за стари записи (годината се запазва).
                 conn.execute(
                     text(
