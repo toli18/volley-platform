@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,7 +9,9 @@ class AthleteCreate(BaseModel):
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
+    birth_date: Optional[date] = None
     birth_year: Optional[int] = None
+    place_of_birth: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
@@ -20,7 +22,9 @@ class AthleteUpdate(BaseModel):
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
+    birth_date: Optional[date] = None
     birth_year: Optional[int] = None
+    place_of_birth: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
@@ -44,6 +48,8 @@ class AthleteRead(BaseModel):
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     birth_year: Optional[int] = None
+    birth_date: Optional[date] = None
+    place_of_birth: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True

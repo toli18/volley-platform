@@ -20,8 +20,9 @@ from reportlab.pdfgen import canvas
 from app.database import get_db
 from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
-from app.models import Athlete, AthletePayment, Team, TeamMember, User, UserRole
+from app.models import Athlete, AthletePayment, Club, Team, TeamMember, User, UserRole
 from app.services.parent_portal_notify import queue_fee_paid
+from app.services.athlete_birth import resolve_birth_date, resolve_place_of_birth
 from app.schemas.fees import (
     AthleteCreate,
     AthleteMonthlyReport,
@@ -472,6 +473,14 @@ def create_athlete(
     name = (payload.athlete_name or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="athlete_name is required")
+    club_city = None
+    if current_user.club_id:
+        club = db.query(Club).filter(Club.id == current_user.club_id).first()
+        club_city = club.city if club else None
+    birth_date, birth_year = resolve_birth_date(
+        birth_date=payload.birth_date,
+        birth_year=payload.birth_year,
+    )
     athlete = Athlete(
         coach_id=current_user.id,
         club_id=current_user.club_id,
@@ -479,7 +488,9 @@ def create_athlete(
         athlete_phone=(payload.athlete_phone or "").strip() or None,
         parent_name=(payload.parent_name or "").strip() or None,
         parent_phone=(payload.parent_phone or "").strip() or None,
-        birth_year=payload.birth_year,
+        birth_date=birth_date,
+        birth_year=birth_year,
+        place_of_birth=resolve_place_of_birth(payload.place_of_birth, club_city),
         gender=payload.gender,
         notes=(payload.notes or "").strip() or None,
         is_active=bool(payload.is_active),
@@ -582,6 +593,12 @@ def import_athletes(
             except Exception:
                 birth_year = None
 
+        birth_date, synced_year = resolve_birth_date(birth_year=birth_year)
+        club_city = None
+        if current_user.club_id:
+            club = db.query(Club).filter(Club.id == current_user.club_id).first()
+            club_city = club.city if club else None
+
         dedupe_phone = parent_phone or athlete_phone
         dedupe_key = (athlete_name.lower(), dedupe_phone)
         if dedupe_key in existing_keys or dedupe_key in batch_keys:
@@ -595,7 +612,9 @@ def import_athletes(
             athlete_phone=athlete_phone or None,
             parent_name=parent_name or None,
             parent_phone=parent_phone or None,
-            birth_year=birth_year,
+            birth_year=synced_year,
+            birth_date=birth_date,
+            place_of_birth=resolve_place_of_birth(None, club_city),
             gender=_normalize_gender(gender_raw),
             notes=notes or None,
             is_active=_to_bool(is_active_raw),
@@ -684,8 +703,27 @@ def update_athlete(
         athlete.parent_name = (data.get("parent_name") or "").strip() or None
     if "parent_phone" in data:
         athlete.parent_phone = (data.get("parent_phone") or "").strip() or None
-    if "birth_year" in data:
-        athlete.birth_year = data.get("birth_year")
+    if "birth_date" in data or "birth_year" in data:
+        birth_date, birth_year = resolve_birth_date(
+            birth_date=data.get("birth_date") if "birth_date" in data else athlete.birth_date,
+            birth_year=data.get("birth_year") if "birth_year" in data and "birth_date" not in data else None,
+        )
+        if "birth_date" in data:
+            athlete.birth_date = birth_date
+            athlete.birth_year = birth_year
+        elif "birth_year" in data:
+            athlete.birth_year = data.get("birth_year")
+            if athlete.birth_year and not athlete.birth_date:
+                athlete.birth_date = resolve_birth_date(birth_year=athlete.birth_year)[0]
+            elif athlete.birth_date and athlete.birth_year:
+                # keep date day/month, update year if only year changed
+                athlete.birth_date = athlete.birth_date.replace(year=int(athlete.birth_year))
+    if "place_of_birth" in data:
+        club_city = None
+        if athlete.club_id:
+            club = db.query(Club).filter(Club.id == athlete.club_id).first()
+            club_city = club.city if club else None
+        athlete.place_of_birth = resolve_place_of_birth(data.get("place_of_birth"), club_city)
     if "gender" in data:
         athlete.gender = data.get("gender")
     if "notes" in data:

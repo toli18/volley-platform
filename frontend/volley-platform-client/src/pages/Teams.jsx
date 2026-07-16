@@ -36,7 +36,8 @@ export default function Teams() {
     athlete_phone: "",
     parent_name: "",
     parent_phone: "",
-    birth_year: "",
+    birth_date: "",
+    place_of_birth: "",
     gender: "",
     notes: "",
     is_active: true,
@@ -180,7 +181,8 @@ export default function Teams() {
       athlete_phone: "",
       parent_name: "",
       parent_phone: "",
-      birth_year: "",
+      birth_date: "",
+      place_of_birth: "",
       gender: "",
       notes: "",
       is_active: true,
@@ -201,7 +203,8 @@ export default function Teams() {
       athlete_phone: athleteForm.athlete_phone.trim() || null,
       parent_name: athleteForm.parent_name.trim() || null,
       parent_phone: athleteForm.parent_phone.trim() || null,
-      birth_year: athleteForm.birth_year ? Number(athleteForm.birth_year) : null,
+      birth_date: athleteForm.birth_date || null,
+      place_of_birth: athleteForm.place_of_birth.trim() || null,
       gender: athleteForm.gender,
       notes: athleteForm.notes.trim() || null,
       is_active: Boolean(athleteForm.is_active),
@@ -473,10 +476,18 @@ export default function Teams() {
             value={athleteForm.parent_phone}
             onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
           />
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
+            <Input
+              type="date"
+              value={athleteForm.birth_date}
+              onChange={(e) => setAthleteForm((p) => ({ ...p, birth_date: e.target.value }))}
+            />
+          </label>
           <Input
-            placeholder="Година на раждане"
-            value={athleteForm.birth_year}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
+            placeholder="Място на раждане (ако е празно → град на клуба)"
+            value={athleteForm.place_of_birth}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, place_of_birth: e.target.value }))}
           />
           <Input
             as="select"

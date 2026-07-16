@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -135,6 +135,8 @@ class AthleteProfileResponse(BaseModel):
     athlete_name: str
     gender: Optional[str] = None
     birth_year: Optional[int] = None
+    birth_date: Optional[date] = None
+    place_of_birth: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
@@ -147,6 +149,18 @@ class AthleteProfileResponse(BaseModel):
     last_attendance: list[dict] = Field(default_factory=list)
     monthly_payments: list[AthletePaymentMini] = Field(default_factory=list)
     timeline: list[AthleteTimelineEvent] = Field(default_factory=list)
+
+
+class TeamSheetRequest(BaseModel):
+    competition: Optional[str] = None
+    venue_city: Optional[str] = None
+    age_group: Optional[str] = None
+    sheet_date: Optional[str] = None  # DD.MM.YYYY or YYYY-MM-DD
+    jersey_color: Optional[str] = None
+    head_coach: Optional[str] = None
+    assistant_1: Optional[str] = None
+    assistant_2: Optional[str] = None
+    manager: Optional[str] = None
 
 
 class TeamAttendanceReportRow(BaseModel):

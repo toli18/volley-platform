@@ -1,8 +1,9 @@
 import re
 from calendar import monthrange
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,7 @@ from app.models import (
     Athlete,
     AthletePayment,
     AttendanceRecord,
+    Club,
     ParentAbsenceNotice,
     Team,
     TeamMember,
@@ -20,6 +22,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.models_assessment import AssessmentResult, AssessmentSession
 from app.schemas.teams import (
     AthleteAttendanceSummary,
     AthletePaymentMini,
@@ -39,8 +42,17 @@ from app.schemas.teams import (
     TeamMembersResponse,
     TeamMemberAthleteRead,
     TeamRead,
+    TeamSheetRequest,
     TeamUpdate,
     TeamMemberUpdate,
+)
+from app.services.athlete_birth import resolve_place_of_birth
+from app.services.team_sheet_pdf import (
+    TeamSheetPayload,
+    TeamSheetPlayerRow,
+    build_team_sheet_pdf,
+    format_sheet_date,
+    split_athlete_name,
 )
 
 router = APIRouter()
@@ -893,6 +905,8 @@ def athlete_profile(
         athlete_name=athlete.athlete_name,
         gender=getattr(athlete, "gender", None),
         birth_year=athlete.birth_year,
+        birth_date=getattr(athlete, "birth_date", None),
+        place_of_birth=getattr(athlete, "place_of_birth", None),
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,
         athlete_phone=athlete.athlete_phone,
@@ -912,4 +926,127 @@ def athlete_profile(
         last_attendance=last_attendance,
         monthly_payments=payment_rows,
         timeline=timeline,
+    )
+
+
+def _parse_sheet_date(raw: str | None) -> str:
+    value = (raw or "").strip()
+    if not value:
+        return format_sheet_date()
+    if re.match(r"^\d{2}\.\d{2}\.\d{4}$", value):
+        return value
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        y, m, d = value.split("-")
+        return f"{d}.{m}.{y}"
+    return format_sheet_date()
+
+
+def _latest_anthro_map(db: Session, athlete_ids: list[int]) -> dict[int, dict[str, float]]:
+    """Latest ANTH_HEIGHT / ANTH_REACH per athlete from assessment results."""
+    if not athlete_ids:
+        return {}
+    rows = (
+        db.query(
+            AssessmentResult.athlete_id,
+            AssessmentResult.test_code,
+            AssessmentResult.raw_value,
+            AssessmentSession.conducted_on,
+            AssessmentResult.id,
+        )
+        .join(AssessmentSession, AssessmentSession.id == AssessmentResult.session_id)
+        .filter(
+            AssessmentResult.athlete_id.in_(athlete_ids),
+            AssessmentResult.test_code.in_(("ANTH_HEIGHT", "ANTH_REACH")),
+            AssessmentResult.raw_value.isnot(None),
+        )
+        .order_by(
+            AssessmentResult.athlete_id.asc(),
+            AssessmentResult.test_code.asc(),
+            AssessmentSession.conducted_on.desc(),
+            AssessmentResult.id.desc(),
+        )
+        .all()
+    )
+    out: dict[int, dict[str, float]] = {}
+    for athlete_id, test_code, raw_value, _conducted, _rid in rows:
+        bucket = out.setdefault(int(athlete_id), {})
+        if test_code not in bucket and raw_value is not None:
+            bucket[test_code] = float(raw_value)
+    return out
+
+
+@router.post("/teams/{team_id}/team-sheet.pdf")
+def generate_team_sheet_pdf(
+    team_id: int,
+    payload: TeamSheetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+):
+    team = _ensure_team_owner(db, team_id, current_user)
+    club = db.query(Club).filter(Club.id == team.club_id).first() if team.club_id else None
+    club_name = club.name if club else ""
+    club_city = (club.city if club else None) or ""
+
+    coach_name = ""
+    if team.coach_id:
+        coach = db.query(User).filter(User.id == team.coach_id).first()
+        coach_name = (coach.name if coach and coach.name else "") or (coach.email if coach else "") or ""
+
+    members = (
+        db.query(TeamMember, Athlete)
+        .join(Athlete, Athlete.id == TeamMember.athlete_id)
+        .filter(TeamMember.team_id == team.id, TeamMember.is_active.is_(True), Athlete.is_active.is_(True))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    athlete_ids = [athlete.id for _, athlete in members]
+    anthro = _latest_anthro_map(db, athlete_ids)
+
+    players: list[TeamSheetPlayerRow] = []
+    for _, athlete in members:
+        last_name, first_name = split_athlete_name(athlete.athlete_name)
+        birth_year = ""
+        if getattr(athlete, "birth_date", None):
+            birth_year = str(athlete.birth_date.year)
+        elif athlete.birth_year:
+            birth_year = str(athlete.birth_year)
+        place = resolve_place_of_birth(getattr(athlete, "place_of_birth", None), club_city) or ""
+        measures = anthro.get(int(athlete.id), {})
+        height = measures.get("ANTH_HEIGHT")
+        reach = measures.get("ANTH_REACH")
+        players.append(
+            TeamSheetPlayerRow(
+                jersey="",
+                last_name=last_name,
+                first_name=first_name,
+                birth_year=birth_year,
+                place_of_birth=place,
+                height="" if height is None else str(int(height) if float(height).is_integer() else height),
+                reach="" if reach is None else str(int(reach) if float(reach).is_integer() else reach),
+                sek="",
+            )
+        )
+
+    sheet = TeamSheetPayload(
+        club_name=club_name,
+        competition=(payload.competition or "").strip(),
+        city=club_city,
+        sheet_date=_parse_sheet_date(payload.sheet_date),
+        age_group=(payload.age_group or team.age_group or "").strip(),
+        venue_city=(payload.venue_city or club_city or "").strip(),
+        gender_male=str(team.gender or "") == "male",
+        gender_female=str(team.gender or "") == "female",
+        jersey_color=(payload.jersey_color or "").strip(),
+        head_coach=(payload.head_coach or coach_name or "").strip(),
+        assistant_1=(payload.assistant_1 or "").strip(),
+        assistant_2=(payload.assistant_2 or "").strip(),
+        manager=(payload.manager or "").strip(),
+        players=players,
+    )
+    pdf_bytes = build_team_sheet_pdf(sheet)
+    filename = f"timov-list-{team.id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

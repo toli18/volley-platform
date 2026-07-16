@@ -58,7 +58,8 @@ export default function MonthlyFees() {
     athlete_phone: "",
     parent_name: "",
     parent_phone: "",
-    birth_year: "",
+    birth_date: "",
+    place_of_birth: "",
     gender: "",
     notes: "",
     is_active: true,
@@ -69,7 +70,8 @@ export default function MonthlyFees() {
     athlete_phone: "",
     parent_name: "",
     parent_phone: "",
-    birth_year: "",
+    birth_date: "",
+    place_of_birth: "",
     gender: "",
     notes: "",
     is_active: true,
@@ -160,7 +162,8 @@ export default function MonthlyFees() {
       athlete_phone: a.athlete_phone || "",
       parent_name: a.parent_name || "",
       parent_phone: a.parent_phone || "",
-      birth_year: a.birth_year || "",
+      birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
+      place_of_birth: a.place_of_birth || "",
       gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
       notes: a.notes || "",
       is_active: Boolean(a.is_active),
@@ -222,7 +225,8 @@ export default function MonthlyFees() {
       athlete_phone: "",
       parent_name: "",
       parent_phone: "",
-      birth_year: "",
+      birth_date: "",
+      place_of_birth: "",
       gender: "",
       notes: "",
       is_active: true,
@@ -288,7 +292,8 @@ export default function MonthlyFees() {
       athlete_phone: athleteForm.athlete_phone.trim() || null,
       parent_name: athleteForm.parent_name.trim() || null,
       parent_phone: athleteForm.parent_phone.trim() || null,
-      birth_year: athleteForm.birth_year ? Number(athleteForm.birth_year) : null,
+      birth_date: athleteForm.birth_date || null,
+      place_of_birth: athleteForm.place_of_birth.trim() || null,
       gender: athleteForm.gender,
       notes: athleteForm.notes.trim() || null,
       is_active: Boolean(athleteForm.is_active),
@@ -319,7 +324,8 @@ export default function MonthlyFees() {
       athlete_phone: editForm.athlete_phone.trim() || null,
       parent_name: editForm.parent_name.trim() || null,
       parent_phone: editForm.parent_phone.trim() || null,
-      birth_year: editForm.birth_year ? Number(editForm.birth_year) : null,
+      birth_date: editForm.birth_date || null,
+      place_of_birth: editForm.place_of_birth.trim() || null,
       gender: editForm.gender,
       notes: editForm.notes.trim() || null,
       is_active: Boolean(editForm.is_active),
@@ -617,10 +623,18 @@ export default function MonthlyFees() {
             value={editForm.parent_phone}
             onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
           />
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
+            <Input
+              type="date"
+              value={editForm.birth_date}
+              onChange={(e) => setEditForm((p) => ({ ...p, birth_date: e.target.value }))}
+            />
+          </label>
           <Input
-            placeholder="Година на раждане"
-            value={editForm.birth_year}
-            onChange={(e) => setEditForm((p) => ({ ...p, birth_year: e.target.value }))}
+            placeholder="Място на раждане"
+            value={editForm.place_of_birth}
+            onChange={(e) => setEditForm((p) => ({ ...p, place_of_birth: e.target.value }))}
           />
           <Input
             as="select"
@@ -732,7 +746,8 @@ export default function MonthlyFees() {
               athlete_phone: a.athlete_phone || "",
               parent_name: a.parent_name || "",
               parent_phone: a.parent_phone || "",
-              birth_year: a.birth_year || "",
+              birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
+              place_of_birth: a.place_of_birth || "",
               gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
               notes: a.notes || "",
               is_active: Boolean(a.is_active),
@@ -779,10 +794,18 @@ export default function MonthlyFees() {
             value={athleteForm.parent_phone}
             onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
           />
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
+            <Input
+              type="date"
+              value={athleteForm.birth_date}
+              onChange={(e) => setAthleteForm((p) => ({ ...p, birth_date: e.target.value }))}
+            />
+          </label>
           <Input
-            placeholder="Година на раждане"
-            value={athleteForm.birth_year}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, birth_year: e.target.value }))}
+            placeholder="Място на раждане (ако е празно → град на клуба)"
+            value={athleteForm.place_of_birth}
+            onChange={(e) => setAthleteForm((p) => ({ ...p, place_of_birth: e.target.value }))}
           />
           <Input
             as="select"
@@ -959,7 +982,8 @@ export default function MonthlyFees() {
                           athlete_phone: a.athlete_phone || "",
                           parent_name: a.parent_name || "",
                           parent_phone: a.parent_phone || "",
-                          birth_year: a.birth_year || "",
+                          birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
+                          place_of_birth: a.place_of_birth || "",
                           gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
                           notes: a.notes || "",
                           is_active: Boolean(a.is_active),
@@ -1053,7 +1077,8 @@ export default function MonthlyFees() {
                                 athlete_phone: a.athlete_phone || "",
                                 parent_name: a.parent_name || "",
                                 parent_phone: a.parent_phone || "",
-                                birth_year: a.birth_year || "",
+                                birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
+                                place_of_birth: a.place_of_birth || "",
                                 gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
                                 notes: a.notes || "",
                                 is_active: Boolean(a.is_active),

@@ -6,6 +6,10 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { isCompetitionEvent } from "../../utils/competitionKinds";
 import { monthBounds } from "../../utils/teamAttendanceMatrix";
 import { teamRoomLoginPath } from "../../utils/teamRoomAuth";
+import { Button, Input, Modal } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
+import { useToast } from "../../components/ToastProvider";
+import { normalizeError } from "../../utils/normalizeError";
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
 
@@ -35,6 +39,10 @@ function teamMetaLine(team) {
   return parts.length ? parts.join(" · ") : null;
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function StatCard({ label, value, hint, onClick, disabled }) {
   return (
     <button type="button" className="coachMobileHubStatCard" onClick={onClick} disabled={disabled}>
@@ -54,10 +62,24 @@ export default function CoachTeamHubOverview({
   onTab,
 }) {
   const navigate = useNavigate();
+  const toast = useToast();
+  const { user } = useAuth();
   const [statsLoading, setStatsLoading] = useState(true);
   const [trainingCount, setTrainingCount] = useState(null);
   const [attendanceLabel, setAttendanceLabel] = useState("—");
   const [attendanceHint, setAttendanceHint] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetForm, setSheetForm] = useState({
+    competition: "",
+    venue_city: "",
+    age_group: "",
+    sheet_date: todayIso(),
+    jersey_color: "",
+    head_coach: "",
+    assistant_1: "",
+    assistant_2: "",
+  });
 
   const monthKey = monthKeyNow();
   const meta = teamMetaLine(team);
@@ -121,6 +143,53 @@ export default function CoachTeamHubOverview({
     };
   }, [teamIdNum, monthKey]);
 
+  const openTeamSheet = () => {
+    setSheetForm({
+      competition: "",
+      venue_city: "",
+      age_group: team?.age_group || "",
+      sheet_date: todayIso(),
+      jersey_color: "",
+      head_coach: user?.name || user?.email || "",
+      assistant_1: "",
+      assistant_2: "",
+    });
+    setSheetOpen(true);
+  };
+
+  const downloadTeamSheet = async () => {
+    try {
+      setSheetBusy(true);
+      const res = await axiosInstance.post(
+        API_PATHS.TEAM_SHEET_PDF(teamIdNum),
+        {
+          competition: sheetForm.competition.trim() || null,
+          venue_city: sheetForm.venue_city.trim() || null,
+          age_group: sheetForm.age_group.trim() || null,
+          sheet_date: sheetForm.sheet_date || null,
+          jersey_color: sheetForm.jersey_color.trim() || null,
+          head_coach: sheetForm.head_coach.trim() || null,
+          assistant_1: sheetForm.assistant_1.trim() || null,
+          assistant_2: sheetForm.assistant_2.trim() || null,
+        },
+        { responseType: "blob" },
+      );
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `timov-list-${teamIdNum}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSheetOpen(false);
+      toast.success("Тимовият лист е генериран.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно генериране на тимов лист."));
+    } finally {
+      setSheetBusy(false);
+    }
+  };
+
   const statsBusy = statsLoading;
 
   const quickActions = [
@@ -138,6 +207,11 @@ export default function CoachTeamHubOverview({
       id: "program-week",
       label: "Програмна седмица",
       onClick: () => navigate(`/coach/program-week?team_id=${teamIdNum}`),
+    },
+    {
+      id: "team-sheet",
+      label: "Генерирай тимов лист",
+      onClick: openTeamSheet,
     },
     ...(canManage
       ? [
@@ -211,6 +285,71 @@ export default function CoachTeamHubOverview({
       <Link to={`/teams/${teamIdNum}`} className="coachMobileHubDesktopLink">
         Пълен профил (десктоп)
       </Link>
+
+      <Modal
+        open={sheetOpen}
+        onClose={() => !sheetBusy && setSheetOpen(false)}
+        dismissable={!sheetBusy}
+        title="Генерирай тимов лист (О-2)"
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          <Input
+            placeholder="Състезание"
+            value={sheetForm.competition}
+            onChange={(e) => setSheetForm((p) => ({ ...p, competition: e.target.value }))}
+          />
+          <Input
+            placeholder="Място / град на състезанието"
+            value={sheetForm.venue_city}
+            onChange={(e) => setSheetForm((p) => ({ ...p, venue_city: e.target.value }))}
+          />
+          <Input
+            placeholder="Възраст"
+            value={sheetForm.age_group}
+            onChange={(e) => setSheetForm((p) => ({ ...p, age_group: e.target.value }))}
+          />
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата</span>
+            <Input
+              type="date"
+              value={sheetForm.sheet_date}
+              onChange={(e) => setSheetForm((p) => ({ ...p, sheet_date: e.target.value }))}
+            />
+          </label>
+          <Input
+            placeholder="Цвят на екип"
+            value={sheetForm.jersey_color}
+            onChange={(e) => setSheetForm((p) => ({ ...p, jersey_color: e.target.value }))}
+          />
+          <Input
+            placeholder="Старши треньор"
+            value={sheetForm.head_coach}
+            onChange={(e) => setSheetForm((p) => ({ ...p, head_coach: e.target.value }))}
+          />
+          <Input
+            placeholder="Помощник-треньор 1"
+            value={sheetForm.assistant_1}
+            onChange={(e) => setSheetForm((p) => ({ ...p, assistant_1: e.target.value }))}
+          />
+          <Input
+            placeholder="Помощник-треньор 2"
+            value={sheetForm.assistant_2}
+            onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
+          />
+          <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+            СЕК номерът остава празен. Година на раждане, място, ръст и разтег се попълват автоматично от данните на състезателите.
+          </p>
+          <div className="uiModalActions">
+            <Button disabled={sheetBusy} onClick={downloadTeamSheet}>
+              {sheetBusy ? "Генериране..." : "Изтегли PDF"}
+            </Button>
+            <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetOpen(false)}>
+              Отказ
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }

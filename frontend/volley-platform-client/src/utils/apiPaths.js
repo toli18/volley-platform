@@ -147,6 +147,7 @@ export const API_PATHS = {
   TEAM_ATTENDANCE_SAVE: (teamId) => `/api/teams/${teamId}/attendance`,
   TEAM_ATTENDANCE_REPORT: (teamId) => `/api/teams/${teamId}/attendance/report`,
   TEAM_ATTENDANCE_MATRIX: (teamId) => `/api/teams/${teamId}/attendance/matrix`,
+  TEAM_SHEET_PDF: (teamId) => `/api/teams/${teamId}/team-sheet.pdf`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",
   ATHLETE_ROOM_AUTH_LOGIN: "/api/athlete-room-auth/login",
