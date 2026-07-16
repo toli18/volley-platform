@@ -143,6 +143,7 @@ MatchStatActionLiteral = Literal[
     "pass_error",
     "opp_point",
     "our_point",
+    "opp_error",
 ]
 
 
@@ -190,8 +191,13 @@ class MatchLiveStateRead(BaseModel):
     opponent_name: Optional[str] = None
     system: MatchSystemLiteral
     status: MatchStatusLiteral
+    phase: Literal["serve", "receive", "defense"] = "serve"
     set: Optional[MatchLiveSetRead] = None
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     can_undo: bool = False
+
+
+class MatchLivePhaseIn(BaseModel):
+    phase: Literal["serve", "receive", "defense"]

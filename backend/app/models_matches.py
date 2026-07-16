@@ -133,6 +133,7 @@ class MatchStatAction(str, Enum):
     pass_error = "pass_error"
     opp_point = "opp_point"
     our_point = "our_point"
+    opp_error = "opp_error"  # грешка на противника → точка за нас
 
 
 class MatchSet(Base):

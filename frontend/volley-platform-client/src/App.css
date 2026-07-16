@@ -7125,6 +7125,40 @@ button.matchChipSlot:not(:disabled) {
   background: #1e293b;
   color: #fbbf24;
 }
+.matchLivePhaseBar {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+}
+.matchLivePhaseBtn {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.matchLivePhaseBtn.is-active {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #e0f2fe;
+}
+.matchLivePhaseAuto {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
 .matchLiveGrid {
   display: grid;
   gap: 10px;

@@ -10,6 +10,7 @@ POINT_FOR_US = {
     MatchStatAction.ace,
     MatchStatAction.block,
     MatchStatAction.our_point,
+    MatchStatAction.opp_error,
 }
 POINT_FOR_OPP = {
     MatchStatAction.attack_error,

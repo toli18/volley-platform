@@ -56,7 +56,16 @@ const ACTION_LABEL = {
   pass_error: "Грешка поср.",
   opp_point: "Точка OPP",
   our_point: "Точка НИЕ",
+  opp_error: "Грешка OPP",
 };
+
+const PHASES = [
+  { id: "serve", label: "Сервис" },
+  { id: "receive", label: "Посрещане" },
+  { id: "defense", label: "Защита" },
+];
+
+const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error"]);
 
 export default function CoachMatchLive() {
   const { teamId, matchId } = useParams();
@@ -70,14 +79,17 @@ export default function CoachMatchLive() {
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState("");
+  /** null = auto от we_serve; "defense" (или друго) = ръчен изглед */
+  const [phaseOverride, setPhaseOverride] = useState(null);
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
     return (state.court || []).find((p) => Number(p.athlete_id) === Number(selectedId)) || null;
   }, [state, selectedId]);
 
-  const load = async () => {
-    const res = await axiosInstance.get(API_PATHS.TEAM_MATCH_LIVE(teamIdNum, matchIdNum));
+  const load = async (phase) => {
+    const params = phase ? { phase } : undefined;
+    const res = await axiosInstance.get(API_PATHS.TEAM_MATCH_LIVE(teamIdNum, matchIdNum), { params });
     setState(res.data);
     return res.data;
   };
@@ -112,10 +124,11 @@ export default function CoachMatchLive() {
     };
   }, [teamIdNum, matchIdNum]);
 
-  const run = async (fn) => {
+  const run = async (fn, { resetPhase = false } = {}) => {
     try {
       setBusy(true);
       const data = await fn();
+      if (resetPhase) setPhaseOverride(null);
       setState(data);
     } catch (err) {
       toast.error(normalizeError(err, "Грешка при live действие."));
@@ -125,30 +138,50 @@ export default function CoachMatchLive() {
   };
 
   const score = (side) =>
-    run(async () => {
-      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), { side });
-      return res.data;
-    });
+    run(
+      async () => {
+        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), { side });
+        return res.data;
+      },
+      { resetPhase: true }
+    );
 
   const undo = () =>
-    run(async () => {
-      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_UNDO(teamIdNum, matchIdNum));
-      return res.data;
-    });
+    run(
+      async () => {
+        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_UNDO(teamIdNum, matchIdNum));
+        return res.data;
+      },
+      { resetPhase: true }
+    );
 
   const recordStat = (action) => {
-    if (!selectedId && !["opp_point", "our_point"].includes(action)) {
+    if (!selectedId && !NO_PLAYER_ACTIONS.has(action)) {
       toast.error("Изберете състезател от корта.");
       return;
     }
-    run(async () => {
-      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), {
-        action,
-        athlete_id: selectedId || null,
-        apply_score: true,
-      });
-      return res.data;
-    });
+    run(
+      async () => {
+        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), {
+          action,
+          athlete_id: selectedId || null,
+          apply_score: true,
+        });
+        return res.data;
+      },
+      { resetPhase: true }
+    );
+  };
+
+  const selectPhase = (phaseId) => {
+    const auto = state?.set?.we_serve ? "serve" : "receive";
+    if (phaseId === auto) {
+      setPhaseOverride(null);
+      run(() => load());
+      return;
+    }
+    setPhaseOverride(phaseId);
+    run(() => load(phaseId));
   };
 
   const finishMatch = () =>
@@ -173,6 +206,9 @@ export default function CoachMatchLive() {
 
   const mset = state.set;
   const setFinished = mset?.status === "finished";
+  const autoPhase = mset?.we_serve ? "serve" : "receive";
+  const activePhase = phaseOverride || state.phase || autoPhase;
+  const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
 
   return (
     <section className="matchLivePage">
@@ -183,7 +219,8 @@ export default function CoachMatchLive() {
         <div className="matchLiveMeta">
           <strong>vs {state.opponent_name || "противник"}</strong>
           <span>
-            Сет {mset?.set_number ?? "—"} · R{mset?.rotation ?? "—"} · {mset?.we_serve ? "наш сервис" : "чужд сервис"}
+            Сет {mset?.set_number ?? "—"} · R{mset?.rotation ?? "—"} · {mset?.we_serve ? "наш сервис" : "чужд сервис"} ·{" "}
+            {phaseLabel}
           </span>
         </div>
         <div className="matchLiveTopActions">
@@ -226,14 +263,31 @@ export default function CoachMatchLive() {
         </div>
       </div>
 
+      <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
+        {PHASES.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={activePhase === p.id}
+            className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
+            disabled={busy || setFinished || state.status === "finished"}
+            onClick={() => selectPhase(p.id)}
+          >
+            {p.label}
+            {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
+          </button>
+        ))}
+      </div>
+
       <div className="matchLiveGrid">
         <MatchCourt
           variant="pro"
           slots={state.court || []}
           libero={state.libero}
-          showServe={Boolean(mset?.we_serve)}
+          showServe={Boolean(mset?.we_serve) && activePhase === "serve"}
           title={`Ротация ${mset?.rotation ?? 1}`}
-          subtitle={state.system}
+          subtitle={`${state.system} · ${phaseLabel}`}
           activeZone={selected?.zone ?? null}
           onZoneClick={(zone) => {
             const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));
@@ -253,6 +307,20 @@ export default function CoachMatchLive() {
             ) : (
               <span>Избери състезател от корта</span>
             )}
+          </div>
+
+          <div className="matchLiveStatGroup">
+            <div className="matchLiveStatGroupTitle">Противник</div>
+            <div className="matchLiveStatBtns">
+              <button
+                type="button"
+                className="matchLiveStatBtn matchLiveStatBtn--good"
+                disabled={busy || setFinished || state.status === "finished"}
+                onClick={() => recordStat("opp_error")}
+              >
+                Грешка OPP
+              </button>
+            </div>
           </div>
 
           {STAT_GROUPS.map((g) => (

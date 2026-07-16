@@ -29,6 +29,11 @@ from app.schemas.matches import (
     MatchLiveStateRead,
     MatchLiveStatIn,
 )
+from app.services.match_five_one import (
+    apply_formation_display,
+    assign_roles_from_r1,
+    phase_from_serve,
+)
 from app.services.match_live import action_point_side, apply_point, is_set_won
 from app.services.match_rotations import ZONE_LABELS_BG, build_rotations_5_1
 
@@ -65,26 +70,63 @@ def _athlete_names(db: Session, athlete_ids: list[int]) -> dict[int, str]:
     return {int(i): (n or "") for i, n in rows}
 
 
-def _court_for_rotation(db: Session, match: Match, rotation: int) -> tuple[list[MatchCourtPlayerRead], MatchCourtPlayerRead | None]:
+def _court_for_rotation(
+    db: Session,
+    match: Match,
+    rotation: int,
+    *,
+    phase: str = "serve",
+) -> tuple[list[MatchCourtPlayerRead], MatchCourtPlayerRead | None]:
     slots = db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).all()
     if len(slots) != 6:
         raise HTTPException(status_code=422, detail="Нужна е стартова шестица преди live")
     starting = {int(s.zone): int(s.athlete_id) for s in slots}
     roster = _roster_map(db, match.id)
-    names = _athlete_names(db, list(starting.values()) + ([int(match.libero_athlete_id)] if match.libero_athlete_id else []))
+    names = _athlete_names(
+        db,
+        list({*starting.values(), *([int(match.libero_athlete_id)] if match.libero_athlete_id else [])}),
+    )
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     if system != "5-1":
         raise HTTPException(status_code=422, detail="Live е наличен за схема 5-1")
 
     libero_id = int(match.libero_athlete_id) if match.libero_athlete_id else None
-    rotations = build_rotations_5_1(starting, libero_athlete_id=libero_id)
-    rot = next((r for r in rotations if int(r["rotation"]) == int(rotation)), rotations[0])
+    pos_by_athlete = {
+        int(aid): (rp.position.value if isinstance(rp.position, MatchPosition) else str(rp.position))
+        for aid, rp in roster.items()
+    }
+    roles = assign_roles_from_r1(starting, pos_by_athlete)
+
+    # Fallback: if roles incomplete, show pure rotational BASE
+    if len(roles) >= 6 and {"A", "O", "P1", "P2", "C1", "C2"}.issubset(roles):
+        display_zones = apply_formation_display(
+            rotation=int(rotation),
+            phase=phase,
+            role_to_athlete=roles,
+            libero_athlete_id=libero_id,
+        )
+    else:
+        rotations = build_rotations_5_1(starting, libero_athlete_id=libero_id)
+        rot = next((r for r in rotations if int(r["rotation"]) == int(rotation)), rotations[0])
+        display_zones = {int(z): int(aid) for z, aid in rot["zones"].items()}
 
     court: list[MatchCourtPlayerRead] = []
-    for zone, aid in sorted(rot["zones"].items()):
+    for zone, aid in sorted(display_zones.items()):
         rp = roster.get(int(aid))
         if not rp:
+            # либеро may not be in "position" map the same way
+            if libero_id and int(aid) == libero_id:
+                court.append(
+                    MatchCourtPlayerRead(
+                        zone=int(zone),
+                        zone_label=ZONE_LABELS_BG.get(int(zone), str(zone)),
+                        athlete_id=int(aid),
+                        athlete_name=names.get(int(aid), ""),
+                        jersey_number=int(roster[libero_id].jersey_number) if libero_id in roster else 0,
+                        position="L",
+                    )
+                )
             continue
         pos = rp.position.value if isinstance(rp.position, MatchPosition) else str(rp.position)
         court.append(
@@ -99,7 +141,9 @@ def _court_for_rotation(db: Session, match: Match, rotation: int) -> tuple[list[
         )
 
     libero = None
-    if libero_id and libero_id in roster:
+    # Ако либерото вече е на корта (замяна на C), не дублирай реда долу
+    on_court_ids = {int(p.athlete_id) for p in court}
+    if libero_id and libero_id in roster and libero_id not in on_court_ids:
         rp = roster[libero_id]
         pos = rp.position.value if isinstance(rp.position, MatchPosition) else str(rp.position)
         libero = MatchCourtPlayerRead(
@@ -143,7 +187,7 @@ def _recent_events(db: Session, match_id: int, set_id: int, limit: int = 12) -> 
     return out
 
 
-def _state(db: Session, match: Match) -> MatchLiveStateRead:
+def _state(db: Session, match: Match, *, phase_override: str | None = None) -> MatchLiveStateRead:
     mset = _active_set(db, match.id)
     if match.status == MatchStatus.finished and not mset:
         mset = (
@@ -158,9 +202,11 @@ def _state(db: Session, match: Match) -> MatchLiveStateRead:
     events: list[MatchLiveEventRead] = []
     can_undo = False
     set_read = None
+    phase = "serve"
 
     if mset:
-        court, libero = _court_for_rotation(db, match, int(mset.rotation))
+        phase = phase_from_serve(bool(mset.we_serve), phase_override)
+        court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
         events = _recent_events(db, match.id, mset.id)
         can_undo = (
             db.query(MatchStatEvent)
@@ -186,6 +232,7 @@ def _state(db: Session, match: Match) -> MatchLiveStateRead:
         opponent_name=match.opponent_name,
         system=system,
         status=status,
+        phase=phase,  # type: ignore[arg-type]
         set=set_read,
         court=court,
         libero=libero,
@@ -258,12 +305,14 @@ def start_live(
 def get_live(
     team_id: int,
     match_id: int,
+    phase: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*COACH_ROLES)),
 ):
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
-    return _state(db, match)
+    override = phase if phase in ("serve", "receive", "defense") else None
+    return _state(db, match, phase_override=override)
 
 
 @router.post("/{match_id}/live/score", response_model=MatchLiveStateRead)
