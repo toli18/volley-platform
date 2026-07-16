@@ -1097,4 +1097,8 @@ from .models_matches import (  # noqa: E402,F401
     Match,
     MatchRosterPlayer,
     MatchLineupSlot,
+    MatchSetStatus,
+    MatchStatAction,
+    MatchSet,
+    MatchStatEvent,
 )

@@ -643,6 +643,7 @@ export default function CoachMatchSetup() {
               onRotate={() => goRotation(Number(rotationView) >= maxRotation ? 1 : Number(rotationView) + 1)}
               onEditLineup={() => setStep("lineup")}
               onShowLineupCard={() => setLineupCardOpen(true)}
+              onStartLive={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/live`)}
             />
             <Button variant="secondary" disabled={busy} onClick={() => navigate(`/coach/teams/${teamIdNum}/matches`)}>
               Към списъка с мачове

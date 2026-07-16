@@ -111,3 +111,67 @@ class MatchLineupSlot(Base):
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class MatchSetStatus(str, Enum):
+    in_progress = "in_progress"
+    finished = "finished"
+
+
+class MatchStatAction(str, Enum):
+    kill = "kill"
+    ace = "ace"
+    block = "block"
+    attack_error = "attack_error"
+    error = "error"
+    dig = "dig"
+    pass_0 = "pass_0"
+    pass_1 = "pass_1"
+    pass_2 = "pass_2"
+    pass_3 = "pass_3"
+    free_ball = "free_ball"
+    pass_error = "pass_error"
+    opp_point = "opp_point"
+    our_point = "our_point"
+
+
+class MatchSet(Base):
+    __tablename__ = "match_sets"
+    __table_args__ = (UniqueConstraint("match_id", "set_number", name="uq_match_set_number"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
+    set_number = Column(Integer, nullable=False, default=1)
+    our_score = Column(Integer, nullable=False, default=0)
+    opp_score = Column(Integer, nullable=False, default=0)
+    rotation = Column(Integer, nullable=False, default=1)
+    we_serve = Column(Integer, nullable=False, default=1)
+    status = Column(
+        SqlEnum(MatchSetStatus, native_enum=False, length=16, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=MatchSetStatus.in_progress,
+    )
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class MatchStatEvent(Base):
+    __tablename__ = "match_stat_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
+    set_id = Column(Integer, ForeignKey("match_sets.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(
+        SqlEnum(MatchStatAction, native_enum=False, length=24, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    rotation = Column(Integer, nullable=False, default=1)
+    our_score = Column(Integer, nullable=False, default=0)
+    opp_score = Column(Integer, nullable=False, default=0)
+    we_serve = Column(Integer, nullable=False, default=1)
+    scored_for = Column(String(8), nullable=True)
+    undone = Column(Integer, nullable=False, default=0)
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)

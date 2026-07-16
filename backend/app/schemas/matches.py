@@ -126,3 +126,72 @@ class MatchDetailRead(MatchRead):
     roster: list[MatchRosterPlayerRead] = Field(default_factory=list)
     lineup: MatchLineupRead = Field(default_factory=MatchLineupRead)
     rotations: list[MatchRotationRead] = Field(default_factory=list)
+
+
+MatchStatActionLiteral = Literal[
+    "kill",
+    "ace",
+    "block",
+    "attack_error",
+    "error",
+    "dig",
+    "pass_0",
+    "pass_1",
+    "pass_2",
+    "pass_3",
+    "free_ball",
+    "pass_error",
+    "opp_point",
+    "our_point",
+]
+
+
+class MatchLiveStart(BaseModel):
+    we_serve: bool = True
+    set_number: int = Field(default=1, ge=1, le=5)
+
+
+class MatchLiveScoreIn(BaseModel):
+    side: Literal["us", "opp"]
+
+
+class MatchLiveStatIn(BaseModel):
+    action: MatchStatActionLiteral
+    athlete_id: Optional[int] = None
+    apply_score: bool = True
+
+
+class MatchLiveEventRead(BaseModel):
+    id: int
+    athlete_id: Optional[int] = None
+    athlete_name: Optional[str] = None
+    action: MatchStatActionLiteral
+    rotation: int
+    our_score: int
+    opp_score: int
+    we_serve: bool
+    scored_for: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class MatchLiveSetRead(BaseModel):
+    id: int
+    set_number: int
+    our_score: int
+    opp_score: int
+    rotation: int
+    we_serve: bool
+    status: str
+
+
+class MatchLiveStateRead(BaseModel):
+    match_id: int
+    team_id: int
+    opponent_name: Optional[str] = None
+    system: MatchSystemLiteral
+    status: MatchStatusLiteral
+    set: Optional[MatchLiveSetRead] = None
+    court: list[MatchCourtPlayerRead] = Field(default_factory=list)
+    libero: Optional[MatchCourtPlayerRead] = None
+    recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
+    can_undo: bool = False

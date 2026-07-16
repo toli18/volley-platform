@@ -7000,6 +7000,221 @@ button.matchChipSlot:not(:disabled) {
   }
 }
 
+.matchRotStartLive {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* Live match */
+.matchLivePage {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 20px;
+}
+.matchLiveTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.matchLiveBack {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.matchLiveMeta {
+  display: grid;
+  gap: 2px;
+  color: #e2e8f0;
+}
+.matchLiveMeta span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.matchLiveTopActions {
+  display: flex;
+  gap: 6px;
+}
+.matchLiveUndo,
+.matchLiveNext,
+.matchLiveStop {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.matchLiveUndo {
+  background: #334155;
+  color: #e2e8f0;
+}
+.matchLiveNext {
+  background: #0f766e;
+  color: #ecfdf5;
+}
+.matchLiveStop {
+  background: #b91c1c;
+  color: #fff;
+}
+.matchLiveScore {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.matchLiveScoreSide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.matchLiveScoreSide button {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.matchLiveScoreSide--us button {
+  background: #14532d;
+  color: #bbf7d0;
+}
+.matchLiveScoreSide--opp button {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+.matchLiveScoreLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-align: center;
+}
+.matchLiveScoreNum {
+  font-size: 36px;
+  font-weight: 900;
+  color: #f8fafc;
+  text-align: center;
+  line-height: 1;
+}
+.matchLiveScoreMid {
+  text-align: center;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  gap: 4px;
+}
+.matchLiveServePill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #1e293b;
+  color: #fbbf24;
+}
+.matchLiveGrid {
+  display: grid;
+  gap: 10px;
+}
+@media (min-width: 960px) {
+  .matchLiveGrid {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: start;
+  }
+}
+.matchLiveStatsPanel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.matchLiveSelected {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+.matchLiveSelectedJersey {
+  color: #22d3ee;
+  font-weight: 900;
+}
+.matchLiveStatGroupTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.matchLiveStatBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.matchLiveStatBtn {
+  min-width: 64px;
+  min-height: 44px;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.matchLiveStatBtn--good {
+  background: #16a34a;
+  color: #fff;
+}
+.matchLiveStatBtn--bad {
+  background: #dc2626;
+  color: #fff;
+}
+.matchLiveStatBtn--neutral {
+  background: #334155;
+  color: #e2e8f0;
+}
+.matchLiveEvents {
+  max-height: 180px;
+  overflow: auto;
+}
+.matchLiveEventRow {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr 48px;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+}
+.matchLiveLeave {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .matchStepTabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

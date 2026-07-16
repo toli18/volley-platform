@@ -10,6 +10,7 @@ export default function MatchRotationStage({
   onBack,
   onEditLineup,
   onShowLineupCard,
+  onStartLive,
   onPrev,
   onNext,
   onSwapZones,
@@ -62,6 +63,11 @@ export default function MatchRotationStage({
       </div>
 
       <div className="matchRotStageLinks">
+        {onStartLive ? (
+          <button type="button" className="matchRotStartLive" onClick={onStartLive}>
+            ▶ Старт live мач
+          </button>
+        ) : null}
         {onShowLineupCard ? (
           <button type="button" className="matchRotEditLink" onClick={onShowLineupCard}>
             Стартова карта / Print
