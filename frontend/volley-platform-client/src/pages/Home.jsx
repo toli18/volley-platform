@@ -75,6 +75,25 @@ const extractDrillIdsFromPlan = (plan) => {
   return Object.values(normalized).flatMap((items) => items.map((x) => x.drillId));
 };
 
+const HEAD_STATS_SCOPE_KEY = (userId) => `vp-head-stats-team-scope-${userId}`;
+
+function readHeadStatsScope(userId) {
+  try {
+    const raw = localStorage.getItem(HEAD_STATS_SCOPE_KEY(userId));
+    return raw === "mine" || raw === "all" ? raw : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function writeHeadStatsScope(userId, scope) {
+  try {
+    localStorage.setItem(HEAD_STATS_SCOPE_KEY(userId), scope);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -90,14 +109,25 @@ export default function Home() {
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
   const [scheduleItems, setScheduleItems] = useState([]);
   const [attendanceRank, setAttendanceRank] = useState({ top: [], bottom: [], sessionLimit: 10 });
-  const [feeOverdue, setFeeOverdue] = useState({ late10: [], late30: [], overTwo: [] });
+  const [feeOverdue, setFeeOverdue] = useState({ late10: [], overTwo: [] });
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("today");
+  const [headTeamScope, setHeadTeamScope] = useState("all");
 
   const role = String(user?.role || "").toLowerCase();
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
   const isHeadCoach = role === "club_head_coach";
   const monthKey = useMemo(() => currentMonthKey(), []);
+
+  useEffect(() => {
+    if (!user?.id || !isHeadCoach) return;
+    setHeadTeamScope(readHeadStatsScope(user.id));
+  }, [user?.id, isHeadCoach]);
+
+  const onHeadTeamScopeChange = (scope) => {
+    setHeadTeamScope(scope);
+    if (user?.id) writeHeadStatsScope(user.id, scope);
+  };
 
   useEffect(() => {
     if (!showCoachDashboard) return undefined;
@@ -117,9 +147,17 @@ export default function Home() {
         return;
       }
       const myCoachId = Number(user?.id || 0);
+      const scopeMine = isHeadCoach && headTeamScope === "mine";
       try {
         setLoading(true);
         setError("");
+        const feesParams = {
+          from_month: feesLookbackFromMonth(monthKey, 2),
+          to_month: monthKey,
+        };
+        // Главен треньор: „моите отбори“ → само спортистите към неговия coach_id.
+        if (scopeMine && myCoachId) feesParams.coach_id = myCoachId;
+
         const [
           feesRes,
           forumRes,
@@ -133,9 +171,7 @@ export default function Home() {
           absenceRes,
           teamsRes,
         ] = await Promise.allSettled([
-          axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, {
-            params: { from_month: feesLookbackFromMonth(monthKey), to_month: monthKey },
-          }),
+          axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, { params: feesParams }),
           axiosInstance.get(API_PATHS.FORUM_POSTS_LIST, {
             params: { page: 1, page_size: 5 },
           }),
@@ -150,6 +186,7 @@ export default function Home() {
               from: new Date().toISOString().slice(0, 10),
               to: new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10),
               ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
+              ...(scopeMine && myCoachId ? { coach_id: myCoachId } : {}),
             },
           }),
           axiosInstance.get(API_PATHS.COACH_ABSENCE_NOTICES),
@@ -169,7 +206,7 @@ export default function Home() {
         setFeeOverdue(buildFeeOverdueLists(feesRows));
 
         let teamList = teamsRes.status === "fulfilled" && Array.isArray(teamsRes.value.data) ? teamsRes.value.data : [];
-        if (!isHeadCoach && myCoachId) {
+        if ((!isHeadCoach || scopeMine) && myCoachId) {
           teamList = teamList.filter((t) => Number(t?.coach_id) === myCoachId);
         }
         teamList = teamList.filter((t) => t.is_active !== false);
@@ -299,7 +336,7 @@ export default function Home() {
       }
     };
     loadDashboard();
-  }, [monthKey, showCoachDashboard, user?.id, isHeadCoach]);
+  }, [monthKey, showCoachDashboard, user?.id, isHeadCoach, headTeamScope]);
 
   if (!user || !showCoachDashboard) {
     return <Drills />;
@@ -598,6 +635,31 @@ export default function Home() {
 
       {activeTab === "stats" && (
       <>
+      {isHeadCoach ? (
+        <Card title="Обхват на статистиката">
+          <label style={{ display: "grid", gap: 6, maxWidth: 360 }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#475569" }}>Отбори</span>
+            <select
+              value={headTeamScope}
+              onChange={(e) => onHeadTeamScopeChange(e.target.value === "mine" ? "mine" : "all")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #cbd5e1",
+                fontWeight: 600,
+                background: "#fff",
+              }}
+            >
+              <option value="all">Всички отбори в клуба</option>
+              <option value="mine">Само моите отбори</option>
+            </select>
+          </label>
+          <p style={{ marginTop: 10, marginBottom: 0, color: "#64748b", fontSize: 12 }}>
+            Настройката се запазва на това устройство и важи за присъствие и такси в този раздел.
+          </p>
+        </Card>
+      ) : null}
+
       <Card
         title="Малка статистика за месеца"
       >
@@ -617,7 +679,7 @@ export default function Home() {
         ) : !attendanceRank.top?.length && !attendanceRank.bottom?.length ? (
           <EmptyState
             title="Няма данни за присъствие"
-            description="Нужни са записани тренировки с присъствие за отборите ти."
+            description="Нужни са записани тренировки с присъствие за избраните отбори."
           />
         ) : (
           <div
@@ -661,7 +723,8 @@ export default function Home() {
           </div>
         )}
         <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
-          Брои се присъства + закъснял спрямо последните {attendanceRank.sessionLimit || 10} тренировки по отборите ти.
+          Брои се присъства + закъснял спрямо последните {attendanceRank.sessionLimit || 10} тренировки
+          {isHeadCoach ? (headTeamScope === "mine" ? " (моите отбори)" : " (всички отбори)") : ""}.
         </p>
       </Card>
 
@@ -690,7 +753,7 @@ export default function Home() {
         )}
       </Card>
 
-      <Card title="Закъснели плащания">
+      <Card title="Закъснели плащания (последни 3 месеца)">
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
         ) : (
@@ -703,7 +766,7 @@ export default function Home() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с 10+ дни</div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с повече от 10 дни</div>
               {feeOverdue.late10.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
               ) : (
@@ -712,21 +775,6 @@ export default function Home() {
                     <li key={`l10-${a.athlete_id}`}>
                       <strong>{a.athlete_name}</strong>{" "}
                       <span className="uiBadge uiBadge--warning">{a.days_overdue} дни</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с 30+ дни</div>
-              {feeOverdue.late30.length === 0 ? (
-                <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
-              ) : (
-                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                  {feeOverdue.late30.map((a) => (
-                    <li key={`l30-${a.athlete_id}`}>
-                      <strong>{a.athlete_name}</strong>{" "}
-                      <span className="uiBadge uiBadge--danger">{a.days_overdue} дни</span>
                     </li>
                   ))}
                 </ul>
@@ -750,7 +798,8 @@ export default function Home() {
           </div>
         )}
         <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
-          Падеж: 10-о число на месеца. „10+ дни“ = 10–29 дни след падежа; „30+ дни“ = 30 или повече.
+          Падеж: 10-о число на месеца. Статистиката е за последните 3 месеца
+          {isHeadCoach ? (headTeamScope === "mine" ? " · моите отбори" : " · всички отбори") : ""}.
         </p>
       </Card>
 

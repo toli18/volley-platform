@@ -120,14 +120,12 @@ export function feeDaysOverdue(monthKey, now = new Date()) {
 }
 
 /**
- * От period report rows → три списъка:
- * - 10–29 дни след падеж (10-о число)
- * - 30+ дни
+ * От period report rows → два списъка:
+ * - закъснели с повече от 10 дни (падеж = 10-о число)
  * - над 2 неплатени такси (само месеци с изтекъл падеж)
  */
 export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
   const late10 = [];
-  const late30 = [];
   const overTwo = [];
 
   for (const row of Array.isArray(periodRows) ? periodRows : []) {
@@ -152,9 +150,7 @@ export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
       worst_month: worstMonth,
     };
 
-    if (maxDays >= 30) late30.push(entry);
-    else if (maxDays >= 10) late10.push(entry);
-
+    if (maxDays > 10) late10.push(entry);
     if (unpaidPastDue.length > 2) overTwo.push(entry);
   }
 
@@ -162,14 +158,13 @@ export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
   const byUnpaidDesc = (a, b) => b.unpaid_months - a.unpaid_months || byDaysDesc(a, b);
 
   late10.sort(byDaysDesc);
-  late30.sort(byDaysDesc);
   overTwo.sort(byUnpaidDesc);
 
-  return { late10, late30, overTwo };
+  return { late10, overTwo };
 }
 
-/** От кой месец да теглим period report (12 месеца назад). */
-export function feesLookbackFromMonth(toMonth = currentMonthKey(), monthsBack = 11) {
+/** От кой месец да теглим period report. monthsBack=2 → текущ + 2 предишни = 3 месеца. */
+export function feesLookbackFromMonth(toMonth = currentMonthKey(), monthsBack = 2) {
   return shiftMonthKey(toMonth, -monthsBack);
 }
 
