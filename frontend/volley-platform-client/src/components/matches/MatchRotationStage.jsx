@@ -34,6 +34,10 @@ export default function MatchRotationStage({
 
       <MatchCourt
         variant="pro"
+        layout="tactical"
+        size="md"
+        phase="serve"
+        rotation={rotation}
         slots={slots}
         libero={libero}
         showServe

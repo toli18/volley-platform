@@ -538,6 +538,10 @@ export default function CoachMatchSetup() {
           </p>
           <MatchCourt
             variant="pro"
+            layout="grid"
+            size="md"
+            phase="grid"
+            rotation={1}
             slots={lineupSlotsPreview}
             libero={liberoPreview}
             activeZone={activeZone}

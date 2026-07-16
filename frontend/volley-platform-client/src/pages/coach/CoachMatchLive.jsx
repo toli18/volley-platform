@@ -283,6 +283,10 @@ export default function CoachMatchLive() {
       <div className="matchLiveGrid">
         <MatchCourt
           variant="pro"
+          layout="tactical"
+          size="lg"
+          phase={activePhase}
+          rotation={mset?.rotation ?? 1}
           slots={state.court || []}
           libero={state.libero}
           showServe={Boolean(mset?.we_serve) && activePhase === "serve"}
