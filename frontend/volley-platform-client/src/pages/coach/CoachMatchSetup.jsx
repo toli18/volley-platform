@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import MatchCourt from "../../components/matches/MatchCourt";
+import MatchRotationStage from "../../components/matches/MatchRotationStage";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import {
@@ -290,6 +291,13 @@ export default function CoachMatchSetup() {
     return list.find((r) => Number(r.rotation) === Number(rotationView)) || list[0] || null;
   }, [match, rotationView]);
 
+  const maxRotation = match?.rotations?.length || 6;
+
+  const goRotation = (next) => {
+    const clamped = Math.min(maxRotation, Math.max(1, Number(next)));
+    setRotationView(clamped);
+  };
+
   if (loading) return <p className="coachMobileMuted">Зареждане...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
   if (!match) return <EmptyState title="Мачът не е намерен" />;
@@ -465,14 +473,18 @@ export default function CoachMatchSetup() {
       {step === "lineup" ? (
         <>
           <p className="coachMobileMuted" style={{ margin: 0, fontSize: 13 }}>
-            Изберете зона на корта, после състезател. Схемата е 5-1 (R1 = тази подредба).
+            Изберете зона (синият номер), после състезател. R1 = тази подредба.
           </p>
           <MatchCourt
+            variant="pro"
             slots={lineupSlotsPreview}
             libero={liberoPreview}
             activeZone={activeZone}
             editable
+            showServe
             onZoneClick={setActiveZone}
+            title={meta.opponent_name ? `vs ${meta.opponent_name}` : teamName}
+            subtitle={`СТАРТОВА ШЕСТИЦА · ${meta.system || "5-1"}`}
           />
 
           <div style={{ display: "grid", gap: 6 }}>
@@ -555,39 +567,29 @@ export default function CoachMatchSetup() {
       ) : null}
 
       {step === "rotations" ? (
-        <>
-          <p className="coachMobileMuted" style={{ margin: 0, fontSize: 13 }}>
-            Ротациите се изчисляват автоматично от стартовата шестица (5-1).
-          </p>
-          <div className="matchRotTabs">
-            {(match.rotations || []).map((r) => (
-              <button
-                key={r.rotation}
-                type="button"
-                className={`matchRotTab${Number(rotationView) === Number(r.rotation) ? " matchRotTab--active" : ""}`}
-                onClick={() => setRotationView(r.rotation)}
-              >
-                R{r.rotation}
-              </button>
-            ))}
-          </div>
-          {currentRotation ? (
-            <MatchCourt slots={currentRotation.slots} libero={currentRotation.libero} />
-          ) : (
-            <EmptyState title="Няма ротации" description="Запишете стартовата шестица първо." />
-          )}
-          <div style={{ display: "grid", gap: 8 }}>
-            <Button variant="secondary" disabled={busy} onClick={() => setStep("lineup")}>
-              Редактирай шестицата
-            </Button>
+        currentRotation ? (
+          <>
+            <MatchRotationStage
+              rotation={currentRotation.rotation}
+              system={match.system}
+              opponentName={match.opponent_name || ""}
+              slots={currentRotation.slots}
+              libero={currentRotation.libero}
+              canPrev={Number(rotationView) > 1}
+              canNext={Number(rotationView) < maxRotation}
+              onPrev={() => goRotation(Number(rotationView) - 1)}
+              onNext={() => goRotation(Number(rotationView) + 1)}
+              onBack={() => goRotation(1)}
+              onRotate={() => goRotation(Number(rotationView) >= maxRotation ? 1 : Number(rotationView) + 1)}
+              onEditLineup={() => setStep("lineup")}
+            />
             <Button variant="secondary" disabled={busy} onClick={() => navigate(`/coach/teams/${teamIdNum}/matches`)}>
               Към списъка с мачове
             </Button>
-            <p className="coachMobileMuted" style={{ margin: 0, fontSize: 12, textAlign: "center" }}>
-              Следваща фаза: live мач със статистика на таблет.
-            </p>
-          </div>
-        </>
+          </>
+        ) : (
+          <EmptyState title="Няма ротации" description="Запишете стартовата шестица първо." />
+        )
       ) : null}
     </section>
   );

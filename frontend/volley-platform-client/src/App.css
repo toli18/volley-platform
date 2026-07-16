@@ -6520,107 +6520,300 @@
   gap: 12px;
 }
 
-/* Match / Rotations court */
-.matchCourtWrap {
+/* Match / Rotations court — pro (dark tablet) + shared */
+.matchCourtBoard {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
-.matchCourtNet {
+.matchCourtBoard--pro {
+  padding: 12px 10px 8px;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 0%, #1a3a4a 0%, #0b1220 55%, #070b14 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+}
+.matchCourtBoardHead {
   text-align: center;
+  padding: 4px 8px 8px;
+}
+.matchCourtBoardTitle {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+}
+.matchCourtBoardSub {
+  margin-top: 2px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #64748b;
-  padding: 4px 0;
-  border-bottom: 3px solid #0f766e;
+  color: #94a3b8;
 }
-.matchCourt {
+.matchCourtStage {
+  position: relative;
+  padding: 8px 6px 12px;
+}
+.matchCourtNetBar {
+  height: 10px;
+  margin: 0 8px 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #64748b, #e2e8f0 20%, #94a3b8 50%, #e2e8f0 80%, #64748b);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.matchCourtNetKnot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0f172a;
+  opacity: 0.5;
+}
+.matchCourtField {
+  position: relative;
   display: grid;
-  gap: 6px;
-  padding: 10px;
+  gap: 10px;
+  min-height: 240px;
+  padding: 14px 8px;
   border-radius: 14px;
-  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 55%, #f8fafc 100%);
-  border: 1px solid #bbf7d0;
+  border: 2px solid rgba(226, 232, 240, 0.35);
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.22) 0%, rgba(15, 23, 42, 0.35) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 24px,
+      rgba(255, 255, 255, 0.03) 24px,
+      rgba(255, 255, 255, 0.03) 25px
+    );
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
+}
+.matchCourtAttackLine {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 48%;
+  border-top: 1.5px dashed rgba(226, 232, 240, 0.45);
+  pointer-events: none;
 }
 .matchCourtRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
 }
-.matchCourtZone {
-  min-height: 72px;
-  border-radius: 12px;
-  border: 1px dashed #94a3b8;
-  background: rgba(255, 255, 255, 0.75);
-  padding: 6px 4px;
+.matchChipSlot {
+  position: relative;
+  min-height: 100px;
+  border: none;
+  background: transparent;
+  padding: 4px;
   display: grid;
-  place-content: center;
-  gap: 1px;
+  place-items: center;
   cursor: default;
-  text-align: center;
 }
-button.matchCourtZone {
+button.matchChipSlot:not(:disabled) {
   cursor: pointer;
 }
-.matchCourtZone--filled {
-  border-style: solid;
-  border-color: #0f766e;
-  background: #fff;
+.matchChipSlot--active .matchChipCircle,
+.matchChipSlot--active .matchChipEmpty {
+  box-shadow: 0 0 0 3px #22d3ee;
 }
-.matchCourtZone--active {
-  box-shadow: 0 0 0 2px #0f766e;
+.matchChipSlot--serve .matchChipCircle {
+  box-shadow: 0 0 0 2px #fbbf24, 0 8px 18px rgba(0, 0, 0, 0.35);
 }
-.matchCourtZoneLabel {
-  font-size: 10px;
-  font-weight: 800;
-  color: #64748b;
-}
-.matchCourtJersey {
-  font-size: 16px;
-  font-weight: 800;
+.matchChipZoneBadge {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #7dd3fc;
   color: #0f172a;
-  line-height: 1.1;
-}
-.matchCourtPos {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f766e;
-}
-.matchCourtName {
   font-size: 10px;
-  color: #475569;
-  max-width: 100%;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+}
+.matchChipStack {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.matchChipCircle {
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+.matchChipCircle--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.matchChipTag {
+  max-width: 96px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
-.matchCourtEmpty {
+.matchChipEmpty {
+  margin-top: 18px;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: 2px dashed rgba(148, 163, 184, 0.55);
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 22px;
+  font-weight: 700;
+}
+.matchChipBall {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #fff, #f97316 45%, #9a3412);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.matchLiberoRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 8px 4px;
+}
+.matchLiberoText {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.matchLiberoText--muted {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.matchRotStage {
+  display: grid;
+  gap: 10px;
+  margin: 0 -4px;
+}
+.matchRotStageTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.matchRotStageMode {
   font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: #94a3b8;
 }
-.matchCourtLibero {
+.matchRotStageSystem {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #ecfdf5;
+}
+.matchRotStageBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.matchRotStageBarMid {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+}
+.matchRotStageBarLabel {
+  min-width: 36px;
+  text-align: center;
+  font-weight: 900;
+  color: #f8fafc;
+}
+.matchRotBarBtn {
+  border: none;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  padding: 12px 14px;
   font-size: 13px;
-  font-weight: 600;
-}
-.matchCourtLiberoTag {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: #0f766e;
-  color: #fff;
-  font-size: 12px;
   font-weight: 800;
+  cursor: pointer;
 }
+.matchRotBarBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.matchRotBarBtn--ghost {
+  background: #14532d;
+  color: #bbf7d0;
+  justify-self: start;
+}
+.matchRotBarBtn--accent {
+  background: #16a34a;
+  color: #fff;
+  justify-self: end;
+}
+.matchRotIconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.matchRotIconBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.matchRotEditLink {
+  border: none;
+  background: none;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+  justify-self: center;
+}
+
 .matchStepTabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -6642,25 +6835,20 @@ button.matchCourtZone {
   border-color: #0f766e;
   color: #0f766e;
 }
-.matchRotTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.matchRotTab {
-  min-width: 44px;
-  border-radius: 10px;
-  border: 1px solid #d8e1ec;
-  background: #fff;
-  padding: 8px 10px;
-  font-weight: 800;
-  font-size: 13px;
-  cursor: pointer;
-}
-.matchRotTab--active {
-  background: #0f766e;
-  border-color: #0f766e;
-  color: #fff;
+
+@media (min-width: 860px) {
+  .matchCourtField {
+    min-height: 300px;
+    padding: 22px 28px;
+  }
+  .matchChipCircle {
+    width: 64px;
+    height: 64px;
+    font-size: 22px;
+  }
+  .matchChipSlot {
+    min-height: 120px;
+  }
 }
 
 .coachMobileHubMeta {
