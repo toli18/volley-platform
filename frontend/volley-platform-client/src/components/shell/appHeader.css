@@ -65,14 +65,18 @@
   line-height: 1.1;
   display: inline-flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .appHeaderBrandSub {
   font-size: 11px;
   color: rgba(226, 236, 255, 0.78);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.brandTriLine--header {
+  max-width: 180px;
+  margin-top: 4px;
 }
 
 .desktopNav {

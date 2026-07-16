@@ -10,6 +10,8 @@ import NotificationPanel from "./NotificationPanel";
 import ProfileMenu from "./ProfileMenu";
 import TasksPanel from "./TasksPanel";
 import ClubLogo from "../shared/ClubLogo";
+import BrandTriLine from "../shared/BrandTriLine";
+import PlatformBrandTitle from "../shared/PlatformBrandTitle";
 import "./appHeader.css";
 
 export default function AppHeader() {
@@ -85,7 +87,7 @@ export default function AppHeader() {
   return (
     <header className="appHeader appHeader--compact">
       <div className="appHeaderInner">
-        <Link className="appHeaderBrand" to="/" title="Volley Coach Platform">
+        <Link className="appHeaderBrand" to="/" title="Volley Coach - BUL">
           <span className="appHeaderBrandLogoWrap">
             {!logoError ? (
               <img
@@ -100,10 +102,10 @@ export default function AppHeader() {
           </span>
           <span className="appHeaderBrandText">
             <span className="appHeaderBrandTitle">
-              <span className="triWhite">Volley</span>
-              <span className="triGreen">Coach</span>
+              <PlatformBrandTitle />
             </span>
-            <span className="appHeaderBrandSub">Платформа за треньори</span>
+            <span className="appHeaderBrandSub">Единна общност на треньорите в България</span>
+            <BrandTriLine className="brandTriLine--header" />
           </span>
         </Link>
 

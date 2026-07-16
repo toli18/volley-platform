@@ -204,6 +204,33 @@
   color: #d72638;
 }
 
+.brandTriLine {
+  display: flex;
+  height: 3px;
+  width: 100%;
+  max-width: 220px;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.brandTriLine span {
+  flex: 1;
+  min-width: 0;
+}
+
+.brandTriLine span:nth-child(1) {
+  background: #ffffff;
+}
+
+.brandTriLine span:nth-child(2) {
+  background: #1ea75a;
+}
+
+.brandTriLine span:nth-child(3) {
+  background: #d72638;
+}
+
 .brandSubtitle {
   margin-top: 3px;
   font-size: 15px;
@@ -2831,6 +2858,9 @@
   font-size: 14px;
   font-weight: 800;
   line-height: 1.15;
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .portalShellHeader .platformBrandName {
@@ -2841,6 +2871,7 @@
   font-size: 11px;
   opacity: 0.88;
   margin-top: 2px;
+  line-height: 1.25;
 }
 
 .portalShellHeader .platformBrandSub {
@@ -2909,12 +2940,20 @@
   font-weight: 800;
   font-size: 15px;
   line-height: 1.2;
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .parentPortalBrandSub {
   font-size: 12px;
   opacity: 0.88;
   margin-top: 2px;
+}
+
+.brandTriLine--portal {
+  max-width: 200px;
+  margin-top: 5px;
 }
 
 .parentPortalMain {
@@ -4975,6 +5014,9 @@
   font-weight: 800;
   font-size: 16px;
   color: #34d399;
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .teamRoomLoginBrandSub {

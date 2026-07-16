@@ -7,6 +7,8 @@ import { parentPortalPath, setParentToken } from "../utils/parentAuth";
 import { teamRoomLoginPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
+import BrandTriLine from "../components/shared/BrandTriLine";
+import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
 
 function ParentLoginShell({ children }) {
   return (
@@ -15,8 +17,11 @@ function ParentLoginShell({ children }) {
         <div className="parentPortalHeaderInner">
           <img src="/bfvb-logo.png" alt="БФВ" className="parentPortalLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
           <div>
-            <div className="parentPortalBrand">Volley Coach Platform</div>
-            <div className="parentPortalBrandSub">Родителски вход</div>
+            <div className="parentPortalBrand">
+              <PlatformBrandTitle />
+            </div>
+            <div className="parentPortalBrandSub">Единна общност на треньорите в България</div>
+            <BrandTriLine className="brandTriLine--portal" />
           </div>
         </div>
       </header>

@@ -1,3 +1,6 @@
+import BrandTriLine from "./BrandTriLine";
+import PlatformBrandTitle from "./PlatformBrandTitle";
+
 export default function PlatformBrandBlock({ subtitle, className = "" }) {
   return (
     <div className={`platformBrand${className ? ` ${className}` : ""}`}>
@@ -10,8 +13,11 @@ export default function PlatformBrandBlock({ subtitle, className = "" }) {
         }}
       />
       <div className="platformBrandText">
-        <span className="platformBrandName">Volley Coach Platform</span>
+        <span className="platformBrandName">
+          <PlatformBrandTitle />
+        </span>
         {subtitle ? <span className="platformBrandSub">{subtitle}</span> : null}
+        <BrandTriLine />
       </div>
     </div>
   );

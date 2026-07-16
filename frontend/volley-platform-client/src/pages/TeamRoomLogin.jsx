@@ -7,6 +7,8 @@ import { parentLoginPath } from "../utils/parentAuth";
 import { setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
+import BrandTriLine from "../components/shared/BrandTriLine";
+import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
 
 function TeamRoomLoginShell({ children }) {
   return (
@@ -14,8 +16,11 @@ function TeamRoomLoginShell({ children }) {
       <header className="teamRoomLoginHeader">
         <img src="/bfvb-logo.png" alt="БФВ" className="teamRoomLoginLogo" onError={(e) => { e.currentTarget.style.display = "none"; }} />
         <div>
-          <div className="teamRoomLoginBrand">Отборна стая</div>
-          <div className="teamRoomLoginBrandSub">Българска федерация по волейбол</div>
+          <div className="teamRoomLoginBrand">
+            <PlatformBrandTitle />
+          </div>
+          <div className="teamRoomLoginBrandSub">Единна общност на треньорите в България</div>
+          <BrandTriLine className="brandTriLine--portal" />
         </div>
       </header>
       <main className="teamRoomMain teamRoomMain--login">{children}</main>
