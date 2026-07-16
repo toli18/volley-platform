@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { isFrontRole, nearestZone, playerCourtPosition, zonePosition } from "../../utils/matchCourtLayout";
+import { isFrontRole, nearestZone, playerCourtPosition, roleChipLabel, zonePosition } from "../../utils/matchCourtLayout";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
 const LONG_PRESS_MS = 380;
@@ -185,7 +185,12 @@ export default function MatchCourt({
     const isServe = showServe && zone === 1;
     const color = player ? positionColor(player.position) : undefined;
     const front = player?.role ? isFrontRole(player.role, rotation) : [2, 3, 4].includes(Number(zone));
-    const label = player?.role && layoutPhase !== "grid" ? player.role : player ? positionShort(player.position) : null;
+    const label =
+      player?.role && layoutPhase !== "grid"
+        ? roleChipLabel(player.role)
+        : player
+          ? positionShort(player.position)
+          : null;
     const pos = isTactical
       ? playerCourtPosition({
           role: player?.role,
