@@ -161,6 +161,7 @@ class TeamSheetRequest(BaseModel):
     assistant_1: Optional[str] = None
     assistant_2: Optional[str] = None
     manager: Optional[str] = None
+    athlete_ids: list[int] = Field(default_factory=list)
 
 
 class TeamAttendanceReportRow(BaseModel):

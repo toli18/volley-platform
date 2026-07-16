@@ -48,6 +48,7 @@ from app.schemas.teams import (
 )
 from app.services.athlete_birth import resolve_place_of_birth
 from app.services.team_sheet_pdf import (
+    MAX_PLAYERS,
     TeamSheetPayload,
     TeamSheetPlayerRow,
     build_team_sheet_pdf,
@@ -999,11 +1000,29 @@ def generate_team_sheet_pdf(
         .order_by(Athlete.athlete_name.asc())
         .all()
     )
-    athlete_ids = [athlete.id for _, athlete in members]
-    anthro = _latest_anthro_map(db, athlete_ids)
+    members_by_id = {int(athlete.id): athlete for _, athlete in members}
+
+    selected_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_id in payload.athlete_ids or []:
+        aid = int(raw_id)
+        if aid in seen:
+            continue
+        if aid not in members_by_id:
+            raise HTTPException(status_code=422, detail=f"Състезател {aid} не е в този отбор")
+        seen.add(aid)
+        selected_ids.append(aid)
+        if len(selected_ids) >= MAX_PLAYERS:
+            break
+
+    if not selected_ids:
+        raise HTTPException(status_code=422, detail="Изберете поне един състезател (макс. 14)")
+
+    anthro = _latest_anthro_map(db, selected_ids)
 
     players: list[TeamSheetPlayerRow] = []
-    for _, athlete in members:
+    for athlete_id in selected_ids:
+        athlete = members_by_id[athlete_id]
         last_name, first_name = split_athlete_name(athlete.athlete_name)
         birth_year = ""
         if getattr(athlete, "birth_date", None):

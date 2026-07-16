@@ -174,6 +174,7 @@ export default function CoachTeamHub() {
         <CoachTeamHubOverview
           team={team}
           teamIdNum={teamIdNum}
+          members={members}
           memberCount={members.length}
           portalItems={canManage ? portalCoach.items : []}
           canManage={canManage}

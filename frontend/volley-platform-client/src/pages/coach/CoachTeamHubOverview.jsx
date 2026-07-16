@@ -53,9 +53,12 @@ function StatCard({ label, value, hint, onClick, disabled }) {
   );
 }
 
+const SHEET_MAX_PLAYERS = 14;
+
 export default function CoachTeamHubOverview({
   team,
   teamIdNum,
+  members = [],
   memberCount,
   portalItems,
   canManage,
@@ -70,6 +73,7 @@ export default function CoachTeamHubOverview({
   const [attendanceHint, setAttendanceHint] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetBusy, setSheetBusy] = useState(false);
+  const [selectedAthleteIds, setSelectedAthleteIds] = useState([]);
   const [sheetForm, setSheetForm] = useState({
     competition: "",
     venue_city: "",
@@ -83,6 +87,7 @@ export default function CoachTeamHubOverview({
 
   const monthKey = monthKeyNow();
   const meta = teamMetaLine(team);
+  const roster = useMemo(() => (Array.isArray(members) ? members : []), [members]);
 
   const lastNews = useMemo(() => {
     const list = Array.isArray(portalItems) ? portalItems : [];
@@ -144,6 +149,8 @@ export default function CoachTeamHubOverview({
   }, [teamIdNum, monthKey]);
 
   const openTeamSheet = () => {
+    const ids = roster.map((m) => Number(m.athlete_id)).filter(Boolean);
+    setSelectedAthleteIds(ids.slice(0, SHEET_MAX_PLAYERS));
     setSheetForm({
       competition: "",
       venue_city: "",
@@ -157,7 +164,34 @@ export default function CoachTeamHubOverview({
     setSheetOpen(true);
   };
 
+  const toggleAthlete = (athleteId) => {
+    const id = Number(athleteId);
+    if (selectedAthleteIds.includes(id)) {
+      setSelectedAthleteIds((prev) => prev.filter((x) => x !== id));
+      return;
+    }
+    if (selectedAthleteIds.length >= SHEET_MAX_PLAYERS) {
+      toast.error(`Можете да изберете най-много ${SHEET_MAX_PLAYERS} състезатели.`);
+      return;
+    }
+    setSelectedAthleteIds((prev) => [...prev, id]);
+  };
+
+  const selectAllAthletes = () => {
+    const ids = roster.map((m) => Number(m.athlete_id)).filter(Boolean);
+    if (ids.length > SHEET_MAX_PLAYERS) {
+      toast.error(`Изберете до ${SHEET_MAX_PLAYERS} състезатели (отборът има ${ids.length}).`);
+      setSelectedAthleteIds(ids.slice(0, SHEET_MAX_PLAYERS));
+      return;
+    }
+    setSelectedAthleteIds(ids);
+  };
+
   const downloadTeamSheet = async () => {
+    if (selectedAthleteIds.length === 0) {
+      toast.error("Изберете поне един състезател.");
+      return;
+    }
     try {
       setSheetBusy(true);
       const res = await axiosInstance.post(
@@ -171,6 +205,7 @@ export default function CoachTeamHubOverview({
           head_coach: sheetForm.head_coach.trim() || null,
           assistant_1: sheetForm.assistant_1.trim() || null,
           assistant_2: sheetForm.assistant_2.trim() || null,
+          athlete_ids: selectedAthleteIds,
         },
         { responseType: "blob" },
       );
@@ -337,11 +372,79 @@ export default function CoachTeamHubOverview({
             value={sheetForm.assistant_2}
             onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
           />
+
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Състезатели ({selectedAthleteIds.length}/{SHEET_MAX_PLAYERS})
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  disabled={sheetBusy || roster.length === 0}
+                  onClick={selectAllAthletes}
+                  style={{ border: "none", background: "none", color: "#0f766e", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
+                >
+                  Всички
+                </button>
+                <button
+                  type="button"
+                  disabled={sheetBusy || selectedAthleteIds.length === 0}
+                  onClick={() => setSelectedAthleteIds([])}
+                  style={{ border: "none", background: "none", color: "#64748b", fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0 }}
+                >
+                  Изчисти
+                </button>
+              </div>
+            </div>
+            {roster.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Няма състезатели в отбора.</p>
+            ) : (
+              <div
+                style={{
+                  maxHeight: 220,
+                  overflow: "auto",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 12,
+                  padding: "6px 8px",
+                  background: "#f8fafc",
+                }}
+              >
+                {roster.map((m) => {
+                  const id = Number(m.athlete_id);
+                  const checked = selectedAthleteIds.includes(id);
+                  return (
+                    <label
+                      key={id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "7px 4px",
+                        borderBottom: "1px solid #eef2f7",
+                        cursor: "pointer",
+                        fontSize: 14,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={sheetBusy}
+                        onChange={() => toggleAthlete(id)}
+                      />
+                      <span>{m.athlete_name || m.name || `Състезател #${id}`}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
-            СЕК номерът остава празен. Година на раждане, място, ръст и разтег се попълват автоматично от данните на състезателите.
+            Изберете до 14 състезатели. СЕК остава празен; година, място, ръст и разтег се попълват автоматично.
           </p>
           <div className="uiModalActions">
-            <Button disabled={sheetBusy} onClick={downloadTeamSheet}>
+            <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
               {sheetBusy ? "Генериране..." : "Изтегли PDF"}
             </Button>
             <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetOpen(false)}>
@@ -353,3 +456,4 @@ export default function CoachTeamHubOverview({
     </section>
   );
 }
+

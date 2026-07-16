@@ -14,6 +14,12 @@ from reportlab.platypus import Table, TableStyle
 
 from app.routers.fees import _ensure_pdf_font
 
+MAX_PLAYERS = 14
+LINE = colors.Color(0.35, 0.42, 0.52)
+SOFT_FILL = colors.Color(0.97, 0.98, 0.99)
+HEADER_FILL = colors.Color(0.90, 0.93, 0.96)
+ACCENT = colors.Color(0.12, 0.45, 0.35)
+
 
 @dataclass
 class TeamSheetPlayerRow:
@@ -60,6 +66,56 @@ def _split_name(full_name: str) -> tuple[str, str]:
     return parts[-1], " ".join(parts[:-1])
 
 
+def _round_box(
+    c: canvas.Canvas,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    radius: float = 3.5,
+    fill=SOFT_FILL,
+) -> None:
+    c.setStrokeColor(LINE)
+    c.setFillColor(fill)
+    c.setLineWidth(0.9)
+    c.roundRect(x, y, w, h, radius, stroke=1, fill=1)
+
+
+def _labeled_box(
+    c: canvas.Canvas,
+    font: str,
+    label: str,
+    value: str,
+    x: float,
+    y: float,
+    w: float,
+    h: float = 10.5 * mm,
+) -> None:
+    _round_box(c, x, y, w, h, radius=3.5, fill=colors.white)
+    c.setFillColor(colors.Color(0.35, 0.42, 0.52))
+    c.setFont(font, 7.5)
+    c.drawString(x + 2.4 * mm, y + h - 3.8 * mm, label)
+    c.setFillColor(colors.black)
+    c.setFont(font, 10.5)
+    text = (value or "").strip()
+    max_chars = max(8, int((w - 4.5 * mm) / 2.05))
+    if len(text) > max_chars:
+        text = text[: max_chars - 1] + "…"
+    c.drawString(x + 2.4 * mm, y + 2.4 * mm, text)
+
+
+def _gender_chip(c: canvas.Canvas, font: str, x: float, y: float, label: str, checked: bool) -> None:
+    w, h = 16 * mm, 7.5 * mm
+    c.setStrokeColor(LINE)
+    c.setFillColor(colors.Color(0.88, 0.95, 0.90) if checked else SOFT_FILL)
+    c.setLineWidth(0.9)
+    c.roundRect(x, y, w, h, 3.5, stroke=1, fill=1)
+    c.setFillColor(colors.black)
+    c.setFont(font, 9.5)
+    mark = "✓ " if checked else ""
+    c.drawCentredString(x + w / 2, y + 2.3 * mm, f"{mark}{label}")
+
+
 def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
     font = _ensure_pdf_font()
     page = landscape(A4)
@@ -67,67 +123,75 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=page)
 
-    left = 12 * mm
-    right = width - 12 * mm
-    top = height - 10 * mm
+    margin = 8 * mm
+    left = margin
+    right = width - margin
+    content_w = right - left
 
+    # Outer page frame
+    c.setStrokeColor(colors.Color(0.78, 0.84, 0.90))
+    c.setLineWidth(1.3)
+    c.roundRect(4.5 * mm, 4.5 * mm, width - 9 * mm, height - 9 * mm, 8, stroke=1, fill=0)
+
+    top = height - 9 * mm
     branding = _branding_dir()
     fed_logo = branding / "bfvb-logo.png"
     platform_logo = branding / "platform-logo.png"
-    logo_h = 16 * mm
+    logo_h = 15 * mm
     if fed_logo.is_file():
-        c.drawImage(str(fed_logo), left, top - logo_h, width=16 * mm, height=logo_h, mask="auto", preserveAspectRatio=True)
+        c.drawImage(str(fed_logo), left, top - logo_h, width=15 * mm, height=logo_h, mask="auto", preserveAspectRatio=True)
     if platform_logo.is_file():
         c.drawImage(
             str(platform_logo),
-            right - 18 * mm,
+            right - 17 * mm,
             top - logo_h,
-            width=16 * mm,
+            width=15 * mm,
             height=logo_h,
             mask="auto",
             preserveAspectRatio=True,
         )
 
-    c.setFont(font, 13)
-    c.drawCentredString(width / 2, top - 6 * mm, "Българска федерация по волейбол")
-    c.setFont(font, 10)
+    c.setFillColor(ACCENT)
+    c.setFont(font, 15)
+    c.drawCentredString(width / 2, top - 5.5 * mm, "Българска федерация по волейбол")
+    c.setFillColor(colors.Color(0.25, 0.32, 0.40))
+    c.setFont(font, 11)
     c.drawCentredString(width / 2, top - 11 * mm, "Отборна регистрационна форма О-2")
 
-    gender_x = width / 2 + 55 * mm
-    c.setFont(font, 9)
-    c.rect(gender_x, top - 12 * mm, 4 * mm, 4 * mm)
-    if payload.gender_male:
-        c.setFont(font, 10)
-        c.drawString(gender_x + 0.7 * mm, top - 11.2 * mm, "X")
-    c.setFont(font, 9)
-    c.drawString(gender_x + 6 * mm, top - 11.2 * mm, "М")
-    c.rect(gender_x + 14 * mm, top - 12 * mm, 4 * mm, 4 * mm)
-    if payload.gender_female:
-        c.setFont(font, 10)
-        c.drawString(gender_x + 14.7 * mm, top - 11.2 * mm, "X")
-    c.setFont(font, 9)
-    c.drawString(gender_x + 20 * mm, top - 11.2 * mm, "Ж")
+    _gender_chip(c, font, width / 2 + 52 * mm, top - 13 * mm, "М", payload.gender_male)
+    _gender_chip(c, font, width / 2 + 70 * mm, top - 13 * mm, "Ж", payload.gender_female)
 
-    y = top - 22 * mm
-    c.setFont(font, 9)
+    meta_top = top - 18 * mm
+    meta_h = 26 * mm
+    _round_box(c, left, meta_top - meta_h, content_w, meta_h, radius=5)
 
-    def field(label: str, value: str, x: float, w: float):
-        c.drawString(x, y, f"{label}:")
-        c.line(x + 22 * mm, y - 1, x + w, y - 1)
-        c.drawString(x + 24 * mm, y, value or "")
+    box_h = 10.5 * mm
+    gap = 2.2 * mm
+    row1_y = meta_top - 2.2 * mm - box_h
+    row2_y = row1_y - box_h - gap
 
-    field("Клуб", payload.club_name, left, 95 * mm)
-    field("Състезание", payload.competition, left + 100 * mm, 95 * mm)
-    field("Град", payload.city, left + 200 * mm, 70 * mm)
+    w1, w2 = 82 * mm, 100 * mm
+    w3 = content_w - w1 - w2 - 2 * gap - 5 * mm
+    _labeled_box(c, font, "Клуб", payload.club_name, left + 2.5 * mm, row1_y, w1)
+    _labeled_box(c, font, "Състезание", payload.competition, left + 2.5 * mm + w1 + gap, row1_y, w2)
+    _labeled_box(c, font, "Град (клуб)", payload.city, left + 2.5 * mm + w1 + gap + w2 + gap, row1_y, w3)
 
-    y -= 8 * mm
-    field("Дата", payload.sheet_date, left, 60 * mm)
-    field("Възраст", payload.age_group, left + 70 * mm, 70 * mm)
-    field("Град", payload.venue_city or payload.city, left + 150 * mm, 80 * mm)
+    w4, w5 = 58 * mm, 72 * mm
+    w6 = content_w - w4 - w5 - 2 * gap - 5 * mm
+    _labeled_box(c, font, "Дата", payload.sheet_date, left + 2.5 * mm, row2_y, w4)
+    _labeled_box(c, font, "Възраст", payload.age_group, left + 2.5 * mm + w4 + gap, row2_y, w5)
+    _labeled_box(
+        c,
+        font,
+        "Място / град на състезанието",
+        payload.venue_city or payload.city,
+        left + 2.5 * mm + w4 + gap + w5 + gap,
+        row2_y,
+        w6,
+    )
 
-    players = list(payload.players or [])
-    # Keep enough blank rows for handwriting (min 14 like the form).
-    while len(players) < 14:
+    players = list(payload.players or [])[:MAX_PLAYERS]
+    while len(players) < MAX_PLAYERS:
         players.append(TeamSheetPlayerRow())
 
     header = [
@@ -151,57 +215,76 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
                 p.place_of_birth,
                 p.height,
                 p.reach,
-                "",  # SEK always empty for now
+                "",
             ]
         )
 
-    col_widths = [18 * mm, 38 * mm, 38 * mm, 32 * mm, 42 * mm, 18 * mm, 18 * mm, 32 * mm]
-    table = Table(data, colWidths=col_widths, repeatRows=1)
+    # Use nearly full content width for a larger table
+    usable = content_w - 2 * mm
+    ratios = [0.07, 0.17, 0.17, 0.13, 0.18, 0.08, 0.08, 0.12]
+    col_widths = [usable * r for r in ratios]
+    row_h = 7.2 * mm
+    table = Table(data, colWidths=col_widths, rowHeights=[8.2 * mm] + [row_h] * MAX_PLAYERS, repeatRows=1)
     table.setStyle(
         TableStyle(
             [
                 ("FONTNAME", (0, 0), (-1, -1), font),
-                ("FONTSIZE", (0, 0), (-1, 0), 7),
-                ("FONTSIZE", (0, 1), (-1, -1), 8),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.92, 0.92, 0.92)),
-                ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
+                ("FONTSIZE", (0, 0), (-1, 0), 8),
+                ("FONTSIZE", (0, 1), (-1, -1), 10.5),
+                ("BACKGROUND", (0, 0), (-1, 0), HEADER_FILL),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.Color(0.2, 0.28, 0.36)),
+                ("BOX", (0, 0), (-1, -1), 1.1, LINE),
+                ("INNERGRID", (0, 0), (-1, -1), 0.55, colors.Color(0.72, 0.78, 0.86)),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("ALIGN", (0, 1), (0, -1), "CENTER"),
+                ("ALIGN", (3, 1), (3, -1), "CENTER"),
+                ("ALIGN", (5, 1), (6, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.Color(0.97, 0.98, 0.99)]),
             ]
         )
     )
     table_width = sum(col_widths)
-    table_x = (width - table_width) / 2
+    table_x = left + (content_w - table_width) / 2
+    table_top = meta_top - meta_h - 3.5 * mm
     _, table_h = table.wrapOn(c, table_width, height)
-    table.drawOn(c, table_x, y - 10 * mm - table_h)
+    table.drawOn(c, table_x, table_top - table_h)
 
-    footer_top = y - 14 * mm - table_h
-    c.setFont(font, 8)
-    staff_x = left
-    staff_lines = [
-        ("Ръководител", payload.manager),
-        ("Старши-треньор", payload.head_coach),
-        ("Помощник-треньор 1", payload.assistant_1),
-        ("Помощник-треньор 2", payload.assistant_2),
-        ("Физиотерапевт", payload.physio),
-        ("Лекар", payload.doctor),
-        ("Дата", payload.sheet_date),
-    ]
-    sy = footer_top
-    for label, value in staff_lines:
-        c.drawString(staff_x, sy, f"{label}: {value or '________________'}")
-        sy -= 5 * mm
+    c.setStrokeColor(LINE)
+    c.setLineWidth(1.1)
+    c.roundRect(table_x - 1.2 * mm, table_top - table_h - 1.2 * mm, table_width + 2.4 * mm, table_h + 2.4 * mm, 4, stroke=1, fill=0)
 
-    c.drawString(left + 95 * mm, footer_top, f"Цвят на екип: {payload.jersey_color or '____________'}")
-    c.drawString(left + 95 * mm, footer_top - 12 * mm, "Президент/оторизиран представител на клуба:")
-    c.line(left + 95 * mm, footer_top - 20 * mm, left + 180 * mm, footer_top - 20 * mm)
+    footer_top = table_top - table_h - 4.5 * mm
+    footer_h = 32 * mm
+    _round_box(c, left, footer_top - footer_h, content_w, footer_h, radius=5)
 
-    c.setFont(font, 7)
-    c.drawString(left, 8 * mm, "Volley Coach Platform · Българска федерация по волейбол")
+    staff_box_h = 9 * mm
+    staff_y1 = footer_top - 2.5 * mm - staff_box_h
+    staff_y2 = staff_y1 - staff_box_h - 1.8 * mm
+    staff_y3 = staff_y2 - staff_box_h - 1.8 * mm
+
+    sw = (content_w - 7 * mm) / 3
+    _labeled_box(c, font, "Ръководител", payload.manager, left + 2.5 * mm, staff_y1, sw, h=staff_box_h)
+    _labeled_box(c, font, "Старши-треньор", payload.head_coach, left + 2.5 * mm + sw + gap, staff_y1, sw, h=staff_box_h)
+    _labeled_box(c, font, "Цвят на екип", payload.jersey_color, left + 2.5 * mm + 2 * (sw + gap), staff_y1, sw, h=staff_box_h)
+
+    _labeled_box(c, font, "Помощник-треньор 1", payload.assistant_1, left + 2.5 * mm, staff_y2, sw, h=staff_box_h)
+    _labeled_box(c, font, "Помощник-треньор 2", payload.assistant_2, left + 2.5 * mm + sw + gap, staff_y2, sw, h=staff_box_h)
+    _labeled_box(c, font, "Физиотерапевт", payload.physio, left + 2.5 * mm + 2 * (sw + gap), staff_y2, sw, h=staff_box_h)
+
+    _labeled_box(c, font, "Лекар", payload.doctor, left + 2.5 * mm, staff_y3, sw, h=staff_box_h)
+    _labeled_box(c, font, "Дата", payload.sheet_date, left + 2.5 * mm + sw + gap, staff_y3, sw * 0.7, h=staff_box_h)
+    sig_x = left + 2.5 * mm + sw + gap + sw * 0.7 + gap
+    sig_w = right - 2.5 * mm - sig_x
+    _labeled_box(c, font, "Президент / оторизиран представител", "", sig_x, staff_y3, sig_w, h=staff_box_h)
+
+    c.setFillColor(colors.Color(0.45, 0.52, 0.60))
+    c.setFont(font, 7.5)
+    c.drawCentredString(width / 2, 6.5 * mm, "Volley Coach Platform · Българска федерация по волейбол · макс. 14 състезатели")
 
     c.showPage()
     c.save()
