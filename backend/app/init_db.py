@@ -106,6 +106,29 @@ def _init_db_impl() -> None:
                     )
                 )
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS birth_date DATE"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS place_of_birth VARCHAR(255)"))
+                # Placeholder дати за стари записи (годината се запазва).
+                conn.execute(
+                    text(
+                        "UPDATE athletes "
+                        "SET birth_date = make_date(birth_year, 1, 1) "
+                        "WHERE birth_year IS NOT NULL AND birth_date IS NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE athletes AS a
+                        SET place_of_birth = c.city
+                        FROM clubs AS c
+                        WHERE a.club_id = c.id
+                          AND (a.place_of_birth IS NULL OR btrim(a.place_of_birth) = '')
+                          AND c.city IS NOT NULL
+                          AND btrim(c.city) <> ''
+                        """
+                    )
+                )
                 conn.execute(text("ALTER TABLE teams ADD COLUMN IF NOT EXISTS gender VARCHAR(16)"))
                 conn.execute(
                     text(
@@ -149,7 +172,7 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS confidence_score DOUBLE PRECISION"))
                 conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS season_count INTEGER"))
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
-            print("✅ PostgreSQL: athletes.gender ensured")
+            print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
             print("✅ PostgreSQL: teams.gender ensured")
             print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
         except Exception as exc:
