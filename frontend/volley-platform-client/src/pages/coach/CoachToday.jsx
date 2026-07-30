@@ -112,6 +112,12 @@ function TabBadge({ value, tone }) {
   );
 }
 
+function formatShortDateBg(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
+  return `${d}.${m}.${y}`;
+}
+
 function SectionCard({ title, actions, children }) {
   return (
     <section className="coachMobileCard" style={{ marginBottom: 10 }}>
@@ -254,6 +260,8 @@ export default function CoachToday() {
   const statsBadge = dash.feesSummary.unpaid || null;
   const programTc = programWeek?.team_id ? teamColorsForId(programWeek.team_id) : null;
   const trainingsHref = "/coach/trainings";
+  const absenceNotices = dash.absenceNotices || [];
+  const nonAbsenceActivity = (dash.activityItems || []).filter((item) => item.kind !== "absence");
 
   return (
     <div className="coachMobilePage">
@@ -261,6 +269,39 @@ export default function CoachToday() {
         Здравей, <strong>{greeting}</strong>
       </p>
       <p className="coachMobileMuted coachMobileGreetingSub">{formatDateBg(today)}</p>
+
+      {!loading && absenceNotices.length > 0 ? (
+        <section className="coachMobileAbsenceBox coachMobileAbsenceBox--compact" aria-label="Извинения от родители">
+          <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush coachMobileAbsenceTitle">
+            Извинения
+            <span className="coachMobileAbsenceCount">{absenceNotices.length}</span>
+          </h2>
+          <ul className="coachMobileAbsenceList">
+            {absenceNotices.map((notice) => {
+              const to = notice.team_id
+                ? `/teams/${notice.team_id}/attendance?date=${encodeURIComponent(notice.notice_date)}`
+                : "/coach/teams";
+              return (
+                <li key={notice.id} className="coachMobileAbsenceItem">
+                  <Link to={to} className="coachMobileAbsenceLink">
+                    <strong>{notice.athlete_name}</strong>
+                    <span className="coachMobileAbsenceDate">
+                      {" "}
+                      липсва на {formatShortDateBg(notice.notice_date)}
+                    </span>
+                    {notice.team_name ? (
+                      <span className="coachMobileMuted"> · {notice.team_name}</span>
+                    ) : null}
+                    {notice.note ? (
+                      <span className="coachMobileAbsenceNoteInline"> ({notice.note})</span>
+                    ) : null}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="coachMobileDashTabs" role="tablist" aria-label="Раздели на таблото">
         {[
@@ -359,16 +400,15 @@ export default function CoachToday() {
               </Link>
             }
           >
-            {dash.activityItems.length === 0 ? (
+            {nonAbsenceActivity.length === 0 ? (
               <p className="coachMobileMuted" style={{ margin: 0 }}>Няма нови известия.</p>
             ) : (
-              dash.activityItems.map((item) => (
+              nonAbsenceActivity.map((item) => (
                 <ListLink
                   key={item.id}
                   to={item.to}
                   title={item.text}
                   meta={formatDateTime(item.at)}
-                  warn={item.kind === "absence"}
                 />
               ))
             )}
