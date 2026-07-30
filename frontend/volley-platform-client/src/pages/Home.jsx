@@ -14,6 +14,7 @@ import {
   feesLookbackFromMonth,
   loadCoachAttendanceRegularity,
 } from "../utils/coachDashboardStats";
+import { teamColorsForId } from "../utils/teamColors";
 
 const currentMonthKey = () => {
   const d = new Date();
@@ -44,24 +45,6 @@ const cardLinkStyle = {
   textDecoration: "none",
   color: "#0f172a",
   cursor: "pointer",
-};
-
-/** Същата логика като месечния график — стабилен цвят по team_id */
-const teamColorPalette = [
-  { text: "#0c4a6e", border: "#7dd3fc" },
-  { text: "#14532d", border: "#86efac" },
-  { text: "#78350f", border: "#fcd34d" },
-  { text: "#4c1d95", border: "#c4b5fd" },
-  { text: "#7f1d1d", border: "#fca5a5" },
-  { text: "#164e63", border: "#67e8f9" },
-  { text: "#701a75", border: "#e879f9" },
-  { text: "#365314", border: "#bef264" },
-];
-
-const teamColorsForId = (teamId) => {
-  const n = Number(teamId || 0);
-  const idx = Math.abs(Number.isFinite(n) ? n : 0) % teamColorPalette.length;
-  return teamColorPalette[idx];
 };
 
 const dashboardScheduleAttendanceTo = (it) => {
@@ -753,7 +736,7 @@ export default function Home() {
         )}
       </Card>
 
-      <Card title="Закъснели плащания (последни 3 месеца)">
+      <Card title="Закъснели плащания">
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
         ) : (
@@ -766,7 +749,7 @@ export default function Home() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с повече от 10 дни</div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Закъснели с повече от 10 дни (този месец)</div>
               {feeOverdue.late10.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
               ) : (
@@ -781,7 +764,7 @@ export default function Home() {
               )}
             </div>
             <div>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Над 2 неплатени такси</div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Над 2 неплатени такси (последни 3 месеца)</div>
               {feeOverdue.overTwo.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
               ) : (
@@ -798,7 +781,7 @@ export default function Home() {
           </div>
         )}
         <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
-          Падеж: 10-о число на месеца. Статистиката е за последните 3 месеца
+          Падеж: 10-о число на месеца. „Над 10 дни“ е само за текущия месец; „над 2 такси“ — последните 3 месеца
           {isHeadCoach ? (headTeamScope === "mine" ? " · моите отбори" : " · всички отбори") : ""}.
         </p>
       </Card>

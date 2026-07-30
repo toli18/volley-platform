@@ -8,6 +8,7 @@ import TrainingSessionAdjustModal from "../components/schedule/TrainingSessionAd
 import { useToast } from "../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
+import { buildProgramGenerateHref, weekOffsetForDate } from "../utils/programGenerateHref";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -41,6 +42,8 @@ export default function TeamAttendance() {
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [dayTraining, setDayTraining] = useState(null);
   const [dayTrainingLoading, setDayTrainingLoading] = useState(false);
+  const [programDay, setProgramDay] = useState(null);
+  const [programCtx, setProgramCtx] = useState(null);
 
   const teamIdNum = Number(teamId);
   const isHeadCoach = roleValue(user) === "club_head_coach";
@@ -106,6 +109,39 @@ export default function TeamAttendance() {
     }
   };
 
+  const loadProgramDay = async () => {
+    if (!teamIdNum || !attendanceDate) {
+      setProgramDay(null);
+      setProgramCtx(null);
+      return;
+    }
+    try {
+      const res = await axiosInstance.get(API_PATHS.NATIONAL_METHOD_PROGRAM_WEEK, {
+        params: {
+          week_offset: weekOffsetForDate(attendanceDate),
+          team_id: teamIdNum,
+        },
+      });
+      const data = res.data || {};
+      const day = Array.isArray(data.days)
+        ? data.days.find((d) => d.date === attendanceDate) || null
+        : null;
+      setProgramDay(day);
+      setProgramCtx({
+        teamId: data.team_id || teamIdNum,
+        ageBand: data.age_band,
+        weekTheme: data.week_theme || data.meso_theme || "",
+        fallbackTitle: attendanceTitle || undefined,
+      });
+    } catch {
+      setProgramDay(null);
+      setProgramCtx({
+        teamId: teamIdNum,
+        fallbackTitle: attendanceTitle || undefined,
+      });
+    }
+  };
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -117,12 +153,24 @@ export default function TeamAttendance() {
     };
   }, [teamIdNum, attendanceDate]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      await loadProgramDay();
+      if (!active) return;
+    })();
+    return () => {
+      active = false;
+    };
+  }, [teamIdNum, attendanceDate, attendanceTitle]);
+
   const generateHref = () => {
-    const p = new URLSearchParams();
-    p.set("team_id", String(teamIdNum));
-    p.set("date", attendanceDate);
-    if (attendanceTitle) p.set("title", attendanceTitle);
-    return `/ai-generator?${p.toString()}`;
+    const day = programDay || { date: attendanceDate, has_program_day: false };
+    const ctx = programCtx || {
+      teamId: teamIdNum,
+      fallbackTitle: attendanceTitle || undefined,
+    };
+    return buildProgramGenerateHref(day, ctx);
   };
 
   const quickSetAllAttendance = (status) => {
@@ -339,6 +387,11 @@ export default function TeamAttendance() {
             ) : (
               <>
                 <span className="uiMuted">Няма генерирана тренировка за този ден.</span>
+                {programDay?.textbook_slug ? (
+                  <Link to={`/textbook/${programDay.textbook_slug}`}>
+                    <Button variant="secondary">Виж конспекта</Button>
+                  </Link>
+                ) : null}
                 <Link to={generateHref()}>
                   <Button variant="secondary">Генерирай сега</Button>
                 </Link>

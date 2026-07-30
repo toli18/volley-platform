@@ -7,8 +7,8 @@ function shiftMonthKey(monthKey, delta) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function currentMonthKey() {
-  const d = new Date();
+function currentMonthKey(now = new Date()) {
+  const d = now instanceof Date ? now : new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
@@ -121,36 +121,44 @@ export function feeDaysOverdue(monthKey, now = new Date()) {
 
 /**
  * От period report rows → два списъка:
- * - закъснели с повече от 10 дни (падеж = 10-о число)
- * - над 2 неплатени такси (само месеци с изтекъл падеж)
+ * - закъснели с повече от 10 дни — само текущия месец (падеж = 10-о число)
+ * - над 2 неплатени такси — месеци с изтекъл падеж в целия подаден период (обикновено 3 мес.)
  */
 export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
   const late10 = [];
   const overTwo = [];
+  const currentMonth = currentMonthKey(now);
 
   for (const row of Array.isArray(periodRows) ? periodRows : []) {
     const unpaidPastDue = [];
+    let currentMonthDays = 0;
+
     for (const m of Array.isArray(row.months) ? row.months : []) {
       if (!m || m.paid) continue;
       const days = feeDaysOverdue(m.month_key, now);
       if (days <= 0) continue;
       unpaidPastDue.push({ month_key: m.month_key, days });
+      if (m.month_key === currentMonth) currentMonthDays = days;
     }
     if (!unpaidPastDue.length) continue;
 
     unpaidPastDue.sort((a, b) => b.days - a.days);
-    const maxDays = unpaidPastDue[0].days;
-    const worstMonth = unpaidPastDue[0].month_key;
 
     const entry = {
       athlete_id: row.athlete_id,
       athlete_name: row.athlete_name || `Състезател #${row.athlete_id}`,
       unpaid_months: unpaidPastDue.length,
-      days_overdue: maxDays,
-      worst_month: worstMonth,
+      days_overdue: currentMonthDays || unpaidPastDue[0].days,
+      worst_month: currentMonthDays ? currentMonth : unpaidPastDue[0].month_key,
     };
 
-    if (maxDays > 10) late10.push(entry);
+    if (currentMonthDays > 10) {
+      late10.push({
+        ...entry,
+        days_overdue: currentMonthDays,
+        worst_month: currentMonth,
+      });
+    }
     if (unpaidPastDue.length > 2) overTwo.push(entry);
   }
 

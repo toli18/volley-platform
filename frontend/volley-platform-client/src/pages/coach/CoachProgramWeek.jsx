@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { buildProgramGenerateHref } from "../../utils/programGenerateHref";
 import { Button, Card, EmptyState } from "../../components/ui";
 
 function formatShortBg(iso) {
@@ -98,22 +99,6 @@ function IntensityBadge({ value }) {
   );
 }
 
-function buildGenerateHref(day, ctx) {
-  const themeForDay = day.has_program_day ? day.theme : ctx.weekTheme;
-  const params = new URLSearchParams();
-  // Програмна връзка (нови параметри, четат се от генератора).
-  if (ctx.teamId) params.set("team_id", String(ctx.teamId));
-  if (day.date) params.set("date", day.date);
-  if (themeForDay) params.set("title", themeForDay);
-  if (day.has_program_day && Array.isArray(day.focus) && day.focus.length) {
-    params.set("focus", day.focus.join(","));
-  }
-  // Контекст за методиката (имена, които генераторът вече разбира).
-  if (ctx.ageBand) params.set("ageBand", ctx.ageBand);
-  if (day.textbook_slug) params.set("textbookSlug", day.textbook_slug);
-  return `/ai-generator?${params.toString()}`;
-}
-
 function DayCard({ day, ctx }) {
   return (
     <article
@@ -172,7 +157,7 @@ function DayCard({ day, ctx }) {
             </Link>
           ) : (
             <Link
-              to={buildGenerateHref(day, ctx)}
+              to={buildProgramGenerateHref(day, ctx)}
               className="coachMobileQuickBtn"
               style={{ display: "inline-block" }}
             >
