@@ -494,6 +494,9 @@ def create_athlete(
         gender=payload.gender,
         notes=(payload.notes or "").strip() or None,
         is_active=bool(payload.is_active),
+        egn=(payload.egn or "").strip() or None,
+        bvf_player_id=payload.bvf_player_id,
+        bvf_player_number=payload.bvf_player_number,
     )
     db.add(athlete)
     db.commit()

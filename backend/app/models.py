@@ -81,6 +81,10 @@ class Club(Base):
     website_url = Column(String(500))
     logo_url = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=True)
+    # Връзка към db.bvf.bg (напр. 167 за Троян Волей)
+    bvf_club_id = Column(Integer, nullable=True, unique=True, index=True)
+    bvf_club_name = Column(String(255), nullable=True)
+    bvf_linked_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -475,6 +479,11 @@ class Athlete(Base):
     gender = Column(String(16), nullable=True)  # "male" | "female"
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    # БФВ картотека (db.bvf.bg)
+    egn = Column(String(16), nullable=True, index=True)
+    bvf_player_id = Column(Integer, nullable=True, unique=True, index=True)
+    bvf_player_number = Column(Integer, nullable=True, index=True)
+    bvf_synced_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

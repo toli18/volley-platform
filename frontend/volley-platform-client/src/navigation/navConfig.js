@@ -39,6 +39,13 @@ export const COACH_PRIMARY_NAV = [
         icon: "shield",
         headCoachOnly: true,
       },
+      {
+        id: "bvf-admin",
+        label: "Администрация БФВ",
+        to: "/coach/bvf-admin",
+        icon: "shield",
+        headCoachOnly: true,
+      },
     ],
   },
   {
@@ -133,6 +140,14 @@ export const COACH_CLUB_HUB_LINKS = [
   { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table", hint: "Деца × тестове · сравнения" },
   { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch", hint: "Каталог с протоколи" },
   { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
+  {
+    id: "bvf-admin",
+    label: "Администрация БФВ",
+    to: "/coach/bvf-admin",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Картотека и селективен импорт",
+  },
 ];
 
 /** @type {NavLinkItem[]} */
@@ -140,6 +155,14 @@ export const COACH_BVF_HUB_LINKS = [
   { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book", hint: "Методика и конспекти" },
   { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "layers", hint: "Мезоцикли и планиране" },
   { id: "club-method", label: "Методика БФВ (клуб)", to: "/club-head?tab=method", icon: "shield", headCoachOnly: true, hint: "Цикли и задачи към треньорите" },
+  {
+    id: "bvf-admin",
+    label: "Администрация БФВ",
+    to: "/coach/bvf-admin",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Свързване на клуб и селективен импорт на състезатели",
+  },
   { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
 ];
 

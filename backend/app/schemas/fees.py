@@ -15,6 +15,9 @@ class AthleteCreate(BaseModel):
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
+    egn: Optional[str] = None
+    bvf_player_id: Optional[int] = None
+    bvf_player_number: Optional[int] = None
 
 
 class AthleteUpdate(BaseModel):
@@ -28,6 +31,9 @@ class AthleteUpdate(BaseModel):
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    egn: Optional[str] = None
+    bvf_player_id: Optional[int] = None
+    bvf_player_number: Optional[int] = None
 
 
 class AthleteRecentPayment(BaseModel):
@@ -53,6 +59,10 @@ class AthleteRead(BaseModel):
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
+    egn: Optional[str] = None
+    bvf_player_id: Optional[int] = None
+    bvf_player_number: Optional[int] = None
+    bvf_synced_at: Optional[datetime] = None
     team_names: list[str] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
     created_at: Optional[datetime] = None

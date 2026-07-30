@@ -216,6 +216,12 @@ export const API_PATHS = {
   CLUB_REPORT_ATTENDANCE_XLSX: "/api/club/reports/attendance.xlsx",
   CLUB_REPORT_ATTENDANCE_PDF: "/api/club/reports/attendance.pdf",
 
+  // BVF Administration (federation carding link + selective import)
+  BVF_ADMIN_STATUS: "/api/bvf-admin/status",
+  BVF_ADMIN_LINK_CLUB: "/api/bvf-admin/link-club",
+  BVF_ADMIN_PLAYERS_PREVIEW: "/api/bvf-admin/players/preview",
+  BVF_ADMIN_PLAYERS_IMPORT: "/api/bvf-admin/players/import",
+
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",
   CLUB_TRAINING_ASSIGNMENTS_CREATE: "/api/club/training-assignments",
