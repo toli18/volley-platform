@@ -172,10 +172,39 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS coverage DOUBLE PRECISION"))
                 conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS confidence_score DOUBLE PRECISION"))
                 conn.execute(text("ALTER TABLE assessment_norms ADD COLUMN IF NOT EXISTS season_count INTEGER"))
+
+                # BVF federation link (Администрация БФВ)
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_club_id INTEGER"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_club_name VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_linked_at TIMESTAMP"))
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_bvf_club_id "
+                        "ON clubs (bvf_club_id)"
+                    )
+                )
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS egn VARCHAR(16)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_player_id INTEGER"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_player_number INTEGER"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_synced_at TIMESTAMP"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_athletes_egn ON athletes (egn)"))
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_athletes_bvf_player_id "
+                        "ON athletes (bvf_player_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_athletes_bvf_player_number "
+                        "ON athletes (bvf_player_number)"
+                    )
+                )
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
             print("✅ PostgreSQL: teams.gender ensured")
             print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
+            print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
@@ -230,6 +259,30 @@ def _init_db_impl() -> None:
             if "gender" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN gender VARCHAR(16)"))
                 print("✅ Added athletes.gender column")
+            if "egn" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN egn VARCHAR(16)"))
+                print("✅ Added athletes.egn column")
+            if "bvf_player_id" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_player_id INTEGER"))
+                print("✅ Added athletes.bvf_player_id column")
+            if "bvf_player_number" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_player_number INTEGER"))
+                print("✅ Added athletes.bvf_player_number column")
+            if "bvf_synced_at" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_synced_at DATETIME"))
+                print("✅ Added athletes.bvf_synced_at column")
+
+            club_cols = conn.execute(text("PRAGMA table_info(clubs)")).fetchall()
+            club_col_names = {row[1] for row in club_cols}
+            if "bvf_club_id" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_club_id INTEGER"))
+                print("✅ Added clubs.bvf_club_id column")
+            if "bvf_club_name" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_club_name VARCHAR(255)"))
+                print("✅ Added clubs.bvf_club_name column")
+            if "bvf_linked_at" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_linked_at DATETIME"))
+                print("✅ Added clubs.bvf_linked_at column")
 
             team_cols = conn.execute(text("PRAGMA table_info(teams)")).fetchall()
             team_col_names = {row[1] for row in team_cols}
@@ -261,6 +314,7 @@ def _init_db_impl() -> None:
         try:
             sync_club_logos(db)
         except Exception as exc:  # noqa: BLE001
+            db.rollback()
             print(f"⚠️ Club logo sync skipped: {exc}")
 
         # Drills: идемпотентна синхронизация от CSV (добавя липсващите,
@@ -268,12 +322,14 @@ def _init_db_impl() -> None:
         try:
             seed_drills(db)
         except Exception as exc:  # noqa: BLE001
+            db.rollback()
             print(f"⚠️ Drills sync skipped: {exc}")
 
         try:
             seed_national_method(db)
             print("✅ National method library seeded (if needed)")
         except Exception as exc:
+            db.rollback()
             print(f"⚠️ National method seed skipped: {exc}")
 
         # Национална диагностична карта — тестовата батерия е част от
@@ -284,6 +340,7 @@ def _init_db_impl() -> None:
             created = seed_assessment_battery(db)
             print(f"✅ Тестова батерия (assessment) seeded — нови записи: {created}")
         except Exception as exc:
+            db.rollback()
             print(f"⚠️ Assessment battery seed skipped: {exc}")
 
         # Референтни норми (репери) — дават абсолютна скала за cold-start, за да
@@ -295,6 +352,7 @@ def _init_db_impl() -> None:
             created_norms = seed_reference_norms(db)
             print(f"✅ Референтни норми (assessment) seeded — нови записи: {created_norms}")
         except Exception as exc:
+            db.rollback()
             print(f"⚠️ Assessment reference norms seed skipped: {exc}")
 
         try:
@@ -305,6 +363,7 @@ def _init_db_impl() -> None:
                 db.commit()
                 print(f"✅ Годишна програма (ensure): {ap_stats}")
         except Exception as exc:
+            db.rollback()
             print(f"⚠️ Annual program ensure skipped: {exc}")
 
         try:
