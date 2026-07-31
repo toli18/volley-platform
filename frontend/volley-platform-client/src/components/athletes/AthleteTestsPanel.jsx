@@ -110,80 +110,64 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
             description="Когато има резултати от диагностика / скаутинг, ще се появят тук с оценки."
           />
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className="athleteTestCards">
             {tested.map((t) => {
               const c = cellMap[t.code];
               const cat = CATEGORY_LABEL[t.category] || t.category;
               return (
-                <article
-                  key={t.code}
-                  style={{
-                    border: "1px solid var(--ui-border, #e5e7eb)",
-                    borderRadius: 10,
-                    padding: "12px 14px",
-                    display: "grid",
-                    gap: 10,
-                    background: "var(--ui-surface, #fff)",
-                  }}
-                >
-                  <header style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "baseline" }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</div>
-                      <div className="uiMuted" style={{ fontSize: 12 }}>
-                        {cat}
-                        {t.unit ? ` · ${t.unit}` : ""}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>
-                      {fmt(c.raw_value)}
-                      {t.unit ? <span className="uiMuted" style={{ fontSize: 13, fontWeight: 600 }}> {t.unit}</span> : null}
-                    </div>
-                  </header>
+                <article key={t.code} className="athleteTestCard">
+                  <div className="athleteTestCardName" title={t.name}>
+                    {t.name}
+                  </div>
+                  <div className="athleteTestCardMeta">
+                    {cat}
+                    {t.unit ? ` · ${t.unit}` : ""}
+                  </div>
+                  <div className="athleteTestCardValue">
+                    {fmt(c.raw_value)}
+                    {t.unit ? <span className="athleteTestCardValueUnit"> {t.unit}</span> : null}
+                  </div>
 
-                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      <span className="uiMuted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
-                        Стандарт 2022
-                      </span>
+                  <div className="athleteTestCardMetrics">
+                    <div className="athleteTestCardMetric">
+                      <span className="athleteTestCardMetricLabel">2022</span>
                       {c.score_2022 != null ? (
-                        <span className={`talentBadge ${LEVEL_CLASS[c.score_2022_label] || "talentBadge--good"}`}>
+                        <span
+                          className={`talentBadge talentBadgeSm ${LEVEL_CLASS[c.score_2022_label] || "talentBadge--good"}`}
+                          title={c.score_2022_label || ""}
+                        >
                           {fmt(c.score_2022)} · {c.score_2022_label}
                         </span>
                       ) : (
-                        <span className="uiMuted" style={{ fontSize: 13 }}>няма норма</span>
+                        <span className="athleteTestCardHint">—</span>
                       )}
                     </div>
 
-                    <div style={{ display: "grid", gap: 4 }}>
-                      <span className="uiMuted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
-                        Връстници
-                      </span>
+                    <div className="athleteTestCardMetric">
+                      <span className="athleteTestCardMetricLabel">Връстници</span>
                       {c.peer_percentile != null ? (
-                        <>
-                          <span className={`talentBadge ${peerClass(c.peer_percentile)}`}>
-                            {fmt(c.peer_percentile)}%
-                            {c.peer_indicative ? "*" : ""}
-                          </span>
-                          <span className="uiMuted" style={{ fontSize: 12 }}>
-                            n={c.peer_sample || 0}
-                            {c.peer_indicative ? " · ориентировъчно" : ""}
-                          </span>
-                        </>
+                        <span
+                          className={`talentBadge talentBadgeSm ${peerClass(c.peer_percentile)}`}
+                          title={`n=${c.peer_sample || 0}${c.peer_indicative ? " · ориентировъчно" : ""}`}
+                        >
+                          {fmt(c.peer_percentile)}%{c.peer_indicative ? "*" : ""}
+                        </span>
                       ) : (
-                        <span className="uiMuted" style={{ fontSize: 13 }}>няма данни</span>
+                        <span className="athleteTestCardHint">—</span>
                       )}
                     </div>
 
-                    <div style={{ display: "grid", gap: 4 }}>
-                      <span className="uiMuted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
-                        Талант
-                      </span>
+                    <div className="athleteTestCardMetric">
+                      <span className="athleteTestCardMetricLabel">Талант</span>
                       {c.talent_score != null ? (
-                        <span className={`talentBadge ${LEVEL_CLASS[c.talent_label] || "talentBadge--good"}`}>
+                        <span
+                          className={`talentBadge talentBadgeSm ${LEVEL_CLASS[c.talent_label] || "talentBadge--good"}`}
+                          title={c.talent_label || ""}
+                        >
                           {fmt(c.talent_score)} · {c.talent_label}
                         </span>
                       ) : (
-                        <span className="uiMuted" style={{ fontSize: 13 }}>няма оценка</span>
+                        <span className="athleteTestCardHint">—</span>
                       )}
                     </div>
                   </div>
