@@ -15,6 +15,7 @@ from app.dependencies.roles import require_role
 from app.models import (
     Athlete,
     AthleteBvfDocument,
+    AthletePhysicalMeasurement,
     BvfCardIndex,
     BvfCardIndexMember,
     Club,
@@ -884,4 +885,244 @@ def submit_card_index_to_federation(
         "is_signed": True,
         "signed_at": local.signed_at.isoformat() if local.signed_at else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Физически показатели → БФВ /players/{id}/developments
+# ---------------------------------------------------------------------------
+
+
+class PhysicalCreateIn(BaseModel):
+    athlete_id: int | None = None
+    measured_at: Optional[str] = None
+    position: Optional[int] = None
+    height_cm: Optional[int] = None
+    weight_kg: Optional[int] = None
+    full_extent_cm: Optional[int] = None
+    attack_cm: Optional[int] = None
+    block_cm: Optional[int] = None
+    notes: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class PhysicalSendIn(BaseModel):
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+def _parse_measured_at(raw: Optional[str]) -> datetime:
+    if not raw or not str(raw).strip():
+        return datetime.utcnow()
+    s = str(raw).strip()
+    try:
+        if len(s) == 10:
+            return datetime.strptime(s, "%Y-%m-%d")
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Невалидна дата на измерване") from exc
+
+
+def _serialize_physical(row: AthletePhysicalMeasurement) -> dict:
+    return {
+        "id": row.id,
+        "athlete_id": row.athlete_id,
+        "measured_at": row.measured_at.isoformat() if row.measured_at else None,
+        "position": row.position,
+        "height_cm": row.height_cm,
+        "weight_kg": row.weight_kg,
+        "full_extent_cm": row.full_extent_cm,
+        "attack_cm": row.attack_cm,
+        "block_cm": row.block_cm,
+        "notes": row.notes,
+        "bvf_development_id": row.bvf_development_id,
+        "bvf_synced_at": row.bvf_synced_at.isoformat() if row.bvf_synced_at else None,
+        "synced": bool(row.bvf_development_id),
+    }
+
+
+@router.get("/players/{athlete_id}/physical")
+def list_physical_measurements(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    rows = (
+        db.query(AthletePhysicalMeasurement)
+        .filter(AthletePhysicalMeasurement.athlete_id == athlete.id)
+        .order_by(AthletePhysicalMeasurement.measured_at.desc())
+        .all()
+    )
+    return {
+        "athlete_id": athlete.id,
+        "bvf_player_id": athlete.bvf_player_id,
+        "can_send_to_bvf": bool(athlete.bvf_player_id),
+        "items": [_serialize_physical(r) for r in rows],
+    }
+
+
+@router.post("/players/{athlete_id}/physical")
+def create_physical_measurement(
+    athlete_id: int,
+    payload: PhysicalCreateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    if not any(
+        [
+            payload.height_cm,
+            payload.weight_kg,
+            payload.full_extent_cm,
+            payload.attack_cm,
+            payload.block_cm,
+        ]
+    ):
+        raise HTTPException(status_code=422, detail="Въведи поне едно измерение (височина, тегло, …)")
+    row = AthletePhysicalMeasurement(
+        athlete_id=athlete.id,
+        measured_at=_parse_measured_at(payload.measured_at),
+        position=payload.position,
+        height_cm=payload.height_cm,
+        weight_kg=payload.weight_kg,
+        full_extent_cm=payload.full_extent_cm,
+        attack_cm=payload.attack_cm,
+        block_cm=payload.block_cm,
+        notes=(payload.notes or "").strip() or None,
+        created_by_user_id=current_user.id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _serialize_physical(row)
+
+
+@router.post("/players/physical/{measurement_id}/send-bvf")
+def send_physical_to_bvf(
+    measurement_id: int,
+    payload: PhysicalSendIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    row = db.query(AthletePhysicalMeasurement).filter(AthletePhysicalMeasurement.id == int(measurement_id)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Измерването не е намерено")
+    athlete = _athlete_for_bvf_action(db, current_user, row.athlete_id)
+    if not athlete.bvf_player_id:
+        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+    if row.bvf_development_id:
+        return {**_serialize_physical(row), "already_synced": True}
+
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+    data = {"Date": row.measured_at.strftime("%Y-%m-%dT%H:%M:%S")}
+    if row.position is not None:
+        data["Position"] = str(int(row.position))
+    if row.height_cm is not None:
+        data["Height"] = str(int(row.height_cm))
+    if row.weight_kg is not None:
+        data["Weight"] = str(int(row.weight_kg))
+    if row.full_extent_cm is not None:
+        data["FullExtent"] = str(int(row.full_extent_cm))
+    if row.attack_cm is not None:
+        data["Attack"] = str(int(row.attack_cm))
+    if row.block_cm is not None:
+        data["Block"] = str(int(row.block_cm))
+
+    remote = _bvf_post_multipart(f"/api/players/{int(athlete.bvf_player_id)}/developments", token, data, files={})
+    if isinstance(remote, dict) and remote.get("id") is not None:
+        try:
+            row.bvf_development_id = int(remote.get("id"))
+        except Exception:
+            row.bvf_development_id = None
+    else:
+        remote_list = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/developments", token)
+        if isinstance(remote_list, list) and remote_list:
+            last = remote_list[-1] if isinstance(remote_list[-1], dict) else None
+            if last and last.get("id") is not None:
+                try:
+                    row.bvf_development_id = int(last["id"])
+                except Exception:
+                    pass
+
+    row.bvf_synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return {**_serialize_physical(row), "already_synced": False}
+
+
+@router.post("/players/{athlete_id}/physical/fetch-bvf")
+def fetch_physical_from_bvf(
+    athlete_id: int,
+    payload: PhysicalSendIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    if not athlete.bvf_player_id:
+        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+    remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/developments", token)
+    if not isinstance(remote, list):
+        raise HTTPException(status_code=502, detail="БФВ developments не е списък")
+
+    imported = 0
+    for raw in remote:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            did = int(raw.get("id"))
+        except Exception:
+            continue
+        existing = (
+            db.query(AthletePhysicalMeasurement)
+            .filter(AthletePhysicalMeasurement.bvf_development_id == did)
+            .first()
+        )
+        if existing:
+            continue
+        measured = _parse_measured_at(str(raw.get("date") or "")) if raw.get("date") else datetime.utcnow()
+        try:
+            position = int(raw["position"]) if raw.get("position") is not None else None
+        except Exception:
+            position = None
+        def _i(key_a, key_b=None):
+            val = raw.get(key_a) if key_b is None else raw.get(key_a, raw.get(key_b))
+            try:
+                return int(val) if val is not None else None
+            except Exception:
+                return None
+
+        row = AthletePhysicalMeasurement(
+            athlete_id=athlete.id,
+            measured_at=measured,
+            position=position,
+            height_cm=_i("height"),
+            weight_kg=_i("weight"),
+            full_extent_cm=_i("fullExtent"),
+            attack_cm=_i("attack"),
+            block_cm=_i("block"),
+            bvf_development_id=did,
+            bvf_synced_at=datetime.utcnow(),
+            created_by_user_id=current_user.id,
+        )
+        db.add(row)
+        imported += 1
+    db.commit()
+    rows = (
+        db.query(AthletePhysicalMeasurement)
+        .filter(AthletePhysicalMeasurement.athlete_id == athlete.id)
+        .order_by(AthletePhysicalMeasurement.measured_at.desc())
+        .all()
+    )
+    return {"imported": imported, "items": [_serialize_physical(r) for r in rows], "remote_count": len(remote)}
 

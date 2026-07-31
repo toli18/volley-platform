@@ -235,6 +235,10 @@ export const API_PATHS = {
   BVF_ADMIN_CARD_INDEX_DETAIL: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}`,
   BVF_ADMIN_CARD_INDEX_ADD_PLAYERS: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}/add-players`,
   BVF_ADMIN_CARD_INDEX_SUBMIT: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}/submit`,
+  BVF_ADMIN_PHYSICAL_LIST: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
+  BVF_ADMIN_PHYSICAL_CREATE: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
+  BVF_ADMIN_PHYSICAL_SEND: (measurementId) => `/api/bvf-admin/players/physical/${measurementId}/send-bvf`,
+  BVF_ADMIN_PHYSICAL_FETCH: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/fetch-bvf`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

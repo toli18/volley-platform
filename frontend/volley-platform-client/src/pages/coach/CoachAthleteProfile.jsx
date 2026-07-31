@@ -26,7 +26,7 @@ export default function CoachAthleteProfile() {
   const athleteIdNum = Number(athleteId);
 
   const from = searchParams.get("from") || "/coach/teams";
-  const tab = ["overview", "attendance", "fees", "history"].includes(searchParams.get("tab") || "")
+  const tab = ["overview", "physical", "attendance", "fees", "history"].includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
   const setTab = (id) => setSearchParams({ tab: id, from }, { replace: true });

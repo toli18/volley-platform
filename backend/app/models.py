@@ -525,6 +525,35 @@ class Athlete(Base):
         back_populates="athlete",
         cascade="all, delete-orphan",
     )
+    physical_measurements = relationship(
+        "AthletePhysicalMeasurement",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
+
+
+class AthletePhysicalMeasurement(Base):
+    """Локални физически показатели + sync към БФВ PlayerDevelopment."""
+
+    __tablename__ = "athlete_physical_measurements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    measured_at = Column(DateTime, nullable=False, index=True)
+    position = Column(Integer, nullable=True)  # БФВ Position (опционално)
+    height_cm = Column(Integer, nullable=True)
+    weight_kg = Column(Integer, nullable=True)
+    full_extent_cm = Column(Integer, nullable=True)  # размах / FullExtent
+    attack_cm = Column(Integer, nullable=True)
+    block_cm = Column(Integer, nullable=True)
+    notes = Column(String(255), nullable=True)
+    bvf_development_id = Column(Integer, nullable=True, index=True)
+    bvf_synced_at = Column(DateTime, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    athlete = relationship("Athlete", back_populates="physical_measurements")
 
 
 class AthleteBvfDocument(Base):
