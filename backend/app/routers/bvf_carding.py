@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
-from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -85,51 +84,41 @@ def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
     return res.content, ctype
 
 
-def _club_player_ids(token: str, bvf_club_id: int) -> set[int]:
+def _bvf_get_soft(path: str, token: str) -> Any | None:
+    """GET към БФВ; 403/404 → None (клубният акаунт няма глобален search)."""
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.get(url, headers=_bvf_headers(token))
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+    if res.status_code in (403, 404):
+        return None
+    if res.status_code == 401:
+        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:300] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=502, detail=detail)
+    try:
+        return res.json()
+    except Exception:
+        return None
+
+
+def _club_players(token: str, bvf_club_id: int) -> list[dict]:
     remote = _bvf_get(f"/api/clubs/{bvf_club_id}/players", token)
-    ids: set[int] = set()
     if not isinstance(remote, list):
-        return ids
-    for row in remote:
-        if not isinstance(row, dict):
-            continue
-        try:
-            ids.add(int(row.get("id")))
-        except Exception:
-            continue
-    return ids
+        raise HTTPException(status_code=502, detail="БФВ players не е списък")
+    return [row for row in remote if isinstance(row, dict)]
 
 
-def _search_player_ids(token: str, keyword: str, page_size: int = 40) -> list[int]:
-    kw = (keyword or "").strip()
-    if not kw:
-        return []
-    remote = _bvf_get(
-        f"/api/players/search?Keyword={quote(kw)}&Page=1&PageSize={int(page_size)}",
-        token,
-    )
-    rows = remote.get("players") if isinstance(remote, dict) else None
-    if not isinstance(rows, list):
-        return []
-    out: list[int] = []
-    seen: set[int] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        try:
-            pid = int(row.get("id"))
-        except Exception:
-            continue
-        if pid in seen:
-            continue
-        seen.add(pid)
-        out.append(pid)
-    return out
-
-
-def _player_detail(token: str, player_id: int) -> dict | None:
-    remote = _bvf_get(f"/api/players/{int(player_id)}", token)
+def _player_detail_soft(token: str, player_id: int) -> dict | None:
+    remote = _bvf_get_soft(f"/api/players/{int(player_id)}", token)
     return remote if isinstance(remote, dict) else None
+
+
+def _norm_name(value: str | None) -> str:
+    return " ".join(str(value or "").strip().lower().split())
 
 
 def _find_bvf_player_by_egn(
@@ -137,60 +126,63 @@ def _find_bvf_player_by_egn(
     club: Club,
     egn_val: str,
     *,
-    name_hints: list[str] | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    birth_year: int | None = None,
 ) -> dict:
     """
-    Club players list е PlayerPublicDto — без EGN.
-    Търсим чрез /api/players/search + GET /api/players/{id} (PlayerDetailDto.egn),
-    после потвърждаваме, че играчът е в клуба.
+    Клубната роля няма достъп до /api/players/search (403).
+    Списъкът /clubs/{id}/players е без EGN → взимаме GET /api/players/{id}
+    (PlayerDetailDto.egn) само за играчите на клуба.
     """
-    club_ids = _club_player_ids(token, int(club.bvf_club_id))
-    keywords: list[str] = [egn_val]
-    for hint in name_hints or []:
-        h = (hint or "").strip()
-        if h and h not in keywords:
-            keywords.append(h)
-
-    candidate_ids: list[int] = []
-    seen: set[int] = set()
-    for kw in keywords:
-        for pid in _search_player_ids(token, kw):
-            if pid in seen:
-                continue
-            seen.add(pid)
-            candidate_ids.append(pid)
-
-    # Предпочитай кандидати, които вече са в клуба
-    candidate_ids.sort(key=lambda pid: 0 if pid in club_ids else 1)
-
-    # Ако search не хване ЕГН — провери детайлите на клубните играчи
-    for pid in club_ids:
-        if pid not in seen:
-            seen.add(pid)
-            candidate_ids.append(pid)
-
-    wrong_club: dict | None = None
-    for pid in candidate_ids[:80]:
-        detail = _player_detail(token, pid)
-        if not detail:
-            continue
-        if str(detail.get("egn") or "").strip() != egn_val:
-            continue
-        try:
-            current_club = int(detail.get("currentClubId")) if detail.get("currentClubId") is not None else None
-        except Exception:
-            current_club = None
-        in_club = pid in club_ids or current_club == int(club.bvf_club_id)
-        if in_club:
-            return detail
-        wrong_club = detail
-
-    if wrong_club is not None:
-        other = wrong_club.get("currentClubId")
+    roster = _club_players(token, int(club.bvf_club_id))
+    if not roster:
         raise HTTPException(
-            status_code=409,
-            detail=f"Има състезател с това ЕГН в БФВ, но е в друг клуб (БФВ club #{other}).",
+            status_code=404,
+            detail="Клубът няма състезатели в БФВ. Ако още не е регистриран — използвай „Създай в БФВ“.",
         )
+
+    for row in roster:
+        if str(row.get("egn") or "").strip() == egn_val:
+            try:
+                pid = int(row["id"])
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail="Невалиден БФВ player id") from exc
+            return _player_detail_soft(token, pid) or row
+
+    fn = _norm_name(first_name)
+    ln = _norm_name(last_name)
+
+    def score(row: dict) -> int:
+        s = 0
+        if ln and _norm_name(row.get("lastName")) == ln:
+            s += 3
+        if fn and _norm_name(row.get("firstName")) == fn:
+            s += 2
+        try:
+            by = int(row.get("birthYear")) if row.get("birthYear") is not None else None
+        except Exception:
+            by = None
+        if birth_year and by and by == int(birth_year):
+            s += 2
+        return s
+
+    ordered = sorted(roster, key=score, reverse=True)
+    prioritized = [r for r in ordered if score(r) > 0] + [r for r in ordered if score(r) == 0]
+
+    checked = 0
+    for row in prioritized:
+        try:
+            pid = int(row.get("id"))
+        except Exception:
+            continue
+        detail = _player_detail_soft(token, pid)
+        checked += 1
+        if detail and str(detail.get("egn") or "").strip() == egn_val:
+            return detail
+        if checked >= 120:
+            break
+
     raise HTTPException(
         status_code=404,
         detail="Няма състезател с това ЕГН в клуба на БФВ. Ако още не е регистриран — използвай „Създай в БФВ“.",
@@ -270,20 +262,23 @@ def link_player_by_egn(
     if len(egn_val) != 10:
         raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")
 
-    name_hints = [
-        (athlete.last_name or "").strip(),
-        (athlete.first_name or "").strip(),
-        " ".join(
-            p
-            for p in [
-                (athlete.first_name or "").strip(),
-                (athlete.last_name or "").strip(),
-            ]
-            if p
-        ),
-        (athlete.athlete_name or "").strip(),
-    ]
-    match = _find_bvf_player_by_egn(token, club, egn_val, name_hints=name_hints)
+    birth_year = None
+    if athlete.birth_year:
+        try:
+            birth_year = int(athlete.birth_year)
+        except Exception:
+            birth_year = None
+    if birth_year is None and athlete.birth_date:
+        birth_year = athlete.birth_date.year
+
+    match = _find_bvf_player_by_egn(
+        token,
+        club,
+        egn_val,
+        first_name=athlete.first_name,
+        last_name=athlete.last_name,
+        birth_year=birth_year,
+    )
 
     pid = int(match["id"])
     other = db.query(Athlete).filter(Athlete.bvf_player_id == pid, Athlete.id != athlete.id).first()
