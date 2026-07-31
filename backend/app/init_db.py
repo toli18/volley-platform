@@ -203,6 +203,19 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS signed_by_user_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP")
+                )
+                conn.execute(
+                    text(
                         "CREATE INDEX IF NOT EXISTS ix_athletes_bvf_player_number "
                         "ON athletes (bvf_player_number)"
                     )
@@ -293,6 +306,22 @@ def _init_db_impl() -> None:
             if "bvf_photo_id" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_photo_id VARCHAR(64)"))
                 print("✅ Added athletes.bvf_photo_id column")
+
+            try:
+                ci_cols = conn.execute(text("PRAGMA table_info(bvf_card_indexes)")).fetchall()
+                ci_names = {row[1] for row in ci_cols}
+                if ci_cols:
+                    if "created_by_user_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN created_by_user_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.created_by_user_id")
+                    if "signed_by_user_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN signed_by_user_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.signed_by_user_id")
+                    if "signed_at" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN signed_at DATETIME"))
+                        print("✅ Added bvf_card_indexes.signed_at")
+            except Exception:
+                pass
 
             club_cols = conn.execute(text("PRAGMA table_info(clubs)")).fetchall()
             club_col_names = {row[1] for row in club_cols}

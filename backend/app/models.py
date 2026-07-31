@@ -560,7 +560,11 @@ class BvfCardIndex(Base):
     sex = Column(Integer, nullable=False, default=0)  # 0 male, 1 female
     is_signed = Column(Boolean, nullable=True)
     senior_coach_bvf_id = Column(Integer, nullable=True)
-    status = Column(String(32), nullable=False, default="draft")  # draft | synced | signed
+    # draft | synced | ready | signed | pending_bvf_sign
+    status = Column(String(32), nullable=False, default="draft")
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    signed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    signed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

@@ -231,7 +231,10 @@ export const API_PATHS = {
   BVF_ADMIN_DOCS_UPLOAD: "/api/bvf-admin/players/documents/upload",
   BVF_ADMIN_CARD_INDEXES_FETCH: "/api/bvf-admin/card-indexes/fetch",
   BVF_ADMIN_CARD_INDEXES_CREATE: "/api/bvf-admin/card-indexes/create",
+  BVF_ADMIN_CARD_INDEXES_ELIGIBLE: "/api/bvf-admin/card-indexes/eligible-athletes",
+  BVF_ADMIN_CARD_INDEX_DETAIL: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}`,
   BVF_ADMIN_CARD_INDEX_ADD_PLAYERS: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}/add-players`,
+  BVF_ADMIN_CARD_INDEX_SUBMIT: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}/submit`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",
