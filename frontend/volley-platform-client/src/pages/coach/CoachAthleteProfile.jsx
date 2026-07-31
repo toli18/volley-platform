@@ -243,6 +243,29 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const uploadLocalPhoto = async (file) => {
+    if (!profile?.athlete_id || !file) return;
+    const form = new FormData();
+    form.append("file", file);
+    form.append("push_to_bvf", profile.bvf_player_id ? "true" : "false");
+    try {
+      setSyncingPhoto(true);
+      const res = await axiosInstance.post(API_PATHS.TEAM_ATHLETE_PHOTO(profile.athlete_id), form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success(
+        res.data?.pushed_to_bvf
+          ? "Снимката е записана и изпратена към БФВ."
+          : "Снимката е записана локално.",
+      );
+      await reloadProfile();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно качване на снимка."));
+    } finally {
+      setSyncingPhoto(false);
+    }
+  };
+
   if (loading) {
     return <p className="coachMobileMuted">Зареждане...</p>;
   }
@@ -278,6 +301,7 @@ export default function CoachAthleteProfile() {
         onOpenBvfCreate={() => setBvfOpen(true)}
         onOpenBvfLink={() => setBvfLinkOpen(true)}
         onSyncPhoto={syncPhotoFromBvf}
+        onUploadPhoto={uploadLocalPhoto}
         syncingPhoto={syncingPhoto}
       />
       <BvfCreateAthleteModal

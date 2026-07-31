@@ -2,7 +2,7 @@ import re
 from calendar import monthrange
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from app.services.athlete_photo import ensure_athlete_photo_from_bvf, has_cached_photo, read_athlete_photo
 from sqlalchemy import or_
@@ -794,6 +794,65 @@ def athlete_photo(
     if not data:
         raise HTTPException(status_code=404, detail="Няма снимка")
     return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.post("/teams/athletes/{athlete_id}/photo")
+async def upload_athlete_photo(
+    athlete_id: int,
+    file: UploadFile = File(...),
+    push_to_bvf: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    """Локална портретна снимка. Клубният БФВ акаунт може да качва, но често не може да чете /files."""
+    from app.services.athlete_photo import save_athlete_photo
+    from app.services.bvf_auth import club_has_credentials, resolve_club_bvf_token
+
+    athlete = _get_athlete_for_team_context(db, athlete_id, current_user)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="Празен файл")
+    save_athlete_photo(athlete.id, content)
+
+    pushed = False
+    if push_to_bvf and athlete.bvf_player_id and athlete.club_id:
+        club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+        if club and club_has_credentials(club):
+            try:
+                token = resolve_club_bvf_token(club, None)
+                import httpx
+                from app.services.athlete_photo import BVF_API_BASE, BVF_TIMEOUT
+
+                filename = file.filename or "photo.jpg"
+                ctype = file.content_type or "image/jpeg"
+                with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
+                    res = client.put(
+                        f"{BVF_API_BASE}/api/players/{int(athlete.bvf_player_id)}/photo",
+                        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                        files={"file": (filename, content, ctype)},
+                    )
+                if res.status_code < 400:
+                    pushed = True
+                    try:
+                        remote = res.json()
+                        if isinstance(remote, dict) and remote.get("photoId"):
+                            athlete.bvf_photo_id = str(remote.get("photoId")).strip()
+                            db.commit()
+                    except Exception:
+                        pass
+            except Exception:
+                pushed = False
+
+    return {
+        "athlete_id": athlete.id,
+        "has_photo": True,
+        "pushed_to_bvf": pushed,
+        "bvf_photo_id": getattr(athlete, "bvf_photo_id", None),
+    }
 
 
 @router.get("/teams/athletes/{athlete_id}/profile", response_model=AthleteProfileResponse)

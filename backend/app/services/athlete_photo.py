@@ -83,7 +83,10 @@ def fetch_bvf_photo_bytes_detailed(token: str, photo_id: str) -> tuple[bytes | N
     if res.status_code == 401:
         return None, "БФВ token е невалиден при изтегляне на файл"
     if res.status_code == 403:
-        return None, "Клубът няма право да чете този файл в БФВ"
+        return None, (
+            "Клубният акаунт в БФВ няма право да чете файлове (/api/files). "
+            "Качи снимката локално или изчакай API ключ с право за четене на файлове."
+        )
     if res.status_code == 404:
         return None, "Файлът не е намерен в БФВ (изтрита снимка?)"
     if res.status_code >= 400:
