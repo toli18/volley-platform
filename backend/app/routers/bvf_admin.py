@@ -16,6 +16,7 @@ from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, Club, User, UserRole
 from app.services.athlete_identity import (
+    apply_birth_date_from_egn,
     compose_athlete_name,
     default_nationality_from_city,
     validate_name_part,
@@ -789,6 +790,7 @@ async def create_player_from_athlete(
     athlete.last_name = last_name
     athlete.athlete_name = compose_athlete_name(first_name, middle_name, last_name)
     athlete.nationality = nationality
+    apply_birth_date_from_egn(athlete)
     athlete.bvf_player_id = pid
     athlete.bvf_player_number = number_i
     athlete.bvf_photo_id = photo_id

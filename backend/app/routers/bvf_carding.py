@@ -34,7 +34,7 @@ from app.routers.bvf_admin import (
     _ensure_head_with_club,
     _normalize_bearer,
 )
-from app.services.athlete_identity import compose_athlete_name
+from app.services.athlete_identity import apply_birth_date_from_egn, compose_athlete_name
 from app.services.athlete_photo import has_cached_photo, save_athlete_photo
 
 router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Carding"])
@@ -307,6 +307,9 @@ def link_player_by_egn(
     )
     if match.get("nationality"):
         athlete.nationality = str(match.get("nationality")).strip()
+
+    apply_birth_date_from_egn(athlete)
+
     athlete.bvf_player_id = pid
     athlete.bvf_player_number = number_i
     athlete.bvf_photo_id = photo_id
@@ -327,6 +330,9 @@ def link_player_by_egn(
         "bvf_player_number": athlete.bvf_player_number,
         "bvf_photo_id": athlete.bvf_photo_id,
         "athlete_name": athlete.athlete_name,
+        "birth_date": athlete.birth_date.isoformat() if athlete.birth_date else None,
+        "birth_year": athlete.birth_year,
+        "egn": athlete.egn,
     }
 
 

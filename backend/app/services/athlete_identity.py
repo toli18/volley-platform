@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 DEFAULT_NATIONALITY = "България"
@@ -9,6 +10,54 @@ DEFAULT_NATIONALITY = "България"
 # BVF POST /players requires minLength 3 on each name part
 NAME_MIN_LEN = 3
 NAME_MAX_LEN = 25
+
+
+def birth_date_from_egn(egn: Optional[str]) -> Optional[date]:
+    """
+    Извлича дата на раждане от българско ЕГН (YYMMDD + офсет на месеца).
+    01–12 → 1900; 21–32 → 1800; 41–52 → 2000.
+    """
+    s = "".join(ch for ch in str(egn or "") if ch.isdigit())
+    if len(s) < 6:
+        return None
+    try:
+        yy = int(s[0:2])
+        mm = int(s[2:4])
+        dd = int(s[4:6])
+    except ValueError:
+        return None
+
+    if 1 <= mm <= 12:
+        year = 1900 + yy
+        month = mm
+    elif 21 <= mm <= 32:
+        year = 1800 + yy
+        month = mm - 20
+    elif 41 <= mm <= 52:
+        year = 2000 + yy
+        month = mm - 40
+    else:
+        return None
+
+    try:
+        return date(year, month, dd)
+    except ValueError:
+        return None
+
+
+def apply_birth_date_from_egn(athlete) -> bool:
+    """Коригира birth_date / birth_year по ЕГН. Връща True ако има промяна."""
+    parsed = birth_date_from_egn(getattr(athlete, "egn", None))
+    if not parsed:
+        return False
+    changed = False
+    if getattr(athlete, "birth_date", None) != parsed:
+        athlete.birth_date = parsed
+        changed = True
+    if getattr(athlete, "birth_year", None) != parsed.year:
+        athlete.birth_year = parsed.year
+        changed = True
+    return changed
 
 
 def compose_athlete_name(

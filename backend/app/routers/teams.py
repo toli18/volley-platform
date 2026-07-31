@@ -801,6 +801,12 @@ def athlete_profile(
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
 
+    from app.services.athlete_identity import apply_birth_date_from_egn
+
+    if apply_birth_date_from_egn(athlete):
+        db.commit()
+        db.refresh(athlete)
+
     team_rows = (
         db.query(Team.name)
         .join(TeamMember, TeamMember.team_id == Team.id)
