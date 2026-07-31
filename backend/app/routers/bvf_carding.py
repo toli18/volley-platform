@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -84,6 +85,118 @@ def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
     return res.content, ctype
 
 
+def _club_player_ids(token: str, bvf_club_id: int) -> set[int]:
+    remote = _bvf_get(f"/api/clubs/{bvf_club_id}/players", token)
+    ids: set[int] = set()
+    if not isinstance(remote, list):
+        return ids
+    for row in remote:
+        if not isinstance(row, dict):
+            continue
+        try:
+            ids.add(int(row.get("id")))
+        except Exception:
+            continue
+    return ids
+
+
+def _search_player_ids(token: str, keyword: str, page_size: int = 40) -> list[int]:
+    kw = (keyword or "").strip()
+    if not kw:
+        return []
+    remote = _bvf_get(
+        f"/api/players/search?Keyword={quote(kw)}&Page=1&PageSize={int(page_size)}",
+        token,
+    )
+    rows = remote.get("players") if isinstance(remote, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out: list[int] = []
+    seen: set[int] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            pid = int(row.get("id"))
+        except Exception:
+            continue
+        if pid in seen:
+            continue
+        seen.add(pid)
+        out.append(pid)
+    return out
+
+
+def _player_detail(token: str, player_id: int) -> dict | None:
+    remote = _bvf_get(f"/api/players/{int(player_id)}", token)
+    return remote if isinstance(remote, dict) else None
+
+
+def _find_bvf_player_by_egn(
+    token: str,
+    club: Club,
+    egn_val: str,
+    *,
+    name_hints: list[str] | None = None,
+) -> dict:
+    """
+    Club players list е PlayerPublicDto — без EGN.
+    Търсим чрез /api/players/search + GET /api/players/{id} (PlayerDetailDto.egn),
+    после потвърждаваме, че играчът е в клуба.
+    """
+    club_ids = _club_player_ids(token, int(club.bvf_club_id))
+    keywords: list[str] = [egn_val]
+    for hint in name_hints or []:
+        h = (hint or "").strip()
+        if h and h not in keywords:
+            keywords.append(h)
+
+    candidate_ids: list[int] = []
+    seen: set[int] = set()
+    for kw in keywords:
+        for pid in _search_player_ids(token, kw):
+            if pid in seen:
+                continue
+            seen.add(pid)
+            candidate_ids.append(pid)
+
+    # Предпочитай кандидати, които вече са в клуба
+    candidate_ids.sort(key=lambda pid: 0 if pid in club_ids else 1)
+
+    # Ако search не хване ЕГН — провери детайлите на клубните играчи
+    for pid in club_ids:
+        if pid not in seen:
+            seen.add(pid)
+            candidate_ids.append(pid)
+
+    wrong_club: dict | None = None
+    for pid in candidate_ids[:80]:
+        detail = _player_detail(token, pid)
+        if not detail:
+            continue
+        if str(detail.get("egn") or "").strip() != egn_val:
+            continue
+        try:
+            current_club = int(detail.get("currentClubId")) if detail.get("currentClubId") is not None else None
+        except Exception:
+            current_club = None
+        in_club = pid in club_ids or current_club == int(club.bvf_club_id)
+        if in_club:
+            return detail
+        wrong_club = detail
+
+    if wrong_club is not None:
+        other = wrong_club.get("currentClubId")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Има състезател с това ЕГН в БФВ, но е в друг клуб (БФВ club #{other}).",
+        )
+    raise HTTPException(
+        status_code=404,
+        detail="Няма състезател с това ЕГН в клуба на БФВ. Ако още не е регистриран — използвай „Създай в БФВ“.",
+    )
+
+
 class TokenAthleteIn(BaseModel):
     bvf_token: Optional[str] = None
     athlete_id: int
@@ -157,16 +270,20 @@ def link_player_by_egn(
     if len(egn_val) != 10:
         raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")
 
-    remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/players", token)
-    if not isinstance(remote, list):
-        raise HTTPException(status_code=502, detail="БФВ players не е списък")
-    match = None
-    for row in remote:
-        if isinstance(row, dict) and str(row.get("egn") or "").strip() == egn_val:
-            match = row
-            break
-    if not match:
-        raise HTTPException(status_code=404, detail="Няма състезател с това ЕГН в клуба на БФВ")
+    name_hints = [
+        (athlete.last_name or "").strip(),
+        (athlete.first_name or "").strip(),
+        " ".join(
+            p
+            for p in [
+                (athlete.first_name or "").strip(),
+                (athlete.last_name or "").strip(),
+            ]
+            if p
+        ),
+        (athlete.athlete_name or "").strip(),
+    ]
+    match = _find_bvf_player_by_egn(token, club, egn_val, name_hints=name_hints)
 
     pid = int(match["id"])
     other = db.query(Athlete).filter(Athlete.bvf_player_id == pid, Athlete.id != athlete.id).first()
