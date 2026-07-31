@@ -122,11 +122,6 @@ export default function AthletePhysicalPanel({ athleteId, bvfPlayerId, toast }) 
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-        Записвай измерванията тук. След връзка с БФВ можеш да ги изпратиш към федерацията (височина, тегло, размах,
-        атака, блок).
-      </p>
-
       <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>Дата</span>

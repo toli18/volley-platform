@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
-import AthletePhysicalPanel from "../../components/athletes/AthletePhysicalPanel";
+import AthleteTestsPanel from "../../components/athletes/AthleteTestsPanel";
 import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
 import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
@@ -13,7 +13,7 @@ import { useToast } from "../../components/ToastProvider";
 
 const TABS = [
   { id: "overview", label: "Преглед" },
-  { id: "physical", label: "Физически" },
+  { id: "physical", label: "Тестове" },
   { id: "attendance", label: "Присъствие" },
   { id: "fees", label: "Такси" },
   { id: "history", label: "История" },
@@ -522,11 +522,11 @@ export default function AthleteProfileCoachMobile({
           </div>
         ) : null}
 
-        {tab === "physical" ? (
+        {tab === "physical" || tab === "tests" ? (
           <div className="athleteProfileTab">
             <section className="athleteProfileCard">
-              <h3 className="athleteProfileCardTitle">Физически показатели</h3>
-              <AthletePhysicalPanel
+              <h3 className="athleteProfileCardTitle">Тестове и физически показатели</h3>
+              <AthleteTestsPanel
                 athleteId={profile.athlete_id}
                 bvfPlayerId={profile.bvf_player_id}
                 toast={toast}

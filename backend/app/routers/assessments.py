@@ -678,6 +678,83 @@ def athlete_development(
     return query.order_by(DevelopmentScore.window_id.asc()).all()
 
 
+@router.get("/athletes/{athlete_id}/scouting", response_model=ScoutingTableOut)
+def athlete_scouting(
+    athlete_id: int,
+    include_anthropometry: bool = Query(
+        True,
+        description="Включи ръст/тегло/разтег ако има въведени стойности",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_READ_ROLES)),
+):
+    """Скаутските клетки за един състезател — същият формат като общата таблица."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if athlete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Състезателят не е намерен")
+    _ensure_athlete_access(current_user, athlete)
+
+    scored: list[TestDefinition] = []
+    anthro: list[TestDefinition] = []
+    for t in (
+        db.query(TestDefinition)
+        .filter(TestDefinition.is_active.is_(True))
+        .order_by(TestDefinition.sort_order.asc(), TestDefinition.id.asc())
+        .all()
+    ):
+        cat = _norm_value(t.category)
+        direction = _norm_value(t.direction)
+        if cat == "anthropometry":
+            if include_anthropometry:
+                anthro.append(t)
+            continue
+        if direction == "context":
+            continue
+        scored.append(t)
+    tests = [*anthro, *scored]
+    rows = build_scouting_table(db, [athlete], tests)
+
+    return ScoutingTableOut(
+        tests=[
+            ScoutTestOut(
+                code=t.code,
+                name=t.name,
+                category=_norm_value(t.category),
+                unit=t.unit,
+                direction=_norm_value(t.direction),
+            )
+            for t in tests
+        ],
+        rows=[
+            ScoutRowOut(
+                athlete_id=r.athlete_id,
+                athlete_name=r.athlete_name,
+                age_band=r.age_band,
+                gender=r.gender,
+                cells=[
+                    ScoutCellOut(
+                        test_code=c.test_code,
+                        raw_value=c.raw_value,
+                        score_2022=c.score_2022,
+                        score_2022_label=c.score_2022_label,
+                        peer_percentile=c.peer_percentile,
+                        peer_sample=c.peer_sample,
+                        peer_indicative=c.peer_indicative,
+                        talent_score=c.talent_score,
+                        talent_label=c.talent_label,
+                    )
+                    for c in r.cells
+                ],
+            )
+            for r in rows
+        ],
+        filters={
+            "athlete_id": athlete_id,
+            "include_anthropometry": include_anthropometry,
+        },
+    )
+
+
 # Производен показател „чист отскок" = отскок след засилване − разтег (см).
 _NET_JUMP_APPROACH_CODE = "PHYS_JUMP_APPROACH"
 _NET_JUMP_REACH_CODE = "ANTH_REACH"

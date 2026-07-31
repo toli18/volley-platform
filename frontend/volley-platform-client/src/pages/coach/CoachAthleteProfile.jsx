@@ -26,8 +26,12 @@ export default function CoachAthleteProfile() {
   const athleteIdNum = Number(athleteId);
 
   const from = searchParams.get("from") || "/coach/teams";
-  const tab = ["overview", "physical", "attendance", "fees", "history"].includes(searchParams.get("tab") || "")
-    ? searchParams.get("tab")
+  const rawTab = searchParams.get("tab") || "";
+  // „tests“ е стар alias — съдържанието е обединено в physical.
+  const tab = ["overview", "tests", "physical", "attendance", "fees", "history"].includes(rawTab)
+    ? rawTab === "tests"
+      ? "physical"
+      : rawTab
     : "overview";
   const setTab = (id) => setSearchParams({ tab: id, from }, { replace: true });
 
