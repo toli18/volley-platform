@@ -207,6 +207,8 @@ export default function AthleteProfileCoachMobile({
   onSaveEdit,
   onOpenBvfCreate,
   onOpenBvfLink,
+  onSyncPhoto,
+  syncingPhoto = false,
 }) {
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -218,7 +220,10 @@ export default function AthleteProfileCoachMobile({
   const [historyLimit, setHistoryLimit] = useState(15);
   const [feesMonth, setFeesMonth] = useState(currentMonthKey);
 
-  const photoUrl = useAthletePhoto(profile.athlete_id, Boolean(profile.has_photo));
+  const canFetchPhoto = Boolean(profile.bvf_player_id || profile.bvf_photo_id);
+  const photoUrl = useAthletePhoto(profile.athlete_id, Boolean(profile.has_photo), {
+    canFetchFromBvf: canFetchPhoto,
+  });
 
   const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, TABS.map((t) => t.id));
 
@@ -340,7 +345,7 @@ export default function AthleteProfileCoachMobile({
                   <p className="athleteProfileSummaryLine">
                     Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
                     {identityLocked ? " · идентичността е заключена" : ""}
-                    {profile.has_photo ? " · има снимка" : " · без локална снимка"}
+                    {profile.has_photo || photoUrl ? " · има снимка" : " · без локална снимка"}
                   </p>
                 ) : (
                   <>
@@ -375,6 +380,13 @@ export default function AthleteProfileCoachMobile({
                     </div>
                   </>
                 )}
+                {profile.bvf_player_id && !profile.has_photo && !photoUrl ? (
+                  <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                    <Button type="button" size="sm" disabled={syncingPhoto} onClick={onSyncPhoto}>
+                      {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
+                    </Button>
+                  </div>
+                ) : null}
                 {profile.bvf_player_id ? (
                   <div style={{ marginTop: 12 }}>
                     <button type="button" className="athleteProfileCollapseHead" onClick={() => setDocsOpen((v) => !v)}>

@@ -237,7 +237,11 @@ def sync_athlete_photo(
     photo_id = str(remote.get("photoId") or "").strip() or None
     if not photo_id:
         raise HTTPException(status_code=404, detail="Няма снимка в БФВ")
-    content, _ctype = _bvf_get_bytes(f"/api/files/{photo_id}", token)
+    from app.services.athlete_photo import fetch_bvf_photo_bytes, save_athlete_photo
+
+    content = fetch_bvf_photo_bytes(token, photo_id)
+    if not content:
+        raise HTTPException(status_code=502, detail="Неуспешно изтегляне на снимката от БФВ")
     save_athlete_photo(athlete.id, content)
     athlete.bvf_photo_id = photo_id
     athlete.bvf_synced_at = datetime.utcnow()

@@ -47,6 +47,7 @@ export default function CoachAthleteProfile() {
   const [editForm, setEditForm] = useState(null);
   const [bvfOpen, setBvfOpen] = useState(false);
   const [bvfLinkOpen, setBvfLinkOpen] = useState(false);
+  const [syncingPhoto, setSyncingPhoto] = useState(false);
 
   const feesAllHref = useMemo(() => {
     if (!profile?.athlete_id) return "/coach/fees";
@@ -226,6 +227,22 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const syncPhotoFromBvf = async () => {
+    if (!profile?.athlete_id) return;
+    try {
+      setSyncingPhoto(true);
+      await axiosInstance.post(API_PATHS.BVF_ADMIN_SYNC_PHOTO, {
+        athlete_id: profile.athlete_id,
+      });
+      toast.success("Снимката е заредена от БФВ.");
+      await reloadProfile();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно зареждане на снимка."));
+    } finally {
+      setSyncingPhoto(false);
+    }
+  };
+
   if (loading) {
     return <p className="coachMobileMuted">Зареждане...</p>;
   }
@@ -260,6 +277,8 @@ export default function CoachAthleteProfile() {
         onSaveEdit={saveProfile}
         onOpenBvfCreate={() => setBvfOpen(true)}
         onOpenBvfLink={() => setBvfLinkOpen(true)}
+        onSyncPhoto={syncPhotoFromBvf}
+        syncingPhoto={syncingPhoto}
       />
       <BvfCreateAthleteModal
         open={bvfOpen}

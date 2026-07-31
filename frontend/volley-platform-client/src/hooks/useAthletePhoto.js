@@ -3,15 +3,18 @@ import { useEffect, useState } from "react";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 
-/** Loads athlete portrait as blob URL (auth via axios). */
-export default function useAthletePhoto(athleteId, hasPhoto) {
+/**
+ * Loads athlete portrait as blob URL (auth via axios).
+ * canFetchFromBvf — опитва GET photo дори без локален кеш (сървърът дърпва от БФВ).
+ */
+export default function useAthletePhoto(athleteId, hasPhoto, { canFetchFromBvf = false } = {}) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
     let objectUrl = null;
     let cancelled = false;
     const id = Number(athleteId);
-    if (!id || !hasPhoto) {
+    if (!id || (!hasPhoto && !canFetchFromBvf)) {
       setUrl(null);
       return undefined;
     }
@@ -31,7 +34,7 @@ export default function useAthletePhoto(athleteId, hasPhoto) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [athleteId, hasPhoto]);
+  }, [athleteId, hasPhoto, canFetchFromBvf]);
 
   return url;
 }

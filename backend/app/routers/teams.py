@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from app.services.athlete_photo import has_cached_photo, read_athlete_photo
+from app.services.athlete_photo import ensure_athlete_photo_from_bvf, has_cached_photo, read_athlete_photo
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -785,7 +785,14 @@ def athlete_photo(
         raise HTTPException(status_code=404, detail="Athlete not found")
     data = read_athlete_photo(athlete.id)
     if not data:
-        raise HTTPException(status_code=404, detail="Няма локална снимка")
+        club = None
+        if athlete.club_id:
+            club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+        data = ensure_athlete_photo_from_bvf(athlete, club)
+        if data and getattr(athlete, "bvf_photo_id", None):
+            db.commit()
+    if not data:
+        raise HTTPException(status_code=404, detail="Няма снимка")
     return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
@@ -804,6 +811,13 @@ def athlete_profile(
     from app.services.athlete_identity import apply_birth_date_from_egn
 
     if apply_birth_date_from_egn(athlete):
+        db.commit()
+        db.refresh(athlete)
+
+    club_for_photo = None
+    if athlete.club_id:
+        club_for_photo = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if ensure_athlete_photo_from_bvf(athlete, club_for_photo):
         db.commit()
         db.refresh(athlete)
 
