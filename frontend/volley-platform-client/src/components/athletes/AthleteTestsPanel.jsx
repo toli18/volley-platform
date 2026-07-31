@@ -189,8 +189,8 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
         <div>
           <h4 style={{ margin: "0 0 4px", fontSize: 15 }}>Към картотека (БФВ)</h4>
           <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-            Само тези показатели могат да се прехвърлят към системата за картотекиране: височина, тегло, размах,
-            атака, блок.
+            Стойностите се взимат автоматично от тестовете. Изпращат се само полетата, които федерацията приема:
+            височина, тегло, размах/разтег, атака (отскок със засилване), блок (отскок с 2 ръце).
           </p>
         </div>
         <AthletePhysicalPanel athleteId={athleteId} bvfPlayerId={bvfPlayerId} toast={toast} />

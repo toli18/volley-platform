@@ -940,6 +940,42 @@ def _serialize_physical(row: AthletePhysicalMeasurement) -> dict:
     }
 
 
+def _push_physical_row_to_bvf(row: AthletePhysicalMeasurement, athlete: Athlete, token: str) -> AthletePhysicalMeasurement:
+    """Изпраща локален ред към БФВ developments и маркира sync."""
+    data = {"Date": row.measured_at.strftime("%Y-%m-%dT%H:%M:%S")}
+    if row.position is not None:
+        data["Position"] = str(int(row.position))
+    if row.height_cm is not None:
+        data["Height"] = str(int(row.height_cm))
+    if row.weight_kg is not None:
+        data["Weight"] = str(int(row.weight_kg))
+    if row.full_extent_cm is not None:
+        data["FullExtent"] = str(int(row.full_extent_cm))
+    if row.attack_cm is not None:
+        data["Attack"] = str(int(row.attack_cm))
+    if row.block_cm is not None:
+        data["Block"] = str(int(row.block_cm))
+
+    remote = _bvf_post_multipart(f"/api/players/{int(athlete.bvf_player_id)}/developments", token, data, files={})
+    if isinstance(remote, dict) and remote.get("id") is not None:
+        try:
+            row.bvf_development_id = int(remote.get("id"))
+        except Exception:
+            row.bvf_development_id = None
+    else:
+        remote_list = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/developments", token)
+        if isinstance(remote_list, list) and remote_list:
+            last = remote_list[-1] if isinstance(remote_list[-1], dict) else None
+            if last and last.get("id") is not None:
+                try:
+                    row.bvf_development_id = int(last["id"])
+                except Exception:
+                    pass
+
+    row.bvf_synced_at = datetime.utcnow()
+    return row
+
+
 @router.get("/players/{athlete_id}/physical")
 def list_physical_measurements(
     athlete_id: int,
@@ -955,12 +991,30 @@ def list_physical_measurements(
         .order_by(AthletePhysicalMeasurement.measured_at.desc())
         .all()
     )
+    from app.services.physical_from_tests import latest_bvf_fields_from_tests
+
+    from_tests = latest_bvf_fields_from_tests(db, athlete.id)
     return {
         "athlete_id": athlete.id,
         "bvf_player_id": athlete.bvf_player_id,
         "can_send_to_bvf": bool(athlete.bvf_player_id),
+        "from_tests": from_tests,
         "items": [_serialize_physical(r) for r in rows],
     }
+
+
+@router.get("/players/{athlete_id}/physical/from-tests")
+def physical_from_tests_preview(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    from app.services.physical_from_tests import latest_bvf_fields_from_tests
+
+    return latest_bvf_fields_from_tests(db, athlete.id)
 
 
 @router.post("/players/{athlete_id}/physical")
@@ -1001,6 +1055,55 @@ def create_physical_measurement(
     return _serialize_physical(row)
 
 
+@router.post("/players/{athlete_id}/physical/send-from-tests")
+def send_physical_from_tests(
+    athlete_id: int,
+    payload: PhysicalSendIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Взема стойностите от тестовете и ги изпраща към БФВ developments."""
+    from app.services.physical_from_tests import (
+        find_matching_synced,
+        latest_bvf_fields_from_tests,
+        upsert_pending_from_tests,
+    )
+
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    if not athlete.bvf_player_id:
+        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+
+    preview = latest_bvf_fields_from_tests(db, athlete.id)
+    if not preview["has_data"]:
+        raise HTTPException(status_code=422, detail="Няма тестови данни за изпращане (височина/тегло/…)")
+
+    matched = find_matching_synced(db, athlete.id, preview["fields"])
+    if matched is not None:
+        return {
+            **_serialize_physical(matched),
+            "already_synced": True,
+            "from_tests": preview,
+        }
+
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+
+    row = upsert_pending_from_tests(db, athlete.id, user_id=current_user.id)
+    if row is None:
+        raise HTTPException(status_code=422, detail="Няма тестови данни за изпращане")
+
+    _push_physical_row_to_bvf(row, athlete, token)
+    db.commit()
+    db.refresh(row)
+    return {
+        **_serialize_physical(row),
+        "already_synced": False,
+        "from_tests": preview,
+    }
+
+
 @router.post("/players/physical/{measurement_id}/send-bvf")
 def send_physical_to_bvf(
     measurement_id: int,
@@ -1021,37 +1124,7 @@ def send_physical_to_bvf(
 
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
-    data = {"Date": row.measured_at.strftime("%Y-%m-%dT%H:%M:%S")}
-    if row.position is not None:
-        data["Position"] = str(int(row.position))
-    if row.height_cm is not None:
-        data["Height"] = str(int(row.height_cm))
-    if row.weight_kg is not None:
-        data["Weight"] = str(int(row.weight_kg))
-    if row.full_extent_cm is not None:
-        data["FullExtent"] = str(int(row.full_extent_cm))
-    if row.attack_cm is not None:
-        data["Attack"] = str(int(row.attack_cm))
-    if row.block_cm is not None:
-        data["Block"] = str(int(row.block_cm))
-
-    remote = _bvf_post_multipart(f"/api/players/{int(athlete.bvf_player_id)}/developments", token, data, files={})
-    if isinstance(remote, dict) and remote.get("id") is not None:
-        try:
-            row.bvf_development_id = int(remote.get("id"))
-        except Exception:
-            row.bvf_development_id = None
-    else:
-        remote_list = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/developments", token)
-        if isinstance(remote_list, list) and remote_list:
-            last = remote_list[-1] if isinstance(remote_list[-1], dict) else None
-            if last and last.get("id") is not None:
-                try:
-                    row.bvf_development_id = int(last["id"])
-                except Exception:
-                    pass
-
-    row.bvf_synced_at = datetime.utcnow()
+    _push_physical_row_to_bvf(row, athlete, token)
     db.commit()
     db.refresh(row)
     return {**_serialize_physical(row), "already_synced": False}

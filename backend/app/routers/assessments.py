@@ -628,6 +628,10 @@ def bulk_results(
 
     upserted = 0
     skipped: list[str] = []
+    touched_athletes: set[int] = set()
+    from app.services.physical_from_tests import BVF_FIELD_TEST_CODES, upsert_pending_from_tests
+
+    transferable = set(BVF_FIELD_TEST_CODES.values())
     for item in payload.results:
         if item.test_code not in valid_codes:
             skipped.append(item.test_code)
@@ -650,12 +654,24 @@ def bulk_results(
             db.add(row)
         row.raw_value = item.raw_value
         upserted += 1
+        if item.test_code in transferable and item.raw_value is not None:
+            touched_athletes.add(int(item.athlete_id))
+
+    db.flush()
+    for aid in touched_athletes:
+        upsert_pending_from_tests(
+            db,
+            aid,
+            session_id=session_id,
+            user_id=current_user.id,
+        )
 
     db.commit()
     return {
         "session_id": session_id,
         "upserted": upserted,
         "skipped_unknown_codes": sorted(set(skipped)),
+        "physical_pending_athletes": sorted(touched_athletes),
     }
 
 

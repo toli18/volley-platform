@@ -239,6 +239,7 @@ export const API_PATHS = {
   BVF_ADMIN_PHYSICAL_LIST: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_CREATE: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_SEND: (measurementId) => `/api/bvf-admin/players/physical/${measurementId}/send-bvf`,
+  BVF_ADMIN_PHYSICAL_SEND_FROM_TESTS: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/send-from-tests`,
   BVF_ADMIN_PHYSICAL_FETCH: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/fetch-bvf`,
 
   // Training assignments
