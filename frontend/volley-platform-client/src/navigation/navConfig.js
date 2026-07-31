@@ -46,6 +46,13 @@ export const COACH_PRIMARY_NAV = [
         icon: "shield",
         headCoachOnly: true,
       },
+      {
+        id: "bvf-card-indexes",
+        label: "Картотечни отбори",
+        to: "/coach/bvf-card-indexes",
+        icon: "shield",
+        headCoachOnly: true,
+      },
     ],
   },
   {
@@ -148,6 +155,14 @@ export const COACH_CLUB_HUB_LINKS = [
     headCoachOnly: true,
     hint: "Картотека и селективен импорт",
   },
+  {
+    id: "bvf-card-indexes",
+    label: "Картотечни отбори",
+    to: "/coach/bvf-card-indexes",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Сезон × възраст · състав",
+  },
 ];
 
 /** @type {NavLinkItem[]} */
@@ -162,6 +177,14 @@ export const COACH_BVF_HUB_LINKS = [
     icon: "shield",
     headCoachOnly: true,
     hint: "Свързване на клуб и селективен импорт на състезатели",
+  },
+  {
+    id: "bvf-card-indexes",
+    label: "Картотечни отбори",
+    to: "/coach/bvf-card-indexes",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Сезон × възраст · добавяне на състезатели с БФВ id",
   },
   { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
 ];

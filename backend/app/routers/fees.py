@@ -23,6 +23,12 @@ from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, Club, Team, TeamMember, User, UserRole
 from app.services.parent_portal_notify import queue_fee_paid
 from app.services.athlete_birth import resolve_birth_date, resolve_place_of_birth
+from app.services.athlete_identity import (
+    bvf_identity_locked,
+    compose_athlete_name,
+    default_nationality_from_city,
+    validate_name_part,
+)
 from app.schemas.fees import (
     AthleteCreate,
     AthleteMonthlyReport,
@@ -470,27 +476,42 @@ def create_athlete(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
-    name = (payload.athlete_name or "").strip()
-    if not name:
-        raise HTTPException(status_code=422, detail="athlete_name is required")
-    club_city = None
-    if current_user.club_id:
-        club = db.query(Club).filter(Club.id == current_user.club_id).first()
-        club_city = club.city if club else None
+    try:
+        first_name = validate_name_part("Собствено име", payload.first_name)
+        middle_name = validate_name_part("Бащино име", payload.middle_name)
+        last_name = validate_name_part("Фамилия", payload.last_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    place = (payload.place_of_birth or "").strip()
+    if not place:
+        raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
+    if not payload.birth_date:
+        raise HTTPException(status_code=422, detail="Датата на раждане е задължителна")
+    if not payload.gender:
+        raise HTTPException(status_code=422, detail="Полът е задължителен")
+
     birth_date, birth_year = resolve_birth_date(
         birth_date=payload.birth_date,
         birth_year=payload.birth_year,
     )
+    nationality = default_nationality_from_city(place, payload.nationality)
+    full_name = compose_athlete_name(first_name, middle_name, last_name)
+
     athlete = Athlete(
         coach_id=current_user.id,
         club_id=current_user.club_id,
-        athlete_name=name,
+        athlete_name=full_name,
+        first_name=first_name,
+        middle_name=middle_name,
+        last_name=last_name,
         athlete_phone=(payload.athlete_phone or "").strip() or None,
         parent_name=(payload.parent_name or "").strip() or None,
         parent_phone=(payload.parent_phone or "").strip() or None,
         birth_date=birth_date,
         birth_year=birth_year,
-        place_of_birth=resolve_place_of_birth(payload.place_of_birth, club_city),
+        place_of_birth=place,
+        nationality=nationality,
         gender=payload.gender,
         notes=(payload.notes or "").strip() or None,
         is_active=bool(payload.is_active),
@@ -694,12 +715,54 @@ def update_athlete(
 ):
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
     data = payload.model_dump(exclude_unset=True)
+    locked = bvf_identity_locked(athlete)
 
-    if "athlete_name" in data:
+    identity_keys = {
+        "first_name",
+        "middle_name",
+        "last_name",
+        "athlete_name",
+        "birth_date",
+        "birth_year",
+        "place_of_birth",
+        "nationality",
+        "gender",
+        "egn",
+    }
+    if locked and identity_keys.intersection(data.keys()):
+        raise HTTPException(
+            status_code=409,
+            detail="След връзка с БФВ идентичността (имена, ЕГН, дата, град, националност, пол) не се редактира тук.",
+        )
+
+    name_touched = any(k in data for k in ("first_name", "middle_name", "last_name"))
+    if name_touched:
+        try:
+            first_name = validate_name_part(
+                "Собствено име",
+                data["first_name"] if "first_name" in data else athlete.first_name,
+            )
+            middle_name = validate_name_part(
+                "Бащино име",
+                data["middle_name"] if "middle_name" in data else athlete.middle_name,
+            )
+            last_name = validate_name_part(
+                "Фамилия",
+                data["last_name"] if "last_name" in data else athlete.last_name,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        athlete.first_name = first_name
+        athlete.middle_name = middle_name
+        athlete.last_name = last_name
+        athlete.athlete_name = compose_athlete_name(first_name, middle_name, last_name)
+    elif "athlete_name" in data:
+        # Legacy: allow fixing old single-field records until names are split
         name = (data.get("athlete_name") or "").strip()
         if not name:
-            raise HTTPException(status_code=422, detail="athlete_name cannot be empty")
+            raise HTTPException(status_code=422, detail="Името не може да е празно")
         athlete.athlete_name = name
+
     if "athlete_phone" in data:
         athlete.athlete_phone = (data.get("athlete_phone") or "").strip() or None
     if "parent_name" in data:
@@ -712,6 +775,8 @@ def update_athlete(
             birth_year=data.get("birth_year") if "birth_year" in data and "birth_date" not in data else None,
         )
         if "birth_date" in data:
+            if not birth_date:
+                raise HTTPException(status_code=422, detail="Датата на раждане е задължителна")
             athlete.birth_date = birth_date
             athlete.birth_year = birth_year
         elif "birth_year" in data:
@@ -719,16 +784,25 @@ def update_athlete(
             if athlete.birth_year and not athlete.birth_date:
                 athlete.birth_date = resolve_birth_date(birth_year=athlete.birth_year)[0]
             elif athlete.birth_date and athlete.birth_year:
-                # keep date day/month, update year if only year changed
                 athlete.birth_date = athlete.birth_date.replace(year=int(athlete.birth_year))
     if "place_of_birth" in data:
-        club_city = None
-        if athlete.club_id:
-            club = db.query(Club).filter(Club.id == athlete.club_id).first()
-            club_city = club.city if club else None
-        athlete.place_of_birth = resolve_place_of_birth(data.get("place_of_birth"), club_city)
+        place = (data.get("place_of_birth") or "").strip()
+        if not place:
+            raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
+        athlete.place_of_birth = place
+        if "nationality" not in data:
+            athlete.nationality = default_nationality_from_city(place, athlete.nationality)
+    if "nationality" in data:
+        athlete.nationality = default_nationality_from_city(
+            athlete.place_of_birth,
+            data.get("nationality"),
+        )
     if "gender" in data:
+        if not data.get("gender"):
+            raise HTTPException(status_code=422, detail="Полът е задължителен")
         athlete.gender = data.get("gender")
+    if "egn" in data:
+        athlete.egn = (data.get("egn") or "").strip() or None
     if "notes" in data:
         athlete.notes = (data.get("notes") or "").strip() or None
     if "is_active" in data:

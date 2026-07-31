@@ -133,15 +133,27 @@ class AthleteTimelineEvent(BaseModel):
 class AthleteProfileResponse(BaseModel):
     athlete_id: int
     athlete_name: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     gender: Optional[str] = None
     birth_year: Optional[int] = None
     birth_date: Optional[date] = None
     place_of_birth: Optional[str] = None
+    nationality: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
     notes: Optional[str] = None
     is_active: bool = True
+    egn: Optional[str] = None
+    bvf_player_id: Optional[int] = None
+    bvf_player_number: Optional[int] = None
+    bvf_photo_id: Optional[str] = None
+    has_photo: bool = False
+    bvf_identity_locked: bool = False
+    bvf_ready: bool = False
+    bvf_missing: list[str] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     teams: list[str] = Field(default_factory=list)

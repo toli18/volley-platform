@@ -5,9 +5,16 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { parentLoginPath, parentLoginUrl } from "../utils/parentAuth";
 import { useToast } from "../components/ToastProvider";
+import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
+import BvfCreateAthleteModal from "../components/athletes/BvfCreateAthleteModal";
 import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { normalizeError } from "../utils/normalizeError";
+import {
+  athleteToIdentityForm,
+  buildAthletePayload,
+  validateAthleteIdentityForm,
+} from "../utils/athleteIdentity";
 
 const fmtMissing = (value) => {
   if (value == null || value === "") return "няма данни";
@@ -49,18 +56,16 @@ export default function TeamAthleteProfile() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [bvfOpen, setBvfOpen] = useState(false);
   const fromPath = new URLSearchParams(location.search).get("from") || "/coach/teams";
 
   const feesHref = useMemo(() => {
     const id = profile?.athlete_id;
     if (!id) return "/monthly-fees";
     return `/monthly-fees?athlete_id=${encodeURIComponent(id)}`;
-  }, [profile?.athlete_id]);
-
-  const feesEditHref = useMemo(() => {
-    const id = profile?.athlete_id;
-    if (!id) return "/monthly-fees";
-    return `/monthly-fees?athlete_id=${encodeURIComponent(id)}&focus=edit`;
   }, [profile?.athlete_id]);
 
   const feesPayHref = useMemo(() => {
@@ -102,6 +107,54 @@ export default function TeamAthleteProfile() {
     }
   };
 
+  const startEdit = () => {
+    if (!profile) return;
+    setEditForm(athleteToIdentityForm(profile));
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditForm(null);
+  };
+
+  const saveProfile = async () => {
+    if (!profile || !editForm) return;
+    const locked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
+    if (!locked) {
+      const err = validateAthleteIdentityForm(editForm, {
+        requireSplitNames:
+          Boolean(editForm.first_name || editForm.middle_name || editForm.last_name) || !editForm.athlete_name,
+      });
+      if (err) {
+        toast.error(err);
+        return;
+      }
+    }
+    const payload = locked
+      ? {
+          athlete_phone: (editForm.athlete_phone || "").trim() || null,
+          parent_name: (editForm.parent_name || "").trim() || null,
+          parent_phone: (editForm.parent_phone || "").trim() || null,
+          notes: (editForm.notes || "").trim() || null,
+          is_active: Boolean(editForm.is_active),
+        }
+      : buildAthletePayload(editForm);
+    try {
+      setSavingProfile(true);
+      await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(profile.athlete_id), payload);
+      const res = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteId));
+      setProfile(res.data || null);
+      setEditing(false);
+      setEditForm(null);
+      toast.success("Профилът е запазен.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно запазване."));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="uiPage">
@@ -132,12 +185,33 @@ export default function TeamAthleteProfile() {
     <div className="uiPage">
       <PageHero
         title={`Профил: ${profile.athlete_name}`}
-        subtitle="Присъствие, отбори, такси и история на едно място."
+        subtitle="Лични данни, БФВ, присъствие и такси на едно място."
         actions={
           <div className="athleteProfileHeroActions">
-            <Button as={Link} to={feesEditHref} variant="primary">
-              Редактирай профил
-            </Button>
+            {!editing ? (
+              <>
+                <Button type="button" variant="primary" onClick={startEdit}>
+                  Редактирай
+                </Button>
+                {!profile.bvf_player_id ? (
+                  <Button type="button" variant="secondary" onClick={() => setBvfOpen(true)}>
+                    Създай в БФВ
+                  </Button>
+                ) : null}
+                <Button as={Link} to={feesPayHref} variant="secondary">
+                  Плащане
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" disabled={savingProfile} onClick={saveProfile}>
+                  {savingProfile ? "Запазване…" : "Запази"}
+                </Button>
+                <Button type="button" variant="secondary" disabled={savingProfile} onClick={cancelEdit}>
+                  Отказ
+                </Button>
+              </>
+            )}
             <Button type="button" variant="secondary" onClick={scrollToHistory}>
               История
             </Button>
@@ -148,7 +222,16 @@ export default function TeamAthleteProfile() {
         }
       />
 
-      <Card title="Основни данни">
+      <Card title={editing ? "Редакция на профил" : "Основни данни"}>
+        {editing && editForm ? (
+          <AthleteIdentityFields
+            form={editForm}
+            setForm={setEditForm}
+            identityLocked={Boolean(profile.bvf_player_id || profile.bvf_identity_locked)}
+            showLegacyNameHint
+            showEgn
+          />
+        ) : (
         <div className="athleteProfileBasicGrid">
           <div className="athleteProfileBlock">
             <h4 className="athleteProfileBlockTitle">Лични данни</h4>
@@ -158,8 +241,28 @@ export default function TeamAthleteProfile() {
                 <dd>{fmtMissing(profile.athlete_name)}</dd>
               </div>
               <div>
+                <dt>Три имена</dt>
+                <dd>
+                  {fmtMissing(
+                    [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(" ") || null
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Дата на раждане</dt>
+                <dd>{fmtMissing(profile.birth_date ? String(profile.birth_date).slice(0, 10) : null)}</dd>
+              </div>
+              <div>
                 <dt>Година на раждане</dt>
                 <dd>{fmtMissing(birthYearVal)}</dd>
+              </div>
+              <div>
+                <dt>Град</dt>
+                <dd>{fmtMissing(profile.place_of_birth)}</dd>
+              </div>
+              <div>
+                <dt>Националност</dt>
+                <dd>{fmtMissing(profile.nationality)}</dd>
               </div>
               <div>
                 <dt>Пол</dt>
@@ -168,6 +271,18 @@ export default function TeamAthleteProfile() {
               <div>
                 <dt>Възраст (на база година)</dt>
                 <dd>{ageYears != null ? `${ageYears} г.` : "няма данни"}</dd>
+              </div>
+              <div>
+                <dt>БФВ</dt>
+                <dd>
+                  {profile.bvf_player_id
+                    ? `№ ${profile.bvf_player_number || profile.bvf_player_id}`
+                    : profile.bvf_ready
+                      ? "Готов за връзка (без снимка)"
+                      : profile.bvf_missing?.length
+                        ? `Липсва: ${profile.bvf_missing.filter((m) => m !== "снимка").join(", ")}`
+                        : "Не е свързан"}
+                </dd>
               </div>
               <div>
                 <dt>Телефон на състезател</dt>
@@ -208,7 +323,22 @@ export default function TeamAthleteProfile() {
             </dl>
           </div>
         </div>
+        )}
       </Card>
+
+      <BvfCreateAthleteModal
+        open={bvfOpen}
+        onClose={() => setBvfOpen(false)}
+        athleteId={profile.athlete_id}
+        athleteName={profile.athlete_name}
+        initialEgn={profile.egn || ""}
+        missing={profile.bvf_missing || []}
+        toast={toast}
+        onCreated={async () => {
+          const res = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteId));
+          setProfile(res.data || null);
+        }}
+      />
 
       <Card title="Обобщение на присъствие">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

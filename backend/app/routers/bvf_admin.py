@@ -1,19 +1,30 @@
-"""BVF Administration — link club + selective player import from federation JSON."""
+"""BVF Administration — verified club link + selective player import via federation API."""
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import date, datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, Club, User, UserRole
+from app.services.athlete_identity import (
+    compose_athlete_name,
+    default_nationality_from_city,
+    validate_name_part,
+)
 
 router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Admin"])
+
+BVF_API_BASE = "https://db.bvf.bg"
+BVF_TIMEOUT = 45.0
 
 
 def _ensure_head_with_club(user: User) -> None:
@@ -33,6 +44,119 @@ def _club_for_user(db: Session, user: User, club_id: int | None = None) -> Club:
     if not club:
         raise HTTPException(status_code=404, detail="Клубът не е намерен")
     return club
+
+
+def _normalize_bearer(raw: str) -> str:
+    token = (raw or "").strip()
+    if not token:
+        raise HTTPException(status_code=422, detail="Липсва БФВ token")
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if not token:
+        raise HTTPException(status_code=422, detail="Липсва БФВ token")
+    return token
+
+
+def _jwt_payload_unverified(token: str) -> dict:
+    """Чете payload без проверка на подписа — валидността се доказва с live call към БФВ."""
+    parts = token.split(".")
+    if len(parts) < 2:
+        raise HTTPException(status_code=422, detail="Невалиден JWT token")
+    try:
+        pad = "=" * (-len(parts[1]) % 4)
+        return json.loads(base64.urlsafe_b64decode(parts[1] + pad).decode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Невалиден JWT token") from exc
+
+
+def _club_id_from_token(token: str) -> int:
+    payload = _jwt_payload_unverified(token)
+    raw = payload.get("clubId") or payload.get("club_id")
+    if raw is None:
+        # claims array style sometimes mirrored only in login response, not JWT
+        raise HTTPException(
+            status_code=422,
+            detail="Token-ът няма clubId claim — влез с клубен акаунт в db.bvf.bg",
+        )
+    try:
+        return int(raw)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Невалиден clubId в token") from exc
+
+
+def _bvf_headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+    }
+
+
+def _bvf_get(path: str, token: str) -> Any:
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.get(url, headers=_bvf_headers(token))
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+
+    if res.status_code == 401:
+        raise HTTPException(
+            status_code=401,
+            detail="БФВ token е невалиден или изтекъл. Направи нов login в db.bvf.bg / Swagger.",
+        )
+    if res.status_code == 403:
+        raise HTTPException(status_code=403, detail="Нямаш право за този ресурс в БФВ.")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:300] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=502, detail=detail)
+    try:
+        return res.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="БФВ върна невалиден JSON") from exc
+
+
+def _bvf_post_multipart(path: str, token: str, data: dict, files: dict | None = None) -> Any:
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            kwargs: dict[str, Any] = {
+                "headers": {"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                "data": data,
+            }
+            if files:
+                kwargs["files"] = files
+            res = client.post(url, **kwargs)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+
+    if res.status_code == 401:
+        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+    if res.status_code == 403:
+        raise HTTPException(status_code=403, detail="Нямаш право за този ресурс в БФВ.")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:500] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=502, detail=detail)
+    try:
+        return res.json()
+    except Exception:
+        return {"ok": True, "raw": (res.text or "")[:200]}
+
+
+def _athlete_for_bvf_action(db: Session, user: User, athlete_id: int) -> Athlete:
+    athlete = db.query(Athlete).filter(Athlete.id == int(athlete_id)).first()
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Състезателят не е намерен")
+    if user.role in (UserRole.platform_admin, UserRole.federation_admin):
+        return athlete
+    if user.role == UserRole.club_head_coach:
+        if not user.club_id or int(athlete.club_id or 0) != int(user.club_id):
+            raise HTTPException(status_code=403, detail="Нямаш достъп до този състезател")
+        return athlete
+    if user.role == UserRole.coach:
+        if int(athlete.coach_id) != int(user.id):
+            raise HTTPException(status_code=403, detail="Нямаш достъп до този състезател")
+        return athlete
+    raise HTTPException(status_code=403, detail="Няма достъп")
 
 
 def _parse_birth_date(raw: Any) -> date | None:
@@ -75,135 +199,7 @@ def _display_name(row: dict) -> str:
     return " ".join(p for p in parts if p) or f"Състезател #{row.get('id') or '?'}"
 
 
-class LinkClubIn(BaseModel):
-    bvf_club_id: int = Field(..., ge=1)
-    bvf_club_name: Optional[str] = None
-    club_id: Optional[int] = None
-
-
-class BvfPlayerIn(BaseModel):
-    id: int
-    number: Optional[int] = None
-    firstName: Optional[str] = None
-    middleName: Optional[str] = None
-    lastName: Optional[str] = None
-    egn: Optional[str] = None
-    birthDate: Optional[str] = None
-    birthYear: Optional[int] = None
-    sex: Optional[int] = None
-    nationality: Optional[str] = None
-    city: Optional[dict] = None
-    currentClubId: Optional[int] = None
-    currentCoachId: Optional[int] = None
-    currentCoach: Optional[dict] = None
-    photoId: Optional[str] = None
-    isDeleted: Optional[bool] = None
-
-
-class PreviewPlayersIn(BaseModel):
-    players: list[dict] = Field(default_factory=list)
-    club_id: Optional[int] = None
-
-
-class ImportPlayersIn(BaseModel):
-    players: list[dict] = Field(default_factory=list)
-    club_id: Optional[int] = None
-    # Ако липсва, импортът отива към текущия главен треньор
-    assign_coach_id: Optional[int] = None
-
-
-@router.get("/status")
-def bvf_admin_status(
-    club_id: int | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-    ),
-):
-    _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, club_id)
-    linked_count = (
-        db.query(Athlete)
-        .filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None))
-        .count()
-    )
-    return {
-        "club_id": club.id,
-        "club_name": club.name,
-        "bvf_club_id": club.bvf_club_id,
-        "bvf_club_name": club.bvf_club_name,
-        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
-        "linked_athletes": linked_count,
-    }
-
-
-@router.put("/link-club")
-def link_club(
-    payload: LinkClubIn,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-    ),
-):
-    _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, payload.club_id)
-
-    other = (
-        db.query(Club)
-        .filter(Club.bvf_club_id == int(payload.bvf_club_id), Club.id != club.id)
-        .first()
-    )
-    if other:
-        raise HTTPException(
-            status_code=409,
-            detail=f"БФВ клуб {payload.bvf_club_id} вече е свързан с „{other.name}“",
-        )
-
-    club.bvf_club_id = int(payload.bvf_club_id)
-    name = (payload.bvf_club_name or "").strip() or None
-    if name:
-        club.bvf_club_name = name
-    club.bvf_linked_at = datetime.utcnow()
-    db.commit()
-    db.refresh(club)
-    return {
-        "club_id": club.id,
-        "club_name": club.name,
-        "bvf_club_id": club.bvf_club_id,
-        "bvf_club_name": club.bvf_club_name,
-        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
-    }
-
-
-@router.delete("/link-club")
-def unlink_club(
-    club_id: int | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-    ),
-):
-    _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, club_id)
-    club.bvf_club_id = None
-    club.bvf_club_name = None
-    club.bvf_linked_at = None
-    db.commit()
-    return {"ok": True, "club_id": club.id}
-
-
-@router.post("/players/preview")
-def preview_players(
-    payload: PreviewPlayersIn,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-    ),
-):
-    """Сравнява качен БФВ JSON списък с вече импортираните спортисти."""
-    _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, payload.club_id)
-
+def _preview_rows(db: Session, club: Club, players: list) -> dict:
     existing = (
         db.query(Athlete)
         .filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None))
@@ -217,12 +213,11 @@ def preview_players(
     }
 
     rows = []
-    for raw in payload.players or []:
+    for raw in players or []:
         if not isinstance(raw, dict):
             continue
-        pid = raw.get("id")
         try:
-            pid_i = int(pid)
+            pid_i = int(raw.get("id"))
         except Exception:
             continue
         egn = str(raw.get("egn") or "").strip() or None
@@ -252,11 +247,13 @@ def preview_players(
                 "sex": raw.get("sex"),
                 "gender": _sex_to_gender(raw.get("sex")),
                 "has_egn": bool(egn),
+                "egn": egn,
                 "currentCoach": coach.get("name"),
                 "city": city.get("name"),
                 "isDeleted": bool(raw.get("isDeleted")),
                 "status": status,
                 "platform_athlete_id": platform_athlete_id,
+                "_raw": raw,
             }
         )
 
@@ -272,6 +269,202 @@ def preview_players(
     }
 
 
+class LinkClubIn(BaseModel):
+    """Еднократна оторизация: клубен username/password в db.bvf.bg (предпочитано) или token."""
+
+    username: Optional[str] = None
+    password: Optional[str] = None
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class FetchPlayersIn(BaseModel):
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class ImportPlayersIn(BaseModel):
+    players: list[dict] = Field(default_factory=list)
+    club_id: Optional[int] = None
+    assign_coach_id: Optional[int] = None
+
+
+class CoachesListIn(BaseModel):
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+@router.get("/status")
+def bvf_admin_status(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    from app.services.bvf_auth import club_has_credentials
+
+    if current_user.role == UserRole.coach:
+        if not current_user.club_id:
+            raise HTTPException(status_code=422, detail="Няма клуб")
+        club = db.query(Club).filter(Club.id == int(current_user.club_id)).first()
+        if not club:
+            raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    else:
+        _ensure_head_with_club(current_user)
+        club = _club_for_user(db, current_user, club_id)
+    linked_count = (
+        db.query(Athlete)
+        .filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None))
+        .count()
+    )
+    has_creds = club_has_credentials(club)
+    return {
+        "club_id": club.id,
+        "club_name": club.name,
+        "bvf_club_id": club.bvf_club_id,
+        "bvf_club_name": club.bvf_club_name,
+        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
+        "bvf_username": club.bvf_username if has_creds else None,
+        "has_bvf_credentials": has_creds,
+        "linked_athletes": linked_count,
+        "requires_bvf_token": not has_creds,
+        "permanent_link": bool(club.bvf_club_id and has_creds),
+    }
+
+
+@router.put("/link-club")
+def link_club(
+    payload: LinkClubIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """
+    Постоянна връзка клуб ↔ БФВ:
+    - вход с клубен username/password в db.bvf.bg (еднократно)
+    - записва bvf_club_id + криптирани credentials
+    - после операциите взимат token автоматично
+    """
+    from app.services.bvf_auth import bvf_login, encrypt_secret
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+
+    username = (payload.username or "").strip()
+    password = payload.password or ""
+    stored_user = None
+    stored_enc = None
+
+    if username and password:
+        login = bvf_login(username, password)
+        token = login["_token"]
+        stored_user = username
+        stored_enc = encrypt_secret(password)
+    elif payload.bvf_token:
+        token = _normalize_bearer(payload.bvf_token)
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="Въведи БФВ потребител и парола (клубен акаунт) за постоянна връзка.",
+        )
+
+    bvf_club_id = _club_id_from_token(token)
+
+    other = (
+        db.query(Club)
+        .filter(Club.bvf_club_id == bvf_club_id, Club.id != club.id)
+        .first()
+    )
+    if other:
+        raise HTTPException(
+            status_code=409,
+            detail=f"БФВ клуб {bvf_club_id} вече е свързан с „{other.name}“",
+        )
+
+    remote = _bvf_get(f"/api/clubs/{bvf_club_id}", token)
+    if not isinstance(remote, dict) or int(remote.get("id") or 0) != bvf_club_id:
+        raise HTTPException(status_code=502, detail="БФВ върна неочакван профил на клуб")
+
+    club.bvf_club_id = bvf_club_id
+    club.bvf_club_name = (
+        str(remote.get("name") or remote.get("fullName") or "").strip() or f"БФВ клуб {bvf_club_id}"
+    )
+    club.bvf_linked_at = datetime.utcnow()
+    if stored_user and stored_enc:
+        club.bvf_username = stored_user
+        club.bvf_password_enc = stored_enc
+    db.commit()
+    db.refresh(club)
+    return {
+        "club_id": club.id,
+        "club_name": club.name,
+        "bvf_club_id": club.bvf_club_id,
+        "bvf_club_name": club.bvf_club_name,
+        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
+        "bvf_full_name": remote.get("fullName"),
+        "bvf_username": club.bvf_username,
+        "has_bvf_credentials": bool(club.bvf_username and club.bvf_password_enc),
+        "permanent_link": bool(club.bvf_username and club.bvf_password_enc),
+        "verified": True,
+    }
+
+
+@router.delete("/link-club")
+def unlink_club(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    club.bvf_club_id = None
+    club.bvf_club_name = None
+    club.bvf_linked_at = None
+    club.bvf_username = None
+    club.bvf_password_enc = None
+    db.commit()
+    return {"ok": True, "club_id": club.id}
+
+
+@router.post("/players/fetch")
+def fetch_players(
+    payload: FetchPlayersIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Дърпа състезателите от БФВ — token автоматично от записаните credentials."""
+    from app.services.bvf_auth import resolve_club_bvf_token
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
+    token = resolve_club_bvf_token(club, payload.bvf_token)
+    token_club_id = _club_id_from_token(token)
+    if int(club.bvf_club_id) != int(token_club_id):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Token-ът е за БФВ клуб {token_club_id}, а платформата е свързана с {club.bvf_club_id}",
+        )
+
+    remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/players", token)
+    if not isinstance(remote, list):
+        raise HTTPException(status_code=502, detail="БФВ players response не е списък")
+
+    return _preview_rows(db, club, remote)
+
+
 @router.post("/players/import")
 def import_players(
     payload: ImportPlayersIn,
@@ -280,20 +473,18 @@ def import_players(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Импортира само избраните БФВ състезатели (не целия регистър)."""
+    """Импортира само избраните състезатели (от fetch preview)."""
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, payload.club_id)
     if not club.bvf_club_id:
-        raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ (bvf_club_id)")
+        raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
 
     assign_coach_id = payload.assign_coach_id or current_user.id
     coach = db.query(User).filter(User.id == int(assign_coach_id)).first()
-    if not coach or (coach.club_id and int(coach.club_id) != int(club.id)):
-        # platform admin may assign any coach in club; head coach defaults to self
-        if current_user.role == UserRole.club_head_coach:
-            assign_coach_id = current_user.id
-        elif not coach:
-            raise HTTPException(status_code=422, detail="Невалиден треньор за assign")
+    if current_user.role == UserRole.club_head_coach:
+        assign_coach_id = current_user.id
+    elif not coach:
+        raise HTTPException(status_code=422, detail="Невалиден треньор за assign")
 
     created = 0
     linked = 0
@@ -304,8 +495,21 @@ def import_players(
         if not isinstance(raw, dict):
             skipped += 1
             continue
+        # Accept either preview row or raw BVF player
+        if raw.get("_raw") and isinstance(raw["_raw"], dict):
+            raw = raw["_raw"]
+        elif raw.get("bvf_player_id") and not raw.get("id"):
+            raw = {
+                **raw,
+                "id": raw.get("bvf_player_id"),
+                "number": raw.get("bvf_player_number"),
+                "firstName": raw.get("firstName"),
+                "middleName": raw.get("middleName"),
+                "lastName": raw.get("lastName"),
+            }
+
         try:
-            pid = int(raw.get("id"))
+            pid = int(raw.get("id") or raw.get("bvf_player_id"))
         except Exception:
             skipped += 1
             continue
@@ -319,16 +523,31 @@ def import_players(
         except Exception:
             birth_year = birth_date.year if birth_date else None
         gender = _sex_to_gender(raw.get("sex"))
-        number = raw.get("number")
+        number = raw.get("number") or raw.get("bvf_player_number")
         try:
             number_i = int(number) if number is not None else None
         except Exception:
             number_i = None
 
         existing = db.query(Athlete).filter(Athlete.bvf_player_id == pid).first()
+        first_n = str(raw.get("firstName") or "").strip() or None
+        middle_n = str(raw.get("middleName") or "").strip() or None
+        last_n = str(raw.get("lastName") or "").strip() or None
+        nationality = str(raw.get("nationality") or "").strip() or None
+        photo_id = str(raw.get("photoId") or "").strip() or None
+
         if existing:
-            # sync light fields
             existing.athlete_name = name
+            if first_n:
+                existing.first_name = first_n
+            if middle_n:
+                existing.middle_name = middle_n
+            if last_n:
+                existing.last_name = last_n
+            if nationality:
+                existing.nationality = nationality
+            if photo_id:
+                existing.bvf_photo_id = photo_id
             if egn:
                 existing.egn = egn
             if birth_date:
@@ -355,6 +574,16 @@ def import_players(
                 by_egn.bvf_player_id = pid
                 by_egn.bvf_player_number = number_i
                 by_egn.athlete_name = name or by_egn.athlete_name
+                if first_n:
+                    by_egn.first_name = first_n
+                if middle_n:
+                    by_egn.middle_name = middle_n
+                if last_n:
+                    by_egn.last_name = last_n
+                if nationality:
+                    by_egn.nationality = nationality
+                if photo_id:
+                    by_egn.bvf_photo_id = photo_id
                 if birth_date:
                     by_egn.birth_date = birth_date
                 if birth_year:
@@ -369,15 +598,20 @@ def import_players(
             coach_id=int(assign_coach_id),
             club_id=club.id,
             athlete_name=name,
+            first_name=first_n,
+            middle_name=middle_n,
+            last_name=last_n,
             birth_date=birth_date,
             birth_year=birth_year,
             place_of_birth=(raw.get("city") or {}).get("name")
             if isinstance(raw.get("city"), dict)
             else None,
+            nationality=nationality or "България",
             gender=gender,
             egn=egn,
             bvf_player_id=pid,
             bvf_player_number=number_i,
+            bvf_photo_id=photo_id,
             bvf_synced_at=datetime.utcnow(),
             is_active=True,
             notes="Импортиран от БФВ картотека",
@@ -397,4 +631,183 @@ def import_players(
         "skipped": skipped,
         "errors": errors,
         "club_id": club.id,
+    }
+
+
+
+
+
+@router.post("/coaches/list")
+def list_bvf_coaches(
+    payload: CoachesListIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    from app.services.bvf_auth import resolve_club_bvf_token
+
+    club = _club_for_user(db, current_user, payload.club_id) if current_user.role != UserRole.coach else None
+    if current_user.role == UserRole.coach:
+        if not current_user.club_id:
+            raise HTTPException(status_code=422, detail="Няма клуб")
+        club = db.query(Club).filter(Club.id == int(current_user.club_id)).first()
+        if not club:
+            raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
+    token = resolve_club_bvf_token(club, payload.bvf_token)
+    token_club = _club_id_from_token(token)
+    if int(token_club) != int(club.bvf_club_id):
+        raise HTTPException(status_code=403, detail="Token-ът не е за свързания БФВ клуб")
+    remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/coaches", token)
+    if not isinstance(remote, list):
+        raise HTTPException(status_code=502, detail="БФВ coaches response не е списък")
+    coaches = []
+    for row in remote:
+        if not isinstance(row, dict):
+            continue
+        try:
+            cid = int(row.get("id"))
+        except Exception:
+            continue
+        name = (
+            str(row.get("name") or "").strip()
+            or " ".join(
+                p
+                for p in [
+                    str(row.get("firstName") or "").strip(),
+                    str(row.get("middleName") or "").strip(),
+                    str(row.get("lastName") or "").strip(),
+                ]
+                if p
+            )
+            or f"Треньор #{cid}"
+        )
+        coaches.append({"id": cid, "name": name})
+    coaches.sort(key=lambda c: c["name"])
+    return {"coaches": coaches, "bvf_club_id": club.bvf_club_id}
+
+
+@router.post("/players/create-from-athlete")
+async def create_player_from_athlete(
+    athlete_id: int = Form(...),
+    first_coach_id: int = Form(...),
+    bvf_token: Optional[str] = Form(None),
+    egn: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """
+    Създава състезател в БФВ от локалния профил + снимка.
+    Записва bvf_player_id / number / photoId обратно; идентичността се заключва.
+    """
+    from app.services.bvf_auth import resolve_club_bvf_token
+
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    if athlete.bvf_player_id:
+        raise HTTPException(status_code=409, detail="Състезателят вече е свързан с БФВ")
+
+    club = None
+    if athlete.club_id:
+        club = db.query(Club).filter(Club.id == athlete.club_id).first()
+    if not club or not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Клубът не е свързан с БФВ")
+
+    token = resolve_club_bvf_token(club, bvf_token)
+    token_club = _club_id_from_token(token)
+    if int(token_club) != int(club.bvf_club_id):
+        raise HTTPException(status_code=403, detail="Token-ът не е за свързания БФВ клуб")
+    egn_val = (egn or athlete.egn or "").strip()
+    if len(egn_val) != 10:
+        raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")
+
+    try:
+        first_name = validate_name_part("Собствено име", athlete.first_name)
+        middle_name = validate_name_part("Бащино име", athlete.middle_name)
+        last_name = validate_name_part("Фамилия", athlete.last_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{exc}. Попълни трите имена в профила преди създаване в БФВ.",
+        ) from exc
+
+    place = (athlete.place_of_birth or "").strip()
+    if not place:
+        raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
+    nationality = default_nationality_from_city(place, athlete.nationality)
+
+    photo_bytes = await file.read()
+    if not photo_bytes:
+        raise HTTPException(status_code=422, detail="Снимката е задължителна")
+    filename = file.filename or "photo.jpg"
+    content_type = file.content_type or "image/jpeg"
+
+    form_data = {
+        "FirstClubId": str(int(club.bvf_club_id)),
+        "FirstCoachId": str(int(first_coach_id)),
+        "FirstName": first_name,
+        "MiddleName": middle_name,
+        "LastName": last_name,
+        "Egn": egn_val,
+        "Nationality": nationality,
+        "CityName": place[:25],
+    }
+    files = {"file": (filename, photo_bytes, content_type)}
+    remote = _bvf_post_multipart("/api/players", token, form_data, files)
+    if not isinstance(remote, dict):
+        raise HTTPException(status_code=502, detail="БФВ не върна профил на състезател")
+
+    try:
+        pid = int(remote.get("id"))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="БФВ не върна валиден player id") from exc
+
+    number = remote.get("number")
+    try:
+        number_i = int(number) if number is not None else None
+    except Exception:
+        number_i = None
+    photo_id = str(remote.get("photoId") or "").strip() or None
+
+    athlete.egn = egn_val
+    athlete.first_name = first_name
+    athlete.middle_name = middle_name
+    athlete.last_name = last_name
+    athlete.athlete_name = compose_athlete_name(first_name, middle_name, last_name)
+    athlete.nationality = nationality
+    athlete.bvf_player_id = pid
+    athlete.bvf_player_number = number_i
+    athlete.bvf_photo_id = photo_id
+    athlete.bvf_synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(athlete)
+
+    try:
+        from app.services.athlete_photo import save_athlete_photo
+
+        save_athlete_photo(athlete.id, photo_bytes)
+    except Exception:
+        pass
+
+    return {
+        "athlete_id": athlete.id,
+        "bvf_player_id": athlete.bvf_player_id,
+        "bvf_player_number": athlete.bvf_player_number,
+        "bvf_photo_id": athlete.bvf_photo_id,
+        "athlete_name": athlete.athlete_name,
+        "has_photo": True,
     }

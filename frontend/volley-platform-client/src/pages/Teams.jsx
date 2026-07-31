@@ -7,7 +7,13 @@ import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
+import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import {
+  buildAthletePayload,
+  emptyAthleteIdentityForm,
+  validateAthleteIdentityForm,
+} from "../utils/athleteIdentity";
 
 const teamGenderLabel = (gender) => {
   if (gender === "male") return "Мъжки";
@@ -31,17 +37,7 @@ export default function Teams() {
   const [assignTeam, setAssignTeam] = useState(null);
   const [assignCoachId, setAssignCoachId] = useState("");
   const [showAthleteForm, setShowAthleteForm] = useState(false);
-  const [athleteForm, setAthleteForm] = useState({
-    athlete_name: "",
-    athlete_phone: "",
-    parent_name: "",
-    parent_phone: "",
-    birth_date: "",
-    place_of_birth: "",
-    gender: "",
-    notes: "",
-    is_active: true,
-  });
+  const [athleteForm, setAthleteForm] = useState(() => emptyAthleteIdentityForm());
 
   const roleRaw = user?.role;
   const roleValue = typeof roleRaw === "object" && roleRaw && "value" in roleRaw ? roleRaw.value : roleRaw;
@@ -176,47 +172,24 @@ export default function Teams() {
   };
 
   const resetAthleteForm = () => {
-    setAthleteForm({
-      athlete_name: "",
-      athlete_phone: "",
-      parent_name: "",
-      parent_phone: "",
-      birth_date: "",
-      place_of_birth: "",
-      gender: "",
-      notes: "",
-      is_active: true,
-    });
+    setAthleteForm(emptyAthleteIdentityForm());
   };
 
   const saveAthlete = async () => {
-    if (!athleteForm.athlete_name.trim()) {
-      toast.error("Името на състезателя е задължително.");
+    const err = validateAthleteIdentityForm(athleteForm, { requireSplitNames: true });
+    if (err) {
+      toast.error(err);
       return;
     }
-    if (!athleteForm.gender) {
-      toast.error("Избери пол на състезателя.");
-      return;
-    }
-    const payload = {
-      athlete_name: athleteForm.athlete_name.trim(),
-      athlete_phone: athleteForm.athlete_phone.trim() || null,
-      parent_name: athleteForm.parent_name.trim() || null,
-      parent_phone: athleteForm.parent_phone.trim() || null,
-      birth_date: athleteForm.birth_date || null,
-      place_of_birth: athleteForm.place_of_birth.trim() || null,
-      gender: athleteForm.gender,
-      notes: athleteForm.notes.trim() || null,
-      is_active: Boolean(athleteForm.is_active),
-    };
+    const payload = buildAthletePayload(athleteForm, { includeEgn: false });
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetAthleteForm();
       setShowAthleteForm(false);
       toast.success("Състезателят е създаден.");
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно създаване на състезател."));
+    } catch (err2) {
+      toast.error(normalizeError(err2, "Неуспешно създаване на състезател."));
     } finally {
       setBusy(false);
     }
@@ -455,68 +428,10 @@ export default function Teams() {
         title="Нов състезател"
         size="compact"
       >
-        <div style={{ display: "grid", gap: 8 }}>
-          <Input
-            placeholder="Име на състезател"
-            value={athleteForm.athlete_name}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на състезател"
-            value={athleteForm.athlete_phone}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-          />
-          <Input
-            placeholder="Име на родител"
-            value={athleteForm.parent_name}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на родител"
-            value={athleteForm.parent_phone}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
-          />
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
-            <Input
-              type="date"
-              value={athleteForm.birth_date}
-              onChange={(e) => setAthleteForm((p) => ({ ...p, birth_date: e.target.value }))}
-            />
-          </label>
-          <Input
-            placeholder="Място на раждане (ако е празно → град на клуба)"
-            value={athleteForm.place_of_birth}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, place_of_birth: e.target.value }))}
-          />
-          <Input
-            as="select"
-            value={athleteForm.gender}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
-          >
-            <option value="">Пол</option>
-            <option value="male">Мъж</option>
-            <option value="female">Жена</option>
-          </Input>
-          <Input
-            as="textarea"
-            rows={2}
-            placeholder="Бележка"
-            value={athleteForm.notes}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
-          />
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={athleteForm.is_active}
-              onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
-            />
-            Активен състезател
-          </label>
-          <div className="uiModalActions">
-            <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
-            <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
-          </div>
+        <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn={false} />
+        <div className="uiModalActions" style={{ marginTop: 12 }}>
+          <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
         </div>
       </Modal>
 

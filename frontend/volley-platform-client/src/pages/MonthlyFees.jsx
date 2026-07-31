@@ -7,10 +7,17 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
+import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
 import { Button, Card, EmptyState, Input, Modal, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
 import { filterFeesAthletes } from "../utils/feesAthleteSearch";
+import {
+  athleteToIdentityForm,
+  buildAthletePayload,
+  emptyAthleteIdentityForm,
+  validateAthleteIdentityForm,
+} from "../utils/athleteIdentity";
 
 const currentMonthKey = () => {
   const d = new Date();
@@ -53,29 +60,9 @@ export default function MonthlyFees() {
   const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
 
-  const [athleteForm, setAthleteForm] = useState({
-    athlete_name: "",
-    athlete_phone: "",
-    parent_name: "",
-    parent_phone: "",
-    birth_date: "",
-    place_of_birth: "",
-    gender: "",
-    notes: "",
-    is_active: true,
-  });
+  const [athleteForm, setAthleteForm] = useState(() => emptyAthleteIdentityForm());
   const [editAthlete, setEditAthlete] = useState(null);
-  const [editForm, setEditForm] = useState({
-    athlete_name: "",
-    athlete_phone: "",
-    parent_name: "",
-    parent_phone: "",
-    birth_date: "",
-    place_of_birth: "",
-    gender: "",
-    notes: "",
-    is_active: true,
-  });
+  const [editForm, setEditForm] = useState(() => emptyAthleteIdentityForm());
 
   const [payAthlete, setPayAthlete] = useState(null);
   const [payForm, setPayForm] = useState({
@@ -157,17 +144,7 @@ export default function MonthlyFees() {
     const a = athletes.find((x) => Number(x.id) === aid);
     if (!a) return;
     setEditAthlete(a);
-    setEditForm({
-      athlete_name: a.athlete_name || "",
-      athlete_phone: a.athlete_phone || "",
-      parent_name: a.parent_name || "",
-      parent_phone: a.parent_phone || "",
-      birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
-      place_of_birth: a.place_of_birth || "",
-      gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
-      notes: a.notes || "",
-      is_active: Boolean(a.is_active),
-    });
+    setEditForm(athleteToIdentityForm(a));
     const next = new URLSearchParams(sp);
     next.delete("focus");
     const qs = next.toString();
@@ -220,17 +197,12 @@ export default function MonthlyFees() {
   }, [isHeadCoach]);
 
   const resetAthleteForm = () => {
-    setAthleteForm({
-      athlete_name: "",
-      athlete_phone: "",
-      parent_name: "",
-      parent_phone: "",
-      birth_date: "",
-      place_of_birth: "",
-      gender: "",
-      notes: "",
-      is_active: true,
-    });
+    setAthleteForm(emptyAthleteIdentityForm());
+  };
+
+  const openEditAthlete = (a) => {
+    setEditAthlete(a);
+    setEditForm(athleteToIdentityForm(a));
   };
 
   const selectedAthleteName = useMemo(() => {
@@ -283,22 +255,12 @@ export default function MonthlyFees() {
   }, [payAthlete, payForm.month_key]);
 
   const saveAthlete = async () => {
-    if (!athleteForm.gender) {
-      toast.error("Избери пол на състезателя.");
+    const err = validateAthleteIdentityForm(athleteForm, { requireSplitNames: true });
+    if (err) {
+      toast.error(err);
       return;
     }
-    const payload = {
-      athlete_name: athleteForm.athlete_name.trim(),
-      athlete_phone: athleteForm.athlete_phone.trim() || null,
-      parent_name: athleteForm.parent_name.trim() || null,
-      parent_phone: athleteForm.parent_phone.trim() || null,
-      birth_date: athleteForm.birth_date || null,
-      place_of_birth: athleteForm.place_of_birth.trim() || null,
-      gender: athleteForm.gender,
-      notes: athleteForm.notes.trim() || null,
-      is_active: Boolean(athleteForm.is_active),
-    };
-    if (!payload.athlete_name) return;
+    const payload = buildAthletePayload(athleteForm);
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
@@ -306,8 +268,8 @@ export default function MonthlyFees() {
       await loadAthletes(coachFilter);
       toast.success("Състезателят е създаден.");
       if (isCoachShell) setCoachTab("list");
-    } catch (err) {
-      toast.error(normalizeError(err));
+    } catch (err2) {
+      toast.error(normalizeError(err2));
     } finally {
       setBusy(false);
     }
@@ -315,30 +277,31 @@ export default function MonthlyFees() {
 
   const saveEditedAthlete = async () => {
     if (!editAthlete) return;
-    if (!editForm.gender) {
-      toast.error("Избери пол на състезателя.");
+    const locked = Boolean(editAthlete.bvf_player_id || editAthlete.bvf_identity_locked);
+    const err = validateAthleteIdentityForm(editForm, {
+      requireSplitNames: Boolean(editForm.first_name || editForm.middle_name || editForm.last_name) || !editForm.athlete_name,
+    });
+    if (!locked && err) {
+      toast.error(err);
       return;
     }
-    const payload = {
-      athlete_name: editForm.athlete_name.trim(),
-      athlete_phone: editForm.athlete_phone.trim() || null,
-      parent_name: editForm.parent_name.trim() || null,
-      parent_phone: editForm.parent_phone.trim() || null,
-      birth_date: editForm.birth_date || null,
-      place_of_birth: editForm.place_of_birth.trim() || null,
-      gender: editForm.gender,
-      notes: editForm.notes.trim() || null,
-      is_active: Boolean(editForm.is_active),
-    };
-    if (!payload.athlete_name) return;
+    const payload = locked
+      ? {
+          athlete_phone: (editForm.athlete_phone || "").trim() || null,
+          parent_name: (editForm.parent_name || "").trim() || null,
+          parent_phone: (editForm.parent_phone || "").trim() || null,
+          notes: (editForm.notes || "").trim() || null,
+          is_active: Boolean(editForm.is_active),
+        }
+      : buildAthletePayload(editForm);
     try {
       setBusy(true);
       await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(editAthlete.id), payload);
       setEditAthlete(null);
       await loadAthletes(coachFilter);
       toast.success("Промените са запазени.");
-    } catch (err) {
-      toast.error(normalizeError(err));
+    } catch (err2) {
+      toast.error(normalizeError(err2));
     } finally {
       setBusy(false);
     }
@@ -602,72 +565,19 @@ export default function MonthlyFees() {
         dismissable={!busy}
         title={`Редакция: ${editAthlete?.athlete_name || ""}`}
       >
-        <div style={{ display: "grid", gap: 8 }}>
-          <Input
-            placeholder="Име на състезател"
-            value={editForm.athlete_name}
-            onChange={(e) => setEditForm((p) => ({ ...p, athlete_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на състезател"
-            value={editForm.athlete_phone}
-            onChange={(e) => setEditForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-          />
-          <Input
-            placeholder="Име на родител"
-            value={editForm.parent_name}
-            onChange={(e) => setEditForm((p) => ({ ...p, parent_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на родител"
-            value={editForm.parent_phone}
-            onChange={(e) => setEditForm((p) => ({ ...p, parent_phone: e.target.value }))}
-          />
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
-            <Input
-              type="date"
-              value={editForm.birth_date}
-              onChange={(e) => setEditForm((p) => ({ ...p, birth_date: e.target.value }))}
-            />
-          </label>
-          <Input
-            placeholder="Място на раждане"
-            value={editForm.place_of_birth}
-            onChange={(e) => setEditForm((p) => ({ ...p, place_of_birth: e.target.value }))}
-          />
-          <Input
-            as="select"
-            value={editForm.gender}
-            onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))}
-          >
-            <option value="">Пол</option>
-            <option value="male">Мъж</option>
-            <option value="female">Жена</option>
-          </Input>
-          <Input
-            as="textarea"
-            rows={2}
-            placeholder="Бележка"
-            value={editForm.notes}
-            onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-          />
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={editForm.is_active}
-              onChange={(e) => setEditForm((p) => ({ ...p, is_active: e.target.checked }))}
-            />
-            Активен състезател
-          </label>
-          <div className="uiModalActions">
-            <Button disabled={busy} onClick={saveEditedAthlete}>
-              Запази промените
-            </Button>
-            <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
-              Затвори
-            </Button>
-          </div>
+        <AthleteIdentityFields
+          form={editForm}
+          setForm={setEditForm}
+          identityLocked={Boolean(editAthlete?.bvf_player_id || editAthlete?.bvf_identity_locked)}
+          showLegacyNameHint
+        />
+        <div className="uiModalActions" style={{ marginTop: 12 }}>
+          <Button disabled={busy} onClick={saveEditedAthlete}>
+            Запази промените
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={closeEditModal}>
+            Затвори
+          </Button>
         </div>
       </Modal>
 
@@ -739,20 +649,7 @@ export default function MonthlyFees() {
             setPayAthlete(a);
             setPayForm((p) => ({ ...p, month_key: remindMonth || currentMonthKey() }));
           }}
-          onEdit={(a) => {
-            setEditAthlete(a);
-            setEditForm({
-              athlete_name: a.athlete_name || "",
-              athlete_phone: a.athlete_phone || "",
-              parent_name: a.parent_name || "",
-              parent_phone: a.parent_phone || "",
-              birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
-              place_of_birth: a.place_of_birth || "",
-              gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
-              notes: a.notes || "",
-              is_active: Boolean(a.is_active),
-            });
-          }}
+          onEdit={openEditAthlete}
           onDelete={removeAthlete}
           onReport={loadAthleteReport}
           onTransfer={(a) => {
@@ -774,64 +671,9 @@ export default function MonthlyFees() {
 
       <Card title="Нов състезател">
         <div className="feesFormGrid" style={{ gap: 8 }}>
-          <Input
-            placeholder="Име на състезател"
-            value={athleteForm.athlete_name}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на състезател"
-            value={athleteForm.athlete_phone}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-          />
-          <Input
-            placeholder="Име на родител"
-            value={athleteForm.parent_name}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
-          />
-          <Input
-            placeholder="Телефон на родител"
-            value={athleteForm.parent_phone}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
-          />
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
-            <Input
-              type="date"
-              value={athleteForm.birth_date}
-              onChange={(e) => setAthleteForm((p) => ({ ...p, birth_date: e.target.value }))}
-            />
-          </label>
-          <Input
-            placeholder="Място на раждане (ако е празно → град на клуба)"
-            value={athleteForm.place_of_birth}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, place_of_birth: e.target.value }))}
-          />
-          <Input
-            as="select"
-            value={athleteForm.gender}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
-          >
-            <option value="">Пол</option>
-            <option value="male">Мъж</option>
-            <option value="female">Жена</option>
-          </Input>
-          <Input
-            as="textarea"
-            rows={2}
-            placeholder="Бележка"
-            value={athleteForm.notes}
-            onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
-            style={{ gridColumn: "1 / -1" }}
-          />
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={athleteForm.is_active}
-              onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
-            />
-            Активен състезател
-          </label>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn={false} />
+          </div>
           <div className="feesFormActions">
             <Button disabled={busy} onClick={saveAthlete} block className="feesFormPrimaryBtn">
               Създай състезател
@@ -976,18 +818,7 @@ export default function MonthlyFees() {
                       variant="secondary"
                       size="sm"
                       onClick={() => {
-                        setEditAthlete(a);
-                        setEditForm({
-                          athlete_name: a.athlete_name || "",
-                          athlete_phone: a.athlete_phone || "",
-                          parent_name: a.parent_name || "",
-                          parent_phone: a.parent_phone || "",
-                          birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
-                          place_of_birth: a.place_of_birth || "",
-                          gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
-                          notes: a.notes || "",
-                          is_active: Boolean(a.is_active),
-                        });
+                        openEditAthlete(a);
                       }}
                     >
                       Редактирай
@@ -1071,18 +902,7 @@ export default function MonthlyFees() {
                             variant="secondary"
                             size="sm"
                             onClick={() => {
-                              setEditAthlete(a);
-                              setEditForm({
-                                athlete_name: a.athlete_name || "",
-                                athlete_phone: a.athlete_phone || "",
-                                parent_name: a.parent_name || "",
-                                parent_phone: a.parent_phone || "",
-                                birth_date: a.birth_date ? String(a.birth_date).slice(0, 10) : "",
-                                place_of_birth: a.place_of_birth || "",
-                                gender: a.gender === "male" || a.gender === "female" ? a.gender : "",
-                                notes: a.notes || "",
-                                is_active: Boolean(a.is_active),
-                              });
+                              openEditAthlete(a);
                             }}
                           >
                             Редактирай

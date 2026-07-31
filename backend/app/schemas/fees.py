@@ -1,26 +1,42 @@
 from datetime import datetime, date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class AthleteCreate(BaseModel):
-    athlete_name: str
+    first_name: str
+    middle_name: str
+    last_name: str
+    # Legacy single-field create still accepted if name parts missing (import / old clients)
+    athlete_name: Optional[str] = None
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
-    birth_date: Optional[date] = None
+    birth_date: date
     birth_year: Optional[int] = None
-    place_of_birth: Optional[str] = None
-    gender: Optional[Literal["male", "female"]] = None
+    place_of_birth: str
+    nationality: Optional[str] = None
+    gender: Literal["male", "female"]
     notes: Optional[str] = None
     is_active: bool = True
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
 
+    @field_validator("first_name", "middle_name", "last_name", "place_of_birth")
+    @classmethod
+    def strip_required(cls, v: str) -> str:
+        s = (v or "").strip()
+        if not s:
+            raise ValueError("задължително поле")
+        return s
+
 
 class AthleteUpdate(BaseModel):
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     athlete_name: Optional[str] = None
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
@@ -28,6 +44,7 @@ class AthleteUpdate(BaseModel):
     birth_date: Optional[date] = None
     birth_year: Optional[int] = None
     place_of_birth: Optional[str] = None
+    nationality: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
@@ -50,23 +67,35 @@ class AthleteRead(BaseModel):
     coach_id: int
     club_id: Optional[int] = None
     athlete_name: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
     birth_year: Optional[int] = None
     birth_date: Optional[date] = None
     place_of_birth: Optional[str] = None
+    nationality: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     notes: Optional[str] = None
     is_active: bool = True
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    bvf_photo_id: Optional[str] = None
     bvf_synced_at: Optional[datetime] = None
+    bvf_identity_locked: bool = False
     team_names: list[str] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def _lock_flag(self):
+        if self.bvf_player_id and not self.bvf_identity_locked:
+            self.bvf_identity_locked = True
+        return self
 
 
 class AthletePaymentCreate(BaseModel):

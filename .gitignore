@@ -24,6 +24,7 @@ frontend/volley-platform-client/dist/
 
 auth.json
 backend/app/static/uploads/
+backend/app/data/athlete_photos/
 backend/app/seed/data/bvf_export_progress.json
 
 # Local scratch / extraction artifacts

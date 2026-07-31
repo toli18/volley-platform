@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from app.services.athlete_photo import has_cached_photo, read_athlete_photo
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -47,6 +48,41 @@ from app.schemas.teams import (
     TeamMemberUpdate,
 )
 from app.services.athlete_birth import resolve_place_of_birth
+
+
+def _bvf_missing(athlete: Athlete) -> list[str]:
+    if getattr(athlete, "bvf_player_id", None):
+        return []
+    missing: list[str] = []
+    if not (getattr(athlete, "first_name", None) or "").strip():
+        missing.append("собствено име")
+    if not (getattr(athlete, "middle_name", None) or "").strip():
+        missing.append("бащино име")
+    if not (getattr(athlete, "last_name", None) or "").strip():
+        missing.append("фамилия")
+    if not getattr(athlete, "birth_date", None):
+        missing.append("дата на раждане")
+    if not (getattr(athlete, "place_of_birth", None) or "").strip():
+        missing.append("град")
+    if not (getattr(athlete, "nationality", None) or "").strip():
+        missing.append("националност")
+    if not getattr(athlete, "gender", None):
+        missing.append("пол")
+    if not (getattr(athlete, "egn", None) or "").strip():
+        missing.append("ЕГН")
+    from app.services.athlete_photo import has_cached_photo
+
+    if not has_cached_photo(athlete.id) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
+        missing.append("снимка")
+    return missing
+
+
+def _bvf_ready(athlete: Athlete) -> bool:
+    if getattr(athlete, "bvf_player_id", None):
+        return True
+    # Снимката се качва при create към БФВ; останалото трябва да е в профила.
+    critical = [m for m in _bvf_missing(athlete) if m != "снимка"]
+    return len(critical) == 0
 from app.services.team_sheet_pdf import (
     MAX_PLAYERS,
     TeamSheetPayload,
@@ -736,6 +772,23 @@ def team_attendance_matrix(
     )
 
 
+@router.get("/teams/athletes/{athlete_id}/photo")
+def athlete_photo(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    athlete = _get_athlete_for_team_context(db, athlete_id, current_user)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    data = read_athlete_photo(athlete.id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Няма локална снимка")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+
 @router.get("/teams/athletes/{athlete_id}/profile", response_model=AthleteProfileResponse)
 def athlete_profile(
     athlete_id: int,
@@ -904,15 +957,27 @@ def athlete_profile(
     return AthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
+        first_name=getattr(athlete, "first_name", None),
+        middle_name=getattr(athlete, "middle_name", None),
+        last_name=getattr(athlete, "last_name", None),
         gender=getattr(athlete, "gender", None),
         birth_year=athlete.birth_year,
         birth_date=getattr(athlete, "birth_date", None),
         place_of_birth=getattr(athlete, "place_of_birth", None),
+        nationality=getattr(athlete, "nationality", None),
         parent_name=athlete.parent_name,
         parent_phone=athlete.parent_phone,
         athlete_phone=athlete.athlete_phone,
         notes=athlete.notes,
         is_active=bool(athlete.is_active),
+        egn=getattr(athlete, "egn", None),
+        bvf_player_id=getattr(athlete, "bvf_player_id", None),
+        bvf_player_number=getattr(athlete, "bvf_player_number", None),
+        bvf_photo_id=getattr(athlete, "bvf_photo_id", None),
+        has_photo=has_cached_photo(athlete.id),
+        bvf_identity_locked=bool(getattr(athlete, "bvf_player_id", None)),
+        bvf_ready=_bvf_ready(athlete),
+        bvf_missing=_bvf_missing(athlete),
         created_at=created_at_v,
         updated_at=updated_at_v,
         teams=teams,

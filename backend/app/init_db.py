@@ -177,6 +177,8 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_club_id INTEGER"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_club_name VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_linked_at TIMESTAMP"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_username VARCHAR(100)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_password_enc TEXT"))
                 conn.execute(
                     text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_bvf_club_id "
@@ -187,6 +189,11 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_player_id INTEGER"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_player_number INTEGER"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_synced_at TIMESTAMP"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS first_name VARCHAR(25)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS middle_name VARCHAR(25)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS last_name VARCHAR(25)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS nationality VARCHAR(25)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_photo_id VARCHAR(64)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS ix_athletes_egn ON athletes (egn)"))
                 conn.execute(
                     text(
@@ -271,6 +278,21 @@ def _init_db_impl() -> None:
             if "bvf_synced_at" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_synced_at DATETIME"))
                 print("✅ Added athletes.bvf_synced_at column")
+            if "first_name" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN first_name VARCHAR(25)"))
+                print("✅ Added athletes.first_name column")
+            if "middle_name" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN middle_name VARCHAR(25)"))
+                print("✅ Added athletes.middle_name column")
+            if "last_name" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN last_name VARCHAR(25)"))
+                print("✅ Added athletes.last_name column")
+            if "nationality" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN nationality VARCHAR(25)"))
+                print("✅ Added athletes.nationality column")
+            if "bvf_photo_id" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_photo_id VARCHAR(64)"))
+                print("✅ Added athletes.bvf_photo_id column")
 
             club_cols = conn.execute(text("PRAGMA table_info(clubs)")).fetchall()
             club_col_names = {row[1] for row in club_cols}
@@ -283,6 +305,12 @@ def _init_db_impl() -> None:
             if "bvf_linked_at" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_linked_at DATETIME"))
                 print("✅ Added clubs.bvf_linked_at column")
+            if "bvf_username" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_username VARCHAR(100)"))
+                print("✅ Added clubs.bvf_username column")
+            if "bvf_password_enc" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_password_enc TEXT"))
+                print("✅ Added clubs.bvf_password_enc column")
 
             team_cols = conn.execute(text("PRAGMA table_info(teams)")).fetchall()
             team_col_names = {row[1] for row in team_cols}

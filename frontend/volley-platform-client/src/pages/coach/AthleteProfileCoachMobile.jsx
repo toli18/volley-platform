@@ -2,9 +2,13 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
+import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
+import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
+import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
 import { formatMoney } from "../../utils/currency";
 import { Button, EmptyState, Modal } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const TABS = [
   { id: "overview", label: "Преглед" },
@@ -78,6 +82,15 @@ const paymentPaid = (row) => {
   return Boolean(row.paid_at);
 };
 
+const profileInitials = (profile) => {
+  const a = String(profile.first_name || "").trim().charAt(0);
+  const b = String(profile.last_name || "").trim().charAt(0);
+  if (a && b) return `${a}${b}`.toUpperCase();
+  const parts = String(profile.athlete_name || "?").trim().split(/\s+/);
+  if (parts.length >= 2) return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+  return String(profile.athlete_name || "?").slice(0, 2).toUpperCase();
+};
+
 function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack }) {
   return (
     <Modal open={open} onClose={onClose} title="Още" size="compact" className="athleteProfileMoreSheet">
@@ -138,13 +151,44 @@ function TeamsPicker({ teams, selectedTeamIds, saving, onToggle, onSave, hasChan
   );
 }
 
+function IdentityReadonly({ profile }) {
+  const full =
+    [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(" ") || profile.athlete_name;
+  return (
+    <dl className="athleteProfileIdDl">
+      <div>
+        <dt>Имена</dt>
+        <dd>{full || "—"}</dd>
+      </div>
+      <div>
+        <dt>Дата / град</dt>
+        <dd>
+          {profile.birth_date ? String(profile.birth_date).slice(0, 10) : "—"}
+          {profile.place_of_birth ? ` · ${profile.place_of_birth}` : ""}
+        </dd>
+      </div>
+      <div>
+        <dt>Националност / пол</dt>
+        <dd>
+          {profile.nationality || "—"} · {genderShort(profile.gender)}
+        </dd>
+      </div>
+      {profile.egn ? (
+        <div>
+          <dt>ЕГН</dt>
+          <dd>{profile.egn}</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
 export default function AthleteProfileCoachMobile({
   profile,
   tab,
   setTab,
   from,
   feesPayHref,
-  feesEditHref,
   feesAllHref,
   coachTeams,
   selectedTeamIds,
@@ -154,19 +198,33 @@ export default function AthleteProfileCoachMobile({
   onSaveTeams,
   onCopyParentUrl,
   onBack,
+  editing = false,
+  editForm = null,
+  setEditForm,
+  savingProfile = false,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onOpenBvfCreate,
+  onOpenBvfLink,
 }) {
+  const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(true);
+  const [docsOpen, setDocsOpen] = useState(false);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historyLimit, setHistoryLimit] = useState(15);
   const [feesMonth, setFeesMonth] = useState(currentMonthKey);
 
+  const photoUrl = useAthletePhoto(profile.athlete_id, Boolean(profile.has_photo));
+
   const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, TABS.map((t) => t.id));
 
   const summary = profile.attendance_summary || {};
   const teamsShort = (profile.teams || []).map(shortenTeamName).join(", ") || "—";
+  const identityLocked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
 
   const currentPayment = useMemo(() => {
     const rows = profile.monthly_payments || [];
@@ -191,31 +249,48 @@ export default function AthleteProfileCoachMobile({
   const goHistoryTab = () => setTab("history");
 
   return (
-    <div className="coachMobilePage athleteProfileCoachPage">
+    <div className={`coachMobilePage athleteProfileCoachPage${editing ? " is-editing" : ""}`}>
       <header className="athleteProfileHead">
         <div className="athleteProfileHeadTop">
           <Link to={from} className="athleteProfileBackLink" aria-label="Назад">
             ←
           </Link>
+          <div className="athleteProfileAvatar" aria-hidden>
+            {photoUrl ? <img src={photoUrl} alt="" className="athleteProfileAvatarImg" /> : profileInitials(profile)}
+          </div>
           <div className="athleteProfileHeadText">
             <h2 className="athleteProfileHeadName">{profile.athlete_name}</h2>
             <p className="athleteProfileHeadMeta">
               {profile.birth_year || "—"} · {genderShort(profile.gender)} ·{" "}
               {profile.is_active ? "Активен" : "Неактивен"}
               {teamsShort !== "—" ? ` · ${teamsShort}` : ""}
+              {profile.bvf_player_number ? ` · БФВ №${profile.bvf_player_number}` : ""}
             </p>
           </div>
         </div>
         <div className="athleteProfileHeadActions">
-          <Button as={Link} to={feesPayHref} size="sm">
-            Плати
-          </Button>
-          <Button as={Link} to={feesEditHref} size="sm" variant="secondary">
-            Редактирай
-          </Button>
-          <button type="button" className="athleteProfileMenuBtn" aria-label="Още" onClick={() => setMoreOpen(true)}>
-            ⋯
-          </button>
+          {!editing ? (
+            <>
+              <Button as={Link} to={feesPayHref} size="sm">
+                Плати
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={onStartEdit}>
+                Редактирай
+              </Button>
+              <button type="button" className="athleteProfileMenuBtn" aria-label="Още" onClick={() => setMoreOpen(true)}>
+                ⋯
+              </button>
+            </>
+          ) : (
+            <>
+              <Button type="button" size="sm" disabled={savingProfile} onClick={onSaveEdit}>
+                {savingProfile ? "Запазване…" : "Запази"}
+              </Button>
+              <Button type="button" size="sm" variant="secondary" disabled={savingProfile} onClick={onCancelEdit}>
+                Отказ
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -226,84 +301,183 @@ export default function AthleteProfileCoachMobile({
             type="button"
             className={`coachMobileSubNavBtn${tab === t.id ? " is-active" : ""}`}
             onClick={() => setTab(t.id)}
+            disabled={editing && t.id !== "overview"}
           >
             {t.label}
           </button>
         ))}
       </nav>
 
-      <div className="athleteProfileSwipeArea" {...swipeHandlers}>
+      <div className="athleteProfileSwipeArea" {...(editing ? {} : swipeHandlers)}>
         {tab === "overview" ? (
           <div className="athleteProfileTab">
             <section className="athleteProfileCard">
-              <h3 className="athleteProfileCardTitle">Накратко</h3>
-              <p className="athleteProfileSummaryLine">
-                Присъства {summary.present ?? 0} · {summary.attendance_rate_percent ?? 0}% ·{" "}
-                {(summary.absent ?? 0) === 0 ? "0 отсъствия" : `${summary.absent} отсъствия`}
-              </p>
-              <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                {monthLabelBg(feesMonth)}: {currentMonthPaid ? "Платено" : "Дължи"}
-              </span>
+              <div className="athleteProfileCardTitleRow">
+                <h3 className="athleteProfileCardTitle">Лични данни</h3>
+                {editing ? (
+                  <span className="uiBadge uiBadge--warning">редакция</span>
+                ) : identityLocked ? (
+                  <span className="uiBadge">БФВ заключено</span>
+                ) : null}
+              </div>
+              {editing && editForm && setEditForm ? (
+                <AthleteIdentityFields
+                  form={editForm}
+                  setForm={setEditForm}
+                  identityLocked={identityLocked}
+                  showLegacyNameHint
+                  showEgn
+                />
+              ) : (
+                <IdentityReadonly profile={profile} />
+              )}
             </section>
 
-            <section className="athleteProfileCard">
-              <button type="button" className="athleteProfileCollapseHead" onClick={() => setTeamsOpen((v) => !v)}>
-                <span>Отбори</span>
-                <span aria-hidden>{teamsOpen ? "▾" : "▸"}</span>
-              </button>
-              {teamsOpen ? (
-                <div className="athleteProfileCollapseBody">
-                  <TeamsPicker
-                    teams={coachTeams}
-                    selectedTeamIds={selectedTeamIds}
-                    saving={savingTeams}
-                    onToggle={onToggleTeam}
-                    onSave={onSaveTeams}
-                    hasChanges={hasTeamChanges}
-                  />
+            {!editing ? (
+              <section className="athleteProfileCard">
+                <h3 className="athleteProfileCardTitle">БФВ / картотека</h3>
+                {profile.bvf_player_id ? (
+                  <p className="athleteProfileSummaryLine">
+                    Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
+                    {identityLocked ? " · идентичността е заключена" : ""}
+                    {profile.has_photo ? " · има снимка" : " · без локална снимка"}
+                  </p>
+                ) : (
+                  <>
+                    <p className="athleteProfileSummaryLine">
+                      {profile.bvf_ready
+                        ? "Готов за създаване — нужни са ЕГН и снимка при изпращане."
+                        : "Липсва за връзка с БФВ:"}
+                    </p>
+                    {!profile.bvf_ready && Array.isArray(profile.bvf_missing) && profile.bvf_missing.length ? (
+                      <ul className="athleteProfileMissingList">
+                        {profile.bvf_missing.map((m) => (
+                          <li key={m}>{m}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                      <Button type="button" size="sm" onClick={onStartEdit}>
+                        Попълни липсите
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={onOpenBvfCreate}
+                        disabled={(profile.bvf_missing || []).some((m) => m !== "ЕГН" && m !== "снимка")}
+                      >
+                        Създай в БФВ
+                      </Button>
+                      <Button type="button" size="sm" variant="secondary" onClick={onOpenBvfLink}>
+                        Свържи по ЕГН
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {profile.bvf_player_id ? (
+                  <div style={{ marginTop: 12 }}>
+                    <button type="button" className="athleteProfileCollapseHead" onClick={() => setDocsOpen((v) => !v)}>
+                      <span>Документи (БФВ мост)</span>
+                      <span aria-hidden>{docsOpen ? "▾" : "▸"}</span>
+                    </button>
+                    {docsOpen ? (
+                      <div className="athleteProfileCollapseBody">
+                        <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {!editing ? (
+              <section className="athleteProfileCard athleteProfileCard--compact">
+                <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
+                  Присъства {summary.present ?? 0} · {summary.attendance_rate_percent ?? 0}% ·{" "}
+                  {(summary.absent ?? 0) === 0 ? "0 отсъствия" : `${summary.absent} отсъствия`}
+                </p>
+                <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`} style={{ marginTop: 8 }}>
+                  {monthLabelBg(feesMonth)}: {currentMonthPaid ? "Платено" : "Дължи"}
+                </span>
+              </section>
+            ) : null}
+
+            {!editing ? (
+              <section className="athleteProfileCard">
+                <button type="button" className="athleteProfileCollapseHead" onClick={() => setTeamsOpen((v) => !v)}>
+                  <span>Тренировъчни групи</span>
+                  <span aria-hidden>{teamsOpen ? "▾" : "▸"}</span>
+                </button>
+                {teamsOpen ? (
+                  <div className="athleteProfileCollapseBody">
+                    <TeamsPicker
+                      teams={coachTeams}
+                      selectedTeamIds={selectedTeamIds}
+                      saving={savingTeams}
+                      onToggle={onToggleTeam}
+                      onSave={onSaveTeams}
+                      hasChanges={hasTeamChanges}
+                    />
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {!editing ? (
+              <section className="athleteProfileCard">
+                <button type="button" className="athleteProfileCollapseHead" onClick={() => setContactOpen((v) => !v)}>
+                  <span>Контакт</span>
+                  <span aria-hidden>{contactOpen ? "▾" : "▸"}</span>
+                </button>
+                {contactOpen ? (
+                  <div className="athleteProfileCollapseBody">
+                    {profile.parent_phone ? (
+                      <a href={`tel:${profile.parent_phone}`} className="athleteProfileContactRow">
+                        Родител: {profile.parent_name || "—"} · {profile.parent_phone}
+                      </a>
+                    ) : (
+                      <p className="coachMobileMuted">Родител: {profile.parent_name || "—"}</p>
+                    )}
+                    {profile.athlete_phone ? (
+                      <a href={`tel:${profile.athlete_phone}`} className="athleteProfileContactRow">
+                        Състезател: {profile.athlete_phone}
+                      </a>
+                    ) : (
+                      <p className="coachMobileMuted">Тел. състезател: —</p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {!editing ? (
+              <section className="athleteProfileCard athleteProfileCard--compact">
+                <h3 className="athleteProfileCardTitle">Родителски портал</h3>
+                <p className="coachMobileMuted athleteProfilePortalHint">
+                  Вход с телефон и година на раждане на детето.
+                </p>
+                <div className="athleteProfileInlineActions">
+                  <Button as={Link} to={parentLoginPath()} size="sm" target="_blank" rel="noreferrer">
+                    Отвори
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={onCopyParentUrl}>
+                    Копирай
+                  </Button>
                 </div>
-              ) : null}
-            </section>
+              </section>
+            ) : null}
 
-            <section className="athleteProfileCard">
-              <button type="button" className="athleteProfileCollapseHead" onClick={() => setContactOpen((v) => !v)}>
-                <span>Контакт</span>
-                <span aria-hidden>{contactOpen ? "▾" : "▸"}</span>
-              </button>
-              {contactOpen ? (
-                <div className="athleteProfileCollapseBody">
-                  {profile.parent_phone ? (
-                    <a href={`tel:${profile.parent_phone}`} className="athleteProfileContactRow">
-                      Родител: {profile.parent_name || "—"} · {profile.parent_phone}
-                    </a>
-                  ) : (
-                    <p className="coachMobileMuted">Родител: {profile.parent_name || "—"}</p>
-                  )}
-                  {profile.athlete_phone ? (
-                    <a href={`tel:${profile.athlete_phone}`} className="athleteProfileContactRow">
-                      Състезател: {profile.athlete_phone}
-                    </a>
-                  ) : (
-                    <p className="coachMobileMuted">Тел. състезател: —</p>
-                  )}
-                </div>
-              ) : null}
-            </section>
-
-            <section className="athleteProfileCard athleteProfileCard--compact">
-              <h3 className="athleteProfileCardTitle">Родителски портал</h3>
-              <p className="coachMobileMuted athleteProfilePortalHint">
-                Вход с телефон и година на раждане на детето.
-              </p>
-              <div className="athleteProfileInlineActions">
-                <Button as={Link} to={parentLoginPath()} size="sm" target="_blank" rel="noreferrer">
-                  Отвори
+            {editing ? (
+              <div className="athleteProfileEditBar">
+                <Button type="button" disabled={savingProfile} onClick={onSaveEdit} block>
+                  {savingProfile ? "Запазване…" : "Запази промените"}
                 </Button>
-                <Button type="button" size="sm" variant="secondary" onClick={onCopyParentUrl}>
-                  Копирай
+                <Button type="button" variant="secondary" disabled={savingProfile} onClick={onCancelEdit} block>
+                  Отказ
                 </Button>
               </div>
-            </section>
+            ) : null}
           </div>
         ) : null}
 
@@ -343,11 +517,7 @@ export default function AthleteProfileCoachMobile({
           <div className="athleteProfileTab athleteProfileTab--fees">
             <div className="athleteProfileFeesSticky">
               <InputMonth value={feesMonth} onChange={setFeesMonth} />
-              <Button
-                as={Link}
-                to={`${feesPayHref}&month_key=${encodeURIComponent(feesMonth)}`}
-                size="sm"
-              >
+              <Button as={Link} to={`${feesPayHref}&month_key=${encodeURIComponent(feesMonth)}`} size="sm">
                 Добави плащане
               </Button>
             </div>
@@ -407,7 +577,14 @@ export default function AthleteProfileCoachMobile({
                 {visibleTimeline.map((ev, i) => (
                   <li key={`${ev.kind}-${ev.at}-${i}`} className="athleteProfileTimelineCard">
                     <div className="athleteProfileTimelineWhen">
-                      {ev.at ? new Date(ev.at).toLocaleString("bg-BG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {ev.at
+                        ? new Date(ev.at).toLocaleString("bg-BG", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
                     </div>
                     <div className="athleteProfileTimelineLabel">{ev.label || ev.kind}</div>
                     {(ev.detail || ev.actor_name) && (

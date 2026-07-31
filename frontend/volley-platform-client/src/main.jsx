@@ -46,6 +46,7 @@ const CoachMenu = React.lazy(() => import("./pages/coach/CoachMenu.jsx"));
 const CoachClubHub = React.lazy(() => import("./pages/coach/CoachClubHub.jsx"));
 const CoachBvfHub = React.lazy(() => import("./pages/coach/CoachBvfHub.jsx"));
 const CoachBvfAdmin = React.lazy(() => import("./pages/coach/CoachBvfAdmin.jsx"));
+const CoachBvfCardIndexes = React.lazy(() => import("./pages/coach/CoachBvfCardIndexes.jsx"));
 const CoachAssessmentSession = React.lazy(() => import("./pages/coach/CoachAssessmentSession.jsx"));
 const AthleteDevelopmentCard = React.lazy(() => import("./pages/coach/AthleteDevelopmentCard.jsx"));
 const CoachTestBattery = React.lazy(() => import("./pages/coach/CoachTestBattery.jsx"));
@@ -210,6 +211,7 @@ const router = createBrowserRouter([
               { path: "chat/:teamId", element: <CoachChatRoom /> },
               { path: "bvf", element: <CoachBvfHub /> },
               { path: "bvf-admin", element: <CoachBvfAdmin /> },
+              { path: "bvf-card-indexes", element: <CoachBvfCardIndexes /> },
               { path: "assessment", element: <CoachAssessmentSession /> },
               { path: "assessment/battery", element: <CoachTestBattery /> },
               { path: "assessment/scouting", element: <CoachScoutingTable /> },

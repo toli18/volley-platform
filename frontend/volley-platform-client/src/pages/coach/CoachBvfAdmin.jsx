@@ -27,10 +27,9 @@ export default function CoachBvfAdmin() {
   const allowed = role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
 
   const [status, setStatus] = useState(null);
-  const [bvfClubId, setBvfClubId] = useState("167");
-  const [bvfClubName, setBvfClubName] = useState("Троян Волей");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [rawPlayers, setRawPlayers] = useState([]);
   const [preview, setPreview] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const [q, setQ] = useState("");
@@ -39,14 +38,16 @@ export default function CoachBvfAdmin() {
   const [sexFilter, setSexFilter] = useState("all");
   const [onlyNew, setOnlyNew] = useState(true);
 
+  const permanent = Boolean(status?.permanent_link || status?.has_bvf_credentials);
+
   const loadStatus = async () => {
     try {
       const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_STATUS);
       setStatus(res.data);
-      if (res.data?.bvf_club_id) setBvfClubId(String(res.data.bvf_club_id));
-      if (res.data?.bvf_club_name) setBvfClubName(res.data.bvf_club_name);
+      return res.data;
     } catch (err) {
       toast.error(normalizeError(err, "Грешка при зареждане на БФВ статуса."));
+      return null;
     }
   };
 
@@ -54,45 +55,67 @@ export default function CoachBvfAdmin() {
     if (allowed) loadStatus();
   }, [allowed]);
 
-  const linkClub = async () => {
-    const idNum = Number(bvfClubId);
-    if (!Number.isFinite(idNum) || idNum < 1) {
-      toast.error("Въведи валиден БФВ club id.");
+  const authorizeClub = async () => {
+    if (!username.trim() || !password) {
+      toast.error("Въведи клубен потребител и парола от db.bvf.bg.");
       return;
     }
     try {
       setBusy(true);
       const res = await axiosInstance.put(API_PATHS.BVF_ADMIN_LINK_CLUB, {
-        bvf_club_id: idNum,
-        bvf_club_name: bvfClubName || undefined,
+        username: username.trim(),
+        password,
       });
-      setStatus((prev) => ({ ...(prev || {}), ...res.data, linked_athletes: prev?.linked_athletes || 0 }));
-      toast.success(`Клубът е свързан с БФВ #${idNum}.`);
+      setPassword("");
+      setStatus((prev) => ({
+        ...(prev || {}),
+        ...res.data,
+        linked_athletes: prev?.linked_athletes || 0,
+      }));
+      toast.success(
+        `Постоянна връзка: БФВ #${res.data.bvf_club_id} (${res.data.bvf_club_name}). След това token не е нужен.`,
+      );
+      await loadStatus();
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно свързване."));
+      toast.error(normalizeError(err, "Неуспешна оторизация."));
     } finally {
       setBusy(false);
     }
   };
 
-  const onFile = async (file) => {
-    if (!file) return;
+  const unlinkClub = async () => {
+    if (!window.confirm("Премахва постоянната връзка и записаните БФВ credentials. Продължаваш?")) return;
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const list = Array.isArray(data) ? data : Array.isArray(data?.players) ? data.players : null;
-      if (!list) {
-        toast.error("Очакван е JSON масив от състезатели (GET /clubs/{id}/players).");
-        return;
-      }
-      setRawPlayers(list);
       setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_PREVIEW, { players: list });
+      await axiosInstance.delete(API_PATHS.BVF_ADMIN_UNLINK_CLUB);
+      setPreview(null);
+      setSelected(new Set());
+      toast.success("Връзката с БФВ е премахната.");
+      await loadStatus();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно премахване."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fetchPlayers = async () => {
+    if (!status?.bvf_club_id) {
+      toast.error("Първо оторизирай клуба (стъпка 1).");
+      return;
+    }
+    if (!permanent) {
+      toast.error("Нужна е постоянна връзка с потребител/парола — свържи клуба отново.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_FETCH, {});
       setPreview(res.data);
       setSelected(new Set());
       toast.success(`Заредени ${res.data.total} състезатели от БФВ.`);
     } catch (err) {
-      toast.error(normalizeError(err, "Невалиден JSON файл."));
+      toast.error(normalizeError(err, "Неуспешно зареждане от БФВ."));
     } finally {
       setBusy(false);
     }
@@ -125,7 +148,7 @@ export default function CoachBvfAdmin() {
   };
 
   const selectFiltered = () => {
-    setSelected(new Set(filtered.map((r) => r.bvf_player_id)));
+    setSelected(new Set(filtered.filter((r) => r.status !== "linked").map((r) => r.bvf_player_id)));
   };
 
   const clearSelected = () => setSelected(new Set());
@@ -139,21 +162,23 @@ export default function CoachBvfAdmin() {
       toast.error("Първо свържи клуба с БФВ.");
       return;
     }
-    const byId = new Map(rawPlayers.map((p) => [Number(p.id), p]));
-    const players = [...selected].map((id) => byId.get(Number(id))).filter(Boolean);
+    const players = (preview?.players || [])
+      .filter((r) => selected.has(r.bvf_player_id))
+      .map((r) => r._raw || r);
     if (!players.length) {
-      toast.error("Няма данни за избраните редове — зареди JSON наново.");
+      toast.error("Няма данни за избраните — зареди списъка наново.");
       return;
     }
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_IMPORT, { players });
       toast.success(`Импорт: нови ${res.data.created}, свързани ${res.data.linked}.`);
-      // refresh preview statuses
-      const prev = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_PREVIEW, { players: rawPlayers });
-      setPreview(prev.data);
       setSelected(new Set());
       await loadStatus();
+      if (permanent) {
+        const refreshed = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_FETCH, {});
+        setPreview(refreshed.data);
+      }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен импорт."));
     } finally {
@@ -173,15 +198,20 @@ export default function CoachBvfAdmin() {
     <div className="uiPage">
       <PageHero
         title="Администрация БФВ"
-        subtitle="Свържи клуба с федерацията и импортирай само избрани състезатели."
+        subtitle="Еднократна оторизация с клубен вход в db.bvf.bg → постоянна връзка между системите."
         actions={
-          <Link to="/coach/bvf">
-            <Button variant="secondary">Назад към БФВ</Button>
-          </Link>
+          <>
+            <Link to="/coach/bvf-card-indexes">
+              <Button variant="secondary">Картотечни отбори</Button>
+            </Link>
+            <Link to="/coach/bvf">
+              <Button variant="secondary">Назад към БФВ</Button>
+            </Link>
+          </>
         }
       />
 
-      <Card title="1. Връзка клуб ↔ db.bvf.bg">
+      <Card title="1. Оторизирай клуба (еднократно)">
         <p className="uiMuted" style={{ marginTop: 0 }}>
           Платформа: <strong>{status?.club_name || "—"}</strong>
           {status?.bvf_club_id ? (
@@ -195,39 +225,75 @@ export default function CoachBvfAdmin() {
             " · още не е свързан"
           )}
         </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>БФВ club id</span>
-            <Input value={bvfClubId} onChange={(e) => setBvfClubId(e.target.value)} style={{ width: 120 }} />
-          </label>
-          <label style={{ display: "grid", gap: 4, flex: 1, minWidth: 180 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>Име в БФВ (проверка)</span>
-            <Input value={bvfClubName} onChange={(e) => setBvfClubName(e.target.value)} />
-          </label>
-          <Button type="button" disabled={busy} onClick={linkClub}>
-            Свържи клуба
-          </Button>
-        </div>
+
+        {permanent ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
+              Постоянната връзка е активна
+              {status?.bvf_username ? (
+                <>
+                  {" "}
+                  за потребител <code>{status.bvf_username}</code>
+                </>
+              ) : null}
+              . Сървърът влиза автоматично в БФВ при нужда — без ръчен token.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button type="button" variant="secondary" disabled={busy} onClick={unlinkClub}>
+                Премахни връзката
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, lineHeight: 1.45, marginTop: 0 }}>
+              Въведи същите данни, с които клубът влиза в{" "}
+              <a href="https://db.bvf.bg" target="_blank" rel="noreferrer">
+                db.bvf.bg
+              </a>
+              . Сървърът проверява достъпа live, разпознава клуба от JWT и записва криптирани credentials за
+              постоянна връзка.
+            </p>
+            <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>БФВ потребител (клубен)</span>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  placeholder="club username"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Парола</span>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                />
+              </label>
+              <Button type="button" disabled={busy || !username.trim() || !password} onClick={authorizeClub}>
+                Оторизирай и създай постоянна връзка
+              </Button>
+            </div>
+          </>
+        )}
       </Card>
 
       <Card
-        title="2. Състезатели от БФВ (селективен импорт)"
+        title="2. Зареди състезатели от БФВ"
         actions={
-          <label style={{ cursor: "pointer" }}>
-            <input
-              type="file"
-              accept="application/json,.json"
-              style={{ display: "none" }}
-              onChange={(e) => onFile(e.target.files?.[0])}
-            />
-            <Button type="button" variant="secondary" as="span">
-              Зареди JSON от Swagger
-            </Button>
-          </label>
+          <Button type="button" variant="secondary" disabled={busy || !permanent} onClick={fetchPlayers}>
+            Зареди от БФВ
+          </Button>
         }
       >
         <p className="uiMuted" style={{ marginTop: 0 }}>
-          Качи response от <code>GET /api/clubs/&#123;id&#125;/players</code>. Не се импортират всички — само отметнатите.
+          {permanent
+            ? "Списъкът идва директно от федерацията през постоянната връзка. Импортират се само отметнатите."
+            : "След оторизация в стъпка 1 можеш да заредиш състезателите без token."}
         </p>
 
         {preview ? (
@@ -332,7 +398,11 @@ export default function CoachBvfAdmin() {
         ) : (
           <EmptyState
             title="Няма зареден списък"
-            description="От Swagger: GET /api/clubs/167/players → Download → качи файла тук."
+            description={
+              permanent
+                ? "Натисни „Зареди от БФВ“ — без ръчен token."
+                : "Първо оторизирай клуба с потребител и парола."
+            }
           />
         )}
       </Card>

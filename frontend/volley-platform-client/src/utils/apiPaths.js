@@ -160,6 +160,7 @@ export const API_PATHS = {
   TEAM_MATCH_LIVE_NEXT_SET: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/next-set`,
   TEAM_MATCH_LIVE_FINISH: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/finish`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
+  TEAM_ATHLETE_PHOTO: (athleteId) => `/api/teams/athletes/${athleteId}/photo`,
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",
   ATHLETE_ROOM_AUTH_LOGIN: "/api/athlete-room-auth/login",
   ATHLETE_ROOM_ME: "/api/athlete-room/me",
@@ -219,8 +220,18 @@ export const API_PATHS = {
   // BVF Administration (federation carding link + selective import)
   BVF_ADMIN_STATUS: "/api/bvf-admin/status",
   BVF_ADMIN_LINK_CLUB: "/api/bvf-admin/link-club",
-  BVF_ADMIN_PLAYERS_PREVIEW: "/api/bvf-admin/players/preview",
+  BVF_ADMIN_UNLINK_CLUB: "/api/bvf-admin/link-club",
+  BVF_ADMIN_PLAYERS_FETCH: "/api/bvf-admin/players/fetch",
   BVF_ADMIN_PLAYERS_IMPORT: "/api/bvf-admin/players/import",
+  BVF_ADMIN_COACHES_LIST: "/api/bvf-admin/coaches/list",
+  BVF_ADMIN_CREATE_FROM_ATHLETE: "/api/bvf-admin/players/create-from-athlete",
+  BVF_ADMIN_SYNC_PHOTO: "/api/bvf-admin/players/sync-photo",
+  BVF_ADMIN_LINK_BY_EGN: "/api/bvf-admin/players/link-by-egn",
+  BVF_ADMIN_DOCS_SYNC: "/api/bvf-admin/players/documents/sync",
+  BVF_ADMIN_DOCS_UPLOAD: "/api/bvf-admin/players/documents/upload",
+  BVF_ADMIN_CARD_INDEXES_FETCH: "/api/bvf-admin/card-indexes/fetch",
+  BVF_ADMIN_CARD_INDEXES_CREATE: "/api/bvf-admin/card-indexes/create",
+  BVF_ADMIN_CARD_INDEX_ADD_PLAYERS: (bvfId) => `/api/bvf-admin/card-indexes/${bvfId}/add-players`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

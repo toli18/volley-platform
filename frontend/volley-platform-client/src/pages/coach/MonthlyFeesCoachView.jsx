@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
+import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
 
 const TABS = [
@@ -21,63 +22,7 @@ function monthPaid(athlete, monthKey) {
 function NewAthleteForm({ athleteForm, setAthleteForm, busy, onSave, onReset }) {
   return (
     <div className="feesCoachForm">
-      <Input
-        placeholder="Име на състезател"
-        value={athleteForm.athlete_name}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_name: e.target.value }))}
-      />
-      <Input
-        placeholder="Телефон на състезател"
-        value={athleteForm.athlete_phone}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, athlete_phone: e.target.value }))}
-      />
-      <Input
-        placeholder="Име на родител"
-        value={athleteForm.parent_name}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, parent_name: e.target.value }))}
-      />
-      <Input
-        placeholder="Телефон на родител"
-        value={athleteForm.parent_phone}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, parent_phone: e.target.value }))}
-      />
-      <label style={{ display: "grid", gap: 4 }}>
-        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата на раждане</span>
-        <Input
-          type="date"
-          value={athleteForm.birth_date}
-          onChange={(e) => setAthleteForm((p) => ({ ...p, birth_date: e.target.value }))}
-        />
-      </label>
-      <Input
-        placeholder="Място на раждане (ако е празно → град на клуба)"
-        value={athleteForm.place_of_birth}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, place_of_birth: e.target.value }))}
-      />
-      <Input
-        as="select"
-        value={athleteForm.gender}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}
-      >
-        <option value="">Пол</option>
-        <option value="male">Мъж</option>
-        <option value="female">Жена</option>
-      </Input>
-      <Input
-        as="textarea"
-        rows={2}
-        placeholder="Бележка"
-        value={athleteForm.notes}
-        onChange={(e) => setAthleteForm((p) => ({ ...p, notes: e.target.value }))}
-      />
-      <label className="feesCoachCheckbox">
-        <input
-          type="checkbox"
-          checked={athleteForm.is_active}
-          onChange={(e) => setAthleteForm((p) => ({ ...p, is_active: e.target.checked }))}
-        />
-        Активен състезател
-      </label>
+      <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn={false} />
       <Button disabled={busy} onClick={onSave} block>
         Създай състезател
       </Button>

@@ -6,9 +6,16 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { parentLoginUrl } from "../../utils/parentAuth";
 import { useToast } from "../../components/ToastProvider";
+import BvfCreateAthleteModal from "../../components/athletes/BvfCreateAthleteModal";
+import BvfLinkByEgnModal from "../../components/athletes/BvfLinkByEgnModal";
 import { EmptyState } from "../../components/ui";
 import AthleteProfileCoachMobile from "./AthleteProfileCoachMobile";
 import { normalizeError } from "../../utils/normalizeError";
+import {
+  athleteToIdentityForm,
+  buildAthletePayload,
+  validateAthleteIdentityForm,
+} from "../../utils/athleteIdentity";
 
 export default function CoachAthleteProfile() {
   const { athleteId } = useParams();
@@ -30,25 +37,32 @@ export default function CoachAthleteProfile() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [profile, setProfile] = useState(null);
   const [coachTeams, setCoachTeams] = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState(() => new Set());
   const [initialTeamIds, setInitialTeamIds] = useState(() => new Set());
+
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [bvfOpen, setBvfOpen] = useState(false);
+  const [bvfLinkOpen, setBvfLinkOpen] = useState(false);
 
   const feesAllHref = useMemo(() => {
     if (!profile?.athlete_id) return "/coach/fees";
     return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}`;
   }, [profile?.athlete_id]);
 
-  const feesEditHref = useMemo(() => {
-    if (!profile?.athlete_id) return "/coach/fees";
-    return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}&focus=edit`;
-  }, [profile?.athlete_id]);
-
   const feesPayHref = useMemo(() => {
     if (!profile?.athlete_id) return "/coach/fees";
     return `/coach/fees?athlete_id=${encodeURIComponent(profile.athlete_id)}&focus=pay`;
   }, [profile?.athlete_id]);
+
+  const reloadProfile = async () => {
+    const profileRes = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteIdNum));
+    setProfile(profileRes.data || null);
+    return profileRes.data;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -146,13 +160,60 @@ export default function CoachAthleteProfile() {
       }
 
       setInitialTeamIds(new Set(selectedTeamIds));
-      const profileRes = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteIdNum));
-      setProfile(profileRes.data || null);
+      await reloadProfile();
       toast.success(changedNames.length ? "Отборите са запазени." : "Промените са запазени.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно запазване на отборите."));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEdit = () => {
+    if (!profile) return;
+    setEditForm(athleteToIdentityForm(profile));
+    setEditing(true);
+    setTab("overview");
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditForm(null);
+  };
+
+  const saveProfile = async () => {
+    if (!profile || !editForm) return;
+    const locked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
+    if (!locked) {
+      const err = validateAthleteIdentityForm(editForm, {
+        requireSplitNames:
+          Boolean(editForm.first_name || editForm.middle_name || editForm.last_name) || !editForm.athlete_name,
+      });
+      if (err) {
+        toast.error(err);
+        return;
+      }
+    }
+    const payload = locked
+      ? {
+          athlete_phone: (editForm.athlete_phone || "").trim() || null,
+          parent_name: (editForm.parent_name || "").trim() || null,
+          parent_phone: (editForm.parent_phone || "").trim() || null,
+          notes: (editForm.notes || "").trim() || null,
+          is_active: Boolean(editForm.is_active),
+        }
+      : buildAthletePayload(editForm);
+    try {
+      setSavingProfile(true);
+      await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(profile.athlete_id), payload);
+      await reloadProfile();
+      setEditing(false);
+      setEditForm(null);
+      toast.success("Профилът е запазен.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно запазване."));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -174,22 +235,55 @@ export default function CoachAthleteProfile() {
   }
 
   return (
-    <AthleteProfileCoachMobile
-      profile={profile}
-      tab={tab}
-      setTab={setTab}
-      from={from}
-      feesPayHref={feesPayHref}
-      feesEditHref={feesEditHref}
-      feesAllHref={feesAllHref}
-      coachTeams={coachTeams}
-      selectedTeamIds={selectedTeamIds}
-      savingTeams={saving}
-      hasTeamChanges={hasTeamChanges}
-      onToggleTeam={toggleTeam}
-      onSaveTeams={saveTeams}
-      onCopyParentUrl={copyParentLoginUrl}
-      onBack={() => navigate(from)}
-    />
+    <>
+      <AthleteProfileCoachMobile
+        profile={profile}
+        tab={tab}
+        setTab={setTab}
+        from={from}
+        feesPayHref={feesPayHref}
+        feesAllHref={feesAllHref}
+        coachTeams={coachTeams}
+        selectedTeamIds={selectedTeamIds}
+        savingTeams={saving}
+        hasTeamChanges={hasTeamChanges}
+        onToggleTeam={toggleTeam}
+        onSaveTeams={saveTeams}
+        onCopyParentUrl={copyParentLoginUrl}
+        onBack={() => navigate(from)}
+        editing={editing}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        savingProfile={savingProfile}
+        onStartEdit={startEdit}
+        onCancelEdit={cancelEdit}
+        onSaveEdit={saveProfile}
+        onOpenBvfCreate={() => setBvfOpen(true)}
+        onOpenBvfLink={() => setBvfLinkOpen(true)}
+      />
+      <BvfCreateAthleteModal
+        open={bvfOpen}
+        onClose={() => setBvfOpen(false)}
+        athleteId={profile.athlete_id}
+        athleteName={profile.athlete_name}
+        initialEgn={profile.egn || ""}
+        missing={profile.bvf_missing || []}
+        toast={toast}
+        onCreated={async () => {
+          await reloadProfile();
+        }}
+      />
+      <BvfLinkByEgnModal
+        open={bvfLinkOpen}
+        onClose={() => setBvfLinkOpen(false)}
+        athleteId={profile.athlete_id}
+        athleteName={profile.athlete_name}
+        initialEgn={profile.egn || ""}
+        toast={toast}
+        onLinked={async () => {
+          await reloadProfile();
+        }}
+      />
+    </>
   );
 }

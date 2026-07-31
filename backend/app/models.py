@@ -85,6 +85,9 @@ class Club(Base):
     bvf_club_id = Column(Integer, nullable=True, unique=True, index=True)
     bvf_club_name = Column(String(255), nullable=True)
     bvf_linked_at = Column(DateTime, nullable=True)
+    # Еднократна оторизация — username + криптирана парола за автоматичен token
+    bvf_username = Column(String(100), nullable=True)
+    bvf_password_enc = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -470,12 +473,16 @@ class Athlete(Base):
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True, index=True)
 
     athlete_name = Column(String(255), nullable=False)
+    first_name = Column(String(25), nullable=True)
+    middle_name = Column(String(25), nullable=True)
+    last_name = Column(String(25), nullable=True)
     athlete_phone = Column(String(50), nullable=True)
     parent_name = Column(String(255), nullable=True)
     parent_phone = Column(String(50), nullable=True)
     birth_year = Column(Integer, nullable=True, index=True)
     birth_date = Column(Date, nullable=True)
     place_of_birth = Column(String(255), nullable=True)
+    nationality = Column(String(25), nullable=True, default="България")
     gender = Column(String(16), nullable=True)  # "male" | "female"
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
@@ -483,6 +490,7 @@ class Athlete(Base):
     egn = Column(String(16), nullable=True, index=True)
     bvf_player_id = Column(Integer, nullable=True, unique=True, index=True)
     bvf_player_number = Column(Integer, nullable=True, index=True)
+    bvf_photo_id = Column(String(64), nullable=True)
     bvf_synced_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
@@ -512,6 +520,70 @@ class Athlete(Base):
         back_populates="athlete",
         cascade="all, delete-orphan",
     )
+    bvf_documents = relationship(
+        "AthleteBvfDocument",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
+
+
+class AthleteBvfDocument(Base):
+    """Метаданни за документ в БФВ — файлът живее само във федерацията."""
+
+    __tablename__ = "athlete_bvf_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    bvf_document_id = Column(String(64), nullable=False, index=True)
+    bvf_file_id = Column(String(64), nullable=True)
+    doc_type = Column(Integer, nullable=True)
+    description = Column(String(500), nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    season_year = Column(Integer, nullable=True, index=True)
+    synced_at = Column(DateTime, nullable=True)
+
+    athlete = relationship("Athlete", back_populates="bvf_documents")
+
+
+class BvfCardIndex(Base):
+    """Локален запис / огледало на БФВ card index (сезон × възраст × пол)."""
+
+    __tablename__ = "bvf_card_indexes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    bvf_card_index_id = Column(Integer, nullable=True, unique=True, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    age = Column(Integer, nullable=False)
+    age_group = Column(String(120), nullable=True)
+    sex = Column(Integer, nullable=False, default=0)  # 0 male, 1 female
+    is_signed = Column(Boolean, nullable=True)
+    senior_coach_bvf_id = Column(Integer, nullable=True)
+    status = Column(String(32), nullable=False, default="draft")  # draft | synced | signed
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    members = relationship(
+        "BvfCardIndexMember",
+        back_populates="card_index",
+        cascade="all, delete-orphan",
+    )
+
+
+class BvfCardIndexMember(Base):
+    __tablename__ = "bvf_card_index_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    card_index_id = Column(Integer, ForeignKey("bvf_card_indexes.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    bvf_player_id = Column(Integer, nullable=True, index=True)
+    synced = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    card_index = relationship("BvfCardIndex", back_populates="members")
+    athlete = relationship("Athlete")
 
 
 class ParentPortalChangeMarker(Base):
