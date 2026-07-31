@@ -72,8 +72,14 @@ def _token_matches_club(token: str | None, club: Club) -> str:
 def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
     url = f"{BVF_API_BASE}{path}"
     try:
-        with httpx.Client(timeout=BVF_TIMEOUT) as client:
-            res = client.get(url, headers=_bvf_headers(token))
+        with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
+            res = client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "*/*",
+                },
+            )
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
     if res.status_code == 401:
@@ -237,11 +243,11 @@ def sync_athlete_photo(
     photo_id = str(remote.get("photoId") or "").strip() or None
     if not photo_id:
         raise HTTPException(status_code=404, detail="Няма снимка в БФВ")
-    from app.services.athlete_photo import fetch_bvf_photo_bytes, save_athlete_photo
+    from app.services.athlete_photo import fetch_bvf_photo_bytes_detailed, save_athlete_photo
 
-    content = fetch_bvf_photo_bytes(token, photo_id)
+    content, reason = fetch_bvf_photo_bytes_detailed(token, photo_id)
     if not content:
-        raise HTTPException(status_code=502, detail="Неуспешно изтегляне на снимката от БФВ")
+        raise HTTPException(status_code=502, detail=reason or "Неуспешно изтегляне на снимката от БФВ")
     save_athlete_photo(athlete.id, content)
     athlete.bvf_photo_id = photo_id
     athlete.bvf_synced_at = datetime.utcnow()
@@ -323,8 +329,11 @@ def link_player_by_egn(
 
     if photo_id:
         try:
-            content, _ = _bvf_get_bytes(f"/api/files/{photo_id}", token)
-            save_athlete_photo(athlete.id, content)
+            from app.services.athlete_photo import fetch_bvf_photo_bytes, save_athlete_photo
+
+            content = fetch_bvf_photo_bytes(token, photo_id)
+            if content:
+                save_athlete_photo(athlete.id, content)
         except Exception:
             pass
 

@@ -38,11 +38,16 @@ def read_athlete_photo(athlete_id: int) -> bytes | None:
     return data or None
 
 
-def _bvf_headers(token: str) -> dict:
-    return {
+def _bvf_headers(token: str, *, for_file: bool = False) -> dict:
+    headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
     }
+    if for_file:
+        # Бинарни файлове — не искаме application/json (може 406 / празен отговор)
+        headers["Accept"] = "*/*"
+    else:
+        headers["Accept"] = "application/json"
+    return headers
 
 
 def fetch_bvf_photo_bytes(token: str, photo_id: str) -> bytes | None:
@@ -51,13 +56,44 @@ def fetch_bvf_photo_bytes(token: str, photo_id: str) -> bytes | None:
         return None
     url = f"{BVF_API_BASE}/api/files/{pid}"
     try:
-        with httpx.Client(timeout=BVF_TIMEOUT) as client:
-            res = client.get(url, headers=_bvf_headers(token))
+        with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
+            res = client.get(url, headers=_bvf_headers(token, for_file=True))
     except httpx.HTTPError:
         return None
     if res.status_code >= 400 or not res.content:
         return None
+    # Отхвърли JSON грешки, маскирани като 200
+    ctype = (res.headers.get("content-type") or "").lower()
+    if "application/json" in ctype and res.content[:1] in (b"{", b"["):
+        return None
     return res.content
+
+
+def fetch_bvf_photo_bytes_detailed(token: str, photo_id: str) -> tuple[bytes | None, str]:
+    """Като fetch_bvf_photo_bytes, но с причина при неуспех (за sync API)."""
+    pid = (photo_id or "").strip()
+    if not pid:
+        return None, "Липсва photoId"
+    url = f"{BVF_API_BASE}/api/files/{pid}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
+            res = client.get(url, headers=_bvf_headers(token, for_file=True))
+    except httpx.HTTPError as exc:
+        return None, f"Мрежова грешка към БФВ files: {exc}"
+    if res.status_code == 401:
+        return None, "БФВ token е невалиден при изтегляне на файл"
+    if res.status_code == 403:
+        return None, "Клубът няма право да чете този файл в БФВ"
+    if res.status_code == 404:
+        return None, "Файлът не е намерен в БФВ (изтрита снимка?)"
+    if res.status_code >= 400:
+        return None, f"БФВ files грешка {res.status_code}: {(res.text or '')[:160]}"
+    if not res.content:
+        return None, "БФВ върна празен файл"
+    ctype = (res.headers.get("content-type") or "").lower()
+    if "application/json" in ctype and res.content[:1] in (b"{", b"["):
+        return None, f"БФВ върна JSON вместо снимка: {res.text[:160]}"
+    return res.content, "ok"
 
 
 def resolve_bvf_photo_id(token: str, athlete) -> Optional[str]:
@@ -69,7 +105,7 @@ def resolve_bvf_photo_id(token: str, athlete) -> Optional[str]:
         return None
     url = f"{BVF_API_BASE}/api/players/{int(player_id)}"
     try:
-        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+        with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
             res = client.get(url, headers=_bvf_headers(token))
     except httpx.HTTPError:
         return None
