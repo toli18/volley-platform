@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button, Input } from "../ui";
 import axiosInstance from "../../utils/apiClient";
@@ -6,15 +6,20 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 
 /**
- * Разпознаване на локален треньор в СЕК (db.bvf.bg) за FirstCoachId.
+ * Свързване с лицензиран треньор от СЕК.
  * mode: self | proxy | none
+ *
+ * onSuggestLocalName — при избор на лицензиран (self) предлага име за локалния профил
+ * (на create се попълва; на edit не се форсира — локалното име остава редактируемо).
  */
 export default function SekCoachLinkFields({
   clubId,
   value,
   onChange,
+  onSuggestLocalName,
   toast,
   disabled = false,
+  autoLoad = true,
 }) {
   const mode = value?.sek_link_mode || "none";
   const [coaches, setCoaches] = useState([]);
@@ -23,18 +28,8 @@ export default function SekCoachLinkFields({
 
   const clubLinked = Boolean(clubId);
 
-  useEffect(() => {
-    setCoaches([]);
-    setLoadError("");
-  }, [clubId]);
-
-  const patch = (partial) => onChange?.({ ...value, ...partial });
-
-  const loadCoaches = async () => {
-    if (!clubId) {
-      toast?.error("Първо избери клуб.");
-      return;
-    }
+  const loadCoaches = useCallback(async ({ silent = false } = {}) => {
+    if (!clubId) return;
     try {
       setLoading(true);
       setLoadError("");
@@ -44,42 +39,27 @@ export default function SekCoachLinkFields({
       const list = Array.isArray(res.data?.coaches) ? res.data.coaches : [];
       setCoaches(list);
       if (!list.length) {
-        setLoadError("Няма треньори в СЕК за този клуб (или липсва ApiKey).");
-      } else {
-        toast?.success(`Заредени ${list.length} треньори от СЕК.`);
+        setLoadError("Няма лицензирани треньори в СЕК за този клуб (или липсва ApiKey).");
+      } else if (!silent) {
+        toast?.success(`Заредени ${list.length} лицензирани треньори.`);
       }
     } catch (err) {
       const msg = normalizeError(err, "Неуспешно зареждане на треньори от СЕК.");
       setLoadError(msg);
-      toast?.error(msg);
+      if (!silent) toast?.error(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [clubId, toast]);
 
-  const onSelectSelf = (idStr) => {
-    const id = idStr ? Number(idStr) : null;
-    const row = coaches.find((c) => Number(c.id) === id);
-    patch({
-      sek_link_mode: "self",
-      bvf_coach_id: id,
-      bvf_coach_name: row?.name || (id ? `БФВ #${id}` : ""),
-      bvf_first_coach_proxy_id: null,
-      bvf_first_coach_proxy_name: "",
-    });
-  };
+  useEffect(() => {
+    setCoaches([]);
+    setLoadError("");
+    if (!clubId || !autoLoad) return;
+    loadCoaches({ silent: true });
+  }, [clubId, autoLoad, loadCoaches]);
 
-  const onSelectProxy = (idStr) => {
-    const id = idStr ? Number(idStr) : null;
-    const row = coaches.find((c) => Number(c.id) === id);
-    patch({
-      sek_link_mode: "proxy",
-      bvf_coach_id: null,
-      bvf_coach_name: "",
-      bvf_first_coach_proxy_id: id,
-      bvf_first_coach_proxy_name: row?.name || (id ? `БФВ #${id}` : ""),
-    });
-  };
+  const patch = (partial) => onChange?.({ ...value, ...partial });
 
   const selectedSelf =
     mode === "self" && value?.bvf_coach_id != null ? String(value.bvf_coach_id) : "";
@@ -93,6 +73,74 @@ export default function SekCoachLinkFields({
   const proxyOptionMissing =
     selectedProxy && !coaches.some((c) => String(c.id) === selectedProxy);
 
+  const onPickLicensed = (idStr) => {
+    if (!idStr) {
+      patch({
+        sek_link_mode: "none",
+        bvf_coach_id: null,
+        bvf_coach_name: "",
+        bvf_first_coach_proxy_id: null,
+        bvf_first_coach_proxy_name: "",
+        set_as_club_default_first_coach: false,
+      });
+      return;
+    }
+    const id = Number(idStr);
+    const row = coaches.find((c) => Number(c.id) === id);
+    const label = row?.name || `БФВ #${id}`;
+    patch({
+      sek_link_mode: "self",
+      bvf_coach_id: id,
+      bvf_coach_name: label,
+      bvf_first_coach_proxy_id: null,
+      bvf_first_coach_proxy_name: "",
+    });
+    onSuggestLocalName?.(label);
+  };
+
+  const onPickProxy = (idStr) => {
+    if (!idStr) {
+      patch({
+        sek_link_mode: "none",
+        bvf_coach_id: null,
+        bvf_coach_name: "",
+        bvf_first_coach_proxy_id: null,
+        bvf_first_coach_proxy_name: "",
+        set_as_club_default_first_coach: false,
+      });
+      return;
+    }
+    const id = Number(idStr);
+    const row = coaches.find((c) => Number(c.id) === id);
+    patch({
+      sek_link_mode: "proxy",
+      bvf_coach_id: null,
+      bvf_coach_name: "",
+      bvf_first_coach_proxy_id: id,
+      bvf_first_coach_proxy_name: row?.name || `БФВ #${id}`,
+      set_as_club_default_first_coach: false,
+    });
+  };
+
+  const setKind = (kind) => {
+    if (kind === "licensed") {
+      patch({
+        sek_link_mode: selectedSelf ? "self" : "self",
+        bvf_first_coach_proxy_id: null,
+        bvf_first_coach_proxy_name: "",
+      });
+    } else if (kind === "unlicensed") {
+      patch({
+        sek_link_mode: selectedProxy ? "proxy" : "none",
+        bvf_coach_id: null,
+        bvf_coach_name: "",
+        set_as_club_default_first_coach: false,
+      });
+    }
+  };
+
+  const kind = mode === "self" ? "licensed" : "unlicensed";
+
   return (
     <div
       style={{
@@ -105,95 +153,84 @@ export default function SekCoachLinkFields({
       }}
     >
       <div>
-        <div style={{ fontWeight: 800, fontSize: 14 }}>Разпознаване в СЕК (БФВ)</div>
+        <div style={{ fontWeight: 800, fontSize: 14 }}>Лиценз в СЕК (БФВ)</div>
         <div style={{ fontSize: 12, color: "#5f708c", marginTop: 2 }}>
-          Нужно за FirstCoachId при създаване на състезател във федерацията. Без това треньорът
-          работи нормално в платформата.
+          Избери лицензиран треньор от падащото меню. Това определя FirstCoachId при създаване на
+          състезатели във федерацията.
         </div>
       </div>
 
       {!clubLinked ? (
-        <p style={{ margin: 0, fontSize: 13, color: "#b45309" }}>Избери клуб, за да свържеш със СЕК.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#b45309" }}>Първо избери клуб.</p>
       ) : (
         <>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={disabled || loading}
-              onClick={loadCoaches}
-            >
-              {loading ? "Зареждане…" : "Зареди треньори от СЕК"}
-            </Button>
-            {value?.bvf_coach_name || value?.bvf_first_coach_proxy_name ? (
-              <span style={{ fontSize: 12, color: "#166534" }}>
-                Текущо:{" "}
-                {mode === "self"
-                  ? value.bvf_coach_name
-                  : mode === "proxy"
-                    ? `прокси → ${value.bvf_first_coach_proxy_name}`
-                    : "—"}
-              </span>
+            {loading ? (
+              <span style={{ fontSize: 12, color: "#5f708c" }}>Зареждане на лицензирани треньори…</span>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={disabled}
+                onClick={() => loadCoaches({ silent: false })}
+              >
+                Опресни списъка
+              </Button>
+            )}
+            {coaches.length ? (
+              <span style={{ fontSize: 12, color: "#166534" }}>{coaches.length} в СЕК</span>
             ) : null}
           </div>
           {loadError ? (
             <p style={{ margin: 0, fontSize: 12, color: "#b91c1c" }}>{loadError}</p>
           ) : null}
 
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>Режим</span>
-            <Input
-              as="select"
-              value={mode}
-              disabled={disabled}
-              onChange={(e) => {
-                const next = e.target.value;
-                if (next === "none") {
-                  patch({
-                    sek_link_mode: "none",
-                    bvf_coach_id: null,
-                    bvf_coach_name: "",
-                    bvf_first_coach_proxy_id: null,
-                    bvf_first_coach_proxy_name: "",
-                    set_as_club_default_first_coach: false,
-                  });
-                } else if (next === "self") {
-                  patch({
-                    sek_link_mode: "self",
-                    bvf_first_coach_proxy_id: null,
-                    bvf_first_coach_proxy_name: "",
-                  });
-                } else {
-                  patch({
-                    sek_link_mode: "proxy",
-                    bvf_coach_id: null,
-                    bvf_coach_name: "",
-                    set_as_club_default_first_coach: false,
-                  });
-                }
-              }}
-            >
-              <option value="none">Без разпознаване (ползва клубен default)</option>
-              <option value="self">Този треньор е в СЕК (лицензиран)</option>
-              <option value="proxy">Няма лиценз — прокси лицензиран треньор</option>
-            </Input>
-          </label>
+          <fieldset style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 8 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13 }}>
+              <input
+                type="radio"
+                name="sek-kind"
+                checked={kind === "licensed"}
+                disabled={disabled}
+                onChange={() => setKind("licensed")}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                <b>Лицензиран треньор</b> — името идва от СЕК (можеш да го коригираш локално по-късно)
+              </span>
+            </label>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13 }}>
+              <input
+                type="radio"
+                name="sek-kind"
+                checked={kind === "unlicensed"}
+                disabled={disabled}
+                onChange={() => setKind("unlicensed")}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                <b>Без лиценз в СЕК</b> — пишеш локално име; за федерацията ползваш прокси / клубен default
+              </span>
+            </label>
+          </fieldset>
 
-          {mode === "self" ? (
+          {kind === "licensed" ? (
             <>
               <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Треньор в СЕК *</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Лицензиран треньор от СЕК *</span>
                 <Input
                   as="select"
                   value={selectedSelf}
-                  disabled={disabled || (!coaches.length && !selectedSelf)}
-                  onChange={(e) => onSelectSelf(e.target.value)}
+                  disabled={disabled || (loading && !coaches.length && !selectedSelf)}
+                  onChange={(e) => onPickLicensed(e.target.value)}
                 >
-                  <option value="">{coaches.length ? "Избери" : "Зареди списъка от СЕК"}</option>
+                  <option value="">
+                    {loading ? "Зареждане…" : coaches.length ? "Избери име…" : "Няма списък — опресни"}
+                  </option>
                   {selfOptionMissing ? (
                     <option value={selectedSelf}>
-                      {value?.bvf_coach_name || `БФВ #${selectedSelf}`} (запазен)
+                      {value?.bvf_coach_name || `БФВ #${selectedSelf}`} (текущ)
                     </option>
                   ) : null}
                   {coaches.map((c) => (
@@ -210,24 +247,24 @@ export default function SekCoachLinkFields({
                   disabled={disabled || !selectedSelf}
                   onChange={(e) => patch({ set_as_club_default_first_coach: e.target.checked })}
                 />
-                Задай като клубен default FirstCoach (за треньори без собствен СЕК id)
+                Клубен default FirstCoach (за треньори без собствен лиценз)
               </label>
             </>
-          ) : null}
-
-          {mode === "proxy" ? (
+          ) : (
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Прокси треньор в СЕК *</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>
+                FirstCoach в СЕК (прокси, по желание)
+              </span>
               <Input
                 as="select"
                 value={selectedProxy}
-                disabled={disabled || (!coaches.length && !selectedProxy)}
-                onChange={(e) => onSelectProxy(e.target.value)}
+                disabled={disabled || (loading && !coaches.length && !selectedProxy)}
+                onChange={(e) => onPickProxy(e.target.value)}
               >
-                <option value="">{coaches.length ? "Избери" : "Зареди списъка от СЕК"}</option>
+                <option value="">Клубен default / без прокси</option>
                 {proxyOptionMissing ? (
                   <option value={selectedProxy}>
-                    {value?.bvf_first_coach_proxy_name || `БФВ #${selectedProxy}`} (запазен)
+                    {value?.bvf_first_coach_proxy_name || `БФВ #${selectedProxy}`} (текущ)
                   </option>
                 ) : null}
                 {coaches.map((c) => (
@@ -236,8 +273,11 @@ export default function SekCoachLinkFields({
                   </option>
                 ))}
               </Input>
+              <span style={{ fontSize: 11, color: "#5f708c" }}>
+                Ако няма клубен default и няма прокси, създаването на състезател в СЕК ще бъде блокирано.
+              </span>
             </label>
-          ) : null}
+          )}
         </>
       )}
     </div>
@@ -256,7 +296,9 @@ export function emptySekLinkValue() {
 }
 
 export function sekLinkFromCoach(coach) {
-  const status = coach?.sek_link_status || (coach?.bvf_coach_id ? "self" : coach?.bvf_first_coach_proxy_id ? "proxy" : "none");
+  const status =
+    coach?.sek_link_status ||
+    (coach?.bvf_coach_id ? "self" : coach?.bvf_first_coach_proxy_id ? "proxy" : "none");
   return {
     sek_link_mode: status,
     bvf_coach_id: coach?.bvf_coach_id ?? null,

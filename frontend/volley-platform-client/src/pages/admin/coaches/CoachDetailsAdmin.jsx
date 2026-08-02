@@ -72,11 +72,7 @@ export default function CoachDetailsAdmin() {
       return;
     }
     if (sekLink.sek_link_mode === "self" && !sekLink.bvf_coach_id) {
-      setError("Избери треньор от СЕК или смени режима.");
-      return;
-    }
-    if (sekLink.sek_link_mode === "proxy" && !sekLink.bvf_first_coach_proxy_id) {
-      setError("Избери прокси треньор от СЕК.");
+      setError("Избери лицензиран треньор от падащото меню.");
       return;
     }
     setSaving(true);
@@ -127,7 +123,7 @@ export default function CoachDetailsAdmin() {
     <div className="uiPage adminTheme" style={{ maxWidth: "100%", minHeight: "80vh" }}>
       <AdminHero
         title={`Пълен преглед / редакция на треньор #${coachId}`}
-        subtitle="Профил, парола и разпознаване в СЕК (FirstCoach)."
+        subtitle="Локалното име се редактира свободно; лицензът в СЕК е отделно."
         actions={
           <>
             <Button as={Link} to="/admin/coaches" variant="secondary">Към треньори</Button>
@@ -146,8 +142,15 @@ export default function CoachDetailsAdmin() {
         <Card title="Профил">
           <div style={{ display: "grid", gap: 10 }}>
             <label>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>Име</div>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>Име в платформата</div>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="Как се показва при нас"
+              />
+              <div style={{ fontSize: 11, color: "#5f708c", marginTop: 4 }}>
+                Това е нашето име — редактира се свободно, независимо от СЕК.
+              </div>
             </label>
 
             <label>

@@ -14,6 +14,7 @@ export default function CreateCoach() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [clubId, setClubId] = useState("");
   const [sekLink, setSekLink] = useState(emptySekLinkValue());
 
@@ -51,15 +52,11 @@ export default function CreateCoach() {
 
   const submit = async () => {
     if (!email.trim() || !password.trim() || !name.trim() || !clubId) {
-      setError("Всички полета са задължителни");
+      setError("Email, парола, име и клуб са задължителни");
       return;
     }
     if (sekLink.sek_link_mode === "self" && !sekLink.bvf_coach_id) {
-      setError("Избери треньор от СЕК или смени режима на разпознаване.");
-      return;
-    }
-    if (sekLink.sek_link_mode === "proxy" && !sekLink.bvf_first_coach_proxy_id) {
-      setError("Избери прокси треньор от СЕК.");
+      setError("Избери лицензиран треньор от падащото меню.");
       return;
     }
 
@@ -93,61 +90,83 @@ export default function CreateCoach() {
     <div className="uiPage adminTheme">
       <AdminHero
         title="Създай треньор"
-        subtitle="Добавяне на нов треньор към избран клуб + опционално разпознаване в СЕК."
+        subtitle="Избери клуб и лицензиран треньор от СЕК — или добави локален без лиценз."
       />
 
       {error && <div className="uiAlert uiAlert--danger">{error}</div>}
 
       <Card style={{ maxWidth: 560 }}>
         <div style={{ display: "grid", gap: 10 }}>
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <Input
-            type="password"
-            placeholder="Парола"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <Input
-            type="text"
-            placeholder="Име"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <Input
-            as="select"
-            value={clubId}
-            onChange={(e) => {
-              setClubId(e.target.value);
-              setSekLink(emptySekLinkValue());
-            }}
-            disabled={loadingClubs}
-          >
-            <option value="">
-              {loadingClubs ? "Зареждане на клубове..." : "Избери клуб"}
-            </option>
-            {clubs.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.bvf_club_id ? " · СЕК" : ""}
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Клуб *</span>
+            <Input
+              as="select"
+              value={clubId}
+              onChange={(e) => {
+                setClubId(e.target.value);
+                setSekLink(emptySekLinkValue());
+                if (!nameTouched) setName("");
+              }}
+              disabled={loadingClubs}
+            >
+              <option value="">
+                {loadingClubs ? "Зареждане на клубове..." : "Избери клуб"}
               </option>
-            ))}
-          </Input>
+              {clubs.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.bvf_club_id ? " · СЕК" : ""}
+                </option>
+              ))}
+            </Input>
+          </label>
 
           <SekCoachLinkFields
             clubId={clubId}
             value={sekLink}
             onChange={setSekLink}
+            onSuggestLocalName={(suggested) => {
+              if (!nameTouched) setName(suggested);
+            }}
             toast={toast}
             disabled={loading}
           />
+
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Име в платформата *</span>
+            <Input
+              type="text"
+              placeholder="Как ще се показва при нас"
+              value={name}
+              onChange={(e) => {
+                setNameTouched(true);
+                setName(e.target.value);
+              }}
+            />
+            <span style={{ fontSize: 11, color: "#5f708c" }}>
+              При избор от СЕК се попълва автоматично — можеш да го редактираш.
+            </span>
+          </label>
+
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Email *</span>
+            <Input
+              type="email"
+              placeholder="Email за вход"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Парола *</span>
+            <Input
+              type="password"
+              placeholder="Парола"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
 
           <Button onClick={submit} disabled={loading}>
             {loading ? "Създаване..." : "Създай"}
