@@ -4,6 +4,7 @@ import { Button, Input } from "../ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import MembershipConsentLiveForm from "../parentPortal/MembershipConsentLiveForm";
 
 /**
  * Конфиг на клубното заявление — само главен треньор (в Администрация БФВ).
@@ -19,7 +20,7 @@ export default function MembershipConsentTemplateCard({ toast }) {
   const [feeAmount, setFeeAmount] = useState("30");
   const [feeDueDay, setFeeDueDay] = useState("10");
   const [preview, setPreview] = useState(null);
-  const [blankTab, setBlankTab] = useState("club");
+  const [blankTab, setBlankTab] = useState("live");
 
   const load = async () => {
     try {
@@ -177,12 +178,13 @@ export default function MembershipConsentTemplateCard({ toast }) {
       </div>
 
       <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
-        <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13 }}>Преглед на бланките</p>
+        <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 13 }}>Преглед</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
           {[
-            { id: "club", label: "1. Клубно заявление" },
-            { id: "f03", label: "2. Форма 0-3 (<14)" },
-            { id: "f03a", label: "3. Форма 0-3 А (14+)" },
+            { id: "live", label: "Жива форма (попълване)" },
+            { id: "club", label: "PDF бланка" },
+            { id: "f03", label: "Форма 0-3 (<14)" },
+            { id: "f03a", label: "Форма 0-3 А (14+)" },
           ].map((t) => (
             <Button
               key={t.id}
@@ -196,34 +198,59 @@ export default function MembershipConsentTemplateCard({ toast }) {
           ))}
         </div>
 
-        <div
-          style={{
-            border: "1px solid #cbd5e1",
-            borderRadius: 8,
-            padding: 16,
-            background: "#fff",
-            fontSize: 13,
-            lineHeight: 1.45,
-            maxHeight: 480,
-            overflow: "auto",
-          }}
-        >
-          {blankTab === "club" ? (
-            <ClubBlankPreview
-              clubName={clubName}
-              addressee={preview?.addressee}
-              body={preview?.body_text}
-              gdpr={preview?.gdpr_text}
-              feeAmount={preview?.fee_amount ?? feeAmount}
-              feeDueDay={preview?.fee_due_day ?? feeDueDay}
-            />
-          ) : null}
-          {blankTab === "f03" ? <Form03BlankPreview clubName={clubName} season={season} /> : null}
-          {blankTab === "f03a" ? <Form03ABlankPreview clubName={clubName} season={season} /> : null}
-        </div>
-        {blankTab !== "club" ? (
+        {blankTab === "live" ? (
+          <MembershipConsentLiveForm
+            key={`${preview?.club_id || "club"}-${preview?.fee_amount}-${(preview?.body_text || "").slice(0, 24)}`}
+            mode="demo"
+            meta={{
+              addressee: preview?.addressee,
+              body_text: preview?.body_text,
+              gdpr_text: preview?.gdpr_text,
+            }}
+            initialFields={{
+              parent_full_name: "",
+              parent_phone: "",
+              child_full_name: "",
+            }}
+            onDemoSubmit={() =>
+              toast?.success("Демо подпис — в реалния портал тук се записва и се генерира PDF.")
+            }
+          />
+        ) : (
+          <div
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              padding: 16,
+              background: "#fff",
+              fontSize: 13,
+              lineHeight: 1.45,
+              maxHeight: 480,
+              overflow: "auto",
+            }}
+          >
+            {blankTab === "club" ? (
+              <ClubBlankPreview
+                clubName={clubName}
+                addressee={preview?.addressee}
+                body={preview?.body_text}
+                gdpr={preview?.gdpr_text}
+                feeAmount={preview?.fee_amount ?? feeAmount}
+                feeDueDay={preview?.fee_due_day ?? feeDueDay}
+              />
+            ) : null}
+            {blankTab === "f03" ? <Form03BlankPreview clubName={clubName} season={season} /> : null}
+            {blankTab === "f03a" ? <Form03ABlankPreview clubName={clubName} season={season} /> : null}
+          </div>
+        )}
+        {blankTab === "f03" || blankTab === "f03a" ? (
           <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
-            Форма 0-3 / 0-3 А са за фаза 2 (изпращане от главния треньор). Тук е визуален макет на бланката.
+            Форма 0-3 / 0-3 А са за фаза 2. Тук е визуален макет на бланката.
+          </p>
+        ) : null}
+        {blankTab === "club" ? (
+          <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+            Това е как изглежда генерираният PDF. Попълването е в таба „Жива форма“.
           </p>
         ) : null}
       </div>
