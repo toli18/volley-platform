@@ -808,7 +808,7 @@ async def upload_athlete_photo(
 ):
     """Локална портретна снимка. Клубният БФВ акаунт може да качва, но често не може да чете /files."""
     from app.services.athlete_photo import save_athlete_photo
-    from app.services.bvf_auth import club_has_credentials, resolve_club_bvf_token
+    from app.services.bvf_auth import bvf_auth_headers, club_has_bvf_auth, resolve_club_bvf_token
 
     athlete = _get_athlete_for_team_context(db, athlete_id, current_user)
     if not athlete:
@@ -821,7 +821,7 @@ async def upload_athlete_photo(
     pushed = False
     if push_to_bvf and athlete.bvf_player_id and athlete.club_id:
         club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
-        if club and club_has_credentials(club):
+        if club and club_has_bvf_auth(club):
             try:
                 token = resolve_club_bvf_token(club, None)
                 import httpx
@@ -832,7 +832,7 @@ async def upload_athlete_photo(
                 with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
                     res = client.put(
                         f"{BVF_API_BASE}/api/players/{int(athlete.bvf_player_id)}/photo",
-                        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                        headers=bvf_auth_headers(token),
                         files={"file": (filename, content, ctype)},
                     )
                 if res.status_code < 400:

@@ -48,13 +48,11 @@ def _club_for_user(db: Session, user: User, club_id: int | None = None) -> Club:
 
 
 def _normalize_bearer(raw: str) -> str:
-    token = (raw or "").strip()
+    from app.services.bvf_auth import normalize_bvf_cred
+
+    token = normalize_bvf_cred(raw)
     if not token:
-        raise HTTPException(status_code=422, detail="Липсва БФВ token")
-    if token.lower().startswith("bearer "):
-        token = token[7:].strip()
-    if not token:
-        raise HTTPException(status_code=422, detail="Липсва БФВ token")
+        raise HTTPException(status_code=422, detail="Липсва БФВ token / API ключ")
     return token
 
 
@@ -71,10 +69,16 @@ def _jwt_payload_unverified(token: str) -> dict:
 
 
 def _club_id_from_token(token: str) -> int:
+    from app.services.bvf_auth import is_api_key
+
+    if is_api_key(token):
+        raise HTTPException(
+            status_code=422,
+            detail="API ключът няма JWT clubId — използвай записания bvf_club_id на клуба.",
+        )
     payload = _jwt_payload_unverified(token)
     raw = payload.get("clubId") or payload.get("club_id")
     if raw is None:
-        # claims array style sometimes mirrored only in login response, not JWT
         raise HTTPException(
             status_code=422,
             detail="Token-ът няма clubId claim — влез с клубен акаунт в db.bvf.bg",
@@ -85,11 +89,72 @@ def _club_id_from_token(token: str) -> int:
         raise HTTPException(status_code=422, detail="Невалиден clubId в token") from exc
 
 
-def _bvf_headers(token: str) -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
+def _bvf_headers(token: str, *, accept: str = "application/json") -> dict[str, str]:
+    from app.services.bvf_auth import bvf_auth_headers
+
+    return bvf_auth_headers(token, accept=accept)
+
+
+def _assert_cred_matches_club(cred: str, club: Club) -> None:
+    """JWT трябва да носи същия clubId; ApiKey се валидира при запазване срещу клуба."""
+    from app.services.bvf_auth import is_api_key
+
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Клубът не е свързан с БФВ")
+    if is_api_key(cred):
+        return
+    token_club = _club_id_from_token(cred)
+    if int(token_club) != int(club.bvf_club_id):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Token-ът е за БФВ клуб {token_club}, а платформата е свързана с {club.bvf_club_id}",
+        )
+
+
+def _parse_club_options(remote: Any) -> list[dict[str, Any]]:
+    if not isinstance(remote, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in remote:
+        if not isinstance(row, dict):
+            continue
+        raw_id = row.get("value") if row.get("value") is not None else row.get("id")
+        try:
+            cid = int(raw_id)
+        except Exception:
+            continue
+        label = str(row.get("label") or row.get("name") or row.get("fullName") or f"Клуб #{cid}").strip()
+        out.append({"id": cid, "label": label})
+    return out
+
+
+def _link_status_payload(club: Club, *, remote: dict | None = None, linked_athletes: int | None = None) -> dict:
+    from app.services.bvf_auth import club_has_api_key, club_has_bvf_auth, club_has_credentials
+
+    has_key = club_has_api_key(club)
+    has_creds = club_has_credentials(club)
+    has_auth = club_has_bvf_auth(club)
+    auth_mode = "api_key" if has_key else ("password" if has_creds else None)
+    payload = {
+        "club_id": club.id,
+        "club_name": club.name,
+        "bvf_club_id": club.bvf_club_id,
+        "bvf_club_name": club.bvf_club_name,
+        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
+        "bvf_username": club.bvf_username if has_creds else None,
+        "has_bvf_credentials": has_creds,
+        "has_bvf_api_key": has_key,
+        "bvf_api_key_prefix": club.bvf_api_key_prefix if has_key else None,
+        "auth_mode": auth_mode,
+        "requires_bvf_token": not has_auth,
+        "permanent_link": bool(club.bvf_club_id and has_auth),
+        "verified": True,
     }
+    if linked_athletes is not None:
+        payload["linked_athletes"] = linked_athletes
+    if remote:
+        payload["bvf_full_name"] = remote.get("fullName")
+    return payload
 
 
 def _bvf_get(path: str, token: str) -> Any:
@@ -121,7 +186,7 @@ def _bvf_post_multipart(path: str, token: str, data: dict, files: dict | None = 
     try:
         with httpx.Client(timeout=BVF_TIMEOUT) as client:
             kwargs: dict[str, Any] = {
-                "headers": {"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                "headers": _bvf_headers(token),
                 "data": data,
             }
             if files:
@@ -271,11 +336,19 @@ def _preview_rows(db: Session, club: Club, players: list) -> dict:
 
 
 class LinkClubIn(BaseModel):
-    """Еднократна оторизация: клубен username/password в db.bvf.bg (предпочитано) или token."""
+    """Еднократна оторизация: клубен username/password в db.bvf.bg (legacy) или JWT."""
 
     username: Optional[str] = None
     password: Optional[str] = None
     bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class LinkApiKeyIn(BaseModel):
+    """Постоянна връзка чрез стоящ API ключ (X-Api-Key) от Интеграции → API токени."""
+
+    api_key: str
+    bvf_club_id: Optional[int] = None
     club_id: Optional[int] = None
 
 
@@ -308,8 +381,6 @@ def bvf_admin_status(
         )
     ),
 ):
-    from app.services.bvf_auth import club_has_credentials
-
     if current_user.role == UserRole.coach:
         if not current_user.club_id:
             raise HTTPException(status_code=422, detail="Няма клуб")
@@ -324,19 +395,89 @@ def bvf_admin_status(
         .filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None))
         .count()
     )
-    has_creds = club_has_credentials(club)
-    return {
-        "club_id": club.id,
-        "club_name": club.name,
-        "bvf_club_id": club.bvf_club_id,
-        "bvf_club_name": club.bvf_club_name,
-        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
-        "bvf_username": club.bvf_username if has_creds else None,
-        "has_bvf_credentials": has_creds,
-        "linked_athletes": linked_count,
-        "requires_bvf_token": not has_creds,
-        "permanent_link": bool(club.bvf_club_id and has_creds),
-    }
+    payload = _link_status_payload(club, linked_athletes=linked_count)
+    payload.pop("verified", None)
+    return payload
+
+
+@router.put("/link-api-key")
+def link_api_key(
+    payload: LinkApiKeyIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """
+    Записва стоящ API ключ (bfv_…) за клуба.
+    Разпознава БФВ клуба през GET /api/clubs/options (+ опционален bvf_club_id).
+    """
+    from app.services.bvf_auth import (
+        api_key_display_prefix,
+        encrypt_secret,
+        is_api_key,
+        normalize_bvf_cred,
+    )
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+
+    key = normalize_bvf_cred(payload.api_key)
+    if not is_api_key(key):
+        raise HTTPException(
+            status_code=422,
+            detail="Очаква се API ключ, започващ с bvf_ (от Интеграции → API токени в db.bvf.bg).",
+        )
+
+    options = _parse_club_options(_bvf_get("/api/clubs/options", key))
+    if not options:
+        raise HTTPException(
+            status_code=403,
+            detail="Ключът няма достъп до клубове (Clubs: четене). Провери правата на токена.",
+        )
+
+    wanted = payload.bvf_club_id or club.bvf_club_id
+    if wanted is not None:
+        bvf_club_id = int(wanted)
+        if bvf_club_id not in {o["id"] for o in options}:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Ключът няма достъп до БФВ клуб {bvf_club_id}.",
+            )
+    elif len(options) == 1:
+        bvf_club_id = options[0]["id"]
+    else:
+        labels = ", ".join(f"{o['id']} ({o['label']})" for o in options[:8])
+        raise HTTPException(
+            status_code=422,
+            detail=f"Ключът покрива няколко клуба — подай bvf_club_id. Налични: {labels}",
+        )
+
+    other = (
+        db.query(Club)
+        .filter(Club.bvf_club_id == bvf_club_id, Club.id != club.id)
+        .first()
+    )
+    if other:
+        raise HTTPException(
+            status_code=409,
+            detail=f"БФВ клуб {bvf_club_id} вече е свързан с „{other.name}“",
+        )
+
+    remote = _bvf_get(f"/api/clubs/{bvf_club_id}", key)
+    if not isinstance(remote, dict) or int(remote.get("id") or 0) != bvf_club_id:
+        raise HTTPException(status_code=502, detail="БФВ върна неочакван профил на клуб")
+
+    club.bvf_club_id = bvf_club_id
+    club.bvf_club_name = (
+        str(remote.get("name") or remote.get("fullName") or "").strip() or f"БФВ клуб {bvf_club_id}"
+    )
+    club.bvf_linked_at = datetime.utcnow()
+    club.bvf_api_key_enc = encrypt_secret(key)
+    club.bvf_api_key_prefix = api_key_display_prefix(key)
+    db.commit()
+    db.refresh(club)
+    return _link_status_payload(club, remote=remote)
 
 
 @router.put("/link-club")
@@ -348,12 +489,10 @@ def link_club(
     ),
 ):
     """
-    Постоянна връзка клуб ↔ БФВ:
-    - вход с клубен username/password в db.bvf.bg (еднократно)
-    - записва bvf_club_id + криптирани credentials
-    - после операциите взимат token автоматично
+    Legacy постоянна връзка клуб ↔ БФВ чрез username/password (JWT login).
+    Предпочитан път: PUT /link-api-key.
     """
-    from app.services.bvf_auth import bvf_login, encrypt_secret
+    from app.services.bvf_auth import bvf_login, encrypt_secret, is_api_key
 
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, payload.club_id)
@@ -370,10 +509,15 @@ def link_club(
         stored_enc = encrypt_secret(password)
     elif payload.bvf_token:
         token = _normalize_bearer(payload.bvf_token)
+        if is_api_key(token):
+            raise HTTPException(
+                status_code=422,
+                detail="За API ключ използвай „Запази API ключ“ (link-api-key), не username/password формата.",
+            )
     else:
         raise HTTPException(
             status_code=422,
-            detail="Въведи БФВ потребител и парола (клубен акаунт) за постоянна връзка.",
+            detail="Въведи БФВ потребител и парола, или запази API ключ от Интеграции.",
         )
 
     bvf_club_id = _club_id_from_token(token)
@@ -403,18 +547,7 @@ def link_club(
         club.bvf_password_enc = stored_enc
     db.commit()
     db.refresh(club)
-    return {
-        "club_id": club.id,
-        "club_name": club.name,
-        "bvf_club_id": club.bvf_club_id,
-        "bvf_club_name": club.bvf_club_name,
-        "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
-        "bvf_full_name": remote.get("fullName"),
-        "bvf_username": club.bvf_username,
-        "has_bvf_credentials": bool(club.bvf_username and club.bvf_password_enc),
-        "permanent_link": bool(club.bvf_username and club.bvf_password_enc),
-        "verified": True,
-    }
+    return _link_status_payload(club, remote=remote)
 
 
 @router.delete("/link-club")
@@ -432,6 +565,8 @@ def unlink_club(
     club.bvf_linked_at = None
     club.bvf_username = None
     club.bvf_password_enc = None
+    club.bvf_api_key_enc = None
+    club.bvf_api_key_prefix = None
     db.commit()
     return {"ok": True, "club_id": club.id}
 
@@ -444,7 +579,7 @@ def fetch_players(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Дърпа състезателите от БФВ — token автоматично от записаните credentials."""
+    """Дърпа състезателите от БФВ — ApiKey / credentials автоматично."""
     from app.services.bvf_auth import resolve_club_bvf_token
 
     _ensure_head_with_club(current_user)
@@ -452,12 +587,7 @@ def fetch_players(
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
     token = resolve_club_bvf_token(club, payload.bvf_token)
-    token_club_id = _club_id_from_token(token)
-    if int(club.bvf_club_id) != int(token_club_id):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Token-ът е за БФВ клуб {token_club_id}, а платформата е свързана с {club.bvf_club_id}",
-        )
+    _assert_cred_matches_club(token, club)
 
     remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/players", token)
     if not isinstance(remote, list):
@@ -663,9 +793,7 @@ def list_bvf_coaches(
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
     token = resolve_club_bvf_token(club, payload.bvf_token)
-    token_club = _club_id_from_token(token)
-    if int(token_club) != int(club.bvf_club_id):
-        raise HTTPException(status_code=403, detail="Token-ът не е за свързания БФВ клуб")
+    _assert_cred_matches_club(token, club)
     remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/coaches", token)
     if not isinstance(remote, list):
         raise HTTPException(status_code=502, detail="БФВ coaches response не е списък")
@@ -729,9 +857,7 @@ async def create_player_from_athlete(
         raise HTTPException(status_code=422, detail="Клубът не е свързан с БФВ")
 
     token = resolve_club_bvf_token(club, bvf_token)
-    token_club = _club_id_from_token(token)
-    if int(token_club) != int(club.bvf_club_id):
-        raise HTTPException(status_code=403, detail="Token-ът не е за свързания БФВ клуб")
+    _assert_cred_matches_club(token, club)
     egn_val = (egn or athlete.egn or "").strip()
     if len(egn_val) != 10:
         raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")

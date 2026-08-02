@@ -4,8 +4,7 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 
 /**
- * Статус на постоянната връзка клуб ↔ БФВ.
- * След authorize с username/password token вече не е нужен.
+ * Статус на постоянната връзка клуб ↔ БФВ (ApiKey или username/password).
  */
 export default function useClubBvfLink({ enabled = true } = {}) {
   const [status, setStatus] = useState(null);
@@ -30,7 +29,9 @@ export default function useClubBvfLink({ enabled = true } = {}) {
     if (enabled) reload();
   }, [enabled, reload]);
 
-  const permanent = Boolean(status?.permanent_link || status?.has_bvf_credentials);
+  const permanent = Boolean(
+    status?.permanent_link || status?.has_bvf_api_key || status?.has_bvf_credentials,
+  );
 
   /** JSON body helper — добавя bvf_token само ако е подаден. */
   const tokenBody = (token) => {

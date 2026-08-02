@@ -27,8 +27,10 @@ export default function CoachBvfAdmin() {
   const allowed = role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
 
   const [status, setStatus] = useState(null);
+  const [apiKey, setApiKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPasswordFallback, setShowPasswordFallback] = useState(false);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
@@ -38,7 +40,9 @@ export default function CoachBvfAdmin() {
   const [sexFilter, setSexFilter] = useState("all");
   const [onlyNew, setOnlyNew] = useState(true);
 
-  const permanent = Boolean(status?.permanent_link || status?.has_bvf_credentials);
+  const permanent = Boolean(
+    status?.permanent_link || status?.has_bvf_api_key || status?.has_bvf_credentials,
+  );
 
   const loadStatus = async () => {
     try {
@@ -54,6 +58,34 @@ export default function CoachBvfAdmin() {
   useEffect(() => {
     if (allowed) loadStatus();
   }, [allowed]);
+
+  const saveApiKey = async () => {
+    const key = apiKey.trim();
+    if (!key.startsWith("bfv_")) {
+      toast.error("Очаква се ключ, започващ с bfv_ (от Интеграции → API токени).");
+      return;
+    }
+    try {
+      setBusy(true);
+      const body = { api_key: key };
+      if (status?.bvf_club_id) body.bvf_club_id = status.bvf_club_id;
+      const res = await axiosInstance.put(API_PATHS.BVF_ADMIN_LINK_API_KEY, body);
+      setApiKey("");
+      setStatus((prev) => ({
+        ...(prev || {}),
+        ...res.data,
+        linked_athletes: prev?.linked_athletes || 0,
+      }));
+      toast.success(
+        `API ключ записан · БФВ #${res.data.bvf_club_id} (${res.data.bvf_club_name}). Префикс: ${res.data.bvf_api_key_prefix || "—"}.`,
+      );
+      await loadStatus();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно запазване на API ключ."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const authorizeClub = async () => {
     if (!username.trim() || !password) {
@@ -73,7 +105,7 @@ export default function CoachBvfAdmin() {
         linked_athletes: prev?.linked_athletes || 0,
       }));
       toast.success(
-        `Постоянна връзка: БФВ #${res.data.bvf_club_id} (${res.data.bvf_club_name}). След това token не е нужен.`,
+        `Постоянна връзка: БФВ #${res.data.bvf_club_id} (${res.data.bvf_club_name}).`,
       );
       await loadStatus();
     } catch (err) {
@@ -84,7 +116,7 @@ export default function CoachBvfAdmin() {
   };
 
   const unlinkClub = async () => {
-    if (!window.confirm("Премахва постоянната връзка и записаните БФВ credentials. Продължаваш?")) return;
+    if (!window.confirm("Премахва връзката, API ключа и записаните credentials. Продължаваш?")) return;
     try {
       setBusy(true);
       await axiosInstance.delete(API_PATHS.BVF_ADMIN_UNLINK_CLUB);
@@ -101,11 +133,11 @@ export default function CoachBvfAdmin() {
 
   const fetchPlayers = async () => {
     if (!status?.bvf_club_id) {
-      toast.error("Първо оторизирай клуба (стъпка 1).");
+      toast.error("Първо запази API ключ (стъпка 1).");
       return;
     }
     if (!permanent) {
-      toast.error("Нужна е постоянна връзка с потребител/парола — свържи клуба отново.");
+      toast.error("Нужна е постоянна връзка — запази API ключ или свържи с потребител/парола.");
       return;
     }
     try {
@@ -198,7 +230,7 @@ export default function CoachBvfAdmin() {
     <div className="uiPage">
       <PageHero
         title="Администрация БФВ"
-        subtitle="Еднократна оторизация с клубен вход в db.bvf.bg → постоянна връзка между системите."
+        subtitle="API ключ от db.bvf.bg → постоянна връзка. Засега четене; записът идва на следващ етап."
         actions={
           <>
             <Link to="/coach/bvf-card-indexes">
@@ -211,7 +243,7 @@ export default function CoachBvfAdmin() {
         }
       />
 
-      <Card title="1. Оторизирай клуба (еднократно)">
+      <Card title="1. API ключ (препоръчително)">
         <p className="uiMuted" style={{ marginTop: 0 }}>
           Платформа: <strong>{status?.club_name || "—"}</strong>
           {status?.bvf_club_id ? (
@@ -230,53 +262,115 @@ export default function CoachBvfAdmin() {
           <div style={{ display: "grid", gap: 10 }}>
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
               Постоянната връзка е активна
-              {status?.bvf_username ? (
+              {status?.auth_mode === "api_key" && status?.bvf_api_key_prefix ? (
                 <>
                   {" "}
-                  за потребител <code>{status.bvf_username}</code>
+                  чрез API ключ <code>{status.bvf_api_key_prefix}…</code>
                 </>
               ) : null}
-              . Сървърът влиза автоматично в БФВ при нужда — без ръчен token.
+              {status?.auth_mode === "password" && status?.bvf_username ? (
+                <>
+                  {" "}
+                  чрез потребител <code>{status.bvf_username}</code>
+                </>
+              ) : null}
+              . Сървърът вика БФВ автоматично — без ръчен token.
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Button type="button" variant="secondary" disabled={busy} onClick={unlinkClub}>
-                Премахни връзката
-              </Button>
+            <div style={{ display: "grid", gap: 8, maxWidth: 480 }}>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Смени API ключ</span>
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  autoComplete="off"
+                  placeholder="bfv_…"
+                />
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <Button type="button" disabled={busy || !apiKey.trim().startsWith("bfv_")} onClick={saveApiKey}>
+                  Запази нов ключ
+                </Button>
+                <Button type="button" variant="secondary" disabled={busy} onClick={unlinkClub}>
+                  Премахни връзката
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
           <>
             <p style={{ fontSize: 14, lineHeight: 1.45, marginTop: 0 }}>
-              Въведи същите данни, с които клубът влиза в{" "}
+              В{" "}
               <a href="https://db.bvf.bg" target="_blank" rel="noreferrer">
                 db.bvf.bg
               </a>
-              . Сървърът проверява достъпа live, разпознава клуба от JWT и записва криптирани credentials за
-              постоянна връзка.
+              {" → "}
+              Интеграции → API токени създай ключ (четене) и го постави тук. Ключът се показва само веднъж в БФВ.
             </p>
-            <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+            <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
               <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>БФВ потребител (клубен)</span>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  placeholder="club username"
-                />
-              </label>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Парола</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>API ключ (bfv_…)</span>
                 <Input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  autoComplete="off"
+                  placeholder="bfv_…"
                 />
               </label>
-              <Button type="button" disabled={busy || !username.trim() || !password} onClick={authorizeClub}>
-                Оторизирай и създай постоянна връзка
+              <Button type="button" disabled={busy || !apiKey.trim().startsWith("bfv_")} onClick={saveApiKey}>
+                Запази API ключ и свържи клуба
               </Button>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="uiLinkButton"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#64748b",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+                onClick={() => setShowPasswordFallback((v) => !v)}
+              >
+                {showPasswordFallback ? "Скрий" : "Алтернатива"}: потребител / парола (стар начин)
+              </button>
+              {showPasswordFallback ? (
+                <div style={{ display: "grid", gap: 10, maxWidth: 420, marginTop: 10 }}>
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>БФВ потребител (клубен)</span>
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoComplete="username"
+                      placeholder="club username"
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>Парола</span>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy || !username.trim() || !password}
+                    onClick={authorizeClub}
+                  >
+                    Оторизирай с потребител / парола
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </>
         )}
@@ -292,8 +386,8 @@ export default function CoachBvfAdmin() {
       >
         <p className="uiMuted" style={{ marginTop: 0 }}>
           {permanent
-            ? "Списъкът идва директно от федерацията през постоянната връзка. Импортират се само отметнатите."
-            : "След оторизация в стъпка 1 можеш да заредиш състезателите без token."}
+            ? "Списъкът идва директно от федерацията през API ключа. Импортират се само отметнатите."
+            : "След запазване на API ключ можеш да заредиш състезателите."}
         </p>
 
         {preview ? (
@@ -401,7 +495,7 @@ export default function CoachBvfAdmin() {
             description={
               permanent
                 ? "Натисни „Зареди от БФВ“ — без ръчен token."
-                : "Първо оторизирай клуба с потребител и парола."
+                : "Първо запази API ключ от Интеграции в db.bvf.bg."
             }
           />
         )}

@@ -221,6 +221,7 @@ export const API_PATHS = {
   // BVF Administration (federation carding link + selective import)
   BVF_ADMIN_STATUS: "/api/bvf-admin/status",
   BVF_ADMIN_LINK_CLUB: "/api/bvf-admin/link-club",
+  BVF_ADMIN_LINK_API_KEY: "/api/bvf-admin/link-api-key",
   BVF_ADMIN_UNLINK_CLUB: "/api/bvf-admin/link-club",
   BVF_ADMIN_PLAYERS_FETCH: "/api/bvf-admin/players/fetch",
   BVF_ADMIN_PLAYERS_IMPORT: "/api/bvf-admin/players/import",

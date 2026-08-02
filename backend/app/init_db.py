@@ -179,6 +179,8 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_linked_at TIMESTAMP"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_username VARCHAR(100)"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_password_enc TEXT"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_enc TEXT"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_prefix VARCHAR(20)"))
                 conn.execute(
                     text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_bvf_club_id "
@@ -340,6 +342,12 @@ def _init_db_impl() -> None:
             if "bvf_password_enc" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_password_enc TEXT"))
                 print("✅ Added clubs.bvf_password_enc column")
+            if "bvf_api_key_enc" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_api_key_enc TEXT"))
+                print("✅ Added clubs.bvf_api_key_enc column")
+            if "bvf_api_key_prefix" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_api_key_prefix VARCHAR(20)"))
+                print("✅ Added clubs.bvf_api_key_prefix column")
 
             team_cols = conn.execute(text("PRAGMA table_info(teams)")).fetchall()
             team_col_names = {row[1] for row in team_cols}

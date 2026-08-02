@@ -39,15 +39,9 @@ def read_athlete_photo(athlete_id: int) -> bytes | None:
 
 
 def _bvf_headers(token: str, *, for_file: bool = False) -> dict:
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
-    if for_file:
-        # Бинарни файлове — не искаме application/json (може 406 / празен отговор)
-        headers["Accept"] = "*/*"
-    else:
-        headers["Accept"] = "application/json"
-    return headers
+    from app.services.bvf_auth import bvf_auth_headers
+
+    return bvf_auth_headers(token, accept="*/*" if for_file else "application/json")
 
 
 def fetch_bvf_photo_bytes(token: str, photo_id: str) -> bytes | None:
@@ -136,9 +130,9 @@ def ensure_athlete_photo_from_bvf(athlete, club) -> bytes | None:
     if not getattr(athlete, "bvf_player_id", None) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
         return None
 
-    from app.services.bvf_auth import club_has_credentials, resolve_club_bvf_token
+    from app.services.bvf_auth import club_has_bvf_auth, resolve_club_bvf_token
 
-    if not club_has_credentials(club):
+    if not club_has_bvf_auth(club):
         return None
     try:
         token = resolve_club_bvf_token(club, None)

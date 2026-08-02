@@ -27,11 +27,11 @@ from app.routers.bvf_admin import (
     BVF_TIMEOUT,
     CoachesListIn,
     _athlete_for_bvf_action,
+    _assert_cred_matches_club,
     _bvf_get,
     _bvf_headers,
     _bvf_post_multipart,
     _club_for_user,
-    _club_id_from_token,
     _ensure_head_with_club,
     _normalize_bearer,
 )
@@ -63,10 +63,7 @@ def _token_matches_club(token: str | None, club: Club) -> str:
     from app.services.bvf_auth import resolve_club_bvf_token
 
     token_n = resolve_club_bvf_token(club, token)
-    if not club.bvf_club_id:
-        raise HTTPException(status_code=422, detail="Клубът не е свързан с БФВ")
-    if int(_club_id_from_token(token_n)) != int(club.bvf_club_id):
-        raise HTTPException(status_code=403, detail="Token-ът не е за свързания БФВ клуб")
+    _assert_cred_matches_club(token_n, club)
     return token_n
 
 
@@ -91,13 +88,7 @@ def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
     url = f"{BVF_API_BASE}{path}"
     try:
         with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
-            res = client.get(
-                url,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Accept": "*/*",
-                },
-            )
+            res = client.get(url, headers=_bvf_headers(token, accept="*/*"))
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
     if res.status_code == 401:

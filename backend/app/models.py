@@ -85,9 +85,11 @@ class Club(Base):
     bvf_club_id = Column(Integer, nullable=True, unique=True, index=True)
     bvf_club_name = Column(String(255), nullable=True)
     bvf_linked_at = Column(DateTime, nullable=True)
-    # Еднократна оторизация — username + криптирана парола за автоматичен token
+    # Еднократна оторизация — username + криптирана парола (legacy) или ApiKey
     bvf_username = Column(String(100), nullable=True)
     bvf_password_enc = Column(Text, nullable=True)
+    bvf_api_key_enc = Column(Text, nullable=True)
+    bvf_api_key_prefix = Column(String(20), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
