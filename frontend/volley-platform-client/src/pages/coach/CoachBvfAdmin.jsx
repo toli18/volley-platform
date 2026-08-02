@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
+import MembershipConsentTemplateCard from "../../components/athletes/MembershipConsentTemplateCard";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
@@ -499,6 +500,10 @@ export default function CoachBvfAdmin() {
             }
           />
         )}
+      </Card>
+
+      <Card title="3. Клубно заявление (родители)">
+        <MembershipConsentTemplateCard toast={toast} />
       </Card>
     </div>
   );

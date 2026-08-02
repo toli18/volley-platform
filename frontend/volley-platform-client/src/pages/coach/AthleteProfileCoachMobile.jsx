@@ -5,6 +5,7 @@ import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteTestsPanel from "../../components/athletes/AthleteTestsPanel";
 import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
+import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDocumentsPanel";
 import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
 import { formatMoney } from "../../utils/currency";
@@ -218,6 +219,7 @@ export default function AthleteProfileCoachMobile({
   const [contactOpen, setContactOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(true);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [localDocsOpen, setLocalDocsOpen] = useState(true);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historyLimit, setHistoryLimit] = useState(15);
@@ -427,6 +429,24 @@ export default function AthleteProfileCoachMobile({
                         <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {!editing ? (
+              <section className="athleteProfileCard">
+                <button
+                  type="button"
+                  className="athleteProfileCollapseHead"
+                  onClick={() => setLocalDocsOpen((v) => !v)}
+                >
+                  <span>Документи</span>
+                  <span aria-hidden>{localDocsOpen ? "▾" : "▸"}</span>
+                </button>
+                {localDocsOpen ? (
+                  <div className="athleteProfileCollapseBody">
+                    <AthleteLocalDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
                   </div>
                 ) : null}
               </section>

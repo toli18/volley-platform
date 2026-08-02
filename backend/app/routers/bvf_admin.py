@@ -148,6 +148,8 @@ def _link_status_payload(club: Club, *, remote: dict | None = None, linked_athle
         "auth_mode": auth_mode,
         "requires_bvf_token": not has_auth,
         "permanent_link": bool(club.bvf_club_id and has_auth),
+        "bvf_default_first_coach_id": getattr(club, "bvf_default_first_coach_id", None),
+        "bvf_default_first_coach_name": getattr(club, "bvf_default_first_coach_name", None),
         "verified": True,
     }
     if linked_athletes is not None:
@@ -823,10 +825,49 @@ def list_bvf_coaches(
     return {"coaches": coaches, "bvf_club_id": club.bvf_club_id}
 
 
+@router.post("/players/resolve-first-coach")
+def resolve_first_coach_for_athlete(
+    athlete_id: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Предложен FirstCoachId от мапинга треньор ↔ СЕК (или клубен default)."""
+    from app.services.bvf_coach_link import resolve_first_coach_bvf_id, resolve_first_coach_label, sek_link_status
+
+    athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
+    club = db.query(Club).filter(Club.id == athlete.club_id).first() if athlete.club_id else None
+    coach = db.query(User).filter(User.id == athlete.coach_id).first() if athlete.coach_id else None
+    resolved = resolve_first_coach_bvf_id(coach, club)
+    source = None
+    if coach and getattr(coach, "bvf_coach_id", None):
+        source = "coach_self"
+    elif coach and getattr(coach, "bvf_first_coach_proxy_id", None):
+        source = "coach_proxy"
+    elif club and getattr(club, "bvf_default_first_coach_id", None):
+        source = "club_default"
+    return {
+        "athlete_id": athlete.id,
+        "coach_user_id": coach.id if coach else None,
+        "coach_name": coach.name if coach else None,
+        "sek_link_status": sek_link_status(coach) if coach else "none",
+        "first_coach_id": resolved,
+        "first_coach_name": resolve_first_coach_label(coach, club),
+        "source": source,
+        "ready": resolved is not None,
+    }
+
+
 @router.post("/players/create-from-athlete")
 async def create_player_from_athlete(
     athlete_id: int = Form(...),
-    first_coach_id: int = Form(...),
+    first_coach_id: Optional[int] = Form(None),
     bvf_token: Optional[str] = Form(None),
     egn: Optional[str] = Form(None),
     file: UploadFile = File(...),
@@ -843,8 +884,10 @@ async def create_player_from_athlete(
     """
     Създава състезател в БФВ от локалния профил + снимка.
     Записва bvf_player_id / number / photoId обратно; идентичността се заключва.
+    FirstCoachId: подаден ръчно, иначе от мапинга на треньора / клубен default.
     """
     from app.services.bvf_auth import resolve_club_bvf_token
+    from app.services.bvf_coach_link import resolve_first_coach_bvf_id, resolve_first_coach_label
 
     athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
     if athlete.bvf_player_id:
@@ -861,6 +904,19 @@ async def create_player_from_athlete(
     egn_val = (egn or athlete.egn or "").strip()
     if len(egn_val) != 10:
         raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")
+
+    coach = db.query(User).filter(User.id == athlete.coach_id).first() if athlete.coach_id else None
+    resolved_coach_id = first_coach_id
+    if resolved_coach_id is None:
+        resolved_coach_id = resolve_first_coach_bvf_id(coach, club)
+    if not resolved_coach_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Няма FirstCoachId: задай разпознаване в СЕК за треньора "
+                "(Админ → Треньори) или клубен default лицензиран треньор."
+            ),
+        )
 
     try:
         first_name = validate_name_part("Собствено име", athlete.first_name)
@@ -885,7 +941,7 @@ async def create_player_from_athlete(
 
     form_data = {
         "FirstClubId": str(int(club.bvf_club_id)),
-        "FirstCoachId": str(int(first_coach_id)),
+        "FirstCoachId": str(int(resolved_coach_id)),
         "FirstName": first_name,
         "MiddleName": middle_name,
         "LastName": last_name,
@@ -937,5 +993,7 @@ async def create_player_from_athlete(
         "bvf_player_number": athlete.bvf_player_number,
         "bvf_photo_id": athlete.bvf_photo_id,
         "athlete_name": athlete.athlete_name,
+        "first_coach_id": int(resolved_coach_id),
+        "first_coach_name": resolve_first_coach_label(coach, club),
         "has_photo": True,
     }

@@ -201,6 +201,10 @@ export const API_PATHS = {
   PARENT_PORTAL_ABSENCE_NOTICE_ME: (id) => `/api/parent-portal/me/absence-notices/${id}`,
   PARENT_PORTAL_ABSENCE_NOTICES_TOKEN: (token) => `/api/parent-portal/${token}/absence-notices`,
   PARENT_PORTAL_ABSENCE_NOTICE_TOKEN: (token, id) => `/api/parent-portal/${token}/absence-notices/${id}`,
+  PARENT_PORTAL_MEMBERSHIP_CONSENT_ME: "/api/parent-portal/me/membership-consent",
+  PARENT_PORTAL_MEMBERSHIP_CONSENT_TOKEN: (token) => `/api/parent-portal/${token}/membership-consent`,
+  PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME: "/api/parent-portal/me/membership-consent/preview",
+  PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN: (token) => `/api/parent-portal/${token}/membership-consent/preview`,
 
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,
@@ -227,6 +231,7 @@ export const API_PATHS = {
   BVF_ADMIN_PLAYERS_IMPORT: "/api/bvf-admin/players/import",
   BVF_ADMIN_COACHES_LIST: "/api/bvf-admin/coaches/list",
   BVF_ADMIN_CREATE_FROM_ATHLETE: "/api/bvf-admin/players/create-from-athlete",
+  BVF_ADMIN_RESOLVE_FIRST_COACH: "/api/bvf-admin/players/resolve-first-coach",
   BVF_ADMIN_SYNC_PHOTO: "/api/bvf-admin/players/sync-photo",
   BVF_ADMIN_LINK_BY_EGN: "/api/bvf-admin/players/link-by-egn",
   BVF_ADMIN_DOCS_SYNC: "/api/bvf-admin/players/documents/sync",
@@ -242,6 +247,12 @@ export const API_PATHS = {
   BVF_ADMIN_PHYSICAL_SEND: (measurementId) => `/api/bvf-admin/players/physical/${measurementId}/send-bvf`,
   BVF_ADMIN_PHYSICAL_SEND_FROM_TESTS: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/send-from-tests`,
   BVF_ADMIN_PHYSICAL_FETCH: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/fetch-bvf`,
+  BVF_ADMIN_MEMBERSHIP_CONSENT_TEMPLATE: "/api/bvf-admin/membership-consent-template",
+  ATHLETE_DOCUMENTS: (athleteId) => `/api/athletes/${athleteId}/documents`,
+  ATHLETE_DOCUMENT_CONSENT_PREVIEW: (athleteId, consentId) =>
+    `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/preview`,
+  ATHLETE_DOCUMENT_CONSENT_REVOKE: (athleteId, consentId) =>
+    `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/revoke`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

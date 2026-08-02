@@ -4,6 +4,11 @@ import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
 import { AdminHero, Button, Card, Input } from "../../../components/ui";
 import { useToast } from "../../../components/ToastProvider";
+import SekCoachLinkFields, {
+  emptySekLinkValue,
+  sekLinkFromCoach,
+  sekLinkPayload,
+} from "../../../components/admin/SekCoachLinkFields";
 
 export default function CoachDetailsAdmin() {
   const { id } = useParams();
@@ -22,6 +27,7 @@ export default function CoachDetailsAdmin() {
     club_id: "",
     role: "coach",
   });
+  const [sekLink, setSekLink] = useState(emptySekLinkValue());
   const [newPassword, setNewPassword] = useState("");
   const toast = useToast();
 
@@ -45,6 +51,7 @@ export default function CoachDetailsAdmin() {
           club_id: coach?.club_id != null ? String(coach.club_id) : "",
           role: coach?.role || "coach",
         });
+        setSekLink(sekLinkFromCoach(coach));
         setClubs(Array.isArray(clubsData) ? clubsData : []);
       } catch (e) {
         setError(e?.message || "Грешка при зареждане.");
@@ -64,17 +71,27 @@ export default function CoachDetailsAdmin() {
       setError("Изберете клуб.");
       return;
     }
+    if (sekLink.sek_link_mode === "self" && !sekLink.bvf_coach_id) {
+      setError("Избери треньор от СЕК или смени режима.");
+      return;
+    }
+    if (sekLink.sek_link_mode === "proxy" && !sekLink.bvf_first_coach_proxy_id) {
+      setError("Избери прокси треньор от СЕК.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      await apiClient(API_PATHS.COACH_UPDATE(coachId), {
+      const updated = await apiClient(API_PATHS.COACH_UPDATE(coachId), {
         method: "PATCH",
         data: {
           name: form.name.trim(),
           email: form.email.trim(),
           club_id: Number(form.club_id),
+          ...sekLinkPayload(sekLink),
         },
       });
+      setSekLink(sekLinkFromCoach(updated));
       toast.success("Промените са записани.");
     } catch (e) {
       setError(e?.message || "Грешка при запис.");
@@ -110,7 +127,7 @@ export default function CoachDetailsAdmin() {
     <div className="uiPage adminTheme" style={{ maxWidth: "100%", minHeight: "80vh" }}>
       <AdminHero
         title={`Пълен преглед / редакция на треньор #${coachId}`}
-        subtitle="Редакция на профил и смяна на парола от админ."
+        subtitle="Профил, парола и разпознаване в СЕК (FirstCoach)."
         actions={
           <>
             <Button as={Link} to="/admin/coaches" variant="secondary">Към треньори</Button>
@@ -145,15 +162,31 @@ export default function CoachDetailsAdmin() {
 
             <label>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Клуб</div>
-              <Input as="select" value={form.club_id} onChange={(e) => setForm((p) => ({ ...p, club_id: e.target.value }))}>
+              <Input
+                as="select"
+                value={form.club_id}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, club_id: e.target.value }));
+                  setSekLink(emptySekLinkValue());
+                }}
+              >
                 <option value="">Избери клуб</option>
                 {clubs.map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {c.name}
+                    {c.bvf_club_id ? " · СЕК" : ""}
                   </option>
                 ))}
               </Input>
             </label>
+
+            <SekCoachLinkFields
+              clubId={form.club_id}
+              value={sekLink}
+              onChange={setSekLink}
+              toast={toast}
+              disabled={saving}
+            />
 
             <div style={{ marginTop: 4 }}>
               <Button onClick={onSave} disabled={saving}>{saving ? "Запис..." : "Запази данните"}</Button>
@@ -184,5 +217,3 @@ export default function CoachDetailsAdmin() {
     </div>
   );
 }
-
-

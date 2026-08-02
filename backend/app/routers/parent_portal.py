@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.database import get_db
 from app.dependencies.parent_auth import get_current_parent_athlete
 from app.models import (
     Athlete,
+    AthleteClubConsent,
     AthleteParentAccessToken,
     AthletePayment,
     AttendanceRecord,
@@ -39,6 +40,10 @@ from app.schemas.parent_portal import (
     ParentAttendanceSummary,
     ParentCurrentMonthFee,
     ParentFeeCoachContact,
+    ParentMembershipConsentForm,
+    ParentMembershipConsentSignRequest,
+    ParentMembershipConsentSignResponse,
+    ParentMembershipConsentStatus,
     ParentPaymentRow,
     ParentPushStatusResponse,
     ParentPushSubscribeRequest,
@@ -50,6 +55,13 @@ from app.schemas.parent_portal import (
 )
 from app.schemas.assessment import ParentDevelopmentOut
 from app.services.assessment_consent import build_parent_development
+from app.services.club_membership_consent import (
+    athlete_needs_membership_consent,
+    get_active_consent,
+    persist_consent_pdf,
+    read_consent_pdf,
+    resolve_club_consent_template,
+)
 from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
     clear_marker_for_athlete,
@@ -627,6 +639,24 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
 
     schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
 
+    consent_status = ParentMembershipConsentStatus(needs_consent=False, has_signed=False, club_name=club_name)
+    if athlete.club_id:
+        active_consent = get_active_consent(db, athlete.id, athlete.club_id)
+        if active_consent:
+            consent_status = ParentMembershipConsentStatus(
+                needs_consent=False,
+                has_signed=True,
+                signed_at=active_consent.signed_at,
+                consent_id=active_consent.id,
+                club_name=club_name,
+            )
+        else:
+            consent_status = ParentMembershipConsentStatus(
+                needs_consent=True,
+                has_signed=False,
+                club_name=club_name,
+            )
+
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
@@ -652,6 +682,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         fee_change_highlight=fee_highlight,
         team_feed=_team_feed_for_parent(db, team_ids, limit=5),
         absence_notices=_active_absence_notices(db, athlete.id),
+        membership_consent=consent_status,
     )
 
 
@@ -902,3 +933,168 @@ def parent_cancel_absence_notice_token(token: str, notice_id: int, db: Session =
     athlete = _resolve_parent_portal_athlete(db, token)
     _cancel_absence_notice(db, athlete.id, notice_id)
     return None
+
+
+def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> ParentMembershipConsentForm:
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    tpl = resolve_club_consent_template(club)
+    needs = athlete_needs_membership_consent(db, athlete)
+    child_egn = (athlete.egn or "").strip()
+    return ParentMembershipConsentForm(
+        needs_consent=needs,
+        club_name=tpl["club_name"],
+        addressee=tpl["addressee"],
+        body_text=tpl["body_text"],
+        gdpr_text=tpl["gdpr_text"],
+        fee_amount=tpl["fee_amount"],
+        fee_due_day=tpl["fee_due_day"],
+        prefill={
+            "parent_full_name": athlete.parent_name or "",
+            "parent_phone": athlete.parent_phone or "",
+            "child_full_name": athlete.athlete_name or "",
+            "child_egn": child_egn,
+            "child_phone": athlete.athlete_phone or "",
+        },
+    )
+
+
+def _sign_membership_consent(
+    db: Session, athlete: Athlete, body: ParentMembershipConsentSignRequest
+) -> ParentMembershipConsentSignResponse:
+    if not body.gdpr_accepted:
+        raise HTTPException(status_code=422, detail="Необходимо е съгласие за обработка на личните данни")
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
+    if not athlete_needs_membership_consent(db, athlete):
+        raise HTTPException(status_code=409, detail="Заявлението вече е подписано")
+
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    tpl = resolve_club_consent_template(club)
+
+    parent_egn = "".join(ch for ch in body.parent_egn.strip() if ch.isdigit())
+    child_egn = "".join(ch for ch in body.child_egn.strip() if ch.isdigit())
+    if len(parent_egn) != 10 or len(child_egn) != 10:
+        raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри")
+
+    now = datetime.utcnow()
+    consent = AthleteClubConsent(
+        athlete_id=athlete.id,
+        club_id=club.id,
+        parent_full_name=body.parent_full_name.strip(),
+        parent_egn=parent_egn,
+        parent_address=body.parent_address.strip(),
+        parent_phone=body.parent_phone.strip(),
+        child_full_name=body.child_full_name.strip(),
+        child_egn=child_egn,
+        child_address=(body.child_address or "").strip() or None,
+        child_phone=(body.child_phone or "").strip() or None,
+        gdpr_accepted=True,
+        signature_name=body.signature_name.strip(),
+        signed_at=now,
+        addressee_snapshot=tpl["addressee"],
+        body_text_snapshot=tpl["body_text"],
+        gdpr_text_snapshot=tpl["gdpr_text"],
+        club_name_snapshot=tpl["club_name"],
+        fee_amount_snapshot=tpl["fee_amount"],
+        fee_due_day_snapshot=tpl["fee_due_day"],
+        is_active=True,
+    )
+    db.add(consent)
+
+    # Keep athlete contact fields in sync when parent provides them
+    athlete.parent_name = consent.parent_full_name
+    athlete.parent_phone = consent.parent_phone
+    if not athlete.egn:
+        athlete.egn = child_egn
+    if consent.child_full_name and consent.child_full_name != athlete.athlete_name:
+        # Prefer structured names if already set; otherwise update display name
+        if not (athlete.first_name and athlete.last_name):
+            athlete.athlete_name = consent.child_full_name
+
+    db.flush()
+    try:
+        consent.pdf_rel_path = persist_consent_pdf(consent)
+    except Exception as exc:
+        logger.warning("PDF for membership consent athlete %s: %s", athlete.id, exc)
+
+    db.commit()
+    db.refresh(consent)
+    return ParentMembershipConsentSignResponse(
+        ok=True,
+        consent_id=consent.id,
+        signed_at=consent.signed_at,
+        needs_consent=False,
+    )
+
+
+@router.get("/parent-portal/me/membership-consent", response_model=ParentMembershipConsentForm)
+def parent_membership_consent_form_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _membership_consent_form_for_athlete(db, athlete)
+
+
+@router.get("/parent-portal/{token}/membership-consent", response_model=ParentMembershipConsentForm)
+def parent_membership_consent_form_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _membership_consent_form_for_athlete(db, athlete)
+
+
+@router.post("/parent-portal/me/membership-consent", response_model=ParentMembershipConsentSignResponse)
+def parent_sign_membership_consent_me(
+    body: ParentMembershipConsentSignRequest,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _sign_membership_consent(db, athlete, body)
+
+
+@router.post("/parent-portal/{token}/membership-consent", response_model=ParentMembershipConsentSignResponse)
+def parent_sign_membership_consent_token(
+    token: str,
+    body: ParentMembershipConsentSignRequest,
+    db: Session = Depends(get_db),
+):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _sign_membership_consent(db, athlete, body)
+
+
+@router.get("/parent-portal/me/membership-consent/preview")
+def parent_membership_consent_preview_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    consent = get_active_consent(db, athlete.id, athlete.club_id)
+    if not consent:
+        raise HTTPException(status_code=404, detail="Няма подписано заявление")
+    pdf = read_consent_pdf(consent)
+    if not pdf:
+        raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="zayavlenie_{consent.id}.pdf"'},
+    )
+
+
+@router.get("/parent-portal/{token}/membership-consent/preview")
+def parent_membership_consent_preview_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    consent = get_active_consent(db, athlete.id, athlete.club_id)
+    if not consent:
+        raise HTTPException(status_code=404, detail="Няма подписано заявление")
+    pdf = read_consent_pdf(consent)
+    if not pdf:
+        raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="zayavlenie_{consent.id}.pdf"'},
+    )

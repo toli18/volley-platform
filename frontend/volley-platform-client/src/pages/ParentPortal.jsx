@@ -7,6 +7,7 @@ import { clearParentToken, getParentToken, parentLoginPath } from "../utils/pare
 import ParentPortalBottomNav from "../components/parentPortal/ParentPortalBottomNav";
 import ParentPortalLayout from "../components/parentPortal/ParentPortalLayout";
 import ParentPortalProfileContent from "../components/parentPortal/ParentPortalProfileContent";
+import ParentMembershipConsentGate from "../components/parentPortal/ParentMembershipConsentGate";
 import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
 import { Button, Card, EmptyState } from "../components/ui";
 import {
@@ -214,7 +215,9 @@ export default function ParentPortal() {
     </div>
   );
 
-  const fab = profile ? (
+  const needsConsent = Boolean(profile?.membership_consent?.needs_consent);
+
+  const fab = profile && !needsConsent ? (
     <button
       type="button"
       className={`parentPortalFab${refreshing ? " is-spinning" : ""}`}
@@ -227,7 +230,7 @@ export default function ParentPortal() {
     </button>
   ) : null;
 
-  const bottomNav = profile ? (
+  const bottomNav = profile && !needsConsent ? (
     <ParentPortalBottomNav activeTab={activeTab} onChange={setActiveTab} scheduleDot={hasUnreadChanges} />
   ) : null;
 
@@ -242,7 +245,9 @@ export default function ParentPortal() {
       <div className="parentPortalPage">
         <header className="parentPortalHero">
           <h1 className="parentPortalHeroTitle">{profile ? profile.athlete_name : "Родителски профил"}</h1>
-          <p className="parentPortalHeroSub">Присъствие, график и месечни такси</p>
+          <p className="parentPortalHeroSub">
+            {needsConsent ? "Необходимо е заявление за прием" : "Присъствие, график и месечни такси"}
+          </p>
         </header>
 
         {loading ? (
@@ -253,7 +258,15 @@ export default function ParentPortal() {
 
         {!loading && error ? <EmptyState title="Достъпът е отказан" description={error} /> : null}
 
-        {!loading && !error && profile ? (
+        {!loading && !error && profile && needsConsent ? (
+          <ParentMembershipConsentGate
+            isSession={isSession}
+            token={token}
+            onSigned={() => loadProfile({ silent: false })}
+          />
+        ) : null}
+
+        {!loading && !error && profile && !needsConsent ? (
           <ParentPortalProfileContent
             profile={profile}
             activeTab={activeTab}

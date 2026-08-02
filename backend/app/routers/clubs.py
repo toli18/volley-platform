@@ -20,6 +20,8 @@ class ClubUpdate(BaseModel):
     website_url: str | None = None
     logo_url: str | None = None
     is_active: bool | None = None
+    bvf_default_first_coach_id: int | None = None
+    bvf_default_first_coach_name: str | None = None
 
 
 def _club_to_dict(club: Club) -> dict:
@@ -37,6 +39,10 @@ def _club_to_dict(club: Club) -> dict:
         "is_active": club.is_active,
         "created_at": club.created_at,
         "updated_at": club.updated_at,
+        "bvf_club_id": club.bvf_club_id,
+        "bvf_club_name": club.bvf_club_name,
+        "bvf_default_first_coach_id": getattr(club, "bvf_default_first_coach_id", None),
+        "bvf_default_first_coach_name": getattr(club, "bvf_default_first_coach_name", None),
         "region": region_for_club(club.name, club.city),
     }
 

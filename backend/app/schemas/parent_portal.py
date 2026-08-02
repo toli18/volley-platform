@@ -136,6 +136,45 @@ class ParentAbsenceNoticeCreate(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
 
 
+class ParentMembershipConsentStatus(BaseModel):
+    needs_consent: bool = False
+    has_signed: bool = False
+    signed_at: Optional[datetime] = None
+    consent_id: Optional[int] = None
+    club_name: Optional[str] = None
+
+
+class ParentMembershipConsentForm(BaseModel):
+    needs_consent: bool = True
+    club_name: str
+    addressee: str
+    body_text: str
+    gdpr_text: str
+    fee_amount: int
+    fee_due_day: int
+    prefill: dict = Field(default_factory=dict)
+
+
+class ParentMembershipConsentSignRequest(BaseModel):
+    parent_full_name: str = Field(..., min_length=2, max_length=255)
+    parent_egn: str = Field(..., min_length=10, max_length=16)
+    parent_address: str = Field(..., min_length=3, max_length=500)
+    parent_phone: str = Field(..., min_length=6, max_length=50)
+    child_full_name: str = Field(..., min_length=2, max_length=255)
+    child_egn: str = Field(..., min_length=10, max_length=16)
+    child_address: Optional[str] = Field(None, max_length=500)
+    child_phone: Optional[str] = Field(None, max_length=50)
+    gdpr_accepted: bool = False
+    signature_name: str = Field(..., min_length=2, max_length=255)
+
+
+class ParentMembershipConsentSignResponse(BaseModel):
+    ok: bool = True
+    consent_id: int
+    signed_at: datetime
+    needs_consent: bool = False
+
+
 class ParentCurrentMonthFee(BaseModel):
     month_key: str
     paid: bool = False
@@ -172,3 +211,4 @@ class ParentAthleteProfileResponse(BaseModel):
     fee_change_highlight: bool = False
     team_feed: list[ParentTeamFeedItem] = Field(default_factory=list)
     absence_notices: list[ParentAbsenceNoticeRead] = Field(default_factory=list)
+    membership_consent: ParentMembershipConsentStatus = Field(default_factory=ParentMembershipConsentStatus)

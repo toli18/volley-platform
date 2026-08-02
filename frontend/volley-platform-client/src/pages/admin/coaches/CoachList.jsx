@@ -187,6 +187,23 @@ export default function CoachList() {
                   <span className={`uiBadge ${c.role === "club_head_coach" ? "uiBadge--info" : "uiBadge--secondary"}`}>
                     {c.role === "club_head_coach" ? "Главен треньор" : "Треньор"}
                   </span>
+                  {c.sek_link_status === "self" ? (
+                    <span className="uiBadge uiBadge--success" style={{ marginLeft: 6 }} title={c.bvf_coach_name || ""}>
+                      СЕК · {c.bvf_coach_name || `#${c.bvf_coach_id}`}
+                    </span>
+                  ) : c.sek_link_status === "proxy" ? (
+                    <span className="uiBadge uiBadge--warning" style={{ marginLeft: 6 }} title={c.bvf_first_coach_proxy_name || ""}>
+                      СЕК прокси · {c.bvf_first_coach_proxy_name || `#${c.bvf_first_coach_proxy_id}`}
+                    </span>
+                  ) : club?.bvf_default_first_coach_id ? (
+                    <span className="uiBadge uiBadge--secondary" style={{ marginLeft: 6 }} title={club.bvf_default_first_coach_name || ""}>
+                      СЕК · клубен default
+                    </span>
+                  ) : (
+                    <span className="uiBadge uiBadge--secondary" style={{ marginLeft: 6 }}>
+                      Без СЕК
+                    </span>
+                  )}
                 </div>
                 <div style={{ marginTop: 2, fontSize: 12, color: "#5f708c" }}>
                   {club?.city ? `${club.city}, ` : ""}{club?.country || ""}

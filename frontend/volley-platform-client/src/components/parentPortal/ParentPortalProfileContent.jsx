@@ -10,6 +10,8 @@ import { Button, Card, EmptyState, Input } from "../ui";
 import { formatMoney } from "../../utils/currency";
 import { competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 import { abbreviateTeamName } from "../../utils/parentPortalSchedule";
+import axiosInstance from "../../utils/apiClient";
+import { API_PATHS } from "../../utils/apiPaths";
 import {
   EventTypeChip,
   IconClock,
@@ -284,6 +286,38 @@ export default function ParentPortalProfileContent({
           </Card>
 
           <ParentDevelopmentSection isSession={isSession} token={token} />
+
+          {profile.membership_consent?.has_signed ? (
+            <Card title="Документи">
+              <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+                Заявление за прием — подписано
+                {profile.membership_consent.signed_at
+                  ? ` на ${new Date(profile.membership_consent.signed_at).toLocaleDateString("bg-BG")}`
+                  : ""}
+                .
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const path = isSession
+                      ? API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME
+                      : API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN(token);
+                    const res = await axiosInstance.get(path, { responseType: "blob" });
+                    const url = URL.createObjectURL(res.data);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                Преглед
+              </Button>
+            </Card>
+          ) : null}
 
           <Card title="Контакт с треньора">
             <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--standalone" />

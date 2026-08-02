@@ -8,7 +8,8 @@ import { normalizeError } from "../../utils/normalizeError";
 
 /**
  * Създава състезател в db.bvf.bg от локалния профил (снимка + FirstCoach).
- * Token е нужен само ако клубът няма постоянна връзка.
+ * FirstCoach се взима автоматично от мапинга на треньора / клубен default;
+ * ръчен избор остава като override.
  */
 export default function BvfCreateAthleteModal({
   open,
@@ -25,9 +26,11 @@ export default function BvfCreateAthleteModal({
   const [egn, setEgn] = useState(initialEgn || "");
   const [coachId, setCoachId] = useState("");
   const [coaches, setCoaches] = useState([]);
+  const [resolved, setResolved] = useState(null);
   const [photo, setPhoto] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loadingCoaches, setLoadingCoaches] = useState(false);
+  const [loadingResolved, setLoadingResolved] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -35,8 +38,35 @@ export default function BvfCreateAthleteModal({
     setPhoto(null);
     setCoachId("");
     setCoaches([]);
+    setResolved(null);
     setToken("");
   }, [open, initialEgn, athleteId]);
+
+  useEffect(() => {
+    if (!open || !athleteId) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setLoadingResolved(true);
+        const form = new FormData();
+        form.append("athlete_id", String(athleteId));
+        const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_RESOLVE_FIRST_COACH, form);
+        if (cancelled) return;
+        setResolved(res.data || null);
+        if (res.data?.first_coach_id) {
+          setCoachId(String(res.data.first_coach_id));
+        }
+      } catch {
+        if (!cancelled) setResolved(null);
+      } finally {
+        if (!cancelled) setLoadingResolved(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, athleteId]);
 
   const canCallBvf = permanent || Boolean(token.trim());
 
@@ -52,7 +82,7 @@ export default function BvfCreateAthleteModal({
       });
       const list = Array.isArray(res.data?.coaches) ? res.data.coaches : [];
       setCoaches(list);
-      if (list.length === 1) setCoachId(String(list[0].id));
+      if (!coachId && list.length === 1) setCoachId(String(list[0].id));
       toast?.success(`Заредени ${list.length} треньори от БФВ.`);
     } catch (err) {
       toast?.error(normalizeError(err, "Неуспешно зареждане на треньори."));
@@ -70,8 +100,8 @@ export default function BvfCreateAthleteModal({
       toast?.error("ЕГН трябва да е 10 символа.");
       return;
     }
-    if (!coachId) {
-      toast?.error("Избери първи треньор в БФВ.");
+    if (!coachId && !resolved?.ready) {
+      toast?.error("Няма FirstCoach — задай разпознаване в Админ → Треньори или избери ръчно.");
       return;
     }
     if (!photo) {
@@ -81,7 +111,7 @@ export default function BvfCreateAthleteModal({
     const form = new FormData();
     form.append("athlete_id", String(athleteId));
     appendToken(form, token);
-    form.append("first_coach_id", String(coachId));
+    if (coachId) form.append("first_coach_id", String(coachId));
     form.append("egn", egn.trim());
     form.append("file", photo);
     try {
@@ -100,6 +130,14 @@ export default function BvfCreateAthleteModal({
   };
 
   const blockers = (missing || []).filter((m) => m !== "ЕГН" && m !== "снимка");
+  const sourceLabel =
+    resolved?.source === "coach_self"
+      ? "от треньора (СЕК)"
+      : resolved?.source === "coach_proxy"
+        ? "прокси на треньора"
+        : resolved?.source === "club_default"
+          ? "клубен default"
+          : null;
 
   return (
     <Modal open={open} onClose={busy ? undefined : onClose} dismissable={!busy} title="Създай в БФВ" size="compact">
@@ -131,23 +169,38 @@ export default function BvfCreateAthleteModal({
           </label>
         )}
 
+        {loadingResolved ? (
+          <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>Определяне на FirstCoach…</p>
+        ) : resolved?.ready ? (
+          <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>
+            FirstCoach: {resolved.first_coach_name || `#${resolved.first_coach_id}`}
+            {sourceLabel ? ` (${sourceLabel})` : ""}
+          </p>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: "#b45309" }}>
+            Няма автоматичен FirstCoach. Задай разпознаване в Админ → Треньори или избери ръчно по-долу.
+          </p>
+        )}
+
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button type="button" size="sm" variant="secondary" disabled={busy || loadingCoaches || !canCallBvf} onClick={loadCoaches}>
-            {loadingCoaches ? "Зареждане…" : "Зареди треньори"}
+            {loadingCoaches ? "Зареждане…" : "Зареди / смени треньор"}
           </Button>
         </div>
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Първи треньор (БФВ) *</span>
-          <select className="uiInput" value={coachId} onChange={(e) => setCoachId(e.target.value)} disabled={!coaches.length}>
-            <option value="">{coaches.length ? "Избери" : "Зареди треньори първо"}</option>
-            {coaches.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {coaches.length > 0 ? (
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Първи треньор (БФВ)</span>
+            <select className="uiInput" value={coachId} onChange={(e) => setCoachId(e.target.value)}>
+              <option value="">Избери</option>
+              {coaches.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>ЕГН *</span>

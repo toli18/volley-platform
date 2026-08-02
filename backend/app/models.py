@@ -90,12 +90,23 @@ class Club(Base):
     bvf_password_enc = Column(Text, nullable=True)
     bvf_api_key_enc = Column(Text, nullable=True)
     bvf_api_key_prefix = Column(String(20), nullable=True)
+    # Лицензиран FirstCoach fallback за създаване на състезатели в СЕК
+    bvf_default_first_coach_id = Column(Integer, nullable=True)
+    bvf_default_first_coach_name = Column(String(255), nullable=True)
+
+    # Клубно заявление (Заявление) — конфиг за родителски портал
+    membership_consent_addressee = Column(Text, nullable=True)
+    membership_consent_body = Column(Text, nullable=True)
+    membership_consent_gdpr = Column(Text, nullable=True)
+    membership_consent_fee_amount = Column(Integer, nullable=True)
+    membership_consent_fee_due_day = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     users = relationship("User", back_populates="club")
     trainings = relationship("Training", back_populates="club")
+    membership_consents = relationship("AthleteClubConsent", back_populates="club")
 
 
 # =========================
@@ -112,6 +123,13 @@ class User(Base):
 
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Връзка към лицензиран треньор в СЕК (db.bvf.bg) — за FirstCoachId
+    bvf_coach_id = Column(Integer, nullable=True, index=True)
+    bvf_coach_name = Column(String(255), nullable=True)
+    # Ако локалният треньор няма лиценз — прокси лицензиран треньор от клуба
+    bvf_first_coach_proxy_id = Column(Integer, nullable=True)
+    bvf_first_coach_proxy_name = Column(String(255), nullable=True)
 
     club = relationship("Club", back_populates="users")
 
@@ -532,6 +550,52 @@ class Athlete(Base):
         back_populates="athlete",
         cascade="all, delete-orphan",
     )
+    club_consents = relationship(
+        "AthleteClubConsent",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
+
+
+class AthleteClubConsent(Base):
+    """Подписано клубно заявление (веднъж на дете/клуб, до оттегляне)."""
+
+    __tablename__ = "athlete_club_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    parent_full_name = Column(String(255), nullable=False)
+    parent_egn = Column(String(16), nullable=False)
+    parent_address = Column(String(500), nullable=False)
+    parent_phone = Column(String(50), nullable=False)
+
+    child_full_name = Column(String(255), nullable=False)
+    child_egn = Column(String(16), nullable=False)
+    child_address = Column(String(500), nullable=True)
+    child_phone = Column(String(50), nullable=True)
+
+    gdpr_accepted = Column(Boolean, nullable=False, default=True)
+    signature_name = Column(String(255), nullable=False)
+    signed_at = Column(DateTime, nullable=False)
+
+    addressee_snapshot = Column(Text, nullable=True)
+    body_text_snapshot = Column(Text, nullable=True)
+    gdpr_text_snapshot = Column(Text, nullable=True)
+    club_name_snapshot = Column(String(255), nullable=True)
+    fee_amount_snapshot = Column(Integer, nullable=True)
+    fee_due_day_snapshot = Column(Integer, nullable=True)
+
+    pdf_rel_path = Column(String(500), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    revoked_at = Column(DateTime, nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    revoke_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    athlete = relationship("Athlete", back_populates="club_consents")
+    club = relationship("Club", back_populates="membership_consents")
 
 
 class AthletePhysicalMeasurement(Base):

@@ -181,6 +181,22 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_password_enc TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_enc TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_prefix VARCHAR(20)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_addressee TEXT"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_body TEXT"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_gdpr TEXT"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_fee_amount INTEGER"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_fee_due_day INTEGER"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_id INTEGER"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_name VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_coach_id INTEGER"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_coach_name VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_first_coach_proxy_id INTEGER"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_first_coach_proxy_name VARCHAR(255)"))
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_users_bvf_coach_id ON users (bvf_coach_id)"
+                    )
+                )
                 conn.execute(
                     text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_bvf_club_id "
@@ -348,6 +364,42 @@ def _init_db_impl() -> None:
             if "bvf_api_key_prefix" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_api_key_prefix VARCHAR(20)"))
                 print("✅ Added clubs.bvf_api_key_prefix column")
+            if "membership_consent_addressee" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_addressee TEXT"))
+                print("✅ Added clubs.membership_consent_addressee column")
+            if "membership_consent_body" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_body TEXT"))
+                print("✅ Added clubs.membership_consent_body column")
+            if "membership_consent_gdpr" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_gdpr TEXT"))
+                print("✅ Added clubs.membership_consent_gdpr column")
+            if "membership_consent_fee_amount" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_fee_amount INTEGER"))
+                print("✅ Added clubs.membership_consent_fee_amount column")
+            if "membership_consent_fee_due_day" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_fee_due_day INTEGER"))
+                print("✅ Added clubs.membership_consent_fee_due_day column")
+            if "bvf_default_first_coach_id" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
+                print("✅ Added clubs.bvf_default_first_coach_id column")
+            if "bvf_default_first_coach_name" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_name VARCHAR(255)"))
+                print("✅ Added clubs.bvf_default_first_coach_name column")
+
+            user_cols = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            user_col_names = {row[1] for row in user_cols}
+            if "bvf_coach_id" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN bvf_coach_id INTEGER"))
+                print("✅ Added users.bvf_coach_id column")
+            if "bvf_coach_name" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN bvf_coach_name VARCHAR(255)"))
+                print("✅ Added users.bvf_coach_name column")
+            if "bvf_first_coach_proxy_id" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN bvf_first_coach_proxy_id INTEGER"))
+                print("✅ Added users.bvf_first_coach_proxy_id column")
+            if "bvf_first_coach_proxy_name" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN bvf_first_coach_proxy_name VARCHAR(255)"))
+                print("✅ Added users.bvf_first_coach_proxy_name column")
 
             team_cols = conn.execute(text("PRAGMA table_info(teams)")).fetchall()
             team_col_names = {row[1] for row in team_cols}
