@@ -79,19 +79,7 @@ def create_coach(
 ):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already exists")
-
-    coaches_count = (
-        db.query(User)
-        .filter(User.role == UserRole.coach, User.club_id == data.club_id)
-        .count()
-    )
-
-    if coaches_count >= 2:
-        raise HTTPException(
-            status_code=400,
-            detail="This club already has 2 coaches",
-        )
+        raise HTTPException(status_code=400, detail="Email вече съществува")
 
     user = User(
         email=data.email,
@@ -168,16 +156,7 @@ def update_coach(
     if "email" in payload:
         existing = db.query(User).filter(User.email == payload["email"], User.id != coach_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Email already exists")
-
-    if "club_id" in payload and payload["club_id"] is not None:
-        coaches_count = (
-            db.query(User)
-            .filter(User.role == UserRole.coach, User.club_id == payload["club_id"], User.id != coach_id)
-            .count()
-        )
-        if coaches_count >= 2:
-            raise HTTPException(status_code=400, detail="This club already has 2 coaches")
+            raise HTTPException(status_code=400, detail="Email вече съществува")
 
     if "name" in payload:
         coach.name = payload["name"]

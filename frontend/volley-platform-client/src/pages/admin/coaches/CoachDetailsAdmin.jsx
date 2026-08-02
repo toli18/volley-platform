@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { API_PATHS } from "../../../utils/apiPaths";
+import { normalizeError } from "../../../utils/normalizeError";
 import { AdminHero, Button, Card, Input } from "../../../components/ui";
 import { useToast } from "../../../components/ToastProvider";
 import SekCoachLinkFields, {
@@ -90,7 +91,9 @@ export default function CoachDetailsAdmin() {
       setSekLink(sekLinkFromCoach(updated));
       toast.success("Промените са записани.");
     } catch (e) {
-      setError(e?.message || "Грешка при запис.");
+      const msg = normalizeError(e, "Грешка при запис.");
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -111,7 +114,9 @@ export default function CoachDetailsAdmin() {
       setNewPassword("");
       toast.success("Паролата е сменена успешно.");
     } catch (e) {
-      setError(e?.message || "Грешка при reset на парола.");
+      const msg = normalizeError(e, "Грешка при reset на парола.");
+      setError(msg);
+      toast.error(msg);
     } finally {
       setResetting(false);
     }
