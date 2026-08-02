@@ -16,6 +16,7 @@ from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
 from app.services.club_membership_consent import (
     DEFAULT_BODY_TEMPLATE,
     DEFAULT_FEE_AMOUNT,
+    DEFAULT_FEE_CURRENCY,
     DEFAULT_FEE_DUE_DAY,
     DEFAULT_GDPR_TEMPLATE,
     consent_to_document_dict,
@@ -34,6 +35,9 @@ class MembershipConsentTemplateOut(BaseModel):
     enabled: bool = False
     fee_amount: int
     fee_due_day: int
+    fee_currency: str = "€"
+    club_logo_url: Optional[str] = None
+    bvf_logo_url: Optional[str] = None
     addressee: str
     body_text: str
     gdpr_text: str
@@ -90,6 +94,7 @@ def get_membership_consent_template(
             "gdpr": DEFAULT_GDPR_TEMPLATE,
             "fee_amount": DEFAULT_FEE_AMOUNT,
             "fee_due_day": DEFAULT_FEE_DUE_DAY,
+            "fee_currency": DEFAULT_FEE_CURRENCY,
         },
     )
 
@@ -136,6 +141,7 @@ def update_membership_consent_template(
             "gdpr": DEFAULT_GDPR_TEMPLATE,
             "fee_amount": DEFAULT_FEE_AMOUNT,
             "fee_due_day": DEFAULT_FEE_DUE_DAY,
+            "fee_currency": DEFAULT_FEE_CURRENCY,
         },
     )
 
@@ -186,7 +192,8 @@ def preview_membership_consent(
     )
     if not consent:
         raise HTTPException(status_code=404, detail="Документът не е намерен")
-    pdf = read_consent_pdf(consent)
+    club = db.query(Club).filter(Club.id == int(consent.club_id)).first() if consent.club_id else None
+    pdf = read_consent_pdf(consent, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(

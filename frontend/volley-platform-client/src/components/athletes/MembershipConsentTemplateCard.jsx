@@ -4,6 +4,7 @@ import { Button, Input } from "../ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import { resolveStaticUrl } from "../../utils/staticUrl";
 import MembershipConsentLiveForm from "../parentPortal/MembershipConsentLiveForm";
 
 /**
@@ -31,7 +32,7 @@ export default function MembershipConsentTemplateCard({ toast }) {
       setAddressee(d.addressee_template || d.defaults?.addressee || "");
       setBody(d.body_template || d.defaults?.body || "");
       setGdpr(d.gdpr_template || d.defaults?.gdpr || "");
-      setFeeAmount(String(d.fee_amount ?? d.defaults?.fee_amount ?? 30));
+      setFeeAmount(String(d.fee_amount ?? d.defaults?.fee_amount ?? 15));
       setFeeDueDay(String(d.fee_due_day ?? d.defaults?.fee_due_day ?? 10));
       setPreview(d);
     } catch (err) {
@@ -54,7 +55,7 @@ export default function MembershipConsentTemplateCard({ toast }) {
         addressee_template: addressee,
         body_template: body,
         gdpr_template: gdpr,
-        fee_amount: Number(feeAmount) || 30,
+        fee_amount: Number(feeAmount) || 15,
         fee_due_day: Number(feeDueDay) || 10,
       });
       setPreview(res.data);
@@ -83,7 +84,7 @@ export default function MembershipConsentTemplateCard({ toast }) {
       setAddressee(d.defaults?.addressee || "");
       setBody(d.defaults?.body || "");
       setGdpr(d.defaults?.gdpr || "");
-      setFeeAmount(String(d.defaults?.fee_amount ?? 30));
+      setFeeAmount(String(d.defaults?.fee_amount ?? 15));
       setFeeDueDay(String(d.defaults?.fee_due_day ?? 10));
       setEnabled(Boolean(d.enabled));
       setPreview(d);
@@ -139,12 +140,12 @@ export default function MembershipConsentTemplateCard({ toast }) {
 
       <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
         Един текст за целия клуб. Плейсхолдери: <code>{"{club_name}"}</code>, <code>{"{fee_amount}"}</code>,{" "}
-        <code>{"{fee_due_day}"}</code>.
+        <code>{"{fee_currency}"}</code>, <code>{"{fee_due_day}"}</code>.
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Месечна такса (лв.)</span>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Месечна такса (€)</span>
           <Input value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} style={{ width: 100 }} />
         </label>
         <label style={{ display: "grid", gap: 4 }}>
@@ -206,6 +207,9 @@ export default function MembershipConsentTemplateCard({ toast }) {
               addressee: preview?.addressee,
               body_text: preview?.body_text,
               gdpr_text: preview?.gdpr_text,
+              club_name: preview?.club_name || clubName,
+              club_logo_url: preview?.club_logo_url,
+              bvf_logo_url: preview?.bvf_logo_url || "/static/branding/bfvb-logo.png",
             }}
             initialFields={{
               parent_full_name: "",
@@ -232,15 +236,32 @@ export default function MembershipConsentTemplateCard({ toast }) {
             {blankTab === "club" ? (
               <ClubBlankPreview
                 clubName={clubName}
+                clubLogoUrl={preview?.club_logo_url}
+                bvfLogoUrl={preview?.bvf_logo_url}
                 addressee={preview?.addressee}
                 body={preview?.body_text}
                 gdpr={preview?.gdpr_text}
                 feeAmount={preview?.fee_amount ?? feeAmount}
                 feeDueDay={preview?.fee_due_day ?? feeDueDay}
+                feeCurrency={preview?.fee_currency || "€"}
               />
             ) : null}
-            {blankTab === "f03" ? <Form03BlankPreview clubName={clubName} season={season} /> : null}
-            {blankTab === "f03a" ? <Form03ABlankPreview clubName={clubName} season={season} /> : null}
+            {blankTab === "f03" ? (
+              <Form03BlankPreview
+                clubName={clubName}
+                clubLogoUrl={preview?.club_logo_url}
+                bvfLogoUrl={preview?.bvf_logo_url}
+                season={season}
+              />
+            ) : null}
+            {blankTab === "f03a" ? (
+              <Form03ABlankPreview
+                clubName={clubName}
+                clubLogoUrl={preview?.club_logo_url}
+                bvfLogoUrl={preview?.bvf_logo_url}
+                season={season}
+              />
+            ) : null}
           </div>
         )}
         {blankTab === "f03" || blankTab === "f03a" ? (
@@ -258,6 +279,49 @@ export default function MembershipConsentTemplateCard({ toast }) {
   );
 }
 
+function BlankLogos({ clubName, clubLogoUrl, bvfLogoUrl }) {
+  const bvfSrc = resolveStaticUrl(bvfLogoUrl) || "/bfvb-logo.png";
+  const clubSrc = resolveStaticUrl(clubLogoUrl);
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
+      <img
+        src={bvfSrc}
+        alt="БФВ"
+        style={{ width: 52, height: 52, objectFit: "contain" }}
+        onError={(e) => {
+          e.currentTarget.src = "/bfvb-logo.png";
+        }}
+      />
+      {clubSrc ? (
+        <img
+          src={clubSrc}
+          alt={clubName || "Клуб"}
+          style={{ width: 52, height: 52, objectFit: "contain" }}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : (
+        <span
+          style={{
+            width: 52,
+            height: 52,
+            border: "1px dashed #cbd5e1",
+            borderRadius: 6,
+            display: "grid",
+            placeItems: "center",
+            fontSize: 10,
+            color: "#94a3b8",
+            fontWeight: 700,
+          }}
+        >
+          Клуб
+        </span>
+      )}
+    </div>
+  );
+}
+
 function FieldLine({ label, wide }) {
   return (
     <p style={{ margin: "6px 0", borderBottom: "1px dotted #94a3b8", minHeight: 22 }}>
@@ -267,9 +331,20 @@ function FieldLine({ label, wide }) {
   );
 }
 
-function ClubBlankPreview({ clubName, addressee, body, gdpr, feeAmount, feeDueDay }) {
+function ClubBlankPreview({
+  clubName,
+  clubLogoUrl,
+  bvfLogoUrl,
+  addressee,
+  body,
+  gdpr,
+  feeAmount,
+  feeDueDay,
+  feeCurrency = "€",
+}) {
   return (
     <div>
+      <BlankLogos clubName={clubName} clubLogoUrl={clubLogoUrl} bvfLogoUrl={bvfLogoUrl} />
       <p style={{ textAlign: "center", fontWeight: 800, fontSize: 18, textDecoration: "underline", marginTop: 0 }}>
         ЗАЯВЛЕНИЕ
       </p>
@@ -287,7 +362,7 @@ function ClubBlankPreview({ clubName, addressee, body, gdpr, feeAmount, feeDueDa
       <FieldLine label="тел.: " />
       <div style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>
         {body ||
-          `Желая синът/дъщерята ми да бъде приет/а като състезател във ${clubName}… Такса ${feeAmount} лв. до ${feeDueDay}-то число.`}
+          `Желая синът/дъщерята ми да бъде приет/а като състезател във ${clubName}… Такса ${feeAmount} ${feeCurrency} до ${feeDueDay}-то число.`}
       </div>
       <p style={{ fontWeight: 700, marginTop: 16 }}>Съгласие за обработка на лични данни</p>
       <div style={{ whiteSpace: "pre-wrap", fontSize: 12, maxHeight: 120, overflow: "auto", color: "#334155" }}>
@@ -299,18 +374,35 @@ function ClubBlankPreview({ clubName, addressee, body, gdpr, feeAmount, feeDueDa
   );
 }
 
-function Form03BlankPreview({ clubName, season }) {
+function Form03BlankPreview({ clubName, clubLogoUrl, bvfLogoUrl, season }) {
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ width: 48, height: 48, border: "1px solid #94a3b8", borderRadius: 4, fontSize: 10, display: "grid", placeItems: "center", color: "#64748b" }}>
-          БФВ
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <img
+          src={resolveStaticUrl(bvfLogoUrl) || "/bfvb-logo.png"}
+          alt="БФВ"
+          style={{ width: 48, height: 48, objectFit: "contain" }}
+          onError={(e) => {
+            e.currentTarget.src = "/bfvb-logo.png";
+          }}
+        />
         <div style={{ textAlign: "center", flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 700 }}>Българска федерация по Волейбол</p>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 700 }}>Форма 0-3</span>
+        {clubLogoUrl ? (
+          <img
+            src={resolveStaticUrl(clubLogoUrl)}
+            alt={clubName || "Клуб"}
+            style={{ width: 48, height: 48, objectFit: "contain" }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Форма 0-3</span>
+        )}
       </div>
+      <p style={{ textAlign: "right", fontSize: 12, fontWeight: 700, margin: "4px 0 0" }}>Форма 0-3</p>
       <p style={{ textAlign: "center", fontWeight: 800, fontSize: 18, margin: "16px 0" }}>ЗАЯВЛЕНИЕ</p>
       <p>Долуподписаните:</p>
       <div style={{ border: "1px solid #94a3b8", padding: 8, marginBottom: 8, display: "flex", gap: 8 }}>
@@ -327,9 +419,7 @@ function Form03BlankPreview({ clubName, season }) {
         <span style={{ flex: 1, color: "#94a3b8" }}>три имена (дете)</span>
         <span style={{ width: 140, color: "#94a3b8" }}>ЕГН:</span>
       </div>
-      <p>
-        с настоящото заявяваме, че желаем детето ни да бъде картотекирано в
-      </p>
+      <p>с настоящото заявяваме, че желаем детето ни да бъде картотекирано в</p>
       <div style={{ border: "1px solid #94a3b8", padding: 8, margin: "8px 0" }}>{clubName}</div>
       <p>
         за сезон <strong>20</strong> {season} <strong>г.</strong>
@@ -345,18 +435,35 @@ function Form03BlankPreview({ clubName, season }) {
   );
 }
 
-function Form03ABlankPreview({ clubName, season }) {
+function Form03ABlankPreview({ clubName, clubLogoUrl, bvfLogoUrl, season }) {
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ width: 48, height: 48, border: "1px solid #94a3b8", borderRadius: 4, fontSize: 10, display: "grid", placeItems: "center", color: "#64748b" }}>
-          БФВ
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <img
+          src={resolveStaticUrl(bvfLogoUrl) || "/bfvb-logo.png"}
+          alt="БФВ"
+          style={{ width: 48, height: 48, objectFit: "contain" }}
+          onError={(e) => {
+            e.currentTarget.src = "/bfvb-logo.png";
+          }}
+        />
         <div style={{ textAlign: "center", flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 700 }}>Българска федерация по Волейбол</p>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 700 }}>Форма 0-3 А</span>
+        {clubLogoUrl ? (
+          <img
+            src={resolveStaticUrl(clubLogoUrl)}
+            alt={clubName || "Клуб"}
+            style={{ width: 48, height: 48, objectFit: "contain" }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Форма 0-3 А</span>
+        )}
       </div>
+      <p style={{ textAlign: "right", fontSize: 12, fontWeight: 700, margin: "4px 0 0" }}>Форма 0-3 А</p>
       <p style={{ textAlign: "center", fontWeight: 800, fontSize: 18, margin: "16px 0" }}>ЗАЯВЛЕНИЕ</p>
       <p>Долуподписаният/ата:</p>
       <div style={{ border: "1px solid #94a3b8", padding: 8, marginBottom: 8, display: "flex", gap: 8 }}>

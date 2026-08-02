@@ -8794,6 +8794,37 @@ button.matchChipSlot:not(:disabled) {
   gap: 14px;
 }
 
+.membershipConsentLogoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.membershipConsentLogo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.membershipConsentLogoSpacer {
+  flex: 1;
+}
+
+.membershipConsentLogoPlaceholder {
+  width: 56px;
+  height: 56px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
 .membershipConsentTitle {
   margin: 0;
   text-align: center;

@@ -148,11 +148,14 @@ class ParentMembershipConsentStatus(BaseModel):
 class ParentMembershipConsentForm(BaseModel):
     needs_consent: bool = True
     club_name: str
+    club_logo_url: Optional[str] = None
+    bvf_logo_url: Optional[str] = None
     addressee: str
     body_text: str
     gdpr_text: str
     fee_amount: int
     fee_due_day: int
+    fee_currency: str = "€"
     prefill: dict = Field(default_factory=dict)
 
 

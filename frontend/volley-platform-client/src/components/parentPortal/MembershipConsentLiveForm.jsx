@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Button, Input } from "../ui";
+import { resolveStaticUrl } from "../../utils/staticUrl";
 
 const EMPTY_FIELDS = {
   parent_full_name: "",
@@ -74,6 +75,33 @@ export default function MembershipConsentLiveForm({
       ) : null}
 
       <form className="membershipConsentForm" onSubmit={handleSubmit}>
+        <div className="membershipConsentLogoRow">
+          {meta?.bvf_logo_url ? (
+            <img
+              className="membershipConsentLogo"
+              src={resolveStaticUrl(meta.bvf_logo_url) || "/bfvb-logo.png"}
+              alt="БФВ"
+              onError={(e) => {
+                e.currentTarget.src = "/bfvb-logo.png";
+              }}
+            />
+          ) : (
+            <img className="membershipConsentLogo" src="/bfvb-logo.png" alt="БФВ" />
+          )}
+          <div className="membershipConsentLogoSpacer" />
+          {meta?.club_logo_url ? (
+            <img
+              className="membershipConsentLogo"
+              src={resolveStaticUrl(meta.club_logo_url)}
+              alt={meta.club_name || "Клуб"}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          ) : (
+            <span className="membershipConsentLogoPlaceholder">Клуб</span>
+          )}
+        </div>
         <h2 className="membershipConsentTitle">ЗАЯВЛЕНИЕ</h2>
         {meta?.addressee ? <p className="membershipConsentAddressee">{meta.addressee}</p> : null}
 

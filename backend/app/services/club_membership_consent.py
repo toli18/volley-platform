@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.models import Athlete, AthleteClubConsent, Club
 
-DEFAULT_FEE_AMOUNT = 30
+DEFAULT_FEE_AMOUNT = 15
 DEFAULT_FEE_DUE_DAY = 10
+DEFAULT_FEE_CURRENCY = "€"
 
 DEFAULT_BODY_TEMPLATE = (
     "Желая синът/дъщерята ми да бъде приет/а като състезател във {club_name} "
@@ -19,7 +20,7 @@ DEFAULT_BODY_TEMPLATE = (
     "Синът/дъщерята ми декларира, че ще изпълнява съвестно и отговорно поставените "
     "задачи и указания в тренировъчния процес, като ще поддържа добър тон и отношение "
     "към останалите състезатели.\n\n"
-    "Съгласен/на съм да заплащам месечна такса в размер на {fee_amount} лв. "
+    "Съгласен/на съм да заплащам месечна такса в размер на {fee_amount} {fee_currency} "
     "до {fee_due_day}-то число на месеца."
 )
 
@@ -63,13 +64,69 @@ def default_addressee(club_name: str) -> str:
     return f"ДО УПРАВИТЕЛНИЯ СЪВЕТ НА СДРУЖЕНИЕ ВОЛЕЙБОЛЕН КЛУБ „{name}“"
 
 
-def _fill(template: str, club_name: str, fee_amount: int, fee_due_day: int) -> str:
-    return (
+def _static_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "static"
+
+
+def _branding_dir() -> Path:
+    return _static_dir() / "branding"
+
+
+def bvf_logo_path() -> Path | None:
+    path = _branding_dir() / "bfvb-logo.png"
+    return path if path.is_file() else None
+
+
+def _club_logo_filesystem_path(logo_url: str | None, club: Club | None = None) -> Path | None:
+    raw = (logo_url or (club.logo_url if club else None) or "").strip()
+    if raw:
+        if raw.startswith("http://") or raw.startswith("https://"):
+            marker = "/static/"
+            if marker in raw:
+                rel = raw.split(marker, 1)[1]
+                path = _static_dir() / rel
+                if path.is_file():
+                    return path
+        elif raw.startswith("/static/"):
+            path = _static_dir() / raw[len("/static/") :]
+            if path.is_file():
+                return path
+        elif raw.startswith("static/"):
+            path = _static_dir() / raw[len("static/") :]
+            if path.is_file():
+                return path
+        else:
+            path = _static_dir() / "club-logos" / raw
+            if path.is_file():
+                return path
+
+    if club is not None:
+        for key in (getattr(club, "bvf_club_id", None), club.id):
+            if not key:
+                continue
+            for ext in (".png", ".webp", ".jpg", ".jpeg"):
+                path = _static_dir() / "club-logos" / f"{int(key)}{ext}"
+                if path.is_file():
+                    return path
+    return None
+
+
+def _fill(
+    template: str,
+    club_name: str,
+    fee_amount: int,
+    fee_due_day: int,
+    fee_currency: str = DEFAULT_FEE_CURRENCY,
+) -> str:
+    text = (
         (template or "")
         .replace("{club_name}", club_name)
         .replace("{fee_amount}", str(fee_amount))
         .replace("{fee_due_day}", str(fee_due_day))
+        .replace("{fee_currency}", fee_currency)
     )
+    # Soft migrate older saved templates that still say лв.
+    return text.replace(" лв.", f" {fee_currency}").replace("лв.", fee_currency)
 
 
 def resolve_club_consent_template(club: Club) -> dict[str, Any]:
@@ -82,9 +139,12 @@ def resolve_club_consent_template(club: Club) -> dict[str, Any]:
     return {
         "club_id": club.id,
         "club_name": club_name,
+        "club_logo_url": club.logo_url,
+        "bvf_logo_url": "/static/branding/bfvb-logo.png",
         "enabled": bool(getattr(club, "membership_consent_enabled", False)),
         "fee_amount": fee_amount,
         "fee_due_day": fee_due_day,
+        "fee_currency": DEFAULT_FEE_CURRENCY,
         "addressee": _fill(addressee_raw, club_name, fee_amount, fee_due_day),
         "body_text": _fill(body_raw, club_name, fee_amount, fee_due_day),
         "gdpr_text": _fill(gdpr_raw, club_name, fee_amount, fee_due_day),
@@ -124,11 +184,12 @@ def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
     return get_active_consent(db, athlete.id, athlete.club_id) is None
 
 
-def build_consent_pdf(consent: AthleteClubConsent) -> bytes:
-    """Generate a simple Cyrillic PDF snapshot of the signed application."""
+def build_consent_pdf(consent: AthleteClubConsent, club: Club | None = None) -> bytes:
+    """Generate a Cyrillic PDF snapshot of the signed application with club + BVF logos."""
     from io import BytesIO
 
     from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
     from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen import canvas
 
@@ -140,7 +201,39 @@ def build_consent_pdf(consent: AthleteClubConsent) -> bytes:
     width, height = A4
     left = 45
     max_width = width - 90
-    y = height - 50
+    y = height - 42
+
+    # Header logos: BVF left, club right
+    logo_h = 16 * mm
+    fed = bvf_logo_path()
+    if fed:
+        try:
+            c.drawImage(
+                str(fed),
+                left,
+                height - 18 * mm,
+                width=16 * mm,
+                height=logo_h,
+                mask="auto",
+                preserveAspectRatio=True,
+            )
+        except Exception:
+            pass
+    club_logo = _club_logo_filesystem_path(club.logo_url if club else None, club=club)
+    if club_logo:
+        try:
+            c.drawImage(
+                str(club_logo),
+                width - left - 16 * mm,
+                height - 18 * mm,
+                width=16 * mm,
+                height=logo_h,
+                mask="auto",
+                preserveAspectRatio=True,
+            )
+        except Exception:
+            pass
+    y = height - 28 * mm
 
     def draw_wrapped(text: str, size: int = 10, gap: int = 14) -> None:
         nonlocal y
@@ -207,8 +300,11 @@ def build_consent_pdf(consent: AthleteClubConsent) -> bytes:
     return buffer.getvalue()
 
 
-def persist_consent_pdf(consent: AthleteClubConsent) -> str:
-    pdf_bytes = build_consent_pdf(consent)
+def persist_consent_pdf(consent: AthleteClubConsent, club: Club | None = None) -> str:
+    if club is None and consent.club_id:
+        # Club may already be loaded via relationship
+        club = getattr(consent, "club", None)
+    pdf_bytes = build_consent_pdf(consent, club=club)
     rel = f"{consent.athlete_id}/membership_consent_{consent.id}.pdf"
     path = _documents_root() / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,13 +312,15 @@ def persist_consent_pdf(consent: AthleteClubConsent) -> str:
     return rel
 
 
-def read_consent_pdf(consent: AthleteClubConsent) -> bytes | None:
+def read_consent_pdf(consent: AthleteClubConsent, club: Club | None = None) -> bytes | None:
     if consent.pdf_rel_path:
         path = _documents_root() / consent.pdf_rel_path
         if path.is_file():
             return path.read_bytes()
     try:
-        return build_consent_pdf(consent)
+        if club is None:
+            club = getattr(consent, "club", None)
+        return build_consent_pdf(consent, club=club)
     except Exception:
         return None
 

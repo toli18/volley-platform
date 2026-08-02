@@ -967,11 +967,14 @@ def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> Paren
     return ParentMembershipConsentForm(
         needs_consent=needs,
         club_name=tpl["club_name"],
+        club_logo_url=tpl.get("club_logo_url"),
+        bvf_logo_url=tpl.get("bvf_logo_url"),
         addressee=tpl["addressee"],
         body_text=tpl["body_text"],
         gdpr_text=tpl["gdpr_text"],
         fee_amount=tpl["fee_amount"],
         fee_due_day=tpl["fee_due_day"],
+        fee_currency=tpl.get("fee_currency") or "€",
         prefill={
             "parent_full_name": athlete.parent_name or "",
             "parent_phone": athlete.parent_phone or "",
@@ -1044,7 +1047,7 @@ def _sign_membership_consent(
 
     db.flush()
     try:
-        consent.pdf_rel_path = persist_consent_pdf(consent)
+        consent.pdf_rel_path = persist_consent_pdf(consent, club=club)
     except Exception as exc:
         logger.warning("PDF for membership consent athlete %s: %s", athlete.id, exc)
 
@@ -1099,7 +1102,8 @@ def parent_membership_consent_preview_me(
     consent = get_active_consent(db, athlete.id, athlete.club_id)
     if not consent:
         raise HTTPException(status_code=404, detail="Няма подписано заявление")
-    pdf = read_consent_pdf(consent)
+    club = db.query(Club).filter(Club.id == int(consent.club_id)).first() if consent.club_id else None
+    pdf = read_consent_pdf(consent, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(
@@ -1115,7 +1119,8 @@ def parent_membership_consent_preview_token(token: str, db: Session = Depends(ge
     consent = get_active_consent(db, athlete.id, athlete.club_id)
     if not consent:
         raise HTTPException(status_code=404, detail="Няма подписано заявление")
-    pdf = read_consent_pdf(consent)
+    club = db.query(Club).filter(Club.id == int(consent.club_id)).first() if consent.club_id else None
+    pdf = read_consent_pdf(consent, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(
