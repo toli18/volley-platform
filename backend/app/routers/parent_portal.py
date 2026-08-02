@@ -57,6 +57,7 @@ from app.schemas.assessment import ParentDevelopmentOut
 from app.services.assessment_consent import build_parent_development
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
+    club_consent_feature_enabled,
     get_active_consent,
     persist_consent_pdf,
     read_consent_pdf,
@@ -639,11 +640,24 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
 
     schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
 
-    consent_status = ParentMembershipConsentStatus(needs_consent=False, has_signed=False, club_name=club_name)
+    consent_status = ParentMembershipConsentStatus(
+        enabled=False, needs_consent=False, has_signed=False, club_name=club_name
+    )
     if athlete.club_id:
-        active_consent = get_active_consent(db, athlete.id, athlete.club_id)
-        if active_consent:
+        club_row_for_consent = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+        feature_on = club_consent_feature_enabled(club_row_for_consent)
+        active_consent = get_active_consent(db, athlete.id, athlete.club_id) if feature_on else None
+        if not feature_on:
+            # Feature off: no gate, hide consent UI (even if older signatures exist)
             consent_status = ParentMembershipConsentStatus(
+                enabled=False,
+                needs_consent=False,
+                has_signed=False,
+                club_name=club_name,
+            )
+        elif active_consent:
+            consent_status = ParentMembershipConsentStatus(
+                enabled=True,
                 needs_consent=False,
                 has_signed=True,
                 signed_at=active_consent.signed_at,
@@ -652,6 +666,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             )
         else:
             consent_status = ParentMembershipConsentStatus(
+                enabled=True,
                 needs_consent=True,
                 has_signed=False,
                 club_name=club_name,
@@ -941,6 +956,11 @@ def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> Paren
     club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
     if not club:
         raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    if not club_consent_feature_enabled(club):
+        raise HTTPException(
+            status_code=403,
+            detail="Клубното заявление все още не е активирано от главния треньор",
+        )
     tpl = resolve_club_consent_template(club)
     needs = athlete_needs_membership_consent(db, athlete)
     child_egn = (athlete.egn or "").strip()
@@ -969,12 +989,17 @@ def _sign_membership_consent(
         raise HTTPException(status_code=422, detail="Необходимо е съгласие за обработка на личните данни")
     if not athlete.club_id:
         raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
-    if not athlete_needs_membership_consent(db, athlete):
-        raise HTTPException(status_code=409, detail="Заявлението вече е подписано")
-
     club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
     if not club:
         raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    if not club_consent_feature_enabled(club):
+        raise HTTPException(
+            status_code=403,
+            detail="Клубното заявление все още не е активирано от главния треньор",
+        )
+    if not athlete_needs_membership_consent(db, athlete):
+        raise HTTPException(status_code=409, detail="Заявлението вече е подписано")
+
     tpl = resolve_club_consent_template(club)
 
     parent_egn = "".join(ch for ch in body.parent_egn.strip() if ch.isdigit())

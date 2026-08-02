@@ -82,6 +82,7 @@ def resolve_club_consent_template(club: Club) -> dict[str, Any]:
     return {
         "club_id": club.id,
         "club_name": club_name,
+        "enabled": bool(getattr(club, "membership_consent_enabled", False)),
         "fee_amount": fee_amount,
         "fee_due_day": fee_due_day,
         "addressee": _fill(addressee_raw, club_name, fee_amount, fee_due_day),
@@ -91,6 +92,12 @@ def resolve_club_consent_template(club: Club) -> dict[str, Any]:
         "body_template": club.membership_consent_body,
         "gdpr_template": club.membership_consent_gdpr,
     }
+
+
+def club_consent_feature_enabled(club: Club | None) -> bool:
+    if not club:
+        return False
+    return bool(getattr(club, "membership_consent_enabled", False))
 
 
 def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None) -> AthleteClubConsent | None:
@@ -108,7 +115,11 @@ def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None)
 
 
 def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
+    """Gate only when club has explicitly enabled the feature and no active signature."""
     if not athlete.club_id:
+        return False
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club_consent_feature_enabled(club):
         return False
     return get_active_consent(db, athlete.id, athlete.club_id) is None
 

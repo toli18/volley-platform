@@ -95,6 +95,8 @@ class Club(Base):
     bvf_default_first_coach_name = Column(String(255), nullable=True)
 
     # Клубно заявление (Заявление) — конфиг за родителски портал
+    # Изключено по подразбиране; активира се ръчно в Администрация БФВ
+    membership_consent_enabled = Column(Boolean, nullable=False, default=False)
     membership_consent_addressee = Column(Text, nullable=True)
     membership_consent_body = Column(Text, nullable=True)
     membership_consent_gdpr = Column(Text, nullable=True)

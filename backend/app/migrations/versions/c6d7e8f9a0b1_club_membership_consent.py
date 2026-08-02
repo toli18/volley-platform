@@ -16,6 +16,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column(
+        "clubs",
+        sa.Column(
+            "membership_consent_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+        ),
+    )
     op.add_column("clubs", sa.Column("membership_consent_addressee", sa.Text(), nullable=True))
     op.add_column("clubs", sa.Column("membership_consent_body", sa.Text(), nullable=True))
     op.add_column("clubs", sa.Column("membership_consent_gdpr", sa.Text(), nullable=True))
@@ -72,3 +81,4 @@ def downgrade() -> None:
     op.drop_column("clubs", "membership_consent_gdpr")
     op.drop_column("clubs", "membership_consent_body")
     op.drop_column("clubs", "membership_consent_addressee")
+    op.drop_column("clubs", "membership_consent_enabled")

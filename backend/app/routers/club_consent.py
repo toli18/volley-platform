@@ -31,6 +31,7 @@ router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Admin — Consent"])
 class MembershipConsentTemplateOut(BaseModel):
     club_id: int
     club_name: str
+    enabled: bool = False
     fee_amount: int
     fee_due_day: int
     addressee: str
@@ -44,6 +45,7 @@ class MembershipConsentTemplateOut(BaseModel):
 
 class MembershipConsentTemplateUpdate(BaseModel):
     club_id: Optional[int] = None
+    enabled: Optional[bool] = None
     addressee_template: Optional[str] = None
     body_template: Optional[str] = None
     gdpr_template: Optional[str] = None
@@ -110,6 +112,8 @@ def update_membership_consent_template(
         club.membership_consent_fee_amount = None
         club.membership_consent_fee_due_day = None
     else:
+        if payload.enabled is not None:
+            club.membership_consent_enabled = bool(payload.enabled)
         if payload.addressee_template is not None:
             club.membership_consent_addressee = payload.addressee_template.strip() or None
         if payload.body_template is not None:

@@ -137,6 +137,7 @@ class ParentAbsenceNoticeCreate(BaseModel):
 
 
 class ParentMembershipConsentStatus(BaseModel):
+    enabled: bool = False
     needs_consent: bool = False
     has_signed: bool = False
     signed_at: Optional[datetime] = None

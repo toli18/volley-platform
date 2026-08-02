@@ -181,6 +181,7 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_password_enc TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_enc TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_api_key_prefix VARCHAR(20)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_enabled BOOLEAN NOT NULL DEFAULT false"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_addressee TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_body TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_gdpr TEXT"))
@@ -364,6 +365,11 @@ def _init_db_impl() -> None:
             if "bvf_api_key_prefix" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_api_key_prefix VARCHAR(20)"))
                 print("✅ Added clubs.bvf_api_key_prefix column")
+            if "membership_consent_enabled" not in club_col_names:
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN membership_consent_enabled BOOLEAN NOT NULL DEFAULT 0")
+                )
+                print("✅ Added clubs.membership_consent_enabled column")
             if "membership_consent_addressee" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_addressee TEXT"))
                 print("✅ Added clubs.membership_consent_addressee column")
