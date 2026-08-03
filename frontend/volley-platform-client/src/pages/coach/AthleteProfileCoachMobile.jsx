@@ -14,6 +14,8 @@ import { useToast } from "../../components/ToastProvider";
 
 const TABS = [
   { id: "overview", label: "Преглед" },
+  { id: "data", label: "Данни" },
+  { id: "bvf", label: "БФВ" },
   { id: "physical", label: "Тестове" },
   { id: "attendance", label: "Присъствие" },
   { id: "fees", label: "Такси" },
@@ -311,7 +313,7 @@ export default function AthleteProfileCoachMobile({
             type="button"
             className={`coachMobileSubNavBtn${tab === t.id ? " is-active" : ""}`}
             onClick={() => setTab(t.id)}
-            disabled={editing && t.id !== "overview"}
+            disabled={editing && t.id !== "data"}
           >
             {t.label}
           </button>
@@ -320,6 +322,92 @@ export default function AthleteProfileCoachMobile({
 
       <div className="athleteProfileSwipeArea" {...(editing ? {} : swipeHandlers)}>
         {tab === "overview" ? (
+          <div className="athleteProfileTab">
+            <section className="athleteProfileCard athleteProfileCard--compact">
+              <h3 className="athleteProfileCardTitle">БФВ</h3>
+              {profile.bvf_player_id ? (
+                <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
+                  Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
+                  {identityLocked ? " · заключено" : ""}
+                </p>
+              ) : profile.bvf_ready ? (
+                <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
+                  Готов за създаване / свързване
+                </p>
+              ) : (
+                <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
+                  Липсва: {(profile.bvf_missing || []).slice(0, 3).join(", ") || "данни"}
+                  {(profile.bvf_missing || []).length > 3 ? "…" : ""}
+                </p>
+              )}
+              <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setTab("bvf")}>
+                  Към БФВ
+                </Button>
+              </div>
+            </section>
+
+            <section className="athleteProfileCard athleteProfileCard--compact">
+              <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
+                Присъства {summary.present ?? 0} · {summary.attendance_rate_percent ?? 0}% ·{" "}
+                {(summary.absent ?? 0) === 0 ? "0 отсъствия" : `${summary.absent} отсъствия`}
+              </p>
+              <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`} style={{ marginTop: 8 }}>
+                {monthLabelBg(feesMonth)}: {currentMonthPaid ? "Платено" : "Дължи"}
+              </span>
+              <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setTab("attendance")}>
+                  Присъствие
+                </Button>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setTab("fees")}>
+                  Такси
+                </Button>
+              </div>
+            </section>
+
+            <section className="athleteProfileCard">
+              <button type="button" className="athleteProfileCollapseHead" onClick={() => setContactOpen((v) => !v)}>
+                <span>Контакт</span>
+                <span aria-hidden>{contactOpen ? "▾" : "▸"}</span>
+              </button>
+              {contactOpen ? (
+                <div className="athleteProfileCollapseBody">
+                  {profile.parent_phone ? (
+                    <a href={`tel:${profile.parent_phone}`} className="athleteProfileContactRow">
+                      Родител: {profile.parent_name || "—"} · {profile.parent_phone}
+                    </a>
+                  ) : (
+                    <p className="coachMobileMuted">Родител: {profile.parent_name || "—"}</p>
+                  )}
+                  {profile.athlete_phone ? (
+                    <a href={`tel:${profile.athlete_phone}`} className="athleteProfileContactRow">
+                      Състезател: {profile.athlete_phone}
+                    </a>
+                  ) : (
+                    <p className="coachMobileMuted">Тел. състезател: —</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="athleteProfileCard athleteProfileCard--compact">
+              <h3 className="athleteProfileCardTitle">Родителски портал</h3>
+              <p className="coachMobileMuted athleteProfilePortalHint">
+                Вход с телефон и година на раждане на детето.
+              </p>
+              <div className="athleteProfileInlineActions">
+                <Button as={Link} to={parentLoginPath()} size="sm" target="_blank" rel="noreferrer">
+                  Отвори
+                </Button>
+                <Button type="button" size="sm" variant="secondary" onClick={onCopyParentUrl}>
+                  Копирай
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {tab === "data" ? (
           <div className="athleteProfileTab">
             <section className="athleteProfileCard">
               <div className="athleteProfileCardTitleRow">
@@ -345,127 +433,6 @@ export default function AthleteProfileCoachMobile({
 
             {!editing ? (
               <section className="athleteProfileCard">
-                <h3 className="athleteProfileCardTitle">БФВ / картотека</h3>
-                {profile.bvf_player_id ? (
-                  <p className="athleteProfileSummaryLine">
-                    Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
-                    {identityLocked ? " · идентичността е заключена" : ""}
-                    {profile.has_photo || photoUrl ? " · има снимка" : " · без локална снимка"}
-                  </p>
-                ) : (
-                  <>
-                    <p className="athleteProfileSummaryLine">
-                      {profile.bvf_ready
-                        ? "Готов за създаване — нужни са ЕГН и снимка при изпращане."
-                        : "Липсва за връзка с БФВ:"}
-                    </p>
-                    {!profile.bvf_ready && Array.isArray(profile.bvf_missing) && profile.bvf_missing.length ? (
-                      <ul className="athleteProfileMissingList">
-                        {profile.bvf_missing.map((m) => (
-                          <li key={m}>{m}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
-                      <Button type="button" size="sm" onClick={onStartEdit}>
-                        Попълни липсите
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={onOpenBvfCreate}
-                        disabled={(profile.bvf_missing || []).some((m) => m !== "ЕГН" && m !== "снимка")}
-                      >
-                        Създай в БФВ
-                      </Button>
-                      <Button type="button" size="sm" variant="secondary" onClick={onOpenBvfLink}>
-                        Свържи по ЕГН
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {profile.bvf_player_id && !profile.has_photo && !photoUrl ? (
-                  <div className="athleteProfileInlineActions" style={{ marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-                    <Button type="button" size="sm" variant="secondary" disabled={syncingPhoto} onClick={onSyncPhoto}>
-                      {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
-                    </Button>
-                    <label style={{ margin: 0 }}>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
-                        style={{ display: "none" }}
-                        disabled={syncingPhoto}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          e.target.value = "";
-                          if (f) onUploadPhoto?.(f);
-                        }}
-                      />
-                      <span
-                        className="uiButton"
-                        style={{
-                          display: "inline-flex",
-                          opacity: syncingPhoto ? 0.6 : 1,
-                          pointerEvents: syncingPhoto ? "none" : "auto",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          padding: "6px 12px",
-                        }}
-                      >
-                        Качи снимка
-                      </span>
-                    </label>
-                  </div>
-                ) : null}
-                {profile.bvf_player_id ? (
-                  <div style={{ marginTop: 12 }}>
-                    <button type="button" className="athleteProfileCollapseHead" onClick={() => setDocsOpen((v) => !v)}>
-                      <span>Документи (БФВ мост)</span>
-                      <span aria-hidden>{docsOpen ? "▾" : "▸"}</span>
-                    </button>
-                    {docsOpen ? (
-                      <div className="athleteProfileCollapseBody">
-                        <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            {!editing ? (
-              <section className="athleteProfileCard">
-                <button
-                  type="button"
-                  className="athleteProfileCollapseHead"
-                  onClick={() => setLocalDocsOpen((v) => !v)}
-                >
-                  <span>Документи</span>
-                  <span aria-hidden>{localDocsOpen ? "▾" : "▸"}</span>
-                </button>
-                {localDocsOpen ? (
-                  <div className="athleteProfileCollapseBody">
-                    <AthleteLocalDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            {!editing ? (
-              <section className="athleteProfileCard athleteProfileCard--compact">
-                <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
-                  Присъства {summary.present ?? 0} · {summary.attendance_rate_percent ?? 0}% ·{" "}
-                  {(summary.absent ?? 0) === 0 ? "0 отсъствия" : `${summary.absent} отсъствия`}
-                </p>
-                <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`} style={{ marginTop: 8 }}>
-                  {monthLabelBg(feesMonth)}: {currentMonthPaid ? "Платено" : "Дължи"}
-                </span>
-              </section>
-            ) : null}
-
-            {!editing ? (
-              <section className="athleteProfileCard">
                 <button type="button" className="athleteProfileCollapseHead" onClick={() => setTeamsOpen((v) => !v)}>
                   <span>Тренировъчни групи</span>
                   <span aria-hidden>{teamsOpen ? "▾" : "▸"}</span>
@@ -485,50 +452,6 @@ export default function AthleteProfileCoachMobile({
               </section>
             ) : null}
 
-            {!editing ? (
-              <section className="athleteProfileCard">
-                <button type="button" className="athleteProfileCollapseHead" onClick={() => setContactOpen((v) => !v)}>
-                  <span>Контакт</span>
-                  <span aria-hidden>{contactOpen ? "▾" : "▸"}</span>
-                </button>
-                {contactOpen ? (
-                  <div className="athleteProfileCollapseBody">
-                    {profile.parent_phone ? (
-                      <a href={`tel:${profile.parent_phone}`} className="athleteProfileContactRow">
-                        Родител: {profile.parent_name || "—"} · {profile.parent_phone}
-                      </a>
-                    ) : (
-                      <p className="coachMobileMuted">Родител: {profile.parent_name || "—"}</p>
-                    )}
-                    {profile.athlete_phone ? (
-                      <a href={`tel:${profile.athlete_phone}`} className="athleteProfileContactRow">
-                        Състезател: {profile.athlete_phone}
-                      </a>
-                    ) : (
-                      <p className="coachMobileMuted">Тел. състезател: —</p>
-                    )}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            {!editing ? (
-              <section className="athleteProfileCard athleteProfileCard--compact">
-                <h3 className="athleteProfileCardTitle">Родителски портал</h3>
-                <p className="coachMobileMuted athleteProfilePortalHint">
-                  Вход с телефон и година на раждане на детето.
-                </p>
-                <div className="athleteProfileInlineActions">
-                  <Button as={Link} to={parentLoginPath()} size="sm" target="_blank" rel="noreferrer">
-                    Отвори
-                  </Button>
-                  <Button type="button" size="sm" variant="secondary" onClick={onCopyParentUrl}>
-                    Копирай
-                  </Button>
-                </div>
-              </section>
-            ) : null}
-
             {editing ? (
               <div className="athleteProfileEditBar">
                 <Button type="button" disabled={savingProfile} onClick={onSaveEdit} block>
@@ -538,6 +461,122 @@ export default function AthleteProfileCoachMobile({
                   Отказ
                 </Button>
               </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {tab === "bvf" ? (
+          <div className="athleteProfileTab">
+            <section className="athleteProfileCard">
+              <h3 className="athleteProfileCardTitle">БФВ / картотека</h3>
+              {profile.bvf_player_id ? (
+                <p className="athleteProfileSummaryLine">
+                  Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
+                  {identityLocked ? " · идентичността е заключена" : ""}
+                  {profile.has_photo || photoUrl ? " · има снимка" : " · без локална снимка"}
+                </p>
+              ) : (
+                <>
+                  <p className="athleteProfileSummaryLine">
+                    {profile.bvf_ready
+                      ? "Готов за създаване — нужни са ЕГН и снимка при изпращане."
+                      : "Липсва за връзка с БФВ:"}
+                  </p>
+                  {!profile.bvf_ready && Array.isArray(profile.bvf_missing) && profile.bvf_missing.length ? (
+                    <ul className="athleteProfileMissingList">
+                      {profile.bvf_missing.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        onStartEdit?.();
+                      }}
+                    >
+                      Попълни липсите
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={onOpenBvfCreate}
+                      disabled={(profile.bvf_missing || []).some((m) => m !== "ЕГН" && m !== "снимка")}
+                    >
+                      Създай в БФВ
+                    </Button>
+                    <Button type="button" size="sm" variant="secondary" onClick={onOpenBvfLink}>
+                      Свържи по ЕГН
+                    </Button>
+                  </div>
+                </>
+              )}
+              {profile.bvf_player_id && !profile.has_photo && !photoUrl ? (
+                <div className="athleteProfileInlineActions" style={{ marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <Button type="button" size="sm" variant="secondary" disabled={syncingPhoto} onClick={onSyncPhoto}>
+                    {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
+                  </Button>
+                  <label style={{ margin: 0 }}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
+                      style={{ display: "none" }}
+                      disabled={syncingPhoto}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) onUploadPhoto?.(f);
+                      }}
+                    />
+                    <span
+                      className="uiButton"
+                      style={{
+                        display: "inline-flex",
+                        opacity: syncingPhoto ? 0.6 : 1,
+                        pointerEvents: syncingPhoto ? "none" : "auto",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        padding: "6px 12px",
+                      }}
+                    >
+                      Качи снимка
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="athleteProfileCard">
+              <button
+                type="button"
+                className="athleteProfileCollapseHead"
+                onClick={() => setLocalDocsOpen((v) => !v)}
+              >
+                <span>Документи (клуб / заявление)</span>
+                <span aria-hidden>{localDocsOpen ? "▾" : "▸"}</span>
+              </button>
+              {localDocsOpen ? (
+                <div className="athleteProfileCollapseBody">
+                  <AthleteLocalDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
+                </div>
+              ) : null}
+            </section>
+
+            {profile.bvf_player_id ? (
+              <section className="athleteProfileCard">
+                <button type="button" className="athleteProfileCollapseHead" onClick={() => setDocsOpen((v) => !v)}>
+                  <span>Документи (БФВ)</span>
+                  <span aria-hidden>{docsOpen ? "▾" : "▸"}</span>
+                </button>
+                {docsOpen ? (
+                  <div className="athleteProfileCollapseBody">
+                    <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
+                  </div>
+                ) : null}
+              </section>
             ) : null}
           </div>
         ) : null}

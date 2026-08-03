@@ -28,7 +28,7 @@ export default function CoachAthleteProfile() {
   const from = searchParams.get("from") || "/coach/teams";
   const rawTab = searchParams.get("tab") || "";
   // „tests“ е стар alias — съдържанието е обединено в physical.
-  const tab = ["overview", "tests", "physical", "attendance", "fees", "history"].includes(rawTab)
+  const tab = ["overview", "data", "bvf", "tests", "physical", "attendance", "fees", "history"].includes(rawTab)
     ? rawTab === "tests"
       ? "physical"
       : rawTab
@@ -178,7 +178,7 @@ export default function CoachAthleteProfile() {
     if (!profile) return;
     setEditForm(athleteToIdentityForm(profile));
     setEditing(true);
-    setTab("overview");
+    setTab("data");
   };
 
   const cancelEdit = () => {
