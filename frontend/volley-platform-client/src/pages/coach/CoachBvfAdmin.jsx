@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import BvfClubAthletesSekCard from "../../components/athletes/BvfClubAthletesSekCard";
+import BvfClubPhysicalSyncCard from "../../components/athletes/BvfClubPhysicalSyncCard";
 import MembershipConsentTemplateCard from "../../components/athletes/MembershipConsentTemplateCard";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -270,7 +271,14 @@ export default function CoachBvfAdmin() {
         </button>
       </div>
 
-      {pageTab === "athletes" ? <BvfClubAthletesSekCard toast={toast} permanent={permanent} /> : null}
+      {pageTab === "athletes" ? (
+        <>
+          <BvfClubAthletesSekCard toast={toast} permanent={permanent} />
+          <div style={{ marginTop: 16 }}>
+            <BvfClubPhysicalSyncCard toast={toast} permanent={permanent} />
+          </div>
+        </>
+      ) : null}
 
       {pageTab === "consent" ? <MembershipConsentTemplateCard toast={toast} /> : null}
 

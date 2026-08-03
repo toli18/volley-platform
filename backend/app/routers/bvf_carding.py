@@ -1769,3 +1769,176 @@ def submit_local_card_index_to_federation(
             pass
     db.commit()
     return submit_card_index_to_federation(cid, payload, db, current_user)
+
+
+class ClubPhysicalBulkIn(BaseModel):
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+    only_pending: bool = True
+    athlete_ids: list[int] = Field(default_factory=list)
+
+
+@router.get("/physical/club-preview")
+def preview_club_physical_from_tests(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Преглед: кои свързани със СЕК имат тестове за Height/Weight/FullExtent/Attack/Block."""
+    from app.services.physical_from_tests import find_matching_synced, latest_bvf_fields_from_tests
+
+    club = _club_for_user(db, current_user, club_id)
+    athletes = (
+        db.query(Athlete)
+        .filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    items = []
+    ready = already = no_tests = 0
+    for a in athletes:
+        preview = latest_bvf_fields_from_tests(db, a.id)
+        matched = find_matching_synced(db, a.id, preview["fields"]) if preview["has_data"] else None
+        if not preview["has_data"]:
+            status = "no_tests"
+            no_tests += 1
+        elif matched is not None:
+            status = "already_synced"
+            already += 1
+        else:
+            status = "ready"
+            ready += 1
+        items.append(
+            {
+                "athlete_id": a.id,
+                "athlete_name": a.athlete_name,
+                "bvf_player_id": a.bvf_player_id,
+                "bvf_player_number": a.bvf_player_number,
+                "status": status,
+                "measured_at": preview.get("measured_at"),
+                "fields": preview.get("fields") or {},
+                "has_data": bool(preview.get("has_data")),
+            }
+        )
+    return {
+        "club_id": club.id,
+        "total_linked": len(athletes),
+        "ready": ready,
+        "already_synced": already,
+        "no_tests": no_tests,
+        "items": items,
+        "mapping": [
+            {"field": "height_cm", "test": "ANTH_HEIGHT", "bvf": "Height", "label": "Височина"},
+            {"field": "weight_kg", "test": "ANTH_WEIGHT", "bvf": "Weight", "label": "Тегло"},
+            {"field": "full_extent_cm", "test": "ANTH_REACH", "bvf": "FullExtent", "label": "Размах / разтег"},
+            {"field": "attack_cm", "test": "PHYS_JUMP_APPROACH", "bvf": "Attack", "label": "Атака"},
+            {"field": "block_cm", "test": "PHYS_JUMP_2ARM", "bvf": "Block", "label": "Блок"},
+        ],
+    }
+
+
+@router.post("/physical/club-send-from-tests")
+def club_send_physical_from_tests(
+    payload: ClubPhysicalBulkIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Изпраща физическите данни от тестовете към СЕК за всички (или избрани) свързани състезатели."""
+    from app.services.physical_from_tests import (
+        find_matching_synced,
+        latest_bvf_fields_from_tests,
+        upsert_pending_from_tests,
+    )
+
+    club = _club_for_user(db, current_user, payload.club_id)
+    try:
+        token = _token_matches_club(payload.bvf_token, club)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Няма валидна БФВ връзка / write token за developments. {exc.detail}",
+        ) from exc
+
+    q = db.query(Athlete).filter(
+        Athlete.club_id == club.id,
+        Athlete.bvf_player_id.isnot(None),
+        Athlete.is_active.is_(True),
+    )
+    if payload.athlete_ids:
+        q = q.filter(Athlete.id.in_([int(x) for x in payload.athlete_ids]))
+    athletes = q.order_by(Athlete.athlete_name.asc()).all()
+
+    sent = skipped_synced = skipped_no_tests = errors = 0
+    results: list[dict] = []
+    for a in athletes:
+        preview = latest_bvf_fields_from_tests(db, a.id)
+        if not preview["has_data"]:
+            skipped_no_tests += 1
+            results.append({"athlete_id": a.id, "athlete_name": a.athlete_name, "status": "no_tests"})
+            continue
+        matched = find_matching_synced(db, a.id, preview["fields"])
+        if matched is not None and payload.only_pending:
+            skipped_synced += 1
+            results.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "status": "already_synced",
+                    "bvf_development_id": matched.bvf_development_id,
+                }
+            )
+            continue
+        try:
+            row = upsert_pending_from_tests(db, a.id, user_id=current_user.id)
+            if row is None:
+                skipped_no_tests += 1
+                results.append({"athlete_id": a.id, "athlete_name": a.athlete_name, "status": "no_tests"})
+                continue
+            _push_physical_row_to_bvf(row, a, token)
+            db.commit()
+            db.refresh(row)
+            sent += 1
+            results.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "status": "sent",
+                    "bvf_development_id": row.bvf_development_id,
+                    "fields": preview["fields"],
+                }
+            )
+        except HTTPException as exc:
+            db.rollback()
+            errors += 1
+            results.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "status": "error",
+                    "error": str(exc.detail),
+                }
+            )
+        except Exception as exc:
+            db.rollback()
+            errors += 1
+            results.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "status": "error",
+                    "error": str(exc)[:200],
+                }
+            )
+
+    return {
+        "ok": errors == 0,
+        "sent": sent,
+        "skipped_synced": skipped_synced,
+        "skipped_no_tests": skipped_no_tests,
+        "errors": errors,
+        "results": results,
+    }
