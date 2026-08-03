@@ -217,6 +217,7 @@ export default function MembershipConsentTemplateCard({ toast }) {
               child_first_name: "",
               child_middle_name: "",
               child_last_name: "",
+              child_place_of_birth: "",
             }}
             onDemoSubmit={() =>
               toast?.success("Демо подпис — в реалния портал тук се записва и се генерира PDF.")

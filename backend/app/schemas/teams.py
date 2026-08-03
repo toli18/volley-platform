@@ -154,6 +154,9 @@ class AthleteProfileResponse(BaseModel):
     bvf_identity_locked: bool = False
     bvf_ready: bool = False
     bvf_missing: list[str] = Field(default_factory=list)
+    sek_task_code: Optional[str] = None
+    sek_task_detail: Optional[str] = None
+    sek_task_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     teams: list[str] = Field(default_factory=list)

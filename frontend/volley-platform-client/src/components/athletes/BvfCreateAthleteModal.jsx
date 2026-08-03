@@ -140,7 +140,7 @@ export default function BvfCreateAthleteModal({
           : null;
 
   return (
-    <Modal open={open} onClose={busy ? undefined : onClose} dismissable={!busy} title="Създай в БФВ" size="compact">
+    <Modal open={open} onClose={busy ? undefined : onClose} dismissable={!busy} title="Създай в СЕК" size="compact">
       <div style={{ display: "grid", gap: 10 }}>
         <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
           {athleteName || "Състезател"} — данните се взимат от профила. Нужни са ЕГН, снимка и първи треньор
@@ -219,7 +219,7 @@ export default function BvfCreateAthleteModal({
 
         <div className="uiModalActions">
           <Button type="button" disabled={busy || blockers.length > 0} onClick={submit}>
-            {busy ? "Изпращане…" : "Създай в БФВ"}
+            {busy ? "Изпращане…" : "Създай в СЕК"}
           </Button>
           <Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
             Отказ

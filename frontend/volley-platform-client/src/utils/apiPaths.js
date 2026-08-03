@@ -248,6 +248,9 @@ export const API_PATHS = {
   BVF_ADMIN_PHYSICAL_SEND_FROM_TESTS: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/send-from-tests`,
   BVF_ADMIN_PHYSICAL_FETCH: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical/fetch-bvf`,
   BVF_ADMIN_MEMBERSHIP_CONSENT_TEMPLATE: "/api/bvf-admin/membership-consent-template",
+  BVF_ADMIN_ATHLETES_SEK_BOARD: "/api/bvf-admin/athletes/sek-board",
+  BVF_ADMIN_REQUEST_SEK_TASK: (athleteId) => `/api/bvf-admin/athletes/${athleteId}/request-sek-task`,
+  BVF_ADMIN_CLEAR_SEK_TASK: (athleteId) => `/api/bvf-admin/athletes/${athleteId}/clear-sek-task`,
   ATHLETE_DOCUMENTS: (athleteId) => `/api/athletes/${athleteId}/documents`,
   ATHLETE_DOCUMENT_CONSENT_PREVIEW: (athleteId, consentId) =>
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/preview`,

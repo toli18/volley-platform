@@ -333,6 +333,9 @@ def link_player_by_egn(
     athlete.bvf_player_number = number_i
     athlete.bvf_photo_id = photo_id
     athlete.bvf_synced_at = datetime.utcnow()
+    from app.services.sek_athlete_readiness import clear_sek_task
+
+    clear_sek_task(athlete)
     db.commit()
     db.refresh(athlete)
 

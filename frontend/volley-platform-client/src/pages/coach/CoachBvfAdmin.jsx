@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
+import BvfClubAthletesSekCard from "../../components/athletes/BvfClubAthletesSekCard";
 import MembershipConsentTemplateCard from "../../components/athletes/MembershipConsentTemplateCard";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -40,6 +41,7 @@ export default function CoachBvfAdmin() {
   const [yearTo, setYearTo] = useState("");
   const [sexFilter, setSexFilter] = useState("all");
   const [onlyNew, setOnlyNew] = useState(true);
+  const [pageTab, setPageTab] = useState("athletes"); // athletes | link | consent
 
   const permanent = Boolean(
     status?.permanent_link || status?.has_bvf_api_key || status?.has_bvf_credentials,
@@ -231,7 +233,7 @@ export default function CoachBvfAdmin() {
     <div className="uiPage">
       <PageHero
         title="Администрация БФВ"
-        subtitle="API ключ от db.bvf.bg → постоянна връзка. Засега четене; записът идва на следващ етап."
+        subtitle="Връзка с db.bvf.bg, състезатели към СЕК и клубно заявление."
         actions={
           <>
             <Link to="/coach/bvf-card-indexes">
@@ -244,6 +246,36 @@ export default function CoachBvfAdmin() {
         }
       />
 
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        <button
+          type="button"
+          className={`uiButton${pageTab === "athletes" ? "" : " uiButton--secondary"}`}
+          onClick={() => setPageTab("athletes")}
+        >
+          Състезатели
+        </button>
+        <button
+          type="button"
+          className={`uiButton${pageTab === "link" ? "" : " uiButton--secondary"}`}
+          onClick={() => setPageTab("link")}
+        >
+          Връзка / импорт
+        </button>
+        <button
+          type="button"
+          className={`uiButton${pageTab === "consent" ? "" : " uiButton--secondary"}`}
+          onClick={() => setPageTab("consent")}
+        >
+          Клубно заявление
+        </button>
+      </div>
+
+      {pageTab === "athletes" ? <BvfClubAthletesSekCard toast={toast} permanent={permanent} /> : null}
+
+      {pageTab === "consent" ? <MembershipConsentTemplateCard toast={toast} /> : null}
+
+      {pageTab === "link" ? (
+        <>
       <Card title="1. API ключ (препоръчително)">
         <p className="uiMuted" style={{ marginTop: 0 }}>
           Платформа: <strong>{status?.club_name || "—"}</strong>
@@ -501,10 +533,8 @@ export default function CoachBvfAdmin() {
           />
         )}
       </Card>
-
-      <Card title="3. Клубно заявление (родители)">
-        <MembershipConsentTemplateCard toast={toast} />
-      </Card>
+        </>
+      ) : null}
     </div>
   );
 }

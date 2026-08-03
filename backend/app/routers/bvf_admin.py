@@ -977,6 +977,9 @@ async def create_player_from_athlete(
     athlete.bvf_player_number = number_i
     athlete.bvf_photo_id = photo_id
     athlete.bvf_synced_at = datetime.utcnow()
+    from app.services.sek_athlete_readiness import clear_sek_task
+
+    clear_sek_task(athlete)
     db.commit()
     db.refresh(athlete)
 
@@ -997,3 +1000,117 @@ async def create_player_from_athlete(
         "first_coach_name": resolve_first_coach_label(coach, club),
         "has_photo": True,
     }
+
+
+class SekTaskRequestIn(BaseModel):
+    club_id: Optional[int] = None
+
+
+@router.get("/athletes/sek-board")
+def sek_athletes_board(
+    club_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Локални състезатели на клуба: в СЕК vs липсват + готовност за link/create."""
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    from app.services.sek_athlete_readiness import compute_sek_board_row
+
+    athletes = (
+        db.query(Athlete)
+        .filter(Athlete.club_id == club.id, Athlete.is_active.is_(True))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    coach_ids = {int(a.coach_id) for a in athletes if a.coach_id}
+    coaches = {}
+    if coach_ids:
+        for u in db.query(User).filter(User.id.in_(coach_ids)).all():
+            coaches[int(u.id)] = u.name
+
+    in_sek: list[dict] = []
+    missing_sek: list[dict] = []
+    for a in athletes:
+        row = compute_sek_board_row(a, coach_name=coaches.get(int(a.coach_id)) if a.coach_id else None)
+        if row["in_sek"]:
+            in_sek.append(row)
+        else:
+            missing_sek.append(row)
+
+    return {
+        "club_id": club.id,
+        "club_name": club.name,
+        "bvf_club_id": club.bvf_club_id,
+        "counts": {
+            "total": len(athletes),
+            "in_sek": len(in_sek),
+            "missing_sek": len(missing_sek),
+            "ready_create": sum(1 for r in missing_sek if r["can_create"]),
+            "can_link": sum(1 for r in missing_sek if r["can_link"]),
+            "open_tasks": sum(1 for r in missing_sek if r.get("sek_task_code")),
+        },
+        "in_sek": in_sek,
+        "missing_sek": missing_sek,
+    }
+
+
+@router.post("/athletes/{athlete_id}/request-sek-task")
+def request_sek_task_for_athlete(
+    athlete_id: int,
+    payload: SekTaskRequestIn | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Съобщава на груповия треньор, че липсва снимка/данни за СЕК."""
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id if payload else None)
+    athlete = db.query(Athlete).filter(Athlete.id == int(athlete_id)).first()
+    if not athlete or int(athlete.club_id or 0) != int(club.id):
+        raise HTTPException(status_code=404, detail="Състезателят не е намерен в клуба")
+    if athlete.bvf_player_id:
+        raise HTTPException(status_code=409, detail="Състезателят вече е в СЕК")
+
+    from app.services.sek_athlete_readiness import build_task_from_missing, set_sek_task
+
+    code, detail = build_task_from_missing(athlete)
+    set_sek_task(athlete, code=code, detail=detail, by_user_id=current_user.id)
+    db.commit()
+    db.refresh(athlete)
+
+    coach = db.query(User).filter(User.id == athlete.coach_id).first()
+    return {
+        "ok": True,
+        "athlete_id": athlete.id,
+        "athlete_name": athlete.athlete_name,
+        "coach_id": athlete.coach_id,
+        "coach_name": coach.name if coach else None,
+        "sek_task_code": athlete.sek_task_code,
+        "sek_task_detail": athlete.sek_task_detail,
+        "sek_task_at": athlete.sek_task_at,
+    }
+
+
+@router.post("/athletes/{athlete_id}/clear-sek-task")
+def clear_sek_task_for_athlete(
+    athlete_id: int,
+    payload: SekTaskRequestIn | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id if payload else None)
+    athlete = db.query(Athlete).filter(Athlete.id == int(athlete_id)).first()
+    if not athlete or int(athlete.club_id or 0) != int(club.id):
+        raise HTTPException(status_code=404, detail="Състезателят не е намерен в клуба")
+    from app.services.sek_athlete_readiness import clear_sek_task
+
+    clear_sek_task(athlete)
+    db.commit()
+    return {"ok": True, "athlete_id": athlete.id}

@@ -168,6 +168,9 @@ class ParentMembershipConsentSignRequest(BaseModel):
     child_middle_name: str = Field(..., min_length=3, max_length=25, description="Бащино име")
     child_last_name: str = Field(..., min_length=3, max_length=25, description="Фамилия")
     child_egn: str = Field(..., min_length=10, max_length=16)
+    child_place_of_birth: str = Field(
+        ..., min_length=2, max_length=25, description="Град на раждане (за СЕК)"
+    )
     child_address: Optional[str] = Field(None, max_length=500)
     child_phone: Optional[str] = Field(None, max_length=50)
     gdpr_accepted: bool = False

@@ -38,6 +38,7 @@ export default function ParentMembershipConsentGate({ isSession, token, onSigned
           child_middle_name: pre.child_middle_name || "",
           child_last_name: pre.child_last_name || "",
           child_egn: pre.child_egn || "",
+          child_place_of_birth: pre.child_place_of_birth || "",
           child_phone: pre.child_phone || "",
         });
       } catch (err) {

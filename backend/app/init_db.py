@@ -213,6 +213,10 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS last_name VARCHAR(25)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS nationality VARCHAR(25)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_photo_id VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_code VARCHAR(32)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_detail TEXT"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_at TIMESTAMP"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_by_user_id INTEGER"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS ix_athletes_egn ON athletes (egn)"))
                 conn.execute(
                     text(
@@ -325,6 +329,18 @@ def _init_db_impl() -> None:
             if "bvf_photo_id" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN bvf_photo_id VARCHAR(64)"))
                 print("✅ Added athletes.bvf_photo_id column")
+            if "sek_task_code" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN sek_task_code VARCHAR(32)"))
+                print("✅ Added athletes.sek_task_code column")
+            if "sek_task_detail" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN sek_task_detail TEXT"))
+                print("✅ Added athletes.sek_task_detail column")
+            if "sek_task_at" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN sek_task_at DATETIME"))
+                print("✅ Added athletes.sek_task_at column")
+            if "sek_task_by_user_id" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN sek_task_by_user_id INTEGER"))
+                print("✅ Added athletes.sek_task_by_user_id column")
 
             try:
                 ci_cols = conn.execute(text("PRAGMA table_info(bvf_card_indexes)")).fetchall()

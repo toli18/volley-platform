@@ -12,6 +12,7 @@ const EMPTY_FIELDS = {
   child_middle_name: "",
   child_last_name: "",
   child_egn: "",
+  child_place_of_birth: "",
   child_address: "",
   child_phone: "",
   gdpr_accepted: false,
@@ -65,11 +66,21 @@ export default function MembershipConsentLiveForm({
       setLocalError("Всяко от трите имена трябва да е поне 3 символа.");
       return;
     }
+    const place = String(fields.child_place_of_birth || "").trim();
+    if (place.length < 2) {
+      setLocalError("Градът на раждане е задължителен.");
+      return;
+    }
+    if (place.length > 25) {
+      setLocalError("Градът на раждане е твърде дълъг (макс. 25 символа).");
+      return;
+    }
     const payload = {
       ...fields,
       child_first_name: first,
       child_middle_name: middle,
       child_last_name: last,
+      child_place_of_birth: place,
       parent_egn: parentEgn,
       child_egn: childEgn,
     };
@@ -210,7 +221,7 @@ export default function MembershipConsentLiveForm({
               />
             </label>
             <label className="membershipConsentField">
-              <span>ЕГН</span>
+              <span>ЕГН *</span>
               <Input
                 required
                 inputMode="numeric"
@@ -218,6 +229,18 @@ export default function MembershipConsentLiveForm({
                 value={fields.child_egn}
                 onChange={(e) => setField("child_egn", e.target.value.replace(/\D/g, "").slice(0, 10))}
                 placeholder="10 цифри"
+              />
+            </label>
+            <label className="membershipConsentField">
+              <span>Град на раждане *</span>
+              <Input
+                required
+                minLength={2}
+                maxLength={25}
+                value={fields.child_place_of_birth}
+                onChange={(e) => setField("child_place_of_birth", e.target.value)}
+                placeholder="напр. София"
+                autoComplete="address-level2"
               />
             </label>
             <label className="membershipConsentField">

@@ -284,6 +284,21 @@ export default function AthleteProfileCoachMobile({
             </p>
           </div>
         </div>
+        {profile.sek_task_code && !profile.bvf_player_id ? (
+          <p
+            style={{
+              margin: "10px 0 0",
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: "#fffbeb",
+              border: "1px solid #fcd34d",
+              fontSize: 13,
+              color: "#92400e",
+            }}
+          >
+            <strong>СЕК:</strong> {profile.sek_task_detail || "Нужни са снимка/данни — виж таб БФВ."}
+          </p>
+        ) : null}
         <div className="athleteProfileHeadActions">
           {!editing ? (
             <>
@@ -508,6 +523,46 @@ export default function AthleteProfileCoachMobile({
 
         {tab === "bvf" ? (
           <div className="athleteProfileTab">
+            {profile.sek_task_code && !profile.bvf_player_id ? (
+              <section
+                className="athleteProfileCard"
+                style={{ borderColor: "#f59e0b", background: "#fffbeb" }}
+              >
+                <h3 className="athleteProfileCardTitle">Задача от главния треньор (СЕК)</h3>
+                <p className="athleteProfileSummaryLine" style={{ marginBottom: 8 }}>
+                  {profile.sek_task_detail ||
+                    (profile.sek_task_code === "need_photo"
+                      ? "Липсва портретна снимка за създаване в СЕК."
+                      : "Липсват данни за СЕК.")}
+                </p>
+                <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
+                  Качи снимка тук — тя се пази локално, докато главният треньор свърже/създаде състезателя в СЕК.
+                </p>
+                <label style={{ margin: 0 }}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
+                    style={{ display: "none" }}
+                    disabled={syncingPhoto}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) onUploadPhoto?.(f);
+                    }}
+                  />
+                  <span
+                    className="uiButton"
+                    style={{
+                      display: "inline-flex",
+                      opacity: syncingPhoto ? 0.6 : 1,
+                      pointerEvents: syncingPhoto ? "none" : "auto",
+                    }}
+                  >
+                    {profile.has_photo || photoUrl ? "Смени снимката" : "Добави снимка"}
+                  </span>
+                </label>
+              </section>
+            ) : null}
             <section className="athleteProfileCard">
               <h3 className="athleteProfileCardTitle">БФВ / картотека</h3>
               {profile.bvf_player_id ? (

@@ -514,6 +514,11 @@ class Athlete(Base):
     bvf_player_number = Column(Integer, nullable=True, index=True)
     bvf_photo_id = Column(String(64), nullable=True)
     bvf_synced_at = Column(DateTime, nullable=True)
+    # Задача към груповия треньор (снимка/данни) преди create/link в СЕК
+    sek_task_code = Column(String(32), nullable=True)
+    sek_task_detail = Column(Text, nullable=True)
+    sek_task_at = Column(DateTime, nullable=True)
+    sek_task_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

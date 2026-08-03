@@ -53,36 +53,17 @@ from app.services.athlete_birth import resolve_place_of_birth
 def _bvf_missing(athlete: Athlete) -> list[str]:
     if getattr(athlete, "bvf_player_id", None):
         return []
-    missing: list[str] = []
-    if not (getattr(athlete, "first_name", None) or "").strip():
-        missing.append("собствено име")
-    if not (getattr(athlete, "middle_name", None) or "").strip():
-        missing.append("бащино име")
-    if not (getattr(athlete, "last_name", None) or "").strip():
-        missing.append("фамилия")
-    if not getattr(athlete, "birth_date", None):
-        missing.append("дата на раждане")
-    if not (getattr(athlete, "place_of_birth", None) or "").strip():
-        missing.append("град")
-    if not (getattr(athlete, "nationality", None) or "").strip():
-        missing.append("националност")
-    if not getattr(athlete, "gender", None):
-        missing.append("пол")
-    if not (getattr(athlete, "egn", None) or "").strip():
-        missing.append("ЕГН")
-    from app.services.athlete_photo import has_cached_photo
+    from app.services.sek_athlete_readiness import bvf_missing_fields
 
-    if not has_cached_photo(athlete.id) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
-        missing.append("снимка")
-    return missing
+    return bvf_missing_fields(athlete)
 
 
 def _bvf_ready(athlete: Athlete) -> bool:
-    if getattr(athlete, "bvf_player_id", None):
-        return True
-    # Снимката се качва при create към БФВ; останалото трябва да е в профила.
-    critical = [m for m in _bvf_missing(athlete) if m != "снимка"]
-    return len(critical) == 0
+    from app.services.sek_athlete_readiness import bvf_ready_for_create
+
+    return bvf_ready_for_create(athlete)
+
+
 from app.services.team_sheet_pdf import (
     MAX_PLAYERS,
     TeamSheetPayload,
@@ -817,6 +798,10 @@ async def upload_athlete_photo(
     if not content:
         raise HTTPException(status_code=422, detail="Празен файл")
     save_athlete_photo(athlete.id, content)
+    from app.services.sek_athlete_readiness import maybe_clear_sek_task_after_photo
+
+    maybe_clear_sek_task_after_photo(athlete)
+    db.commit()
 
     pushed = False
     if push_to_bvf and athlete.bvf_player_id and athlete.club_id:
@@ -1057,6 +1042,9 @@ def athlete_profile(
         bvf_identity_locked=bool(getattr(athlete, "bvf_player_id", None)),
         bvf_ready=_bvf_ready(athlete),
         bvf_missing=_bvf_missing(athlete),
+        sek_task_code=getattr(athlete, "sek_task_code", None),
+        sek_task_detail=getattr(athlete, "sek_task_detail", None),
+        sek_task_at=getattr(athlete, "sek_task_at", None),
         created_at=created_at_v,
         updated_at=updated_at_v,
         teams=teams,

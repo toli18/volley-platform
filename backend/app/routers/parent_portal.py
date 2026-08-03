@@ -55,7 +55,12 @@ from app.schemas.parent_portal import (
 )
 from app.schemas.assessment import ParentDevelopmentOut
 from app.services.assessment_consent import build_parent_development
-from app.services.athlete_identity import compose_athlete_name, validate_name_part
+from app.services.athlete_identity import (
+    apply_birth_date_from_egn,
+    compose_athlete_name,
+    default_nationality_from_city,
+    validate_name_part,
+)
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
     club_consent_feature_enabled,
@@ -997,6 +1002,7 @@ def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> Paren
             "child_middle_name": middle,
             "child_last_name": last,
             "child_egn": child_egn,
+            "child_place_of_birth": (athlete.place_of_birth or "").strip(),
             "child_phone": athlete.athlete_phone or "",
         },
     )
@@ -1035,6 +1041,12 @@ def _sign_membership_consent(
     if len(parent_egn) != 10 or len(child_egn) != 10:
         raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри")
 
+    place = (body.child_place_of_birth or "").strip()
+    if len(place) < 2:
+        raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
+    if len(place) > 25:
+        raise HTTPException(status_code=422, detail="Градът на раждане е твърде дълъг (макс. 25)")
+
     now = datetime.utcnow()
     consent = AthleteClubConsent(
         athlete_id=athlete.id,
@@ -1060,15 +1072,17 @@ def _sign_membership_consent(
     )
     db.add(consent)
 
-    # Keep athlete identity/contact in sync
+    # Keep athlete identity/contact in sync (incl. fields needed for СЕК create)
     athlete.parent_name = consent.parent_full_name
     athlete.parent_phone = consent.parent_phone
     athlete.first_name = child_first
     athlete.middle_name = child_middle
     athlete.last_name = child_last
     athlete.athlete_name = child_full_name
-    if not athlete.egn:
-        athlete.egn = child_egn
+    athlete.place_of_birth = place
+    athlete.nationality = default_nationality_from_city(place, athlete.nationality)
+    athlete.egn = child_egn
+    apply_birth_date_from_egn(athlete)
 
     db.flush()
     try:
