@@ -51,7 +51,6 @@ export const COACH_PRIMARY_NAV = [
         label: "Картотечни отбори",
         to: "/coach/bvf-card-indexes",
         icon: "shield",
-        headCoachOnly: true,
       },
     ],
   },
@@ -160,7 +159,6 @@ export const COACH_CLUB_HUB_LINKS = [
     label: "Картотечни отбори",
     to: "/coach/bvf-card-indexes",
     icon: "shield",
-    headCoachOnly: true,
     hint: "Сезон × възраст · състав",
   },
 ];
@@ -183,8 +181,7 @@ export const COACH_BVF_HUB_LINKS = [
     label: "Картотечни отбори",
     to: "/coach/bvf-card-indexes",
     icon: "shield",
-    headCoachOnly: true,
-    hint: "Сезон × възраст · добавяне на състезатели с БФВ id",
+    hint: "Сезон × възраст · Форма 03 · заявка към главния",
   },
   { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
 ];

@@ -239,6 +239,27 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS assigned_coach_user_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS season_application_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS requested_at TIMESTAMP")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS requested_by_user_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS request_note TEXT")
+                )
+                conn.execute(
+                    text(
                         "CREATE INDEX IF NOT EXISTS ix_athletes_bvf_player_number "
                         "ON athletes (bvf_player_number)"
                     )
@@ -355,6 +376,21 @@ def _init_db_impl() -> None:
                     if "signed_at" not in ci_names:
                         conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN signed_at DATETIME"))
                         print("✅ Added bvf_card_indexes.signed_at")
+                    if "assigned_coach_user_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN assigned_coach_user_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.assigned_coach_user_id")
+                    if "season_application_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN season_application_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.season_application_id")
+                    if "requested_at" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN requested_at DATETIME"))
+                        print("✅ Added bvf_card_indexes.requested_at")
+                    if "requested_by_user_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN requested_by_user_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.requested_by_user_id")
+                    if "request_note" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN request_note TEXT"))
+                        print("✅ Added bvf_card_indexes.request_note")
             except Exception:
                 pass
 

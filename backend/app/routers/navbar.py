@@ -104,6 +104,18 @@ def navbar_feed(
             logger.exception("navbar_feed: sek tasks failed")
             sek_tasks = {"items": []}
 
+    carding_requests = {"items": [], "ready_count": 0}
+    role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role_val in ("club_head_coach", "platform_admin", "federation_admin") and getattr(current_user, "club_id", None):
+        try:
+            from app.services.bvf_season_carding import list_ready_for_head
+
+            items = list_ready_for_head(db, int(current_user.club_id), limit=24)
+            carding_requests = {"items": items, "ready_count": len(items)}
+        except Exception:  # noqa: BLE001
+            logger.exception("navbar_feed: carding requests failed")
+            carding_requests = {"items": [], "ready_count": 0}
+
     pilot_requests = {"items": [], "unread_count": 0}
     if is_platform_admin:
         try:
@@ -119,5 +131,6 @@ def navbar_feed(
         "fee_activity": fee_activity,
         "task_reports": task_reports,
         "sek_tasks": sek_tasks,
+        "carding_requests": carding_requests,
         "pilot_requests": pilot_requests,
     }

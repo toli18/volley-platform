@@ -628,36 +628,42 @@ export default function AthleteProfileCoachMobile({
                 </>
               )}
               {profile.bvf_player_id && !profile.has_photo && !photoUrl ? (
-                <div className="athleteProfileInlineActions" style={{ marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <Button type="button" size="sm" variant="secondary" disabled={syncingPhoto} onClick={onSyncPhoto}>
-                    {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
-                  </Button>
-                  <label style={{ margin: 0 }}>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
-                      style={{ display: "none" }}
-                      disabled={syncingPhoto}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = "";
-                        if (f) onUploadPhoto?.(f);
-                      }}
-                    />
-                    <span
-                      className="uiButton"
-                      style={{
-                        display: "inline-flex",
-                        opacity: syncingPhoto ? 0.6 : 1,
-                        pointerEvents: syncingPhoto ? "none" : "auto",
-                        cursor: "pointer",
-                        fontSize: 13,
-                        padding: "6px 12px",
-                      }}
-                    >
-                      Качи снимка
-                    </span>
-                  </label>
+                <div style={{ marginTop: 10 }}>
+                  <div className="athleteProfileInlineActions" style={{ flexWrap: "wrap", alignItems: "center" }}>
+                    <Button type="button" size="sm" variant="secondary" disabled={syncingPhoto} onClick={onSyncPhoto}>
+                      {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
+                    </Button>
+                    <label style={{ margin: 0 }}>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
+                        style={{ display: "none" }}
+                        disabled={syncingPhoto}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = "";
+                          if (f) onUploadPhoto?.(f);
+                        }}
+                      />
+                      <span
+                        className="uiButton"
+                        style={{
+                          display: "inline-flex",
+                          opacity: syncingPhoto ? 0.6 : 1,
+                          pointerEvents: syncingPhoto ? "none" : "auto",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          padding: "6px 12px",
+                        }}
+                      >
+                        Качи снимка
+                      </span>
+                    </label>
+                  </div>
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.35 }}>
+                    Ако БФВ връща грешка за файлове — клубният ApiKey няма право да чете /api/files.
+                    Докато колегата не даде Files read, ползвай <strong>Качи снимка</strong>.
+                  </p>
                 </div>
               ) : null}
             </section>

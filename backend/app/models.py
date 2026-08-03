@@ -648,6 +648,26 @@ class AthleteBvfDocument(Base):
     athlete = relationship("Athlete", back_populates="bvf_documents")
 
 
+class BvfSeasonApplication(Base):
+    """Заявка за участие за сезон — главният треньор я отваря и назначава треньори по възраст."""
+
+    __tablename__ = "bvf_season_applications"
+    __table_args__ = (UniqueConstraint("club_id", "year", name="uq_bvf_season_app_club_year"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    # draft | open | closed
+    status = Column(String(32), nullable=False, default="open")
+    note = Column(Text, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    card_indexes = relationship("BvfCardIndex", back_populates="season_application")
+
+
 class BvfCardIndex(Base):
     """Локален запис / огледало на БФВ card index (сезон × възраст × пол)."""
 
@@ -662,15 +682,23 @@ class BvfCardIndex(Base):
     sex = Column(Integer, nullable=False, default=0)  # 0 male, 1 female
     is_signed = Column(Boolean, nullable=True)
     senior_coach_bvf_id = Column(Integer, nullable=True)
-    # draft | synced | ready | signed | pending_bvf_sign
+    # draft | building | ready_for_head | synced | ready | signed | pending_bvf_sign
     status = Column(String(32), nullable=False, default="draft")
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    season_application_id = Column(
+        Integer, ForeignKey("bvf_season_applications.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    requested_at = Column(DateTime, nullable=True)
+    requested_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    request_note = Column(Text, nullable=True)
     signed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     signed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     club = relationship("Club")
+    season_application = relationship("BvfSeasonApplication", back_populates="card_indexes")
     members = relationship(
         "BvfCardIndexMember",
         back_populates="card_index",

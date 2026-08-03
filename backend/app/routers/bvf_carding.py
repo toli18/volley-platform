@@ -18,6 +18,7 @@ from app.models import (
     AthletePhysicalMeasurement,
     BvfCardIndex,
     BvfCardIndexMember,
+    BvfSeasonApplication,
     Club,
     User,
     UserRole,
@@ -37,13 +38,22 @@ from app.routers.bvf_admin import (
 )
 from app.services.athlete_identity import apply_birth_date_from_egn, compose_athlete_name
 from app.services.athlete_photo import has_cached_photo, save_athlete_photo
+from app.services.bvf_season_carding import (
+    age_group_label,
+    athlete_docs_as_dicts,
+    athlete_has_form_03,
+    eligible_athlete_payload,
+    list_ready_for_head,
+    looks_like_form_03,
+    serialize_card_index_row,
+)
 
 router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Carding"])
 
 DOC_TYPE_LABELS = {
     0: "Договор / документ",
     1: "Медицински",
-    2: "Форма за картотекиране",
+    2: "Форма 03 / 03-А (картотекиране)",
     3: "Друг",
 }
 
@@ -82,6 +92,103 @@ def _require_submit_role(user: User) -> None:
             status_code=403,
             detail="Само главният треньор / администратор на клуба може да изпрати картотечния отбор към БФВ.",
         )
+
+
+def _can_edit_card_index(user: User, local: BvfCardIndex) -> bool:
+    if local.is_signed or local.status in ("signed", "pending_bvf_sign"):
+        return False
+    if _can_submit_card_index(user):
+        return True
+    if user.role == UserRole.coach:
+        if local.assigned_coach_user_id and int(local.assigned_coach_user_id) == int(user.id):
+            return True
+        if local.created_by_user_id and int(local.created_by_user_id) == int(user.id):
+            return True
+        return False
+    return False
+
+
+def _require_card_index_access(db: Session, user: User, local: BvfCardIndex) -> None:
+    if _can_submit_card_index(user):
+        return
+    if user.role == UserRole.coach:
+        if local.assigned_coach_user_id and int(local.assigned_coach_user_id) == int(user.id):
+            return
+        if local.created_by_user_id and int(local.created_by_user_id) == int(user.id):
+            return
+        raise HTTPException(status_code=403, detail="Този картотечен отбор не е назначен на теб.")
+    raise HTTPException(status_code=403, detail="Няма достъп до картотечния отбор.")
+
+
+def _local_card_index(db: Session, club: Club, local_id: int) -> BvfCardIndex:
+    local = (
+        db.query(BvfCardIndex)
+        .filter(BvfCardIndex.id == int(local_id), BvfCardIndex.club_id == club.id)
+        .first()
+    )
+    if not local:
+        raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен")
+    return local
+
+
+def _club_coaches(db: Session, club: Club) -> list[User]:
+    return (
+        db.query(User)
+        .filter(
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
+
+
+def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dict:
+    year = local.year or datetime.utcnow().year
+    members_out = []
+    all_ready = True
+    form_ok = True
+    for mem in local.members or []:
+        athlete = mem.athlete
+        if not athlete:
+            continue
+        docs = athlete_docs_as_dicts(athlete)
+        checklist = _doc_checklist(athlete, docs, year)
+        ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
+        has_form = athlete_has_form_03(athlete, year)
+        if not ready:
+            all_ready = False
+        if not has_form:
+            form_ok = False
+        members_out.append(
+            {
+                "athlete_id": athlete.id,
+                "athlete_name": athlete.athlete_name,
+                "bvf_player_id": athlete.bvf_player_id,
+                "bvf_player_number": athlete.bvf_player_number,
+                "synced": bool(mem.synced),
+                "ready": ready,
+                "has_form_03": has_form,
+                "checklist": checklist,
+            }
+        )
+
+    return {
+        **serialize_card_index_row(db, local),
+        "members": members_out,
+        "members_count": len(members_out),
+        "all_ready": all_ready and len(members_out) > 0 and form_ok,
+        "can_submit": _can_submit_card_index(current_user),
+        "can_edit": _can_edit_card_index(current_user, local),
+        "can_request_head": (
+            current_user.role == UserRole.coach
+            and _can_edit_card_index(current_user, local)
+            and local.status not in ("ready_for_head", "signed", "pending_bvf_sign")
+            and len(members_out) > 0
+            and form_ok
+            and all_ready
+        ),
+    }
 
 
 def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
@@ -416,6 +523,9 @@ def _upsert_doc_mirrors(db: Session, athlete: Athlete, docs: list) -> list[dict]
         )
     existing = db.query(AthleteBvfDocument).filter(AthleteBvfDocument.athlete_id == athlete.id).all()
     for row in existing:
+        # Не трий локални маркери (local-...) при sync от БФВ
+        if str(row.bvf_document_id or "").startswith("local-"):
+            continue
         if row.bvf_document_id not in seen:
             db.delete(row)
     db.commit()
@@ -429,13 +539,11 @@ def _doc_checklist(athlete: Athlete, docs: list[dict], season_year: int) -> list
         for d in docs
         if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
     ]
-    has_form = any(
-        (d.get("doc_type") == 2) or ("форм" in (d.get("description") or "").lower()) for d in (season_docs or docs)
-    )
+    has_form = any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in (season_docs or docs))
     return [
         {"key": "photo", "label": "Снимка", "ok": has_photo},
         {"key": "egn", "label": "ЕГН", "ok": bool((athlete.egn or "").strip())},
-        {"key": "carding_form", "label": f"Форма картотекиране {season_year}", "ok": has_form},
+        {"key": "carding_form", "label": f"Форма 03 / 03-А ({season_year})", "ok": has_form},
         {"key": "any_doc", "label": "Поне един документ в БФВ", "ok": len(docs) > 0},
     ]
 
@@ -638,12 +746,18 @@ def add_players_to_card_index(
     )
     if local and (local.is_signed or local.status == "signed"):
         raise HTTPException(status_code=409, detail="Картотечният отбор е подписан — не може да се променя съставът")
+    if local:
+        _require_card_index_access(db, current_user, local)
+    season_year = (local.year if local else None) or datetime.utcnow().year
     added = 0
     errors: list[str] = []
     for aid in payload.athlete_ids or []:
         athlete = _athlete_for_bvf_action(db, current_user, int(aid))
         if not athlete.bvf_player_id:
             errors.append(f"#{aid} няма БФВ id")
+            continue
+        if not athlete_has_form_03(athlete, int(season_year)):
+            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
             continue
         url = f"{BVF_API_BASE}/api/card-indexes/{int(bvf_card_index_id)}/players"
         ok = False
@@ -683,6 +797,8 @@ def add_players_to_card_index(
                 db.add(mem)
             mem.bvf_player_id = athlete.bvf_player_id
             mem.synced = True
+            if local.status in ("draft", "synced"):
+                local.status = "building"
         added += 1
     db.commit()
     return {"added": added, "errors": errors, "bvf_card_index_id": bvf_card_index_id}
@@ -696,31 +812,27 @@ class SignCardIndexIn(BaseModel):
 @router.get("/card-indexes/eligible-athletes")
 def list_eligible_card_index_athletes(
     club_id: int | None = None,
+    season_year: int | None = None,
+    require_form_03: bool = True,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Само картотекирани състезатели, достъпни за текущия треньор."""
+    """Картотекирани състезатели; по подразбиране само с Форма 03 за сезона."""
     club = _club_for_any_coach(db, current_user, club_id)
+    year = int(season_year or datetime.utcnow().year)
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
     if current_user.role == UserRole.coach:
         q = q.filter(Athlete.coach_id == current_user.id)
     rows = q.order_by(Athlete.athlete_name.asc()).all()
+    athletes = [eligible_athlete_payload(a, year) for a in rows]
+    roster = [a for a in athletes if a["eligible_for_roster"]] if require_form_03 else athletes
     return {
-        "athletes": [
-            {
-                "id": a.id,
-                "athlete_name": a.athlete_name,
-                "bvf_player_id": a.bvf_player_id,
-                "bvf_player_number": a.bvf_player_number,
-                "birth_year": a.birth_year,
-                "gender": a.gender,
-                "has_egn": bool((a.egn or "").strip()),
-                "has_photo": has_cached_photo(a.id) or bool(a.bvf_photo_id),
-            }
-            for a in rows
-        ],
+        "athletes": roster,
+        "all_linked": athletes,
+        "season_year": year,
+        "require_form_03": require_form_03,
         "can_submit": _can_submit_card_index(current_user),
     }
 
@@ -742,55 +854,8 @@ def get_card_index_detail(
     )
     if not local:
         raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен локално — зареди списъка от БФВ")
-
-    year = local.year or datetime.utcnow().year
-    members_out = []
-    all_ready = True
-    for mem in local.members or []:
-        athlete = mem.athlete
-        if not athlete:
-            continue
-        docs = [
-            {
-                "doc_type": d.doc_type,
-                "description": d.description,
-                "season_year": d.season_year,
-            }
-            for d in (athlete.bvf_documents or [])
-        ]
-        checklist = _doc_checklist(athlete, docs, year)
-        ready = all(c["ok"] for c in checklist)
-        if not ready:
-            all_ready = False
-        members_out.append(
-            {
-                "athlete_id": athlete.id,
-                "athlete_name": athlete.athlete_name,
-                "bvf_player_id": athlete.bvf_player_id,
-                "bvf_player_number": athlete.bvf_player_number,
-                "synced": bool(mem.synced),
-                "ready": ready,
-                "checklist": checklist,
-            }
-        )
-
-    return {
-        "id": local.id,
-        "bvf_card_index_id": local.bvf_card_index_id,
-        "year": local.year,
-        "age": local.age,
-        "age_group": local.age_group,
-        "sex": local.sex,
-        "status": local.status,
-        "is_signed": bool(local.is_signed),
-        "created_by_user_id": local.created_by_user_id,
-        "signed_at": local.signed_at.isoformat() if local.signed_at else None,
-        "members": members_out,
-        "members_count": len(members_out),
-        "all_ready": all_ready and len(members_out) > 0,
-        "can_submit": _can_submit_card_index(current_user),
-        "can_edit": not bool(local.is_signed) and local.status not in ("signed", "pending_bvf_sign"),
-    }
+    _require_card_index_access(db, current_user, local)
+    return _detail_payload(db, local, current_user)
 
 
 @router.post("/card-indexes/{bvf_card_index_id}/submit")
@@ -1193,3 +1258,479 @@ def fetch_physical_from_bvf(
     )
     return {"imported": imported, "items": [_serialize_physical(r) for r in rows], "remote_count": len(remote)}
 
+
+# ---------------------------------------------------------------------------
+# Сезонна заявка + локални чернови (без write token към БФВ)
+# ---------------------------------------------------------------------------
+
+
+class SeasonApplicationUpsertIn(BaseModel):
+    year: int
+    note: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class SeasonAssignCoachIn(BaseModel):
+    year: Optional[int] = None
+    age: int
+    sex: int = 0
+    coach_user_id: int
+    club_id: Optional[int] = None
+
+
+class LocalAddPlayersIn(BaseModel):
+    athlete_ids: list[int] = Field(default_factory=list)
+    club_id: Optional[int] = None
+
+
+class RequestHeadIn(BaseModel):
+    note: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class MarkForm03In(BaseModel):
+    athlete_id: int
+    season_year: Optional[int] = None
+    club_id: Optional[int] = None
+    note: Optional[str] = None
+
+
+@router.post("/players/documents/mark-form-03")
+def mark_form_03_local(
+    payload: MarkForm03In,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Локален маркер за Форма 03 / 03-А докато няма write token към БФВ."""
+    athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
+    year = int(payload.season_year or datetime.utcnow().year)
+    doc_id = f"local-form03-{athlete.id}-{year}"
+    row = (
+        db.query(AthleteBvfDocument)
+        .filter(AthleteBvfDocument.athlete_id == athlete.id, AthleteBvfDocument.bvf_document_id == doc_id)
+        .first()
+    )
+    if not row:
+        row = AthleteBvfDocument(athlete_id=athlete.id, bvf_document_id=doc_id)
+        db.add(row)
+    row.doc_type = 2
+    row.description = (payload.note or "").strip() or f"Форма 03 / 03-А {year} (локален маркер)"
+    row.season_year = year
+    row.synced_at = datetime.utcnow()
+    db.commit()
+    docs = athlete_docs_as_dicts(athlete)
+    # refresh relationship
+    db.refresh(athlete)
+    docs = [
+        {
+            "bvf_document_id": d.bvf_document_id,
+            "doc_type": d.doc_type,
+            "description": d.description,
+            "season_year": d.season_year,
+            "type_label": DOC_TYPE_LABELS.get(d.doc_type if d.doc_type is not None else -1, "Документ"),
+            "local": str(d.bvf_document_id or "").startswith("local-"),
+        }
+        for d in (athlete.bvf_documents or [])
+    ]
+    return {
+        "ok": True,
+        "documents": docs,
+        "checklist": _doc_checklist(athlete, athlete_docs_as_dicts(athlete), year),
+        "season_year": year,
+    }
+
+
+@router.get("/club-coaches")
+def list_club_coaches_for_carding(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_any_coach(db, current_user, club_id)
+    if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
+        return [{"id": current_user.id, "name": current_user.name, "role": "coach"}]
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "role": c.role.value if hasattr(c.role, "value") else str(c.role),
+        }
+        for c in _club_coaches(db, club)
+    ]
+
+
+@router.get("/season-applications")
+def get_or_list_season_application(
+    year: int | None = None,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_any_coach(db, current_user, club_id)
+    y = int(year or datetime.utcnow().year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == y)
+        .first()
+    )
+    indexes_q = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club.id, BvfCardIndex.year == y)
+    if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
+        indexes_q = indexes_q.filter(BvfCardIndex.assigned_coach_user_id == current_user.id)
+    indexes = indexes_q.order_by(BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
+    return {
+        "application": None
+        if not app
+        else {
+            "id": app.id,
+            "year": app.year,
+            "status": app.status,
+            "note": app.note,
+            "created_by_user_id": app.created_by_user_id,
+        },
+        "year": y,
+        "slots": [serialize_card_index_row(db, r) for r in indexes],
+        "age_options": [{"age": a, "label": age_group_label(a)} for a in (8, 11, 14, 16, 18, 20, 99)],
+        "can_manage": _can_submit_card_index(current_user),
+        "ready_for_head": list_ready_for_head(db, club.id) if _can_submit_card_index(current_user) else [],
+    }
+
+
+@router.post("/season-applications")
+def upsert_season_application(
+    payload: SeasonApplicationUpsertIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_user(db, current_user, payload.club_id)
+    y = int(payload.year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == y)
+        .first()
+    )
+    if not app:
+        app = BvfSeasonApplication(
+            club_id=club.id,
+            year=y,
+            status="open",
+            created_by_user_id=current_user.id,
+        )
+        db.add(app)
+    app.status = "open"
+    if payload.note is not None:
+        app.note = (payload.note or "").strip() or None
+    db.commit()
+    db.refresh(app)
+    return {"id": app.id, "year": app.year, "status": app.status, "note": app.note}
+
+
+@router.post("/season-applications/assign-coach")
+def assign_coach_to_age_slot(
+    payload: SeasonAssignCoachIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Главен треньор назначава треньор за възраст/пол — създава локална чернова на отбор."""
+    club = _club_for_user(db, current_user, payload.club_id)
+    year = int(payload.year or datetime.utcnow().year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == year)
+        .first()
+    )
+    if not app:
+        app = BvfSeasonApplication(
+            club_id=club.id,
+            year=year,
+            status="open",
+            created_by_user_id=current_user.id,
+        )
+        db.add(app)
+        db.flush()
+    elif app.status == "closed":
+        app.status = "open"
+
+    coach = (
+        db.query(User)
+        .filter(
+            User.id == int(payload.coach_user_id),
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .first()
+    )
+    if not coach:
+        raise HTTPException(status_code=404, detail="Треньорът не е от този клуб")
+
+    age = int(payload.age)
+    sex = int(payload.sex)
+    existing = (
+        db.query(BvfCardIndex)
+        .filter(
+            BvfCardIndex.club_id == club.id,
+            BvfCardIndex.year == app.year,
+            BvfCardIndex.age == age,
+            BvfCardIndex.sex == sex,
+            BvfCardIndex.season_application_id == app.id,
+        )
+        .first()
+    )
+    if existing:
+        if existing.is_signed or existing.status in ("signed", "pending_bvf_sign"):
+            raise HTTPException(status_code=409, detail="Отборът вече е изпратен — не може да се преназначава")
+        existing.assigned_coach_user_id = coach.id
+        local = existing
+    else:
+        local = BvfCardIndex(
+            club_id=club.id,
+            bvf_card_index_id=None,
+            year=app.year,
+            age=age,
+            sex=sex,
+            age_group=age_group_label(age),
+            status="draft",
+            created_by_user_id=current_user.id,
+            assigned_coach_user_id=coach.id,
+            season_application_id=app.id,
+        )
+        db.add(local)
+    db.commit()
+    db.refresh(local)
+    return serialize_card_index_row(db, local)
+
+
+@router.get("/card-indexes/local")
+def list_local_card_indexes(
+    year: int | None = None,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_any_coach(db, current_user, club_id)
+    q = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club.id)
+    if year:
+        q = q.filter(BvfCardIndex.year == int(year))
+    if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
+        q = q.filter(BvfCardIndex.assigned_coach_user_id == current_user.id)
+    rows = q.order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
+    return {
+        "items": [serialize_card_index_row(db, r) for r in rows],
+        "can_submit": _can_submit_card_index(current_user),
+        "ready_for_head_count": len([r for r in rows if r.status == "ready_for_head"]),
+    }
+
+
+@router.get("/card-indexes/local/{local_id}")
+def get_local_card_index_detail(
+    local_id: int,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_any_coach(db, current_user, club_id)
+    local = _local_card_index(db, club, local_id)
+    _require_card_index_access(db, current_user, local)
+    return _detail_payload(db, local, current_user)
+
+
+@router.post("/card-indexes/local/{local_id}/add-players")
+def add_players_to_local_card_index(
+    local_id: int,
+    payload: LocalAddPlayersIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Добавя състезатели локално. Към БФВ се синхронизира при изпращане (когато има write token)."""
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    local = _local_card_index(db, club, local_id)
+    _require_card_index_access(db, current_user, local)
+    if not _can_edit_card_index(current_user, local):
+        raise HTTPException(status_code=409, detail="Отборът е заключен")
+    if local.status == "ready_for_head" and not _can_submit_card_index(current_user):
+        raise HTTPException(status_code=409, detail="Отборът чака главния треньор — съставът е заключен")
+
+    season_year = local.year or datetime.utcnow().year
+    added = 0
+    errors: list[str] = []
+    for aid in payload.athlete_ids or []:
+        athlete = _athlete_for_bvf_action(db, current_user, int(aid))
+        if not athlete.bvf_player_id:
+            errors.append(f"#{aid} няма БФВ id (не е в СЕК)")
+            continue
+        if not athlete_has_form_03(athlete, int(season_year)):
+            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
+            continue
+        mem = (
+            db.query(BvfCardIndexMember)
+            .filter(BvfCardIndexMember.card_index_id == local.id, BvfCardIndexMember.athlete_id == athlete.id)
+            .first()
+        )
+        if not mem:
+            mem = BvfCardIndexMember(card_index_id=local.id, athlete_id=athlete.id)
+            db.add(mem)
+        mem.bvf_player_id = athlete.bvf_player_id
+        mem.synced = False
+        added += 1
+
+    if added and local.status in ("draft", "synced"):
+        local.status = "building"
+    db.commit()
+    return {"added": added, "errors": errors, "id": local.id, "status": local.status}
+
+
+@router.post("/card-indexes/local/{local_id}/request-head")
+def request_card_index_to_head(
+    local_id: int,
+    payload: RequestHeadIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Треньорът изпраща заявка към главния треньор за запис в СЕК."""
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    local = _local_card_index(db, club, local_id)
+    _require_card_index_access(db, current_user, local)
+    if local.is_signed or local.status in ("signed", "pending_bvf_sign"):
+        raise HTTPException(status_code=409, detail="Отборът вече е изпратен към БФВ")
+    detail = _detail_payload(db, local, current_user)
+    if not detail["members_count"]:
+        raise HTTPException(status_code=422, detail="Няма състезатели в състава")
+    if not detail["all_ready"]:
+        raise HTTPException(
+            status_code=422,
+            detail="Не всички в състава са готови (снимка, ЕГН, Форма 03 / 03-А).",
+        )
+    local.status = "ready_for_head"
+    local.requested_at = datetime.utcnow()
+    local.requested_by_user_id = current_user.id
+    local.request_note = (payload.note or "").strip() or None
+    db.commit()
+    db.refresh(local)
+    return {
+        "ok": True,
+        "id": local.id,
+        "status": local.status,
+        "requested_at": local.requested_at.isoformat() if local.requested_at else None,
+        "message": "Заявката е към главния треньор. Записът в СЕК е негова стъпка.",
+    }
+
+
+@router.post("/card-indexes/local/{local_id}/reopen")
+def reopen_card_index_for_coach(
+    local_id: int,
+    payload: RequestHeadIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Главният връща отбора на треньора за корекции."""
+    club = _club_for_user(db, current_user, payload.club_id)
+    local = _local_card_index(db, club, local_id)
+    if local.status not in ("ready_for_head", "building"):
+        raise HTTPException(status_code=409, detail="Отборът не може да се върне в този статус")
+    local.status = "building"
+    local.requested_at = None
+    local.requested_by_user_id = None
+    local.request_note = (payload.note or "").strip() or None
+    db.commit()
+    return {"ok": True, "id": local.id, "status": local.status}
+
+
+@router.post("/card-indexes/local/{local_id}/submit")
+def submit_local_card_index_to_federation(
+    local_id: int,
+    payload: SignCardIndexIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """
+    Главен треньор записва подготвения отбор в СЕК.
+    Без write token: ясно съобщение; локалният статус остава ready_for_head.
+    """
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    local = _local_card_index(db, club, local_id)
+    detail = _detail_payload(db, local, current_user)
+    if not detail["all_ready"]:
+        raise HTTPException(status_code=422, detail="Съставът не е готов (Форма 03 / снимка / ЕГН).")
+
+    if local.bvf_card_index_id:
+        return submit_card_index_to_federation(local.bvf_card_index_id, payload, db, current_user)
+
+    try:
+        token = _token_matches_club(payload.bvf_token, club)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Отборът е готов при нас, но няма валидна БФВ връзка / write token. "
+                f"Детайл: {exc.detail}"
+            ),
+        ) from exc
+
+    data = {
+        "ClubId": str(int(club.bvf_club_id)),
+        "Year": str(int(local.year)),
+        "Age": str(int(local.age)),
+        "Sex": str(int(local.sex)),
+    }
+    try:
+        remote = _bvf_post_multipart("/api/card-indexes", token, data, files={})
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Отборът е маркиран готов. Записът в СЕК чака write ApiKey. "
+                f"БФВ: {exc.detail}"
+            ),
+        ) from exc
+
+    if not isinstance(remote, dict) or not remote.get("id"):
+        raise HTTPException(
+            status_code=503,
+            detail="Отборът е готов локално. БФВ не върна card index — нужен е write token.",
+        )
+
+    cid = int(remote["id"])
+    local.bvf_card_index_id = cid
+    local.age_group = str(remote.get("ageGroup") or "").strip() or local.age_group
+    local.status = "synced"
+    db.commit()
+
+    for mem in local.members or []:
+        if not mem.bvf_player_id:
+            continue
+        url = f"{BVF_API_BASE}/api/card-indexes/{cid}/players"
+        try:
+            with httpx.Client(timeout=BVF_TIMEOUT) as client:
+                res = client.post(
+                    url,
+                    headers={**_bvf_headers(token), "Content-Type": "application/json"},
+                    json={"playerId": int(mem.bvf_player_id)},
+                )
+                if res.status_code < 400:
+                    mem.synced = True
+        except Exception:
+            pass
+    db.commit()
+    return submit_card_index_to_federation(cid, payload, db, current_user)

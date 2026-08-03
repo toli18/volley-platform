@@ -241,7 +241,13 @@ export default function CoachAthleteProfile() {
       toast.success("Снимката е заредена от БФВ.");
       await reloadProfile();
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно зареждане на снимка."));
+      const msg = normalizeError(err, "Неуспешно зареждане на снимка.");
+      toast.error(
+        /няма право да чете файлове|\/api\/files/i.test(msg)
+          ? `${msg} Ползвай „Качи снимка“ докато ApiKey-ът няма Files read.`
+          : msg,
+        { duration: 8000 }
+      );
     } finally {
       setSyncingPhoto(false);
     }

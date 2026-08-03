@@ -73,10 +73,28 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
     }
   };
 
+  const markForm03Local = async () => {
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_DOCS_MARK_FORM_03, {
+        athlete_id: athleteId,
+        season_year: seasonYear,
+      });
+      setDocs(res.data?.documents || []);
+      setChecklist(res.data?.checklist || []);
+      toast?.success("Форма 03 / 03-А е отбелязана локално (до write token).");
+    } catch (err) {
+      toast?.error(normalizeError(err, "Неуспешен локален маркер."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
         Файловете отиват директно в db.bvf.bg. При нас остават само тип, описание и дати.
+        До write token ползвай локалния маркер за Форма 03.
       </p>
       {permanent ? (
         <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>Постоянна връзка с БФВ — token не е нужен.</p>
@@ -124,7 +142,7 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
       <label style={{ display: "grid", gap: 4 }}>
         <span style={{ fontSize: 12, fontWeight: 700 }}>Тип</span>
         <select className="uiInput" value={docType} onChange={(e) => setDocType(e.target.value)}>
-          <option value="2">Форма за картотекиране</option>
+          <option value="2">Форма 03 / 03-А (картотекиране)</option>
           <option value="0">Договор / документ</option>
           <option value="1">Медицински</option>
           <option value="3">Друг</option>
@@ -134,6 +152,9 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
       <input type="file" accept=".pdf,image/*,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
       <Button type="button" size="sm" disabled={busy || !file || !canCallBvf} onClick={upload}>
         Изпрати към БФВ
+      </Button>
+      <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={markForm03Local}>
+        Отбележи Форма 03 локално
       </Button>
     </div>
   );
