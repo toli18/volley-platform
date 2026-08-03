@@ -57,9 +57,8 @@ from app.schemas.assessment import ParentDevelopmentOut
 from app.services.assessment_consent import build_parent_development
 from app.services.athlete_identity import (
     apply_birth_date_from_egn,
-    compose_athlete_name,
     default_nationality_from_city,
-    validate_name_part,
+    require_three_athlete_names,
 )
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
@@ -1029,12 +1028,13 @@ def _sign_membership_consent(
     tpl = resolve_club_consent_template(club)
 
     try:
-        child_first = validate_name_part("Собствено име", body.child_first_name)
-        child_middle = validate_name_part("Бащино име", body.child_middle_name)
-        child_last = validate_name_part("Фамилия", body.child_last_name)
+        child_first, child_middle, child_last, child_full_name = require_three_athlete_names(
+            body.child_first_name,
+            body.child_middle_name,
+            body.child_last_name,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    child_full_name = compose_athlete_name(child_first, child_middle, child_last)
 
     parent_egn = "".join(ch for ch in body.parent_egn.strip() if ch.isdigit())
     child_egn = "".join(ch for ch in body.child_egn.strip() if ch.isdigit())

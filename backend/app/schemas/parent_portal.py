@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.team_portal import TeamPortalItemResponse
 
@@ -175,6 +175,34 @@ class ParentMembershipConsentSignRequest(BaseModel):
     child_phone: Optional[str] = Field(None, max_length=50)
     gdpr_accepted: bool = False
     signature_name: str = Field(..., min_length=2, max_length=255)
+
+    @field_validator("child_first_name", "child_middle_name", "child_last_name", mode="before")
+    @classmethod
+    def _strip_child_name(cls, v):
+        if v is None:
+            raise ValueError("Трите имена на състезателя са задължителни")
+        s = str(v).strip()
+        if not s:
+            raise ValueError("Трите имена на състезателя са задължителни (собствено, бащино и фамилия)")
+        return s
+
+    @model_validator(mode="after")
+    def _require_three_child_names(self):
+        parts = [
+            (self.child_first_name or "").strip(),
+            (self.child_middle_name or "").strip(),
+            (self.child_last_name or "").strip(),
+        ]
+        if any(len(p) < 3 for p in parts):
+            raise ValueError("Всяко от трите имена трябва да е поне 3 символа")
+        if any(not any(ch.isalpha() for ch in p) for p in parts):
+            raise ValueError("Всяко от трите имена трябва да съдържа букви")
+        composed = " ".join(parts)
+        if len([t for t in composed.split() if t]) < 3:
+            raise ValueError(
+                "Трите имена на състезателя са задължителни (собствено, бащино и фамилия)"
+            )
+        return self
 
 
 class ParentMembershipConsentSignResponse(BaseModel):

@@ -58,12 +58,18 @@ export default function MembershipConsentLiveForm({
     const first = String(fields.child_first_name || "").trim();
     const middle = String(fields.child_middle_name || "").trim();
     const last = String(fields.child_last_name || "").trim();
+    const nameOk = (s) => s.length >= 3 && /[A-Za-zА-Яа-яЁёІіЇїЄє]/.test(s);
     if (!first || !middle || !last) {
-      setLocalError("Попълнете трите имена на състезателя (собствено, бащино и фамилия).");
+      setLocalError("Попълнете трите имена на състезателя (собствено, бащино и фамилия). Без бащино име заявлението не се приема.");
       return;
     }
-    if (first.length < 3 || middle.length < 3 || last.length < 3) {
-      setLocalError("Всяко от трите имена трябва да е поне 3 символа.");
+    if (!nameOk(first) || !nameOk(middle) || !nameOk(last)) {
+      setLocalError("Всяко от трите имена трябва да е поне 3 символа и да съдържа букви.");
+      return;
+    }
+    const composedTokens = `${first} ${middle} ${last}`.split(/\s+/).filter(Boolean);
+    if (composedTokens.length < 3) {
+      setLocalError("Трите имена на състезателя са задължителни (собствено, бащино и фамилия).");
       return;
     }
     const place = String(fields.child_place_of_birth || "").trim();
@@ -184,8 +190,11 @@ export default function MembershipConsentLiveForm({
 
         <section className="membershipConsentBlock">
           <h3 className="membershipConsentBlockTitle">Данни на детето / състезателя</h3>
+          <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+            Задължителни са <strong>трите имена</strong> — собствено, бащино и фамилия. Без бащино име заявлението не се приема.
+          </p>
           <div className="membershipConsentGrid">
-            <label className="membershipConsentField">
+            <label className="membershipConsentField membershipConsentField--full">
               <span>Собствено име *</span>
               <Input
                 required
@@ -197,7 +206,7 @@ export default function MembershipConsentLiveForm({
                 autoComplete="given-name"
               />
             </label>
-            <label className="membershipConsentField">
+            <label className="membershipConsentField membershipConsentField--full">
               <span>Бащино име *</span>
               <Input
                 required

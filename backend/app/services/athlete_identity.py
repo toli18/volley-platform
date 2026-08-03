@@ -92,7 +92,28 @@ def validate_name_part(label: str, value: Optional[str], *, required: bool = Tru
         raise ValueError(f"{label} трябва да е поне {NAME_MIN_LEN} символа")
     if len(s) > NAME_MAX_LEN:
         raise ValueError(f"{label} е твърде дълго (макс. {NAME_MAX_LEN})")
+    # Поне една буква (кирилица/латиница) — отхвърля "-", "..." и подобни
+    if not any(ch.isalpha() for ch in s):
+        raise ValueError(f"{label} трябва да съдържа букви")
     return s
+
+
+def require_three_athlete_names(
+    first_name: Optional[str],
+    middle_name: Optional[str],
+    last_name: Optional[str],
+) -> tuple[str, str, str, str]:
+    """Връща (first, middle, last, full). Хвърля ValueError ако липсва част."""
+    first = validate_name_part("Собствено име", first_name)
+    middle = validate_name_part("Бащино име", middle_name)
+    last = validate_name_part("Фамилия", last_name)
+    full = compose_athlete_name(first, middle, last)
+    tokens = [t for t in full.split() if t]
+    if len(tokens) < 3:
+        raise ValueError(
+            "Трите имена на състезателя са задължителни (собствено, бащино и фамилия)."
+        )
+    return first, middle, last, full
 
 
 def default_nationality_from_city(
