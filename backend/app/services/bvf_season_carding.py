@@ -49,47 +49,39 @@ def athlete_docs_as_dicts(athlete: Athlete) -> list[dict[str, Any]]:
     ]
 
 
-def athlete_has_form_03(athlete: Athlete, season_year: int) -> bool:
+def athlete_has_form_03(athlete: Athlete, season_year: int, db: Session | None = None) -> bool:
+    """Истинска подписана Форма 03/03-А или реален документ в БФВ (не локален маркер)."""
+    if db is not None:
+        from app.services.carding_form import athlete_has_signed_carding_form
+
+        if athlete_has_signed_carding_form(db, athlete, int(season_year)):
+            return True
+
     docs = athlete_docs_as_dicts(athlete)
+    # Include local metadata rows but exclude local-form03-* markers
+    real_docs = []
+    for d in athlete.bvf_documents or []:
+        bid = str(getattr(d, "bvf_document_id", None) or "")
+        if bid.startswith("local-form03-") or bid.startswith("local-"):
+            continue
+        real_docs.append(
+            {
+                "doc_type": d.doc_type,
+                "description": d.description,
+                "season_year": d.season_year,
+            }
+        )
     season_docs = [
         d
-        for d in docs
+        for d in real_docs
         if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
     ]
-    pool = season_docs or docs
+    pool = season_docs or real_docs
     return any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in pool)
 
 
-def coach_display_name(db: Session, user_id: int | None) -> str | None:
-    if not user_id:
-        return None
-    u = db.query(User).filter(User.id == int(user_id)).first()
-    return u.name if u else None
-
-
-def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]:
-    return {
-        "id": local.id,
-        "bvf_card_index_id": local.bvf_card_index_id,
-        "year": local.year,
-        "age": local.age,
-        "age_group": local.age_group or age_group_label(local.age),
-        "sex": local.sex,
-        "status": local.status,
-        "is_signed": bool(local.is_signed),
-        "members_count": len(local.members or []),
-        "assigned_coach_user_id": local.assigned_coach_user_id,
-        "assigned_coach_name": coach_display_name(db, local.assigned_coach_user_id),
-        "season_application_id": local.season_application_id,
-        "requested_at": local.requested_at.isoformat() if local.requested_at else None,
-        "request_note": local.request_note,
-        "created_by_user_id": local.created_by_user_id,
-        "local_only": local.bvf_card_index_id is None,
-    }
-
-
-def eligible_athlete_payload(athlete: Athlete, season_year: int) -> dict[str, Any]:
-    has_form = athlete_has_form_03(athlete, season_year)
+def eligible_athlete_payload(athlete: Athlete, season_year: int, db: Session | None = None) -> dict[str, Any]:
+    has_form = athlete_has_form_03(athlete, season_year, db=db)
     has_egn = bool((athlete.egn or "").strip())
     has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
     return {
@@ -103,6 +95,44 @@ def eligible_athlete_payload(athlete: Athlete, season_year: int) -> dict[str, An
         "has_photo": has_photo,
         "has_form_03": has_form,
         "eligible_for_roster": bool(athlete.bvf_player_id) and has_form,
+    }
+
+
+def coach_display_name(db: Session, user_id: int | None) -> str | None:
+    if not user_id:
+        return None
+    u = db.query(User).filter(User.id == int(user_id)).first()
+    return u.name if u else None
+
+
+def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]:
+    status = (local.status or "").strip()
+    can_delete = (
+        local.bvf_card_index_id is None
+        and not bool(local.is_signed)
+        and status in ("draft", "building")
+    )
+    return {
+        "id": local.id,
+        "bvf_card_index_id": local.bvf_card_index_id,
+        "year": local.year,
+        "age": local.age,
+        "age_group": local.age_group or age_group_label(local.age),
+        "sex": local.sex,
+        "status": local.status,
+        "is_signed": bool(local.is_signed),
+        "members_count": len(local.members or []),
+        "assigned_coach_user_id": local.assigned_coach_user_id,
+        "assigned_coach_name": coach_display_name(db, local.assigned_coach_user_id),
+        "second_coach_user_id": getattr(local, "second_coach_user_id", None),
+        "second_coach_name": coach_display_name(db, getattr(local, "second_coach_user_id", None)),
+        "doctor_name": (getattr(local, "doctor_name", None) or "").strip() or None,
+        "season_application_id": local.season_application_id,
+        "requested_at": local.requested_at.isoformat() if local.requested_at else None,
+        "request_note": local.request_note,
+        "created_by_user_id": local.created_by_user_id,
+        "local_only": local.bvf_card_index_id is None,
+        "can_delete": can_delete,
     }
 
 

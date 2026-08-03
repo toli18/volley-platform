@@ -73,28 +73,10 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
     }
   };
 
-  const markForm03Local = async () => {
-    try {
-      setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_DOCS_MARK_FORM_03, {
-        athlete_id: athleteId,
-        season_year: seasonYear,
-      });
-      setDocs(res.data?.documents || []);
-      setChecklist(res.data?.checklist || []);
-      toast?.success("Форма 03 / 03-А е отбелязана локално (до write token).");
-    } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешен локален маркер."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
         Файловете отиват директно в db.bvf.bg. При нас остават само тип, описание и дати.
-        До write token ползвай локалния маркер за Форма 03.
       </p>
       {permanent ? (
         <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>Постоянна връзка с БФВ — token не е нужен.</p>
@@ -153,9 +135,10 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
       <Button type="button" size="sm" disabled={busy || !file || !canCallBvf} onClick={upload}>
         Изпрати към БФВ
       </Button>
-      <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={markForm03Local}>
-        Отбележи Форма 03 локално
-      </Button>
+      <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+        Форма 03 / 03-А за списъците се попълва онлайн от родителя след отваряне на сезона
+        (Картотекиране). Тук може само да качите PDF копие към БФВ.
+      </p>
     </div>
   );
 }

@@ -269,7 +269,8 @@ export default function MembershipConsentTemplateCard({ toast }) {
         )}
         {blankTab === "f03" || blankTab === "f03a" ? (
           <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
-            Форма 0-3 / 0-3 А са за фаза 2. Тук е визуален макет на бланката.
+            Форма 0-3 / 0-3 А се активира за родителите, когато главният треньор отвори сезона в
+            Картотекиране. Тук е визуален макет на бланката.
           </p>
         ) : null}
         {blankTab === "club" ? (

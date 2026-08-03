@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Athlete, AthleteClubConsent, Club, User, UserRole
+from app.models import Athlete, AthleteCardingForm, AthleteClubConsent, Club, User, UserRole
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
+from app.services.carding_form import carding_form_to_document_dict, read_carding_form_pdf
 from app.services.club_membership_consent import (
     DEFAULT_BODY_TEMPLATE,
     DEFAULT_FEE_AMOUNT,
@@ -164,11 +165,21 @@ def list_athlete_documents(
         .order_by(AthleteClubConsent.signed_at.desc())
         .all()
     )
+    carding_rows = (
+        db.query(AthleteCardingForm)
+        .filter(AthleteCardingForm.athlete_id == athlete.id)
+        .order_by(AthleteCardingForm.signed_at.desc())
+        .all()
+    )
     active = get_active_consent(db, athlete.id, athlete.club_id)
+    docs = [consent_to_document_dict(r) for r in rows] + [
+        carding_form_to_document_dict(r) for r in carding_rows
+    ]
+    docs.sort(key=lambda d: d.get("signed_at") or "", reverse=True)
     return {
         "athlete_id": athlete.id,
         "membership_consent_active": active is not None,
-        "documents": [consent_to_document_dict(r) for r in rows],
+        "documents": docs,
     }
 
 
@@ -200,6 +211,33 @@ def preview_membership_consent(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="zayavlenie_{consent.id}.pdf"'},
+    )
+
+
+@docs_router.get("/{athlete_id}/documents/carding-form/{form_id}/preview")
+def preview_carding_form(
+    athlete_id: int,
+    form_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    form = (
+        db.query(AthleteCardingForm)
+        .filter(AthleteCardingForm.id == int(form_id), AthleteCardingForm.athlete_id == athlete.id)
+        .first()
+    )
+    if not form:
+        raise HTTPException(status_code=404, detail="Формата не е намерена")
+    pdf = read_carding_form_pdf(form)
+    if not pdf:
+        raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="forma03_{form.id}.pdf"'},
     )
 
 

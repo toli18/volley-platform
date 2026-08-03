@@ -16,6 +16,7 @@ from app.database import get_db
 from app.dependencies.parent_auth import get_current_parent_athlete
 from app.models import (
     Athlete,
+    AthleteCardingForm,
     AthleteClubConsent,
     AthleteParentAccessToken,
     AthletePayment,
@@ -38,6 +39,10 @@ from app.schemas.parent_portal import (
     ParentAthleteProfileResponse,
     ParentAttendanceRow,
     ParentAttendanceSummary,
+    ParentCardingFormMeta,
+    ParentCardingFormSignRequest,
+    ParentCardingFormSignResponse,
+    ParentCardingFormStatus,
     ParentCurrentMonthFee,
     ParentFeeCoachContact,
     ParentMembershipConsentForm,
@@ -63,10 +68,23 @@ from app.services.athlete_identity import (
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
     club_consent_feature_enabled,
+    deactivate_expired_or_prior_consents,
     get_active_consent,
     persist_consent_pdf,
     read_consent_pdf,
     resolve_club_consent_template,
+)
+from app.services.carding_form import (
+    FORM_KIND_03A,
+    athlete_needs_carding_form,
+    deactivate_prior_carding_forms,
+    form_kind_for_athlete,
+    get_signed_carding_form,
+    open_carding_season_year,
+    persist_carding_form_pdf,
+    prefill_carding_form,
+    read_carding_form_pdf,
+    season_label,
 )
 from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
@@ -677,6 +695,35 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                 club_name=club_name,
             )
 
+    carding_status = ParentCardingFormStatus(enabled=False, needs_form=False, has_signed=False, club_name=club_name)
+    if athlete.club_id:
+        sy = open_carding_season_year(db, int(athlete.club_id))
+        if sy:
+            signed = get_signed_carding_form(db, athlete.id, sy, athlete.club_id)
+            kind = form_kind_for_athlete(athlete, sy)
+            if signed:
+                carding_status = ParentCardingFormStatus(
+                    enabled=True,
+                    needs_form=False,
+                    has_signed=True,
+                    season_year=sy,
+                    season_label=season_label(sy),
+                    form_kind=signed.form_kind,
+                    form_id=signed.id,
+                    signed_at=signed.signed_at,
+                    club_name=club_name,
+                )
+            else:
+                carding_status = ParentCardingFormStatus(
+                    enabled=True,
+                    needs_form=True,
+                    has_signed=False,
+                    season_year=sy,
+                    season_label=season_label(sy),
+                    form_kind=kind,
+                    club_name=club_name,
+                )
+
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
@@ -703,6 +750,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         team_feed=_team_feed_for_parent(db, team_ids, limit=5),
         absence_notices=_active_absence_notices(db, athlete.id),
         membership_consent=consent_status,
+        carding_form=carding_status,
     )
 
 
@@ -1048,6 +1096,7 @@ def _sign_membership_consent(
         raise HTTPException(status_code=422, detail="Градът на раждане е твърде дълъг (макс. 25)")
 
     now = datetime.utcnow()
+    deactivate_expired_or_prior_consents(db, athlete.id, club.id)
     consent = AthleteClubConsent(
         athlete_id=athlete.id,
         club_id=club.id,
@@ -1170,4 +1219,183 @@ def parent_membership_consent_preview_token(token: str, db: Session = Depends(ge
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="zayavlenie_{consent.id}.pdf"'},
+    )
+
+
+def _carding_form_meta_for_athlete(db: Session, athlete: Athlete) -> ParentCardingFormMeta:
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    year = open_carding_season_year(db, club.id)
+    if not year:
+        raise HTTPException(
+            status_code=404,
+            detail="Няма отворена сезонна заявка за картотекиране. Главният треньор трябва първо да отвори сезона.",
+        )
+    needs = athlete_needs_carding_form(db, athlete)
+    pre = prefill_carding_form(db, athlete, year)
+    return ParentCardingFormMeta(
+        needs_form=needs,
+        form_kind=pre["form_kind"],
+        season_year=year,
+        season_label=pre["season_label"],
+        club_name=club.name or "",
+        club_logo_url=club.logo_url,
+        bvf_logo_url="/bfvb-logo.png",
+        prefill=pre,
+    )
+
+
+def _sign_carding_form(
+    db: Session, athlete: Athlete, body: ParentCardingFormSignRequest
+) -> ParentCardingFormSignResponse:
+    if not body.rules_accepted:
+        raise HTTPException(status_code=422, detail="Необходимо е приемане на правилата на БФВ")
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    year = open_carding_season_year(db, club.id)
+    if not year:
+        raise HTTPException(status_code=409, detail="Няма отворена сезонна заявка за картотекиране")
+    if not athlete_needs_carding_form(db, athlete):
+        raise HTTPException(status_code=409, detail="Формата за този сезон вече е подписана")
+
+    try:
+        _f, _m, _l, athlete_full = require_three_athlete_names(
+            body.athlete_first_name,
+            body.athlete_middle_name,
+            body.athlete_last_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    p1_egn = "".join(ch for ch in body.parent1_egn.strip() if ch.isdigit())
+    a_egn = "".join(ch for ch in body.athlete_egn.strip() if ch.isdigit())
+    if len(p1_egn) != 10 or len(a_egn) != 10:
+        raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри")
+    p2_name = (body.parent2_full_name or "").strip() or None
+    p2_egn_raw = "".join(ch for ch in (body.parent2_egn or "") if ch.isdigit())
+    p2_egn = p2_egn_raw if len(p2_egn_raw) == 10 else None
+    if p2_name and not p2_egn:
+        raise HTTPException(status_code=422, detail="ЕГН на родител 2 трябва да е 10 цифри")
+
+    kind = form_kind_for_athlete(athlete, year)
+    if kind == FORM_KIND_03A:
+        sig_ath = (body.signature_athlete or "").strip()
+        if len(sig_ath) < 2:
+            raise HTTPException(status_code=422, detail="За Форма 0-3 А е нужен подпис на състезателя")
+    else:
+        sig_ath = (body.signature_athlete or "").strip() or None
+
+    now = datetime.utcnow()
+    deactivate_prior_carding_forms(db, athlete.id, year)
+    form = AthleteCardingForm(
+        athlete_id=athlete.id,
+        club_id=club.id,
+        season_year=year,
+        form_kind=kind,
+        parent1_full_name=body.parent1_full_name.strip(),
+        parent1_egn=p1_egn,
+        parent2_full_name=p2_name,
+        parent2_egn=p2_egn,
+        athlete_full_name=athlete_full,
+        athlete_egn=a_egn,
+        city=(body.city or "").strip() or None,
+        rules_accepted=True,
+        signature_parent1=body.signature_parent1.strip(),
+        signature_parent2=(body.signature_parent2 or "").strip() or None,
+        signature_athlete=sig_ath,
+        signed_at=now,
+        club_name_snapshot=club.name,
+        season_label_snapshot=season_label(year),
+        is_active=True,
+    )
+    db.add(form)
+    db.flush()
+    try:
+        form.pdf_rel_path = persist_carding_form_pdf(form, club=club)
+    except Exception as exc:
+        logger.warning("PDF for carding form athlete %s: %s", athlete.id, exc)
+    db.commit()
+    db.refresh(form)
+    return ParentCardingFormSignResponse(
+        ok=True,
+        form_id=form.id,
+        signed_at=form.signed_at,
+        form_kind=form.form_kind,
+        season_year=form.season_year,
+        needs_form=False,
+    )
+
+
+@router.get("/parent-portal/me/carding-form", response_model=ParentCardingFormMeta)
+def parent_carding_form_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _carding_form_meta_for_athlete(db, athlete)
+
+
+@router.get("/parent-portal/{token}/carding-form", response_model=ParentCardingFormMeta)
+def parent_carding_form_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _carding_form_meta_for_athlete(db, athlete)
+
+
+@router.post("/parent-portal/me/carding-form", response_model=ParentCardingFormSignResponse)
+def parent_sign_carding_form_me(
+    body: ParentCardingFormSignRequest,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _sign_carding_form(db, athlete, body)
+
+
+@router.post("/parent-portal/{token}/carding-form", response_model=ParentCardingFormSignResponse)
+def parent_sign_carding_form_token(
+    token: str,
+    body: ParentCardingFormSignRequest,
+    db: Session = Depends(get_db),
+):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _sign_carding_form(db, athlete, body)
+
+
+@router.get("/parent-portal/me/carding-form/preview")
+def parent_carding_form_preview_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    year = open_carding_season_year(db, athlete.club_id) if athlete.club_id else None
+    form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
+    if not form:
+        raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
+    pdf = read_carding_form_pdf(form)
+    if not pdf:
+        raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="forma03_{form.id}.pdf"'},
+    )
+
+
+@router.get("/parent-portal/{token}/carding-form/preview")
+def parent_carding_form_preview_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    year = open_carding_season_year(db, athlete.club_id) if athlete.club_id else None
+    form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
+    if not form:
+        raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
+    pdf = read_carding_form_pdf(form)
+    if not pdf:
+        raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="forma03_{form.id}.pdf"'},
     )

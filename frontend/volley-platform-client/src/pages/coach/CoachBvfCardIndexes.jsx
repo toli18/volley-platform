@@ -50,6 +50,8 @@ export default function CoachBvfCardIndexes() {
   const [assignAge, setAssignAge] = useState("14");
   const [assignSex, setAssignSex] = useState("0");
   const [assignCoachId, setAssignCoachId] = useState("");
+  const [assignSecondCoachId, setAssignSecondCoachId] = useState("");
+  const [assignDoctorName, setAssignDoctorName] = useState("");
   const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState(null);
@@ -135,7 +137,7 @@ export default function CoachBvfCardIndexes() {
         year: Number(year),
         note: null,
       });
-      toast.success(`Сезон ${year} е отворен.`);
+      toast.success(`Сезон ${year} е отворен — Форма 03 / 03-А е активирана за родителите.`);
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно отваряне на сезон."));
@@ -156,6 +158,8 @@ export default function CoachBvfCardIndexes() {
         age: Number(assignAge),
         sex: Number(assignSex),
         coach_user_id: Number(assignCoachId),
+        second_coach_user_id: assignSecondCoachId ? Number(assignSecondCoachId) : null,
+        doctor_name: assignDoctorName.trim() || null,
       });
       toast.success(`Назначен: ${res.data?.assigned_coach_name || "треньор"} · ${res.data?.age_group}`);
       setSelectedId(String(res.data?.id || ""));
@@ -172,6 +176,29 @@ export default function CoachBvfCardIndexes() {
     setSelectedId(String(localId));
     setSelectedAthleteIds(new Set());
     await loadDetail(localId);
+  };
+
+  const deleteDraft = async (it, e) => {
+    e?.stopPropagation?.();
+    if (!it?.can_delete) {
+      toast.error("Може да се изтрие само преди заявка към главния треньор.");
+      return;
+    }
+    if (!window.confirm(`Изтриване на ${it.age_group || it.age}? Съставът също ще се премахне.`)) return;
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DELETE(it.id));
+      toast.success("Отборът е изтрит.");
+      if (String(selectedId) === String(it.id)) {
+        setSelectedId("");
+        setDetail(null);
+      }
+      await loadSeason();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтриване."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggleAthlete = (id) => {
@@ -287,7 +314,7 @@ export default function CoachBvfCardIndexes() {
         title="Картотечни отбори"
         subtitle={
           isHead
-            ? "Сезонна заявка → назначение по възраст → преглед на заявки → запис в СЕК."
+            ? "Сезонна заявка (активира Форма 03 за родителите) → назначение по възраст → състав само с подписана форма → запис в СЕК."
             : "Попълваш назначения ти отбор от допустими състезатели (Форма 03) и пращаш заявка към главния."
         }
         actions={
@@ -324,7 +351,8 @@ export default function CoachBvfCardIndexes() {
       {canManage ? (
         <Card title="1. Назначи треньор по възраст">
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Създава локална чернова на картотечен отбор. Записът в СЕК е отделна стъпка след заявка от треньора.
+            Създава локална чернова на картотечен отбор (треньор, втори треньор, лекар). Записът в СЕК е
+            отделна стъпка след заявка от треньора.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 4 }}>
@@ -355,6 +383,32 @@ export default function CoachBvfCardIndexes() {
                 ))}
               </select>
             </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Втори треньор</span>
+              <select
+                className="uiInput"
+                value={assignSecondCoachId}
+                onChange={(e) => setAssignSecondCoachId(e.target.value)}
+              >
+                <option value="">— по желание —</option>
+                {coaches
+                  .filter((c) => String(c.id) !== String(assignCoachId))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 4, minWidth: 180 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Лекар</span>
+              <input
+                className="uiInput"
+                value={assignDoctorName}
+                onChange={(e) => setAssignDoctorName(e.target.value)}
+                placeholder="Име на лекар"
+              />
+            </label>
             <Button type="button" disabled={busy || !assignCoachId} onClick={assignCoach}>
               Назначи / обнови
             </Button>
@@ -380,8 +434,11 @@ export default function CoachBvfCardIndexes() {
                   <th>Група</th>
                   <th>Пол</th>
                   <th>Треньор</th>
+                  <th>Втори</th>
+                  <th>Лекар</th>
                   <th>Състав</th>
                   <th>Статус</th>
+                  {isHead ? <th></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -400,8 +457,23 @@ export default function CoachBvfCardIndexes() {
                     </td>
                     <td>{it.sex === 1 ? "Ж" : "М"}</td>
                     <td>{it.assigned_coach_name || "—"}</td>
+                    <td>{it.second_coach_name || "—"}</td>
+                    <td>{it.doctor_name || "—"}</td>
                     <td>{it.members_count ?? 0}</td>
                     <td>{statusLabel(it)}</td>
+                    {isHead ? (
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {it.can_delete ? (
+                          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={(e) => deleteDraft(it, e)}>
+                            Изтрий
+                          </Button>
+                        ) : (
+                          <span className="uiMuted" style={{ fontSize: 12 }}>
+                            —
+                          </span>
+                        )}
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -462,7 +534,7 @@ export default function CoachBvfCardIndexes() {
                 </p>
                 {availableAthletes.length === 0 ? (
                   <p className="uiMuted" style={{ fontSize: 13 }}>
-                    Няма свободни състезатели с Форма 03. Качи формата от профила → таб БФВ.
+                    Няма свободни състезатели с Форма 03. Родителят я попълва в портала след отваряне на сезона.
                   </p>
                 ) : (
                   <div

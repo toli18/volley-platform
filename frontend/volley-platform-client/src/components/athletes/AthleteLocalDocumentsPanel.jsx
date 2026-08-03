@@ -42,11 +42,13 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     load();
   }, [athleteId]);
 
-  const openPreview = async (consentId) => {
+  const openPreview = async (doc) => {
     try {
-      const res = await axiosInstance.get(API_PATHS.ATHLETE_DOCUMENT_CONSENT_PREVIEW(athleteId, consentId), {
-        responseType: "blob",
-      });
+      const path =
+        doc.doc_type === "carding_form"
+          ? API_PATHS.ATHLETE_DOCUMENT_CARDING_PREVIEW(athleteId, doc.id)
+          : API_PATHS.ATHLETE_DOCUMENT_CONSENT_PREVIEW(athleteId, doc.id);
+      const res = await axiosInstance.get(path, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       window.open(url, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -97,8 +99,8 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
                     {statusLabel(d.status)}
                   </span>
                 </span>
-                {d.has_preview && d.doc_type === "membership_consent" ? (
-                  <Button type="button" size="sm" variant="secondary" onClick={() => openPreview(d.id)}>
+                {d.has_preview && (d.doc_type === "membership_consent" || d.doc_type === "carding_form") ? (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => openPreview(d)}>
                     Преглед
                   </Button>
                 ) : null}

@@ -212,6 +212,54 @@ class ParentMembershipConsentSignResponse(BaseModel):
     needs_consent: bool = False
 
 
+class ParentCardingFormStatus(BaseModel):
+    enabled: bool = False
+    needs_form: bool = False
+    has_signed: bool = False
+    season_year: Optional[int] = None
+    season_label: Optional[str] = None
+    form_kind: Optional[str] = None  # "03" | "03a"
+    form_id: Optional[int] = None
+    signed_at: Optional[datetime] = None
+    club_name: Optional[str] = None
+
+
+class ParentCardingFormMeta(BaseModel):
+    needs_form: bool = True
+    form_kind: str
+    season_year: int
+    season_label: str
+    club_name: str
+    club_logo_url: Optional[str] = None
+    bvf_logo_url: Optional[str] = None
+    prefill: dict = Field(default_factory=dict)
+
+
+class ParentCardingFormSignRequest(BaseModel):
+    parent1_full_name: str = Field(..., min_length=2, max_length=255)
+    parent1_egn: str = Field(..., min_length=10, max_length=16)
+    parent2_full_name: Optional[str] = Field(None, max_length=255)
+    parent2_egn: Optional[str] = Field(None, max_length=16)
+    athlete_first_name: str = Field(..., min_length=3, max_length=25)
+    athlete_middle_name: str = Field(..., min_length=3, max_length=25)
+    athlete_last_name: str = Field(..., min_length=3, max_length=25)
+    athlete_egn: str = Field(..., min_length=10, max_length=16)
+    city: Optional[str] = Field(None, max_length=120)
+    rules_accepted: bool = False
+    signature_parent1: str = Field(..., min_length=2, max_length=255)
+    signature_parent2: Optional[str] = Field(None, max_length=255)
+    signature_athlete: Optional[str] = Field(None, max_length=255)
+
+
+class ParentCardingFormSignResponse(BaseModel):
+    ok: bool = True
+    form_id: int
+    signed_at: datetime
+    form_kind: str
+    season_year: int
+    needs_form: bool = False
+
+
 class ParentCurrentMonthFee(BaseModel):
     month_key: str
     paid: bool = False
@@ -249,3 +297,4 @@ class ParentAthleteProfileResponse(BaseModel):
     team_feed: list[ParentTeamFeedItem] = Field(default_factory=list)
     absence_notices: list[ParentAbsenceNoticeRead] = Field(default_factory=list)
     membership_consent: ParentMembershipConsentStatus = Field(default_factory=ParentMembershipConsentStatus)
+    carding_form: ParentCardingFormStatus = Field(default_factory=ParentCardingFormStatus)

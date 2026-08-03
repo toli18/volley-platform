@@ -8,6 +8,7 @@ import ParentPortalBottomNav from "../components/parentPortal/ParentPortalBottom
 import ParentPortalLayout from "../components/parentPortal/ParentPortalLayout";
 import ParentPortalProfileContent from "../components/parentPortal/ParentPortalProfileContent";
 import ParentMembershipConsentGate from "../components/parentPortal/ParentMembershipConsentGate";
+import ParentCardingFormGate from "../components/parentPortal/ParentCardingFormGate";
 import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
 import { Button, Card, EmptyState } from "../components/ui";
 import {
@@ -216,8 +217,10 @@ export default function ParentPortal() {
   );
 
   const needsConsent = Boolean(profile?.membership_consent?.needs_consent);
+  const needsCardingForm = !needsConsent && Boolean(profile?.carding_form?.needs_form);
+  const gated = needsConsent || needsCardingForm;
 
-  const fab = profile && !needsConsent ? (
+  const fab = profile && !gated ? (
     <button
       type="button"
       className={`parentPortalFab${refreshing ? " is-spinning" : ""}`}
@@ -230,7 +233,7 @@ export default function ParentPortal() {
     </button>
   ) : null;
 
-  const bottomNav = profile && !needsConsent ? (
+  const bottomNav = profile && !gated ? (
     <ParentPortalBottomNav activeTab={activeTab} onChange={setActiveTab} scheduleDot={hasUnreadChanges} />
   ) : null;
 
@@ -246,7 +249,11 @@ export default function ParentPortal() {
         <header className="parentPortalHero">
           <h1 className="parentPortalHeroTitle">{profile ? profile.athlete_name : "Родителски профил"}</h1>
           <p className="parentPortalHeroSub">
-            {needsConsent ? "Необходимо е заявление за прием" : "Присъствие, график и месечни такси"}
+            {needsConsent
+              ? "Необходимо е клубно заявление"
+              : needsCardingForm
+                ? "Необходима е Форма 03 / 03-А за картотекиране"
+                : "Присъствие, график и месечни такси"}
           </p>
         </header>
 
@@ -266,7 +273,15 @@ export default function ParentPortal() {
           />
         ) : null}
 
-        {!loading && !error && profile && !needsConsent ? (
+        {!loading && !error && profile && needsCardingForm ? (
+          <ParentCardingFormGate
+            isSession={isSession}
+            token={token}
+            onSigned={() => loadProfile({ silent: false })}
+          />
+        ) : null}
+
+        {!loading && !error && profile && !gated ? (
           <ParentPortalProfileContent
             profile={profile}
             activeTab={activeTab}

@@ -287,35 +287,71 @@ export default function ParentPortalProfileContent({
 
           <ParentDevelopmentSection isSession={isSession} token={token} />
 
-          {profile.membership_consent?.has_signed ? (
+          {(profile.membership_consent?.has_signed || profile.carding_form?.has_signed) ? (
             <Card title="Документи">
-              <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                Заявление за прием — подписано
-                {profile.membership_consent.signed_at
-                  ? ` на ${new Date(profile.membership_consent.signed_at).toLocaleDateString("bg-BG")}`
-                  : ""}
-                .
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const path = isSession
-                      ? API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME
-                      : API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN(token);
-                    const res = await axiosInstance.get(path, { responseType: "blob" });
-                    const url = URL.createObjectURL(res.data);
-                    window.open(url, "_blank", "noopener,noreferrer");
-                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                Преглед
-              </Button>
+              {profile.membership_consent?.has_signed ? (
+                <>
+                  <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+                    Клубно заявление — подписано
+                    {profile.membership_consent.signed_at
+                      ? ` на ${new Date(profile.membership_consent.signed_at).toLocaleDateString("bg-BG")}`
+                      : ""}
+                    .
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const path = isSession
+                          ? API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME
+                          : API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN(token);
+                        const res = await axiosInstance.get(path, { responseType: "blob" });
+                        const url = URL.createObjectURL(res.data);
+                        window.open(url, "_blank", "noopener,noreferrer");
+                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  >
+                    Преглед заявление
+                  </Button>
+                </>
+              ) : null}
+              {profile.carding_form?.has_signed ? (
+                <>
+                  <p className="uiMuted" style={{ marginTop: 12, fontSize: 13 }}>
+                    {profile.carding_form.form_kind === "03a" ? "Форма 0-3 А" : "Форма 0-3"} — сезон{" "}
+                    {profile.carding_form.season_label || profile.carding_form.season_year}
+                    {profile.carding_form.signed_at
+                      ? ` · ${new Date(profile.carding_form.signed_at).toLocaleDateString("bg-BG")}`
+                      : ""}
+                    .
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const path = isSession
+                          ? API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_ME
+                          : API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN(token);
+                        const res = await axiosInstance.get(path, { responseType: "blob" });
+                        const url = URL.createObjectURL(res.data);
+                        window.open(url, "_blank", "noopener,noreferrer");
+                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  >
+                    Преглед Форма 03
+                  </Button>
+                </>
+              ) : null}
             </Card>
           ) : null}
 

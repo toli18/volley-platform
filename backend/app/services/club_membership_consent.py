@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ from app.models import Athlete, AthleteClubConsent, Club
 DEFAULT_FEE_AMOUNT = 15
 DEFAULT_FEE_DUE_DAY = 10
 DEFAULT_FEE_CURRENCY = "€"
+# Клубно заявление: валидно 1 година, после родителят попълва отново.
+CONSENT_VALIDITY_DAYS = 365
 
 DEFAULT_BODY_TEMPLATE = (
     "Желая синът/дъщерята ми да бъде приет/а като състезател във {club_name} "
@@ -160,6 +163,13 @@ def club_consent_feature_enabled(club: Club | None) -> bool:
     return bool(getattr(club, "membership_consent_enabled", False))
 
 
+def consent_still_valid(consent: AthleteClubConsent | None) -> bool:
+    if not consent or not consent.is_active or not consent.signed_at:
+        return False
+    age = datetime.utcnow() - consent.signed_at
+    return age <= timedelta(days=CONSENT_VALIDITY_DAYS)
+
+
 def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None) -> AthleteClubConsent | None:
     q = (
         db.query(AthleteClubConsent)
@@ -171,7 +181,39 @@ def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None)
     )
     if club_id is not None:
         q = q.filter(AthleteClubConsent.club_id == int(club_id))
-    return q.first()
+    consent = q.first()
+    if consent and not consent_still_valid(consent):
+        return None
+    return consent
+
+
+def deactivate_expired_or_prior_consents(db: Session, athlete_id: int, club_id: int) -> None:
+    """Деактивира стари/изтекли активни заявления преди нов подпис."""
+    now = datetime.utcnow()
+    rows = (
+        db.query(AthleteClubConsent)
+        .filter(
+            AthleteClubConsent.athlete_id == int(athlete_id),
+            AthleteClubConsent.club_id == int(club_id),
+            AthleteClubConsent.is_active.is_(True),
+        )
+        .all()
+    )
+    for row in rows:
+        row.is_active = False
+        row.revoked_at = now
+        if not row.revoke_note:
+            row.revoke_note = "Годишно подновяване"
+
+
+def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
+    """Gate когато функцията е включена и няма валидно (до 1 г.) активно заявление."""
+    if not athlete.club_id:
+        return False
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club_consent_feature_enabled(club):
+        return False
+    return get_active_consent(db, athlete.id, athlete.club_id) is None
 
 
 def _split_child_full_name(full: str | None) -> tuple[str, str, str] | None:
@@ -242,16 +284,6 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
         changed = True
 
     return changed
-
-
-def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
-    """Gate only when club has explicitly enabled the feature and no active signature."""
-    if not athlete.club_id:
-        return False
-    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
-    if not club_consent_feature_enabled(club):
-        return False
-    return get_active_consent(db, athlete.id, athlete.club_id) is None
 
 
 def build_consent_pdf(consent: AthleteClubConsent, club: Club | None = None) -> bytes:

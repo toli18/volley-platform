@@ -205,6 +205,10 @@ export const API_PATHS = {
   PARENT_PORTAL_MEMBERSHIP_CONSENT_TOKEN: (token) => `/api/parent-portal/${token}/membership-consent`,
   PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME: "/api/parent-portal/me/membership-consent/preview",
   PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN: (token) => `/api/parent-portal/${token}/membership-consent/preview`,
+  PARENT_PORTAL_CARDING_FORM_ME: "/api/parent-portal/me/carding-form",
+  PARENT_PORTAL_CARDING_FORM_TOKEN: (token) => `/api/parent-portal/${token}/carding-form`,
+  PARENT_PORTAL_CARDING_FORM_PREVIEW_ME: "/api/parent-portal/me/carding-form/preview",
+  PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN: (token) => `/api/parent-portal/${token}/carding-form/preview`,
 
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,
@@ -252,6 +256,7 @@ export const API_PATHS = {
   BVF_ADMIN_CARD_INDEX_LOCAL_REQUEST: (id) => `/api/bvf-admin/card-indexes/local/${id}/request-head`,
   BVF_ADMIN_CARD_INDEX_LOCAL_REOPEN: (id) => `/api/bvf-admin/card-indexes/local/${id}/reopen`,
   BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT: (id) => `/api/bvf-admin/card-indexes/local/${id}/submit`,
+  BVF_ADMIN_CARD_INDEX_LOCAL_DELETE: (id) => `/api/bvf-admin/card-indexes/local/${id}`,
   BVF_ADMIN_PHYSICAL_LIST: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_CREATE: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_SEND: (measurementId) => `/api/bvf-admin/players/physical/${measurementId}/send-bvf`,
@@ -266,6 +271,8 @@ export const API_PATHS = {
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/preview`,
   ATHLETE_DOCUMENT_CONSENT_REVOKE: (athleteId, consentId) =>
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/revoke`,
+  ATHLETE_DOCUMENT_CARDING_PREVIEW: (athleteId, formId) =>
+    `/api/athletes/${athleteId}/documents/carding-form/${formId}/preview`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

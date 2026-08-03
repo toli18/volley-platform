@@ -51,20 +51,20 @@ from app.services.bvf_season_carding import (
 router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Carding"])
 
 DOC_TYPE_LABELS = {
-    0: "Договор / документ",
-    1: "Медицински",
-    2: "Форма 03 / 03-А (картотекиране)",
-    3: "Друг",
+    0: "??????? / ????????",
+    1: "??????????",
+    2: "????? 03 / 03-? (?????????????)",
+    3: "????",
 }
 
 
 def _club_for_any_coach(db: Session, user: User, club_id: int | None = None) -> Club:
     if user.role == UserRole.coach:
         if not user.club_id:
-            raise HTTPException(status_code=422, detail="Няма клуб")
+            raise HTTPException(status_code=422, detail="???? ????")
         club = db.query(Club).filter(Club.id == int(user.club_id)).first()
         if not club:
-            raise HTTPException(status_code=404, detail="Клубът не е намерен")
+            raise HTTPException(status_code=404, detail="?????? ?? ? ???????")
         return club
     return _club_for_user(db, user, club_id)
 
@@ -78,7 +78,7 @@ def _token_matches_club(token: str | None, club: Club) -> str:
 
 
 def _can_submit_card_index(user: User) -> bool:
-    """Само главен треньор / админ изпраща към федерацията. (бъдещ club_admin тук)"""
+    """???? ?????? ??????? / ????? ??????? ??? ???????????. (????? club_admin ???)"""
     return user.role in (
         UserRole.club_head_coach,
         UserRole.platform_admin,
@@ -90,7 +90,7 @@ def _require_submit_role(user: User) -> None:
     if not _can_submit_card_index(user):
         raise HTTPException(
             status_code=403,
-            detail="Само главният треньор / администратор на клуба може да изпрати картотечния отбор към БФВ.",
+            detail="???? ???????? ??????? / ????????????? ?? ????? ???? ?? ??????? ??????????? ????? ??? ???.",
         )
 
 
@@ -116,8 +116,8 @@ def _require_card_index_access(db: Session, user: User, local: BvfCardIndex) -> 
             return
         if local.created_by_user_id and int(local.created_by_user_id) == int(user.id):
             return
-        raise HTTPException(status_code=403, detail="Този картотечен отбор не е назначен на теб.")
-    raise HTTPException(status_code=403, detail="Няма достъп до картотечния отбор.")
+        raise HTTPException(status_code=403, detail="???? ?????????? ????? ?? ? ???????? ?? ???.")
+    raise HTTPException(status_code=403, detail="???? ?????? ?? ??????????? ?????.")
 
 
 def _local_card_index(db: Session, club: Club, local_id: int) -> BvfCardIndex:
@@ -127,7 +127,7 @@ def _local_card_index(db: Session, club: Club, local_id: int) -> BvfCardIndex:
         .first()
     )
     if not local:
-        raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен")
+        raise HTTPException(status_code=404, detail="???????????? ????? ?? ? ???????")
     return local
 
 
@@ -155,7 +155,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         docs = athlete_docs_as_dicts(athlete)
         checklist = _doc_checklist(athlete, docs, year)
         ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
-        has_form = athlete_has_form_03(athlete, year)
+        has_form = athlete_has_form_03(athlete, year, db=db)
         if not ready:
             all_ready = False
         if not has_form:
@@ -197,29 +197,29 @@ def _bvf_get_bytes(path: str, token: str) -> tuple[bytes, str]:
         with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
             res = client.get(url, headers=_bvf_headers(token, accept="*/*"))
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"??? API ??????????: {exc}") from exc
     if res.status_code == 401:
-        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+        raise HTTPException(status_code=401, detail="??? token ? ????????? ??? ???????.")
     if res.status_code >= 400:
-        raise HTTPException(status_code=502, detail=(res.text or "")[:300] or f"БФВ грешка {res.status_code}")
+        raise HTTPException(status_code=502, detail=(res.text or "")[:300] or f"??? ?????? {res.status_code}")
     ctype = res.headers.get("content-type") or "application/octet-stream"
     return res.content, ctype
 
 
 def _bvf_get_soft(path: str, token: str) -> Any | None:
-    """GET към БФВ; 403/404 → None (клубният акаунт няма глобален search)."""
+    """GET ??? ???; 403/404 ? None (???????? ?????? ???? ???????? search)."""
     url = f"{BVF_API_BASE}{path}"
     try:
         with httpx.Client(timeout=BVF_TIMEOUT) as client:
             res = client.get(url, headers=_bvf_headers(token))
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"??? API ??????????: {exc}") from exc
     if res.status_code in (403, 404):
         return None
     if res.status_code == 401:
-        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+        raise HTTPException(status_code=401, detail="??? token ? ????????? ??? ???????.")
     if res.status_code >= 400:
-        detail = (res.text or "").strip()[:300] or f"БФВ грешка {res.status_code}"
+        detail = (res.text or "").strip()[:300] or f"??? ?????? {res.status_code}"
         raise HTTPException(status_code=502, detail=detail)
     try:
         return res.json()
@@ -230,7 +230,7 @@ def _bvf_get_soft(path: str, token: str) -> Any | None:
 def _club_players(token: str, bvf_club_id: int) -> list[dict]:
     remote = _bvf_get(f"/api/clubs/{bvf_club_id}/players", token)
     if not isinstance(remote, list):
-        raise HTTPException(status_code=502, detail="БФВ players не е списък")
+        raise HTTPException(status_code=502, detail="??? players ?? ? ??????")
     return [row for row in remote if isinstance(row, dict)]
 
 
@@ -253,15 +253,15 @@ def _find_bvf_player_by_egn(
     birth_year: int | None = None,
 ) -> dict:
     """
-    Клубната роля няма достъп до /api/players/search (403).
-    Списъкът /clubs/{id}/players е без EGN → взимаме GET /api/players/{id}
-    (PlayerDetailDto.egn) само за играчите на клуба.
+    ???????? ???? ???? ?????? ?? /api/players/search (403).
+    ???????? /clubs/{id}/players ? ??? EGN ? ??????? GET /api/players/{id}
+    (PlayerDetailDto.egn) ???? ?? ???????? ?? ?????.
     """
     roster = _club_players(token, int(club.bvf_club_id))
     if not roster:
         raise HTTPException(
             status_code=404,
-            detail="Клубът няма състезатели в БФВ. Ако още не е регистриран — използвай „Създай в БФВ“.",
+            detail="?????? ???? ??????????? ? ???. ??? ??? ?? ? ??????????? ? ????????? ??????? ? ????.",
         )
 
     for row in roster:
@@ -269,7 +269,7 @@ def _find_bvf_player_by_egn(
             try:
                 pid = int(row["id"])
             except Exception as exc:
-                raise HTTPException(status_code=502, detail="Невалиден БФВ player id") from exc
+                raise HTTPException(status_code=502, detail="????????? ??? player id") from exc
             return _player_detail_soft(token, pid) or row
 
     fn = _norm_name(first_name)
@@ -307,7 +307,7 @@ def _find_bvf_player_by_egn(
 
     raise HTTPException(
         status_code=404,
-        detail="Няма състезател с това ЕГН в клуба на БФВ. Ако още не е регистриран — използвай „Създай в БФВ“.",
+        detail="???? ?????????? ? ???? ??? ? ????? ?? ???. ??? ??? ?? ? ??????????? ? ????????? ??????? ? ????.",
     )
 
 
@@ -350,20 +350,20 @@ def sync_athlete_photo(
 ):
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Състезателят няма БФВ id")
+        raise HTTPException(status_code=422, detail="???????????? ???? ??? id")
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
     remote = _bvf_get(f"/api/players/{athlete.bvf_player_id}", token)
     if not isinstance(remote, dict):
-        raise HTTPException(status_code=502, detail="Невалиден БФВ player")
+        raise HTTPException(status_code=502, detail="????????? ??? player")
     photo_id = str(remote.get("photoId") or "").strip() or None
     if not photo_id:
-        raise HTTPException(status_code=404, detail="Няма снимка в БФВ")
+        raise HTTPException(status_code=404, detail="???? ?????? ? ???")
     from app.services.athlete_photo import fetch_bvf_photo_bytes_detailed, save_athlete_photo
 
     content, reason = fetch_bvf_photo_bytes_detailed(token, photo_id)
     if not content:
-        raise HTTPException(status_code=502, detail=reason or "Неуспешно изтегляне на снимката от БФВ")
+        raise HTTPException(status_code=502, detail=reason or "????????? ????????? ?? ???????? ?? ???")
     save_athlete_photo(athlete.id, content)
     athlete.bvf_photo_id = photo_id
     athlete.bvf_synced_at = datetime.utcnow()
@@ -381,12 +381,12 @@ def link_player_by_egn(
 ):
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if athlete.bvf_player_id:
-        raise HTTPException(status_code=409, detail="Вече е свързан с БФВ")
+        raise HTTPException(status_code=409, detail="???? ? ??????? ? ???")
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
     egn_val = (payload.egn or athlete.egn or "").strip()
     if len(egn_val) != 10:
-        raise HTTPException(status_code=422, detail="ЕГН е задължително (10 символа)")
+        raise HTTPException(status_code=422, detail="??? ? ???????????? (10 ???????)")
 
     birth_year = None
     if athlete.birth_year:
@@ -409,7 +409,7 @@ def link_player_by_egn(
     pid = int(match["id"])
     other = db.query(Athlete).filter(Athlete.bvf_player_id == pid, Athlete.id != athlete.id).first()
     if other:
-        raise HTTPException(status_code=409, detail=f"БФВ id {pid} вече е свързан с друг състезател")
+        raise HTTPException(status_code=409, detail=f"??? id {pid} ???? ? ??????? ? ???? ??????????")
 
     first_n = str(match.get("firstName") or "").strip() or athlete.first_name
     middle_n = str(match.get("middleName") or "").strip() or athlete.middle_name
@@ -514,7 +514,7 @@ def _upsert_doc_mirrors(db: Session, athlete: Athlete, docs: list) -> list[dict]
                 "bvf_document_id": doc_id,
                 "bvf_file_id": row.bvf_file_id,
                 "doc_type": row.doc_type,
-                "type_label": DOC_TYPE_LABELS.get(row.doc_type if row.doc_type is not None else -1, "Документ"),
+                "type_label": DOC_TYPE_LABELS.get(row.doc_type if row.doc_type is not None else -1, "????????"),
                 "description": row.description,
                 "start_date": start_dt.isoformat() if start_dt else None,
                 "end_date": end_dt.isoformat() if end_dt else None,
@@ -523,7 +523,7 @@ def _upsert_doc_mirrors(db: Session, athlete: Athlete, docs: list) -> list[dict]
         )
     existing = db.query(AthleteBvfDocument).filter(AthleteBvfDocument.athlete_id == athlete.id).all()
     for row in existing:
-        # Не трий локални маркери (local-...) при sync от БФВ
+        # ?? ???? ??????? ??????? (local-...) ??? sync ?? ???
         if str(row.bvf_document_id or "").startswith("local-"):
             continue
         if row.bvf_document_id not in seen:
@@ -541,10 +541,10 @@ def _doc_checklist(athlete: Athlete, docs: list[dict], season_year: int) -> list
     ]
     has_form = any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in (season_docs or docs))
     return [
-        {"key": "photo", "label": "Снимка", "ok": has_photo},
-        {"key": "egn", "label": "ЕГН", "ok": bool((athlete.egn or "").strip())},
-        {"key": "carding_form", "label": f"Форма 03 / 03-А ({season_year})", "ok": has_form},
-        {"key": "any_doc", "label": "Поне един документ в БФВ", "ok": len(docs) > 0},
+        {"key": "photo", "label": "??????", "ok": has_photo},
+        {"key": "egn", "label": "???", "ok": bool((athlete.egn or "").strip())},
+        {"key": "carding_form", "label": f"????? 03 / 03-? ({season_year})", "ok": has_form},
+        {"key": "any_doc", "label": "???? ???? ???????? ? ???", "ok": len(docs) > 0},
     ]
 
 
@@ -559,12 +559,12 @@ def sync_player_documents(
 ):
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Първо свържи / създай в БФВ")
+        raise HTTPException(status_code=422, detail="????? ?????? / ?????? ? ???")
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
     remote = _bvf_get(f"/api/players/{athlete.bvf_player_id}/documents", token)
     if not isinstance(remote, list):
-        raise HTTPException(status_code=502, detail="БФВ documents не е списък")
+        raise HTTPException(status_code=502, detail="??? documents ?? ? ??????")
     docs = _upsert_doc_mirrors(db, athlete, remote)
     year = season_year or datetime.utcnow().year
     return {
@@ -592,15 +592,15 @@ async def upload_player_document(
 ):
     athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Първо свържи / създай в БФВ")
+        raise HTTPException(status_code=422, detail="????? ?????? / ?????? ? ???")
     club = _club_for_any_coach(db, current_user, None)
     token = _token_matches_club(bvf_token, club)
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=422, detail="Празен файл")
+        raise HTTPException(status_code=422, detail="?????? ????")
     data = {
         "Type": str(int(doc_type)),
-        "Description": (description or "").strip() or DOC_TYPE_LABELS.get(int(doc_type), "Документ"),
+        "Description": (description or "").strip() or DOC_TYPE_LABELS.get(int(doc_type), "????????"),
     }
     if start_date:
         data["StartDate"] = start_date
@@ -626,7 +626,7 @@ def fetch_card_indexes(
     token = _token_matches_club(payload.bvf_token, club)
     remote = _bvf_get(f"/api/clubs/{club.bvf_club_id}/card-indexes", token)
     if not isinstance(remote, list):
-        raise HTTPException(status_code=502, detail="БФВ card-indexes не е списък")
+        raise HTTPException(status_code=502, detail="??? card-indexes ?? ? ??????")
     items = []
     for row in remote:
         if not isinstance(row, dict):
@@ -683,7 +683,7 @@ def create_card_index(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Треньорът създава картотечен отбор (чернова в БФВ). Изпращането е отделна стъпка."""
+    """????????? ??????? ?????????? ????? (??????? ? ???). ??????????? ? ??????? ??????."""
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
     data = {
@@ -698,7 +698,7 @@ def create_card_index(
         data["CoachId"] = str(int(payload.coach_id))
     remote = _bvf_post_multipart("/api/card-indexes", token, data, files={})
     if not isinstance(remote, dict) or not remote.get("id"):
-        raise HTTPException(status_code=502, detail="БФВ не върна card index")
+        raise HTTPException(status_code=502, detail="??? ?? ????? card index")
     cid = int(remote["id"])
     local = BvfCardIndex(
         club_id=club.id,
@@ -745,7 +745,7 @@ def add_players_to_card_index(
         .first()
     )
     if local and (local.is_signed or local.status == "signed"):
-        raise HTTPException(status_code=409, detail="Картотечният отбор е подписан — не може да се променя съставът")
+        raise HTTPException(status_code=409, detail="???????????? ????? ? ???????? ? ?? ???? ?? ?? ??????? ????????")
     if local:
         _require_card_index_access(db, current_user, local)
     season_year = (local.year if local else None) or datetime.utcnow().year
@@ -754,10 +754,10 @@ def add_players_to_card_index(
     for aid in payload.athlete_ids or []:
         athlete = _athlete_for_bvf_action(db, current_user, int(aid))
         if not athlete.bvf_player_id:
-            errors.append(f"#{aid} няма БФВ id")
+            errors.append(f"#{aid} ???? ??? id")
             continue
-        if not athlete_has_form_03(athlete, int(season_year)):
-            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
+        if not athlete_has_form_03(athlete, int(season_year), db=db):
+            errors.append(f"{athlete.athlete_name}: ?????? ????? 03 / 03-? ?? {season_year}")
             continue
         url = f"{BVF_API_BASE}/api/card-indexes/{int(bvf_card_index_id)}/players"
         ok = False
@@ -819,14 +819,14 @@ def list_eligible_card_index_athletes(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Картотекирани състезатели; по подразбиране само с Форма 03 за сезона."""
+    """????????????? ???????????; ?? ???????????? ???? ? ????? 03 ?? ??????."""
     club = _club_for_any_coach(db, current_user, club_id)
     year = int(season_year or datetime.utcnow().year)
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
     if current_user.role == UserRole.coach:
         q = q.filter(Athlete.coach_id == current_user.id)
     rows = q.order_by(Athlete.athlete_name.asc()).all()
-    athletes = [eligible_athlete_payload(a, year) for a in rows]
+    athletes = [eligible_athlete_payload(a, year, db=db) for a in rows]
     roster = [a for a in athletes if a["eligible_for_roster"]] if require_form_03 else athletes
     return {
         "athletes": roster,
@@ -853,7 +853,7 @@ def get_card_index_detail(
         .first()
     )
     if not local:
-        raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен локално — зареди списъка от БФВ")
+        raise HTTPException(status_code=404, detail="???????????? ????? ?? ? ??????? ??????? ? ?????? ??????? ?? ???")
     _require_card_index_access(db, current_user, local)
     return _detail_payload(db, local, current_user)
 
@@ -868,8 +868,8 @@ def submit_card_index_to_federation(
     ),
 ):
     """
-    Изпращане към БФВ (sign). Само главен треньор / админ.
-    Обикновен треньор създава и пълни; тук се заключва към федерацията.
+    ????????? ??? ??? (sign). ???? ?????? ??????? / ?????.
+    ????????? ??????? ??????? ? ?????; ??? ?? ???????? ??? ???????????.
     """
     _require_submit_role(current_user)
     club = _club_for_any_coach(db, current_user, payload.club_id)
@@ -880,13 +880,13 @@ def submit_card_index_to_federation(
         .first()
     )
     if not local:
-        raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен")
+        raise HTTPException(status_code=404, detail="???????????? ????? ?? ? ???????")
     if local.is_signed or local.status == "signed":
-        raise HTTPException(status_code=409, detail="Вече е изпратен / подписан към БФВ")
+        raise HTTPException(status_code=409, detail="???? ? ???????? / ???????? ??? ???")
 
     members = local.members or []
     if not members:
-        raise HTTPException(status_code=422, detail="Няма състезатели в картотечния отбор")
+        raise HTTPException(status_code=422, detail="???? ??????????? ? ??????????? ?????")
 
     year = local.year or datetime.utcnow().year
     not_ready = []
@@ -905,7 +905,7 @@ def submit_card_index_to_federation(
     if not_ready:
         raise HTTPException(
             status_code=422,
-            detail="Има непълни документи: " + "; ".join(not_ready[:5]),
+            detail="??? ??????? ?????????: " + "; ".join(not_ready[:5]),
         )
 
     url = f"{BVF_API_BASE}/api/card-indexes/{int(bvf_card_index_id)}/sign"
@@ -913,7 +913,7 @@ def submit_card_index_to_federation(
         with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
             res = client.put(url, headers=_bvf_headers(token))
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"БФВ sign недостъпен: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"??? sign ??????????: {exc}") from exc
 
     if res.status_code == 403:
         local.status = "pending_bvf_sign"
@@ -923,14 +923,14 @@ def submit_card_index_to_federation(
         raise HTTPException(
             status_code=403,
             detail=(
-                "Клубният акаунт няма право да подпише в БФВ API (трябва Administrator / API ключ). "
-                "Отборът е маркиран като готов при нас — pending_bvf_sign."
+                "???????? ?????? ???? ????? ?? ??????? ? ??? API (?????? Administrator / API ????). "
+                "??????? ? ???????? ???? ????? ??? ??? ? pending_bvf_sign."
             ),
         )
     if res.status_code == 400:
-        raise HTTPException(status_code=409, detail=(res.text or "Картотеката вече е подписана в БФВ")[:300])
+        raise HTTPException(status_code=409, detail=(res.text or "??????????? ???? ? ????????? ? ???")[:300])
     if res.status_code >= 400:
-        raise HTTPException(status_code=502, detail=(res.text or "")[:300] or f"БФВ sign грешка {res.status_code}")
+        raise HTTPException(status_code=502, detail=(res.text or "")[:300] or f"??? sign ?????? {res.status_code}")
 
     local.is_signed = True
     local.status = "signed"
@@ -947,7 +947,7 @@ def submit_card_index_to_federation(
 
 
 # ---------------------------------------------------------------------------
-# Физически показатели → БФВ /players/{id}/developments
+# ????????? ?????????? ? ??? /players/{id}/developments
 # ---------------------------------------------------------------------------
 
 
@@ -978,7 +978,7 @@ def _parse_measured_at(raw: Optional[str]) -> datetime:
             return datetime.strptime(s, "%Y-%m-%d")
         return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail="Невалидна дата на измерване") from exc
+        raise HTTPException(status_code=422, detail="????????? ???? ?? ?????????") from exc
 
 
 def _serialize_physical(row: AthletePhysicalMeasurement) -> dict:
@@ -1000,7 +1000,7 @@ def _serialize_physical(row: AthletePhysicalMeasurement) -> dict:
 
 
 def _push_physical_row_to_bvf(row: AthletePhysicalMeasurement, athlete: Athlete, token: str) -> AthletePhysicalMeasurement:
-    """Изпраща локален ред към БФВ developments и маркира sync."""
+    """??????? ??????? ??? ??? ??? developments ? ??????? sync."""
     data = {"Date": row.measured_at.strftime("%Y-%m-%dT%H:%M:%S")}
     if row.position is not None:
         data["Position"] = str(int(row.position))
@@ -1095,7 +1095,7 @@ def create_physical_measurement(
             payload.block_cm,
         ]
     ):
-        raise HTTPException(status_code=422, detail="Въведи поне едно измерение (височина, тегло, …)")
+        raise HTTPException(status_code=422, detail="?????? ???? ???? ????????? (????????, ?????, ?)")
     row = AthletePhysicalMeasurement(
         athlete_id=athlete.id,
         measured_at=_parse_measured_at(payload.measured_at),
@@ -1123,7 +1123,7 @@ def send_physical_from_tests(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Взема стойностите от тестовете и ги изпраща към БФВ developments."""
+    """????? ??????????? ?? ????????? ? ?? ??????? ??? ??? developments."""
     from app.services.physical_from_tests import (
         find_matching_synced,
         latest_bvf_fields_from_tests,
@@ -1132,11 +1132,11 @@ def send_physical_from_tests(
 
     athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+        raise HTTPException(status_code=422, detail="????? ?????? ??????????? ? ???")
 
     preview = latest_bvf_fields_from_tests(db, athlete.id)
     if not preview["has_data"]:
-        raise HTTPException(status_code=422, detail="Няма тестови данни за изпращане (височина/тегло/…)")
+        raise HTTPException(status_code=422, detail="???? ??????? ????? ?? ????????? (????????/?????/?)")
 
     matched = find_matching_synced(db, athlete.id, preview["fields"])
     if matched is not None:
@@ -1151,7 +1151,7 @@ def send_physical_from_tests(
 
     row = upsert_pending_from_tests(db, athlete.id, user_id=current_user.id)
     if row is None:
-        raise HTTPException(status_code=422, detail="Няма тестови данни за изпращане")
+        raise HTTPException(status_code=422, detail="???? ??????? ????? ?? ?????????")
 
     _push_physical_row_to_bvf(row, athlete, token)
     db.commit()
@@ -1174,10 +1174,10 @@ def send_physical_to_bvf(
 ):
     row = db.query(AthletePhysicalMeasurement).filter(AthletePhysicalMeasurement.id == int(measurement_id)).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Измерването не е намерено")
+        raise HTTPException(status_code=404, detail="??????????? ?? ? ????????")
     athlete = _athlete_for_bvf_action(db, current_user, row.athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+        raise HTTPException(status_code=422, detail="????? ?????? ??????????? ? ???")
     if row.bvf_development_id:
         return {**_serialize_physical(row), "already_synced": True}
 
@@ -1200,12 +1200,12 @@ def fetch_physical_from_bvf(
 ):
     athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="Първо свържи състезателя с БФВ")
+        raise HTTPException(status_code=422, detail="????? ?????? ??????????? ? ???")
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
     remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/developments", token)
     if not isinstance(remote, list):
-        raise HTTPException(status_code=502, detail="БФВ developments не е списък")
+        raise HTTPException(status_code=502, detail="??? developments ?? ? ??????")
 
     imported = 0
     for raw in remote:
@@ -1260,7 +1260,7 @@ def fetch_physical_from_bvf(
 
 
 # ---------------------------------------------------------------------------
-# Сезонна заявка + локални чернови (без write token към БФВ)
+# ??????? ?????? + ??????? ??????? (??? write token ??? ???)
 # ---------------------------------------------------------------------------
 
 
@@ -1275,6 +1275,8 @@ class SeasonAssignCoachIn(BaseModel):
     age: int
     sex: int = 0
     coach_user_id: int
+    second_coach_user_id: Optional[int] = None
+    doctor_name: Optional[str] = None
     club_id: Optional[int] = None
 
 
@@ -1300,46 +1302,18 @@ def mark_form_03_local(
     payload: MarkForm03In,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Локален маркер за Форма 03 / 03-А докато няма write token към БФВ."""
-    athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
-    year = int(payload.season_year or datetime.utcnow().year)
-    doc_id = f"local-form03-{athlete.id}-{year}"
-    row = (
-        db.query(AthleteBvfDocument)
-        .filter(AthleteBvfDocument.athlete_id == athlete.id, AthleteBvfDocument.bvf_document_id == doc_id)
-        .first()
+    """??????? ??????? ?????? ? ???? ?? ???? ?? ?????????."""
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "????????? ?????? ???? ?? ???? ?? ?????????????. "
+            "????????? ??????? ????? 03 / 03-? ?????? ???? ???????? ?? ??????, "
+            "??? ?????? PDF ??? ???."
+        ),
     )
-    if not row:
-        row = AthleteBvfDocument(athlete_id=athlete.id, bvf_document_id=doc_id)
-        db.add(row)
-    row.doc_type = 2
-    row.description = (payload.note or "").strip() or f"Форма 03 / 03-А {year} (локален маркер)"
-    row.season_year = year
-    row.synced_at = datetime.utcnow()
-    db.commit()
-    docs = athlete_docs_as_dicts(athlete)
-    # refresh relationship
-    db.refresh(athlete)
-    docs = [
-        {
-            "bvf_document_id": d.bvf_document_id,
-            "doc_type": d.doc_type,
-            "description": d.description,
-            "season_year": d.season_year,
-            "type_label": DOC_TYPE_LABELS.get(d.doc_type if d.doc_type is not None else -1, "Документ"),
-            "local": str(d.bvf_document_id or "").startswith("local-"),
-        }
-        for d in (athlete.bvf_documents or [])
-    ]
-    return {
-        "ok": True,
-        "documents": docs,
-        "checklist": _doc_checklist(athlete, athlete_docs_as_dicts(athlete), year),
-        "season_year": year,
-    }
 
 
 @router.get("/club-coaches")
@@ -1440,7 +1414,7 @@ def assign_coach_to_age_slot(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Главен треньор назначава треньор за възраст/пол — създава локална чернова на отбор."""
+    """?????? ??????? ????????? ??????? ?? ???????/??? ? ??????? ??????? ??????? ?? ?????."""
     club = _club_for_user(db, current_user, payload.club_id)
     year = int(payload.year or datetime.utcnow().year)
     app = (
@@ -1472,6 +1446,24 @@ def assign_coach_to_age_slot(
     if not coach:
         raise HTTPException(status_code=404, detail="Треньорът не е от този клуб")
 
+    second_coach = None
+    if payload.second_coach_user_id:
+        if int(payload.second_coach_user_id) == int(coach.id):
+            raise HTTPException(status_code=422, detail="Вторият треньор трябва да е различен от основния")
+        second_coach = (
+            db.query(User)
+            .filter(
+                User.id == int(payload.second_coach_user_id),
+                User.club_id == club.id,
+                User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+            )
+            .first()
+        )
+        if not second_coach:
+            raise HTTPException(status_code=404, detail="Вторият треньор не е от този клуб")
+
+    doctor_name = (payload.doctor_name or "").strip() or None
+
     age = int(payload.age)
     sex = int(payload.sex)
     existing = (
@@ -1487,8 +1479,10 @@ def assign_coach_to_age_slot(
     )
     if existing:
         if existing.is_signed or existing.status in ("signed", "pending_bvf_sign"):
-            raise HTTPException(status_code=409, detail="Отборът вече е изпратен — не може да се преназначава")
+            raise HTTPException(status_code=409, detail="Отборът вече е подписан и не може да се преназначава")
         existing.assigned_coach_user_id = coach.id
+        existing.second_coach_user_id = second_coach.id if second_coach else None
+        existing.doctor_name = doctor_name
         local = existing
     else:
         local = BvfCardIndex(
@@ -1501,12 +1495,40 @@ def assign_coach_to_age_slot(
             status="draft",
             created_by_user_id=current_user.id,
             assigned_coach_user_id=coach.id,
+            second_coach_user_id=second_coach.id if second_coach else None,
+            doctor_name=doctor_name,
             season_application_id=app.id,
         )
         db.add(local)
     db.commit()
     db.refresh(local)
     return serialize_card_index_row(db, local)
+
+
+
+@router.delete("/card-indexes/local/{local_id}")
+def delete_local_card_index(
+    local_id: int,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Изтрива локална чернова преди заявка към главния / запис в СЕК."""
+    club = _club_for_user(db, current_user, club_id)
+    local = _local_card_index(db, club, local_id)
+    status = (local.status or "").strip()
+    if local.bvf_card_index_id is not None or bool(local.is_signed):
+        raise HTTPException(status_code=409, detail="Отборът вече е в СЕК и не може да се изтрие оттук")
+    if status not in ("draft", "building"):
+        raise HTTPException(
+            status_code=409,
+            detail="Може да се изтрие само преди заявка към главния треньор (чернова / в изграждане)",
+        )
+    db.delete(local)
+    db.commit()
+    return {"ok": True, "deleted_id": int(local_id)}
 
 
 @router.get("/card-indexes/local")
@@ -1556,14 +1578,14 @@ def add_players_to_local_card_index(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Добавя състезатели локално. Към БФВ се синхронизира при изпращане (когато има write token)."""
+    """?????? ??????????? ???????. ??? ??? ?? ???????????? ??? ????????? (?????? ??? write token)."""
     club = _club_for_any_coach(db, current_user, payload.club_id)
     local = _local_card_index(db, club, local_id)
     _require_card_index_access(db, current_user, local)
     if not _can_edit_card_index(current_user, local):
-        raise HTTPException(status_code=409, detail="Отборът е заключен")
+        raise HTTPException(status_code=409, detail="??????? ? ????????")
     if local.status == "ready_for_head" and not _can_submit_card_index(current_user):
-        raise HTTPException(status_code=409, detail="Отборът чака главния треньор — съставът е заключен")
+        raise HTTPException(status_code=409, detail="??????? ???? ??????? ??????? ? ???????? ? ????????")
 
     season_year = local.year or datetime.utcnow().year
     added = 0
@@ -1571,10 +1593,10 @@ def add_players_to_local_card_index(
     for aid in payload.athlete_ids or []:
         athlete = _athlete_for_bvf_action(db, current_user, int(aid))
         if not athlete.bvf_player_id:
-            errors.append(f"#{aid} няма БФВ id (не е в СЕК)")
+            errors.append(f"#{aid} ???? ??? id (?? ? ? ???)")
             continue
-        if not athlete_has_form_03(athlete, int(season_year)):
-            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
+        if not athlete_has_form_03(athlete, int(season_year), db=db):
+            errors.append(f"{athlete.athlete_name}: ?????? ????? 03 / 03-? ?? {season_year}")
             continue
         mem = (
             db.query(BvfCardIndexMember)
@@ -1603,19 +1625,19 @@ def request_card_index_to_head(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Треньорът изпраща заявка към главния треньор за запис в СЕК."""
+    """????????? ??????? ?????? ??? ??????? ??????? ?? ????? ? ???."""
     club = _club_for_any_coach(db, current_user, payload.club_id)
     local = _local_card_index(db, club, local_id)
     _require_card_index_access(db, current_user, local)
     if local.is_signed or local.status in ("signed", "pending_bvf_sign"):
-        raise HTTPException(status_code=409, detail="Отборът вече е изпратен към БФВ")
+        raise HTTPException(status_code=409, detail="??????? ???? ? ???????? ??? ???")
     detail = _detail_payload(db, local, current_user)
     if not detail["members_count"]:
-        raise HTTPException(status_code=422, detail="Няма състезатели в състава")
+        raise HTTPException(status_code=422, detail="???? ??????????? ? ???????")
     if not detail["all_ready"]:
         raise HTTPException(
             status_code=422,
-            detail="Не всички в състава са готови (снимка, ЕГН, Форма 03 / 03-А).",
+            detail="?? ?????? ? ??????? ?? ?????? (??????, ???, ????? 03 / 03-?).",
         )
     local.status = "ready_for_head"
     local.requested_at = datetime.utcnow()
@@ -1628,7 +1650,7 @@ def request_card_index_to_head(
         "id": local.id,
         "status": local.status,
         "requested_at": local.requested_at.isoformat() if local.requested_at else None,
-        "message": "Заявката е към главния треньор. Записът в СЕК е негова стъпка.",
+        "message": "???????? ? ??? ??????? ???????. ??????? ? ??? ? ?????? ??????.",
     }
 
 
@@ -1641,11 +1663,11 @@ def reopen_card_index_for_coach(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Главният връща отбора на треньора за корекции."""
+    """???????? ????? ?????? ?? ???????? ?? ????????."""
     club = _club_for_user(db, current_user, payload.club_id)
     local = _local_card_index(db, club, local_id)
     if local.status not in ("ready_for_head", "building"):
-        raise HTTPException(status_code=409, detail="Отборът не може да се върне в този статус")
+        raise HTTPException(status_code=409, detail="??????? ?? ???? ?? ?? ????? ? ???? ??????")
     local.status = "building"
     local.requested_at = None
     local.requested_by_user_id = None
@@ -1664,15 +1686,15 @@ def submit_local_card_index_to_federation(
     ),
 ):
     """
-    Главен треньор записва подготвения отбор в СЕК.
-    Без write token: ясно съобщение; локалният статус остава ready_for_head.
+    ?????? ??????? ??????? ??????????? ????? ? ???.
+    ??? write token: ???? ?????????; ????????? ?????? ?????? ready_for_head.
     """
     _require_submit_role(current_user)
     club = _club_for_user(db, current_user, payload.club_id)
     local = _local_card_index(db, club, local_id)
     detail = _detail_payload(db, local, current_user)
     if not detail["all_ready"]:
-        raise HTTPException(status_code=422, detail="Съставът не е готов (Форма 03 / снимка / ЕГН).")
+        raise HTTPException(status_code=422, detail="???????? ?? ? ????? (????? 03 / ?????? / ???).")
 
     if local.bvf_card_index_id:
         return submit_card_index_to_federation(local.bvf_card_index_id, payload, db, current_user)
@@ -1683,8 +1705,8 @@ def submit_local_card_index_to_federation(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Отборът е готов при нас, но няма валидна БФВ връзка / write token. "
-                f"Детайл: {exc.detail}"
+                "??????? ? ????? ??? ???, ?? ???? ??????? ??? ?????? / write token. "
+                f"??????: {exc.detail}"
             ),
         ) from exc
 
@@ -1694,21 +1716,34 @@ def submit_local_card_index_to_federation(
         "Age": str(int(local.age)),
         "Sex": str(int(local.sex)),
     }
+    primary = db.query(User).filter(User.id == local.assigned_coach_user_id).first() if local.assigned_coach_user_id else None
+    if primary and getattr(primary, "bvf_coach_id", None):
+        data["SeniorCoachId"] = str(int(primary.bvf_coach_id))
+    second = (
+        db.query(User).filter(User.id == local.second_coach_user_id).first()
+        if getattr(local, "second_coach_user_id", None)
+        else None
+    )
+    if second and getattr(second, "bvf_coach_id", None):
+        data["CoachId"] = str(int(second.bvf_coach_id))
+    doctor = (getattr(local, "doctor_name", None) or "").strip()
+    if doctor:
+        data["DoctorName"] = doctor
     try:
         remote = _bvf_post_multipart("/api/card-indexes", token, data, files={})
     except HTTPException as exc:
         raise HTTPException(
             status_code=503,
             detail=(
-                "Отборът е маркиран готов. Записът в СЕК чака write ApiKey. "
-                f"БФВ: {exc.detail}"
+                "??????? ? ???????? ?????. ??????? ? ??? ???? write ApiKey. "
+                f"???: {exc.detail}"
             ),
         ) from exc
 
     if not isinstance(remote, dict) or not remote.get("id"):
         raise HTTPException(
             status_code=503,
-            detail="Отборът е готов локално. БФВ не върна card index — нужен е write token.",
+            detail="??????? ? ????? ???????. ??? ?? ????? card index ? ????? ? write token.",
         )
 
     cid = int(remote["id"])

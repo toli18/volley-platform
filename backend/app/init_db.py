@@ -260,6 +260,14 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS second_coach_user_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE bvf_card_indexes ADD COLUMN IF NOT EXISTS doctor_name VARCHAR(255)")
+                )
+                conn.execute(
+                    text(
                         "CREATE INDEX IF NOT EXISTS ix_athletes_bvf_player_number "
                         "ON athletes (bvf_player_number)"
                     )
@@ -391,6 +399,12 @@ def _init_db_impl() -> None:
                     if "request_note" not in ci_names:
                         conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN request_note TEXT"))
                         print("✅ Added bvf_card_indexes.request_note")
+                    if "second_coach_user_id" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN second_coach_user_id INTEGER"))
+                        print("✅ Added bvf_card_indexes.second_coach_user_id")
+                    if "doctor_name" not in ci_names:
+                        conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN doctor_name VARCHAR(255)"))
+                        print("✅ Added bvf_card_indexes.doctor_name")
             except Exception:
                 pass
 

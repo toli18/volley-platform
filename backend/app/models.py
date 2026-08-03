@@ -562,10 +562,15 @@ class Athlete(Base):
         back_populates="athlete",
         cascade="all, delete-orphan",
     )
+    carding_forms = relationship(
+        "AthleteCardingForm",
+        back_populates="athlete",
+        cascade="all, delete-orphan",
+    )
 
 
 class AthleteClubConsent(Base):
-    """Подписано клубно заявление (веднъж на дете/клуб, до оттегляне)."""
+    """Подписано клубно заявление — валидно 1 година, после се подновява от родителя."""
 
     __tablename__ = "athlete_club_consents"
 
@@ -603,6 +608,44 @@ class AthleteClubConsent(Base):
 
     athlete = relationship("Athlete", back_populates="club_consents")
     club = relationship("Club", back_populates="membership_consents")
+
+
+class AthleteCardingForm(Base):
+    """Подписана Форма 0-3 / 0-3 А за сезон (картотекиране)."""
+
+    __tablename__ = "athlete_carding_forms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    season_year = Column(Integer, nullable=False, index=True)
+    # "03" (<14) | "03a" (14+)
+    form_kind = Column(String(8), nullable=False)
+
+    parent1_full_name = Column(String(255), nullable=False)
+    parent1_egn = Column(String(16), nullable=False)
+    parent2_full_name = Column(String(255), nullable=True)
+    parent2_egn = Column(String(16), nullable=True)
+
+    athlete_full_name = Column(String(255), nullable=False)
+    athlete_egn = Column(String(16), nullable=False)
+
+    city = Column(String(120), nullable=True)
+    rules_accepted = Column(Boolean, nullable=False, default=True)
+    signature_parent1 = Column(String(255), nullable=False)
+    signature_parent2 = Column(String(255), nullable=True)
+    signature_athlete = Column(String(255), nullable=True)
+    signed_at = Column(DateTime, nullable=False)
+
+    club_name_snapshot = Column(String(255), nullable=True)
+    season_label_snapshot = Column(String(64), nullable=True)
+    pdf_rel_path = Column(String(500), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    athlete = relationship("Athlete", back_populates="carding_forms")
+    club = relationship("Club")
 
 
 class AthletePhysicalMeasurement(Base):
@@ -686,6 +729,9 @@ class BvfCardIndex(Base):
     status = Column(String(32), nullable=False, default="draft")
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Втори треньор + лекар (както в СЕК card index / протокол)
+    second_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    doctor_name = Column(String(255), nullable=True)
     season_application_id = Column(
         Integer, ForeignKey("bvf_season_applications.id", ondelete="SET NULL"), nullable=True, index=True
     )
