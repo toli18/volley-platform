@@ -29,7 +29,8 @@ def bvf_missing_fields(athlete: Athlete) -> list[str]:
         missing.append("националност")
     if not getattr(athlete, "gender", None):
         missing.append("пол")
-    if not (getattr(athlete, "egn", None) or "").strip():
+    egn_digits = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
+    if len(egn_digits) != 10:
         missing.append("ЕГН")
     if not has_cached_photo(athlete.id) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
         missing.append("снимка")
@@ -52,11 +53,13 @@ def compute_sek_board_row(athlete: Athlete, *, coach_name: str | None = None) ->
     in_sek = bool(getattr(athlete, "bvf_player_id", None))
     missing = bvf_missing_fields(athlete)
     missing_no_photo = [m for m in missing if m != "снимка"]
-    has_egn = len((getattr(athlete, "egn", None) or "").strip()) == 10
+    egn_digits = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
+    has_egn = len(egn_digits) == 10
     photo_ok = has_local_photo(athlete)
 
     if in_sek:
         readiness = "in_sek"
+        missing = []
     elif not missing_no_photo and photo_ok:
         readiness = "ready_create"
     elif not missing_no_photo and not photo_ok:

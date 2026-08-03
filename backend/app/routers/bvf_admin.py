@@ -1017,7 +1017,8 @@ def sek_athletes_board(
     """Локални състезатели на клуба: в СЕК vs липсват + готовност за link/create."""
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, club_id)
-    from app.services.sek_athlete_readiness import compute_sek_board_row
+    from app.services.club_membership_consent import apply_athlete_identity_from_consent
+    from app.services.sek_athlete_readiness import compute_sek_board_row, refresh_open_sek_task
 
     athletes = (
         db.query(Athlete)
@@ -1031,14 +1032,20 @@ def sek_athletes_board(
         for u in db.query(User).filter(User.id.in_(coach_ids)).all():
             coaches[int(u.id)] = u.name
 
+    healed_any = False
     in_sek: list[dict] = []
     missing_sek: list[dict] = []
     for a in athletes:
+        if apply_athlete_identity_from_consent(db, a):
+            refresh_open_sek_task(a)
+            healed_any = True
         row = compute_sek_board_row(a, coach_name=coaches.get(int(a.coach_id)) if a.coach_id else None)
         if row["in_sek"]:
             in_sek.append(row)
         else:
             missing_sek.append(row)
+    if healed_any:
+        db.commit()
 
     return {
         "club_id": club.id,

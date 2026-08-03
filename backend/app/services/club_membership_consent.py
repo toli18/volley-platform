@@ -174,6 +174,76 @@ def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None)
     return q.first()
 
 
+def _split_child_full_name(full: str | None) -> tuple[str, str, str] | None:
+    parts = [p for p in str(full or "").split() if p]
+    if len(parts) < 3:
+        return None
+    return parts[0], parts[1], " ".join(parts[2:])
+
+
+def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
+    """
+    Попълва липсващи полета в профила от активното клубно заявление.
+    Покрива стари подписи, които са записали само child_full_name / child_egn в consent,
+    без first_name / middle_name / last_name на атлета.
+    Не пипа идентичност след връзка с БФВ.
+    """
+    if getattr(athlete, "bvf_player_id", None):
+        return False
+    consent = get_active_consent(db, athlete.id, athlete.club_id)
+    if not consent:
+        return False
+
+    changed = False
+
+    need_names = not (
+        (athlete.first_name or "").strip()
+        and (athlete.middle_name or "").strip()
+        and (athlete.last_name or "").strip()
+    )
+    if need_names:
+        split = _split_child_full_name(consent.child_full_name) or _split_child_full_name(
+            athlete.athlete_name
+        )
+        if split:
+            first, middle, last = split
+            athlete.first_name = first
+            athlete.middle_name = middle
+            athlete.last_name = last
+            athlete.athlete_name = f"{first} {middle} {last}".strip()
+            changed = True
+        elif (consent.child_full_name or "").strip() and not (athlete.athlete_name or "").strip():
+            athlete.athlete_name = consent.child_full_name.strip()
+            changed = True
+
+    consent_egn = "".join(ch for ch in str(consent.child_egn or "") if ch.isdigit())
+    athlete_egn = "".join(ch for ch in str(athlete.egn or "") if ch.isdigit())
+    if len(consent_egn) == 10 and athlete_egn != consent_egn:
+        athlete.egn = consent_egn
+        changed = True
+        try:
+            from app.services.athlete_identity import apply_birth_date_from_egn
+
+            apply_birth_date_from_egn(athlete)
+        except Exception:
+            pass
+
+    if not (athlete.parent_name or "").strip() and (consent.parent_full_name or "").strip():
+        athlete.parent_name = consent.parent_full_name.strip()
+        changed = True
+    if not (athlete.parent_phone or "").strip() and (consent.parent_phone or "").strip():
+        athlete.parent_phone = consent.parent_phone.strip()
+        changed = True
+
+    if not (athlete.nationality or "").strip():
+        from app.services.athlete_identity import default_nationality_from_city
+
+        athlete.nationality = default_nationality_from_city(athlete.place_of_birth, None)
+        changed = True
+
+    return changed
+
+
 def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
     """Gate only when club has explicitly enabled the feature and no active signature."""
     if not athlete.club_id:

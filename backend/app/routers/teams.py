@@ -1018,9 +1018,12 @@ def athlete_profile(
     raw_timeline.sort(key=lambda row: row["at"], reverse=True)
     timeline = [AthleteTimelineEvent(**row) for row in raw_timeline[:100]]
 
+    from app.services.club_membership_consent import apply_athlete_identity_from_consent
     from app.services.sek_athlete_readiness import refresh_open_sek_task
 
-    if refresh_open_sek_task(athlete):
+    healed = apply_athlete_identity_from_consent(db, athlete)
+    task_changed = refresh_open_sek_task(athlete)
+    if healed or task_changed:
         db.commit()
         db.refresh(athlete)
 
