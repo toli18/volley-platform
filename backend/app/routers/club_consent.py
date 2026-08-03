@@ -231,7 +231,8 @@ def preview_carding_form(
     )
     if not form:
         raise HTTPException(status_code=404, detail="Формата не е намерена")
-    pdf = read_carding_form_pdf(form)
+    club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
+    pdf = read_carding_form_pdf(form, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(

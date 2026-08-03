@@ -3,8 +3,17 @@ import { useState } from "react";
 import { Button, Input } from "../ui";
 import { resolveStaticUrl } from "../../utils/staticUrl";
 
+function splitThreeNames(value) {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  return {
+    athlete_first_name: parts[0] || "",
+    athlete_middle_name: parts[1] || "",
+    athlete_last_name: parts.slice(2).join(" ") || "",
+  };
+}
+
 /**
- * Жива Форма 0-3 (<14) / 0-3 А (14+) за картотекиране.
+ * Жива Форма 0-3 / 0-3 А — оформление близо до официалната бланка.
  */
 export default function CardingFormLiveForm({
   meta,
@@ -13,21 +22,21 @@ export default function CardingFormLiveForm({
   error = "",
   onSubmit,
 }) {
+  const initial = initialFields || {};
   const [fields, setFields] = useState(() => ({
-    parent1_full_name: "",
-    parent1_egn: "",
-    parent2_full_name: "",
-    parent2_egn: "",
-    athlete_first_name: "",
-    athlete_middle_name: "",
-    athlete_last_name: "",
-    athlete_egn: "",
-    city: "",
+    parent1_full_name: initial.parent1_full_name || "",
+    parent1_egn: initial.parent1_egn || "",
+    parent2_full_name: initial.parent2_full_name || "",
+    parent2_egn: initial.parent2_egn || "",
+    athlete_full_name: [initial.athlete_first_name, initial.athlete_middle_name, initial.athlete_last_name]
+      .filter(Boolean)
+      .join(" "),
+    athlete_egn: initial.athlete_egn || "",
+    city: initial.city || "",
     rules_accepted: false,
     signature_parent1: "",
     signature_parent2: "",
     signature_athlete: "",
-    ...(initialFields || {}),
   }));
   const [localError, setLocalError] = useState("");
 
@@ -43,15 +52,21 @@ export default function CardingFormLiveForm({
       setLocalError("Моля, потвърдете, че приемате устава и наредбите на БФВ.");
       return;
     }
+    const names = splitThreeNames(fields.athlete_full_name);
+    const tokens = String(fields.athlete_full_name || "").trim().split(/\s+/).filter(Boolean);
+    if (tokens.length < 3) {
+      setLocalError("Попълнете трите имена на състезателя (собствено, бащино и фамилия).");
+      return;
+    }
+    const nameOk = (s) => s.length >= 3 && /[A-Za-zА-Яа-яЁёІіЇїЄє]/.test(s);
+    if (!nameOk(names.athlete_first_name) || !nameOk(names.athlete_middle_name) || !nameOk(names.athlete_last_name)) {
+      setLocalError("Всяко от трите имена трябва да е поне 3 символа и да съдържа букви.");
+      return;
+    }
     const p1 = String(fields.parent1_egn || "").replace(/\D/g, "");
     const ae = String(fields.athlete_egn || "").replace(/\D/g, "");
     if (p1.length !== 10 || ae.length !== 10) {
       setLocalError("ЕГН трябва да е 10 цифри.");
-      return;
-    }
-    const nameOk = (s) => String(s || "").trim().length >= 3 && /[A-Za-zА-Яа-яЁёІіЇїЄє]/.test(s);
-    if (!nameOk(fields.athlete_first_name) || !nameOk(fields.athlete_middle_name) || !nameOk(fields.athlete_last_name)) {
-      setLocalError("Попълнете трите имена на състезателя (собствено, бащино, фамилия).");
       return;
     }
     if (!String(fields.parent1_full_name || "").trim() || !String(fields.signature_parent1 || "").trim()) {
@@ -73,9 +88,9 @@ export default function CardingFormLiveForm({
       parent1_egn: p1,
       parent2_full_name: p2name || null,
       parent2_egn: p2egn || null,
-      athlete_first_name: String(fields.athlete_first_name).trim(),
-      athlete_middle_name: String(fields.athlete_middle_name).trim(),
-      athlete_last_name: String(fields.athlete_last_name).trim(),
+      athlete_first_name: names.athlete_first_name,
+      athlete_middle_name: names.athlete_middle_name,
+      athlete_last_name: names.athlete_last_name,
       athlete_egn: ae,
       city: String(fields.city || "").trim() || null,
       rules_accepted: true,
@@ -85,158 +100,169 @@ export default function CardingFormLiveForm({
     });
   };
 
+  const nameEgnRow = (nameValue, onName, egnValue, onEgn, placeholder, required) => (
+    <div className="cardingFormNameEgn">
+      <label className="cardingFormField cardingFormField--grow">
+        <span>(три имена)</span>
+        <Input value={nameValue} onChange={onName} placeholder={placeholder} required={required} />
+      </label>
+      <label className="cardingFormField cardingFormField--egn">
+        <span>ЕГН:</span>
+        <Input value={egnValue} onChange={onEgn} placeholder="__________" inputMode="numeric" required={required} />
+      </label>
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+    <form className="cardingFormSheet" onSubmit={handleSubmit}>
+      <div className="cardingFormHeader">
         <img
-          src={resolveStaticUrl(meta?.bvf_logo_url) || "/bfvb-logo.png"}
+          className="cardingFormLogo"
+          src={
+            meta?.bvf_logo_url
+              ? resolveStaticUrl(meta.bvf_logo_url) || "/bfvb-logo.png"
+              : "/bfvb-logo.png"
+          }
           alt="БФВ"
-          style={{ width: 44, height: 44, objectFit: "contain" }}
+          onError={(e) => {
+            if (e.currentTarget.getAttribute("data-fallback") === "1") return;
+            e.currentTarget.setAttribute("data-fallback", "1");
+            e.currentTarget.src = "/bfvb-logo.png";
+          }}
         />
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Българска федерация по Волейбол</p>
-          <p style={{ margin: "4px 0 0", fontWeight: 800 }}>{kindLabel}</p>
+        <div className="cardingFormHeaderCenter">
+          <p className="cardingFormFedTitle">Българска федерация по Волейбол</p>
         </div>
         {meta?.club_logo_url ? (
           <img
+            className="cardingFormLogo"
             src={resolveStaticUrl(meta.club_logo_url)}
             alt={meta.club_name || "Клуб"}
-            style={{ width: 44, height: 44, objectFit: "contain" }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
           />
         ) : (
-          <span style={{ fontSize: 12, fontWeight: 700 }}>{kindLabel}</span>
+          <span className="cardingFormKindBadge">{kindLabel}</span>
         )}
       </div>
+      <p className="cardingFormKindRight">{kindLabel}</p>
+      <hr className="cardingFormRule" />
 
-      <p style={{ margin: 0, textAlign: "center", fontWeight: 800, fontSize: 18 }}>ЗАЯВЛЕНИЕ</p>
-      <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-        Сезон <strong>{meta?.season_label}</strong> · {meta?.club_name}
-      </p>
-      <p style={{ margin: 0, fontSize: 13 }}>
-        {is03a
-          ? "Състезателят (14+) заявява желание за картотекиране със съгласие на родител."
-          : "Родителите заявяват желание детето да бъде картотекирано в клуба."}
-      </p>
-
-      {displayError ? <p style={{ color: "#b91c1c", margin: 0 }}>{displayError}</p> : null}
-
-      {!is03a ? (
-        <>
-          <p style={{ margin: 0, fontWeight: 700 }}>Родител / настойник 1</p>
-          <Input
-            value={fields.parent1_full_name}
-            onChange={(e) => setField("parent1_full_name", e.target.value)}
-            placeholder="Три имена"
-            required
-          />
-          <Input
-            value={fields.parent1_egn}
-            onChange={(e) => setField("parent1_egn", e.target.value)}
-            placeholder="ЕГН"
-            inputMode="numeric"
-            required
-          />
-          <p style={{ margin: 0, fontWeight: 700 }}>Родител 2 (по желание)</p>
-          <Input
-            value={fields.parent2_full_name}
-            onChange={(e) => setField("parent2_full_name", e.target.value)}
-            placeholder="Три имена"
-          />
-          <Input
-            value={fields.parent2_egn}
-            onChange={(e) => setField("parent2_egn", e.target.value)}
-            placeholder="ЕГН"
-            inputMode="numeric"
-          />
-          <p style={{ margin: 0, fontWeight: 700 }}>Състезател (дете)</p>
-        </>
-      ) : (
-        <>
-          <p style={{ margin: 0, fontWeight: 700 }}>Състезател (14+)</p>
-        </>
-      )}
-
-      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
-        <Input
-          value={fields.athlete_first_name}
-          onChange={(e) => setField("athlete_first_name", e.target.value)}
-          placeholder="Собствено"
-          required
-        />
-        <Input
-          value={fields.athlete_middle_name}
-          onChange={(e) => setField("athlete_middle_name", e.target.value)}
-          placeholder="Бащино"
-          required
-        />
-        <Input
-          value={fields.athlete_last_name}
-          onChange={(e) => setField("athlete_last_name", e.target.value)}
-          placeholder="Фамилия"
-          required
-        />
-      </div>
-      <Input
-        value={fields.athlete_egn}
-        onChange={(e) => setField("athlete_egn", e.target.value)}
-        placeholder="ЕГН на състезателя"
-        inputMode="numeric"
-        required
-      />
+      <h2 className="cardingFormTitle">ЗАЯВЛЕНИЕ</h2>
+      {displayError ? <p className="cardingFormError">{displayError}</p> : null}
 
       {is03a ? (
         <>
-          <p style={{ margin: 0, fontWeight: 700 }}>Родител / попечител 1</p>
-          <Input
-            value={fields.parent1_full_name}
-            onChange={(e) => setField("parent1_full_name", e.target.value)}
-            placeholder="Три имена"
-            required
-          />
-          <Input
-            value={fields.parent1_egn}
-            onChange={(e) => setField("parent1_egn", e.target.value)}
-            placeholder="ЕГН"
-            inputMode="numeric"
-            required
-          />
-          <p style={{ margin: 0, fontWeight: 700 }}>Родител 2 (по желание)</p>
-          <Input
-            value={fields.parent2_full_name}
-            onChange={(e) => setField("parent2_full_name", e.target.value)}
-            placeholder="Три имена"
-          />
-          <Input
-            value={fields.parent2_egn}
-            onChange={(e) => setField("parent2_egn", e.target.value)}
-            placeholder="ЕГН"
-            inputMode="numeric"
-          />
+          <p className="cardingFormLead">Долуподписаният/ата:</p>
+          <div className="cardingFormBox">
+            {nameEgnRow(
+              fields.athlete_full_name,
+              (e) => setField("athlete_full_name", e.target.value),
+              fields.athlete_egn,
+              (e) => setField("athlete_egn", e.target.value),
+              "три имена (състезател 14+)",
+              true,
+            )}
+          </div>
+          <p className="cardingFormLead">със съгласието на родителите/попечителите си:</p>
+          <div className="cardingFormBox">
+            {nameEgnRow(
+              fields.parent1_full_name,
+              (e) => setField("parent1_full_name", e.target.value),
+              fields.parent1_egn,
+              (e) => setField("parent1_egn", e.target.value),
+              "три имена (родител 1)",
+              true,
+            )}
+          </div>
+          <div className="cardingFormBox cardingFormBox--optional">
+            {nameEgnRow(
+              fields.parent2_full_name,
+              (e) => setField("parent2_full_name", e.target.value),
+              fields.parent2_egn,
+              (e) => setField("parent2_egn", e.target.value),
+              "три имена (родител 2 — по желание)",
+              false,
+            )}
+          </div>
+          <p className="cardingFormLead">с настоящото заявявам, че желая да бъда картотекиран/а в</p>
         </>
-      ) : null}
+      ) : (
+        <>
+          <p className="cardingFormLead">Долуподписаните:</p>
+          <div className="cardingFormBox">
+            {nameEgnRow(
+              fields.parent1_full_name,
+              (e) => setField("parent1_full_name", e.target.value),
+              fields.parent1_egn,
+              (e) => setField("parent1_egn", e.target.value),
+              "три имена (родител 1)",
+              true,
+            )}
+          </div>
+          <p className="cardingFormAnd">и</p>
+          <div className="cardingFormBox cardingFormBox--optional">
+            {nameEgnRow(
+              fields.parent2_full_name,
+              (e) => setField("parent2_full_name", e.target.value),
+              fields.parent2_egn,
+              (e) => setField("parent2_egn", e.target.value),
+              "три имена (родител 2 — по желание)",
+              false,
+            )}
+          </div>
+          <p className="cardingFormLead">родители/настойници на:</p>
+          <div className="cardingFormBox">
+            {nameEgnRow(
+              fields.athlete_full_name,
+              (e) => setField("athlete_full_name", e.target.value),
+              fields.athlete_egn,
+              (e) => setField("athlete_egn", e.target.value),
+              "три имена (дете)",
+              true,
+            )}
+          </div>
+          <p className="cardingFormLead">с настоящото заявяваме, че желаем детето ни да бъде картотекирано в</p>
+        </>
+      )}
 
-      <Input
-        value={fields.city}
-        onChange={(e) => setField("city", e.target.value)}
-        placeholder="Град"
-      />
+      <div className="cardingFormClubRow">
+        <div className="cardingFormClubBox">{meta?.club_name || "—"}</div>
+        <p className="cardingFormSeason">
+          за сезон <strong>{meta?.season_label}</strong> г.
+        </p>
+      </div>
 
-      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13 }}>
+      <p className="cardingFormLegal">
+        С подписване на настоящата форма /заявление декларирам, че съм запознат/а и се задължавам да
+        спазвам устава, правилниците и наредбите на БФВ…
+      </p>
+
+      <label className="cardingFormCheck">
         <input
           type="checkbox"
           checked={fields.rules_accepted}
           onChange={(e) => setField("rules_accepted", e.target.checked)}
         />
-        <span>
-          Запознат/а съм и се задължавам да спазвам устава, правилниците и наредбите на БФВ.
-        </span>
+        <span>Потвърждавам приемането на правилата на БФВ</span>
       </label>
 
+      <div className="cardingFormMetaRow">
+        <label className="cardingFormField">
+          <span>Град:</span>
+          <Input value={fields.city} onChange={(e) => setField("city", e.target.value)} placeholder="Град" />
+        </label>
+      </div>
+
+      <p className="cardingFormSigLabel">
+        {is03a ? "Състезател и родители/попечители:" : "Родители/настойници:"}
+      </p>
       {is03a ? (
         <Input
           value={fields.signature_athlete}
           onChange={(e) => setField("signature_athlete", e.target.value)}
-          placeholder="Подпис състезател (три имена)"
+          placeholder="Подпис състезател"
           required
         />
       ) : null}

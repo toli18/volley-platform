@@ -1243,7 +1243,7 @@ def _carding_form_meta_for_athlete(db: Session, athlete: Athlete) -> ParentCardi
         season_label=pre["season_label"],
         club_name=club.name or "",
         club_logo_url=club.logo_url,
-        bvf_logo_url="/bfvb-logo.png",
+        bvf_logo_url="/static/branding/bfvb-logo.png",
         prefill=pre,
     )
 
@@ -1374,7 +1374,8 @@ def parent_carding_form_preview_me(
     form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
     if not form:
         raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
-    pdf = read_carding_form_pdf(form)
+    club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
+    pdf = read_carding_form_pdf(form, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(
@@ -1391,7 +1392,8 @@ def parent_carding_form_preview_token(token: str, db: Session = Depends(get_db))
     form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
     if not form:
         raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
-    pdf = read_carding_form_pdf(form)
+    club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
+    pdf = read_carding_form_pdf(form, club=club)
     if not pdf:
         raise HTTPException(status_code=500, detail="Неуспешно генериране на PDF")
     return Response(
