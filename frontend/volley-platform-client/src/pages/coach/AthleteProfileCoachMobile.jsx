@@ -278,6 +278,8 @@ export default function AthleteProfileCoachMobile({
     return `Липсват данни за СЕК: ${missing.join(", ")}.`;
   }, [profile?.sek_task_code, profile?.sek_task_detail, profile?.bvf_missing, profile?.bvf_player_id]);
 
+  const goHistoryTab = () => setTab("history");
+
   return (
     <div className={`coachMobilePage athleteProfileCoachPage${editing ? " is-editing" : ""}`}>
       <header className="athleteProfileHead">
