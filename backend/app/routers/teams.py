@@ -1018,6 +1018,12 @@ def athlete_profile(
     raw_timeline.sort(key=lambda row: row["at"], reverse=True)
     timeline = [AthleteTimelineEvent(**row) for row in raw_timeline[:100]]
 
+    from app.services.sek_athlete_readiness import refresh_open_sek_task
+
+    if refresh_open_sek_task(athlete):
+        db.commit()
+        db.refresh(athlete)
+
     return AthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,

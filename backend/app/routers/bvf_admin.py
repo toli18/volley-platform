@@ -1078,6 +1078,11 @@ def request_sek_task_for_athlete(
     from app.services.sek_athlete_readiness import build_task_from_missing, set_sek_task
 
     code, detail = build_task_from_missing(athlete)
+    if not code:
+        raise HTTPException(
+            status_code=409,
+            detail="Няма липси за СЕК — задача към треньора не е нужна.",
+        )
     set_sek_task(athlete, code=code, detail=detail, by_user_id=current_user.id)
     db.commit()
     db.refresh(athlete)

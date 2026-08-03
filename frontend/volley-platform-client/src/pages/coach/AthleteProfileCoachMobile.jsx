@@ -262,7 +262,21 @@ export default function AthleteProfileCoachMobile({
 
   const visibleTimeline = filteredTimeline.slice(0, historyLimit);
 
-  const goHistoryTab = () => setTab("history");
+  const sekLiveDetail = useMemo(() => {
+    if (!profile?.sek_task_code || profile.bvf_player_id) return "";
+    const missing = Array.isArray(profile.bvf_missing) ? profile.bvf_missing : [];
+    if (!missing.length) {
+      return profile.sek_task_detail || "Нужни са снимка/данни — виж таб БФВ.";
+    }
+    if (missing.length === 1 && missing[0] === "снимка") {
+      return "Липсва портретна снимка за създаване в СЕК.";
+    }
+    if (missing.includes("снимка")) {
+      const rest = missing.filter((m) => m !== "снимка");
+      return `Липсва снимка и още: ${rest.join(", ")}. Качи снимка и попълни данните.`;
+    }
+    return `Липсват данни за СЕК: ${missing.join(", ")}.`;
+  }, [profile?.sek_task_code, profile?.sek_task_detail, profile?.bvf_missing, profile?.bvf_player_id]);
 
   return (
     <div className={`coachMobilePage athleteProfileCoachPage${editing ? " is-editing" : ""}`}>
@@ -296,7 +310,7 @@ export default function AthleteProfileCoachMobile({
               color: "#92400e",
             }}
           >
-            <strong>СЕК:</strong> {profile.sek_task_detail || "Нужни са снимка/данни — виж таб БФВ."}
+            <strong>СЕК:</strong> {sekLiveDetail || "Нужни са снимка/данни — виж таб БФВ."}
           </p>
         ) : null}
         <div className="athleteProfileHeadActions">
@@ -530,7 +544,8 @@ export default function AthleteProfileCoachMobile({
               >
                 <h3 className="athleteProfileCardTitle">Задача от главния треньор (СЕК)</h3>
                 <p className="athleteProfileSummaryLine" style={{ marginBottom: 8 }}>
-                  {profile.sek_task_detail ||
+                  {sekLiveDetail ||
+                    profile.sek_task_detail ||
                     (profile.sek_task_code === "need_photo"
                       ? "Липсва портретна снимка за създаване в СЕК."
                       : "Липсват данни за СЕК.")}

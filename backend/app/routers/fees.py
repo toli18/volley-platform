@@ -808,6 +808,10 @@ def update_athlete(
     if "is_active" in data:
         athlete.is_active = bool(data.get("is_active"))
 
+    from app.services.sek_athlete_readiness import refresh_open_sek_task
+
+    refresh_open_sek_task(athlete)
+
     athlete.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(athlete)

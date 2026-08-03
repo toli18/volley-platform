@@ -1084,6 +1084,10 @@ def _sign_membership_consent(
     athlete.egn = child_egn
     apply_birth_date_from_egn(athlete)
 
+    from app.services.sek_athlete_readiness import refresh_open_sek_task
+
+    refresh_open_sek_task(athlete)
+
     db.flush()
     try:
         consent.pdf_rel_path = persist_consent_pdf(consent, club=club)

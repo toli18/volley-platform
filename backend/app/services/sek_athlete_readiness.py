@@ -141,11 +141,14 @@ def list_sek_tasks_for_coach(db, coach_user_id: int, *, limit: int = 24) -> list
             Athlete.bvf_player_id.is_(None),
         )
         .order_by(Athlete.sek_task_at.desc(), Athlete.athlete_name.asc())
-        .limit(limit)
+        .limit(max(limit * 2, 24))
         .all()
     )
     out: list[dict[str, Any]] = []
+    dirty = False
     for a in rows:
+        if refresh_open_sek_task(a):
+            dirty = True
         code = (a.sek_task_code or "").strip()
         if not code:
             continue
@@ -158,11 +161,20 @@ def list_sek_tasks_for_coach(db, coach_user_id: int, *, limit: int = 24) -> list
                 "sek_task_at": a.sek_task_at.isoformat() if a.sek_task_at else None,
             }
         )
+        if len(out) >= limit:
+            break
+    if dirty:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
     return out
 
 
 def build_task_from_missing(athlete: Athlete) -> tuple[str, str]:
     missing = bvf_missing_fields(athlete)
+    if not missing:
+        return "", ""
     if "снимка" in missing and len([m for m in missing if m != "снимка"]) == 0:
         return TASK_NEED_PHOTO, "Липсва портретна снимка за създаване в СЕК."
     if "снимка" in missing:
@@ -171,6 +183,35 @@ def build_task_from_missing(athlete: Athlete) -> tuple[str, str]:
             TASK_NEED_PHOTO,
             f"Липсва снимка и още: {', '.join(rest)}. Качи снимка и попълни данните.",
         )
-    if missing:
-        return TASK_NEED_DATA, f"Липсват данни за СЕК: {', '.join(missing)}."
-    return TASK_NEED_PHOTO, "Нужна е портретна снимка преди създаване в СЕК."
+    return TASK_NEED_DATA, f"Липсват данни за СЕК: {', '.join(missing)}."
+
+
+def refresh_open_sek_task(athlete: Athlete) -> bool:
+    """
+    Синхронизира отворена СЕК задача с текущите липси.
+    Чисти я ако всичко е попълнено (или състезателят вече е в СЕК).
+    Връща True ако има промяна.
+    """
+    if not (getattr(athlete, "sek_task_code", None) or "").strip():
+        return False
+    if getattr(athlete, "bvf_player_id", None):
+        clear_sek_task(athlete)
+        return True
+    code, detail = build_task_from_missing(athlete)
+    if not code:
+        clear_sek_task(athlete)
+        return True
+    if athlete.sek_task_code == code and (athlete.sek_task_detail or "") == (detail or ""):
+        return False
+    set_sek_task(
+        athlete,
+        code=code,
+        detail=detail,
+        by_user_id=getattr(athlete, "sek_task_by_user_id", None),
+    )
+    return True
+
+
+def maybe_clear_sek_task_after_photo(athlete: Athlete) -> bool:
+    """След качване на снимка — опресни задачата (не я трий сляпо)."""
+    return refresh_open_sek_task(athlete)
