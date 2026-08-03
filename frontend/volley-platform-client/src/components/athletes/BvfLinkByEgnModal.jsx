@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button, Input, Modal } from "../ui";
 import useClubBvfLink from "../../hooks/useClubBvfLink";
@@ -11,6 +11,12 @@ export default function BvfLinkByEgnModal({ open, onClose, athleteId, athleteNam
   const [token, setToken] = useState("");
   const [egn, setEgn] = useState(initialEgn || "");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setEgn(String(initialEgn || "").trim());
+    setToken("");
+  }, [open, initialEgn, athleteId]);
 
   const canCallBvf = permanent || Boolean(token.trim());
 
@@ -62,7 +68,13 @@ export default function BvfLinkByEgnModal({ open, onClose, athleteId, athleteNam
         )}
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>ЕГН</span>
-          <Input value={egn} onChange={(e) => setEgn(e.target.value)} maxLength={10} />
+          <Input
+            value={egn}
+            onChange={(e) => setEgn(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            maxLength={10}
+            placeholder="10 цифри"
+            inputMode="numeric"
+          />
         </label>
         <div className="uiModalActions">
           <Button type="button" disabled={busy} onClick={submit}>

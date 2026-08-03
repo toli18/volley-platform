@@ -128,6 +128,39 @@ def maybe_clear_sek_task_after_photo(athlete: Athlete) -> bool:
     return True
 
 
+def list_sek_tasks_for_coach(db, coach_user_id: int, *, limit: int = 24) -> list[dict[str, Any]]:
+    """Open SEK photo/data tasks for athletes owned by this coach."""
+    from app.models import Athlete
+
+    rows = (
+        db.query(Athlete)
+        .filter(
+            Athlete.coach_id == int(coach_user_id),
+            Athlete.is_active.is_(True),
+            Athlete.sek_task_code.isnot(None),
+            Athlete.bvf_player_id.is_(None),
+        )
+        .order_by(Athlete.sek_task_at.desc(), Athlete.athlete_name.asc())
+        .limit(limit)
+        .all()
+    )
+    out: list[dict[str, Any]] = []
+    for a in rows:
+        code = (a.sek_task_code or "").strip()
+        if not code:
+            continue
+        out.append(
+            {
+                "athlete_id": a.id,
+                "athlete_name": a.athlete_name,
+                "sek_task_code": code,
+                "sek_task_detail": a.sek_task_detail,
+                "sek_task_at": a.sek_task_at.isoformat() if a.sek_task_at else None,
+            }
+        )
+    return out
+
+
 def build_task_from_missing(athlete: Athlete) -> tuple[str, str]:
     missing = bvf_missing_fields(athlete)
     if "снимка" in missing and len([m for m in missing if m != "снимка"]) == 0:

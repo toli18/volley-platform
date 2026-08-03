@@ -39,6 +39,8 @@ export default function useNavbarFeed() {
   const [taskReportsUnread, setTaskReportsUnread] = useState(0);
   const [pilotRequests, setPilotRequests] = useState([]);
   const [pilotUnreadCount, setPilotUnreadCount] = useState(0);
+  const [sekTasks, setSekTasks] = useState([]);
+  const [sekTasksUnread, setSekTasksUnread] = useState(0);
   const [clubSeenTick, setClubSeenTick] = useState(0);
 
   const combinedUnreadCount = useMemo(() => {
@@ -47,15 +49,28 @@ export default function useNavbarFeed() {
       n += Number(feeUnreadCount) || 0;
       n += Number(taskReportsUnread) || 0;
     }
+    if (isCoachUser) {
+      n += Number(sekTasksUnread) || 0;
+    }
     if (isPlatformAdmin) {
       n += Number(pilotUnreadCount) || 0;
     }
     return n;
-  }, [unreadCount, feeUnreadCount, taskReportsUnread, pilotUnreadCount, isHeadCoachUser, isPlatformAdmin]);
+  }, [
+    unreadCount,
+    feeUnreadCount,
+    taskReportsUnread,
+    sekTasksUnread,
+    pilotUnreadCount,
+    isHeadCoachUser,
+    isCoachUser,
+    isPlatformAdmin,
+  ]);
 
   const unifiedFeedItems = useMemo(() => {
     let feeSeen = new Set();
     let taskSeen = new Set();
+    let sekSeen = new Set();
     if (isHeadCoachUser && user?.id) {
       try {
         feeSeen = new Set(JSON.parse(localStorage.getItem(`vp-fee-alerts-seen-${user.id}`) || "[]"));
@@ -66,6 +81,13 @@ export default function useNavbarFeed() {
         taskSeen = new Set(JSON.parse(localStorage.getItem(`vp-task-reports-seen-${user.id}`) || "[]"));
       } catch {
         taskSeen = new Set();
+      }
+    }
+    if (isCoachUser && user?.id) {
+      try {
+        sekSeen = new Set(JSON.parse(localStorage.getItem(`vp-sek-tasks-seen-${user.id}`) || "[]"));
+      } catch {
+        sekSeen = new Set();
       }
     }
     let pilotSeen = new Set();
@@ -86,6 +108,12 @@ export default function useNavbarFeed() {
         out.push({ kind: "pilot", key: `pilot-${p.id}`, ts: p.created_at, unread, pilot: p });
       });
     }
+    if (isCoachUser) {
+      (sekTasks || []).forEach((s) => {
+        const unread = !sekSeen.has(Number(s.athlete_id));
+        out.push({ kind: "sek", key: `sek-${s.athlete_id}`, ts: s.sek_task_at, unread, sek: s });
+      });
+    }
     if (isHeadCoachUser) {
       (feeAlerts || []).forEach((f) => {
         out.push({ kind: "fee", key: `fee-${f.id}`, ts: f.paid_at, unread: !feeSeen.has(f.id), fee: f });
@@ -96,7 +124,18 @@ export default function useNavbarFeed() {
     }
     out.sort((a, b) => new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime());
     return out.slice(0, 28);
-  }, [notifications, feeAlerts, taskReports, pilotRequests, isHeadCoachUser, isPlatformAdmin, user, clubSeenTick]);
+  }, [
+    notifications,
+    feeAlerts,
+    taskReports,
+    sekTasks,
+    pilotRequests,
+    isHeadCoachUser,
+    isCoachUser,
+    isPlatformAdmin,
+    user,
+    clubSeenTick,
+  ]);
 
   const markFeeItemSeen = useCallback(
     (paymentId) => {
@@ -132,18 +171,40 @@ export default function useNavbarFeed() {
     [user, taskReports],
   );
 
+  const markSekItemSeen = useCallback(
+    (athleteId) => {
+      if (!user?.id) return;
+      const key = `vp-sek-tasks-seen-${user.id}`;
+      try {
+        const arr = JSON.parse(localStorage.getItem(key) || "[]");
+        const next = Array.from(new Set([...arr.map(Number), Number(athleteId)]));
+        localStorage.setItem(key, JSON.stringify(next));
+        setSekTasksUnread(sekTasks.filter((x) => !next.includes(Number(x.athlete_id))).length);
+        setClubSeenTick((x) => x + 1);
+      } catch {
+        // ignore
+      }
+    },
+    [user, sekTasks],
+  );
+
   const markAllClubFeedSeen = useCallback(() => {
     if (!user?.id) return;
     try {
       localStorage.setItem(`vp-fee-alerts-seen-${user.id}`, JSON.stringify(feeAlerts.map((x) => x.id)));
       localStorage.setItem(`vp-task-reports-seen-${user.id}`, JSON.stringify(taskReports.map((x) => x.id)));
+      localStorage.setItem(
+        `vp-sek-tasks-seen-${user.id}`,
+        JSON.stringify(sekTasks.map((x) => x.athlete_id)),
+      );
       setFeeUnreadCount(0);
       setTaskReportsUnread(0);
+      setSekTasksUnread(0);
       setClubSeenTick((x) => x + 1);
     } catch {
       // ignore
     }
-  }, [user, feeAlerts, taskReports]);
+  }, [user, feeAlerts, taskReports, sekTasks]);
 
   const markPilotItemSeen = useCallback(
     async (requestId) => {
@@ -209,6 +270,8 @@ export default function useNavbarFeed() {
       setTaskReportsUnread(0);
       setPilotRequests([]);
       setPilotUnreadCount(0);
+      setSekTasks([]);
+      setSekTasksUnread(0);
       return;
     }
     let cancelled = false;
@@ -246,6 +309,17 @@ export default function useNavbarFeed() {
         setTaskReportsUnread(list.filter((x) => !seen.includes(Number(x.id))).length);
       } catch {
         setTaskReportsUnread(0);
+      }
+    };
+
+    const applySekTasks = (items) => {
+      const list = Array.isArray(items) ? items : [];
+      setSekTasks(list);
+      try {
+        const seen = JSON.parse(localStorage.getItem(`vp-sek-tasks-seen-${user.id}`) || "[]");
+        setSekTasksUnread(list.filter((x) => !seen.includes(Number(x.athlete_id))).length);
+      } catch {
+        setSekTasksUnread(0);
       }
     };
 
@@ -322,6 +396,7 @@ export default function useNavbarFeed() {
         applyTasks(data.tasks_training, data.tasks_method);
         applyFeeActivity(data.fee_activity?.items);
         applyTaskReports(data.task_reports?.items);
+        applySekTasks(data.sek_tasks?.items);
         applyPilotRequests(data.pilot_requests);
       } catch {
         if (cancelled) return;
@@ -352,6 +427,7 @@ export default function useNavbarFeed() {
     unifiedFeedItems,
     markFeeItemSeen,
     markTaskItemSeen,
+    markSekItemSeen,
     markAllClubFeedSeen,
     markForumItemRead,
     markAllForumRead,

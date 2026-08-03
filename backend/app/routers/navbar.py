@@ -75,6 +75,8 @@ def navbar_feed(
     task_reports = {"items": []}
     if is_head:
         try:
+            from app.routers.fees import recent_fee_payment_activity
+
             fee_activity = recent_fee_payment_activity(limit=12, db=db, current_user=current_user)
         except Exception:  # noqa: BLE001
             logger.exception("navbar_feed: fee activity failed")
@@ -92,6 +94,16 @@ def navbar_feed(
             logger.exception("navbar_feed: club assignment activity failed")
             task_reports = {"items": []}
 
+    sek_tasks = {"items": []}
+    if is_coach_like:
+        try:
+            from app.services.sek_athlete_readiness import list_sek_tasks_for_coach
+
+            sek_tasks = {"items": list_sek_tasks_for_coach(db, current_user.id, limit=24)}
+        except Exception:  # noqa: BLE001
+            logger.exception("navbar_feed: sek tasks failed")
+            sek_tasks = {"items": []}
+
     pilot_requests = {"items": [], "unread_count": 0}
     if is_platform_admin:
         try:
@@ -106,5 +118,6 @@ def navbar_feed(
         "tasks_method": tasks_method,
         "fee_activity": fee_activity,
         "task_reports": task_reports,
+        "sek_tasks": sek_tasks,
         "pilot_requests": pilot_requests,
     }

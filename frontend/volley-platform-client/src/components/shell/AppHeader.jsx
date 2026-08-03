@@ -77,6 +77,7 @@ export default function AppHeader() {
     isPlatformAdmin: feed.isPlatformAdmin,
     markFeeItemSeen: feed.markFeeItemSeen,
     markTaskItemSeen: feed.markTaskItemSeen,
+    markSekItemSeen: feed.markSekItemSeen,
     markAllClubFeedSeen: feed.markAllClubFeedSeen,
     markForumItemRead: feed.markForumItemRead,
     markAllForumRead: feed.markAllForumRead,

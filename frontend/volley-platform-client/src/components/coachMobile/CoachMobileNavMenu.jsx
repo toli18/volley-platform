@@ -23,6 +23,7 @@ export default function CoachMobileNavMenu({ className = "coachMobileMenuBtn" })
     unifiedFeedItems: feed.unifiedFeedItems,
     markFeeItemSeen: feed.markFeeItemSeen,
     markTaskItemSeen: feed.markTaskItemSeen,
+    markSekItemSeen: feed.markSekItemSeen,
     markAllClubFeedSeen: feed.markAllClubFeedSeen,
     markForumItemRead: feed.markForumItemRead,
     markAllForumRead: feed.markAllForumRead,

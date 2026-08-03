@@ -10,6 +10,7 @@ export default function NotificationPanel({
   onClose,
   markFeeItemSeen,
   markTaskItemSeen,
+  markSekItemSeen,
   markAllClubFeedSeen,
   markForumItemRead,
   markAllForumRead,
@@ -40,8 +41,8 @@ export default function NotificationPanel({
         {isPlatformAdmin
           ? "Пилотни заявки, форум и клуб на едно място."
           : isHeadCoachUser
-            ? "Форум, такси и задачи (клуб) на едно място."
-            : "Форум известия."}
+            ? "Форум, такси, СЕК задачи и отчети (клуб) на едно място."
+            : "Форум и СЕК задачи за твоите състезатели."}
       </span>
       {unifiedFeedItems.length === 0 ? <span className="navShellPanel__empty">Няма известия.</span> : null}
       {unifiedFeedItems.map((row) => {
@@ -85,6 +86,27 @@ export default function NotificationPanel({
               <div className="navShellPanel__rowTitle">{item.club_name}</div>
               <div className="navShellPanel__rowMeta">
                 {[item.city, item.region].filter(Boolean).join(" · ") || "—"} · {item.contact_name}
+              </div>
+            </Link>
+          );
+        }
+        if (row.kind === "sek") {
+          const item = row.sek;
+          return (
+            <Link
+              key={row.key}
+              to={`/coach/athletes/${item.athlete_id}?tab=bvf`}
+              onClick={() => {
+                markSekItemSeen?.(item.athlete_id);
+                onClose();
+              }}
+              className={`navShellPanel__row navShellPanel__row--task ${row.unread ? "navShellPanel__row--unread" : ""}`}
+            >
+              <div className="navShellPanel__tag">СЕК · задача</div>
+              <div className="navShellPanel__rowTitle">{item.athlete_name}</div>
+              <div className="navShellPanel__rowMeta">
+                {item.sek_task_detail ||
+                  (item.sek_task_code === "need_photo" ? "Липсва снимка" : "Липсват данни")}
               </div>
             </Link>
           );
