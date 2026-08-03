@@ -10,6 +10,7 @@ import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import ClubHeadMethodSection from "../components/clubHead/ClubHeadMethodSection";
 import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
+import BvfClubAthletesSekCard from "../components/athletes/BvfClubAthletesSekCard";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
@@ -139,14 +140,13 @@ export default function ClubHeadDashboard() {
     return list;
   }, [assignments, assignmentStatusFilter, assignmentSort]);
 
-  const visibleAthletes = useMemo(() => {
-    const q = (athleteQuery || "").trim().toLowerCase();
-    if (!q) return athletes;
-    return (athletes || []).filter((a) => String(a?.athlete_name || "").toLowerCase().includes(q));
-  }, [athletes, athleteQuery]);
+  const athletesLookup = useMemo(() => {
+    const m = new Map();
+    (athletes || []).forEach((a) => m.set(Number(a.id), a));
+    return m;
+  }, [athletes]);
 
-  const loadSchedule = async () => {
-    const params = { from: scheduleFrom, to: scheduleTo };
+  const loadSchedule = async () => {    const params = { from: scheduleFrom, to: scheduleTo };
     if (scheduleCoachFilter) params.coach_id = Number(scheduleCoachFilter);
     if (scheduleTeamFilter) params.team_id = Number(scheduleTeamFilter);
     if (scheduleLocationFilter.trim()) params.location = scheduleLocationFilter.trim();
@@ -625,66 +625,19 @@ export default function ClubHeadDashboard() {
             </div>
           </Card>
 
-          <Card title="Състезатели в клуба">
-            {loading ? (
-              <p>Зареждане...</p>
-            ) : athletes.length === 0 ? (
-              <EmptyState title="Няма състезатели" description="Все още няма състезатели в избрания филтър." />
-            ) : visibleAthletes.length === 0 ? (
-              <EmptyState title="Няма резултати" description={athleteQuery ? `Няма съвпадения по "${athleteQuery}".` : "Опитай друга ключова дума."} />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Състезател</TableHead>
-                    <TableHead>Треньор</TableHead>
-                    <TableHead>Родител</TableHead>
-                    <TableHead>Телефон</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead>Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleAthletes.map((a) => {
-                    const coach = coaches.find((c) => c.id === a.coach_id);
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell>
-                          <Link to={`/teams/athletes/${a.id}`}>
-                            <span style={{ fontWeight: 700, cursor: "pointer" }}>{a.athlete_name}</span>
-                          </Link>
-                        </TableCell>
-                        <TableCell>{coach?.name || `#${a.coach_id}`}</TableCell>
-                        <TableCell>{a.parent_name || "-"}</TableCell>
-                        <TableCell>{a.parent_phone || a.athlete_phone || "-"}</TableCell>
-                        <TableCell>
-                          <span className={`uiBadge ${a.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-                            {a.is_active ? "Активен" : "Неактивен"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <Button size="sm" onClick={() => setPayAthlete(a)}>Плати</Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => {
-                                const nextCoach = transferCoaches.find((c) => String(c?.id) !== String(a?.coach_id));
-                                setTransferAthlete(a);
-                                setTransferCoachId(nextCoach ? String(nextCoach.id) : "");
-                              }}
-                            >
-                              Прехвърли
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
+          <BvfClubAthletesSekCard
+            toast={toast}
+            title="Състезатели · готовност за СЕК"
+            coachFilter={coachFilter}
+            searchQuery={athleteQuery}
+            athletesLookup={athletesLookup}
+            onPay={(a) => setPayAthlete(a)}
+            onTransfer={(a) => {
+              const nextCoach = transferCoaches.find((c) => String(c?.id) !== String(a?.coach_id));
+              setTransferAthlete(a);
+              setTransferCoachId(nextCoach ? String(nextCoach.id) : "");
+            }}
+          />
         </>
       )}
 
