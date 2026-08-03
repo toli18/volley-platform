@@ -8,7 +8,9 @@ const EMPTY_FIELDS = {
   parent_egn: "",
   parent_address: "",
   parent_phone: "",
-  child_full_name: "",
+  child_first_name: "",
+  child_middle_name: "",
+  child_last_name: "",
   child_egn: "",
   child_address: "",
   child_phone: "",
@@ -52,8 +54,22 @@ export default function MembershipConsentLiveForm({
       setLocalError("ЕГН трябва да е 10 цифри.");
       return;
     }
+    const first = String(fields.child_first_name || "").trim();
+    const middle = String(fields.child_middle_name || "").trim();
+    const last = String(fields.child_last_name || "").trim();
+    if (!first || !middle || !last) {
+      setLocalError("Попълнете трите имена на състезателя (собствено, бащино и фамилия).");
+      return;
+    }
+    if (first.length < 3 || middle.length < 3 || last.length < 3) {
+      setLocalError("Всяко от трите имена трябва да е поне 3 символа.");
+      return;
+    }
     const payload = {
       ...fields,
+      child_first_name: first,
+      child_middle_name: middle,
+      child_last_name: last,
       parent_egn: parentEgn,
       child_egn: childEgn,
     };
@@ -158,13 +174,39 @@ export default function MembershipConsentLiveForm({
         <section className="membershipConsentBlock">
           <h3 className="membershipConsentBlockTitle">Данни на детето / състезателя</h3>
           <div className="membershipConsentGrid">
-            <label className="membershipConsentField membershipConsentField--full">
-              <span>Три имена</span>
+            <label className="membershipConsentField">
+              <span>Собствено име *</span>
               <Input
                 required
-                value={fields.child_full_name}
-                onChange={(e) => setField("child_full_name", e.target.value)}
-                placeholder="Име Презиме Фамилия"
+                minLength={3}
+                maxLength={25}
+                value={fields.child_first_name}
+                onChange={(e) => setField("child_first_name", e.target.value)}
+                placeholder="напр. Иван"
+                autoComplete="given-name"
+              />
+            </label>
+            <label className="membershipConsentField">
+              <span>Бащино име *</span>
+              <Input
+                required
+                minLength={3}
+                maxLength={25}
+                value={fields.child_middle_name}
+                onChange={(e) => setField("child_middle_name", e.target.value)}
+                placeholder="напр. Петров"
+              />
+            </label>
+            <label className="membershipConsentField membershipConsentField--full">
+              <span>Фамилия *</span>
+              <Input
+                required
+                minLength={3}
+                maxLength={25}
+                value={fields.child_last_name}
+                onChange={(e) => setField("child_last_name", e.target.value)}
+                placeholder="напр. Иванов"
+                autoComplete="family-name"
               />
             </label>
             <label className="membershipConsentField">

@@ -55,6 +55,7 @@ from app.schemas.parent_portal import (
 )
 from app.schemas.assessment import ParentDevelopmentOut
 from app.services.assessment_consent import build_parent_development
+from app.services.athlete_identity import compose_athlete_name, validate_name_part
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
     club_consent_feature_enabled,
@@ -964,6 +965,20 @@ def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> Paren
     tpl = resolve_club_consent_template(club)
     needs = athlete_needs_membership_consent(db, athlete)
     child_egn = (athlete.egn or "").strip()
+    first = (athlete.first_name or "").strip()
+    middle = (athlete.middle_name or "").strip()
+    last = (athlete.last_name or "").strip()
+    if not (first and middle and last) and athlete.athlete_name:
+        parts = [p for p in str(athlete.athlete_name).split() if p]
+        if len(parts) >= 3:
+            first = first or parts[0]
+            middle = middle or parts[1]
+            last = last or " ".join(parts[2:])
+        elif len(parts) == 2:
+            first = first or parts[0]
+            last = last or parts[1]
+        elif len(parts) == 1:
+            first = first or parts[0]
     return ParentMembershipConsentForm(
         needs_consent=needs,
         club_name=tpl["club_name"],
@@ -978,7 +993,9 @@ def _membership_consent_form_for_athlete(db: Session, athlete: Athlete) -> Paren
         prefill={
             "parent_full_name": athlete.parent_name or "",
             "parent_phone": athlete.parent_phone or "",
-            "child_full_name": athlete.athlete_name or "",
+            "child_first_name": first,
+            "child_middle_name": middle,
+            "child_last_name": last,
             "child_egn": child_egn,
             "child_phone": athlete.athlete_phone or "",
         },
@@ -1005,6 +1022,14 @@ def _sign_membership_consent(
 
     tpl = resolve_club_consent_template(club)
 
+    try:
+        child_first = validate_name_part("Собствено име", body.child_first_name)
+        child_middle = validate_name_part("Бащино име", body.child_middle_name)
+        child_last = validate_name_part("Фамилия", body.child_last_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    child_full_name = compose_athlete_name(child_first, child_middle, child_last)
+
     parent_egn = "".join(ch for ch in body.parent_egn.strip() if ch.isdigit())
     child_egn = "".join(ch for ch in body.child_egn.strip() if ch.isdigit())
     if len(parent_egn) != 10 or len(child_egn) != 10:
@@ -1018,7 +1043,7 @@ def _sign_membership_consent(
         parent_egn=parent_egn,
         parent_address=body.parent_address.strip(),
         parent_phone=body.parent_phone.strip(),
-        child_full_name=body.child_full_name.strip(),
+        child_full_name=child_full_name,
         child_egn=child_egn,
         child_address=(body.child_address or "").strip() or None,
         child_phone=(body.child_phone or "").strip() or None,
@@ -1035,15 +1060,15 @@ def _sign_membership_consent(
     )
     db.add(consent)
 
-    # Keep athlete contact fields in sync when parent provides them
+    # Keep athlete identity/contact in sync
     athlete.parent_name = consent.parent_full_name
     athlete.parent_phone = consent.parent_phone
+    athlete.first_name = child_first
+    athlete.middle_name = child_middle
+    athlete.last_name = child_last
+    athlete.athlete_name = child_full_name
     if not athlete.egn:
         athlete.egn = child_egn
-    if consent.child_full_name and consent.child_full_name != athlete.athlete_name:
-        # Prefer structured names if already set; otherwise update display name
-        if not (athlete.first_name and athlete.last_name):
-            athlete.athlete_name = consent.child_full_name
 
     db.flush()
     try:

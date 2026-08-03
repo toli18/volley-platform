@@ -34,7 +34,9 @@ export default function ParentMembershipConsentGate({ isSession, token, onSigned
         setInitialFields({
           parent_full_name: pre.parent_full_name || "",
           parent_phone: pre.parent_phone || "",
-          child_full_name: pre.child_full_name || "",
+          child_first_name: pre.child_first_name || "",
+          child_middle_name: pre.child_middle_name || "",
+          child_last_name: pre.child_last_name || "",
           child_egn: pre.child_egn || "",
           child_phone: pre.child_phone || "",
         });
