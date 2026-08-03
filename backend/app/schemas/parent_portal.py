@@ -238,8 +238,8 @@ class ParentCardingFormMeta(BaseModel):
 class ParentCardingFormSignRequest(BaseModel):
     parent1_full_name: str = Field(..., min_length=2, max_length=255)
     parent1_egn: str = Field(..., min_length=10, max_length=16)
-    parent2_full_name: Optional[str] = Field(None, max_length=255)
-    parent2_egn: Optional[str] = Field(None, max_length=16)
+    parent2_full_name: str = Field(..., min_length=2, max_length=255)
+    parent2_egn: str = Field(..., min_length=10, max_length=16)
     athlete_first_name: str = Field(..., min_length=3, max_length=25)
     athlete_middle_name: str = Field(..., min_length=3, max_length=25)
     athlete_last_name: str = Field(..., min_length=3, max_length=25)
@@ -247,7 +247,7 @@ class ParentCardingFormSignRequest(BaseModel):
     city: Optional[str] = Field(None, max_length=120)
     rules_accepted: bool = False
     signature_parent1: str = Field(..., min_length=2, max_length=255)
-    signature_parent2: Optional[str] = Field(None, max_length=255)
+    signature_parent2: str = Field(..., min_length=2, max_length=255)
     signature_athlete: Optional[str] = Field(None, max_length=255)
 
 

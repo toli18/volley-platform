@@ -1275,13 +1275,15 @@ def _sign_carding_form(
 
     p1_egn = "".join(ch for ch in body.parent1_egn.strip() if ch.isdigit())
     a_egn = "".join(ch for ch in body.athlete_egn.strip() if ch.isdigit())
-    if len(p1_egn) != 10 or len(a_egn) != 10:
-        raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри")
-    p2_name = (body.parent2_full_name or "").strip() or None
-    p2_egn_raw = "".join(ch for ch in (body.parent2_egn or "") if ch.isdigit())
-    p2_egn = p2_egn_raw if len(p2_egn_raw) == 10 else None
-    if p2_name and not p2_egn:
-        raise HTTPException(status_code=422, detail="ЕГН на родител 2 трябва да е 10 цифри")
+    p2_name = (body.parent2_full_name or "").strip()
+    p2_egn = "".join(ch for ch in (body.parent2_egn or "") if ch.isdigit())
+    if len(p1_egn) != 10 or len(a_egn) != 10 or len(p2_egn) != 10:
+        raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри (и двамата родители + състезател)")
+    if len(p2_name) < 2:
+        raise HTTPException(status_code=422, detail="Имената на родител 2 са задължителни")
+    sig_p2 = (body.signature_parent2 or "").strip()
+    if len(sig_p2) < 2:
+        raise HTTPException(status_code=422, detail="Подписът на родител 2 е задължителен")
 
     kind = form_kind_for_athlete(athlete, year)
     if kind == FORM_KIND_03A:
@@ -1307,7 +1309,7 @@ def _sign_carding_form(
         city=(body.city or "").strip() or None,
         rules_accepted=True,
         signature_parent1=body.signature_parent1.strip(),
-        signature_parent2=(body.signature_parent2 or "").strip() or None,
+        signature_parent2=sig_p2,
         signature_athlete=sig_ath,
         signed_at=now,
         club_name_snapshot=club.name,

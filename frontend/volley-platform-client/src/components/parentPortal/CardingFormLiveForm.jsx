@@ -75,8 +75,12 @@ export default function CardingFormLiveForm({
     }
     const p2name = String(fields.parent2_full_name || "").trim();
     const p2egn = String(fields.parent2_egn || "").replace(/\D/g, "");
-    if (p2name && p2egn.length !== 10) {
-      setLocalError("ЕГН на родител 2 трябва да е 10 цифри (или оставете празно).");
+    if (!p2name || p2egn.length !== 10) {
+      setLocalError("Попълнете трите имена и ЕГН на родител 2.");
+      return;
+    }
+    if (!String(fields.signature_parent2 || "").trim()) {
+      setLocalError("Подписът на родител 2 е задължителен.");
       return;
     }
     if (is03a && !String(fields.signature_athlete || "").trim()) {
@@ -86,8 +90,8 @@ export default function CardingFormLiveForm({
     await onSubmit?.({
       parent1_full_name: fields.parent1_full_name.trim(),
       parent1_egn: p1,
-      parent2_full_name: p2name || null,
-      parent2_egn: p2egn || null,
+      parent2_full_name: p2name,
+      parent2_egn: p2egn,
       athlete_first_name: names.athlete_first_name,
       athlete_middle_name: names.athlete_middle_name,
       athlete_last_name: names.athlete_last_name,
@@ -95,7 +99,7 @@ export default function CardingFormLiveForm({
       city: String(fields.city || "").trim() || null,
       rules_accepted: true,
       signature_parent1: fields.signature_parent1.trim(),
-      signature_parent2: String(fields.signature_parent2 || "").trim() || null,
+      signature_parent2: fields.signature_parent2.trim(),
       signature_athlete: String(fields.signature_athlete || "").trim() || null,
     });
   };
@@ -176,14 +180,14 @@ export default function CardingFormLiveForm({
               true,
             )}
           </div>
-          <div className="cardingFormBox cardingFormBox--optional">
+          <div className="cardingFormBox">
             {nameEgnRow(
               fields.parent2_full_name,
               (e) => setField("parent2_full_name", e.target.value),
               fields.parent2_egn,
               (e) => setField("parent2_egn", e.target.value),
-              "три имена (родител 2 — по желание)",
-              false,
+              "три имена (родител 2)",
+              true,
             )}
           </div>
           <p className="cardingFormLead">с настоящото заявявам, че желая да бъда картотекиран/а в</p>
@@ -202,14 +206,14 @@ export default function CardingFormLiveForm({
             )}
           </div>
           <p className="cardingFormAnd">и</p>
-          <div className="cardingFormBox cardingFormBox--optional">
+          <div className="cardingFormBox">
             {nameEgnRow(
               fields.parent2_full_name,
               (e) => setField("parent2_full_name", e.target.value),
               fields.parent2_egn,
               (e) => setField("parent2_egn", e.target.value),
-              "три имена (родител 2 — по желание)",
-              false,
+              "три имена (родител 2)",
+              true,
             )}
           </div>
           <p className="cardingFormLead">родители/настойници на:</p>
@@ -275,7 +279,8 @@ export default function CardingFormLiveForm({
       <Input
         value={fields.signature_parent2}
         onChange={(e) => setField("signature_parent2", e.target.value)}
-        placeholder="Подпис родител 2 (по желание)"
+        placeholder="Подпис родител 2"
+        required
       />
 
       <Button type="submit" disabled={busy}>

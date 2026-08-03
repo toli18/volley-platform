@@ -280,9 +280,9 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
         text("със съгласието на родителите/попечителите си:")
         draw_name_egn_box(form.parent1_full_name, form.parent1_egn)
         if form.parent2_full_name:
-            draw_name_egn_box(form.parent2_full_name, form.parent2_egn or "", optional=True)
+            draw_name_egn_box(form.parent2_full_name, form.parent2_egn or "")
         else:
-            draw_name_egn_box("", "", "(три имена — родител 2, по желание)", optional=True)
+            draw_name_egn_box("", "", "(три имена — родител 2)")
         text("с настоящото заявявам, че желая да бъда картотекиран/а в", gap=4 * mm)
     else:
         text("Долуподписаните:")
@@ -291,9 +291,9 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
         c.drawCentredString(width / 2, y, "и")
         y -= 5 * mm
         if form.parent2_full_name:
-            draw_name_egn_box(form.parent2_full_name, form.parent2_egn or "", optional=True)
+            draw_name_egn_box(form.parent2_full_name, form.parent2_egn or "")
         else:
-            draw_name_egn_box("", "", "(три имена — родител 2, по желание)", optional=True)
+            draw_name_egn_box("", "", "(три имена — родител 2)")
         text("родители/настойници на:")
         draw_name_egn_box(form.athlete_full_name, form.athlete_egn, "(три имена — дете)")
         text("с настоящото заявяваме, че желаем детето ни да бъде картотекирано в", gap=4 * mm)
