@@ -124,33 +124,37 @@ function TeamsPicker({ teams, selectedTeamIds, saving, onToggle, onSave, hasChan
   if (!teams.length) {
     return <p className="coachMobileMuted">Няма отбори за управление.</p>;
   }
+  const selectedCount = teams.filter((t) => selectedTeamIds.has(t.id)).length;
   return (
     <>
       <p className="coachMobileMuted athleteProfileTeamsHint">
-        Изберете в кои отбори участва състезателят. Натиснете „Запази отбори“, за да приложите промените.
+        Маркирай групите · избрани: {selectedCount}
       </p>
-      <ul className="coachMobileTeamPickList">
-        {teams.map((team) => (
-          <li key={team.id}>
-            <label className="coachMobileTeamPickRow">
-              <input
-                type="checkbox"
-                checked={selectedTeamIds.has(team.id)}
-                onChange={() => onToggle(team.id)}
-                disabled={saving}
-              />
-              <span>
-                <span className="coachMobileMenuLabel">{team.name}</span>
-                {team.age_group ? (
-                  <span className="coachMobileMuted coachMobileMenuHint">{team.age_group}</span>
-                ) : null}
-              </span>
-            </label>
-          </li>
-        ))}
+      <ul className="athleteProfileTeamChipList">
+        {teams.map((team) => {
+          const checked = selectedTeamIds.has(team.id);
+          return (
+            <li key={team.id}>
+              <label className={`athleteProfileTeamChip${checked ? " is-selected" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(team.id)}
+                  disabled={saving}
+                />
+                <span className="athleteProfileTeamChipText">
+                  <span className="athleteProfileTeamChipName">{team.name}</span>
+                  {team.age_group ? (
+                    <span className="athleteProfileTeamChipMeta">{team.age_group}</span>
+                  ) : null}
+                </span>
+              </label>
+            </li>
+          );
+        })}
       </ul>
       <Button type="button" size="sm" disabled={saving || !hasChanges} onClick={onSave} block style={{ marginTop: 8 }}>
-        {saving ? "Запазване..." : "Запази отбори"}
+        {saving ? "Запазване..." : "Запази групи"}
       </Button>
     </>
   );
@@ -219,7 +223,7 @@ export default function AthleteProfileCoachMobile({
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [teamsOpen, setTeamsOpen] = useState(true);
+  const [teamsOpen, setTeamsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [localDocsOpen, setLocalDocsOpen] = useState(true);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
@@ -323,6 +327,36 @@ export default function AthleteProfileCoachMobile({
       <div className="athleteProfileSwipeArea" {...(editing ? {} : swipeHandlers)}>
         {tab === "overview" ? (
           <div className="athleteProfileTab">
+            <section
+              className={`athleteProfileCard athleteProfileFeeCard${
+                currentMonthPaid ? " athleteProfileFeeCard--paid" : " athleteProfileFeeCard--due"
+              }`}
+            >
+              <div className="athleteProfileFeeCardTop">
+                <div>
+                  <h3 className="athleteProfileCardTitle" style={{ marginBottom: 4 }}>
+                    Такса · {monthLabelBg(feesMonth)}
+                  </h3>
+                  <p className="athleteProfileFeeStatus" style={{ margin: 0 }}>
+                    {currentMonthPaid ? "Платена" : "Неплатена — дължи"}
+                  </p>
+                </div>
+                <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                  {currentMonthPaid ? "Платено" : "Дължи"}
+                </span>
+              </div>
+              <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                {!currentMonthPaid ? (
+                  <Button as={Link} to={`${feesPayHref}&month_key=${encodeURIComponent(feesMonth)}`} size="sm">
+                    Плати сега
+                  </Button>
+                ) : null}
+                <Button type="button" size="sm" variant="secondary" onClick={() => setTab("fees")}>
+                  Всички такси
+                </Button>
+              </div>
+            </section>
+
             <section className="athleteProfileCard athleteProfileCard--compact">
               <h3 className="athleteProfileCardTitle">БФВ</h3>
               {profile.bvf_player_id ? (
@@ -348,19 +382,14 @@ export default function AthleteProfileCoachMobile({
             </section>
 
             <section className="athleteProfileCard athleteProfileCard--compact">
+              <h3 className="athleteProfileCardTitle">Присъствие</h3>
               <p className="athleteProfileSummaryLine" style={{ margin: 0 }}>
                 Присъства {summary.present ?? 0} · {summary.attendance_rate_percent ?? 0}% ·{" "}
                 {(summary.absent ?? 0) === 0 ? "0 отсъствия" : `${summary.absent} отсъствия`}
               </p>
-              <span className={`uiBadge ${currentMonthPaid ? "uiBadge--success" : "uiBadge--danger"}`} style={{ marginTop: 8 }}>
-                {monthLabelBg(feesMonth)}: {currentMonthPaid ? "Платено" : "Дължи"}
-              </span>
               <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
                 <Button type="button" size="sm" variant="secondary" onClick={() => setTab("attendance")}>
-                  Присъствие
-                </Button>
-                <Button type="button" size="sm" variant="secondary" onClick={() => setTab("fees")}>
-                  Такси
+                  Детайли
                 </Button>
               </div>
             </section>
@@ -432,13 +461,21 @@ export default function AthleteProfileCoachMobile({
             </section>
 
             {!editing ? (
-              <section className="athleteProfileCard">
-                <button type="button" className="athleteProfileCollapseHead" onClick={() => setTeamsOpen((v) => !v)}>
-                  <span>Тренировъчни групи</span>
-                  <span aria-hidden>{teamsOpen ? "▾" : "▸"}</span>
-                </button>
+              <section className="athleteProfileCard athleteProfileCard--compact">
+                <div className="athleteProfileCardTitleRow">
+                  <h3 className="athleteProfileCardTitle" style={{ margin: 0 }}>Тренировъчни групи</h3>
+                  <button
+                    type="button"
+                    className="athleteProfileCollapseHead"
+                    style={{ padding: 0, border: 0, background: "transparent", width: "auto" }}
+                    onClick={() => setTeamsOpen((v) => !v)}
+                    aria-expanded={teamsOpen}
+                  >
+                    <span aria-hidden>{teamsOpen ? "▾" : "▸"}</span>
+                  </button>
+                </div>
                 {teamsOpen ? (
-                  <div className="athleteProfileCollapseBody">
+                  <div style={{ marginTop: 8 }}>
                     <TeamsPicker
                       teams={coachTeams}
                       selectedTeamIds={selectedTeamIds}
@@ -448,7 +485,11 @@ export default function AthleteProfileCoachMobile({
                       hasChanges={hasTeamChanges}
                     />
                   </div>
-                ) : null}
+                ) : (
+                  <p className="athleteProfileSummaryLine" style={{ margin: "6px 0 0" }}>
+                    {teamsShort !== "—" ? teamsShort : "Няма избрани"}
+                  </p>
+                )}
               </section>
             ) : null}
 
