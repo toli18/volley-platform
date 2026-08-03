@@ -11,8 +11,8 @@ from app.models import Athlete, AthleteBvfDocument, BvfCardIndex, User
 from app.services.athlete_photo import has_cached_photo
 
 AGE_GROUP_LABELS: dict[int, str] = {
-    8: "Мини",
-    11: "Детски",
+    12: "Детски",
+    13: "Мини",
     14: "Под 14",
     16: "Под 16",
     18: "Под 18",

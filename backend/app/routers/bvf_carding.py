@@ -1395,7 +1395,7 @@ def get_or_list_season_application(
         },
         "year": y,
         "slots": [serialize_card_index_row(db, r) for r in indexes],
-        "age_options": [{"age": a, "label": age_group_label(a)} for a in (8, 11, 14, 16, 18, 20, 99)],
+        "age_options": [{"age": a, "label": age_group_label(a)} for a in (12, 13, 14, 16, 18, 20, 99)],
         "can_manage": _can_submit_card_index(current_user),
         "ready_for_head": list_ready_for_head(db, club.id) if _can_submit_card_index(current_user) else [],
     }

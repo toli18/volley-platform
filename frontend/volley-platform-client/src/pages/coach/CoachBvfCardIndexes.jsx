@@ -10,8 +10,8 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 
 const AGE_OPTIONS = [
-  { age: 8, label: "Мини" },
-  { age: 11, label: "Детски" },
+  { age: 12, label: "Детски" },
+  { age: 13, label: "Мини" },
   { age: 14, label: "Под 14" },
   { age: 16, label: "Под 16" },
   { age: 18, label: "Под 18" },
