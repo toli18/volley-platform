@@ -1,5 +1,5 @@
 /**
- * Координати от «5-1 Rotation Guide» (Serve / Serve Receive / Base Defense).
+ * Координати 5-1 — фази Base / Serve / Serve-Receive.
  * x/y % · мрежа горе · attack line ≈ 38
  *
  * Роли: A=S, O=OP, P1=OH1, P2=OH2, C1=MB2, C2=MB1, L
@@ -177,96 +177,46 @@ const RECEIVE_ROLE_XY = {
   },
 };
 
-/** DEFENSE — PDF Base Positions (след switch към атака/защита). */
-const DEFENSE_ROLE_XY = {
-  1: {
-    P1: { x: 18, y: 14 },
-    C1: { x: 50, y: 12 },
-    O: { x: 82, y: 14 },
-    P2: { x: 20, y: 48 },
-    A: { x: 82, y: 48 },
-    C2: { x: 50, y: 72 },
-    L: { x: 50, y: 72 },
-  },
-  2: {
-    P2: { x: 18, y: 14 },
-    C1: { x: 50, y: 12 },
-    O: { x: 82, y: 14 },
-    C2: { x: 22, y: 50 },
-    L: { x: 22, y: 50 },
-    A: { x: 50, y: 48 },
-    P1: { x: 82, y: 68 },
-  },
-  3: {
-    C2: { x: 18, y: 14 },
-    L: { x: 82, y: 68 },
-    P2: { x: 50, y: 14 },
-    O: { x: 82, y: 14 },
-    A: { x: 34, y: 50 },
-    P1: { x: 58, y: 58 },
-    C1: { x: 82, y: 50 },
-  },
-  4: {
-    A: { x: 18, y: 14 },
-    C2: { x: 50, y: 12 },
-    L: { x: 50, y: 12 },
-    P2: { x: 82, y: 14 },
-    P1: { x: 22, y: 58 },
-    C1: { x: 50, y: 52 },
-    O: { x: 86, y: 78 },
-  },
-  5: {
-    P1: { x: 18, y: 14 },
-    A: { x: 50, y: 14 },
-    C2: { x: 82, y: 14 },
-    L: { x: 82, y: 14 },
-    C1: { x: 28, y: 56 },
-    O: { x: 62, y: 58 },
-    P2: { x: 86, y: 74 },
-  },
-  6: {
-    C1: { x: 18, y: 14 },
-    P1: { x: 50, y: 12 },
-    A: { x: 82, y: 14 },
-    O: { x: 28, y: 58 },
-    P2: { x: 56, y: 62 },
-    C2: { x: 84, y: 70 },
-    L: { x: 84, y: 70 },
-  },
+/** База: роля в центъра на легалната зона. */
+function buildBaseRoleXy(zoneRoleByRot) {
+  const out = {};
+  for (const [rot, zones] of Object.entries(zoneRoleByRot)) {
+    const row = {};
+    for (const [zone, role] of Object.entries(zones)) {
+      const xy = BASE_ZONE_XY[Number(zone)] || { x: 50, y: 50 };
+      row[role] = { ...xy };
+      // L заема мястото на C в задна зона при визуализация
+      if (role === "C2" || role === "C1") {
+        if ([1, 5, 6].includes(Number(zone))) row.L = { ...xy };
+      }
+    }
+    out[rot] = row;
+  }
+  return out;
+}
+
+const ZONE_ROLE_BASE = {
+  1: { 4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A" },
+  2: { 4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1" },
+  3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
+  4: { 4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O" },
+  5: { 4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2" },
+  6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
 };
 
+const BASE_ROLE_XY = buildBaseRoleXy(ZONE_ROLE_BASE);
+
 const PHASE_ROLE_TABLE = {
+  base: BASE_ROLE_XY,
   serve: SERVE_ROLE_XY,
   receive: RECEIVE_ROLE_XY,
-  defense: DEFENSE_ROLE_XY,
 };
 
 /** Зона → роля (огледало на backend formation). */
 const FORMATION_ZONE_ROLE = {
-  serve: {
-    1: { 4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A" },
-    2: { 4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1" },
-    3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
-    4: { 4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O" },
-    5: { 4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2" },
-    6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
-  },
-  receive: {
-    1: { 4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A" },
-    2: { 4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1" },
-    3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
-    4: { 4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O" },
-    5: { 4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2" },
-    6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
-  },
-  defense: {
-    1: { 4: "P1", 3: "C1", 2: "O", 5: "P2", 6: "A", 1: "C2" },
-    2: { 4: "P2", 3: "C1", 2: "O", 5: "C2", 6: "A", 1: "P1" },
-    3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
-    4: { 4: "P2", 3: "C2", 2: "A", 5: "P1", 6: "C1", 1: "O" },
-    5: { 4: "P1", 3: "C2", 2: "A", 5: "C1", 6: "O", 1: "P2" },
-    6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
-  },
+  base: ZONE_ROLE_BASE,
+  serve: ZONE_ROLE_BASE,
+  receive: ZONE_ROLE_BASE,
 };
 
 export function playerCourtPosition({ role, zone, phase = "grid", rotation = 1 }) {

@@ -202,13 +202,13 @@ def _load_lineup_and_rotations(
                 # Показваме SAQUE формация (специализирани позиции) — като колоната на графиката
                 display = apply_formation_display(
                     rotation=rot_num,
-                    phase="serve",
+                    phase="base",
                     role_to_athlete=roles,
                     libero_athlete_id=libero_id,
                 )
                 role_map = athlete_roles_on_court(
                     rotation=rot_num,
-                    phase="serve",
+                    phase="base",
                     role_to_athlete=roles,
                     libero_athlete_id=libero_id,
                 )

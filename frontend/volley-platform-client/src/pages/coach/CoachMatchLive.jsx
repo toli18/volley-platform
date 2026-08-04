@@ -60,9 +60,9 @@ const ACTION_LABEL = {
 };
 
 const PHASES = [
+  { id: "base", label: "База" },
   { id: "serve", label: "Сервис" },
   { id: "receive", label: "Посрещане" },
-  { id: "defense", label: "Защита" },
 ];
 
 const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error"]);
@@ -79,7 +79,7 @@ export default function CoachMatchLive() {
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState("");
-  /** null = auto от we_serve; "defense" (или друго) = ръчен изглед */
+  /** null = auto от we_serve (serve|receive); "base" = ръчен изглед */
   const [phaseOverride, setPhaseOverride] = useState(null);
 
   const selected = useMemo(() => {

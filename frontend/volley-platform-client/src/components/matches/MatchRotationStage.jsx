@@ -36,13 +36,13 @@ export default function MatchRotationStage({
         variant="pro"
         layout="tactical"
         size="md"
-        phase="serve"
+        phase="base"
         rotation={rotation}
         slots={slots}
         libero={libero}
         showServe
         title={title}
-        subtitle={`${subtitle} · SAQUE`}
+        subtitle={`${subtitle} · БАЗА`}
         rearrangeable={rearrangeable}
         swapOnClick={rearrangeable}
         onSwapZones={onSwapZones}

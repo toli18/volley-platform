@@ -320,7 +320,7 @@ def get_live(
 ):
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
-    override = phase if phase in ("serve", "receive", "defense") else None
+    override = phase if phase in ("base", "serve", "receive") else None
     return _state(db, match, phase_override=override)
 
 

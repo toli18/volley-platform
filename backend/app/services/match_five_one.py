@@ -1,7 +1,7 @@
 # backend/app/services/match_five_one.py
-"""5-1 по гайда «5-1 Rotation Guide» (+ съвместимост с ROTACION SISTEMAS).
+"""5-1 по гайда «5-1 Rotation Guide» + Rizzler-стил фази.
 
-Роли (наш код → PDF етикет):
+Роли (наш код → PDF/EN):
   A  → S
   O  → RS/OP
   P1 → OH1   (R1 зона 2)
@@ -11,17 +11,17 @@
 
 Стандартен R1 BASE: 4=O, 3=C1, 2=P1, 5=P2, 6=C2, 1=A
 
-Фази:
-  serve   = PDF «Rotation N – Serve» (стек при наш сервис)
-  receive = PDF «Serve Receive»
-  defense = PDF «Base Positions (Defense)» след превключване
+Фази (уеднаквени с Base / Serve / Serve-Receive):
+  base    = легални зони (чиста подредба)
+  serve   = при наш сервис (стек + сървър)
+  receive = посрещане (стек / passers)
 """
 from __future__ import annotations
 
 from typing import Optional
 
-# При сервис: легална подредба + стекове (като PDF Serve), не attack switch.
-SERVE_FORMATION = {
+# Легална подредба по ротация (service order).
+BASE_FORMATION = {
     1: {4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A"},
     2: {4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1"},
     3: {4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1"},
@@ -30,40 +30,22 @@ SERVE_FORMATION = {
     6: {4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2"},
 }
 
-# Serve receive стекове (PDF) — OH1 често пада назад; A скрит.
-RECEIVE_FORMATION = {
-    1: {4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A"},
-    2: {4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1"},
-    3: {4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1"},
-    4: {4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O"},
-    5: {4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2"},
-    6: {4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2"},
-}
+# Serve: същите роли в зоните; визуалният стек е в frontend coords.
+SERVE_FORMATION = dict(BASE_FORMATION)
 
-# Base / defense след switch (PDF Base + Attack).
-DEFENSE_FORMATION = {
-    1: {4: "P1", 3: "C1", 2: "O", 5: "P2", 6: "A", 1: "C2"},
-    2: {4: "P2", 3: "C1", 2: "O", 5: "C2", 6: "A", 1: "P1"},
-    3: {4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1"},
-    4: {4: "P2", 3: "C2", 2: "A", 5: "P1", 6: "C1", 1: "O"},
-    5: {4: "P1", 3: "C2", 2: "A", 5: "C1", 6: "O", 1: "P2"},
-    6: {4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2"},
-}
-
-BASE_FORMATION = dict(SERVE_FORMATION)
+# Serve-receive стекове (роли в зони — визуал в layout).
+RECEIVE_FORMATION = dict(BASE_FORMATION)
 
 PHASE_MAP = {
+    "base": BASE_FORMATION,
     "serve": SERVE_FORMATION,
     "receive": RECEIVE_FORMATION,
-    "defense": DEFENSE_FORMATION,
-    "base": BASE_FORMATION,
 }
 
 FRONT_ZONES = {2, 3, 4}
 BACK_ZONES = {1, 5, 6}
 OPPOSITE_ZONE = {1: 4, 2: 5, 3: 6, 4: 1, 5: 2, 6: 3}
 
-# PDF етикети за UI
 ROLE_LABEL_PDF = {
     "A": "S",
     "O": "OP",
@@ -143,7 +125,10 @@ def assign_roles_from_r1(
 
 
 def formation_for(rotation: int, phase: str) -> dict[int, str]:
-    table = PHASE_MAP.get(phase) or SERVE_FORMATION
+    # Legacy alias: defense → base
+    if phase == "defense":
+        phase = "base"
+    table = PHASE_MAP.get(phase) or BASE_FORMATION
     rot = int(rotation)
     if rot not in table:
         rot = ((rot - 1) % 6) + 1
@@ -195,6 +180,8 @@ def athlete_roles_on_court(
 
 
 def phase_from_serve(we_serve: bool, override: Optional[str] = None) -> str:
+    if override == "defense":
+        override = "base"
     if override in PHASE_MAP:
         return override
     return "serve" if we_serve else "receive"
