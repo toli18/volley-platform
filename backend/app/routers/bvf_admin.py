@@ -477,6 +477,15 @@ def link_api_key(
     club.bvf_linked_at = datetime.utcnow()
     club.bvf_api_key_enc = encrypt_secret(key)
     club.bvf_api_key_prefix = api_key_display_prefix(key)
+    from app.services.club_profile_sync import apply_bvf_club_remote_to_local, sync_coach_phones_from_bvf
+
+    apply_bvf_club_remote_to_local(club, remote)
+    try:
+        coaches_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/coaches", key)
+        if isinstance(coaches_remote, list):
+            sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
     db.commit()
     db.refresh(club)
     return _link_status_payload(club, remote=remote)
@@ -547,6 +556,15 @@ def link_club(
     if stored_user and stored_enc:
         club.bvf_username = stored_user
         club.bvf_password_enc = stored_enc
+    from app.services.club_profile_sync import apply_bvf_club_remote_to_local, sync_coach_phones_from_bvf
+
+    apply_bvf_club_remote_to_local(club, remote)
+    try:
+        coaches_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/coaches", token)
+        if isinstance(coaches_remote, list):
+            sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
     db.commit()
     db.refresh(club)
     return _link_status_payload(club, remote=remote)
@@ -820,7 +838,11 @@ def list_bvf_coaches(
             )
             or f"Треньор #{cid}"
         )
-        coaches.append({"id": cid, "name": name})
+        phone = (
+            str(row.get("contactNumber") or row.get("phone") or row.get("mobilePhone") or "").strip()
+            or None
+        )
+        coaches.append({"id": cid, "name": name, "phone": phone})
     coaches.sort(key=lambda c: c["name"])
     return {"coaches": coaches, "bvf_club_id": club.bvf_club_id}
 
@@ -1126,3 +1148,198 @@ def clear_sek_task_for_athlete(
     clear_sek_task(athlete)
     db.commit()
     return {"ok": True, "athlete_id": athlete.id}
+
+
+
+class ClubProfileUpdateIn(BaseModel):
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    website_url: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class CoachPhoneUpdateIn(BaseModel):
+    phone: Optional[str] = None
+    phone_visible_to_parents: Optional[bool] = None
+    club_id: Optional[int] = None
+
+
+class ClubProfileSyncIn(BaseModel):
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+@router.get("/club-profile")
+def get_club_profile(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Профил на клуба — отключен след връзка със СЕК."""
+    from app.services.club_profile_sync import club_profile_unlocked, serialize_club_profile
+
+    if current_user.role == UserRole.coach:
+        if not current_user.club_id:
+            raise HTTPException(status_code=422, detail="Няма клуб")
+        club = db.query(Club).filter(Club.id == int(current_user.club_id)).first()
+        if not club:
+            raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    else:
+        _ensure_head_with_club(current_user)
+        club = _club_for_user(db, current_user, club_id)
+
+    coaches = (
+        db.query(User)
+        .filter(
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
+    # Обикновен треньор вижда телефоните; редакцията е за главен
+    can_edit = current_user.role in (
+        UserRole.club_head_coach,
+        UserRole.platform_admin,
+        UserRole.federation_admin,
+    )
+    payload = serialize_club_profile(club, coaches=coaches)
+    payload["can_edit"] = can_edit and club_profile_unlocked(club)
+    payload["can_sync"] = can_edit and club_profile_unlocked(club)
+    return payload
+
+
+@router.post("/club-profile/sync")
+def sync_club_profile_from_sek(
+    payload: ClubProfileSyncIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Изтегля профила на клуба и телефоните на треньорите от СЕК."""
+    from app.services.bvf_auth import resolve_club_bvf_token
+    from app.services.club_profile_sync import (
+        apply_bvf_club_remote_to_local,
+        club_profile_unlocked,
+        serialize_club_profile,
+        sync_coach_phones_from_bvf,
+    )
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(
+            status_code=423,
+            detail="Профилът на клуба е заключен. Първо свържи клуба със СЕК в Администрация БФВ.",
+        )
+    token = resolve_club_bvf_token(club, payload.bvf_token)
+    _assert_cred_matches_club(token, club)
+    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}", token)
+    if not isinstance(remote, dict):
+        raise HTTPException(status_code=502, detail="БФВ не върна профил на клуб")
+    club_changes = apply_bvf_club_remote_to_local(club, remote)
+    coach_stats = {"coaches_matched": 0, "phones_updated": 0, "local_coaches": 0}
+    try:
+        coaches_remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/coaches", token)
+        if isinstance(coaches_remote, list):
+            coach_stats = sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
+    db.commit()
+    db.refresh(club)
+    coaches = (
+        db.query(User)
+        .filter(
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
+    out = serialize_club_profile(club, coaches=coaches)
+    out["can_edit"] = True
+    out["can_sync"] = True
+    out["sync"] = {**club_changes, **coach_stats}
+    return out
+
+
+@router.patch("/club-profile")
+def update_club_profile_local(
+    payload: ClubProfileUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    from app.services.club_profile_sync import club_profile_unlocked, serialize_club_profile
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(status_code=423, detail="Профилът е заключен до връзка със СЕК.")
+    data = payload.model_dump(exclude_unset=True)
+    data.pop("club_id", None)
+    for key, val in data.items():
+        if val is None:
+            continue
+        setattr(club, key, str(val).strip() or None)
+    db.commit()
+    db.refresh(club)
+    coaches = (
+        db.query(User)
+        .filter(
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
+    out = serialize_club_profile(club, coaches=coaches)
+    out["can_edit"] = True
+    out["can_sync"] = True
+    return out
+
+
+@router.patch("/club-profile/coaches/{coach_id}")
+def update_coach_phone_in_club_profile(
+    coach_id: int,
+    payload: CoachPhoneUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    from app.services.club_profile_sync import club_profile_unlocked
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(status_code=423, detail="Профилът е заключен до връзка със СЕК.")
+    coach = (
+        db.query(User)
+        .filter(
+            User.id == int(coach_id),
+            User.club_id == club.id,
+            User.role.in_([UserRole.coach, UserRole.club_head_coach]),
+        )
+        .first()
+    )
+    if not coach:
+        raise HTTPException(status_code=404, detail="Треньорът не е намерен в клуба")
+    if payload.phone is not None:
+        coach.phone = (payload.phone or "").strip() or None
+    if payload.phone_visible_to_parents is not None:
+        coach.phone_visible_to_parents = bool(payload.phone_visible_to_parents)
+    db.commit()
+    db.refresh(coach)
+    return {
+        "id": coach.id,
+        "name": coach.name,
+        "phone": coach.phone,
+        "phone_visible_to_parents": bool(coach.phone_visible_to_parents),
+    }

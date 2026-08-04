@@ -73,7 +73,13 @@ export default function CoachMobileLayout() {
         <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
         <div className="coachMobileTopActions">
           {user?.club_logo_url ? (
-            <ClubLogo logoUrl={user.club_logo_url} name={user.club_name} className="portalHeaderClubLogo" />
+            <ClubLogo
+              logoUrl={user.club_logo_url}
+              name={user.club_name}
+              className="portalHeaderClubLogo"
+              to="/coach/club-profile"
+              title="Профил на клуба"
+            />
           ) : null}
           {showBack ? <CoachMobileNavMenu className="coachMobileMenuBtn coachMobileMenuBtn--compact" /> : null}
           <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>

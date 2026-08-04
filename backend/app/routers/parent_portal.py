@@ -647,6 +647,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     if coach_row:
         fee_coach.name = coach_row.name
         fee_coach.email = coach_row.email
+        if getattr(coach_row, "phone_visible_to_parents", True) and (coach_row.phone or "").strip():
+            fee_coach.phone = coach_row.phone.strip()
     if athlete.club_id:
         club_row = db.query(Club).filter(Club.id == athlete.club_id).first()
         if club_row:

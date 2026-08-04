@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
@@ -42,7 +42,17 @@ export default function CoachBvfAdmin() {
   const [yearTo, setYearTo] = useState("");
   const [sexFilter, setSexFilter] = useState("all");
   const [onlyNew, setOnlyNew] = useState(true);
-  const [pageTab, setPageTab] = useState("athletes"); // athletes | link | consent
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const [pageTab, setPageTab] = useState(
+    tabFromUrl === "link" || tabFromUrl === "consent" ? tabFromUrl : "athletes"
+  ); // athletes | link | consent
+
+  useEffect(() => {
+    if (tabFromUrl === "link" || tabFromUrl === "consent" || tabFromUrl === "athletes") {
+      setPageTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   const permanent = Boolean(
     status?.permanent_link || status?.has_bvf_api_key || status?.has_bvf_credentials,

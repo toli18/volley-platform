@@ -113,6 +113,7 @@ class ParentAttendanceSummary(BaseModel):
 class ParentFeeCoachContact(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
     club_name: Optional[str] = None
     club_phone: Optional[str] = None
 

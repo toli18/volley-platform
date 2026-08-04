@@ -73,6 +73,7 @@ class Club(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False)
+    full_name = Column(String(500), nullable=True)  # официално име от СЕК (fullName)
     city = Column(String(100))
     country = Column(String(100))
     address = Column(Text)
@@ -80,6 +81,10 @@ class Club(Base):
     contact_phone = Column(String(50))
     website_url = Column(String(500))
     logo_url = Column(String(500))
+    bulstat = Column(String(32), nullable=True)
+    license_number = Column(String(64), nullable=True)
+    bvf_region = Column(String(120), nullable=True)
+    bvf_logo_id = Column(String(64), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     # Връзка към db.bvf.bg (напр. 167 за Троян Волей)
     bvf_club_id = Column(Integer, nullable=True, unique=True, index=True)
@@ -122,6 +127,8 @@ class User(Base):
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(SqlEnum(UserRole), nullable=False)
+    phone = Column(String(50), nullable=True)
+    phone_visible_to_parents = Column(Boolean, nullable=False, default=True)
 
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

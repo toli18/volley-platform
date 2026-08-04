@@ -118,6 +118,8 @@ export default function AppHeader() {
               logoUrl={user.club_logo_url}
               name={user.club_name}
               className="appHeaderClubLogo"
+              to="/coach/club-profile"
+              title="Профил на клуба"
             />
           ) : null}
           {!user ? (

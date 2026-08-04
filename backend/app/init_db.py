@@ -277,6 +277,21 @@ def _init_db_impl() -> None:
             print("✅ PostgreSQL: teams.gender ensured")
             print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
             print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
+            try:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS full_name VARCHAR(500)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bulstat VARCHAR(32)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS license_number VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_region VARCHAR(120)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_logo_id VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_visible_to_parents "
+                        "BOOLEAN NOT NULL DEFAULT TRUE"
+                    )
+                )
+            except Exception as _club_prof_exc:
+                print(f"⚠️ club profile columns: {_club_prof_exc}")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
@@ -416,6 +431,29 @@ def _init_db_impl() -> None:
             if "bvf_club_name" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_club_name VARCHAR(255)"))
                 print("✅ Added clubs.bvf_club_name column")
+            if "full_name" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN full_name VARCHAR(500)"))
+                print("✅ Added clubs.full_name")
+            if "bulstat" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bulstat VARCHAR(32)"))
+                print("✅ Added clubs.bulstat")
+            if "license_number" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN license_number VARCHAR(64)"))
+                print("✅ Added clubs.license_number")
+            if "bvf_region" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_region VARCHAR(120)"))
+                print("✅ Added clubs.bvf_region")
+            if "bvf_logo_id" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_logo_id VARCHAR(64)"))
+                print("✅ Added clubs.bvf_logo_id")
+            user_cols = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            user_col_names = {row[1] for row in user_cols}
+            if "phone" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50)"))
+                print("✅ Added users.phone")
+            if "phone_visible_to_parents" not in user_col_names:
+                conn.execute(text("ALTER TABLE users ADD COLUMN phone_visible_to_parents BOOLEAN NOT NULL DEFAULT 1"))
+                print("✅ Added users.phone_visible_to_parents")
             if "bvf_linked_at" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_linked_at DATETIME"))
                 print("✅ Added clubs.bvf_linked_at column")
