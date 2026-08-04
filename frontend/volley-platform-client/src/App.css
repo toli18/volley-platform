@@ -5907,6 +5907,21 @@
   border-color: #93c5fd;
 }
 
+.chatInlineLink {
+  color: #0f766e;
+  font-weight: 600;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.teamPortalCoachChatBubble--mine .chatInlineLink {
+  color: #1d4ed8;
+}
+
+.teamRoomChatBody .chatInlineLink {
+  color: #7dd3fc;
+}
+
 .teamPortalCoachChatMetaActions {
   display: flex;
   flex-wrap: wrap;

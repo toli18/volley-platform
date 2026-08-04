@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
+import ChatLinkedText from "../chat/ChatLinkedText";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, Card, Input, Modal } from "../ui";
 
@@ -327,7 +328,12 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
                 if (parsed.type === "gif") {
                   return <img className="teamPortalCoachChatGif" src={parsed.url} alt="GIF" loading="lazy" />;
                 }
-                return <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{msg.body}</p>;
+                return (
+                  <ChatLinkedText
+                    text={msg.body}
+                    style={{ margin: "4px 0 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                  />
+                );
               })()}
               <div className="teamPortalCoachChatMeta">
                 <span>{formatTime(msg.created_at)}</span>

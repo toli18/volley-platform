@@ -72,6 +72,46 @@ export function parseChatBody(body) {
   return { type: "text", text: body };
 }
 
+/** Match http(s) URLs; trim trailing punctuation often glued to links. */
+const URL_RE = /(https?:\/\/[^\s<]+)/gi;
+
+function cleanUrlMatch(raw) {
+  let url = String(raw || "");
+  let trailing = "";
+  while (/[),.!?;:]$/.test(url)) {
+    trailing = url.slice(-1) + trailing;
+    url = url.slice(0, -1);
+  }
+  return { url, trailing };
+}
+
+/**
+ * Split plain chat text into React-safe nodes with clickable links.
+ * Returns an array of strings and <a> elements (caller should key if needed).
+ */
+export function linkifyChatText(text) {
+  const raw = String(text ?? "");
+  if (!raw) return raw;
+  const parts = [];
+  let last = 0;
+  const re = new RegExp(URL_RE.source, "gi");
+  let match;
+  let key = 0;
+  while ((match = re.exec(raw)) !== null) {
+    if (match.index > last) {
+      parts.push(raw.slice(last, match.index));
+    }
+    const { url, trailing } = cleanUrlMatch(match[0]);
+    if (url) {
+      parts.push({ type: "link", href: url, label: url, key: `l${key++}` });
+    }
+    if (trailing) parts.push(trailing);
+    last = match.index + match[0].length;
+  }
+  if (last < raw.length) parts.push(raw.slice(last));
+  return parts.length ? parts : [raw];
+}
+
 export function chatPreview(body) {
   return parseChatBody(body).type === "gif" ? "🎬 GIF" : body;
 }

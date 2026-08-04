@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { chatPreview, gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
+import ChatLinkedText from "../chat/ChatLinkedText";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, EmptyState } from "../ui";
 
@@ -101,7 +102,7 @@ function ChatBubble({ msg, bubbleRef }) {
             <img className="teamRoomChatGif" src={parsed.url} alt="GIF" loading="lazy" />
           );
         }
-        return <p className="teamRoomChatBody">{msg.body}</p>;
+        return <ChatLinkedText text={msg.body} className="teamRoomChatBody" />;
       })()}
       <time className="teamRoomChatTime" dateTime={msg.created_at}>
         {formatChatTime(msg.created_at)}
