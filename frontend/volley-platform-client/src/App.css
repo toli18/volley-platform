@@ -6774,9 +6774,17 @@
 }
 .matchLivePage .matchChipSlot--abs {
   transition: none;
-  width: 100px;
-  min-height: 92px;
-  z-index: 3;
+  width: 72px;
+  min-height: 78px;
+  /* z-index set inline by court depth so overlaps stay selectable */
+}
+.matchLivePage .matchChipHit {
+  display: none;
+}
+.matchLivePage .matchCourtBoard--tactical .matchChipCircle {
+  width: 56px;
+  height: 56px;
+  font-size: 16px;
 }
 .matchCourtBoardHead {
   text-align: center;
@@ -7760,16 +7768,40 @@ button.matchChipSlot:not(:disabled) {
 .matchLiveEntryBar {
   display: grid;
   gap: 6px;
-  padding: 10px;
+  padding: 8px 10px;
   border-radius: 14px;
   background: #0b1220;
   border: 1px solid rgba(148, 163, 184, 0.22);
 }
 .matchLiveEntryBar .matchLiveSelected {
-  margin-bottom: 2px;
+  margin-bottom: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.matchLiveEntryRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.matchLiveEntryRow .matchLiveStatBtn {
+  flex: 0 0 auto;
+  min-width: 52px;
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.matchLiveEntryRow .matchLiveStatBtn--sym {
+  min-width: 40px;
+  font-size: 16px;
 }
 .matchLiveEvents--compact {
-  max-height: 120px;
+  max-height: 88px;
   overflow: auto;
 }
 .matchLiveStatsDrawer--wide {

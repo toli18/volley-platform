@@ -453,44 +453,37 @@ export default function CoachMatchLive() {
           )}
         </div>
 
-        <div className="matchLiveStatGroup">
-          <div className="matchLiveStatGroupTitle">Противник</div>
-          <div className="matchLiveStatBtns">
-            <button
-              type="button"
-              className="matchLiveStatBtn matchLiveStatBtn--good"
-              disabled={busy || setFinished || state.status === "finished"}
-              onClick={() => recordStat("opp_error")}
-            >
-              Грешка OPP
-            </button>
-          </div>
+        <div className="matchLiveEntryRow" role="group" aria-label="Въвеждане на статистика">
+          <button
+            type="button"
+            className="matchLiveStatBtn matchLiveStatBtn--good"
+            disabled={busy || setFinished || state.status === "finished"}
+            onClick={() => recordStat("opp_error")}
+            title="Грешка на противника"
+          >
+            Грешка OPP
+          </button>
+          {STAT_GROUPS.flatMap((g) =>
+            g.items.map((it) => (
+              <button
+                key={it.action}
+                type="button"
+                className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
+                  it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
+                }`}
+                disabled={busy || setFinished || state.status === "finished"}
+                onClick={() => recordStat(it.action)}
+                title={`${g.title}: ${ACTION_LABEL[it.action] || it.label}`}
+              >
+                {it.label}
+              </button>
+            )),
+          )}
         </div>
-
-        {STAT_GROUPS.map((g) => (
-          <div key={g.title} className="matchLiveStatGroup">
-            <div className="matchLiveStatGroupTitle">{g.title}</div>
-            <div className="matchLiveStatBtns">
-              {g.items.map((it) => (
-                <button
-                  key={it.action}
-                  type="button"
-                  className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
-                    it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-                  }`}
-                  disabled={busy || setFinished || state.status === "finished"}
-                  onClick={() => recordStat(it.action)}
-                >
-                  {it.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
 
         <div className="matchLiveEvents matchLiveEvents--compact">
           <div className="matchLiveStatGroupTitle">Последни</div>
-          {(state.recent_events || []).slice(0, 5).map((ev) => (
+          {(state.recent_events || []).slice(0, 4).map((ev) => (
             <div key={ev.id} className="matchLiveEventRow">
               <span>R{ev.rotation}</span>
               <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>

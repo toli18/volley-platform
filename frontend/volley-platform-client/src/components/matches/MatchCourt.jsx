@@ -165,6 +165,8 @@ export default function MatchCourt({
   const onPointerDown = (zone, e) => {
     if (!canInteract) return;
     if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
     startZone.current = zone;
     dragZoneRef.current = zone;
     moved.current = false;
@@ -174,17 +176,24 @@ export default function MatchCourt({
     const isTouch = e.pointerType === "touch";
     if ((rearrangeable || freeMove) && !isTouch) {
       setSelectZone(null);
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      try {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
     if (freeMove && isTouch) {
-      // Immediate drag on touch — no long-press (easier to grab players)
       dragging.current = true;
       moved.current = false;
       setDragFrom(zone);
       setSelectZone(null);
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      try {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
@@ -319,6 +328,15 @@ export default function MatchCourt({
   const faultLines = alignment?.faults || [];
   const warnLines = alignment?.legal ? alignment.warnings || [] : [];
 
+  // Paint back-row (higher y) above front so overlapping chips stay clickable
+  const zonesPaintOrder = useMemo(() => {
+    return [...ZONES].sort((a, b) => {
+      const ya = resolvedPositions[a]?.y ?? 50;
+      const yb = resolvedPositions[b]?.y ?? 50;
+      return ya - yb;
+    });
+  }, [resolvedPositions]);
+
   const renderSlot = (zone) => {
     const player = byZone[zone];
     const isActive = Number(highlightZone) === zone;
@@ -343,11 +361,13 @@ export default function MatchCourt({
           ? positionShort(player.position)
           : null;
     const pos = resolvedPositions[zone] || { x: 50, y: 50 };
+    const stackZ = isDrag ? 40 : isActive ? 30 : 10 + Math.round(Number(pos.y) || 50);
 
     const style = isTactical
       ? {
           left: `${pos.x}%`,
           top: `${pos.y}%`,
+          zIndex: stackZ,
           touchAction: rearrangeable || freeMove ? "none" : undefined,
           transition: freeMove || isDrag ? "none" : undefined,
         }
@@ -475,7 +495,7 @@ export default function MatchCourt({
             ) : null}
 
             {isTactical ? (
-              <div className="matchCourtAbsLayer">{ZONES.map((z) => renderSlot(z))}</div>
+              <div className="matchCourtAbsLayer">{zonesPaintOrder.map((z) => renderSlot(z))}</div>
             ) : (
               <>
                 <div className="matchCourtRow matchCourtRow--front">{[4, 3, 2].map((z) => renderSlot(z))}</div>
