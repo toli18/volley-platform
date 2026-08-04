@@ -49,8 +49,12 @@ export default function MatchCourt({
   const longPressTimer = useRef(null);
   const dragging = useRef(false);
   const startZone = useRef(null);
+  const dragZoneRef = useRef(null);
   const moved = useRef(false);
+  const livePosRef = useRef(null);
   const planeRef = useRef(null);
+  const freeMoveRef = useRef(freeMove);
+  freeMoveRef.current = freeMove;
 
   const clearLongPress = () => {
     if (longPressTimer.current) {
@@ -73,14 +77,13 @@ export default function MatchCourt({
             rotation,
           })
         : zonePosition({ zone: z, phase: "grid", rotation: 1 });
-      const ov = positionOverrides?.[z];
+      const ov = positionOverrides?.[z] ?? positionOverrides?.[String(z)];
       out[z] = ov ? clampCourtPct(ov.x, ov.y) : preset;
     }
     if (livePos?.zone != null) {
       out[livePos.zone] = clampCourtPct(livePos.x, livePos.y);
     }
     return out;
-    // byZone rebuilt from slots each render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots, isTactical, layoutPhase, rotation, positionOverrides, livePos]);
 
@@ -128,26 +131,42 @@ export default function MatchCourt({
   };
 
   const emitPositions = (zone, xy) => {
-    const overridesNext = { ...(positionOverrides || {}), [zone]: clampCourtPct(xy.x, xy.y) };
-    const full = {};
-    for (const z of ZONES) {
-      const player = byZone[z];
-      const preset = playerCourtPosition({
-        role: player?.role,
-        zone: z,
-        phase: layoutPhase,
-        rotation,
-      });
-      const ov = overridesNext[z];
-      full[z] = ov ? clampCourtPct(ov.x, ov.y) : preset;
+    const zNum = Number(zone);
+    const overridesNext = { ...(positionOverrides || {}) };
+    // normalize keys to numbers
+    const cleaned = {};
+    for (const [k, v] of Object.entries(overridesNext)) {
+      cleaned[Number(k)] = v;
     }
-    onPositionsChange?.(overridesNext, checkFormationAlignment(full));
+    cleaned[zNum] = clampCourtPct(xy.x, xy.y);
+    onPositionsChange?.(cleaned);
+  };
+
+  const endFreeDrag = (e) => {
+    const zone = dragZoneRef.current ?? startZone.current;
+    const didDrag = dragging.current && moved.current && zone != null;
+    if (freeMoveRef.current && didDrag) {
+      const pct = (e && pctFromEvent(e)) || livePosRef.current;
+      if (pct) emitPositions(zone, pct);
+    } else if (zone != null && !moved.current) {
+      onZoneClick?.(zone);
+    }
+    clearLongPress();
+    dragging.current = false;
+    dragZoneRef.current = null;
+    startZone.current = null;
+    moved.current = false;
+    livePosRef.current = null;
+    setDragFrom(null);
+    setLivePos(null);
+    setHoverZone(null);
   };
 
   const onPointerDown = (zone, e) => {
     if (!canInteract) return;
     if (e.button != null && e.button !== 0) return;
     startZone.current = zone;
+    dragZoneRef.current = zone;
     moved.current = false;
     dragging.current = false;
     clearLongPress();
@@ -162,6 +181,7 @@ export default function MatchCourt({
     if ((rearrangeable || freeMove) && isTouch) {
       longPressTimer.current = setTimeout(() => {
         dragging.current = true;
+        dragZoneRef.current = zone;
         setDragFrom(zone);
         setSelectZone(null);
         if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -177,21 +197,30 @@ export default function MatchCourt({
 
   const onPointerMove = (zone, e) => {
     if (!rearrangeable && !freeMove) return;
-    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
+    if (startZone.current == null) return;
+
+    const dist = Math.abs(e.movementX) + Math.abs(e.movementY);
+    if (dist > 1) {
       moved.current = true;
       clearLongPress();
-      if (!dragging.current && startZone.current != null && e.pointerType !== "touch") {
+      if (!dragging.current && e.pointerType !== "touch") {
         dragging.current = true;
+        dragZoneRef.current = startZone.current;
         setDragFrom(startZone.current);
         setSelectZone(null);
       }
     }
+
+    // Touch: wait for long-press to arm drag
     if (!dragging.current) return;
 
     if (freeMove) {
       const pct = pctFromEvent(e);
-      if (pct && startZone.current != null) {
-        setLivePos({ zone: startZone.current, x: pct.x, y: pct.y });
+      const z = dragZoneRef.current ?? startZone.current;
+      if (pct && z != null) {
+        const next = { zone: Number(z), x: pct.x, y: pct.y };
+        livePosRef.current = next;
+        setLivePos(next);
       }
       return;
     }
@@ -205,33 +234,27 @@ export default function MatchCourt({
   };
 
   const onPointerUp = (zone, e) => {
-    clearLongPress();
-    const from = startZone.current;
-
-    if (freeMove && dragging.current && dragFrom != null && moved.current) {
-      const pct = e ? pctFromEvent(e) : null;
-      if (pct) {
-        emitPositions(dragFrom, pct);
-      }
-      dragging.current = false;
-      setDragFrom(null);
-      setLivePos(null);
-      setHoverZone(null);
-      startZone.current = null;
+    if (freeMove) {
+      endFreeDrag(e);
       return;
     }
 
-    if (rearrangeable && !freeMove && dragging.current && dragFrom != null && moved.current) {
+    clearLongPress();
+    const from = startZone.current;
+    const dragZ = dragZoneRef.current ?? dragFrom;
+
+    if (rearrangeable && dragging.current && dragZ != null && moved.current) {
       const pct = e ? pctFromEvent(e) : null;
       const target = pct
         ? nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation })
         : hoverZone || zone;
-      if (target != null && Number(target) !== Number(dragFrom)) {
-        finishSwap(dragFrom, target);
+      if (target != null && Number(target) !== Number(dragZ)) {
+        finishSwap(dragZ, target);
       } else if (from) {
         onZoneClick?.(from);
       }
       dragging.current = false;
+      dragZoneRef.current = null;
       setDragFrom(null);
       setHoverZone(null);
       startZone.current = null;
@@ -239,13 +262,14 @@ export default function MatchCourt({
     }
 
     dragging.current = false;
+    dragZoneRef.current = null;
     setDragFrom(null);
     setLivePos(null);
     setHoverZone(null);
 
     if (!from) return;
 
-    if (rearrangeable && !freeMove && swapOnClick) {
+    if (rearrangeable && swapOnClick) {
       if (selectZone == null) {
         setSelectZone(from);
         onZoneClick?.(from);
@@ -265,8 +289,13 @@ export default function MatchCourt({
   };
 
   const onPointerCancel = () => {
+    if (freeMove) {
+      endFreeDrag(null);
+      return;
+    }
     clearLongPress();
     dragging.current = false;
+    dragZoneRef.current = null;
     setDragFrom(null);
     setLivePos(null);
     setHoverZone(null);
@@ -303,6 +332,7 @@ export default function MatchCourt({
           left: `${pos.x}%`,
           top: `${pos.y}%`,
           touchAction: rearrangeable || freeMove ? "none" : undefined,
+          transition: freeMove || isDrag ? "none" : undefined,
         }
       : { touchAction: rearrangeable || freeMove ? "none" : undefined };
 
@@ -321,11 +351,7 @@ export default function MatchCourt({
         data-zone={zone}
         style={style}
         onPointerDown={(e) => onPointerDown(zone, e)}
-        onPointerEnter={(e) => onPointerMove(zone, e)}
-        onPointerMove={(e) => {
-          if (!dragging.current) return;
-          onPointerMove(zone, e);
-        }}
+        onPointerMove={(e) => onPointerMove(zone, e)}
         onPointerUp={(e) => onPointerUp(zone, e)}
         onPointerCancel={onPointerCancel}
       >
