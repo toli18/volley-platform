@@ -10,7 +10,7 @@ import { normalizeError } from "../../utils/normalizeError";
  * Документи БФВ — само sync на метаданни.
  * Форма 03 / 03-А се попълва онлайн от родителя; ръчно качване на файл е скрито.
  */
-export default function BvfDocumentsPanel({ athleteId, toast }) {
+export default function BvfDocumentsPanel({ athleteId, toast, canManageSek = false }) {
   const { permanent, tokenBody } = useClubBvfLink();
   const [token, setToken] = useState("");
   const [docs, setDocs] = useState([]);
@@ -18,9 +18,13 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
   const [seasonYear, setSeasonYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState(false);
 
-  const canCallBvf = permanent || Boolean(token.trim());
+  const canCallBvf = canManageSek && (permanent || Boolean(token.trim()));
 
   const sync = async () => {
+    if (!canManageSek) {
+      toast?.error("Само главният треньор може да синхронизира документи със СЕК.");
+      return;
+    }
     if (!canCallBvf) {
       toast?.error("Първо оторизирай клуба в Администрация БФВ или постави token.");
       return;
@@ -48,9 +52,15 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
         Форма 03 / 03-А се попълва онлайн от родителя. Тук се синхронизират само метаданните от БФВ
         (тип, описание, дати) — без ръчно качване на файл.
       </p>
-      {permanent ? (
+      {!canManageSek ? (
+        <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+          Прегледът е отворен. Синхронизация със СЕК прави само главният треньор.
+        </p>
+      ) : null}
+      {canManageSek && permanent ? (
         <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>Постоянна връзка с БФВ — token не е нужен.</p>
-      ) : (
+      ) : null}
+      {canManageSek && !permanent ? (
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>БФВ token</span>
           <textarea
@@ -61,10 +71,12 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
             style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}
           />
         </label>
-      )}
-      <Button type="button" size="sm" variant="secondary" disabled={busy || !canCallBvf} onClick={sync}>
-        Синхронизирай документи
-      </Button>
+      ) : null}
+      {canManageSek ? (
+        <Button type="button" size="sm" variant="secondary" disabled={busy || !canCallBvf} onClick={sync}>
+          Синхронизирай документи
+        </Button>
+      ) : null}
 
       {checklist.length ? (
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
@@ -88,7 +100,7 @@ export default function BvfDocumentsPanel({ athleteId, toast }) {
         </ul>
       ) : (
         <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
-          Няма заредени метаданни — sync първо.
+          {canManageSek ? "Няма заредени метаданни — sync първо." : "Няма заредени метаданни от БФВ."}
         </p>
       )}
     </div>

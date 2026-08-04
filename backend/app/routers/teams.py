@@ -803,6 +803,19 @@ async def upload_athlete_photo(
     athlete = _get_athlete_for_team_context(db, athlete_id, current_user)
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
+
+    can_manage_sek = _role_value(current_user) in {
+        UserRole.club_head_coach.value,
+        UserRole.platform_admin.value,
+        UserRole.federation_admin.value,
+    }
+    # Групов треньор: снимка само преди свързване със СЕК (локален кеш за по-късно създаване).
+    if athlete.bvf_player_id and not can_manage_sek:
+        raise HTTPException(
+            status_code=403,
+            detail="Груповият треньор може да качва снимка само преди свързване със СЕК",
+        )
+
     content = await file.read()
     if not content:
         raise HTTPException(status_code=422, detail="Празен файл")
@@ -813,7 +826,7 @@ async def upload_athlete_photo(
     db.commit()
 
     pushed = False
-    if push_to_bvf and athlete.bvf_player_id and athlete.club_id:
+    if push_to_bvf and can_manage_sek and athlete.bvf_player_id and athlete.club_id:
         club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
         if club and club_has_bvf_auth(club):
             try:

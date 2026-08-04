@@ -257,7 +257,9 @@ export default function CoachAthleteProfile() {
     if (!profile?.athlete_id || !file) return;
     const form = new FormData();
     form.append("file", file);
-    form.append("push_to_bvf", profile.bvf_player_id ? "true" : "false");
+    // Само главният треньор изпраща снимка към СЕК; груповите треньори записват локално.
+    const pushToBvf = Boolean(isHeadCoach && profile.bvf_player_id);
+    form.append("push_to_bvf", pushToBvf ? "true" : "false");
     try {
       setSyncingPhoto(true);
       const res = await axiosInstance.post(API_PATHS.TEAM_ATHLETE_PHOTO(profile.athlete_id), form, {
@@ -265,8 +267,8 @@ export default function CoachAthleteProfile() {
       });
       toast.success(
         res.data?.pushed_to_bvf
-          ? "Снимката е записана и изпратена към БФВ."
-          : "Снимката е записана локално.",
+          ? "Снимката е записана и изпратена към СЕК."
+          : "Снимката е записана локално (до създаване в СЕК).",
       );
       await reloadProfile();
     } catch (err) {
@@ -308,35 +310,40 @@ export default function CoachAthleteProfile() {
         onStartEdit={startEdit}
         onCancelEdit={cancelEdit}
         onSaveEdit={saveProfile}
-        onOpenBvfCreate={() => setBvfOpen(true)}
-        onOpenBvfLink={() => setBvfLinkOpen(true)}
-        onSyncPhoto={syncPhotoFromBvf}
+        onOpenBvfCreate={isHeadCoach ? () => setBvfOpen(true) : undefined}
+        onOpenBvfLink={isHeadCoach ? () => setBvfLinkOpen(true) : undefined}
+        onSyncPhoto={isHeadCoach ? syncPhotoFromBvf : undefined}
         onUploadPhoto={uploadLocalPhoto}
         syncingPhoto={syncingPhoto}
+        canManageSek={isHeadCoach}
       />
-      <BvfCreateAthleteModal
-        open={bvfOpen}
-        onClose={() => setBvfOpen(false)}
-        athleteId={profile.athlete_id}
-        athleteName={profile.athlete_name}
-        initialEgn={profile.egn || ""}
-        missing={profile.bvf_missing || []}
-        toast={toast}
-        onCreated={async () => {
-          await reloadProfile();
-        }}
-      />
-      <BvfLinkByEgnModal
-        open={bvfLinkOpen}
-        onClose={() => setBvfLinkOpen(false)}
-        athleteId={profile.athlete_id}
-        athleteName={profile.athlete_name}
-        initialEgn={profile.egn || ""}
-        toast={toast}
-        onLinked={async () => {
-          await reloadProfile();
-        }}
-      />
+      {isHeadCoach ? (
+        <>
+          <BvfCreateAthleteModal
+            open={bvfOpen}
+            onClose={() => setBvfOpen(false)}
+            athleteId={profile.athlete_id}
+            athleteName={profile.athlete_name}
+            initialEgn={profile.egn || ""}
+            missing={profile.bvf_missing || []}
+            toast={toast}
+            onCreated={async () => {
+              await reloadProfile();
+            }}
+          />
+          <BvfLinkByEgnModal
+            open={bvfLinkOpen}
+            onClose={() => setBvfLinkOpen(false)}
+            athleteId={profile.athlete_id}
+            athleteName={profile.athlete_name}
+            initialEgn={profile.egn || ""}
+            toast={toast}
+            onLinked={async () => {
+              await reloadProfile();
+            }}
+          />
+        </>
+      ) : null}
     </>
   );
 }

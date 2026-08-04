@@ -10,6 +10,7 @@ import BvfCreateAthleteModal from "../components/athletes/BvfCreateAthleteModal"
 import { Button, Card, EmptyState, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { formatMoney } from "../utils/currency";
 import { normalizeError } from "../utils/normalizeError";
+import { useAuth } from "../auth/AuthContext";
 import {
   athleteToIdentityForm,
   buildAthletePayload,
@@ -54,6 +55,10 @@ export default function TeamAthleteProfile() {
   const { athleteId } = useParams();
   const location = useLocation();
   const toast = useToast();
+  const { user } = useAuth();
+  const role = String(user?.role?.value ?? user?.role ?? "").toLowerCase();
+  const canManageSek =
+    role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -193,9 +198,9 @@ export default function TeamAthleteProfile() {
                 <Button type="button" variant="primary" onClick={startEdit}>
                   Редактирай
                 </Button>
-                {!profile.bvf_player_id ? (
+                {!profile.bvf_player_id && canManageSek ? (
                   <Button type="button" variant="secondary" onClick={() => setBvfOpen(true)}>
-                    Създай в БФВ
+                    Създай в СЕК
                   </Button>
                 ) : null}
                 <Button as={Link} to={feesPayHref} variant="secondary">
@@ -326,19 +331,21 @@ export default function TeamAthleteProfile() {
         )}
       </Card>
 
-      <BvfCreateAthleteModal
-        open={bvfOpen}
-        onClose={() => setBvfOpen(false)}
-        athleteId={profile.athlete_id}
-        athleteName={profile.athlete_name}
-        initialEgn={profile.egn || ""}
-        missing={profile.bvf_missing || []}
-        toast={toast}
-        onCreated={async () => {
-          const res = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteId));
-          setProfile(res.data || null);
-        }}
-      />
+      {canManageSek ? (
+        <BvfCreateAthleteModal
+          open={bvfOpen}
+          onClose={() => setBvfOpen(false)}
+          athleteId={profile.athlete_id}
+          athleteName={profile.athlete_name}
+          initialEgn={profile.egn || ""}
+          missing={profile.bvf_missing || []}
+          toast={toast}
+          onCreated={async () => {
+            const res = await axiosInstance.get(API_PATHS.TEAM_ATHLETE_PROFILE(athleteId));
+            setProfile(res.data || null);
+          }}
+        />
+      ) : null}
 
       <Card title="Обобщение на присъствие">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

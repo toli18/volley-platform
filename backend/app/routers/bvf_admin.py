@@ -896,7 +896,6 @@ async def create_player_from_athlete(
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(
-            UserRole.coach,
             UserRole.club_head_coach,
             UserRole.platform_admin,
             UserRole.federation_admin,
@@ -907,7 +906,9 @@ async def create_player_from_athlete(
     Създава състезател в БФВ от локалния профил + снимка.
     Записва bvf_player_id / number / photoId обратно; идентичността се заключва.
     FirstCoachId: подаден ръчно, иначе от мапинга на треньора / клубен default.
+    Само главен треньор / админ.
     """
+    _ensure_head_with_club(current_user)
     from app.services.bvf_auth import resolve_club_bvf_token
     from app.services.bvf_coach_link import resolve_first_coach_bvf_id, resolve_first_coach_label
 

@@ -119,11 +119,11 @@ export default function BvfCreateAthleteModal({
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CREATE_FROM_ATHLETE, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      toast?.success(`Създаден в БФВ · № ${res.data?.bvf_player_number || res.data?.bvf_player_id}`);
+      toast?.success(`Създаден в СЕК · № ${res.data?.bvf_player_number || res.data?.bvf_player_id}`);
       onCreated?.(res.data);
       onClose?.();
     } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешно създаване в БФВ."));
+      toast?.error(normalizeError(err, "Неуспешно създаване в СЕК."));
     } finally {
       setBusy(false);
     }

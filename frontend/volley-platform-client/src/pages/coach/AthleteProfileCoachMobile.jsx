@@ -15,7 +15,7 @@ import { useToast } from "../../components/ToastProvider";
 const TABS = [
   { id: "overview", label: "Преглед" },
   { id: "data", label: "Данни" },
-  { id: "bvf", label: "БФВ" },
+  { id: "bvf", label: "СЕК" },
   { id: "physical", label: "Тестове" },
   { id: "attendance", label: "Присъствие" },
   { id: "fees", label: "Такси" },
@@ -219,6 +219,8 @@ export default function AthleteProfileCoachMobile({
   onSyncPhoto,
   onUploadPhoto,
   syncingPhoto = false,
+  /** Само главен треньор / админ: създаване, свързване и синхрон със СЕК. */
+  canManageSek = false,
 }) {
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -539,26 +541,19 @@ export default function AthleteProfileCoachMobile({
 
         {tab === "bvf" ? (
           <div className="athleteProfileTab">
-            {profile.sek_task_code && !profile.bvf_player_id ? (
-              <section
-                className="athleteProfileCard"
-                style={{ borderColor: "#f59e0b", background: "#fffbeb" }}
-              >
-                <h3 className="athleteProfileCardTitle">Задача от главния треньор (СЕК)</h3>
-                <p className="athleteProfileSummaryLine" style={{ marginBottom: 8 }}>
-                  {sekLiveDetail ||
-                    profile.sek_task_detail ||
-                    (profile.sek_task_code === "need_photo"
-                      ? "Липсва портретна снимка за създаване в СЕК."
-                      : "Липсват данни за СЕК.")}
-                </p>
-                <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
-                  Качи снимка тук — тя се пази локално, докато главният треньор свърже/създаде състезателя в СЕК.
-                </p>
+            {(() => {
+              const hasLocalPhoto = Boolean(profile.has_photo || photoUrl);
+              const unlinked = !profile.bvf_player_id;
+              const sekTask = Boolean(profile.sek_task_code && unlinked);
+              // Групов треньор: портрет за несвързани (без дублиране с SEK задачата).
+              const showPrepPhotoCard = unlinked && !sekTask;
+              const photoLabel = hasLocalPhoto ? "Смени снимката" : "Добави снимка";
+              const photoInput = (
                 <label style={{ margin: 0 }}>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
+                    capture="environment"
                     style={{ display: "none" }}
                     disabled={syncingPhoto}
                     onChange={(e) => {
@@ -573,100 +568,137 @@ export default function AthleteProfileCoachMobile({
                       display: "inline-flex",
                       opacity: syncingPhoto ? 0.6 : 1,
                       pointerEvents: syncingPhoto ? "none" : "auto",
+                      cursor: "pointer",
                     }}
                   >
-                    {profile.has_photo || photoUrl ? "Смени снимката" : "Добави снимка"}
+                    {syncingPhoto ? "Запис…" : photoLabel}
                   </span>
                 </label>
-              </section>
-            ) : null}
-            <section className="athleteProfileCard">
-              <h3 className="athleteProfileCardTitle">БФВ / картотека</h3>
-              {profile.bvf_player_id ? (
-                <p className="athleteProfileSummaryLine">
-                  Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
-                  {identityLocked ? " · идентичността е заключена" : ""}
-                  {profile.has_photo || photoUrl ? " · има снимка" : " · без локална снимка"}
-                </p>
-              ) : (
+              );
+
+              return (
                 <>
-                  <p className="athleteProfileSummaryLine">
-                    {profile.bvf_ready
-                      ? "Готов за създаване — нужни са ЕГН и снимка при изпращане."
-                      : "Липсва за връзка с БФВ:"}
-                  </p>
-                  {!profile.bvf_ready && Array.isArray(profile.bvf_missing) && profile.bvf_missing.length ? (
-                    <ul className="athleteProfileMissingList">
-                      {profile.bvf_missing.map((m) => (
-                        <li key={m}>{m}</li>
-                      ))}
-                    </ul>
+                  {sekTask ? (
+                    <section
+                      className="athleteProfileCard"
+                      style={{ borderColor: "#f59e0b", background: "#fffbeb" }}
+                    >
+                      <h3 className="athleteProfileCardTitle">Задача от главния треньор (СЕК)</h3>
+                      <p className="athleteProfileSummaryLine" style={{ marginBottom: 8 }}>
+                        {sekLiveDetail ||
+                          profile.sek_task_detail ||
+                          (profile.sek_task_code === "need_photo"
+                            ? "Липсва портретна снимка за създаване в СЕК."
+                            : "Липсват данни за СЕК.")}
+                      </p>
+                      <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
+                        Снимай състезателя и запиши снимката тук — пази се локално, докато главният
+                        треньор свърже или създаде профила в СЕК.
+                      </p>
+                      {photoInput}
+                    </section>
                   ) : null}
-                  <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        onStartEdit?.();
-                      }}
-                    >
-                      Попълни липсите
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={onOpenBvfCreate}
-                      disabled={(profile.bvf_missing || []).some((m) => m !== "ЕГН" && m !== "снимка")}
-                    >
-                      Създай в БФВ
-                    </Button>
-                    <Button type="button" size="sm" variant="secondary" onClick={onOpenBvfLink}>
-                      Свържи по ЕГН
-                    </Button>
-                  </div>
+
+                  {showPrepPhotoCard ? (
+                    <section className="athleteProfileCard">
+                      <h3 className="athleteProfileCardTitle">Портретна снимка</h3>
+                      <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
+                        Снимай състезателя и запиши снимката в профила. Пази се локално, докато
+                        главният треньор създаде профила в СЕК.
+                      </p>
+                      {photoInput}
+                      {hasLocalPhoto ? (
+                        <p className="athleteProfileSummaryLine" style={{ marginTop: 10 }}>
+                          Има записана снимка
+                          {profile.bvf_ready ? " · готов за създаване в СЕК от главния треньор" : ""}
+                        </p>
+                      ) : null}
+                    </section>
+                  ) : null}
+
+                  <section className="athleteProfileCard">
+                    <h3 className="athleteProfileCardTitle">СЕК / картотека</h3>
+                    {profile.bvf_player_id ? (
+                      <p className="athleteProfileSummaryLine">
+                        Свързан · № {profile.bvf_player_number || profile.bvf_player_id}
+                        {identityLocked ? " · идентичността е заключена" : ""}
+                        {hasLocalPhoto ? " · има снимка" : " · без локална снимка"}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="athleteProfileSummaryLine">
+                          {profile.bvf_ready
+                            ? canManageSek
+                              ? "Готов за създаване в СЕК — нужни са ЕГН и снимка при изпращане."
+                              : "Готов за създаване в СЕК от главния треньор (ЕГН + снимка)."
+                            : "Липсва за връзка със СЕК:"}
+                        </p>
+                        {!profile.bvf_ready && Array.isArray(profile.bvf_missing) && profile.bvf_missing.length ? (
+                          <ul className="athleteProfileMissingList">
+                            {profile.bvf_missing.map((m) => (
+                              <li key={m}>{m}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        <div className="athleteProfileInlineActions" style={{ marginTop: 10 }}>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              onStartEdit?.();
+                            }}
+                          >
+                            Попълни липсите
+                          </Button>
+                          {canManageSek ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={onOpenBvfCreate}
+                                disabled={(profile.bvf_missing || []).some((m) => m !== "ЕГН" && m !== "снимка")}
+                              >
+                                Създай в СЕК
+                              </Button>
+                              <Button type="button" size="sm" variant="secondary" onClick={onOpenBvfLink}>
+                                Свържи по ЕГН
+                              </Button>
+                            </>
+                          ) : (
+                            <p className="uiMuted" style={{ margin: 0, fontSize: 12, width: "100%" }}>
+                              Само главният треньор създава или свързва състезатели в СЕК. Ти подготви
+                              снимката и данните.
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {/* Свързан със СЕК: снимка само от главен треньор */}
+                    {profile.bvf_player_id && canManageSek ? (
+                      <div style={{ marginTop: 10 }}>
+                        <div className="athleteProfileInlineActions" style={{ flexWrap: "wrap", alignItems: "center" }}>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={syncingPhoto}
+                            onClick={onSyncPhoto}
+                          >
+                            {syncingPhoto ? "Зареждане…" : hasLocalPhoto ? "Обнови от СЕК" : "Зареди снимка от СЕК"}
+                          </Button>
+                          {photoInput}
+                        </div>
+                        <p className="muted" style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.35 }}>
+                          Ако СЕК връща грешка за файлове — клубният ApiKey няма право да чете /api/files.
+                          Дотогава ползвай <strong>Добави снимка</strong> / смяна локално и изпращане.
+                        </p>
+                      </div>
+                    ) : null}
+                  </section>
                 </>
-              )}
-              {profile.bvf_player_id && !profile.has_photo && !photoUrl ? (
-                <div style={{ marginTop: 10 }}>
-                  <div className="athleteProfileInlineActions" style={{ flexWrap: "wrap", alignItems: "center" }}>
-                    <Button type="button" size="sm" variant="secondary" disabled={syncingPhoto} onClick={onSyncPhoto}>
-                      {syncingPhoto ? "Зареждане…" : "Зареди снимка от БФВ"}
-                    </Button>
-                    <label style={{ margin: 0 }}>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
-                        style={{ display: "none" }}
-                        disabled={syncingPhoto}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          e.target.value = "";
-                          if (f) onUploadPhoto?.(f);
-                        }}
-                      />
-                      <span
-                        className="uiButton"
-                        style={{
-                          display: "inline-flex",
-                          opacity: syncingPhoto ? 0.6 : 1,
-                          pointerEvents: syncingPhoto ? "none" : "auto",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          padding: "6px 12px",
-                        }}
-                      >
-                        Качи снимка
-                      </span>
-                    </label>
-                  </div>
-                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.35 }}>
-                    Ако БФВ връща грешка за файлове — клубният ApiKey няма право да чете /api/files.
-                    Докато колегата не даде Files read, ползвай <strong>Качи снимка</strong>.
-                  </p>
-                </div>
-              ) : null}
-            </section>
+              );
+            })()}
 
             <section className="athleteProfileCard">
               <button
@@ -687,12 +719,12 @@ export default function AthleteProfileCoachMobile({
             {profile.bvf_player_id ? (
               <section className="athleteProfileCard">
                 <button type="button" className="athleteProfileCollapseHead" onClick={() => setDocsOpen((v) => !v)}>
-                  <span>Документи (БФВ)</span>
+                  <span>Документи (СЕК)</span>
                   <span aria-hidden>{docsOpen ? "▾" : "▸"}</span>
                 </button>
                 {docsOpen ? (
                   <div className="athleteProfileCollapseBody">
-                    <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} />
+                    <BvfDocumentsPanel athleteId={profile.athlete_id} toast={toast} canManageSek={canManageSek} />
                   </div>
                 ) : null}
               </section>

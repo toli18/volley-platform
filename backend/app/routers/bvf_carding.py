@@ -345,9 +345,10 @@ def sync_athlete_photo(
     payload: TokenAthleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    _require_submit_role(current_user)
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if not athlete.bvf_player_id:
         raise HTTPException(status_code=422, detail="???????????? ???? ??? id")
@@ -376,9 +377,10 @@ def link_player_by_egn(
     payload: LinkByEgnIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    _require_submit_role(current_user)
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if athlete.bvf_player_id:
         raise HTTPException(status_code=409, detail="???? ? ??????? ? ???")
@@ -554,9 +556,10 @@ def sync_player_documents(
     season_year: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    _require_submit_role(current_user)
     athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
     if not athlete.bvf_player_id:
         raise HTTPException(status_code=422, detail="????? ?????? / ?????? ? ???")
@@ -587,20 +590,21 @@ async def upload_player_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    _require_submit_role(current_user)
     athlete = _athlete_for_bvf_action(db, current_user, athlete_id)
     if not athlete.bvf_player_id:
-        raise HTTPException(status_code=422, detail="????? ?????? / ?????? ? ???")
+        raise HTTPException(status_code=422, detail="Липсва връзка / играч в БФВ")
     club = _club_for_any_coach(db, current_user, None)
     token = _token_matches_club(bvf_token, club)
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=422, detail="?????? ????")
+        raise HTTPException(status_code=422, detail="Празен файл")
     data = {
         "Type": str(int(doc_type)),
-        "Description": (description or "").strip() or DOC_TYPE_LABELS.get(int(doc_type), "????????"),
+        "Description": (description or "").strip() or DOC_TYPE_LABELS.get(int(doc_type), "Документ"),
     }
     if start_date:
         data["StartDate"] = start_date
