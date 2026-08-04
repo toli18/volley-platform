@@ -34,6 +34,44 @@ def open_carding_season_year(db: Session, club_id: int) -> int | None:
     return int(app.year) if app else None
 
 
+def athlete_already_carded_in_sek(db: Session, athlete: Athlete, season_year: int) -> bool:
+    """Вече е в записан/подписан картотечен отбор в СЕК за сезона → Форма 03 не е задължителна."""
+    from app.models import BvfCardIndex, BvfCardIndexMember
+
+    if not athlete.club_id:
+        return False
+    row = (
+        db.query(BvfCardIndexMember.id)
+        .join(BvfCardIndex, BvfCardIndex.id == BvfCardIndexMember.card_index_id)
+        .filter(
+            BvfCardIndexMember.athlete_id == int(athlete.id),
+            BvfCardIndex.year == int(season_year),
+            BvfCardIndex.club_id == int(athlete.club_id),
+            BvfCardIndex.bvf_card_index_id.isnot(None),
+        )
+        .filter(
+            (BvfCardIndex.is_signed.is_(True))
+            | (BvfCardIndex.status.in_(("signed", "pending_bvf_sign", "synced", "ready")))
+        )
+        .first()
+    )
+    return row is not None
+
+
+def athlete_needs_carding_form(db: Session, athlete: Athlete) -> bool:
+    """Gate: сезонът е отворен; няма подписана форма; не е вече картотекиран в СЕК за сезона."""
+    if not athlete.club_id or not getattr(athlete, "is_active", True):
+        return False
+    year = open_carding_season_year(db, int(athlete.club_id))
+    if not year:
+        return False
+    if get_signed_carding_form(db, athlete.id, year, athlete.club_id) is not None:
+        return False
+    if athlete_already_carded_in_sek(db, athlete, year):
+        return False
+    return True
+
+
 def athlete_age_in_season(athlete: Athlete, season_year: int) -> int | None:
     by = getattr(athlete, "birth_year", None)
     bd = getattr(athlete, "birth_date", None)
@@ -80,16 +118,6 @@ def get_signed_carding_form(
     if club_id is not None:
         q = q.filter(AthleteCardingForm.club_id == int(club_id))
     return q.first()
-
-
-def athlete_needs_carding_form(db: Session, athlete: Athlete) -> bool:
-    """Gate: сезонът е отворен от главния и няма подписана форма за годината."""
-    if not athlete.club_id or not getattr(athlete, "is_active", True):
-        return False
-    year = open_carding_season_year(db, int(athlete.club_id))
-    if not year:
-        return False
-    return get_signed_carding_form(db, athlete.id, year, athlete.club_id) is None
 
 
 def athlete_has_signed_carding_form(db: Session, athlete: Athlete, season_year: int) -> bool:

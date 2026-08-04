@@ -1270,6 +1270,12 @@ class SeasonApplicationUpsertIn(BaseModel):
     club_id: Optional[int] = None
 
 
+class SeasonApplicationCloseIn(BaseModel):
+    year: int
+    club_id: Optional[int] = None
+    note: Optional[str] = None
+
+
 class SeasonAssignCoachIn(BaseModel):
     year: Optional[int] = None
     age: int
@@ -1383,6 +1389,7 @@ def upsert_season_application(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    """Отваря / активира сезон — Форма 03/03-А се показва на родителите без подписана форма за годината."""
     club = _club_for_user(db, current_user, payload.club_id)
     y = int(payload.year)
     app = (
@@ -1403,7 +1410,47 @@ def upsert_season_application(
         app.note = (payload.note or "").strip() or None
     db.commit()
     db.refresh(app)
-    return {"id": app.id, "year": app.year, "status": app.status, "note": app.note}
+    return {
+        "id": app.id,
+        "year": app.year,
+        "status": app.status,
+        "note": app.note,
+        "forms_active": True,
+        "message": "Сезонът е отворен. Форма 03 / 03-А е активна за родителите без подпис за тази година.",
+    }
+
+
+@router.post("/season-applications/close")
+def close_season_application(
+    payload: SeasonApplicationCloseIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Затваря сезон — Форма 03/03-А спира да излиза на родителите."""
+    club = _club_for_user(db, current_user, payload.club_id)
+    y = int(payload.year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == y)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Няма сезонна заявка за тази година")
+    app.status = "closed"
+    if payload.note is not None:
+        app.note = (payload.note or "").strip() or None
+    db.commit()
+    db.refresh(app)
+    return {
+        "id": app.id,
+        "year": app.year,
+        "status": app.status,
+        "note": app.note,
+        "forms_active": False,
+        "message": "Сезонът е затворен. Форма 03 / 03-А вече не се изисква от родителите.",
+    }
 
 
 @router.post("/season-applications/assign-coach")

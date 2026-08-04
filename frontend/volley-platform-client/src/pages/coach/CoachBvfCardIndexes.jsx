@@ -133,14 +133,39 @@ export default function CoachBvfCardIndexes() {
   const openSeason = async () => {
     try {
       setBusy(true);
-      await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS, {
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS, {
         year: Number(year),
         note: null,
       });
-      toast.success(`Сезон ${year} е отворен — Форма 03 / 03-А е активирана за родителите.`);
+      toast.success(
+        res.data?.message ||
+          `Сезон ${year} е отворен — Форма 03 / 03-А е активирана за родителите без подпис.`,
+      );
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно отваряне на сезон."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeSeason = async () => {
+    if (
+      !window.confirm(
+        `Затваряне на сезон ${year}? Форма 03 / 03-А спира да излиза на родителите. Вече подписаните форми остават.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS_CLOSE, {
+        year: Number(year),
+      });
+      toast.success(res.data?.message || `Сезон ${year} е затворен.`);
+      await loadSeason();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно затваряне на сезон."));
     } finally {
       setBusy(false);
     }
@@ -327,15 +352,30 @@ export default function CoachBvfCardIndexes() {
       />
 
       <Card title="Сезон">
+        <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+          Отворен сезон = картотекиране + Форма 03/03-А към родителите. Затворен = формите не излизат.
+          При повторно отваряне се искат само от тези без подпис за годината (и без вече записани в СЕК).
+        </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
           <label style={{ display: "grid", gap: 4 }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
             <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
           </label>
           {canManage ? (
-            <Button type="button" disabled={busy} onClick={openSeason}>
-              {season?.application ? "Обнови сезонна заявка" : "Отвори сезонна заявка"}
-            </Button>
+            <>
+              <Button type="button" disabled={busy} onClick={openSeason}>
+                {season?.application?.status === "open"
+                  ? "Отвори отново / активирай форми"
+                  : season?.application
+                    ? "Отвори сезон + активирай Форма 03"
+                    : "Отвори сезон + активирай Форма 03"}
+              </Button>
+              {season?.application?.status === "open" ? (
+                <Button type="button" variant="secondary" disabled={busy} onClick={closeSeason}>
+                  Затвори сезон
+                </Button>
+              ) : null}
+            </>
           ) : null}
           <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason}>
             Презареди
@@ -343,8 +383,14 @@ export default function CoachBvfCardIndexes() {
         </div>
         <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
           {season?.application
-            ? `Заявка #${season.application.id} · ${season.application.status} · ${season.year}`
-            : "Все още няма отворена сезонна заявка за тази година."}
+            ? `Заявка #${season.application.id} · ${
+                season.application.status === "open"
+                  ? "ОТВОРЕН (форми активни)"
+                  : season.application.status === "closed"
+                    ? "ЗАТВОРЕН (форми неактивни)"
+                    : season.application.status
+              } · ${season.year}`
+            : "Все още няма сезонна заявка за тази година."}
         </p>
       </Card>
 
