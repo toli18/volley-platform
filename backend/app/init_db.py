@@ -94,6 +94,27 @@ def _init_db_impl() -> None:
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables ensured (create_all)")
 
+    # Critical: users.phone must exist before any login SELECT (idempotent).
+    db_url = (settings.database_url or "").lower()
+    if "postgres" in db_url:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_visible_to_parents "
+                        "BOOLEAN DEFAULT TRUE"
+                    )
+                )
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS full_name VARCHAR(500)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bulstat VARCHAR(32)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS license_number VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_region VARCHAR(120)"))
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_logo_id VARCHAR(64)"))
+            print("✅ PostgreSQL: early club-profile / phone columns ensured")
+        except Exception as early_exc:
+            print(f"⚠️ early phone/club-profile patch: {early_exc}")
+
     # PostgreSQL: Alembic often не се пуска на Railway — добавяме липсващи колони идемпотентно.
     db_url = (settings.database_url or "").lower()
     if "postgres" in db_url:
@@ -272,12 +293,7 @@ def _init_db_impl() -> None:
                         "ON athletes (bvf_player_number)"
                     )
                 )
-            print("✅ PostgreSQL: training_assignments.completion_note ensured")
-            print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
-            print("✅ PostgreSQL: teams.gender ensured")
-            print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
-            print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
-            try:
+                # Club profile (СЕК) + coach phones — must stay inside this connection
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS full_name VARCHAR(500)"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bulstat VARCHAR(32)"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS license_number VARCHAR(64)"))
@@ -287,11 +303,15 @@ def _init_db_impl() -> None:
                 conn.execute(
                     text(
                         "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_visible_to_parents "
-                        "BOOLEAN NOT NULL DEFAULT TRUE"
+                        "BOOLEAN DEFAULT TRUE"
                     )
                 )
-            except Exception as _club_prof_exc:
-                print(f"⚠️ club profile columns: {_club_prof_exc}")
+            print("✅ PostgreSQL: training_assignments.completion_note ensured")
+            print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
+            print("✅ PostgreSQL: teams.gender ensured")
+            print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
+            print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
+            print("✅ PostgreSQL: club profile / users.phone columns ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 
