@@ -234,6 +234,12 @@ export default function MonthlyFeesCoachView({
                           <p className="feesAthleteCardCompactMeta">
                             {a.birth_year || "—"} · {formatGenderShort(a.gender)}
                             {!a.is_active ? " · неактивен" : ""}
+                            {" · "}
+                            <span className={a.bvf_player_id ? "feesSekMark feesSekMark--on" : "feesSekMark feesSekMark--off"}>
+                              {a.bvf_player_id
+                                ? `СЕК${a.bvf_player_number ? ` №${a.bvf_player_number}` : ""}`
+                                : "без СЕК"}
+                            </span>
                           </p>
                           <span className={`feesAthleteCardCompactPay uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
                             {remindMonth}: {paid ? "платено" : "липсва"}

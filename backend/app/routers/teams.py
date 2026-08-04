@@ -123,6 +123,35 @@ def _is_head_coach(user: User) -> bool:
     return _role_value(user) == UserRole.club_head_coach.value
 
 
+def _serialize_team(team: Team, coach_name: str | None = None) -> TeamRead:
+    return TeamRead(
+        id=team.id,
+        coach_id=int(team.coach_id),
+        coach_name=(coach_name or None),
+        club_id=int(team.club_id) if team.club_id is not None else None,
+        name=team.name,
+        age_group=team.age_group,
+        season=team.season,
+        gender=team.gender,
+        is_active=bool(team.is_active),
+        created_at=team.created_at,
+        updated_at=team.updated_at,
+    )
+
+
+def _coach_names_by_id(db: Session, coach_ids: set[int]) -> dict[int, str]:
+    ids = [int(i) for i in coach_ids if i]
+    if not ids:
+        return {}
+    rows = db.query(User.id, User.name).filter(User.id.in_(ids)).all()
+    return {int(uid): (name or "").strip() for uid, name in rows if uid}
+
+
+def _serialize_team_with_coach(db: Session, team: Team) -> TeamRead:
+    names = _coach_names_by_id(db, {int(team.coach_id)} if team.coach_id else set())
+    return _serialize_team(team, names.get(int(team.coach_id)) if team.coach_id else None)
+
+
 def _normalize_gender(value) -> str | None:
     raw = str(value or "").strip().lower()
     if raw in {"male", "female"}:
@@ -202,7 +231,9 @@ def list_teams(
         q = q.filter(Team.club_id == current_user.club_id)
     else:
         q = q.filter(Team.coach_id == current_user.id)
-    return q.order_by(Team.is_active.desc(), Team.name.asc()).all()
+    teams = q.order_by(Team.is_active.desc(), Team.name.asc()).all()
+    names = _coach_names_by_id(db, {int(t.coach_id) for t in teams if t.coach_id})
+    return [_serialize_team(t, names.get(int(t.coach_id)) if t.coach_id else None) for t in teams]
 
 
 @router.post("/teams", response_model=TeamRead, status_code=status.HTTP_201_CREATED)
@@ -226,7 +257,7 @@ def create_team(
     db.add(team)
     db.commit()
     db.refresh(team)
-    return team
+    return _serialize_team_with_coach(db, team)
 
 
 @router.put("/teams/{team_id}", response_model=TeamRead)
@@ -254,7 +285,7 @@ def update_team(
     team.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(team)
-    return team
+    return _serialize_team_with_coach(db, team)
 
 
 @router.put("/teams/{team_id}/assign-coach", response_model=TeamRead)
@@ -286,7 +317,7 @@ def assign_team_coach(
 
     db.commit()
     db.refresh(team)
-    return team
+    return _serialize_team(team, (target_coach.name or "").strip() or None)
 
 
 @router.delete("/teams/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -328,7 +359,7 @@ def get_team_members(
         )
         for _, a in members
     ]
-    return TeamMembersResponse(team=team, members=result)
+    return TeamMembersResponse(team=_serialize_team_with_coach(db, team), members=result)
 
 
 @router.put("/teams/{team_id}/members", response_model=TeamMembersResponse)

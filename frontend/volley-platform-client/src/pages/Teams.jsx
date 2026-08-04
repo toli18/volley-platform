@@ -272,6 +272,7 @@ export default function Teams() {
                 >
                   <h3 className="teamsMobileCardTitle">{team.name}</h3>
                   <div className="teamsMobileMeta">
+                    <span>Треньор: {team.coach_name || "—"}</span>
                     <span>Група: {team.age_group || "—"}</span>
                     <span>Сезон: {team.season || "—"}</span>
                     <span>Тип: {teamGenderLabel(team.gender)}</span>
@@ -305,6 +306,7 @@ export default function Teams() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Име</TableHead>
+                    <TableHead>Треньор</TableHead>
                     <TableHead>Група</TableHead>
                     <TableHead>Сезон</TableHead>
                     <TableHead>Тип</TableHead>
@@ -321,6 +323,7 @@ export default function Teams() {
                       <TableCell>
                         <strong>{team.name}</strong>
                       </TableCell>
+                      <TableCell>{team.coach_name || "—"}</TableCell>
                       <TableCell>{team.age_group || "-"}</TableCell>
                       <TableCell>{team.season || "-"}</TableCell>
                       <TableCell>{teamGenderLabel(team.gender)}</TableCell>

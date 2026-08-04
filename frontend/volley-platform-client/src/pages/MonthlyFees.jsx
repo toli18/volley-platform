@@ -781,6 +781,13 @@ export default function MonthlyFees() {
                     <h3 className="feesAthleteCardName">{a.athlete_name}</h3>
                     <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "—"}</div>
                     <div style={{ color: "#607693", fontSize: 12 }}>Пол: {formatGenderLabel(a.gender)}</div>
+                    <div style={{ fontSize: 12, marginTop: 2 }}>
+                      <span className={a.bvf_player_id ? "feesSekMark feesSekMark--on" : "feesSekMark feesSekMark--off"}>
+                        {a.bvf_player_id
+                          ? `СЕК${a.bvf_player_number ? ` №${a.bvf_player_number}` : ""}`
+                          : "без СЕК"}
+                      </span>
+                    </div>
                   </div>
                   <div className="feesAthleteCardRow">
                     <div>Родител: {a.parent_name || "—"}</div>
@@ -870,6 +877,13 @@ export default function MonthlyFees() {
                         <strong>{a.athlete_name}</strong>
                         <div style={{ color: "#607693", fontSize: 12 }}>Година: {a.birth_year || "-"}</div>
                         <div style={{ color: "#607693", fontSize: 12 }}>Пол: {formatGenderLabel(a.gender)}</div>
+                        <div style={{ fontSize: 12, marginTop: 2 }}>
+                          <span className={a.bvf_player_id ? "feesSekMark feesSekMark--on" : "feesSekMark feesSekMark--off"}>
+                            {a.bvf_player_id
+                              ? `СЕК${a.bvf_player_number ? ` №${a.bvf_player_number}` : ""}`
+                              : "без СЕК"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div>Родител: {a.parent_name || "-"}</div>

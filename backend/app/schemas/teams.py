@@ -29,6 +29,7 @@ class TeamRead(BaseModel):
 
     id: int
     coach_id: int
+    coach_name: Optional[str] = None
     club_id: Optional[int] = None
     name: str
     age_group: Optional[str] = None
