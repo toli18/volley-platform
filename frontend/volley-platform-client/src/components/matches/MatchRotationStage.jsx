@@ -38,6 +38,7 @@ export default function MatchRotationStage({
         size="md"
         phase="base"
         rotation={rotation}
+        system={system}
         slots={slots}
         libero={libero}
         showServe

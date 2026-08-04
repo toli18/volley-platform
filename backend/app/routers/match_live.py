@@ -29,14 +29,9 @@ from app.schemas.matches import (
     MatchLiveStateRead,
     MatchLiveStatIn,
 )
-from app.services.match_five_one import (
-    apply_formation_display,
-    assign_roles_from_r1,
-    athlete_roles_on_court,
-    phase_from_serve,
-)
+from app.services.match_rotations import ZONE_LABELS_BG
+from app.services import match_systems
 from app.services.match_live import action_point_side, apply_point, is_set_won
-from app.services.match_rotations import ZONE_LABELS_BG, build_rotations_5_1
 
 router = APIRouter(prefix="/api/teams/{team_id}/matches", tags=["Match Live"])
 
@@ -89,33 +84,34 @@ def _court_for_rotation(
     )
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
-    if system != "5-1":
-        raise HTTPException(status_code=422, detail="Live е наличен за схема 5-1")
+    if not match_systems.is_supported(system):
+        raise HTTPException(status_code=422, detail=f"Live е наличен за схеми: {', '.join(match_systems.SUPPORTED_SYSTEMS)}")
 
     libero_id = int(match.libero_athlete_id) if match.libero_athlete_id else None
     pos_by_athlete = {
         int(aid): (rp.position.value if isinstance(rp.position, MatchPosition) else str(rp.position))
         for aid, rp in roster.items()
     }
-    roles = assign_roles_from_r1(starting, pos_by_athlete)
+    roles = match_systems.assign_roles(system, starting, pos_by_athlete)
     role_by_athlete: dict[int, str] = {}
 
-    # Fallback: if roles incomplete, show pure rotational BASE
-    if len(roles) >= 6 and {"A", "O", "P1", "P2", "C1", "C2"}.issubset(roles):
-        display_zones = apply_formation_display(
+    if match_systems.roles_complete(system, roles):
+        display_zones = match_systems.apply_formation_display(
+            system,
             rotation=int(rotation),
             phase=phase,
             role_to_athlete=roles,
             libero_athlete_id=libero_id,
         )
-        role_by_athlete = athlete_roles_on_court(
+        role_by_athlete = match_systems.athlete_roles_on_court(
+            system,
             rotation=int(rotation),
             phase=phase,
             role_to_athlete=roles,
             libero_athlete_id=libero_id,
         )
     else:
-        rotations = build_rotations_5_1(starting, libero_athlete_id=libero_id)
+        rotations = match_systems.build_rotations(system, starting, libero_athlete_id=libero_id)
         rot = next((r for r in rotations if int(r["rotation"]) == int(rotation)), rotations[0])
         display_zones = {int(z): int(aid) for z, aid in rot["zones"].items()}
 
@@ -214,7 +210,7 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
     phase = "serve"
 
     if mset:
-        phase = phase_from_serve(bool(mset.we_serve), phase_override)
+        phase = match_systems.phase_from_serve(bool(mset.we_serve), phase_override)
         court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
         events = _recent_events(db, match.id, mset.id, limit=400)
         can_undo = (

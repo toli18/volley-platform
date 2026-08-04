@@ -16,6 +16,19 @@ export const BASE_ZONE_XY = {
 
 export const GRID_ZONE_XY = { ...BASE_ZONE_XY };
 
+export const ROLE_LABEL_BG = {
+  A: "Р",
+  O: "Д",
+  P1: "П1",
+  P2: "П2",
+  C1: "Ц2",
+  C2: "Ц1",
+  S1: "Р1",
+  S2: "Р2",
+  S3: "Р3",
+  L: "Л",
+};
+
 /** PDF / EN етикети */
 export const ROLE_LABEL_PDF = {
   A: "S",
@@ -24,18 +37,10 @@ export const ROLE_LABEL_PDF = {
   P2: "OH2",
   C1: "MB2",
   C2: "MB1",
+  S1: "S1",
+  S2: "S2",
+  S3: "S3",
   L: "L",
-};
-
-/** БГ етикети върху чипове (live / корт) */
-export const ROLE_LABEL_BG = {
-  A: "Р",
-  O: "Д",
-  P1: "П1",
-  P2: "П2",
-  C1: "Ц2",
-  C2: "Ц1",
-  L: "Л",
 };
 
 /** Легална предна линия (триъгълник). */
@@ -72,7 +77,7 @@ export function roleChipShape(role, _rotation = 1) {
   if (key === "L") return "star";
   if (key === "C1" || key === "C2") return "square"; // център
   if (key === "P1" || key === "P2") return "triangle"; // посрещач
-  if (key === "A" || key === "O") return "circle"; // разпределител / диагонал
+  if (key === "A" || key === "O" || key === "S1" || key === "S2" || key === "S3") return "circle";
   return "circle";
 }
 
@@ -250,22 +255,25 @@ const FORMATION_ZONE_ROLE = {
   receive: ZONE_ROLE_BASE,
 };
 
-export function playerCourtPosition({ role, zone, phase = "grid", rotation = 1 }) {
-  if (phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
-    return { ...(GRID_ZONE_XY[Number(zone)] || { x: 50, y: 50 }) };
+export function playerCourtPosition({ role, zone, phase = "grid", rotation = 1, system = "5-1" }) {
+  const sys = String(system || "5-1");
+  // Custom role XY stacks are authored for 5-1; other systems use legal zone centers.
+  if (sys !== "5-1" || phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
+    return { ...(BASE_ZONE_XY[Number(zone)] || GRID_ZONE_XY[Number(zone)] || { x: 50, y: 50 }) };
   }
   const rot = clampRot(rotation);
   const table = PHASE_ROLE_TABLE[phase][rot] || PHASE_ROLE_TABLE[phase][1];
   const key = String(role || "").toUpperCase();
   if (key && table[key]) return { ...table[key] };
   if (key === "L" && table.C2) return { ...table.C2 };
-  return zonePosition({ zone, phase, rotation: rot });
+  return zonePosition({ zone, phase, rotation: rot, system: sys });
 }
 
-export function zonePosition({ zone, phase = "grid", rotation = 1 }) {
+export function zonePosition({ zone, phase = "grid", rotation = 1, system = "5-1" }) {
   const z = Number(zone);
-  if (phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
-    return { ...(GRID_ZONE_XY[z] || { x: 50, y: 50 }) };
+  const sys = String(system || "5-1");
+  if (sys !== "5-1" || phase === "grid" || !PHASE_ROLE_TABLE[phase]) {
+    return { ...(BASE_ZONE_XY[z] || { x: 50, y: 50 }) };
   }
   const rot = clampRot(rotation);
   const role = FORMATION_ZONE_ROLE[phase]?.[rot]?.[z];

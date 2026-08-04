@@ -35,6 +35,7 @@ class MatchSystem(str, Enum):
     five_one = "5-1"
     six_two = "6-2"
     four_two = "4-2"
+    six_three = "6-3"
 
 
 class MatchPosition(str, Enum):

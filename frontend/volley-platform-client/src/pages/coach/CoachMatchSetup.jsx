@@ -12,6 +12,7 @@ import {
   MATCH_POSITIONS,
   MATCH_STATUS_LABEL,
   MATCH_SYSTEMS,
+  SYSTEM_LINEUP_HINT,
   positionShort,
 } from "../../utils/matchPositions";
 import { Button, EmptyState, Input } from "../../components/ui";
@@ -533,8 +534,8 @@ export default function CoachMatchSetup() {
       {step === "lineup" ? (
         <>
           <p className="coachMobileMuted" style={{ margin: 0, fontSize: 13 }}>
-            Кликни зона (син номер), после състезател. За 5-1 по гайда: 1=S(Р), 2=OH1(П), 3=MB2(Ц),
-            4=OP(Д), 5=OH2(П), 6=MB1(Ц). След избор → следващата празна.
+            Кликни зона (син номер), после състезател.{" "}
+            {SYSTEM_LINEUP_HINT[meta.system] || SYSTEM_LINEUP_HINT["5-1"]} След избор → следващата празна.
             {ZONE_ORDER.every((z) => zones[z]) ? " После можеш да влачиш за размяна." : ""}
           </p>
           <MatchCourt
@@ -542,6 +543,7 @@ export default function CoachMatchSetup() {
             layout="grid"
             size="md"
             phase="grid"
+            system={meta.system || "5-1"}
             rotation={1}
             slots={lineupSlotsPreview}
             libero={liberoPreview}

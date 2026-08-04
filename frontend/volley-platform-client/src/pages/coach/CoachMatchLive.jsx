@@ -420,6 +420,7 @@ export default function CoachMatchLive() {
           size="md"
           phase={activePhase}
           rotation={mset?.rotation ?? 1}
+          system={state.system || "5-1"}
           slots={state.court || []}
           libero={state.libero}
           showServe={Boolean(mset?.we_serve) && activePhase === "serve"}

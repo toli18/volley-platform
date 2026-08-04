@@ -28,6 +28,7 @@ export default function MatchCourt({
   layout = "tactical",
   phase = "grid",
   rotation = 1,
+  system = "5-1",
   showServe = true,
   title = "",
   subtitle = "",
@@ -79,8 +80,9 @@ export default function MatchCourt({
             zone: z,
             phase: layoutPhase,
             rotation,
+            system,
           })
-        : zonePosition({ zone: z, phase: "grid", rotation: 1 });
+        : zonePosition({ zone: z, phase: "grid", rotation: 1, system });
       const ov = positionOverrides?.[z] ?? positionOverrides?.[String(z)];
       out[z] = ov ? clampCourtPct(ov.x, ov.y) : preset;
     }
@@ -89,7 +91,7 @@ export default function MatchCourt({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots, isTactical, layoutPhase, rotation, positionOverrides, livePos]);
+  }, [slots, isTactical, layoutPhase, rotation, positionOverrides, livePos, system]);
 
   const alignment = useMemo(() => {
     if (!showAlignment && !freeMove) return null;

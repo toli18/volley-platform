@@ -22,12 +22,8 @@ from app.schemas.matches import (
     MatchRotationRead,
     MatchUpdate,
 )
-from app.services.match_five_one import (
-    apply_formation_display,
-    assign_roles_from_r1,
-    athlete_roles_on_court,
-)
-from app.services.match_rotations import ZONE_LABELS_BG, build_rotations_5_1
+from app.services.match_rotations import ZONE_LABELS_BG
+from app.services import match_systems
 
 router = APIRouter(prefix="/api/teams/{team_id}/matches", tags=["Matches"])
 
@@ -188,25 +184,26 @@ def _load_lineup_and_rotations(
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     rotations_out: list[MatchRotationRead] = []
-    if system == "5-1":
+    if match_systems.is_supported(system):
         pos_by_athlete = {int(p.athlete_id): str(p.position) for p in roster}
-        roles = assign_roles_from_r1(starting, pos_by_athlete)
-        roles_ok = len(roles) >= 6 and {"A", "O", "P1", "P2", "C1", "C2"}.issubset(roles)
+        roles = match_systems.assign_roles(system, starting, pos_by_athlete)
+        roles_ok = match_systems.roles_complete(system, roles)
         try:
-            computed = build_rotations_5_1(starting, libero_athlete_id=libero_id)
+            computed = match_systems.build_rotations(system, starting, libero_athlete_id=libero_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         for item in computed:
             rot_num = int(item["rotation"])
             if roles_ok:
-                # Показваме SAQUE формация (специализирани позиции) — като колоната на графиката
-                display = apply_formation_display(
+                display = match_systems.apply_formation_display(
+                    system,
                     rotation=rot_num,
                     phase="base",
                     role_to_athlete=roles,
                     libero_athlete_id=libero_id,
                 )
-                role_map = athlete_roles_on_court(
+                role_map = match_systems.athlete_roles_on_court(
+                    system,
                     rotation=rot_num,
                     phase="base",
                     role_to_athlete=roles,
@@ -391,8 +388,8 @@ def put_match_lineup(
         raise HTTPException(status_code=422, detail="Стартовата шестица не може да се променя при live/приключен мач")
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
-    if system != "5-1":
-        raise HTTPException(status_code=422, detail="Засега ротациите са налични само за схема 5-1")
+    if not match_systems.is_supported(system):
+        raise HTTPException(status_code=422, detail=f"Неподдържана схема: {system}")
 
     roster = _load_roster(db, match.id)
     if len(roster) < 6:
@@ -411,7 +408,11 @@ def put_match_lineup(
             raise HTTPException(status_code=422, detail="Либерото не може да е в стартовата шестица")
 
     try:
-        build_rotations_5_1({int(s.zone): int(s.athlete_id) for s in payload.slots}, libero_athlete_id=libero_id)
+        match_systems.build_rotations(
+            system,
+            {int(s.zone): int(s.athlete_id) for s in payload.slots},
+            libero_athlete_id=libero_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

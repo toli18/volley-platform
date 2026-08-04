@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-MatchSystemLiteral = Literal["5-1", "6-2", "4-2"]
+MatchSystemLiteral = Literal["5-1", "6-2", "4-2", "6-3"]
 MatchStatusLiteral = Literal["draft", "ready", "live", "finished", "cancelled"]
 MatchPositionLiteral = Literal["S", "OH", "MB", "OPP", "L"]
 
@@ -93,7 +93,7 @@ class MatchCourtPlayerRead(BaseModel):
     athlete_name: str
     jersey_number: int
     position: MatchPositionLiteral
-    role: Optional[str] = None  # A/O/P1/P2/C1/C2/L — за 5-1 графика
+    role: Optional[str] = None  # A/O/P… или S1/S2… според схемата
 
 
 class MatchLineupRead(BaseModel):
