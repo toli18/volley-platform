@@ -81,6 +81,7 @@ export default function CoachMatchLive() {
   const [phaseOverride, setPhaseOverride] = useState(null);
   /** zone → {x,y}% coach stack overrides (per rotation+phase) */
   const [posByKey, setPosByKey] = useState({});
+  const [statsOpen, setStatsOpen] = useState(false);
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
@@ -242,31 +243,73 @@ export default function CoachMatchLive() {
       </div>
 
       <div className="matchLiveScore">
-        <div className="matchLiveScoreSide matchLiveScoreSide--us">
-          <button type="button" disabled={busy || setFinished} onClick={() => score("us")}>
-            +
-          </button>
-          <div>
-            <div className="matchLiveScoreLabel">НИЕ</div>
-            <div className="matchLiveScoreNum">{mset?.our_score ?? 0}</div>
+        <div className="matchLiveScoreRow">
+          <div className="matchLiveScoreSide matchLiveScoreSide--us">
+            <button type="button" disabled={busy || setFinished} onClick={() => score("us")}>
+              +
+            </button>
+            <div>
+              <div className="matchLiveScoreLabel">НИЕ</div>
+              <div className="matchLiveScoreNum">{mset?.our_score ?? 0}</div>
+            </div>
+          </div>
+          <div className="matchLiveScoreMid">
+            <div>Сет {mset?.set_number ?? 1}</div>
+            <div className="matchLiveServePill">{mset?.we_serve ? "● наш сервис" : "○ чужд сервис"}</div>
+          </div>
+          <div className="matchLiveScoreSide matchLiveScoreSide--opp">
+            <div>
+              <div className="matchLiveScoreLabel">OPP</div>
+              <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
+            </div>
+            <button type="button" disabled={busy || setFinished} onClick={() => score("opp")}>
+              +
+            </button>
           </div>
         </div>
-        <div className="matchLiveScoreMid">
-          <div>Сет {mset?.set_number ?? 1}</div>
-          <div className="matchLiveServePill">{mset?.we_serve ? "● наш сервис" : "○ чужд сервис"}</div>
-        </div>
-        <div className="matchLiveScoreSide matchLiveScoreSide--opp">
-          <div>
-            <div className="matchLiveScoreLabel">OPP</div>
-            <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
-          </div>
-          <button type="button" disabled={busy || setFinished} onClick={() => score("opp")}>
-            +
-          </button>
+
+        <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
+          {PHASES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={activePhase === p.id}
+              className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
+              disabled={busy || setFinished || state.status === "finished"}
+              onClick={() => selectPhase(p.id)}
+            >
+              <span className="matchLivePhaseLabel">{p.label}</span>
+              {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="matchLiveGrid">
+      <div className="matchLiveToolbar">
+        <div className="matchLiveToolbarSel">
+          {selected ? (
+            <>
+              <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
+              <span>
+                {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
+              </span>
+            </>
+          ) : (
+            <span className="matchLiveToolbarHint">Кликни/влачи състезател на корта</span>
+          )}
+        </div>
+        <button
+          type="button"
+          className="matchLiveStatsOpenBtn"
+          disabled={state.status === "finished"}
+          onClick={() => setStatsOpen(true)}
+        >
+          Статистика
+        </button>
+      </div>
+
+      <div className="matchLiveGrid matchLiveGrid--courtOnly">
         <MatchCourt
           variant="pro"
           layout="tactical"
@@ -290,90 +333,85 @@ export default function CoachMatchLive() {
             if (p) setSelectedId(p.athlete_id);
           }}
         />
+      </div>
 
-        <aside className="matchLiveSide">
-          <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
-            {PHASES.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="tab"
-                aria-selected={activePhase === p.id}
-                className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
-                disabled={busy || setFinished || state.status === "finished"}
-                onClick={() => selectPhase(p.id)}
-              >
-                {p.label}
-                {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
+      {statsOpen ? (
+        <div className="matchLiveStatsOverlay" role="dialog" aria-modal="true" aria-label="Статистика">
+          <button type="button" className="matchLiveStatsBackdrop" aria-label="Затвори" onClick={() => setStatsOpen(false)} />
+          <div className="matchLiveStatsDrawer">
+            <div className="matchLiveStatsDrawerHead">
+              <strong>Статистика</strong>
+              <button type="button" className="matchLiveStatsClose" onClick={() => setStatsOpen(false)}>
+                ✕
               </button>
-            ))}
-          </div>
-
-          <div className="matchLiveStatsPanel">
-            <div className="matchLiveSelected">
-              {selected ? (
-                <>
-                  <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
-                  <span>
-                    {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
-                  </span>
-                </>
-              ) : (
-                <span>Избери състезател</span>
-              )}
             </div>
 
-            <div className="matchLiveStatGroup">
-              <div className="matchLiveStatGroupTitle">Противник</div>
-              <div className="matchLiveStatBtns">
-                <button
-                  type="button"
-                  className="matchLiveStatBtn matchLiveStatBtn--good"
-                  disabled={busy || setFinished || state.status === "finished"}
-                  onClick={() => recordStat("opp_error")}
-                >
-                  Грешка OPP
-                </button>
+            <div className="matchLiveStatsPanel">
+              <div className="matchLiveSelected">
+                {selected ? (
+                  <>
+                    <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
+                    <span>
+                      {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
+                    </span>
+                  </>
+                ) : (
+                  <span>Избери състезател от корта</span>
+                )}
               </div>
-            </div>
 
-            {STAT_GROUPS.map((g) => (
-              <div key={g.title} className="matchLiveStatGroup">
-                <div className="matchLiveStatGroupTitle">{g.title}</div>
+              <div className="matchLiveStatGroup">
+                <div className="matchLiveStatGroupTitle">Противник</div>
                 <div className="matchLiveStatBtns">
-                  {g.items.map((it) => (
-                    <button
-                      key={it.action}
-                      type="button"
-                      className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
-                        it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-                      }`}
-                      disabled={busy || setFinished || state.status === "finished"}
-                      onClick={() => recordStat(it.action)}
-                    >
-                      {it.label}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className="matchLiveStatBtn matchLiveStatBtn--good"
+                    disabled={busy || setFinished || state.status === "finished"}
+                    onClick={() => recordStat("opp_error")}
+                  >
+                    Грешка OPP
+                  </button>
                 </div>
               </div>
-            ))}
 
-            <div className="matchLiveEvents">
-              <div className="matchLiveStatGroupTitle">Последни</div>
-              {(state.recent_events || []).slice(0, 6).map((ev) => (
-                <div key={ev.id} className="matchLiveEventRow">
-                  <span>R{ev.rotation}</span>
-                  <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
-                  <span>{ACTION_LABEL[ev.action] || ev.action}</span>
-                  <span>
-                    {ev.our_score}:{ev.opp_score}
-                  </span>
+              {STAT_GROUPS.map((g) => (
+                <div key={g.title} className="matchLiveStatGroup">
+                  <div className="matchLiveStatGroupTitle">{g.title}</div>
+                  <div className="matchLiveStatBtns">
+                    {g.items.map((it) => (
+                      <button
+                        key={it.action}
+                        type="button"
+                        className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
+                          it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
+                        }`}
+                        disabled={busy || setFinished || state.status === "finished"}
+                        onClick={() => recordStat(it.action)}
+                      >
+                        {it.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
+
+              <div className="matchLiveEvents">
+                <div className="matchLiveStatGroupTitle">Последни</div>
+                {(state.recent_events || []).slice(0, 10).map((ev) => (
+                  <div key={ev.id} className="matchLiveEventRow">
+                    <span>R{ev.rotation}</span>
+                    <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
+                    <span>{ACTION_LABEL[ev.action] || ev.action}</span>
+                    <span>
+                      {ev.our_score}:{ev.opp_score}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      ) : null}
 
       <button
         type="button"

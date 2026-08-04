@@ -6768,12 +6768,15 @@
 .matchLivePage .matchCourtBoard--md .matchCourtField--tactical,
 .matchLivePage .matchCourtBoard--lg .matchCourtField--tactical {
   min-height: 0;
-  max-height: min(48vh, 360px);
-  aspect-ratio: 1.35 / 1;
+  max-height: min(58vh, 440px);
+  aspect-ratio: 1.28 / 1;
   width: 100%;
 }
 .matchLivePage .matchChipSlot--abs {
   transition: none;
+  width: 100px;
+  min-height: 92px;
+  z-index: 3;
 }
 .matchCourtBoardHead {
   text-align: center;
@@ -7134,6 +7137,35 @@ button.matchChipSlot:not(:disabled) {
   font-size: 11px;
   padding-top: 10px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.matchChipCircle--sq {
+  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+}
+.matchLivePage .matchCourtBoard--tactical .matchChipCircle {
+  width: 56px;
+  height: 56px;
+  font-size: 16px;
+}
+.matchLivePage .matchChipCircle--tri {
+  width: 58px;
+  height: 50px;
+  font-size: 14px;
+  padding-top: 12px;
+}
+.matchLivePage .matchChipCircle--sq {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.matchLivePage .matchChipTag {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.72);
 }
 .matchChipCircle--sm {
   width: 32px;
@@ -7592,13 +7624,17 @@ button.matchChipSlot:not(:disabled) {
 }
 .matchLiveScore {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
   gap: 6px;
-  align-items: center;
-  padding: 8px 10px;
+  padding: 8px 10px 8px;
   border-radius: 14px;
   background: #0b1220;
   border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.matchLiveScoreRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px;
+  align-items: center;
 }
 .matchLiveScoreSide {
   display: flex;
@@ -7651,55 +7687,94 @@ button.matchChipSlot:not(:disabled) {
   background: #1e293b;
   color: #fbbf24;
 }
-.matchLivePhaseBar {
+.matchLiveScore .matchLivePhaseBar {
   display: flex;
-  gap: 3px;
+  gap: 4px;
   margin: 0;
   padding: 3px;
   flex-wrap: nowrap;
   border-radius: 10px;
-  background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.22);
 }
-.matchLivePhaseBtn {
+.matchLiveScore .matchLivePhaseBtn {
   flex: 1;
   min-width: 0;
   border: 1px solid transparent;
   background: #1e293b;
   color: #f8fafc;
   border-radius: 8px;
-  padding: 7px 4px;
-  font-size: 0.72rem;
+  padding: 8px 6px;
+  font-size: 0.8rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.2;
   cursor: pointer;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
 }
-.matchLivePhaseBtn:hover:not(:disabled) {
+.matchLivePhaseLabel {
+  white-space: nowrap;
+}
+.matchLiveScore .matchLivePhaseBtn:hover:not(:disabled) {
   background: #334155;
   color: #fff;
 }
-.matchLivePhaseBtn.is-active {
+.matchLiveScore .matchLivePhaseBtn.is-active {
   background: rgba(34, 211, 238, 0.2);
   border-color: #22d3ee;
   color: #ecfeff;
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.55), 0 0 10px rgba(34, 211, 238, 0.22);
 }
-.matchLivePhaseBtn:disabled {
+.matchLiveScore .matchLivePhaseBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.matchLivePhaseAuto {
+.matchLiveScore .matchLivePhaseAuto {
   font-size: 0.58rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  opacity: 0.9;
+  letter-spacing: 0.04em;
   color: #67e8f9;
+  line-height: 1;
+}
+.matchLiveToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.matchLiveToolbarSel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  min-height: 36px;
+}
+.matchLiveToolbarHint {
+  color: #64748b;
+  font-weight: 600;
+}
+.matchLiveStatsOpenBtn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #0f766e;
+  color: #ecfdf5;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.matchLiveStatsOpenBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .matchLiveGrid {
   display: grid;
@@ -7707,33 +7782,72 @@ button.matchChipSlot:not(:disabled) {
   justify-items: stretch;
   align-items: start;
 }
-.matchLiveSide {
+.matchLiveGrid--courtOnly {
+  grid-template-columns: 1fr;
+}
+.matchLiveStatsOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
   display: grid;
-  gap: 6px;
-  align-content: start;
-  width: 100%;
-  max-width: 100%;
+  grid-template-columns: 1fr minmax(280px, 380px);
 }
-@media (min-width: 900px) {
-  .matchLiveGrid {
-    grid-template-columns: minmax(0, 1fr) 210px;
-    gap: 8px;
-  }
-  .matchLiveSide {
-    width: 210px;
-  }
+.matchLiveStatsBackdrop {
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+  padding: 0;
 }
-@media (max-width: 899px) {
-  .matchLiveGrid {
+.matchLiveStatsDrawer {
+  background: #0b1220;
+  border-left: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
+  overflow: auto;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+}
+.matchLiveStatsDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  color: #f8fafc;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  position: sticky;
+  top: 0;
+  background: #0b1220;
+  z-index: 1;
+}
+.matchLiveStatsClose {
+  border: none;
+  background: #1e293b;
+  color: #e2e8f0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.matchLiveStatsOverlay .matchLiveStatsPanel {
+  border: none;
+  border-radius: 0;
+  padding: 10px 12px 20px;
+}
+@media (max-width: 720px) {
+  .matchLiveStatsOverlay {
     grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
   }
-  .matchLiveSide {
-    order: -1;
+  .matchLiveStatsBackdrop {
+    min-height: 12vh;
   }
-  .matchLivePhaseBar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
+  .matchLiveStatsDrawer {
+    max-height: 88vh;
+    border-left: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 16px 16px 0 0;
   }
 }
 .matchLivePage .matchCourtBoard--md,

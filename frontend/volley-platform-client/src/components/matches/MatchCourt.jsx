@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { isFrontRole, nearestZone, playerCourtPosition, roleChipLabel, zonePosition } from "../../utils/matchCourtLayout";
+import { isFrontRole, nearestZone, playerCourtPosition, roleChipLabel, roleChipShape, zonePosition } from "../../utils/matchCourtLayout";
 import { alignmentStatusBg, checkFormationAlignment, clampCourtPct } from "../../utils/matchOverlap";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
@@ -178,7 +178,17 @@ export default function MatchCourt({
       return;
     }
 
-    if ((rearrangeable || freeMove) && isTouch) {
+    if (freeMove && isTouch) {
+      // Immediate drag on touch — no long-press (easier to grab players)
+      dragging.current = true;
+      moved.current = false;
+      setDragFrom(zone);
+      setSelectZone(null);
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      return;
+    }
+
+    if (rearrangeable && isTouch) {
       longPressTimer.current = setTimeout(() => {
         dragging.current = true;
         dragZoneRef.current = zone;
@@ -319,6 +329,13 @@ export default function MatchCourt({
     const isWarn = !isFault && warnZones.has(zone);
     const color = player ? positionColor(player.position) : undefined;
     const front = player?.role ? isFrontRole(player.role, rotation) : [2, 3, 4].includes(Number(zone));
+    const shape = player?.role
+      ? roleChipShape(player.role, rotation)
+      : front
+        ? "triangle"
+        : "circle";
+    const shapeClass =
+      shape === "triangle" ? " matchChipCircle--tri" : shape === "square" ? " matchChipCircle--sq" : "";
     const label =
       player?.role && layoutPhase !== "grid"
         ? roleChipLabel(player.role)
@@ -359,9 +376,9 @@ export default function MatchCourt({
         {player ? (
           <span className="matchChipStack">
             <span
-              className={`matchChipCircle${front ? " matchChipCircle--tri" : ""}`}
+              className={`matchChipCircle${shapeClass}`}
               style={{ background: color }}
-              title={player.role || positionShort(player.position)}
+              title={`${label || ""} · ${player.athlete_name || ""}`}
             >
               {label}
             </span>

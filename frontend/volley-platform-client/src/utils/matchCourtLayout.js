@@ -16,7 +16,7 @@ export const BASE_ZONE_XY = {
 
 export const GRID_ZONE_XY = { ...BASE_ZONE_XY };
 
-/** PDF етикети върху чипове */
+/** PDF / EN етикети */
 export const ROLE_LABEL_PDF = {
   A: "S",
   O: "OP",
@@ -25,6 +25,17 @@ export const ROLE_LABEL_PDF = {
   C1: "MB2",
   C2: "MB1",
   L: "L",
+};
+
+/** БГ етикети върху чипове (live / корт) */
+export const ROLE_LABEL_BG = {
+  A: "Р",
+  O: "Д",
+  P1: "П1",
+  P2: "П2",
+  C1: "Ц2",
+  C2: "Ц1",
+  L: "Л",
 };
 
 /** Легална предна линия (триъгълник). */
@@ -52,7 +63,15 @@ export function isFrontRole(role, rotation = 1) {
 
 export function roleChipLabel(role) {
   const key = String(role || "").toUpperCase();
-  return ROLE_LABEL_PDF[key] || key || "";
+  return ROLE_LABEL_BG[key] || ROLE_LABEL_PDF[key] || key || "";
+}
+
+/** circle | triangle | square — предна линия △, задна ○, либеро □ */
+export function roleChipShape(role, rotation = 1) {
+  const key = String(role || "").toUpperCase();
+  if (key === "L") return "square";
+  if (isFrontRole(key, rotation)) return "triangle";
+  return "circle";
 }
 
 /**
