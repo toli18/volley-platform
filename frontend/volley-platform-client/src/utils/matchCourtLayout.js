@@ -66,11 +66,23 @@ export function roleChipLabel(role) {
   return ROLE_LABEL_BG[key] || ROLE_LABEL_PDF[key] || key || "";
 }
 
-/** circle | triangle | square — предна линия △, задна ○, либеро □ */
-export function roleChipShape(role, rotation = 1) {
+/** circle | triangle | square | star — по позиция, не по предна/задна линия */
+export function roleChipShape(role, _rotation = 1) {
   const key = String(role || "").toUpperCase();
-  if (key === "L") return "square";
-  if (isFrontRole(key, rotation)) return "triangle";
+  if (key === "L") return "star";
+  if (key === "C1" || key === "C2") return "square"; // център
+  if (key === "P1" || key === "P2") return "triangle"; // посрещач
+  if (key === "A" || key === "O") return "circle"; // разпределител / диагонал
+  return "circle";
+}
+
+/** Fallback когато няма роля — по код на позиция */
+export function positionChipShape(position) {
+  const key = String(position || "").toUpperCase();
+  if (key === "L") return "star";
+  if (key === "MB") return "square";
+  if (key === "OH") return "triangle";
+  if (key === "S" || key === "OPP") return "circle";
   return "circle";
 }
 

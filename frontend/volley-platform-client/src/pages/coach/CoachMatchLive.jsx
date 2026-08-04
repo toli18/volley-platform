@@ -12,16 +12,16 @@ const STAT_GROUPS = [
   {
     title: "Атака",
     items: [
-      { action: "kill", label: "Точка", tone: "good" },
-      { action: "attack_error", label: "Грешка", tone: "bad" },
+      { action: "kill", label: "Атака+", tone: "good" },
+      { action: "attack_error", label: "Атака−", tone: "bad" },
     ],
   },
   {
     title: "Сервис / блок",
     items: [
       { action: "ace", label: "Ас", tone: "good" },
-      { action: "block", label: "Блок", tone: "good" },
-      { action: "error", label: "Грешка", tone: "bad" },
+      { action: "error", label: "Грешка Сервис", tone: "bad" },
+      { action: "block", label: "Блок+", tone: "good" },
     ],
   },
   {
@@ -34,16 +34,16 @@ const STAT_GROUPS = [
       { action: "pass_3", label: "#", tone: "good" },
       { action: "pass_2", label: "+", tone: "good" },
       { action: "pass_1", label: "−", tone: "neutral" },
-      { action: "pass_error", label: "Грешка", tone: "bad" },
+      { action: "pass_error", label: "Грешка Поср.", tone: "bad" },
     ],
   },
 ];
 
 const ACTION_LABEL = {
-  kill: "Точка атака",
+  kill: "Атака+",
   ace: "Ас",
-  block: "Блок",
-  attack_error: "Грешка атака",
+  block: "Блок+",
+  attack_error: "Атака−",
   error: "Грешка сервис",
   dig: "Защита",
   pass_0: "Пос. 0",
@@ -54,7 +54,7 @@ const ACTION_LABEL = {
   pass_error: "Грешка поср.",
   opp_point: "Точка OPP",
   our_point: "Точка НИЕ",
-  opp_error: "Грешка OPP",
+  opp_error: "Грешка на противника",
 };
 
 const PHASES = [
@@ -461,7 +461,7 @@ export default function CoachMatchLive() {
             onClick={() => recordStat("opp_error")}
             title="Грешка на противника"
           >
-            Грешка OPP
+            Грешка на противника
           </button>
           {STAT_GROUPS.flatMap((g) =>
             g.items.map((it) => (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { isFrontRole, nearestZone, playerCourtPosition, roleChipLabel, roleChipShape, zonePosition } from "../../utils/matchCourtLayout";
+import { isFrontRole, nearestZone, playerCourtPosition, positionChipShape, roleChipLabel, roleChipShape, zonePosition } from "../../utils/matchCourtLayout";
 import { alignmentStatusBg, checkFormationAlignment, clampCourtPct } from "../../utils/matchOverlap";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
@@ -391,11 +391,17 @@ export default function MatchCourt({
     const front = player?.role ? isFrontRole(player.role, rotation) : [2, 3, 4].includes(Number(zone));
     const shape = player?.role
       ? roleChipShape(player.role, rotation)
-      : front
-        ? "triangle"
+      : player?.position
+        ? positionChipShape(player.position)
         : "circle";
     const shapeClass =
-      shape === "triangle" ? " matchChipCircle--tri" : shape === "square" ? " matchChipCircle--sq" : "";
+      shape === "triangle"
+        ? " matchChipCircle--tri"
+        : shape === "square"
+          ? " matchChipCircle--sq"
+          : shape === "star"
+            ? " matchChipCircle--star"
+            : "";
     const label =
       player?.role && layoutPhase !== "grid"
         ? roleChipLabel(player.role)
