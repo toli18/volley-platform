@@ -44,7 +44,7 @@ const ACTION_LABEL = {
   ace: "Ас",
   block: "Блок",
   attack_error: "Грешка атака",
-  error: "Грешка",
+  error: "Грешка сервис",
   dig: "Защита",
   pass_0: "Пос. 0",
   pass_1: "Пос. −",
@@ -65,6 +65,111 @@ const PHASES = [
 
 const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error"]);
 
+const EMPTY_ROW = () => ({
+  kills: 0,
+  attack_err: 0,
+  aces: 0,
+  serve_err: 0,
+  blocks: 0,
+  digs: 0,
+  pass_hash: 0,
+  pass_plus: 0,
+  pass_minus: 0,
+  pass_err: 0,
+});
+
+function buildStatTable({ roster = [], court = [], libero = null, events = [] }) {
+  const byId = new Map();
+
+  const ensure = (id, seed = {}) => {
+    const key = Number(id);
+    if (!key) return null;
+    if (!byId.has(key)) {
+      byId.set(key, {
+        athlete_id: key,
+        jersey_number: seed.jersey_number ?? "—",
+        athlete_name: seed.athlete_name || "",
+        position: seed.position || "",
+        ...EMPTY_ROW(),
+      });
+    } else if (seed.athlete_name || seed.jersey_number != null || seed.position) {
+      const row = byId.get(key);
+      if (seed.athlete_name) row.athlete_name = seed.athlete_name;
+      if (seed.jersey_number != null) row.jersey_number = seed.jersey_number;
+      if (seed.position) row.position = seed.position;
+    }
+    return byId.get(key);
+  };
+
+  for (const p of roster) {
+    ensure(p.athlete_id, p);
+  }
+  for (const p of court) {
+    ensure(p.athlete_id, p);
+  }
+  if (libero) ensure(libero.athlete_id, libero);
+
+  for (const ev of events) {
+    if (!ev.athlete_id) continue;
+    const row =
+      ensure(ev.athlete_id, {
+        athlete_name: ev.athlete_name || "",
+      }) || null;
+    if (!row) continue;
+    switch (ev.action) {
+      case "kill":
+        row.kills += 1;
+        break;
+      case "attack_error":
+        row.attack_err += 1;
+        break;
+      case "ace":
+        row.aces += 1;
+        break;
+      case "error":
+        row.serve_err += 1;
+        break;
+      case "block":
+        row.blocks += 1;
+        break;
+      case "dig":
+        row.digs += 1;
+        break;
+      case "pass_3":
+        row.pass_hash += 1;
+        break;
+      case "pass_2":
+        row.pass_plus += 1;
+        break;
+      case "pass_1":
+        row.pass_minus += 1;
+        break;
+      case "pass_error":
+        row.pass_err += 1;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => Number(a.jersey_number) - Number(b.jersey_number));
+}
+
+function rowSummary(row) {
+  const bits = [];
+  if (row.kills) bits.push(`${row.kills} точки атака`);
+  if (row.attack_err) bits.push(`${row.attack_err} гр. атака`);
+  if (row.aces) bits.push(`${row.aces} ас`);
+  if (row.serve_err) bits.push(`${row.serve_err} гр. сервис`);
+  if (row.blocks) bits.push(`${row.blocks} блок`);
+  if (row.digs) bits.push(`${row.digs} защита`);
+  const passTotal = row.pass_hash + row.pass_plus + row.pass_minus + row.pass_err;
+  if (passTotal) {
+    bits.push(`поср. #${row.pass_hash}/+${row.pass_plus}/−${row.pass_minus}/гр${row.pass_err}`);
+  }
+  return bits.length ? bits.join(" · ") : "няма записи";
+}
+
 export default function CoachMatchLive() {
   const { teamId, matchId } = useParams();
   const teamIdNum = Number(teamId);
@@ -73,6 +178,7 @@ export default function CoachMatchLive() {
   const toast = useToast();
 
   const [state, setState] = useState(null);
+  const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -88,6 +194,17 @@ export default function CoachMatchLive() {
     return (state.court || []).find((p) => Number(p.athlete_id) === Number(selectedId)) || null;
   }, [state, selectedId]);
 
+  const statRows = useMemo(
+    () =>
+      buildStatTable({
+        roster,
+        court: state?.court || [],
+        libero: state?.libero,
+        events: state?.recent_events || [],
+      }),
+    [roster, state],
+  );
+
   const load = async (phase) => {
     const params = phase ? { phase } : undefined;
     const res = await axiosInstance.get(API_PATHS.TEAM_MATCH_LIVE(teamIdNum, matchIdNum), { params });
@@ -101,6 +218,9 @@ export default function CoachMatchLive() {
       try {
         setLoading(true);
         setError("");
+        const detail = await axiosInstance.get(API_PATHS.TEAM_MATCH(teamIdNum, matchIdNum));
+        if (!alive) return;
+        setRoster(detail.data?.roster || []);
         let data = await load();
         if (!alive) return;
         if (!data.set) {
@@ -144,7 +264,7 @@ export default function CoachMatchLive() {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), { side });
         return res.data;
       },
-      { resetPhase: true }
+      { resetPhase: true },
     );
 
   const undo = () =>
@@ -153,7 +273,7 @@ export default function CoachMatchLive() {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_UNDO(teamIdNum, matchIdNum));
         return res.data;
       },
-      { resetPhase: true }
+      { resetPhase: true },
     );
 
   const recordStat = (action) => {
@@ -170,7 +290,7 @@ export default function CoachMatchLive() {
         });
         return res.data;
       },
-      { resetPhase: true }
+      { resetPhase: true },
     );
   };
 
@@ -231,6 +351,13 @@ export default function CoachMatchLive() {
           <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo} onClick={undo}>
             Undo
           </button>
+          <button
+            type="button"
+            className="matchLiveStatsOpenBtn"
+            onClick={() => setStatsOpen(true)}
+          >
+            Статистика
+          </button>
           {setFinished ? (
             <button type="button" className="matchLiveNext" disabled={busy || state.status === "finished"} onClick={nextSet}>
               Нов сет
@@ -286,29 +413,6 @@ export default function CoachMatchLive() {
         </div>
       </div>
 
-      <div className="matchLiveToolbar">
-        <div className="matchLiveToolbarSel">
-          {selected ? (
-            <>
-              <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
-              <span>
-                {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
-              </span>
-            </>
-          ) : (
-            <span className="matchLiveToolbarHint">Кликни/влачи състезател на корта</span>
-          )}
-        </div>
-        <button
-          type="button"
-          className="matchLiveStatsOpenBtn"
-          disabled={state.status === "finished"}
-          onClick={() => setStatsOpen(true)}
-        >
-          Статистика
-        </button>
-      </div>
-
       <div className="matchLiveGrid matchLiveGrid--courtOnly">
         <MatchCourt
           variant="pro"
@@ -335,79 +439,127 @@ export default function CoachMatchLive() {
         />
       </div>
 
+      <div className="matchLiveEntryBar">
+        <div className="matchLiveSelected">
+          {selected ? (
+            <>
+              <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
+              <span>
+                {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
+              </span>
+            </>
+          ) : (
+            <span>Избери състезател от корта за въвеждане</span>
+          )}
+        </div>
+
+        <div className="matchLiveStatGroup">
+          <div className="matchLiveStatGroupTitle">Противник</div>
+          <div className="matchLiveStatBtns">
+            <button
+              type="button"
+              className="matchLiveStatBtn matchLiveStatBtn--good"
+              disabled={busy || setFinished || state.status === "finished"}
+              onClick={() => recordStat("opp_error")}
+            >
+              Грешка OPP
+            </button>
+          </div>
+        </div>
+
+        {STAT_GROUPS.map((g) => (
+          <div key={g.title} className="matchLiveStatGroup">
+            <div className="matchLiveStatGroupTitle">{g.title}</div>
+            <div className="matchLiveStatBtns">
+              {g.items.map((it) => (
+                <button
+                  key={it.action}
+                  type="button"
+                  className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
+                    it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
+                  }`}
+                  disabled={busy || setFinished || state.status === "finished"}
+                  onClick={() => recordStat(it.action)}
+                >
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="matchLiveEvents matchLiveEvents--compact">
+          <div className="matchLiveStatGroupTitle">Последни</div>
+          {(state.recent_events || []).slice(0, 5).map((ev) => (
+            <div key={ev.id} className="matchLiveEventRow">
+              <span>R{ev.rotation}</span>
+              <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
+              <span>{ACTION_LABEL[ev.action] || ev.action}</span>
+              <span>
+                {ev.our_score}:{ev.opp_score}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {statsOpen ? (
         <div className="matchLiveStatsOverlay" role="dialog" aria-modal="true" aria-label="Статистика">
           <button type="button" className="matchLiveStatsBackdrop" aria-label="Затвори" onClick={() => setStatsOpen(false)} />
-          <div className="matchLiveStatsDrawer">
+          <div className="matchLiveStatsDrawer matchLiveStatsDrawer--wide">
             <div className="matchLiveStatsDrawerHead">
-              <strong>Статистика</strong>
+              <div>
+                <strong>Статистика на мача</strong>
+                <div className="matchLiveStatsLegend">
+                  # перфектно · + добро · − слабо · посрещане / атака / сервис по състезател
+                </div>
+              </div>
               <button type="button" className="matchLiveStatsClose" onClick={() => setStatsOpen(false)}>
                 ✕
               </button>
             </div>
 
-            <div className="matchLiveStatsPanel">
-              <div className="matchLiveSelected">
-                {selected ? (
-                  <>
-                    <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
-                    <span>
-                      {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
-                    </span>
-                  </>
-                ) : (
-                  <span>Избери състезател от корта</span>
-                )}
-              </div>
-
-              <div className="matchLiveStatGroup">
-                <div className="matchLiveStatGroupTitle">Противник</div>
-                <div className="matchLiveStatBtns">
-                  <button
-                    type="button"
-                    className="matchLiveStatBtn matchLiveStatBtn--good"
-                    disabled={busy || setFinished || state.status === "finished"}
-                    onClick={() => recordStat("opp_error")}
-                  >
-                    Грешка OPP
-                  </button>
-                </div>
-              </div>
-
-              {STAT_GROUPS.map((g) => (
-                <div key={g.title} className="matchLiveStatGroup">
-                  <div className="matchLiveStatGroupTitle">{g.title}</div>
-                  <div className="matchLiveStatBtns">
-                    {g.items.map((it) => (
-                      <button
-                        key={it.action}
-                        type="button"
-                        className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
-                          it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-                        }`}
-                        disabled={busy || setFinished || state.status === "finished"}
-                        onClick={() => recordStat(it.action)}
-                      >
-                        {it.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              <div className="matchLiveEvents">
-                <div className="matchLiveStatGroupTitle">Последни</div>
-                {(state.recent_events || []).slice(0, 10).map((ev) => (
-                  <div key={ev.id} className="matchLiveEventRow">
-                    <span>R{ev.rotation}</span>
-                    <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
-                    <span>{ACTION_LABEL[ev.action] || ev.action}</span>
-                    <span>
-                      {ev.our_score}:{ev.opp_score}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <div className="matchLiveStatTableWrap">
+              <table className="matchLiveStatTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Име</th>
+                    <th>Поз</th>
+                    <th title="Точки атака">Ат+</th>
+                    <th title="Грешки атака">Ат−</th>
+                    <th title="Асове">Ас</th>
+                    <th title="Грешки сервис">Ср−</th>
+                    <th title="Блок">Бл</th>
+                    <th title="Защита">Защ</th>
+                    <th title="Посрещане #">#</th>
+                    <th title="Посрещане +">+</th>
+                    <th title="Посрещане −">−</th>
+                    <th title="Грешка посрещане">П−</th>
+                    <th>Разтълкуване</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statRows.map((row) => (
+                    <tr key={row.athlete_id}>
+                      <td>{row.jersey_number}</td>
+                      <td className="matchLiveStatTableName">{shortPlayerName(row.athlete_name) || row.athlete_name}</td>
+                      <td>{positionShort(row.position)}</td>
+                      <td>{row.kills || "·"}</td>
+                      <td>{row.attack_err || "·"}</td>
+                      <td>{row.aces || "·"}</td>
+                      <td>{row.serve_err || "·"}</td>
+                      <td>{row.blocks || "·"}</td>
+                      <td>{row.digs || "·"}</td>
+                      <td>{row.pass_hash || "·"}</td>
+                      <td>{row.pass_plus || "·"}</td>
+                      <td>{row.pass_minus || "·"}</td>
+                      <td>{row.pass_err || "·"}</td>
+                      <td className="matchLiveStatTableSum">{rowSummary(row)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

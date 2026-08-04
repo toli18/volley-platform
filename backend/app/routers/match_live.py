@@ -216,7 +216,7 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
     if mset:
         phase = phase_from_serve(bool(mset.we_serve), phase_override)
         court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
-        events = _recent_events(db, match.id, mset.id)
+        events = _recent_events(db, match.id, mset.id, limit=400)
         can_undo = (
             db.query(MatchStatEvent)
             .filter(MatchStatEvent.set_id == mset.id, MatchStatEvent.undone == 0)
