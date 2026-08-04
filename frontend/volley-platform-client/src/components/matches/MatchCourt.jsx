@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { isFrontRole, nearestZone, playerCourtPosition, roleChipLabel, zonePosition } from "../../utils/matchCourtLayout";
+import { alignmentStatusBg, checkFormationAlignment, clampCourtPct } from "../../utils/matchOverlap";
 import { positionColor, positionShort, shortPlayerName } from "../../utils/matchPositions";
 
 const LONG_PRESS_MS = 380;
@@ -13,6 +14,11 @@ export default function MatchCourt({
   onSwapZones,
   rearrangeable = false,
   swapOnClick = false,
+  /** Free XY drag (coach stacks). Overrides rearrangeable swap while true. */
+  positionEditable = false,
+  /** Optional zone → {x,y}% overrides; missing zones use layout presets. */
+  positionOverrides = null,
+  onPositionsChange,
   libero = null,
   editable = false,
   variant = "pro",
@@ -24,6 +30,7 @@ export default function MatchCourt({
   title = "",
   subtitle = "",
   size = "md", // sm | md | lg
+  showAlignment = false,
 }) {
   const byZone = {};
   for (const s of slots) {
@@ -33,10 +40,12 @@ export default function MatchCourt({
   const isPro = variant === "pro";
   const isTactical = layout === "tactical";
   const layoutPhase = isTactical ? phase || "serve" : "grid";
-  const canInteract = Boolean(editable || onZoneClick || rearrangeable);
+  const freeMove = Boolean(positionEditable && isTactical);
+  const canInteract = Boolean(editable || onZoneClick || rearrangeable || freeMove);
   const [dragFrom, setDragFrom] = useState(null);
   const [hoverZone, setHoverZone] = useState(null);
   const [selectZone, setSelectZone] = useState(null);
+  const [livePos, setLivePos] = useState(null);
   const longPressTimer = useRef(null);
   const dragging = useRef(false);
   const startZone = useRef(null);
@@ -52,6 +61,57 @@ export default function MatchCourt({
 
   useEffect(() => () => clearLongPress(), []);
 
+  const resolvedPositions = useMemo(() => {
+    const out = {};
+    for (const z of ZONES) {
+      const player = byZone[z];
+      const preset = isTactical
+        ? playerCourtPosition({
+            role: player?.role,
+            zone: z,
+            phase: layoutPhase,
+            rotation,
+          })
+        : zonePosition({ zone: z, phase: "grid", rotation: 1 });
+      const ov = positionOverrides?.[z];
+      out[z] = ov ? clampCourtPct(ov.x, ov.y) : preset;
+    }
+    if (livePos?.zone != null) {
+      out[livePos.zone] = clampCourtPct(livePos.x, livePos.y);
+    }
+    return out;
+    // byZone rebuilt from slots each render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots, isTactical, layoutPhase, rotation, positionOverrides, livePos]);
+
+  const alignment = useMemo(() => {
+    if (!showAlignment && !freeMove) return null;
+    if (layoutPhase === "grid" || layoutPhase === "base") return null;
+    return checkFormationAlignment(resolvedPositions);
+  }, [showAlignment, freeMove, layoutPhase, resolvedPositions]);
+
+  const alignUi = alignment ? alignmentStatusBg(alignment) : null;
+
+  const faultZones = useMemo(() => {
+    const set = new Set();
+    if (!alignment?.faults) return set;
+    for (const f of alignment.faults) {
+      set.add(f.a);
+      set.add(f.b);
+    }
+    return set;
+  }, [alignment]);
+
+  const warnZones = useMemo(() => {
+    const set = new Set();
+    if (!alignment?.warnings) return set;
+    for (const w of alignment.warnings) {
+      set.add(w.a);
+      set.add(w.b);
+    }
+    return set;
+  }, [alignment]);
+
   const finishSwap = (fromZone, toZone) => {
     if (!fromZone || !toZone || fromZone === toZone) return;
     onSwapZones?.(fromZone, toZone);
@@ -64,7 +124,24 @@ export default function MatchCourt({
     if (!rect.width || !rect.height) return null;
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    return { x, y };
+    return clampCourtPct(x, y);
+  };
+
+  const emitPositions = (zone, xy) => {
+    const overridesNext = { ...(positionOverrides || {}), [zone]: clampCourtPct(xy.x, xy.y) };
+    const full = {};
+    for (const z of ZONES) {
+      const player = byZone[z];
+      const preset = playerCourtPosition({
+        role: player?.role,
+        zone: z,
+        phase: layoutPhase,
+        rotation,
+      });
+      const ov = overridesNext[z];
+      full[z] = ov ? clampCourtPct(ov.x, ov.y) : preset;
+    }
+    onPositionsChange?.(overridesNext, checkFormationAlignment(full));
   };
 
   const onPointerDown = (zone, e) => {
@@ -76,13 +153,13 @@ export default function MatchCourt({
     clearLongPress();
 
     const isTouch = e.pointerType === "touch";
-    if (rearrangeable && !isTouch) {
+    if ((rearrangeable || freeMove) && !isTouch) {
       setSelectZone(null);
       e.currentTarget.setPointerCapture?.(e.pointerId);
       return;
     }
 
-    if (rearrangeable && isTouch) {
+    if ((rearrangeable || freeMove) && isTouch) {
       longPressTimer.current = setTimeout(() => {
         dragging.current = true;
         setDragFrom(zone);
@@ -99,7 +176,7 @@ export default function MatchCourt({
   };
 
   const onPointerMove = (zone, e) => {
-    if (!rearrangeable) return;
+    if (!rearrangeable && !freeMove) return;
     if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
       moved.current = true;
       clearLongPress();
@@ -109,13 +186,21 @@ export default function MatchCourt({
         setSelectZone(null);
       }
     }
-    if (dragging.current) {
+    if (!dragging.current) return;
+
+    if (freeMove) {
       const pct = pctFromEvent(e);
-      if (pct) {
-        setHoverZone(nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation }));
-      } else {
-        setHoverZone(zone);
+      if (pct && startZone.current != null) {
+        setLivePos({ zone: startZone.current, x: pct.x, y: pct.y });
       }
+      return;
+    }
+
+    const pct = pctFromEvent(e);
+    if (pct) {
+      setHoverZone(nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation }));
+    } else {
+      setHoverZone(zone);
     }
   };
 
@@ -123,7 +208,20 @@ export default function MatchCourt({
     clearLongPress();
     const from = startZone.current;
 
-    if (rearrangeable && dragging.current && dragFrom != null && moved.current) {
+    if (freeMove && dragging.current && dragFrom != null && moved.current) {
+      const pct = e ? pctFromEvent(e) : null;
+      if (pct) {
+        emitPositions(dragFrom, pct);
+      }
+      dragging.current = false;
+      setDragFrom(null);
+      setLivePos(null);
+      setHoverZone(null);
+      startZone.current = null;
+      return;
+    }
+
+    if (rearrangeable && !freeMove && dragging.current && dragFrom != null && moved.current) {
       const pct = e ? pctFromEvent(e) : null;
       const target = pct
         ? nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation })
@@ -142,11 +240,12 @@ export default function MatchCourt({
 
     dragging.current = false;
     setDragFrom(null);
+    setLivePos(null);
     setHoverZone(null);
 
     if (!from) return;
 
-    if (rearrangeable && swapOnClick) {
+    if (rearrangeable && !freeMove && swapOnClick) {
       if (selectZone == null) {
         setSelectZone(from);
         onZoneClick?.(from);
@@ -169,6 +268,7 @@ export default function MatchCourt({
     clearLongPress();
     dragging.current = false;
     setDragFrom(null);
+    setLivePos(null);
     setHoverZone(null);
     startZone.current = null;
   };
@@ -177,12 +277,17 @@ export default function MatchCourt({
   const onCourtIds = new Set(Object.values(byZone).map((p) => Number(p.athlete_id)));
   const showLiberoBench = libero && !onCourtIds.has(Number(libero.athlete_id));
 
+  const faultLines = alignment?.faults || [];
+  const warnLines = alignment?.legal ? alignment.warnings || [] : [];
+
   const renderSlot = (zone) => {
     const player = byZone[zone];
     const isActive = Number(highlightZone) === zone;
     const isDrag = Number(dragFrom) === zone;
-    const isHover = dragging.current && Number(hoverZone) === zone && Number(dragFrom) !== zone;
+    const isHover = !freeMove && dragging.current && Number(hoverZone) === zone && Number(dragFrom) !== zone;
     const isServe = showServe && zone === 1;
+    const isFault = faultZones.has(zone);
+    const isWarn = !isFault && warnZones.has(zone);
     const color = player ? positionColor(player.position) : undefined;
     const front = player?.role ? isFrontRole(player.role, rotation) : [2, 3, 4].includes(Number(zone));
     const label =
@@ -191,22 +296,15 @@ export default function MatchCourt({
         : player
           ? positionShort(player.position)
           : null;
-    const pos = isTactical
-      ? playerCourtPosition({
-          role: player?.role,
-          zone,
-          phase: layoutPhase,
-          rotation,
-        })
-      : zonePosition({ zone, phase: "grid", rotation: 1 });
+    const pos = resolvedPositions[zone] || { x: 50, y: 50 };
 
     const style = isTactical
       ? {
           left: `${pos.x}%`,
           top: `${pos.y}%`,
-          touchAction: rearrangeable ? "none" : undefined,
+          touchAction: rearrangeable || freeMove ? "none" : undefined,
         }
-      : { touchAction: rearrangeable ? "none" : undefined };
+      : { touchAction: rearrangeable || freeMove ? "none" : undefined };
 
     return (
       <button
@@ -216,7 +314,9 @@ export default function MatchCourt({
           player ? " matchChipSlot--filled" : ""
         }${isServe ? " matchChipSlot--serve" : ""}${isDrag ? " matchChipSlot--drag" : ""}${
           isHover ? " matchChipSlot--drop" : ""
-        }${front && player ? " matchChipSlot--front" : ""}${!front && player ? " matchChipSlot--back" : ""}`}
+        }${front && player ? " matchChipSlot--front" : ""}${!front && player ? " matchChipSlot--back" : ""}${
+          isFault ? " matchChipSlot--fault" : ""
+        }${isWarn ? " matchChipSlot--tight" : ""}`}
         disabled={!canInteract}
         data-zone={zone}
         style={style}
@@ -264,7 +364,9 @@ export default function MatchCourt({
         </div>
       ) : null}
 
-      {rearrangeable ? (
+      {freeMove ? (
+        <p className="matchCourtHint">Влачи за позиция · зоните трябва да са легални при контакт</p>
+      ) : rearrangeable ? (
         <p className="matchCourtHint">
           {swapOnClick
             ? "Кликни двама за размяна · на таблет задръж и влачи"
@@ -273,10 +375,7 @@ export default function MatchCourt({
       ) : null}
 
       <div className={`matchCourtStage${isTactical ? " matchCourtStage--perspective" : ""}`}>
-        <div
-          ref={planeRef}
-          className={`matchCourtPlane${isTactical ? " matchCourtPlane--3d" : ""}`}
-        >
+        <div className={`matchCourtPlane${isTactical ? " matchCourtPlane--3d" : ""}`}>
           <div className="matchCourtNetComplex" aria-hidden>
             <span className="matchCourtNetPost matchCourtNetPost--l" />
             <span className="matchCourtNetMesh" />
@@ -284,7 +383,10 @@ export default function MatchCourt({
             <span className="matchCourtNetBall" />
           </div>
 
-          <div className={`matchCourtField${isTactical ? " matchCourtField--tactical" : ""}`}>
+          <div
+            ref={planeRef}
+            className={`matchCourtField${isTactical ? " matchCourtField--tactical" : ""}`}
+          >
             <div className="matchCourtGridlines" aria-hidden />
             <div className="matchCourtAttackLine" aria-hidden />
             <div className="matchCourtWatermark" aria-hidden>
@@ -293,6 +395,41 @@ export default function MatchCourt({
                 R{rotation} · {(phase || "base").toUpperCase()}
               </span>
             </div>
+
+            {isTactical && (faultLines.length > 0 || warnLines.length > 0) ? (
+              <svg className="matchCourtAlignSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+                {faultLines.map((f) => {
+                  const a = resolvedPositions[f.a];
+                  const b = resolvedPositions[f.b];
+                  if (!a || !b) return null;
+                  return (
+                    <line
+                      key={`f-${f.a}-${f.b}`}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      className="matchCourtAlignLine matchCourtAlignLine--fault"
+                    />
+                  );
+                })}
+                {warnLines.map((f) => {
+                  const a = resolvedPositions[f.a];
+                  const b = resolvedPositions[f.b];
+                  if (!a || !b) return null;
+                  return (
+                    <line
+                      key={`w-${f.a}-${f.b}`}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      className="matchCourtAlignLine matchCourtAlignLine--warn"
+                    />
+                  );
+                })}
+              </svg>
+            ) : null}
 
             {isTactical ? (
               <div className="matchCourtAbsLayer">{ZONES.map((z) => renderSlot(z))}</div>
@@ -305,6 +442,12 @@ export default function MatchCourt({
           </div>
         </div>
       </div>
+
+      {alignUi ? (
+        <div className={`matchCourtAlignStatus matchCourtAlignStatus--${alignUi.tone}`} role="status">
+          {alignUi.text}
+        </div>
+      ) : null}
 
       {showLiberoBench || editable ? (
         <div className="matchLiberoRow">

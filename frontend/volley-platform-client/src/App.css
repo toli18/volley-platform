@@ -6751,11 +6751,18 @@
 }
 .matchCourtBoard--lg {
   padding: 8px 6px 10px;
-  max-width: 560px;
+  max-width: 640px;
 }
 .matchLivePage .matchCourtBoard--tactical,
 .matchRotStage .matchCourtBoard--tactical {
-  max-width: 440px;
+  max-width: 560px;
+}
+.matchLivePage .matchCourtBoard--lg {
+  max-width: 680px;
+  width: 100%;
+}
+.matchLivePage .matchCourtPlane--3d {
+  transform: rotateX(36deg) scale(0.98);
 }
 .matchCourtBoardHead {
   text-align: center;
@@ -6892,11 +6899,16 @@
 }
 .matchCourtBoard--lg .matchCourtField--tactical {
   aspect-ratio: 1.1 / 1;
-  min-height: 260px;
+  min-height: 340px;
+  max-height: none;
 }
 .matchCourtBoard--md .matchCourtField--tactical {
-  min-height: 220px;
-  max-height: 280px;
+  min-height: 260px;
+  max-height: 340px;
+}
+.matchLivePage .matchCourtBoard--lg .matchCourtField--tactical {
+  min-height: 380px;
+  max-height: none;
 }
 .matchCourtGridlines {
   position: absolute;
@@ -6977,9 +6989,62 @@
   z-index: 6;
   opacity: 0.92;
   filter: brightness(1.08);
+  transition: none;
 }
 .matchChipSlot--abs.matchChipSlot--drop {
   z-index: 5;
+}
+.matchChipSlot--fault .matchChipCircle {
+  box-shadow: 0 0 0 3px #ef4444, 0 0 16px rgba(239, 68, 68, 0.55), 0 12px 24px rgba(0, 0, 0, 0.45);
+}
+.matchChipSlot--tight .matchChipCircle {
+  box-shadow: 0 0 0 3px #f59e0b, 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+.matchCourtAlignSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+.matchCourtAlignLine {
+  fill: none;
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+.matchCourtAlignLine--fault {
+  stroke: #ef4444;
+  stroke-width: 1.4;
+}
+.matchCourtAlignLine--warn {
+  stroke: #f59e0b;
+  stroke-dasharray: 2 1.5;
+  stroke-width: 1.1;
+}
+.matchCourtAlignStatus {
+  margin: 6px 8px 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+.matchCourtAlignStatus--ok {
+  background: rgba(22, 163, 74, 0.18);
+  color: #86efac;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+}
+.matchCourtAlignStatus--warn {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+.matchCourtAlignStatus--bad {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.45);
 }
 button.matchChipSlot:not(:disabled) {
   cursor: pointer;
@@ -7143,8 +7208,11 @@ button.matchChipSlot:not(:disabled) {
 @media (max-width: 720px) {
   .matchCourtBoard--lg .matchCourtField--tactical,
   .matchCourtBoard--md .matchCourtField--tactical {
-    min-height: 200px;
-    max-height: 240px;
+    min-height: 280px;
+    max-height: none;
+  }
+  .matchLivePage .matchCourtBoard--lg .matchCourtField--tactical {
+    min-height: 300px;
   }
   .matchCourtBoard--tactical .matchChipCircle {
     width: 40px;
@@ -7160,8 +7228,9 @@ button.matchChipSlot:not(:disabled) {
     width: 64px;
   }
   .matchLivePage .matchCourtBoard--tactical,
+  .matchLivePage .matchCourtBoard--lg,
   .matchRotStage .matchCourtBoard--tactical {
-    max-width: 360px;
+    max-width: 100%;
   }
 }
 
@@ -7613,15 +7682,17 @@ button.matchChipSlot:not(:disabled) {
 }
 @media (min-width: 960px) {
   .matchLiveGrid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr);
+    grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.85fr);
     align-items: start;
     justify-items: stretch;
   }
   .matchLiveGrid > .matchCourtBoard {
-    justify-self: center;
+    justify-self: stretch;
+    max-width: none;
   }
 }
-.matchLivePage .matchCourtBoard--md {
+.matchLivePage .matchCourtBoard--md,
+.matchLivePage .matchCourtBoard--lg {
   min-height: 0;
 }
 .matchLiveStatsPanel {
@@ -7680,6 +7751,12 @@ button.matchChipSlot:not(:disabled) {
 .matchLiveStatBtn--neutral {
   background: #334155;
   color: #e2e8f0;
+}
+.matchLiveStatBtn--sym {
+  min-width: 52px;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 .matchLiveEvents {
   max-height: 180px;

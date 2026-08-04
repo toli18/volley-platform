@@ -31,11 +31,9 @@ const STAT_GROUPS = [
   {
     title: "Посрещане",
     items: [
-      { action: "pass_3", label: "3", tone: "neutral" },
-      { action: "pass_2", label: "2", tone: "neutral" },
-      { action: "pass_1", label: "1", tone: "neutral" },
-      { action: "pass_0", label: "0", tone: "neutral" },
-      { action: "free_ball", label: "Своб.", tone: "neutral" },
+      { action: "pass_3", label: "#", tone: "good" },
+      { action: "pass_2", label: "+", tone: "good" },
+      { action: "pass_1", label: "−", tone: "neutral" },
       { action: "pass_error", label: "Грешка", tone: "bad" },
     ],
   },
@@ -49,9 +47,9 @@ const ACTION_LABEL = {
   error: "Грешка",
   dig: "Защита",
   pass_0: "Пос. 0",
-  pass_1: "Пос. 1",
-  pass_2: "Пос. 2",
-  pass_3: "Пос. 3",
+  pass_1: "Пос. −",
+  pass_2: "Пос. +",
+  pass_3: "Пос. #",
   free_ball: "Свободна",
   pass_error: "Грешка поср.",
   opp_point: "Точка OPP",
@@ -81,6 +79,8 @@ export default function CoachMatchLive() {
   const [error, setError] = useState("");
   /** null = auto от we_serve (serve|receive); "base" = ръчен изглед */
   const [phaseOverride, setPhaseOverride] = useState(null);
+  /** zone → {x,y}% coach stack overrides (per rotation+phase) */
+  const [posByKey, setPosByKey] = useState({});
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
@@ -209,6 +209,9 @@ export default function CoachMatchLive() {
   const autoPhase = mset?.we_serve ? "serve" : "receive";
   const activePhase = phaseOverride || state.phase || autoPhase;
   const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
+  const posKey = `${mset?.rotation ?? 1}:${activePhase}`;
+  const positionOverrides = posByKey[posKey] || null;
+  const canEditPositions = activePhase === "receive" || activePhase === "serve";
 
   return (
     <section className="matchLivePage">
@@ -284,7 +287,7 @@ export default function CoachMatchLive() {
         <MatchCourt
           variant="pro"
           layout="tactical"
-          size="md"
+          size="lg"
           phase={activePhase}
           rotation={mset?.rotation ?? 1}
           slots={state.court || []}
@@ -293,6 +296,12 @@ export default function CoachMatchLive() {
           title={`Ротация ${mset?.rotation ?? 1}`}
           subtitle={`${state.system} · ${phaseLabel}`}
           activeZone={selected?.zone ?? null}
+          positionEditable={canEditPositions && !setFinished && state.status !== "finished"}
+          positionOverrides={positionOverrides}
+          showAlignment={canEditPositions}
+          onPositionsChange={(next) => {
+            setPosByKey((prev) => ({ ...prev, [posKey]: next }));
+          }}
           onZoneClick={(zone) => {
             const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));
             if (p) setSelectedId(p.athlete_id);
@@ -335,7 +344,9 @@ export default function CoachMatchLive() {
                   <button
                     key={it.action}
                     type="button"
-                    className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}`}
+                    className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
+                      it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
+                    }`}
                     disabled={busy || setFinished || state.status === "finished"}
                     onClick={() => recordStat(it.action)}
                   >
