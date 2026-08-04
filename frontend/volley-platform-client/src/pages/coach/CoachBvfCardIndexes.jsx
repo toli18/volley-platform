@@ -576,11 +576,11 @@ export default function CoachBvfCardIndexes() {
             {detail?.can_edit ? (
               <>
                 <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-                  Добави допустими (в СЕК + Форма 03 за {year})
+                  Добави допустими (подписана Форма 03 за {year})
                 </p>
                 {availableAthletes.length === 0 ? (
                   <p className="uiMuted" style={{ fontSize: 13 }}>
-                    Няма свободни състезатели с Форма 03. Родителят я попълва в портала след отваряне на сезона.
+                    Няма свободни състезатели с подписана Форма 03. Родителят я попълва в портала след отваряне на сезона.
                   </p>
                 ) : (
                   <div

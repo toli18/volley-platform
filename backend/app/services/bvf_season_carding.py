@@ -50,13 +50,13 @@ def athlete_docs_as_dicts(athlete: Athlete) -> list[dict[str, Any]]:
 
 
 def athlete_has_form_03(athlete: Athlete, season_year: int, db: Session | None = None) -> bool:
-    """Истинска подписана Форма 03/03-А, вече в СЕК за сезона, или реален документ в БФВ."""
+    """Истинска подписана Форма 03/03-А за сезона, или реален документ в БФВ.
+    В СЕК за сезона без наша/федерална форма не се брои — формата трябва вече да е изпратена и подписана.
+    """
     if db is not None:
-        from app.services.carding_form import athlete_already_carded_in_sek, athlete_has_signed_carding_form
+        from app.services.carding_form import athlete_has_signed_carding_form
 
         if athlete_has_signed_carding_form(db, athlete, int(season_year)):
-            return True
-        if athlete_already_carded_in_sek(db, athlete, int(season_year)):
             return True
 
     docs = athlete_docs_as_dicts(athlete)

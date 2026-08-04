@@ -716,21 +716,11 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                     signed_at=signed.signed_at,
                     club_name=club_name,
                 )
-            elif needs:
-                carding_status = ParentCardingFormStatus(
-                    enabled=True,
-                    needs_form=True,
-                    has_signed=False,
-                    season_year=sy,
-                    season_label=season_label(sy),
-                    form_kind=kind,
-                    club_name=club_name,
-                )
             else:
-                # Season open but form not required (e.g. already in SEK for season)
+                # Season open via head coach button → form required until signed
                 carding_status = ParentCardingFormStatus(
                     enabled=True,
-                    needs_form=False,
+                    needs_form=bool(needs),
                     has_signed=False,
                     season_year=sy,
                     season_label=season_label(sy),

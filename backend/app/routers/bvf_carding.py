@@ -1461,7 +1461,7 @@ def assign_coach_to_age_slot(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """?????? ??????? ????????? ??????? ?? ???????/??? ? ??????? ??????? ??????? ?? ?????."""
+    """Назначава треньор(и) и лекар по възраст/пол. Не отваря сезона — само бутонът „Отвори сезон“."""
     club = _club_for_user(db, current_user, payload.club_id)
     year = int(payload.year or datetime.utcnow().year)
     app = (
@@ -1469,17 +1469,11 @@ def assign_coach_to_age_slot(
         .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == year)
         .first()
     )
-    if not app:
-        app = BvfSeasonApplication(
-            club_id=club.id,
-            year=year,
-            status="open",
-            created_by_user_id=current_user.id,
+    if not app or app.status != "open":
+        raise HTTPException(
+            status_code=409,
+            detail="Първо отворете сезона с бутона „Отвори сезон + активирай Форма 03“. Назначаването не активира формите.",
         )
-        db.add(app)
-        db.flush()
-    elif app.status == "closed":
-        app.status = "open"
 
     coach = (
         db.query(User)
