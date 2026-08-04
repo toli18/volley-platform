@@ -1,7 +1,7 @@
 import ParentPushPrompt from "./ParentPushPrompt";
 import ParentScheduleViews from "./ParentScheduleViews";
 import { ParentPortalTabPanel } from "./ParentPortalLayout";
-import ParentCoachContact from "./ParentCoachContact";
+import ParentCoachContact, { parentHasCoachContact } from "./ParentCoachContact";
 import ParentPortalFeed from "./ParentPortalFeed";
 import ParentDevelopmentSection from "./ParentDevelopmentSection";
 import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
@@ -155,7 +155,7 @@ function FeeHighlightBody({
           ) : null}
         </>
       )}
-      {(feeCoach.name || feeCoach.email || feeCoach.club_phone) ? (
+      {parentHasCoachContact(feeCoach) ? (
         <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--fee" />
       ) : null}
     </>
@@ -357,8 +357,8 @@ export default function ParentPortalProfileContent({
 
           <Card title="Контакт с треньора">
             <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--standalone" />
-            {!feeCoach.name && !feeCoach.email && !feeCoach.club_phone ? (
-              <p className="parentPortalHighlightMuted">Няма въведен контакт за треньора.</p>
+            {!parentHasCoachContact(feeCoach) ? (
+              <p className="parentPortalHighlightMuted">Няма въведен телефон или контакт за треньора.</p>
             ) : null}
           </Card>
 

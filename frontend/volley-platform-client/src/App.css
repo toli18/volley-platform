@@ -3313,6 +3313,45 @@
   word-break: break-all;
 }
 
+.parentPortalContactName {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.parentPortalContactPhoneRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.parentPortalContactPhoneRow--club {
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
+.parentPortalContactPhoneLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  min-width: 4.5rem;
+}
+
+.parentPortalContactPhone {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f766e;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.parentPortalContactPhone:hover,
+.parentPortalContactPhone:focus-visible {
+  text-decoration: underline;
+}
+
 .parentPortalContactBox--fee,
 .parentPortalContactBox--athleteDetails {
   margin-top: 12px;
