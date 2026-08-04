@@ -84,6 +84,8 @@ class ScheduleOccurrence(BaseModel):
     competition_id: Optional[int] = None
     competition_kind: Optional[str] = None
     competition_kind_label: Optional[str] = None
+    card_index_id: Optional[int] = None
+    carded_team_label: Optional[str] = None
     is_cancelled: bool = False
 
     location: str

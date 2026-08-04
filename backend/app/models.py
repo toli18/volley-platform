@@ -1155,6 +1155,10 @@ class ClubCompetitionEvent(Base):
     club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
     coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Optional link to SEK/local card index (картотечен отбор) for parent calendar
+    card_index_id = Column(
+        Integer, ForeignKey("bvf_card_indexes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
     start_time = Column(String(5), nullable=False)  # HH:MM

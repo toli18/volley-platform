@@ -72,12 +72,14 @@ class ParentScheduleItem(BaseModel):
     end_time: str
     location: str
     team_name: Optional[str] = None
+    carded_team_label: Optional[str] = None
     event_type: str = "training"
     competition_kind: Optional[str] = None
     competition_kind_label: Optional[str] = None
     is_cancelled: bool = False
     highlight_change: bool = False
     change_marker_key: Optional[str] = None
+    athlete_participates: bool = False
 
 
 class ParentPortalAckBody(BaseModel):
@@ -116,6 +118,15 @@ class ParentFeeCoachContact(BaseModel):
     phone: Optional[str] = None
     club_name: Optional[str] = None
     club_phone: Optional[str] = None
+
+
+class ParentCardedTeamBadge(BaseModel):
+    """Картотечен отбор за сезона (може да са няколко)."""
+
+    label: str
+    year: int
+    age_group: Optional[str] = None
+    sex_label: Optional[str] = None
 
 
 class ParentTeamFeedItem(TeamPortalItemResponse):
@@ -280,7 +291,8 @@ class ParentAthleteProfileResponse(BaseModel):
     parent_phone: Optional[str] = None
     club_name: Optional[str] = None
     club_logo_url: Optional[str] = None
-    teams: list[str] = Field(default_factory=list)
+    teams: list[str] = Field(default_factory=list)  # тренировъчни групи
+    carded_teams: list[ParentCardedTeamBadge] = Field(default_factory=list)
     fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)
     current_month_fee: ParentCurrentMonthFee
     next_event: Optional[ParentScheduleItem] = None

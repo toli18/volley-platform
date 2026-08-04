@@ -306,12 +306,19 @@ def _init_db_impl() -> None:
                         "BOOLEAN DEFAULT TRUE"
                     )
                 )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS card_index_id INTEGER"
+                    )
+                )
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
             print("✅ PostgreSQL: teams.gender ensured")
             print("✅ PostgreSQL: assessment_results / assessment_norms columns ensured")
             print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
             print("✅ PostgreSQL: club profile / users.phone columns ensured")
+            print("✅ PostgreSQL: club_competition_events.card_index_id ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 

@@ -3,7 +3,7 @@
  * Filter children with `roles` / `headCoachOnly` at runtime via useNavItems.
  */
 
-/** @typedef {{ id: string, label: string, to: string, icon?: string, hint?: string, roles?: string[], headCoachOnly?: boolean, accent?: boolean }} NavLinkItem */
+/** @typedef {{ id: string, label: string, to: string, icon?: string, hint?: string, roles?: string[], headCoachOnly?: boolean, assignedCardIndexOnly?: boolean, accent?: boolean }} NavLinkItem */
 /** @typedef {{ id: string, label: string, icon?: string, children: NavLinkItem[] }} NavGroupItem */
 /** @typedef {{ type: "link", id: string, label: string, to: string, icon?: string, accent?: boolean, badge?: string }} NavPrimaryLink */
 /** @typedef {{ type: "group", id: string, label: string, icon?: string, children: NavLinkItem[] }} NavPrimaryGroup */
@@ -21,10 +21,10 @@ export const COACH_PRIMARY_NAV = [
   {
     type: "group",
     id: "club",
-    label: "Клуб & Отбори",
+    label: "Клуб & Групи",
     icon: "teams",
     children: [
-      { id: "teams", label: "Отбори", to: "/coach/teams", icon: "teams" },
+      { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams" },
       { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
       { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
       { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
@@ -51,6 +51,9 @@ export const COACH_PRIMARY_NAV = [
         label: "Картотечни отбори",
         to: "/coach/bvf-card-indexes",
         icon: "shield",
+        // Видим само за треньор с назначени картотечни отбори в отворен сезон.
+        // Главният ползва бутона в „Администрация БФВ“.
+        assignedCardIndexOnly: true,
       },
     ],
   },
@@ -137,11 +140,11 @@ export const COACH_MOBILE_TABS = [
 
 /** @type {NavLinkItem[]} */
 export const COACH_CLUB_HUB_LINKS = [
-  { id: "teams", label: "Отбори", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
+  { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
   { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar", hint: "Календар на тренировки" },
   { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
   { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target", hint: "Текуща позиция, теми и тренировки" },
-  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По отбори" },
+  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По групи" },
   { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart", hint: "Сесии и развитие" },
   { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table", hint: "Деца × тестове · сравнения" },
   { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch", hint: "Каталог с протоколи" },
@@ -160,6 +163,7 @@ export const COACH_CLUB_HUB_LINKS = [
     to: "/coach/bvf-card-indexes",
     icon: "shield",
     hint: "Сезон × възраст · състав",
+    assignedCardIndexOnly: true,
   },
 ];
 
@@ -182,6 +186,7 @@ export const COACH_BVF_HUB_LINKS = [
     to: "/coach/bvf-card-indexes",
     icon: "shield",
     hint: "Сезон × възраст · Форма 03 · заявка към главния",
+    assignedCardIndexOnly: true,
   },
   { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
 ];

@@ -36,13 +36,21 @@ function formatAgendaDayLabel(isoDate) {
 
 function eventTitle(row) {
   if (row.is_cancelled) return "Отменена";
-  if (isCompetitionEvent(row)) return competitionKindLabel(row);
-  return row.team_name || "Отбор";
+  if (isCompetitionEvent(row)) {
+    const kind = competitionKindLabel(row);
+    if (row.carded_team_label) return `${kind} · ${row.carded_team_label}`;
+    return kind;
+  }
+  return row.team_name || "Група";
 }
 
 function gridCellLabel(row) {
   if (row.is_cancelled) return "Отм.";
   if (isCompetitionEvent(row)) {
+    if (row.carded_team_label) {
+      const short = abbreviateTeamName(row.carded_team_label);
+      return short.length > 8 ? `${short.slice(0, 7)}.` : short;
+    }
     const k = competitionKindLabel(row);
     return k.length > 6 ? `${k.slice(0, 5)}.` : k;
   }
@@ -55,9 +63,11 @@ function displayLocation(row) {
 
 function gridCellTooltip(row) {
   const parts = [eventTitle(row)];
+  if (row.team_name && isCompetitionEvent(row)) parts.push(`Група: ${row.team_name}`);
   if (row.start_time) parts.push(`${row.start_time} – ${row.end_time || ""}`);
   const loc = displayLocation(row);
   if (loc) parts.push(loc);
+  if (row.athlete_participates && isCompetitionEvent(row)) parts.push("Участва детето");
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -138,7 +148,13 @@ function SessionBlock({ row, variant = "card", onAckChange }) {
         <span className="parentPortalSchedRowTime">{time}</span>
         <span className="parentPortalSchedRowMain">
           <span className="parentPortalSchedRowTitle">{title}</span>
+          {row.team_name && isComp ? (
+            <span className="parentPortalSchedRowLoc"> · Група: {row.team_name}</span>
+          ) : null}
           {displayLocation(row) ? <span className="parentPortalSchedRowLoc"> · {displayLocation(row)}</span> : null}
+          {isComp && row.athlete_participates ? (
+            <span className="parentPortalSchedRowLoc"> · Участва</span>
+          ) : null}
         </span>
       </div>
     );
@@ -248,7 +264,7 @@ function MonthMobileList({ items, monthKey, selectedDate, onDayClick, highlightD
 }
 
 const DEFAULT_SCHEDULE_HINT =
-  "Отбор и зала в клетката. Клик за пълен списък със събитията за деня.";
+  "Група и зала в клетката. Клик за пълен списък със събитията за деня.";
 
 function WeekGrid({ items, weekStart, selectedDate, onDayClick, hint = DEFAULT_SCHEDULE_HINT, highlightDates, onAckChange }) {
   const highlightSet = highlightDates instanceof Set ? highlightDates : new Set(highlightDates || []);
@@ -386,13 +402,16 @@ export default function ParentScheduleViews({
   const defaultMonth = scheduleMonthKey || (initialItems?.[0]?.date ? String(initialItems[0].date).slice(0, 7) : today.slice(0, 7));
 
   const [view, setView] = useState("week");
+  const [scheduleScope, setScheduleScope] = useState("child");
   const [monthKey, setMonthKey] = useState(defaultMonth);
   const [weekStart, setWeekStart] = useState(() => initialWeekStart || mondayOfWeek(today));
-  const [cache, setCache] = useState(() => ({ [defaultMonth]: initialItems || [] }));
+  const [cache, setCache] = useState(() => ({ [`${defaultMonth}:child`]: initialItems || [] }));
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [hiddenTeams, setHiddenTeams] = useState(() => new Set());
-  const loadedMonthsRef = useRef(new Set([defaultMonth]));
+  const loadedMonthsRef = useRef(new Set([`${defaultMonth}:child`]));
+
+  const scopeCacheKey = (mk) => `${mk}:${scheduleScope}`;
 
   const toggleTeamFilter = (teamName) => {
     setHiddenTeams((prev) => {
@@ -413,7 +432,7 @@ export default function ParentScheduleViews({
   useEffect(() => {
     if (!token && !fetchScheduleMonth) return;
     const needed = view === "month" ? [monthKey] : weekMonths;
-    const toFetch = needed.filter((mk) => !loadedMonthsRef.current.has(mk));
+    const toFetch = needed.filter((mk) => !loadedMonthsRef.current.has(scopeCacheKey(mk)));
     if (!toFetch.length) return;
 
     let cancelled = false;
@@ -421,18 +440,20 @@ export default function ParentScheduleViews({
       setLoadingMonth(true);
       try {
         for (const mk of toFetch) {
-          loadedMonthsRef.current.add(mk);
+          loadedMonthsRef.current.add(scopeCacheKey(mk));
           try {
             let rows = [];
             if (fetchScheduleMonth) {
-              rows = await fetchScheduleMonth(mk);
+              rows = await fetchScheduleMonth(mk, scheduleScope);
             } else {
-              const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_SCHEDULE(token), { params: { month: mk } });
+              const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_SCHEDULE(token), {
+                params: { month: mk, scope: scheduleScope },
+              });
               rows = Array.isArray(res.data) ? res.data : [];
             }
-            if (!cancelled) setCache((prev) => ({ ...prev, [mk]: rows }));
+            if (!cancelled) setCache((prev) => ({ ...prev, [scopeCacheKey(mk)]: rows }));
           } catch {
-            if (!cancelled) setCache((prev) => ({ ...prev, [mk]: [] }));
+            if (!cancelled) setCache((prev) => ({ ...prev, [scopeCacheKey(mk)]: [] }));
           }
         }
       } finally {
@@ -443,7 +464,7 @@ export default function ParentScheduleViews({
     return () => {
       cancelled = true;
     };
-  }, [token, monthKey, weekMonths, view, fetchScheduleMonth]);
+  }, [token, monthKey, weekMonths, view, fetchScheduleMonth, scheduleScope]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -454,15 +475,15 @@ export default function ParentScheduleViews({
     return () => document.removeEventListener("keydown", onKey);
   }, [selectedDate]);
 
-  const monthItems = cache[monthKey] || [];
+  const monthItems = cache[scopeCacheKey(monthKey)] || [];
 
   const weekItems = useMemo(() => {
     const merged = [];
     for (const mk of weekMonths) {
-      for (const row of cache[mk] || []) merged.push(row);
+      for (const row of cache[scopeCacheKey(mk)] || []) merged.push(row);
     }
     return merged;
-  }, [cache, weekMonths]);
+  }, [cache, weekMonths, scheduleScope]);
 
   const activeItems = view === "week" ? weekItems : monthItems;
   const hasCompetitions = useMemo(() => activeItems.some((it) => isCompetitionEvent(it)), [activeItems]);
@@ -500,13 +521,31 @@ export default function ParentScheduleViews({
     });
   };
 
-  if (!initialItems?.length && !loadingMonth) {
-    return <EmptyState title="Няма събития за този месец" description="Когато треньорът добави график, ще го виждате тук." />;
-  }
-
   return (
     <div className="parentPortalScheduleViews">
       <div className="parentPortalScheduleToolbar">
+        <div className="parentPortalScheduleViewToggle">
+          <button
+            type="button"
+            className={`parentPortalScheduleViewBtn${scheduleScope === "child" ? " is-active" : ""}`}
+            onClick={() => {
+              setScheduleScope("child");
+              setSelectedDate("");
+            }}
+          >
+            Моето дете
+          </button>
+          <button
+            type="button"
+            className={`parentPortalScheduleViewBtn${scheduleScope === "club_matches" ? " is-active" : ""}`}
+            onClick={() => {
+              setScheduleScope("club_matches");
+              setSelectedDate("");
+            }}
+          >
+            Клубни мачове
+          </button>
+        </div>
         <div className="parentPortalScheduleViewToggle">
           <button
             type="button"
@@ -554,7 +593,11 @@ export default function ParentScheduleViews({
       </div>
 
       {scheduleHint ? (
-        <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">{scheduleHint}</p>
+        <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">
+          {scheduleScope === "club_matches"
+            ? "Всички клубни мачове и турнири (тренировъчни групи + картотечни отбори). Маркер „Участва“ = детето е в групата/картотеката."
+            : scheduleHint}
+        </p>
       ) : null}
 
       <div className="parentPortalScheduleLegend">
@@ -563,7 +606,7 @@ export default function ParentScheduleViews({
           <span className="parentPortalScheduleLegendItem parentPortalScheduleLegendItem--competition">Състезание</span>
         ) : null}
         {showTeamLegend && teamsLegend.length > 1 ? (
-          <div className="parentPortalScheduleLegendTeams" role="group" aria-label="Филтър по отбор">
+          <div className="parentPortalScheduleLegendTeams" role="group" aria-label="Филтър по тренировъчна група">
             {teamsLegend.map((name) => {
               const c = teamColorForName(name);
               const off = hiddenTeams.has(name);

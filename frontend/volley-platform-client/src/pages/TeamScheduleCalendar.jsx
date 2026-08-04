@@ -95,6 +95,7 @@ const occurrenceAttendanceTo = (it) =>
 
 const defaultCompetitionForm = (date, coachId) => ({
   team_id: "",
+  card_index_id: "",
   coach_id: coachId ? String(coachId) : "",
   date: date || todayKey(),
   location: "",
@@ -136,6 +137,7 @@ export default function TeamScheduleCalendar() {
   const [compOpen, setCompOpen] = useState(false);
   const [compEditId, setCompEditId] = useState(null);
   const [compForm, setCompForm] = useState(() => defaultCompetitionForm(todayKey(), ""));
+  const [cardIndexes, setCardIndexes] = useState([]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -239,12 +241,20 @@ export default function TeamScheduleCalendar() {
   );
 
   const loadMeta = async () => {
-    const [teamsRes, coachesRes] = await Promise.all([
+    const [teamsRes, coachesRes, seasonRes] = await Promise.all([
       axiosInstance.get(API_PATHS.TEAMS_LIST),
       axiosInstance.get(API_PATHS.FEES_COACHES_LIST),
+      axiosInstance.get(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS).catch(() => ({ data: null })),
     ]);
     setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
     setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
+    const slots = Array.isArray(seasonRes?.data?.slots) ? seasonRes.data.slots : [];
+    setCardIndexes(
+      slots.map((s) => ({
+        id: s.id,
+        label: `${s.age_group || `Под ${s.age}`} · ${Number(s.sex) === 1 ? "Жени" : "Мъже"} · ${s.year}`,
+      })),
+    );
     setMetaLoaded(true);
   };
 
@@ -589,6 +599,7 @@ export default function TeamScheduleCalendar() {
     setCompEditId(Number(it.competition_id));
     setCompForm({
       team_id: String(it.team_id || ""),
+      card_index_id: it.card_index_id ? String(it.card_index_id) : "",
       coach_id: String(it.coach_id || ""),
       date: it.date,
       location: it.location || "",
@@ -602,7 +613,7 @@ export default function TeamScheduleCalendar() {
 
   const saveCompetition = async () => {
     if (!compForm.team_id || !compForm.location.trim()) {
-      toast.error("Попълни отбор и място.");
+      toast.error("Попълни група и място.");
       return;
     }
     const coachId = isHeadCoach ? Number(compForm.coach_id || 0) : currentUserId;
@@ -619,6 +630,7 @@ export default function TeamScheduleCalendar() {
       end_time: compForm.end_time,
       competition_kind: compForm.competition_kind,
       notes: compForm.notes.trim() || null,
+      card_index_id: compForm.card_index_id ? Number(compForm.card_index_id) : null,
     };
     try {
       setBusy(true);
@@ -807,6 +819,7 @@ export default function TeamScheduleCalendar() {
         isHeadCoach={isHeadCoach}
         teams={teamsForCompetition}
         coaches={coaches}
+        cardIndexes={cardIndexes}
         form={compForm}
         setForm={setCompForm}
         editId={compEditId}

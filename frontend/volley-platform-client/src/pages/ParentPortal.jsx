@@ -96,8 +96,10 @@ export default function ParentPortal() {
     [profile?.pending_schedule_dates],
   );
 
-  const fetchScheduleMonth = useCallback(async (mk) => {
-    const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_ME_SCHEDULE, { params: { month: mk } });
+  const fetchScheduleMonth = useCallback(async (mk, scope = "child") => {
+    const res = await axiosInstance.get(API_PATHS.PARENT_PORTAL_ME_SCHEDULE, {
+      params: { month: mk, scope },
+    });
     return res.data || [];
   }, []);
 

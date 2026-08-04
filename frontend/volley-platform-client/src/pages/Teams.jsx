@@ -96,11 +96,11 @@ export default function Teams() {
       is_active: Boolean(teamForm.is_active),
     };
     if (!payload.name) {
-      toast.error("Името на отбора е задължително.");
+      toast.error("Името на групата е задължително.");
       return;
     }
     if (!payload.gender) {
-      toast.error("Избери дали отборът е мъжки или женски.");
+      toast.error("Избери дали групата е мъжка или женска.");
       return;
     }
     try {
@@ -108,9 +108,9 @@ export default function Teams() {
       const res = await axiosInstance.post(API_PATHS.TEAM_CREATE, payload);
       await loadTeams();
       setTeamForm({ name: "", age_group: "", season: "", gender: "", is_active: true });
-      toast.success("Отборът е създаден.");
+      toast.success("Групата е създадена.");
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно създаване на отбор."));
+      toast.error(normalizeError(err, "Неуспешно създаване на група."));
     } finally {
       setBusy(false);
     }
@@ -122,9 +122,9 @@ export default function Teams() {
       setBusy(true);
       await axiosInstance.delete(API_PATHS.TEAM_DELETE(team.id));
       await loadTeams();
-      toast.success("Отборът е изтрит.");
+      toast.success("Групата е изтрита.");
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно изтриване на отбор."));
+      toast.error(normalizeError(err, "Неуспешно изтриване на група."));
     } finally {
       setBusy(false);
     }
@@ -151,11 +151,11 @@ export default function Teams() {
       is_active: Boolean(editTeamForm.is_active),
     };
     if (!payload.name) {
-      toast.error("Името на отбора е задължително.");
+      toast.error("Името на групата е задължително.");
       return;
     }
     if (!payload.gender) {
-      toast.error("Избери дали отборът е мъжки или женски.");
+      toast.error("Избери дали групата е мъжка или женска.");
       return;
     }
     try {
@@ -163,9 +163,9 @@ export default function Teams() {
       await axiosInstance.put(API_PATHS.TEAM_UPDATE(editTeam.id), payload);
       setEditTeam(null);
       await loadTeams();
-      toast.success("Отборът е обновен.");
+      toast.success("Групата е обновена.");
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешна редакция на отбор."));
+      toast.error(normalizeError(err, "Неуспешна редакция на група."));
     } finally {
       setBusy(false);
     }
@@ -212,9 +212,9 @@ export default function Teams() {
       await axiosInstance.put(API_PATHS.TEAM_ASSIGN_COACH(assignTeam.id), { coach_id: nextCoachId });
       setAssignTeam(null);
       await Promise.all([loadTeams(), loadCoaches()]);
-      toast.success("Треньорът на отбора е сменен (график и присъствие). Таксите остават при отговорния треньор на всеки състезател.");
+      toast.success("Треньорът на групата е сменен (график и присъствие). Таксите остават при отговорния треньор на всеки състезател.");
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешна смяна на треньор за отбора."));
+      toast.error(normalizeError(err, "Неуспешна смяна на треньор за групата."));
     } finally {
       setBusy(false);
     }
@@ -223,11 +223,11 @@ export default function Teams() {
   return (
     <div className={`uiPage ${isCoachShell ? "uiPage--coachTeams" : ""}`.trim()}>
       {isMobileCoachShell ? (
-        <h2 className="coachMobileSectionTitle">Отбори</h2>
+        <h2 className="coachMobileSectionTitle">Тренировъчни групи</h2>
       ) : (
         <PageHero
-          title="Отбори"
-          subtitle="Първо избери отбор, после отвори отделния му екран."
+          title="Тренировъчни групи"
+          subtitle="Първо избери група, после отвори отделния ѝ екран."
           actions={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
@@ -252,19 +252,19 @@ export default function Teams() {
         </div>
       ) : null}
 
-      <Card title="Списък отбори">
+      <Card title="Списък тренировъчни групи">
         {teams.length === 0 ? (
           <EmptyState
-            title="Няма създадени отбори"
+            title="Няма създадени групи"
             description={
               isHeadCoach
-                ? "Създай първия отбор от формата по-долу."
-                : "Помолете главния треньор да ви назначи отбор или да създаде нов."
+                ? "Създай първата група от формата по-долу."
+                : "Помолете главния треньор да ви назначи група или да създаде нова."
             }
           />
         ) : (
           <>
-            <div className="teamsMobileList" aria-label="Отбори (мобилен изглед)">
+            <div className="teamsMobileList" aria-label="Тренировъчни групи (мобилен изглед)">
               {teams.map((team) => (
                 <article
                   key={`m-${team.id}`}
@@ -356,23 +356,23 @@ export default function Teams() {
         )}
       </Card>
 
-      <Card title="Нов отбор">
+      <Card title="Нова тренировъчна група">
         <div className="feesFormGrid">
-          <Input placeholder="Име на отбор" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
+          <Input placeholder="Име на група" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
           <Input placeholder="Възрастова група (пример: U14)" value={teamForm.age_group} onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))} />
           <Input placeholder="Сезон (пример: 2025/2026)" value={teamForm.season} onChange={(e) => setTeamForm((p) => ({ ...p, season: e.target.value }))} />
           <Input as="select" value={teamForm.gender} onChange={(e) => setTeamForm((p) => ({ ...p, gender: e.target.value }))}>
-            <option value="">Избери тип на отбора</option>
+            <option value="">Избери тип на групата</option>
             <option value="male">Мъжки</option>
             <option value="female">Женски</option>
           </Input>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={teamForm.is_active} onChange={(e) => setTeamForm((p) => ({ ...p, is_active: e.target.checked }))} />
-            Активен отбор
+            Активна група
           </label>
           <div className="teamsCreateActions">
             <Button disabled={busy} onClick={createTeam} block className="teamsCreateBtn">
-              Създай отбор
+              Създай група
             </Button>
           </div>
         </div>
@@ -382,12 +382,12 @@ export default function Teams() {
         open={Boolean(editTeam)}
         onClose={() => setEditTeam(null)}
         dismissable={!busy}
-        title="Редакция на отбор"
+        title="Редакция на група"
         size="compact"
       >
         <div style={{ display: "grid", gap: 8 }}>
           <Input
-            placeholder="Име на отбор"
+            placeholder="Име на група"
             value={editTeamForm.name}
             onChange={(e) => setEditTeamForm((p) => ({ ...p, name: e.target.value }))}
           />
@@ -402,7 +402,7 @@ export default function Teams() {
             onChange={(e) => setEditTeamForm((p) => ({ ...p, season: e.target.value }))}
           />
           <Input as="select" value={editTeamForm.gender} onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}>
-            <option value="">Избери тип на отбора</option>
+            <option value="">Избери тип на групата</option>
             <option value="male">Мъжки</option>
             <option value="female">Женски</option>
           </Input>
@@ -412,7 +412,7 @@ export default function Teams() {
               checked={editTeamForm.is_active}
               onChange={(e) => setEditTeamForm((p) => ({ ...p, is_active: e.target.checked }))}
             />
-            Активен отбор
+            Активна група
           </label>
           <div className="uiModalActions">
             <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
@@ -439,11 +439,11 @@ export default function Teams() {
         open={Boolean(assignTeam)}
         onClose={() => setAssignTeam(null)}
         dismissable={!busy}
-        title="Назначи треньор на отбор"
+        title="Назначи треньор на група"
         size="compact"
       >
         <div style={{ color: "#607693", fontSize: 13 }}>
-          Отбор: <strong>{assignTeam?.name}</strong>
+          Група: <strong>{assignTeam?.name}</strong>
         </div>
         <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
           <Input as="select" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
@@ -455,7 +455,7 @@ export default function Teams() {
             ))}
           </Input>
           <div style={{ color: "#607693", fontSize: 12 }}>
-            Ще се смени треньорът на отбора и активните състезатели в този отбор ще бъдат прехвърлени към новия треньор.
+            Ще се смени треньорът на групата и активните състезатели в тази група ще бъдат прехвърлени към новия треньор.
           </div>
           <div className="uiModalActions">
             <Button disabled={busy} onClick={saveAssignCoach}>Запази</Button>

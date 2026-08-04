@@ -25,7 +25,7 @@ const FOREIGN_TITLES = [
   ["/textbook", "Учебник БФВ"],
   ["/national-library", "Годишна програма"],
   ["/my-trainings", "Моите тренировки"],
-  ["/teams", "Отбори"],
+  ["/teams", "Тренировъчни групи"],
   ["/club-head", "Клубен преглед"],
   ["/method-guidelines", "Методически насоки"],
 ];

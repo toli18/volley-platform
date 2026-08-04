@@ -510,11 +510,19 @@ export default function ParentPortalProfileContent({
             <div className="parentPortalInfoGrid">
               {profile.birth_year ? <span className="uiBadge">Година на раждане: {profile.birth_year}</span> : null}
               {(profile.teams || []).map((t) => (
-                <span key={t} className="uiBadge uiBadge--info">
-                  Отбор: {t}
+                <span key={`group-${t}`} className="uiBadge uiBadge--info">
+                  Група: {t}
                 </span>
               ))}
-              {!(profile.teams || []).length ? <span className="uiBadge">Няма активни отбори</span> : null}
+              {(profile.carded_teams || []).map((ct) => (
+                <span key={`carded-${ct.label}`} className="uiBadge uiBadge--success">
+                  Картотека: {ct.label}
+                </span>
+              ))}
+              {!(profile.teams || []).length ? <span className="uiBadge">Няма активна тренировъчна група</span> : null}
+              {!(profile.carded_teams || []).length ? (
+                <span className="uiBadge">Няма картотечен отбор за сезона</span>
+              ) : null}
               {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
               {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
             </div>

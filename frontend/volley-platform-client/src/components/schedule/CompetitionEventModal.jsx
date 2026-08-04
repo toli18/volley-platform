@@ -7,6 +7,7 @@ export default function CompetitionEventModal({
   isHeadCoach,
   teams,
   coaches,
+  cardIndexes = [],
   form,
   setForm,
   editId,
@@ -23,13 +24,27 @@ export default function CompetitionEventModal({
     >
         <div style={{ display: "grid", gap: 8 }}>
           <Input as="select" value={form.team_id} onChange={(e) => setForm((p) => ({ ...p, team_id: e.target.value }))}>
-            <option value="">Избери отбор</option>
+            <option value="">Избери тренировъчна група</option>
             {teams.map((t) => (
               <option key={t.id} value={String(t.id)}>
                 {t.name}
               </option>
             ))}
           </Input>
+          {cardIndexes.length ? (
+            <Input
+              as="select"
+              value={form.card_index_id || ""}
+              onChange={(e) => setForm((p) => ({ ...p, card_index_id: e.target.value }))}
+            >
+              <option value="">Картотечен отбор (СЕК) — по избор</option>
+              {cardIndexes.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.label}
+                </option>
+              ))}
+            </Input>
+          ) : null}
           {isHeadCoach ? (
             <Input as="select" value={form.coach_id} onChange={(e) => setForm((p) => ({ ...p, coach_id: e.target.value }))}>
               <option value="">Избери треньор</option>

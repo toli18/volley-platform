@@ -17,6 +17,7 @@ class CompetitionEventBase(BaseModel):
     location: str
     competition_kind: CompetitionKind
     notes: Optional[str] = None
+    card_index_id: Optional[int] = None
 
 
 class CompetitionEventCreate(CompetitionEventBase):
@@ -33,6 +34,7 @@ class CompetitionEventUpdate(BaseModel):
     competition_kind: Optional[CompetitionKind] = None
     notes: Optional[str] = None
     is_cancelled: Optional[bool] = None
+    card_index_id: Optional[int] = None
 
 
 class CompetitionEventRead(CompetitionEventBase):
@@ -46,3 +48,4 @@ class CompetitionEventRead(CompetitionEventBase):
     updated_at: Optional[datetime] = None
     team_name: Optional[str] = None
     coach_name: Optional[str] = None
+    carded_team_label: Optional[str] = None

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -15,7 +15,7 @@ from ..auth import (
     verify_password,
 )
 from ..database import get_db
-from ..models import User, UserRole, Club
+from ..models import User, UserRole, Club, BvfCardIndex, BvfSeasonApplication
 
 router = APIRouter()
 
@@ -41,9 +41,42 @@ class UserResponse(BaseModel):
     club_id: int | None
     club_name: Optional[str] = None
     club_logo_url: Optional[str] = None
+    # True when a group coach has assigned card indexes in an open season (nav gate).
+    show_card_indexes_nav: bool = False
 
     class Config:
         from_attributes = True
+
+
+def _coach_show_card_indexes_nav(db: Session, user: User) -> bool:
+    """Menu link for group coaches only — after season open + age-slot assignment."""
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role != UserRole.coach.value:
+        return False
+    if not user.club_id or not user.id:
+        return False
+    year = int(datetime.utcnow().year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(
+            BvfSeasonApplication.club_id == int(user.club_id),
+            BvfSeasonApplication.year == year,
+            BvfSeasonApplication.status == "open",
+        )
+        .first()
+    )
+    if not app:
+        return False
+    count = (
+        db.query(BvfCardIndex.id)
+        .filter(
+            BvfCardIndex.club_id == int(user.club_id),
+            BvfCardIndex.year == year,
+            BvfCardIndex.assigned_coach_user_id == int(user.id),
+        )
+        .count()
+    )
+    return count > 0
 
 
 async def authenticate_user(db: Session, email: str, password: str) -> User:
@@ -153,4 +186,5 @@ async def read_current_user(
         club_id=current_user.club_id,
         club_name=club_name,
         club_logo_url=club_logo_url,
+        show_card_indexes_nav=_coach_show_card_indexes_nav(db, current_user),
     )

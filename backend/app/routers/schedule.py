@@ -662,9 +662,18 @@ def _validate_competition_times(start_time: str, end_time: str) -> None:
 
 
 def _competition_to_read(db: Session, event: ClubCompetitionEvent) -> CompetitionEventRead:
+    from app.models import BvfCardIndex
+    from app.services.bvf_season_carding import card_index_display_label
+
     team_name = db.query(Team.name).filter(Team.id == event.team_id).scalar()
     coach_name = db.query(User.name).filter(User.id == event.coach_id).scalar()
     kind = str(event.competition_kind)
+    carded_team_label = None
+    ci_id = getattr(event, "card_index_id", None)
+    if ci_id:
+        ci = db.query(BvfCardIndex).filter(BvfCardIndex.id == int(ci_id)).first()
+        if ci:
+            carded_team_label = card_index_display_label(ci)
     return CompetitionEventRead(
         id=int(event.id),
         club_id=int(event.club_id),
@@ -682,6 +691,8 @@ def _competition_to_read(db: Session, event: ClubCompetitionEvent) -> Competitio
         updated_at=event.updated_at,
         team_name=team_name,
         coach_name=coach_name,
+        card_index_id=int(ci_id) if ci_id else None,
+        carded_team_label=carded_team_label,
     )
 
 
@@ -751,10 +762,24 @@ def create_competition_event(
     if not location:
         raise HTTPException(status_code=422, detail="location is required")
 
+    card_index_id = None
+    if payload.card_index_id is not None:
+        from app.models import BvfCardIndex
+
+        ci = (
+            db.query(BvfCardIndex)
+            .filter(BvfCardIndex.id == int(payload.card_index_id), BvfCardIndex.club_id == club_id)
+            .first()
+        )
+        if not ci:
+            raise HTTPException(status_code=422, detail="Невалиден картотечен отбор")
+        card_index_id = int(ci.id)
+
     event = ClubCompetitionEvent(
         club_id=club_id,
         team_id=int(team.id),
         coach_id=int(coach.id),
+        card_index_id=card_index_id,
         date=payload.date.strip(),
         start_time=payload.start_time,
         end_time=payload.end_time,
@@ -824,6 +849,21 @@ def update_competition_event(
         event.coach_id = int(coach.id)
     elif payload.team_id is not None and not _is_head_coach(current_user):
         event.coach_id = int(current_user.id)
+
+    if "card_index_id" in payload.model_fields_set:
+        if payload.card_index_id is None:
+            event.card_index_id = None
+        else:
+            from app.models import BvfCardIndex
+
+            ci = (
+                db.query(BvfCardIndex)
+                .filter(BvfCardIndex.id == int(payload.card_index_id), BvfCardIndex.club_id == club_id)
+                .first()
+            )
+            if not ci:
+                raise HTTPException(status_code=422, detail="Невалиден картотечен отбор")
+            event.card_index_id = int(ci.id)
 
     db.commit()
     db.refresh(event)

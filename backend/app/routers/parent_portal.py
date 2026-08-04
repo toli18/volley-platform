@@ -21,6 +21,9 @@ from app.models import (
     AthleteParentAccessToken,
     AthletePayment,
     AttendanceRecord,
+    BvfCardIndex,
+    BvfCardIndexMember,
+    BvfSeasonApplication,
     Club,
     ParentAbsenceNotice,
     ParentPushSubscription,
@@ -39,6 +42,7 @@ from app.schemas.parent_portal import (
     ParentAthleteProfileResponse,
     ParentAttendanceRow,
     ParentAttendanceSummary,
+    ParentCardedTeamBadge,
     ParentCardingFormMeta,
     ParentCardingFormSignRequest,
     ParentCardingFormSignResponse,
@@ -142,115 +146,192 @@ def _build_schedule_for_teams(
     team_ids: list[int],
     from_date: str,
     to_date: str,
+    *,
+    athlete: Athlete | None = None,
+    scope: str = "child",
 ) -> list[ParentScheduleItem]:
-    if not team_ids:
-        return []
-    rules = (
-        db.query(TrainingScheduleRule)
-        .filter(
-            TrainingScheduleRule.team_id.in_(team_ids),
-            TrainingScheduleRule.is_active.is_(True),
-            TrainingScheduleRule.effective_from <= to_date,
-            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= from_date),
-        )
-        .all()
-    )
-    rule_ids = [r.id for r in rules]
-    exc_map = {}
-    if rule_ids:
-        exc_rows = (
-            db.query(TrainingScheduleException)
+    """scope=child: trainings + matches of groups + SEK carded teams.
+    scope=club_matches: all club competitions (groups + carded) in one list.
+    """
+    from app.competition_kinds import competition_kind_label
+    from app.models import ClubCompetitionEvent
+    from sqlalchemy import or_
+
+    scope_norm = (scope or "child").strip().lower()
+    if scope_norm not in {"child", "club_matches"}:
+        scope_norm = "child"
+
+    schedule_items: list[ParentScheduleItem] = []
+    card_indexes = _card_indexes_for_athlete(db, athlete) if athlete else []
+    card_index_ids = [int(ci.id) for ci in card_indexes]
+    card_label_by_id = {int(ci.id): _card_index_display_label(ci) for ci in card_indexes}
+
+    team_name_map: dict[int, str] = {}
+    team_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.query(Team).filter(Team.id.in_(team_ids)).all():
+            team_by_id[int(t.id)] = t
+            team_name_map[int(t.id)] = t.name
+
+    if scope_norm == "child" and team_ids:
+        rules = (
+            db.query(TrainingScheduleRule)
             .filter(
-                TrainingScheduleException.rule_id.in_(rule_ids),
-                TrainingScheduleException.date >= from_date,
-                TrainingScheduleException.date <= to_date,
+                TrainingScheduleRule.team_id.in_(team_ids),
+                TrainingScheduleRule.is_active.is_(True),
+                TrainingScheduleRule.effective_from <= to_date,
+                (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= from_date),
             )
             .all()
         )
-        exc_map = {(e.rule_id, e.date): e for e in exc_rows}
-    team_name_map = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all())
-    d0 = datetime.strptime(from_date, "%Y-%m-%d").date()
-    d1 = datetime.strptime(to_date, "%Y-%m-%d").date()
-    days = (d1 - d0).days
-    schedule_items: list[ParentScheduleItem] = []
-    for i in range(days + 1):
-        cur = d0 + timedelta(days=i)
-        cur_s = cur.isoformat()
-        for r in rules or []:
-            if int(r.weekday) != cur.weekday():
-                continue
-            if r.effective_from > cur_s:
-                continue
-            if r.effective_to and r.effective_to < cur_s:
-                continue
-            exc = exc_map.get((r.id, cur_s))
-            if exc and exc.kind == "cancelled":
+        rule_ids = [r.id for r in rules]
+        exc_map = {}
+        if rule_ids:
+            exc_rows = (
+                db.query(TrainingScheduleException)
+                .filter(
+                    TrainingScheduleException.rule_id.in_(rule_ids),
+                    TrainingScheduleException.date >= from_date,
+                    TrainingScheduleException.date <= to_date,
+                )
+                .all()
+            )
+            exc_map = {(e.rule_id, e.date): e for e in exc_rows}
+        d0 = datetime.strptime(from_date, "%Y-%m-%d").date()
+        d1 = datetime.strptime(to_date, "%Y-%m-%d").date()
+        days = (d1 - d0).days
+        for i in range(days + 1):
+            cur = d0 + timedelta(days=i)
+            cur_s = cur.isoformat()
+            for r in rules or []:
+                if int(r.weekday) != cur.weekday():
+                    continue
+                if r.effective_from > cur_s:
+                    continue
+                if r.effective_to and r.effective_to < cur_s:
+                    continue
+                exc = exc_map.get((r.id, cur_s))
+                if exc and exc.kind == "cancelled":
+                    schedule_items.append(
+                        ParentScheduleItem(
+                            date=cur_s,
+                            start_time=_schedule_text(r.start_time, "00:00"),
+                            end_time=_schedule_text(r.end_time, "00:00"),
+                            location=_schedule_text(r.location),
+                            team_name=team_name_map.get(int(r.team_id)),
+                            event_type="training",
+                            is_cancelled=True,
+                            change_marker_key=f"exc:{exc.id}",
+                            athlete_participates=True,
+                        )
+                    )
+                    continue
+                location = exc.location if exc and exc.kind == "override" and exc.location else r.location
+                start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
+                end_t = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+                marker_key = f"exc:{exc.id}" if exc else (f"rule:{r.id}" if cur_s == r.effective_from else None)
                 schedule_items.append(
                     ParentScheduleItem(
                         date=cur_s,
-                        start_time=_schedule_text(r.start_time, "00:00"),
-                        end_time=_schedule_text(r.end_time, "00:00"),
-                        location=_schedule_text(r.location),
+                        start_time=_schedule_text(start_t, "00:00"),
+                        end_time=_schedule_text(end_t, "00:00"),
+                        location=_schedule_text(location),
                         team_name=team_name_map.get(int(r.team_id)),
                         event_type="training",
-                        is_cancelled=True,
-                        change_marker_key=f"exc:{exc.id}",
+                        is_cancelled=False,
+                        change_marker_key=marker_key,
+                        athlete_participates=True,
                     )
                 )
-                continue
-            location = exc.location if exc and exc.kind == "override" and exc.location else r.location
-            start_t = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
-            end_t = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
-            marker_key = f"exc:{exc.id}" if exc else (f"rule:{r.id}" if cur_s == r.effective_from else None)
-            schedule_items.append(
-                ParentScheduleItem(
-                    date=cur_s,
-                    start_time=_schedule_text(start_t, "00:00"),
-                    end_time=_schedule_text(end_t, "00:00"),
-                    location=_schedule_text(location),
-                    team_name=team_name_map.get(int(r.team_id)),
-                    event_type="training",
-                    is_cancelled=False,
-                    change_marker_key=marker_key,
-                )
-            )
 
-    from app.competition_kinds import competition_kind_label
-    from app.models import ClubCompetitionEvent
+    club_id = int(athlete.club_id) if athlete and athlete.club_id else None
+    if not club_id and team_ids:
+        club_id = db.query(Team.club_id).filter(Team.id == int(team_ids[0])).scalar()
 
     try:
-        comp_rows = (
-            db.query(ClubCompetitionEvent)
-            .filter(
-                ClubCompetitionEvent.team_id.in_(team_ids),
-                ClubCompetitionEvent.is_cancelled.is_(False),
-                ClubCompetitionEvent.date >= from_date,
-                ClubCompetitionEvent.date <= to_date,
-            )
-            .all()
-        )
+        if scope_norm == "club_matches":
+            if not club_id:
+                comp_rows = []
+            else:
+                comp_rows = (
+                    db.query(ClubCompetitionEvent)
+                    .filter(
+                        ClubCompetitionEvent.club_id == int(club_id),
+                        ClubCompetitionEvent.is_cancelled.is_(False),
+                        ClubCompetitionEvent.date >= from_date,
+                        ClubCompetitionEvent.date <= to_date,
+                    )
+                    .all()
+                )
+        else:
+            if not team_ids and not card_index_ids:
+                comp_rows = []
+            else:
+                filters = []
+                if team_ids:
+                    filters.append(ClubCompetitionEvent.team_id.in_(team_ids))
+                if card_index_ids:
+                    filters.append(ClubCompetitionEvent.card_index_id.in_(card_index_ids))
+                comp_rows = (
+                    db.query(ClubCompetitionEvent)
+                    .filter(
+                        or_(*filters),
+                        ClubCompetitionEvent.is_cancelled.is_(False),
+                        ClubCompetitionEvent.date >= from_date,
+                        ClubCompetitionEvent.date <= to_date,
+                    )
+                    .all()
+                )
     except SQLAlchemyError as exc:
         logger.warning("Competition schedule query failed: %s", exc)
         comp_rows = []
 
+    extra_team_ids = {int(e.team_id) for e in comp_rows} - set(team_name_map.keys())
+    if extra_team_ids:
+        for t in db.query(Team).filter(Team.id.in_(list(extra_team_ids))).all():
+            team_by_id[int(t.id)] = t
+            team_name_map[int(t.id)] = t.name
+
+    missing_ci = {
+        int(e.card_index_id)
+        for e in comp_rows
+        if getattr(e, "card_index_id", None) and int(e.card_index_id) not in card_label_by_id
+    }
+    if missing_ci:
+        for ci in db.query(BvfCardIndex).filter(BvfCardIndex.id.in_(list(missing_ci))).all():
+            card_label_by_id[int(ci.id)] = _card_index_display_label(ci)
+
+    athlete_team_set = set(int(x) for x in team_ids)
+    athlete_ci_set = set(card_index_ids)
+
     for e in comp_rows:
         kind = str(e.competition_kind or "friendly")
+        tid = int(e.team_id)
+        team = team_by_id.get(tid)
+        ci_id = int(e.card_index_id) if getattr(e, "card_index_id", None) else None
+        carded_label = card_label_by_id.get(ci_id) if ci_id else None
+        if not carded_label and scope_norm == "child":
+            carded_label = _guess_carded_label_for_team(team, card_indexes)
+        participates = tid in athlete_team_set or (ci_id is not None and ci_id in athlete_ci_set)
         schedule_items.append(
             ParentScheduleItem(
                 date=_schedule_text(e.date),
                 start_time=_schedule_text(e.start_time, "00:00"),
                 end_time=_schedule_text(e.end_time, "00:00"),
                 location=_schedule_text(e.location),
-                team_name=team_name_map.get(int(e.team_id)),
+                team_name=team_name_map.get(tid),
+                carded_team_label=carded_label,
                 event_type="competition",
                 competition_kind=kind,
                 competition_kind_label=competition_kind_label(kind),
                 change_marker_key=f"comp:{e.id}",
+                athlete_participates=participates,
             )
         )
 
     schedule_items.sort(key=lambda x: (x.date, x.start_time or ""))
     return schedule_items
+
 
 
 def _is_upcoming_schedule_item(item: ParentScheduleItem, today_s: str, now_t: str) -> bool:
@@ -427,6 +508,79 @@ def _team_ids_for_athlete(db: Session, athlete_id: int) -> list[int]:
     ]
 
 
+def _card_indexes_for_athlete(db: Session, athlete: Athlete) -> list[BvfCardIndex]:
+    if not athlete or not athlete.club_id:
+        return []
+    club_id = int(athlete.club_id)
+    year = int(datetime.utcnow().year)
+    open_app = (
+        db.query(BvfSeasonApplication)
+        .filter(
+            BvfSeasonApplication.club_id == club_id,
+            BvfSeasonApplication.status == "open",
+        )
+        .order_by(BvfSeasonApplication.year.desc())
+        .first()
+    )
+    if open_app:
+        year = int(open_app.year)
+    return (
+        db.query(BvfCardIndex)
+        .join(BvfCardIndexMember, BvfCardIndexMember.card_index_id == BvfCardIndex.id)
+        .filter(
+            BvfCardIndex.club_id == club_id,
+            BvfCardIndex.year == year,
+            BvfCardIndexMember.athlete_id == int(athlete.id),
+        )
+        .order_by(BvfCardIndex.age.asc(), BvfCardIndex.sex.asc())
+        .all()
+    )
+
+
+def _card_index_display_label(ci: BvfCardIndex) -> str:
+    from app.services.bvf_season_carding import card_index_display_label
+
+    return card_index_display_label(ci)
+
+
+def _carded_teams_for_athlete(db: Session, athlete: Athlete) -> list[ParentCardedTeamBadge]:
+    """Картотечни отбори за текущия (или отворения) сезон — може да са повече от един."""
+    out: list[ParentCardedTeamBadge] = []
+    for ci in _card_indexes_for_athlete(db, athlete):
+        label = _card_index_display_label(ci)
+        age_lbl = (ci.age_group or "").strip() or label.split(" · ")[0]
+        sex_lbl = "Жени" if int(ci.sex or 0) == 1 else "Мъже"
+        out.append(
+            ParentCardedTeamBadge(
+                label=label,
+                year=int(ci.year),
+                age_group=age_lbl,
+                sex_label=sex_lbl,
+            )
+        )
+    return out
+
+
+def _guess_carded_label_for_team(
+    team: Team | None,
+    card_indexes: list[BvfCardIndex],
+) -> str | None:
+    if not card_indexes:
+        return None
+    if len(card_indexes) == 1:
+        return _card_index_display_label(card_indexes[0])
+    if not team:
+        return None
+    gender = (team.gender or "").strip().lower()
+    want_sex = 0 if gender == "male" else 1 if gender == "female" else None
+    if want_sex is None:
+        return None
+    matched = [ci for ci in card_indexes if int(ci.sex or 0) == want_sex]
+    if not matched:
+        return None
+    return _card_index_display_label(matched[0])
+
+
 def _validate_notice_date(raw: str) -> str:
     value = (raw or "").strip()
     if not _DATE_RE.match(value):
@@ -590,6 +744,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         .all()
     )
     teams = [x[0] for x in team_rows]
+    carded_teams = _carded_teams_for_athlete(db, athlete)
 
     team_ids = _team_ids_for_athlete(db, athlete.id)
     today_s = date.today().isoformat()
@@ -614,12 +769,16 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     this_month = _month_key_now()
     from_date = f"{this_month}-01"
     to_date = _month_last_day(this_month)
-    schedule_items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    schedule_items = _build_schedule_for_teams(
+        db, team_ids, from_date, to_date, athlete=athlete, scope="child"
+    )
 
     today = date.today()
     horizon_to = (today + timedelta(days=45)).isoformat()
     upcoming_pool = _apply_schedule_highlights(
-        db, athlete.id, _build_schedule_for_teams(db, team_ids, today.isoformat(), horizon_to)
+        db, athlete.id, _build_schedule_for_teams(
+            db, team_ids, today.isoformat(), horizon_to, athlete=athlete, scope="child"
+        )
     )
     next_training_item = _pick_next_by_kind(upcoming_pool, competition=False)
     next_competition_item = _pick_next_by_kind(upcoming_pool, competition=True)
@@ -737,6 +896,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         club_name=club_name,
         club_logo_url=club_logo_url,
         teams=teams,
+        carded_teams=carded_teams,
         fee_coach=fee_coach,
         current_month_fee=current_month_fee,
         next_event=next_event,
@@ -939,6 +1099,7 @@ def parent_portal_token_development(
 @router.get("/parent-portal/me/schedule", response_model=list[ParentScheduleItem])
 def parent_portal_me_schedule(
     month: str = Query(..., description="YYYY-MM"),
+    scope: str = Query("child", description="child | club_matches"),
     db: Session = Depends(get_db),
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
@@ -948,7 +1109,9 @@ def parent_portal_me_schedule(
     from_date = f"{month_key}-01"
     to_date = _month_last_day(month_key)
     team_ids = _team_ids_for_athlete(db, athlete.id)
-    items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    items = _build_schedule_for_teams(
+        db, team_ids, from_date, to_date, athlete=athlete, scope=scope
+    )
     return _apply_schedule_highlights(db, athlete.id, items)
 
 
@@ -956,6 +1119,7 @@ def parent_portal_me_schedule(
 def parent_portal_schedule(
     token: str,
     month: str = Query(..., description="YYYY-MM"),
+    scope: str = Query("child", description="child | club_matches"),
     db: Session = Depends(get_db),
 ):
     if not _MONTH_KEY_RE.match((month or "").strip()):
@@ -965,7 +1129,9 @@ def parent_portal_schedule(
     from_date = f"{month_key}-01"
     to_date = _month_last_day(month_key)
     team_ids = _team_ids_for_athlete(db, athlete.id)
-    items = _build_schedule_for_teams(db, team_ids, from_date, to_date)
+    items = _build_schedule_for_teams(
+        db, team_ids, from_date, to_date, athlete=athlete, scope=scope
+    )
     return _apply_schedule_highlights(db, athlete.id, items)
 
 

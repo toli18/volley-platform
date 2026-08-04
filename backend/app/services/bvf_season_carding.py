@@ -25,6 +25,12 @@ def age_group_label(age: int) -> str:
     return AGE_GROUP_LABELS.get(int(age), f"До {age}")
 
 
+def card_index_display_label(ci) -> str:
+    age_lbl = (getattr(ci, "age_group", None) or "").strip() or age_group_label(int(ci.age))
+    sex_lbl = "Жени" if int(getattr(ci, "sex", 0) or 0) == 1 else "Мъже"
+    return f"{age_lbl} · {sex_lbl} · {ci.year}"
+
+
 def looks_like_form_03(doc_type: int | None, description: str | None) -> bool:
     desc = (description or "").lower()
     compact = desc.replace(" ", "")

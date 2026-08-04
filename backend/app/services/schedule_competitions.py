@@ -42,6 +42,7 @@ def competition_to_occurrence(
     *,
     team_name: str | None,
     coach_name: str | None,
+    carded_team_label: str | None = None,
 ) -> ScheduleOccurrence:
     d = date.fromisoformat(event.date)
     kind = str(event.competition_kind)
@@ -54,6 +55,8 @@ def competition_to_occurrence(
         competition_id=int(event.id),
         competition_kind=kind,
         competition_kind_label=competition_kind_label(kind),
+        card_index_id=int(event.card_index_id) if getattr(event, "card_index_id", None) else None,
+        carded_team_label=carded_team_label,
         is_cancelled=bool(event.is_cancelled),
         location=_normalize_location(event.location),
         start_time=event.start_time,
@@ -100,14 +103,23 @@ def load_competition_occurrences(
 
     team_ids = {int(e.team_id) for e in events}
     coach_ids = {int(e.coach_id) for e in events}
+    ci_ids = {int(e.card_index_id) for e in events if getattr(e, "card_index_id", None)}
     team_names = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all()) if team_ids else {}
     coach_names = dict(db.query(User.id, User.name).filter(User.id.in_(coach_ids)).all()) if coach_ids else {}
+    carded_labels = {}
+    if ci_ids:
+        from app.models import BvfCardIndex
+        from app.services.bvf_season_carding import card_index_display_label
+
+        for ci in db.query(BvfCardIndex).filter(BvfCardIndex.id.in_(list(ci_ids))).all():
+            carded_labels[int(ci.id)] = card_index_display_label(ci)
 
     items = [
         competition_to_occurrence(
             e,
             team_name=team_names.get(int(e.team_id)),
             coach_name=coach_names.get(int(e.coach_id)),
+            carded_team_label=carded_labels.get(int(e.card_index_id)) if getattr(e, "card_index_id", None) else None,
         )
         for e in events
     ]

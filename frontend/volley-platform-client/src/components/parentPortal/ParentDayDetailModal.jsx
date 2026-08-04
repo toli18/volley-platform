@@ -79,8 +79,16 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
                   </div>
                   {row.team_name ? (
                     <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
-                      Отбор: {row.team_name}
+                      Група: {row.team_name}
                     </div>
+                  ) : null}
+                  {row.carded_team_label ? (
+                    <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
+                      Картотека: {row.carded_team_label}
+                    </div>
+                  ) : null}
+                  {row.event_type === "competition" && row.athlete_participates ? (
+                    <div className="parentPortalDayModalItemMeta">Участва детето</div>
                   ) : null}
                   {row.location ? (
                     <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
