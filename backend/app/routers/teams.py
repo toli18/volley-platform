@@ -453,14 +453,17 @@ def get_team_attendance_by_date(
         notice_rows = (
             db.query(ParentAbsenceNotice)
             .filter(
-                ParentAbsenceNotice.notice_date == day,
                 ParentAbsenceNotice.cancelled_at.is_(None),
                 ParentAbsenceNotice.athlete_id.in_(member_athlete_ids),
+                ParentAbsenceNotice.notice_date <= day,
             )
             .all()
         )
         for notice in notice_rows:
             if notice.team_id is not None and notice.team_id != team.id:
+                continue
+            end_s = (getattr(notice, "end_date", None) or notice.notice_date or "").strip() or notice.notice_date
+            if end_s < day:
                 continue
             notice_map[notice.athlete_id] = notice
 
@@ -468,12 +471,13 @@ def get_team_attendance_by_date(
     for _, athlete in members:
         rec = status_map.get(athlete.id)
         notice = notice_map.get(athlete.id)
+        default_status = "excused" if notice is not None else "present"
         items.append(
             {
                 "athlete_id": athlete.id,
                 "athlete_name": athlete.athlete_name,
-                "status": rec.status if rec else "present",
-                "note": rec.note if rec else None,
+                "status": rec.status if rec else default_status,
+                "note": rec.note if rec else (notice.note if notice else None),
                 "parent_absence_notice": notice is not None,
                 "parent_absence_note": notice.note if notice else None,
             }
@@ -520,26 +524,31 @@ def get_coach_absence_notices(
         .outerjoin(Team, Team.id == ParentAbsenceNotice.team_id)
         .filter(
             ParentAbsenceNotice.cancelled_at.is_(None),
-            ParentAbsenceNotice.notice_date >= today_s,
             ParentAbsenceNotice.athlete_id.in_(member_athlete_ids),
             or_(ParentAbsenceNotice.team_id.is_(None), ParentAbsenceNotice.team_id.in_(team_ids)),
         )
         .order_by(ParentAbsenceNotice.notice_date.asc())
         .all()
     )
-    return [
-        CoachAbsenceNoticeRead(
-            id=notice.id,
-            notice_date=notice.notice_date,
-            athlete_id=notice.athlete_id,
-            athlete_name=athlete_name,
-            team_id=notice.team_id,
-            team_name=team_name,
-            note=notice.note,
-            created_at=notice.created_at,
+    out = []
+    for notice, athlete_name, team_name in rows:
+        end_s = (getattr(notice, "end_date", None) or notice.notice_date or "").strip() or notice.notice_date
+        if end_s < today_s:
+            continue
+        out.append(
+            CoachAbsenceNoticeRead(
+                id=notice.id,
+                notice_date=notice.notice_date,
+                end_date=end_s,
+                athlete_id=notice.athlete_id,
+                athlete_name=athlete_name,
+                team_id=notice.team_id,
+                team_name=team_name,
+                note=notice.note,
+                created_at=notice.created_at,
+            )
         )
-        for notice, athlete_name, team_name in rows
-    ]
+    return out
 
 
 @router.post("/teams/{team_id}/attendance", response_model=AttendanceResponse)

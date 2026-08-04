@@ -287,7 +287,10 @@ export default function CoachToday() {
                     <strong>{notice.athlete_name}</strong>
                     <span className="coachMobileAbsenceDate">
                       {" "}
-                      липсва на {formatShortDateBg(notice.notice_date)}
+                      липсва{" "}
+                      {notice.end_date && notice.end_date !== notice.notice_date
+                        ? `${formatShortDateBg(notice.notice_date)} – ${formatShortDateBg(notice.end_date)}`
+                        : `на ${formatShortDateBg(notice.notice_date)}`}
                     </span>
                     {notice.team_name ? (
                       <span className="coachMobileMuted"> · {notice.team_name}</span>

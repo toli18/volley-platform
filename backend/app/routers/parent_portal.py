@@ -581,17 +581,21 @@ def _guess_carded_label_for_team(
     return _card_index_display_label(matched[0])
 
 
-def _validate_notice_date(raw: str) -> str:
+def _validate_notice_date(raw: str, *, field: str = "notice_date") -> str:
     value = (raw or "").strip()
     if not _DATE_RE.match(value):
-        raise HTTPException(status_code=422, detail="notice_date must be YYYY-MM-DD")
+        raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD")
     try:
         parsed = date.fromisoformat(value)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="Invalid notice_date") from exc
+        raise HTTPException(status_code=422, detail=f"Invalid {field}") from exc
     if parsed < date.today():
-        raise HTTPException(status_code=422, detail="notice_date must be today or in the future")
+        raise HTTPException(status_code=422, detail=f"{field} must be today or in the future")
     return value
+
+
+def _absence_end_date(notice: ParentAbsenceNotice) -> str:
+    return (getattr(notice, "end_date", None) or notice.notice_date or "").strip() or notice.notice_date
 
 
 def _team_feed_for_parent(db: Session, team_ids: list[int], limit: int = 5) -> list[ParentTeamFeedItem]:
@@ -620,44 +624,61 @@ def _active_absence_notices(db: Session, athlete_id: int) -> list[ParentAbsenceN
         .filter(
             ParentAbsenceNotice.athlete_id == athlete_id,
             ParentAbsenceNotice.cancelled_at.is_(None),
-            ParentAbsenceNotice.notice_date >= today_s,
         )
         .order_by(ParentAbsenceNotice.notice_date.asc())
         .all()
     )
-    return [
-        ParentAbsenceNoticeRead(
-            id=notice.id,
-            notice_date=notice.notice_date,
-            team_id=notice.team_id,
-            team_name=team_name,
-            note=notice.note,
-            created_at=notice.created_at,
+    out: list[ParentAbsenceNoticeRead] = []
+    for notice, team_name in rows:
+        end_s = _absence_end_date(notice)
+        if end_s < today_s:
+            continue
+        out.append(
+            ParentAbsenceNoticeRead(
+                id=notice.id,
+                notice_date=notice.notice_date,
+                end_date=end_s,
+                team_id=notice.team_id,
+                team_name=team_name,
+                note=notice.note,
+                created_at=notice.created_at,
+            )
         )
-        for notice, team_name in rows
-    ]
+    return out
 
 
 def _create_absence_notice(db: Session, athlete: Athlete, body: ParentAbsenceNoticeCreate) -> ParentAbsenceNoticeRead:
-    notice_date = _validate_notice_date(body.notice_date)
+    notice_date = _validate_notice_date(body.notice_date, field="notice_date")
+    end_raw = (body.end_date or "").strip() or notice_date
+    end_date = _validate_notice_date(end_raw, field="end_date")
+    if end_date < notice_date:
+        raise HTTPException(status_code=422, detail="end_date must be on or after notice_date")
+
     team_ids = _team_ids_for_athlete(db, athlete.id)
     if body.team_id is not None and body.team_id not in team_ids:
         raise HTTPException(status_code=422, detail="Invalid team for athlete")
 
-    dup_q = db.query(ParentAbsenceNotice).filter(
-        ParentAbsenceNotice.athlete_id == athlete.id,
-        ParentAbsenceNotice.notice_date == notice_date,
-        ParentAbsenceNotice.cancelled_at.is_(None),
+    # Overlap with an active notice for the same athlete (/optional team)
+    existing = (
+        db.query(ParentAbsenceNotice)
+        .filter(
+            ParentAbsenceNotice.athlete_id == athlete.id,
+            ParentAbsenceNotice.cancelled_at.is_(None),
+        )
+        .all()
     )
-    if body.team_id is not None:
-        dup_q = dup_q.filter(ParentAbsenceNotice.team_id == body.team_id)
-    if dup_q.first():
-        raise HTTPException(status_code=409, detail="Absence notice already exists for this date")
+    for row in existing:
+        if body.team_id is not None and row.team_id is not None and int(row.team_id) != int(body.team_id):
+            continue
+        row_end = _absence_end_date(row)
+        if notice_date <= row_end and end_date >= row.notice_date:
+            raise HTTPException(status_code=409, detail="Absence notice already overlaps this period")
 
     row = ParentAbsenceNotice(
         athlete_id=athlete.id,
         team_id=body.team_id,
         notice_date=notice_date,
+        end_date=end_date,
         note=(body.note or "").strip() or None,
     )
     db.add(row)
@@ -670,6 +691,7 @@ def _create_absence_notice(db: Session, athlete: Athlete, body: ParentAbsenceNot
     return ParentAbsenceNoticeRead(
         id=row.id,
         notice_date=row.notice_date,
+        end_date=_absence_end_date(row),
         team_id=row.team_id,
         team_name=team_name,
         note=row.note,

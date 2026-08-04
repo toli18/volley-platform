@@ -851,7 +851,8 @@ class ParentAbsenceNotice(Base):
     id = Column(Integer, primary_key=True, index=True)
     athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
-    notice_date = Column(String(10), nullable=False, index=True)
+    notice_date = Column(String(10), nullable=False, index=True)  # start YYYY-MM-DD
+    end_date = Column(String(10), nullable=True, index=True)  # inclusive end; null = same as notice_date
     note = Column(Text, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

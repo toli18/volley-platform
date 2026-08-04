@@ -84,6 +84,7 @@ class AttendanceItemRead(BaseModel):
 class CoachAbsenceNoticeRead(BaseModel):
     id: int
     notice_date: str
+    end_date: Optional[str] = None
     athlete_id: int
     athlete_name: str
     team_id: Optional[int] = None

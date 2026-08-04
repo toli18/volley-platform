@@ -136,6 +136,7 @@ class ParentTeamFeedItem(TeamPortalItemResponse):
 class ParentAbsenceNoticeRead(BaseModel):
     id: int
     notice_date: str
+    end_date: Optional[str] = None
     team_id: Optional[int] = None
     team_name: Optional[str] = None
     note: Optional[str] = None
@@ -144,6 +145,7 @@ class ParentAbsenceNoticeRead(BaseModel):
 
 class ParentAbsenceNoticeCreate(BaseModel):
     notice_date: str = Field(..., min_length=10, max_length=10)
+    end_date: Optional[str] = Field(None, min_length=10, max_length=10)
     team_id: Optional[int] = None
     note: Optional[str] = Field(None, max_length=500)
 

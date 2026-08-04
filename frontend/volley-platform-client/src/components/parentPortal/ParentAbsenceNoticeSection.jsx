@@ -13,6 +13,13 @@ const formatNoticeDate = (iso) => {
   return `${d}.${m}.${y}`;
 };
 
+const formatNoticePeriod = (row, formatShortDate) => {
+  const start = formatShortDate(row.notice_date);
+  const endRaw = row.end_date || row.notice_date;
+  if (!endRaw || endRaw === row.notice_date) return start;
+  return `${start} – ${formatShortDate(endRaw)}`;
+};
+
 export default function ParentAbsenceNoticeSection({
   notices = [],
   isSession,
@@ -21,6 +28,7 @@ export default function ParentAbsenceNoticeSection({
   formatShortDate = formatNoticeDate,
 }) {
   const [noticeDate, setNoticeDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +44,12 @@ export default function ParentAbsenceNoticeSection({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!noticeDate) {
-      setError("Изберете дата.");
+      setError("Изберете начална дата.");
+      return;
+    }
+    const end = endDate || noticeDate;
+    if (end < noticeDate) {
+      setError("Крайната дата трябва да е на или след началната.");
       return;
     }
     try {
@@ -44,9 +57,11 @@ export default function ParentAbsenceNoticeSection({
       setError("");
       await axiosInstance.post(createPath, {
         notice_date: noticeDate,
+        end_date: end,
         note: note.trim() || null,
       });
       setNoticeDate("");
+      setEndDate("");
       setNote("");
       onChanged?.();
     } catch (err) {
@@ -77,18 +92,33 @@ export default function ParentAbsenceNoticeSection({
             type="date"
             value={noticeDate}
             min={todayKey()}
-            onChange={(e) => setNoticeDate(e.target.value)}
-            aria-label="Дата на отсъствие"
+            onChange={(e) => {
+              const v = e.target.value;
+              setNoticeDate(v);
+              if (endDate && endDate < v) setEndDate(v);
+            }}
+            aria-label="От дата"
             disabled={busy}
           />
           <Input
-            placeholder="Бележка (по желание)"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            maxLength={500}
-            disabled={busy}
+            type="date"
+            value={endDate || noticeDate}
+            min={noticeDate || todayKey()}
+            onChange={(e) => setEndDate(e.target.value)}
+            aria-label="До дата"
+            disabled={busy || !noticeDate}
           />
         </div>
+        <Input
+          placeholder="Бележка (по желание)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={500}
+          disabled={busy}
+        />
+        <p className="uiHint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+          Може да маркирате няколко дни (от–до). Известието стои до края на периода; в присъствието е „извинен“.
+        </p>
         <Button type="submit" size="sm" disabled={busy || !noticeDate}>
           Съобщи за отсъствие
         </Button>
@@ -98,14 +128,14 @@ export default function ParentAbsenceNoticeSection({
       {notices.length === 0 ? (
         <EmptyState
           title="Няма предварителни извинения"
-          description="Можете да уведомите треньора, ако детето ще липсва на тренировка."
+          description="Можете да уведомите треньора, ако детето ще липсва на една или повече тренировки."
         />
       ) : (
         <ul className="parentPortalAbsenceList">
           {notices.map((row) => (
             <li key={row.id} className="parentPortalAbsenceItem">
               <div>
-                <strong>Ще липсва на {formatShortDate(row.notice_date)}</strong>
+                <strong>Ще липсва: {formatNoticePeriod(row, formatShortDate)}</strong>
                 {row.team_name ? (
                   <span className="parentPortalHighlightMuted"> · {row.team_name}</span>
                 ) : null}

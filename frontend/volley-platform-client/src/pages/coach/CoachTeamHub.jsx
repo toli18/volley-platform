@@ -195,6 +195,7 @@ export default function CoachTeamHub() {
           />
           {portalCoach.textOpen ? (
             <TeamPortalTextModal
+              open
               busy={portalCoach.busy}
               textBody={portalCoach.textBody}
               setTextBody={portalCoach.setTextBody}

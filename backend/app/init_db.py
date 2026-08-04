@@ -312,6 +312,18 @@ def _init_db_impl() -> None:
                         "ADD COLUMN IF NOT EXISTS card_index_id INTEGER"
                     )
                 )
+                conn.execute(
+                    text(
+                        "ALTER TABLE parent_absence_notices "
+                        "ADD COLUMN IF NOT EXISTS end_date VARCHAR(10)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "UPDATE parent_absence_notices SET end_date = notice_date "
+                        "WHERE end_date IS NULL"
+                    )
+                )
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
             print("✅ PostgreSQL: teams.gender ensured")
@@ -319,6 +331,7 @@ def _init_db_impl() -> None:
             print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
             print("✅ PostgreSQL: club profile / users.phone columns ensured")
             print("✅ PostgreSQL: club_competition_events.card_index_id ensured")
+            print("✅ PostgreSQL: parent_absence_notices.end_date ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 

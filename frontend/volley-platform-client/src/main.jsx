@@ -63,6 +63,8 @@ const CoachMatchLive = React.lazy(() => import("./pages/coach/CoachMatchLive.jsx
 const CoachChat = React.lazy(() => import("./pages/CoachChat.jsx"));
 const CoachChatList = React.lazy(() => import("./pages/coach/CoachChatList.jsx"));
 const CoachChatRoom = React.lazy(() => import("./pages/coach/CoachChatRoom.jsx"));
+const CoachParentNewsList = React.lazy(() => import("./pages/coach/CoachParentNewsList.jsx"));
+const CoachParentNewsRoom = React.lazy(() => import("./pages/coach/CoachParentNewsRoom.jsx"));
 
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard.jsx"));
 const AdminDrills = React.lazy(() => import("./pages/admin/AdminDrills.jsx"));
@@ -209,6 +211,8 @@ const router = createBrowserRouter([
               { path: "club", element: <CoachClubHub /> },
               { path: "program-week", element: <CoachProgramWeek /> },
               { path: "chat", element: <CoachChatList /> },
+              { path: "chat/parents", element: <CoachParentNewsList /> },
+              { path: "chat/parents/:teamId", element: <CoachParentNewsRoom /> },
               { path: "chat/:teamId", element: <CoachChatRoom /> },
               { path: "bvf", element: <CoachBvfHub /> },
               { path: "bvf-admin", element: <CoachBvfAdmin /> },
