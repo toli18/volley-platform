@@ -6,6 +6,8 @@ import { positionColor, positionShort, shortPlayerName } from "../../utils/match
 
 const LONG_PRESS_MS = 380;
 const ZONES = [4, 3, 2, 5, 6, 1];
+/** Max screen px from chip center to count as a hit (after 3D projection). */
+const HIT_RADIUS_PX = 56;
 
 export default function MatchCourt({
   slots = [],
@@ -53,6 +55,8 @@ export default function MatchCourt({
   const moved = useRef(false);
   const livePosRef = useRef(null);
   const planeRef = useRef(null);
+  const layerRef = useRef(null);
+  const chipRefs = useRef({});
   const freeMoveRef = useRef(freeMove);
   freeMoveRef.current = freeMove;
 
@@ -130,12 +134,40 @@ export default function MatchCourt({
     return clampCourtPct(x, y);
   };
 
+  /** Pick chip by visual screen position (fixes 3D perspective stealing hits). */
+  const findZoneAtClient = (clientX, clientY) => {
+    let best = null;
+    let bestScore = Infinity;
+    for (const z of ZONES) {
+      const el = chipRefs.current[z];
+      if (!el) continue;
+      if (!byZone[z] && !editable) continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const cx = (r.left + r.right) / 2;
+      const cy = (r.top + r.bottom) / 2;
+      const dist = Math.hypot(clientX - cx, clientY - cy);
+      const pad = 6;
+      const inside =
+        clientX >= r.left - pad &&
+        clientX <= r.right + pad &&
+        clientY >= r.top - pad &&
+        clientY <= r.bottom + pad;
+      // Prefer the visually nearest center; slight boost if inside AABB
+      const score = inside ? dist * 0.35 : dist;
+      if (score < bestScore) {
+        bestScore = score;
+        best = z;
+      }
+    }
+    if (best == null || bestScore > HIT_RADIUS_PX) return null;
+    return best;
+  };
+
   const emitPositions = (zone, xy) => {
     const zNum = Number(zone);
-    const overridesNext = { ...(positionOverrides || {}) };
-    // normalize keys to numbers
     const cleaned = {};
-    for (const [k, v] of Object.entries(overridesNext)) {
+    for (const [k, v] of Object.entries(positionOverrides || {})) {
       cleaned[Number(k)] = v;
     }
     cleaned[zNum] = clampCourtPct(xy.x, xy.y);
@@ -162,59 +194,52 @@ export default function MatchCourt({
     setHoverZone(null);
   };
 
-  const onPointerDown = (zone, e) => {
-    if (!canInteract) return;
-    if (e.button != null && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
+  const armDrag = (zone, e) => {
     startZone.current = zone;
     dragZoneRef.current = zone;
     moved.current = false;
     dragging.current = false;
     clearLongPress();
+    setSelectZone(null);
 
     const isTouch = e.pointerType === "touch";
-    if ((rearrangeable || freeMove) && !isTouch) {
-      setSelectZone(null);
-      try {
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-
-    if (freeMove && isTouch) {
-      dragging.current = true;
-      moved.current = false;
-      setDragFrom(zone);
-      setSelectZone(null);
-      try {
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-
-    if (rearrangeable && isTouch) {
-      longPressTimer.current = setTimeout(() => {
+    if (freeMove || rearrangeable) {
+      if (isTouch && freeMove) {
         dragging.current = true;
-        dragZoneRef.current = zone;
         setDragFrom(zone);
-        setSelectZone(null);
-        if (typeof navigator !== "undefined" && navigator.vibrate) {
-          try {
-            navigator.vibrate(12);
-          } catch {
-            /* ignore */
+      } else if (isTouch && rearrangeable) {
+        longPressTimer.current = setTimeout(() => {
+          dragging.current = true;
+          dragZoneRef.current = zone;
+          setDragFrom(zone);
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            try {
+              navigator.vibrate(12);
+            } catch {
+              /* ignore */
+            }
           }
-        }
-      }, LONG_PRESS_MS);
+        }, LONG_PRESS_MS);
+      }
+      try {
+        (layerRef.current || e.currentTarget)?.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
     }
   };
 
-  const onPointerMove = (zone, e) => {
+  const onLayerPointerDown = (e) => {
+    if (!canInteract || !isTactical) return;
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    const zone = findZoneAtClient(e.clientX, e.clientY);
+    if (zone == null) return;
+    armDrag(zone, e);
+  };
+
+  const onLayerPointerMove = (e) => {
+    if (!isTactical) return;
     if (!rearrangeable && !freeMove) return;
     if (startZone.current == null) return;
 
@@ -229,8 +254,6 @@ export default function MatchCourt({
         setSelectZone(null);
       }
     }
-
-    // Touch: wait for long-press to arm drag
     if (!dragging.current) return;
 
     if (freeMove) {
@@ -247,12 +270,11 @@ export default function MatchCourt({
     const pct = pctFromEvent(e);
     if (pct) {
       setHoverZone(nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation }));
-    } else {
-      setHoverZone(zone);
     }
   };
 
-  const onPointerUp = (zone, e) => {
+  const onLayerPointerUp = (e) => {
+    if (!isTactical) return;
     if (freeMove) {
       endFreeDrag(e);
       return;
@@ -266,7 +288,7 @@ export default function MatchCourt({
       const pct = e ? pctFromEvent(e) : null;
       const target = pct
         ? nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation })
-        : hoverZone || zone;
+        : hoverZone;
       if (target != null && Number(target) !== Number(dragZ)) {
         finishSwap(dragZ, target);
       } else if (from) {
@@ -307,7 +329,7 @@ export default function MatchCourt({
     startZone.current = null;
   };
 
-  const onPointerCancel = () => {
+  const onLayerPointerCancel = () => {
     if (freeMove) {
       endFreeDrag(null);
       return;
@@ -321,6 +343,27 @@ export default function MatchCourt({
     startZone.current = null;
   };
 
+  // Grid / non-tactical: keep per-chip handlers
+  const onPointerDown = (zone, e) => {
+    if (!canInteract || isTactical) return;
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    armDrag(zone, e);
+  };
+
+  const onPointerMove = (zone, e) => {
+    if (isTactical) return;
+    onLayerPointerMove(e);
+    if (!dragging.current || freeMove) return;
+    const pct = pctFromEvent(e);
+    if (!pct) setHoverZone(zone);
+  };
+
+  const onPointerUp = (zone, e) => {
+    if (isTactical) return;
+    onLayerPointerUp(e);
+  };
+
   const highlightZone = activeZone ?? selectZone;
   const onCourtIds = new Set(Object.values(byZone).map((p) => Number(p.athlete_id)));
   const showLiberoBench = libero && !onCourtIds.has(Number(libero.athlete_id));
@@ -328,7 +371,6 @@ export default function MatchCourt({
   const faultLines = alignment?.faults || [];
   const warnLines = alignment?.legal ? alignment.warnings || [] : [];
 
-  // Paint back-row (higher y) above front so overlapping chips stay clickable
   const zonesPaintOrder = useMemo(() => {
     return [...ZONES].sort((a, b) => {
       const ya = resolvedPositions[a]?.y ?? 50;
@@ -368,15 +410,31 @@ export default function MatchCourt({
           left: `${pos.x}%`,
           top: `${pos.y}%`,
           zIndex: stackZ,
-          touchAction: rearrangeable || freeMove ? "none" : undefined,
           transition: freeMove || isDrag ? "none" : undefined,
         }
-      : { touchAction: rearrangeable || freeMove ? "none" : undefined };
+      : { touchAction: rearrangeable ? "none" : undefined };
+
+    const Tag = isTactical ? "div" : "button";
+    const interactiveProps = isTactical
+      ? {
+          ref: (el) => {
+            chipRefs.current[zone] = el;
+          },
+          role: canInteract ? "button" : undefined,
+          tabIndex: canInteract ? 0 : undefined,
+        }
+      : {
+          type: "button",
+          disabled: !canInteract,
+          onPointerDown: (e) => onPointerDown(zone, e),
+          onPointerMove: (e) => onPointerMove(zone, e),
+          onPointerUp: (e) => onPointerUp(zone, e),
+          onPointerCancel: onLayerPointerCancel,
+        };
 
     return (
-      <button
+      <Tag
         key={zone}
-        type="button"
         className={`matchChipSlot${isTactical ? " matchChipSlot--abs" : ""}${isActive ? " matchChipSlot--active" : ""}${
           player ? " matchChipSlot--filled" : ""
         }${isServe ? " matchChipSlot--serve" : ""}${isDrag ? " matchChipSlot--drag" : ""}${
@@ -384,13 +442,9 @@ export default function MatchCourt({
         }${front && player ? " matchChipSlot--front" : ""}${!front && player ? " matchChipSlot--back" : ""}${
           isFault ? " matchChipSlot--fault" : ""
         }${isWarn ? " matchChipSlot--tight" : ""}`}
-        disabled={!canInteract}
         data-zone={zone}
         style={style}
-        onPointerDown={(e) => onPointerDown(zone, e)}
-        onPointerMove={(e) => onPointerMove(zone, e)}
-        onPointerUp={(e) => onPointerUp(zone, e)}
-        onPointerCancel={onPointerCancel}
+        {...interactiveProps}
       >
         <span className="matchChipZoneBadge">{zone}</span>
         {player ? (
@@ -410,7 +464,7 @@ export default function MatchCourt({
           <span className="matchChipEmpty">{editable ? "+" : "—"}</span>
         )}
         {isServe && player ? <span className="matchChipBall" aria-hidden title="Сервис" /> : null}
-      </button>
+      </Tag>
     );
   };
 
@@ -495,7 +549,16 @@ export default function MatchCourt({
             ) : null}
 
             {isTactical ? (
-              <div className="matchCourtAbsLayer">{zonesPaintOrder.map((z) => renderSlot(z))}</div>
+              <div
+                ref={layerRef}
+                className={`matchCourtAbsLayer${canInteract ? " matchCourtAbsLayer--pick" : ""}`}
+                onPointerDown={onLayerPointerDown}
+                onPointerMove={onLayerPointerMove}
+                onPointerUp={onLayerPointerUp}
+                onPointerCancel={onLayerPointerCancel}
+              >
+                {zonesPaintOrder.map((z) => renderSlot(z))}
+              </div>
             ) : (
               <>
                 <div className="matchCourtRow matchCourtRow--front">{[4, 3, 2].map((z) => renderSlot(z))}</div>

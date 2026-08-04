@@ -6832,6 +6832,7 @@
   align-items: end;
   gap: 2px;
   transform: translateZ(12px);
+  pointer-events: none;
 }
 .matchCourtNetPost {
   height: 20px;
@@ -6974,6 +6975,14 @@
   position: absolute;
   inset: 0;
   z-index: 2;
+}
+.matchCourtAbsLayer--pick {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.matchCourtBoard--tactical .matchChipSlot--abs {
+  pointer-events: none;
 }
 .matchCourtRow {
   display: grid;
