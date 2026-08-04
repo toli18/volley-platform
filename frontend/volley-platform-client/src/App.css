@@ -7160,6 +7160,27 @@ button.matchChipSlot:not(:disabled) {
   width: 42px;
   height: 42px;
 }
+.matchChipCircle--star {
+  width: 48px;
+  height: 48px;
+  border-radius: 0;
+  border: none;
+  clip-path: polygon(
+    50% 2%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  font-size: 11px;
+  padding-top: 14px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
 .matchLivePage .matchCourtBoard--tactical .matchChipCircle {
   width: 56px;
   height: 56px;
@@ -7176,6 +7197,12 @@ button.matchChipSlot:not(:disabled) {
   height: 52px;
   border-radius: 10px;
   font-size: 15px;
+}
+.matchLivePage .matchChipCircle--star {
+  width: 58px;
+  height: 58px;
+  font-size: 13px;
+  padding-top: 16px;
 }
 .matchLivePage .matchChipTag {
   font-size: 11px;
