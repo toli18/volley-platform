@@ -7894,7 +7894,7 @@ button.matchChipSlot:not(:disabled) {
   background: #0b1220;
   color: #e2e8f0;
   padding: max(4px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px))
-    max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+    max(10px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
   min-height: 100dvh;
   height: 100dvh;
   max-height: 100dvh;
@@ -8092,11 +8092,12 @@ body:has(.publicWatchPage--fs) {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  padding: 0;
+  padding: 0 0 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  perspective: 900px;
+  perspective: none;
+  box-sizing: border-box;
 }
 .matchLivePage--fs .matchCourtPlane--3d,
 .publicWatchPage--fs .matchCourtPlane--3d {
@@ -8106,24 +8107,34 @@ body:has(.publicWatchPage--fs) {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   transform: none;
+  box-sizing: border-box;
 }
-/* Keep desktop-like court proportions — never squash by height */
+/* Court sized to fit remaining flex space — keeps baseline on screen */
 .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-  aspect-ratio: 1.45 / 1 !important;
-  width: min(100%, calc((100dvh - 72px) * 1.45)) !important;
+  aspect-ratio: 1.48 / 1 !important;
+  width: min(100%, calc((100dvh - 88px) * 1.48)) !important;
   height: auto !important;
-  max-height: calc(100dvh - 72px) !important;
+  max-height: min(100%, calc(100dvh - 88px)) !important;
   min-height: 0 !important;
   flex: none !important;
   overflow: visible;
+  box-sizing: border-box;
 }
 .matchLivePage--fs .matchCourtBoard,
-.publicWatchPage--fs .matchCourtBoard {
-  overflow: visible;
+.publicWatchPage--fs .matchCourtBoard,
+.matchLivePage--fs .matchCourtBoard--tactical,
+.publicWatchPage--fs .matchCourtBoard--tactical {
+  overflow: visible !important;
+  padding-bottom: 4px !important;
+}
+.matchLivePage--fs .matchCourtGridlines,
+.publicWatchPage--fs .matchCourtGridlines {
+  margin: 2.5% 3% 5% 3%;
 }
 .matchLivePage--fs .matchChipSlot--abs,
 .publicWatchPage--fs .matchChipSlot--abs {
@@ -8292,10 +8303,10 @@ body:has(.publicWatchPage--fs) {
 @media (orientation: landscape) and (max-height: 700px) {
   .matchLivePage--fs,
   .publicWatchPage--fs {
-    --live-chrome: 44px;
+    --live-chrome: 58px;
     gap: 2px;
     padding: max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px))
-      max(2px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
+      max(12px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
   }
   .matchLivePage--fs .matchLiveHud,
   .publicWatchPage--fs .matchLiveHud {
@@ -8375,16 +8386,21 @@ body:has(.publicWatchPage--fs) {
   .publicWatchPage--fs .matchCourtStage--perspective {
     perspective: none;
     overflow: visible;
+    padding-bottom: 8px;
   }
   .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-    aspect-ratio: 1.5 / 1 !important;
-    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.5)) !important;
-    max-height: calc(100dvh - var(--live-chrome)) !important;
+    aspect-ratio: 1.55 / 1 !important;
+    width: min(100%, calc((100dvh - var(--live-chrome) - 14px) * 1.55)) !important;
+    max-height: calc(100dvh - var(--live-chrome) - 14px) !important;
     height: auto !important;
     overflow: visible;
+  }
+  .matchLivePage--fs .matchCourtGridlines,
+  .publicWatchPage--fs .matchCourtGridlines {
+    margin: 2% 3% 6% 3%;
   }
   .matchLivePage--fs .matchLiveCourtRow,
   .publicWatchPage--fs .matchLiveCourtRow {
