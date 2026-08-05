@@ -19,12 +19,13 @@ export default function CoachMobileLayout() {
   const isAttendanceMonth = pathname.includes("/attendance-month");
   const isFeesPage = pathname.startsWith("/coach/fees");
   const isChatRoom = pathname.startsWith("/coach/chat/") && pathname !== "/coach/chat";
+  const isMatchLive = /\/matches\/[^/]+\/live(?:\/|$)/.test(pathname);
   const showBack =
     isFeesPage ||
     isAttendanceHub ||
     isAttendanceMonth ||
     isChatRoom ||
-    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams");
+    (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams" && !isMatchLive);
 
   const handleBack = () => {
     if (isFeesPage) {
@@ -56,7 +57,8 @@ export default function CoachMobileLayout() {
   }
 
   return (
-    <div className="coachMobileShell">
+    <div className={`coachMobileShell${isMatchLive ? " coachMobileShell--matchLive" : ""}`}>
+      {!isMatchLive ? (
       <header className="coachMobileTopBar portalShellHeader">
         {showBack ? (
           <button
@@ -87,10 +89,11 @@ export default function CoachMobileLayout() {
           </Button>
         </div>
       </header>
+      ) : null}
       <main className="coachMobileMain">
         <Outlet />
       </main>
-      <CoachBottomNav />
+      {!isMatchLive ? <CoachBottomNav /> : null}
     </div>
   );
 }

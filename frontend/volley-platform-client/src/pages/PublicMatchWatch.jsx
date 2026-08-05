@@ -201,7 +201,10 @@ export default function PublicMatchWatch() {
             Undo
           </button>
           <button type="button" className="publicWatchFsBtn" onClick={toggleFullscreen}>
-            {fullscreen ? "Изход от пълен екран" : "Пълен екран"}
+            <span className="matchLiveBtnFull">{fullscreen ? "Изход от пълен екран" : "Пълен екран"}</span>
+            <span className="matchLiveBtnShort" aria-hidden>
+              {fullscreen ? "Изход" : "Екран"}
+            </span>
           </button>
         </div>
       </div>

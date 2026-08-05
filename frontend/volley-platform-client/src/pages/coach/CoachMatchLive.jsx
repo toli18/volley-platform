@@ -538,14 +538,23 @@ export default function CoachMatchLive() {
               Undo
             </button>
             <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
-              Статистика
+              <span className="matchLiveBtnFull">Статистика</span>
+              <span className="matchLiveBtnShort" aria-hidden>
+                Стат.
+              </span>
             </button>
             <button type="button" className="matchLiveStatsOpenBtn" onClick={toggleFullscreen}>
-              {fullscreen ? "Изход екран" : "Пълен екран"}
+              <span className="matchLiveBtnFull">{fullscreen ? "Изход екран" : "Пълен екран"}</span>
+              <span className="matchLiveBtnShort" aria-hidden>
+                {fullscreen ? "Изход" : "Екран"}
+              </span>
             </button>
             {setFinished && state.needs_set_start && !matchDone && !viewOnly ? (
               <button type="button" className="matchLiveNext" disabled={busy || inputLocked} onClick={openNextGate}>
-                Следващ гейм
+                <span className="matchLiveBtnFull">Следващ гейм</span>
+                <span className="matchLiveBtnShort" aria-hidden>
+                  Гейм+
+                </span>
               </button>
             ) : null}
           </div>
@@ -559,7 +568,10 @@ export default function CoachMatchLive() {
                   onClick={toggleLock}
                   title="Заключи въвеждането"
                 >
-                  {inputLocked ? "Отключи" : "Заключи"}
+                  <span className="matchLiveBtnFull">{inputLocked ? "Отключи" : "Заключи"}</span>
+                  <span className="matchLiveBtnShort" aria-hidden>
+                    {inputLocked ? "Откл." : "Закл."}
+                  </span>
                 </button>
               ) : null}
               <button
@@ -568,7 +580,10 @@ export default function CoachMatchLive() {
                 disabled={busy || matchDone}
                 onClick={() => finishMatch()}
               >
-                Приключи мача
+                <span className="matchLiveBtnFull">Приключи мача</span>
+                <span className="matchLiveBtnShort" aria-hidden>
+                  Край
+                </span>
               </button>
             </div>
           ) : null}
@@ -763,13 +778,15 @@ export default function CoachMatchLive() {
         </div>
       ) : null}
 
-      <button
-        type="button"
-        className="matchLiveLeave"
-        onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}`)}
-      >
-        Към настройките на мача
-      </button>
+      {!fullscreen ? (
+        <button
+          type="button"
+          className="matchLiveLeave"
+          onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}`)}
+        >
+          Към настройките на мача
+        </button>
+      ) : null}
     </section>
   );
 }
