@@ -7679,6 +7679,57 @@ button.matchChipSlot:not(:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.matchLiveLockBtn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #fffbeb;
+  color: #b45309;
+}
+.matchLiveLockBtn.is-locked {
+  background: #b45309;
+  color: #fff;
+}
+.matchLiveViewBanner,
+.matchLiveLockBanner {
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.matchLiveViewBanner {
+  background: #e0f2fe;
+  color: #075985;
+}
+.matchLiveLockBanner {
+  background: #fff7ed;
+  color: #9a3412;
+}
+.matchLiveShareBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.matchLiveShareBtn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.matchLiveShareHint {
+  font-size: 11px;
+  color: #64748b;
+  word-break: break-all;
+}
 .matchLiveScore {
   display: grid;
   gap: 6px;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import MatchCourt from "../../components/matches/MatchCourt";
 import axiosInstance from "../../utils/apiClient";
@@ -8,6 +8,7 @@ import { positionShort, shortPlayerName, MATCH_FORMATS } from "../../utils/match
 import { useToast } from "../../components/ToastProvider";
 import { normalizeError } from "../../utils/normalizeError";
 
+const POLL_MS = 2500;
 const STAT_GROUPS = [
   {
     title: "Атака",
@@ -172,6 +173,8 @@ function rowSummary(row) {
 
 export default function CoachMatchLive() {
   const { teamId, matchId } = useParams();
+  const [searchParams] = useSearchParams();
+  const viewOnly = searchParams.get("mode") === "view";
   const teamIdNum = Number(teamId);
   const matchIdNum = Number(matchId);
   const navigate = useNavigate();
@@ -191,6 +194,7 @@ export default function CoachMatchLive() {
   const [gateServe, setGateServe] = useState(true);
   const [gateRotation, setGateRotation] = useState(1);
   const [gateMode, setGateMode] = useState("start"); // start | next
+  const [shareHint, setShareHint] = useState("");
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
@@ -241,7 +245,7 @@ export default function CoachMatchLive() {
         setRoster(detail.data?.roster || []);
         const data = await load();
         if (!alive) return;
-        if (data.needs_set_start && data.status !== "finished") {
+        if (!viewOnly && data.needs_set_start && data.status !== "finished") {
           openGate((data.sets || []).length > 0 ? "next" : "start", data);
         }
       } catch (err) {
@@ -254,7 +258,17 @@ export default function CoachMatchLive() {
     return () => {
       alive = false;
     };
-  }, [teamIdNum, matchIdNum]);
+  }, [teamIdNum, matchIdNum, viewOnly]);
+
+  /** Споделен екран: периодично опресняване за втория телефон/таблет. */
+  useEffect(() => {
+    if (loading || !state || state.status === "finished") return undefined;
+    const t = setInterval(() => {
+      if (busy || gateOpen) return;
+      load(phaseOverride || undefined).catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(t);
+  }, [loading, state?.status, state?.set?.id, busy, gateOpen, phaseOverride, teamIdNum, matchIdNum]);
 
   const run = async (fn, { resetPhase = false, autoGate = false } = {}) => {
     try {
@@ -354,6 +368,35 @@ export default function CoachMatchLive() {
 
   const openNextGate = () => openGate("next", state);
 
+  const copyShareLink = async (mode) => {
+    const url = `${window.location.origin}/coach/teams/${teamIdNum}/matches/${matchIdNum}/live${
+      mode === "view" ? "?mode=view" : ""
+    }`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareHint(mode === "view" ? "Копиран линк за преглед" : "Копиран линк за въвеждане");
+      toast.success(mode === "view" ? "Линк за преглед копиран." : "Линк за въвеждане копиран.");
+    } catch {
+      setShareHint(url);
+      toast.error("Копирай линка ръчно от полето по-долу.");
+    }
+  };
+
+  const toggleLock = () => {
+    if (viewOnly) {
+      toast.error("В режим преглед не можеш да заключваш.");
+      return;
+    }
+    const next = !state?.input_locked;
+    run(async () => {
+      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_LOCK(teamIdNum, matchIdNum), {
+        locked: next,
+      });
+      toast.success(next ? "Въвеждането е заключено." : "Въвеждането е отключено.");
+      return res.data;
+    });
+  };
+
   if (loading) return <p className="coachMobileMuted">Зареждане на live мач...</p>;
   if (error) return <p className="coachMobileMuted">{error}</p>;
   if (!state) return null;
@@ -361,13 +404,15 @@ export default function CoachMatchLive() {
   const mset = state.set;
   const setFinished = mset?.status === "finished";
   const matchDone = state.status === "finished" || Boolean(state.match_won_by);
-  const playing = Boolean(mset) && mset.status === "in_progress" && !matchDone;
+  const inputLocked = Boolean(state.input_locked);
+  const canWrite = !viewOnly && !inputLocked && !matchDone;
+  const playing = Boolean(mset) && mset.status === "in_progress" && canWrite;
   const autoPhase = mset?.we_serve ? "serve" : "receive";
   const activePhase = phaseOverride || state.phase || autoPhase;
   const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
   const posKey = `${mset?.rotation ?? 1}:${activePhase}`;
   const positionOverrides = posByKey[posKey] || null;
-  const canEditPositions = activePhase === "receive" || activePhase === "serve";
+  const canEditPositions = (activePhase === "receive" || activePhase === "serve") && canWrite;
   const nextSetNumber = (state.sets || []).length + 1;
   const gateTitle =
     gateMode === "next" ? `Гейм ${nextSetNumber} — подготовка` : "Старт на гейм 1";
@@ -477,23 +522,52 @@ export default function CoachMatchLive() {
           </span>
         </div>
         <div className="matchLiveTopActions">
-          <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo} onClick={undo}>
+          <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo || !canWrite} onClick={undo}>
             Undo
           </button>
           <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
             Статистика
           </button>
-          {setFinished && state.needs_set_start && !matchDone ? (
-            <button type="button" className="matchLiveNext" disabled={busy} onClick={openNextGate}>
+          {!viewOnly && !matchDone ? (
+            <button
+              type="button"
+              className={`matchLiveLockBtn${inputLocked ? " is-locked" : ""}`}
+              disabled={busy}
+              onClick={toggleLock}
+              title="Заключи въвеждането на другия екран"
+            >
+              {inputLocked ? "Отключи" : "Заключи"}
+            </button>
+          ) : null}
+          {setFinished && state.needs_set_start && !matchDone && !viewOnly ? (
+            <button type="button" className="matchLiveNext" disabled={busy || inputLocked} onClick={openNextGate}>
               Следващ гейм
             </button>
           ) : null}
-          <button type="button" className="matchLiveStop" disabled={busy || matchDone} onClick={finishMatch}>
-            Stop
-          </button>
+          {!viewOnly ? (
+            <button type="button" className="matchLiveStop" disabled={busy || matchDone} onClick={finishMatch}>
+              Приключи мача
+            </button>
+          ) : null}
         </div>
       </div>
 
+      {viewOnly ? <div className="matchLiveViewBanner">Режим преглед — само наблюдение в реално време</div> : null}
+      {inputLocked && !matchDone ? (
+        <div className="matchLiveLockBanner">Въвеждането е заключено</div>
+      ) : null}
+
+      {!matchDone && !viewOnly ? (
+        <div className="matchLiveShareBar">
+          <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("edit")}>
+            Линк въвеждане
+          </button>
+          <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("view")}>
+            Линк преглед
+          </button>
+          {shareHint ? <span className="matchLiveShareHint">{shareHint}</span> : null}
+        </div>
+      ) : null}
       {(state.sets || []).length > 0 ? (
         <div className="matchLiveSetStrip" aria-label="Резултат по геймове">
           {(state.sets || []).map((s) => (

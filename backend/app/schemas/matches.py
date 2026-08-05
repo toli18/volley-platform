@@ -217,6 +217,7 @@ class MatchLiveStateRead(BaseModel):
     needs_set_start: bool = False
     can_edit_lineup: bool = False
     match_won_by: Optional[Literal["us", "opp"]] = None
+    input_locked: bool = False
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
@@ -225,6 +226,10 @@ class MatchLiveStateRead(BaseModel):
 
 class MatchLivePhaseIn(BaseModel):
     phase: Literal["base", "serve", "receive"]
+
+
+class MatchLiveLockIn(BaseModel):
+    locked: bool = True
 
 
 class MatchAthleteStatsRead(BaseModel):

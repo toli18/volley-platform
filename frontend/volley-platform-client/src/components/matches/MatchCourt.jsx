@@ -96,10 +96,17 @@ export default function MatchCourt({
   const alignment = useMemo(() => {
     if (!showAlignment && !freeMove) return null;
     if (layoutPhase === "grid" || layoutPhase === "base") return null;
+    // Serving team may pre-stack freely (no FIVB zone adjacency at serve contact).
+    if (layoutPhase === "serve") return null;
     return checkFormationAlignment(resolvedPositions);
   }, [showAlignment, freeMove, layoutPhase, resolvedPositions]);
 
-  const alignUi = alignment ? alignmentStatusBg(alignment) : null;
+  const alignUi = useMemo(() => {
+    if (layoutPhase === "serve" && (showAlignment || freeMove)) {
+      return { tone: "ok", text: "Сервис — свободна подредба (без правило за зони)" };
+    }
+    return alignment ? alignmentStatusBg(alignment) : null;
+  }, [layoutPhase, showAlignment, freeMove, alignment]);
 
   const faultZones = useMemo(() => {
     const set = new Set();

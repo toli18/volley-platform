@@ -25,6 +25,7 @@ from app.schemas.matches import (
     MatchAthleteStatsRead,
     MatchCourtPlayerRead,
     MatchLiveEventRead,
+    MatchLiveLockIn,
     MatchLiveScoreIn,
     MatchLiveSetRead,
     MatchLiveSetSummary,
@@ -317,11 +318,19 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         needs_set_start=needs_set_start,
         can_edit_lineup=can_edit_lineup,
         match_won_by=won_by,  # type: ignore[arg-type]
+        input_locked=bool(getattr(match, "live_input_locked", 0)),
         court=court,
         libero=libero,
         recent_events=events,
         can_undo=can_undo,
     )
+
+
+def _assert_writable(match: Match) -> None:
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    if bool(getattr(match, "live_input_locked", 0)):
+        raise HTTPException(status_code=423, detail="Въвеждането е заключено")
 
 
 def _maybe_finish_match(db: Session, match: Match) -> None:
@@ -432,6 +441,7 @@ def live_score(
     mset = _active_set(db, match.id)
     if not mset:
         raise HTTPException(status_code=422, detail="Няма активен гейм — стартирайте live")
+    _assert_writable(match)
 
     nxt = apply_point(
         our_score=mset.our_score,
@@ -475,6 +485,7 @@ def live_stat(
     mset = _active_set(db, match.id)
     if not mset:
         raise HTTPException(status_code=422, detail="Няма активен гейм — стартирайте live")
+    _assert_writable(match)
 
     try:
         action = MatchStatAction(payload.action)
@@ -540,6 +551,7 @@ def live_undo(
         )
     if not mset:
         raise HTTPException(status_code=422, detail="Няма гейм за undo")
+    _assert_writable(match)
 
     last = (
         db.query(MatchStatEvent)
@@ -591,6 +603,7 @@ def live_next_set(
     active = _active_set(db, match.id)
     if active:
         raise HTTPException(status_code=422, detail="Има незавършен гейм")
+    _assert_writable(match)
 
     if db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).count() != 6:
         raise HTTPException(status_code=422, detail="Запишете шестицата преди следващия гейм")
@@ -625,6 +638,25 @@ def live_next_set(
     )
     db.add(mset)
     match.status = MatchStatus.live
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
+@router.post("/{match_id}/live/lock", response_model=MatchLiveStateRead)
+def live_lock(
+    team_id: int,
+    match_id: int,
+    payload: MatchLiveLockIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Заключва/отключва въвеждането — полезно при два екрана (помощник + треньор)."""
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    match.live_input_locked = 1 if payload.locked else 0
     db.commit()
     db.refresh(match)
     return _state(db, match)

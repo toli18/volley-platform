@@ -19,8 +19,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SECRET_KEY = settings.jwt_secret
 ALGORITHM = settings.jwt_algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-PARENT_ACCESS_TOKEN_EXPIRE_DAYS = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # треньори / админи — 24 часа
+# Родители и състезатели: практически постоянна сесия (~10 години)
+PORTAL_ACCESS_TOKEN_EXPIRE_DAYS = 3650
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -51,14 +52,14 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 def create_parent_access_token(athlete_id: int) -> str:
     return create_access_token(
         {"sub": f"parent:{int(athlete_id)}", "typ": "parent", "athlete_id": int(athlete_id)},
-        expires_delta=timedelta(days=PARENT_ACCESS_TOKEN_EXPIRE_DAYS),
+        expires_delta=timedelta(days=PORTAL_ACCESS_TOKEN_EXPIRE_DAYS),
     )
 
 
 def create_athlete_room_access_token(athlete_id: int) -> str:
     return create_access_token(
         {"sub": f"athlete_room:{int(athlete_id)}", "typ": "athlete_room", "athlete_id": int(athlete_id)},
-        expires_delta=timedelta(days=PARENT_ACCESS_TOKEN_EXPIRE_DAYS),
+        expires_delta=timedelta(days=PORTAL_ACCESS_TOKEN_EXPIRE_DAYS),
     )
 
 
