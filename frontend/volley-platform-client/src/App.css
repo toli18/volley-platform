@@ -7294,8 +7294,8 @@ button.matchChipSlot:not(:disabled) {
     min-height: 200px;
     max-height: 260px;
   }
-  .matchLivePage .matchCourtBoard--md .matchCourtField--tactical,
-  .matchLivePage .matchCourtBoard--lg .matchCourtField--tactical {
+  .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--md .matchCourtField--tactical,
+  .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--lg .matchCourtField--tactical {
     max-height: min(42vh, 280px);
     min-height: 0;
   }
@@ -7643,9 +7643,51 @@ button.matchChipSlot:not(:disabled) {
 }
 .matchLiveTopActions {
   display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+.matchLiveTopActionsSafe,
+.matchLiveTopActionsDanger {
+  display: flex;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+}
+.matchLiveTopActionsDanger {
+  margin-left: 4px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(148, 163, 184, 0.45);
+  gap: 12px;
+}
+.matchLiveTopActionsDanger .matchLiveStop {
+  margin-left: 4px;
+  box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.35);
+}
+@media (max-width: 720px) {
+  .matchLiveTopActions {
+    width: 100%;
+    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .matchLiveTopActionsSafe {
+    justify-content: flex-start;
+  }
+  .matchLiveTopActionsDanger {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.4);
+    padding-top: 8px;
+    justify-content: flex-end;
+    gap: 16px;
+  }
+  .matchLiveTopActionsDanger .matchLiveStop {
+    margin-left: 0;
+  }
 }
 .matchLiveUndo,
 .matchLiveNext,
@@ -7760,6 +7802,7 @@ button.matchChipSlot:not(:disabled) {
   min-width: 0;
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 .matchLiveSideSelected {
   justify-content: center;
@@ -7769,26 +7812,278 @@ button.matchChipSlot:not(:disabled) {
   max-height: 120px;
   overflow: auto;
 }
-.matchLivePage--fs {
+.matchLivePage--fs,
+.publicWatchPage--fs {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
   background: #0b1220;
   color: #e2e8f0;
-  padding: 8px;
-  min-height: 100vh;
+  padding: max(4px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px))
+    max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+}
+body:has(.matchLivePage--fs),
+body:has(.publicWatchPage--fs) {
+  overflow: hidden;
+}
+.matchLivePage--fs .matchLiveShareBar,
+.matchLivePage--fs .matchLiveSetStrip,
+.matchLivePage--fs .matchLiveViewBanner,
+.matchLivePage--fs .matchLiveLockBanner,
+.matchLivePage--fs .matchLiveMatchDone,
+.matchLivePage--fs .matchLiveSideEvents,
+.matchLivePage--fs .matchCourtHint,
+.matchLivePage--fs .matchCourtAlignStatus,
+.publicWatchPage--fs .matchLiveSetStrip,
+.publicWatchPage--fs .matchLiveLockBanner,
+.publicWatchPage--fs .matchLiveSideEvents,
+.publicWatchPage--fs .matchCourtHint,
+.publicWatchPage--fs .matchCourtAlignStatus {
+  display: none !important;
+}
+.matchLivePage--fs .matchLiveTop,
+.publicWatchPage--fs .publicWatchTop {
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0;
+}
+.matchLivePage--fs .matchLiveBack {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.matchLivePage--fs .matchLiveMeta strong,
+.publicWatchPage--fs .publicWatchTop strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+.matchLivePage--fs .matchLiveMeta span,
+.publicWatchPage--fs .publicWatchMeta {
+  font-size: 10px;
+  line-height: 1.2;
+  max-width: 42vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.matchLivePage--fs .matchLiveTopActions {
+  gap: 8px;
+}
+.matchLivePage--fs .matchLiveTopActionsSafe,
+.matchLivePage--fs .matchLiveTopActionsDanger {
+  gap: 6px;
+}
+.matchLivePage--fs .matchLiveTopActionsDanger {
+  padding-left: 10px;
+  gap: 10px;
+}
+.matchLivePage--fs .matchLiveUndo,
+.matchLivePage--fs .matchLiveNext,
+.matchLivePage--fs .matchLiveStop,
+.matchLivePage--fs .matchLiveStatsOpenBtn,
+.matchLivePage--fs .matchLiveLockBtn,
+.publicWatchPage--fs .publicWatchFsBtn {
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.matchLivePage--fs .matchLiveScore,
+.publicWatchPage--fs .matchLiveScore {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  gap: 3px;
+  border-radius: 10px;
+}
+.matchLivePage--fs .matchLiveScoreNum,
+.publicWatchPage--fs .matchLiveScoreNum {
+  font-size: 22px;
+}
+.matchLivePage--fs .matchLiveScoreLabel,
+.publicWatchPage--fs .matchLiveScoreLabel {
+  font-size: 9px;
+}
+.matchLivePage--fs .matchLiveScoreMid,
+.publicWatchPage--fs .matchLiveScoreMid {
+  font-size: 11px;
+  gap: 2px;
+}
+.matchLivePage--fs .matchLiveServePill,
+.publicWatchPage--fs .matchLiveServePill {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+.matchLivePage--fs .matchLiveScoreSide button,
+.publicWatchPage--fs .matchLiveScoreSide button {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  border-radius: 9px;
+}
+.matchLivePage--fs .matchLiveScore .matchLivePhaseBar,
+.publicWatchPage--fs .matchLiveScore .matchLivePhaseBar {
+  padding: 2px;
+  gap: 3px;
+}
+.matchLivePage--fs .matchLiveScore .matchLivePhaseBtn,
+.publicWatchPage--fs .matchLiveScore .matchLivePhaseBtn {
+  padding: 5px 4px;
+  font-size: 0.72rem;
+  border-radius: 7px;
+}
+.matchLivePage--fs .matchLiveScore .matchLivePhaseAuto,
+.publicWatchPage--fs .matchLiveScore .matchLivePhaseAuto {
+  font-size: 0.5rem;
+}
+.matchLivePage--fs .matchLiveCourtRow,
+.publicWatchPage--fs .matchLiveCourtRow {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 4px;
+  align-items: stretch;
+}
+.matchLivePage--fs .matchLiveCourtMain,
+.publicWatchPage--fs .matchLiveCourtMain {
+  gap: 4px;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+}
+.matchLivePage--fs .matchLiveSideSelected,
+.publicWatchPage--fs .matchLiveSideSelected {
+  padding: 3px 6px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.matchLivePage--fs .matchLiveSideCol,
+.publicWatchPage--fs .matchLiveSideCol {
+  gap: 4px;
+  justify-content: space-between;
+}
+.matchLivePage--fs .matchLiveSideBtn,
+.publicWatchPage--fs .matchLiveSideBtn {
+  min-height: 0;
+  flex: 1 1 0;
+  font-size: 10px !important;
+  padding: 3px 2px !important;
+}
+.matchLivePage--fs .matchCourtBoard,
+.publicWatchPage--fs .matchCourtBoard,
+.matchLivePage--fs .matchCourtBoard--md,
+.matchLivePage--fs .matchCourtBoard--lg,
+.publicWatchPage--fs .matchCourtBoard--md,
+.publicWatchPage--fs .matchCourtBoard--lg {
+  min-height: 0;
+  height: 100%;
+  max-width: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+}
+.matchLivePage--fs .matchCourtBoardHead,
+.publicWatchPage--fs .matchCourtBoardHead {
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.matchLivePage--fs .matchCourtBoardTitle,
+.publicWatchPage--fs .matchCourtBoardTitle {
+  font-size: 12px;
+}
+.matchLivePage--fs .matchCourtBoardSub,
+.publicWatchPage--fs .matchCourtBoardSub {
+  font-size: 9px;
+}
+.matchLivePage--fs .matchCourtStage--perspective,
+.publicWatchPage--fs .matchCourtStage--perspective {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  perspective: 900px;
+}
+.matchLivePage--fs .matchCourtPlane--3d,
+.publicWatchPage--fs .matchCourtPlane--3d {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  transform: rotateX(18deg);
+  transform-origin: 50% 42%;
+}
+.matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
+.matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
+.publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
+.publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
+  max-height: none !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  flex: 1;
+  aspect-ratio: auto !important;
+  width: 100%;
 }
 .matchLivePage--fs .matchLiveScore,
 .matchLivePage--fs .matchLiveSideSelected,
-.matchLivePage--fs .matchLiveEventRow {
+.matchLivePage--fs .matchLiveEventRow,
+.publicWatchPage--fs .matchLiveScore,
+.publicWatchPage--fs .matchLiveSideSelected {
   color: #e2e8f0;
 }
 @media (max-width: 720px) {
   .matchLiveCourtRow {
-    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    grid-template-columns: 58px minmax(0, 1fr) 58px;
     gap: 4px;
   }
   .matchLiveSideBtn {
-    min-height: 36px;
+    min-height: 34px;
     font-size: 10px !important;
     padding: 4px 2px !important;
+  }
+  .matchLivePage--fs .matchLiveTop,
+  .publicWatchPage--fs .publicWatchTop {
+    flex-wrap: wrap;
+  }
+  .matchLivePage--fs .matchLiveMeta span,
+  .publicWatchPage--fs .publicWatchMeta {
+    max-width: 100%;
+  }
+  .matchLivePage--fs .matchLiveTopActionsDanger {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.35);
+    padding-top: 6px;
+    justify-content: flex-end;
+    gap: 14px;
+  }
+  .matchLivePage--fs .matchLiveScoreNum,
+  .publicWatchPage--fs .matchLiveScoreNum {
+    font-size: 20px;
+  }
+  .matchLivePage--fs .matchCourtPlane--3d,
+  .publicWatchPage--fs .matchCourtPlane--3d {
+    transform: rotateX(18deg) scale(1);
+  }
+  .matchLivePage--fs .matchChipSlot--abs,
+  .publicWatchPage--fs .matchChipSlot--abs {
+    width: 56px;
+    min-height: 62px;
+  }
+  .matchLivePage--fs .matchCourtBoard--tactical .matchChipCircle,
+  .publicWatchPage--fs .matchCourtBoard--tactical .matchChipCircle {
+    width: 42px;
+    height: 42px;
+    font-size: 12px;
   }
 }
 
@@ -7810,7 +8105,8 @@ button.matchChipSlot:not(:disabled) {
   color: #e2e8f0;
 }
 .publicWatchPage--fs {
-  padding: 8px;
+  /* base FS styles shared above; keep grid override off */
+  display: flex;
 }
 .publicWatchPage--ended {
   place-content: center;

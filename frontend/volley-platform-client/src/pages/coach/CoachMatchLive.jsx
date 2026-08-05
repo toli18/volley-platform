@@ -297,7 +297,8 @@ export default function CoachMatchLive() {
     run(() => load(phaseId));
   };
 
-  const finishMatch = () =>
+  const finishMatch = ({ confirm = true } = {}) => {
+    if (confirm && !window.confirm("Приключи мача окончателно?")) return;
     run(async () => {
       const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_FINISH(teamIdNum, matchIdNum));
       toast.success("Мачът е приключен.");
@@ -305,6 +306,7 @@ export default function CoachMatchLive() {
       navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/report`);
       return res.data;
     });
+  };
 
   const confirmGate = () =>
     run(
@@ -350,20 +352,40 @@ export default function CoachMatchLive() {
     });
 
   const toggleFullscreen = async () => {
-    const el = rootRef.current;
-    if (!el) return;
+    if (!fullscreen) {
+      setFullscreen(true);
+      try {
+        const el = rootRef.current;
+        const req = el?.requestFullscreen || el?.webkitRequestFullscreen;
+        if (req) await req.call(el);
+      } catch {
+        /* iOS / locked — CSS fullscreen still works */
+      }
+      return;
+    }
+    setFullscreen(false);
     try {
-      if (!document.fullscreenElement) await el.requestFullscreen();
-      else await document.exitFullscreen();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) await exit.call(document);
+      }
     } catch {
       /* ignore */
     }
   };
 
   useEffect(() => {
-    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
+    const onFs = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        setFullscreen(false);
+      }
+    };
     document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+    };
   }, []);
 
   const toggleLock = () => {
@@ -465,7 +487,12 @@ export default function CoachMatchLive() {
                 {busy ? "..." : gateMode === "next" ? "Старт на гейма" : "Започни мача"}
               </button>
               {gateMode === "next" || matchDone ? (
-                <button type="button" className="matchLiveStop" disabled={busy} onClick={finishMatch}>
+                <button
+                  type="button"
+                  className="matchLiveStop"
+                  disabled={busy}
+                  onClick={() => finishMatch({ confirm: false })}
+                >
                   Приключи мача
                 </button>
               ) : (
@@ -506,35 +533,44 @@ export default function CoachMatchLive() {
           </span>
         </div>
         <div className="matchLiveTopActions">
-          <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo || !canWrite} onClick={undo}>
-            Undo
-          </button>
-          <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
-            Статистика
-          </button>
-          <button type="button" className="matchLiveStatsOpenBtn" onClick={toggleFullscreen}>
-            {fullscreen ? "Изход екран" : "Пълен екран"}
-          </button>
-          {!viewOnly && !matchDone ? (
-            <button
-              type="button"
-              className={`matchLiveLockBtn${inputLocked ? " is-locked" : ""}`}
-              disabled={busy}
-              onClick={toggleLock}
-              title="Заключи въвеждането"
-            >
-              {inputLocked ? "Отключи" : "Заключи"}
+          <div className="matchLiveTopActionsSafe">
+            <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo || !canWrite} onClick={undo}>
+              Undo
             </button>
-          ) : null}
-          {setFinished && state.needs_set_start && !matchDone && !viewOnly ? (
-            <button type="button" className="matchLiveNext" disabled={busy || inputLocked} onClick={openNextGate}>
-              Следващ гейм
+            <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
+              Статистика
             </button>
-          ) : null}
+            <button type="button" className="matchLiveStatsOpenBtn" onClick={toggleFullscreen}>
+              {fullscreen ? "Изход екран" : "Пълен екран"}
+            </button>
+            {setFinished && state.needs_set_start && !matchDone && !viewOnly ? (
+              <button type="button" className="matchLiveNext" disabled={busy || inputLocked} onClick={openNextGate}>
+                Следващ гейм
+              </button>
+            ) : null}
+          </div>
           {!viewOnly ? (
-            <button type="button" className="matchLiveStop" disabled={busy || matchDone} onClick={finishMatch}>
-              Приключи мача
-            </button>
+            <div className="matchLiveTopActionsDanger">
+              {!matchDone ? (
+                <button
+                  type="button"
+                  className={`matchLiveLockBtn${inputLocked ? " is-locked" : ""}`}
+                  disabled={busy}
+                  onClick={toggleLock}
+                  title="Заключи въвеждането"
+                >
+                  {inputLocked ? "Отключи" : "Заключи"}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="matchLiveStop"
+                disabled={busy || matchDone}
+                onClick={() => finishMatch()}
+              >
+                Приключи мача
+              </button>
+            </div>
           ) : null}
         </div>
       </div>

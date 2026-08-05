@@ -70,17 +70,37 @@ export default function PublicMatchWatch() {
   }, [loading, state?.expired, state?.status, busy, load]);
 
   useEffect(() => {
-    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
+    const onFs = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        setFullscreen(false);
+      }
+    };
     document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+    };
   }, []);
 
   const toggleFullscreen = async () => {
-    const el = rootRef.current;
-    if (!el) return;
+    if (!fullscreen) {
+      setFullscreen(true);
+      try {
+        const el = rootRef.current;
+        const req = el?.requestFullscreen || el?.webkitRequestFullscreen;
+        if (req) await req.call(el);
+      } catch {
+        /* iOS / locked — CSS fullscreen still works */
+      }
+      return;
+    }
+    setFullscreen(false);
     try {
-      if (!document.fullscreenElement) await el.requestFullscreen();
-      else await document.exitFullscreen();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) await exit.call(document);
+      }
     } catch {
       /* ignore */
     }
