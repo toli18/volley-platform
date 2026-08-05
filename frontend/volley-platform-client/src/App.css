@@ -7725,11 +7725,82 @@ button.matchChipSlot:not(:disabled) {
   font-weight: 700;
   cursor: pointer;
 }
+.matchLiveShareBtn--public {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
 .matchLiveShareHint {
   font-size: 11px;
   color: #64748b;
   word-break: break-all;
 }
+
+.appShell--watch,
+.appContent--watch {
+  min-height: 100vh;
+  background: #0b1220;
+}
+.appContent--watch {
+  padding: 0 !important;
+  max-width: none !important;
+}
+.publicWatchPage {
+  min-height: 100vh;
+  padding: 12px 12px 28px;
+  display: grid;
+  gap: 10px;
+  background: #0b1220;
+  color: #e2e8f0;
+}
+.publicWatchPage--fs {
+  padding: 8px;
+}
+.publicWatchPage--ended {
+  place-content: center;
+  text-align: center;
+  gap: 8px;
+}
+.publicWatchMuted {
+  color: #94a3b8;
+}
+.publicWatchTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.publicWatchMeta {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+.publicWatchFsBtn {
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.publicWatchScore {
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 14px;
+  padding: 10px;
+}
+.publicWatchEntry {
+  opacity: 0.92;
+}
+.publicWatchSelectedHint {
+  color: #94a3b8 !important;
+}
+.publicWatchPage .matchLiveStatBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .matchLiveScore {
   display: grid;
   gap: 6px;

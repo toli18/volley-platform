@@ -218,6 +218,7 @@ class MatchLiveStateRead(BaseModel):
     can_edit_lineup: bool = False
     match_won_by: Optional[Literal["us", "opp"]] = None
     input_locked: bool = False
+    share_token: Optional[str] = None
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
@@ -230,6 +231,30 @@ class MatchLivePhaseIn(BaseModel):
 
 class MatchLiveLockIn(BaseModel):
     locked: bool = True
+
+
+class MatchLiveShareRead(BaseModel):
+    share_token: str
+    share_path: str  # /watch/{token}
+
+
+class MatchPublicLiveRead(BaseModel):
+    """Публичен spectator payload — без чувствителни coach-only полета."""
+
+    opponent_name: Optional[str] = None
+    system: MatchSystemLiteral
+    format: MatchFormatLiteral = "bo5"
+    status: MatchStatusLiteral
+    phase: Literal["base", "serve", "receive"] = "serve"
+    set: Optional[MatchLiveSetRead] = None
+    sets: list[MatchLiveSetSummary] = Field(default_factory=list)
+    sets_won_us: int = 0
+    sets_won_opp: int = 0
+    match_won_by: Optional[Literal["us", "opp"]] = None
+    court: list[MatchCourtPlayerRead] = Field(default_factory=list)
+    libero: Optional[MatchCourtPlayerRead] = None
+    recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
+    expired: bool = False
 
 
 class MatchAthleteStatsRead(BaseModel):

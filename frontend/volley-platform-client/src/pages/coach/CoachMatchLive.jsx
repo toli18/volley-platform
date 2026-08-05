@@ -369,18 +369,43 @@ export default function CoachMatchLive() {
   const openNextGate = () => openGate("next", state);
 
   const copyShareLink = async (mode) => {
+    if (mode === "public") {
+      try {
+        setBusy(true);
+        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SHARE(teamIdNum, matchIdNum));
+        const path = res.data?.share_path || `/watch/${res.data?.share_token}`;
+        const url = `${window.location.origin}${path}`;
+        await navigator.clipboard.writeText(url);
+        setShareHint(url);
+        setState((prev) => (prev ? { ...prev, share_token: res.data.share_token } : prev));
+        toast.success("Публичният линк е копиран (без вход).");
+      } catch (err) {
+        toast.error(normalizeError(err, "Неуспешно създаване на публичен линк."));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const url = `${window.location.origin}/coach/teams/${teamIdNum}/matches/${matchIdNum}/live${
       mode === "view" ? "?mode=view" : ""
     }`;
     try {
       await navigator.clipboard.writeText(url);
-      setShareHint(mode === "view" ? "Копиран линк за преглед" : "Копиран линк за въвеждане");
+      setShareHint(mode === "view" ? "Копиран линк за преглед (с вход)" : "Копиран линк за въвеждане");
       toast.success(mode === "view" ? "Линк за преглед копиран." : "Линк за въвеждане копиран.");
     } catch {
       setShareHint(url);
       toast.error("Копирай линка ръчно от полето по-долу.");
     }
   };
+
+  const revokePublicLink = () =>
+    run(async () => {
+      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SHARE_REVOKE(teamIdNum, matchIdNum));
+      setShareHint("");
+      toast.success("Публичният линк е изтрит.");
+      return res.data;
+    });
 
   const toggleLock = () => {
     if (viewOnly) {
@@ -559,11 +584,19 @@ export default function CoachMatchLive() {
 
       {!matchDone && !viewOnly ? (
         <div className="matchLiveShareBar">
+          <button type="button" className="matchLiveShareBtn matchLiveShareBtn--public" disabled={busy} onClick={() => copyShareLink("public")}>
+            Публичен линк (без вход)
+          </button>
+          {state.share_token ? (
+            <button type="button" className="matchLiveShareBtn" disabled={busy} onClick={revokePublicLink}>
+              Изтрий публичния
+            </button>
+          ) : null}
           <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("edit")}>
             Линк въвеждане
           </button>
           <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("view")}>
-            Линк преглед
+            Линк преглед (с вход)
           </button>
           {shareHint ? <span className="matchLiveShareHint">{shareHint}</span> : null}
         </div>

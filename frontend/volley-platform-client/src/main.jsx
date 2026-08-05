@@ -36,6 +36,7 @@ const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
 const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamRoomLogin = React.lazy(() => import("./pages/TeamRoomLogin.jsx"));
 const TeamRoomPortal = React.lazy(() => import("./pages/TeamRoomPortal.jsx"));
+const PublicMatchWatch = React.lazy(() => import("./pages/PublicMatchWatch.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 const CoachMobileLayout = React.lazy(() => import("./components/coachMobile/CoachMobileLayout.jsx"));
@@ -149,6 +150,7 @@ const router = createBrowserRouter([
       { path: "room/login", element: <TeamRoomLogin /> },
       { path: "room/portal", element: <TeamRoomPortal /> },
       { path: "room", element: <Navigate to="/room/login" replace /> },
+      { path: "watch/:token", element: <PublicMatchWatch /> },
       { path: "team/:token", element: <Navigate to="/room/login" replace /> },
       { path: "team", element: <Navigate to="/room/login" replace /> },
 

@@ -161,7 +161,11 @@ export const API_PATHS = {
   TEAM_MATCH_LIVE_NEXT_SET: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/next-set`,
   TEAM_MATCH_LIVE_FINISH: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/finish`,
   TEAM_MATCH_LIVE_LOCK: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/lock`,
+  TEAM_MATCH_LIVE_SHARE: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/share`,
+  TEAM_MATCH_LIVE_SHARE_REVOKE: (teamId, matchId) =>
+    `/api/teams/${teamId}/matches/${matchId}/live/share/revoke`,
   TEAM_MATCH_REPORT: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/report`,
+  PUBLIC_MATCH_LIVE: (token) => `/api/public/match-live/${token}`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
   TEAM_ATHLETE_PHOTO: (athleteId) => `/api/teams/athletes/${athleteId}/photo`,
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",

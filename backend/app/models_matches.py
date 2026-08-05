@@ -84,6 +84,8 @@ class Match(Base):
     notes = Column(Text, nullable=True)
     libero_athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True)
     live_input_locked = Column(Integer, nullable=False, default=0)
+    # Публичен spectator линк (без login); изтрива се при край на мача
+    live_share_token = Column(String(64), nullable=True, unique=True, index=True)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

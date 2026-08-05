@@ -144,6 +144,18 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_share_token "
+                        "VARCHAR(64)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_matches_live_share_token "
+                        "ON matches (live_share_token)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "
                         "INTEGER NOT NULL DEFAULT 1"
                     )

@@ -1,6 +1,8 @@
 # backend/app/routers/match_live.py
 from __future__ import annotations
 
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -29,9 +31,11 @@ from app.schemas.matches import (
     MatchLiveScoreIn,
     MatchLiveSetRead,
     MatchLiveSetSummary,
+    MatchLiveShareRead,
     MatchLiveStart,
     MatchLiveStateRead,
     MatchLiveStatIn,
+    MatchPublicLiveRead,
     MatchReportRead,
     MatchSetStatsRead,
 )
@@ -319,11 +323,17 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         can_edit_lineup=can_edit_lineup,
         match_won_by=won_by,  # type: ignore[arg-type]
         input_locked=bool(getattr(match, "live_input_locked", 0)),
+        share_token=getattr(match, "live_share_token", None) or None,
         court=court,
         libero=libero,
         recent_events=events,
         can_undo=can_undo,
     )
+
+
+def _clear_share_token(match: Match) -> None:
+    if getattr(match, "live_share_token", None):
+        match.live_share_token = None
 
 
 def _assert_writable(match: Match) -> None:
@@ -338,6 +348,7 @@ def _maybe_finish_match(db: Session, match: Match) -> None:
     us, opp = count_sets_won(_all_sets(db, match.id))
     if is_match_won(us, opp, fmt):
         match.status = MatchStatus.finished
+        _clear_share_token(match)
 
 
 def _record_event(
@@ -643,6 +654,42 @@ def live_next_set(
     return _state(db, match)
 
 
+@router.post("/{match_id}/live/share", response_model=MatchLiveShareRead)
+def live_share(
+    team_id: int,
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Създава/връща публичен spectator линк (без login). Изтрива се при край на мача."""
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен — публичният линк е изтрит")
+    token = getattr(match, "live_share_token", None)
+    if not token:
+        token = secrets.token_urlsafe(24)
+        match.live_share_token = token
+        db.commit()
+        db.refresh(match)
+    return MatchLiveShareRead(share_token=token, share_path=f"/watch/{token}")
+
+
+@router.post("/{match_id}/live/share/revoke", response_model=MatchLiveStateRead)
+def live_share_revoke(
+    team_id: int,
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    _clear_share_token(match)
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
 @router.post("/{match_id}/live/lock", response_model=MatchLiveStateRead)
 def live_lock(
     team_id: int,
@@ -675,6 +722,7 @@ def live_finish(
     if active:
         active.status = MatchSetStatus.finished
     match.status = MatchStatus.finished
+    _clear_share_token(match)
     db.commit()
     db.refresh(match)
     return _state(db, match)

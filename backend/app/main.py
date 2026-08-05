@@ -34,6 +34,7 @@ from app.routers.pilot_requests import router as pilot_requests_router
 from app.routers.assessments import router as assessments_router
 from app.routers.matches import router as matches_router
 from app.routers.match_live import router as match_live_router
+from app.routers.match_public import router as match_public_router
 from app.routers.bvf_admin import router as bvf_admin_router
 from app.routers.bvf_carding import router as bvf_carding_router
 from app.routers.club_consent import docs_router as athlete_docs_router
@@ -102,6 +103,7 @@ app.include_router(national_method_router)
 app.include_router(assessments_router)
 app.include_router(matches_router)
 app.include_router(match_live_router)
+app.include_router(match_public_router)
 app.include_router(bvf_admin_router)
 app.include_router(bvf_carding_router)
 app.include_router(club_consent_router)
