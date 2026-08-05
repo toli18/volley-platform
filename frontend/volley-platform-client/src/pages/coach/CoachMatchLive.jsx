@@ -698,6 +698,7 @@ export default function CoachMatchLive() {
         selected={selected}
         disabled={busy || !playing}
         onStat={recordStat}
+        onOpenStats={() => setStatsOpen(true)}
         events={state.recent_events || []}
       >
         <MatchCourt

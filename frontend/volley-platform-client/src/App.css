@@ -7950,9 +7950,8 @@ body:has(.publicWatchPage--fs) {
 .matchLivePage--fs .matchLiveTopActions {
   gap: 8px;
 }
-.matchLivePage--fs .matchLiveTopActionsSafe,
-.matchLivePage--fs .matchLiveTopActionsDanger {
-  gap: 6px;
+.matchLivePage--fs .matchLiveTopActionsSafe .matchLiveStatsOpenBtn {
+  flex-shrink: 0;
 }
 .matchLivePage--fs .matchLiveTopActionsDanger {
   padding-left: 10px;
@@ -8691,7 +8690,7 @@ body:has(.publicWatchPage--fs) {
 .matchLiveStatsOverlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 2400;
   display: grid;
   justify-content: end;
   grid-template-columns: 1fr minmax(300px, min(920px, 96vw));
@@ -8900,6 +8899,17 @@ body:has(.publicWatchPage--fs) {
 .matchLiveStatBtn--neutral {
   background: #334155;
   color: #e2e8f0;
+}
+.matchLiveStatBtn--stats {
+  background: #0f766e;
+  color: #ecfdf5;
+  flex: 0 0 auto;
+  min-height: 36px !important;
+}
+.matchLivePage--fs .matchLiveStatBtn--stats,
+.publicWatchPage--fs .matchLiveStatBtn--stats {
+  min-height: 0;
+  flex: 0 0 auto;
 }
 .matchLiveStatBtn--sym {
   min-width: 36px;

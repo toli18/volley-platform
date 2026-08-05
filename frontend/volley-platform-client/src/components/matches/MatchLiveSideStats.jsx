@@ -11,7 +11,6 @@ export const MATCH_STAT_SIDE_LEFT = [
 
 export const MATCH_STAT_SIDE_RIGHT = [
   { action: "dig", label: "Защита", tone: "neutral" },
-  { action: "our_point", label: "Точка+", tone: "good" },
   { action: "pass_3", label: "#", tone: "good" },
   { action: "pass_2", label: "+", tone: "good" },
   { action: "pass_1", label: "−", tone: "neutral" },
@@ -34,9 +33,10 @@ export const MATCH_ACTION_LABEL = {
   opp_error: "Грешка на противника",
 };
 
-function SideCol({ items, side, disabled, onStat }) {
+function SideCol({ items, side, disabled, onStat, extraTop = null }) {
   return (
     <div className={`matchLiveSideCol matchLiveSideCol--${side}`} role="group" aria-label={`Статистика ${side}`}>
+      {extraTop}
       {items.map((it) => (
         <button
           key={it.action}
@@ -60,9 +60,21 @@ export default function MatchLiveSideStats({
   selected = null,
   disabled = false,
   onStat,
+  onOpenStats = null,
   events = [],
   children,
 }) {
+  const statsBtn = onOpenStats ? (
+    <button
+      type="button"
+      className="matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--stats"
+      onClick={onOpenStats}
+      title="Статистика на мача"
+    >
+      Стат.
+    </button>
+  ) : null;
+
   return (
     <div className="matchLiveCourtRow">
       <SideCol items={MATCH_STAT_SIDE_LEFT} side="left" disabled={disabled} onStat={onStat} />
@@ -91,7 +103,13 @@ export default function MatchLiveSideStats({
           ))}
         </div>
       </div>
-      <SideCol items={MATCH_STAT_SIDE_RIGHT} side="right" disabled={disabled} onStat={onStat} />
+      <SideCol
+        items={MATCH_STAT_SIDE_RIGHT}
+        side="right"
+        disabled={disabled}
+        onStat={onStat}
+        extraTop={statsBtn}
+      />
     </div>
   );
 }
