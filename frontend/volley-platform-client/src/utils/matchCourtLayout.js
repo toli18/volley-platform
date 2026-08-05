@@ -6,12 +6,12 @@
  */
 
 export const BASE_ZONE_XY = {
-  4: { x: 18, y: 16 },
-  3: { x: 50, y: 14 },
-  2: { x: 82, y: 16 },
-  5: { x: 18, y: 62 },
-  6: { x: 50, y: 60 },
-  1: { x: 82, y: 64 },
+  4: { x: 18, y: 12 },
+  3: { x: 50, y: 10 },
+  2: { x: 82, y: 12 },
+  5: { x: 18, y: 46 },
+  6: { x: 50, y: 44 },
+  1: { x: 82, y: 68 },
 };
 
 export const GRID_ZONE_XY = { ...BASE_ZONE_XY };
@@ -122,7 +122,7 @@ function buildServeAttackXy(zoneRoleByRot) {
       const target = serveAttackTargetZone(role, rot, officialZone);
       // Сервиращият малко по-назад/встрани; останалите в центъра на атакуващата зона
       if (officialZone === 1) {
-        row[role] = { x: 90, y: 88 };
+        row[role] = { x: 88, y: 78 };
       } else {
         row[role] = { ...(BASE_ZONE_XY[target] || BASE_ZONE_XY[officialZone]) };
       }

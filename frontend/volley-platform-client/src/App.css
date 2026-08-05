@@ -6995,7 +6995,7 @@
   position: absolute;
   left: 6%;
   right: 6%;
-  top: 42%;
+  top: 26%;
   border-top: 2px dashed rgba(248, 250, 252, 0.55);
   pointer-events: none;
   z-index: 1;
@@ -7037,6 +7037,14 @@
 .matchCourtBoard--tactical .matchChipSlot--abs {
   pointer-events: none;
 }
+.matchCourtBoard--tactical .matchCourtAbsLayer--pick .matchChipSlot--abs {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.matchCourtBoard--tactical .matchCourtAbsLayer--pick .matchChipSlot--abs.matchChipSlot--drag {
+  cursor: grabbing;
+}
 .matchCourtRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -7060,7 +7068,7 @@
   width: 72px;
   margin: 0;
   padding: 0;
-  transform: translate(-50%, -50%) rotateX(-40deg);
+  transform: translate(-50%, -50%) rotateX(-22deg);
   transform-origin: center center;
   z-index: 2;
   transition: left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -8085,7 +8093,7 @@ body:has(.publicWatchPage--fs) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: rotateX(10deg);
+  transform: rotateX(8deg);
   transform-origin: 50% 45%;
 }
 /* Keep desktop-like court proportions — never squash by height */
@@ -8093,12 +8101,16 @@ body:has(.publicWatchPage--fs) {
 .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-  aspect-ratio: 1.28 / 1 !important;
-  width: min(100%, calc((100dvh - 84px) * 1.28)) !important;
+  aspect-ratio: 1.32 / 1 !important;
+  width: min(100%, calc((100dvh - 76px) * 1.32)) !important;
   height: auto !important;
-  max-height: calc(100dvh - 84px) !important;
+  max-height: calc(100dvh - 76px) !important;
   min-height: 0 !important;
   flex: none !important;
+  overflow: visible;
+}
+.matchLivePage--fs .matchCourtBoard,
+.publicWatchPage--fs .matchCourtBoard {
   overflow: visible;
 }
 .matchLivePage--fs .matchLiveScore,
@@ -8341,20 +8353,20 @@ body:has(.publicWatchPage--fs) {
   }
   .matchLivePage--fs .matchCourtPlane--3d,
   .publicWatchPage--fs .matchCourtPlane--3d {
-    transform: rotateX(6deg);
+    transform: rotateX(4deg);
     transform-origin: 50% 50%;
   }
   .matchLivePage--fs .matchCourtStage--perspective,
   .publicWatchPage--fs .matchCourtStage--perspective {
-    perspective: 1400px;
+    perspective: none;
     overflow: visible;
   }
   .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-    aspect-ratio: 1.35 / 1 !important;
-    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.35)) !important;
+    aspect-ratio: 1.4 / 1 !important;
+    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.4)) !important;
     max-height: calc(100dvh - var(--live-chrome)) !important;
     height: auto !important;
     overflow: visible;
@@ -8368,6 +8380,7 @@ body:has(.publicWatchPage--fs) {
   .publicWatchPage--fs .matchChipSlot--abs {
     width: 50px;
     min-height: 54px;
+    transform: translate(-50%, -50%) rotateX(-8deg);
   }
   .matchLivePage--fs .matchCourtBoard--tactical .matchChipCircle,
   .publicWatchPage--fs .matchCourtBoard--tactical .matchChipCircle {

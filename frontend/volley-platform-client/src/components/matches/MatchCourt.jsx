@@ -7,7 +7,7 @@ import { positionColor, positionShort, shortPlayerName } from "../../utils/match
 const LONG_PRESS_MS = 380;
 const ZONES = [4, 3, 2, 5, 6, 1];
 /** Max screen px from chip center to count as a hit (after 3D projection). */
-const HIT_RADIUS_PX = 56;
+const HIT_RADIUS_PX = 72;
 
 export default function MatchCourt({
   slots = [],
@@ -213,7 +213,8 @@ export default function MatchCourt({
 
     const isTouch = e.pointerType === "touch";
     if (freeMove || rearrangeable) {
-      if (isTouch && freeMove) {
+      if (freeMove) {
+        // Immediate drag for both mouse and touch (coach stacks).
         dragging.current = true;
         setDragFrom(zone);
       } else if (isTouch && rearrangeable) {
@@ -231,7 +232,7 @@ export default function MatchCourt({
         }, LONG_PRESS_MS);
       }
       try {
-        (layerRef.current || e.currentTarget)?.setPointerCapture?.(e.pointerId);
+        (e.currentTarget || layerRef.current)?.setPointerCapture?.(e.pointerId);
       } catch {
         /* ignore */
       }
@@ -352,16 +353,22 @@ export default function MatchCourt({
     startZone.current = null;
   };
 
-  // Grid / non-tactical: keep per-chip handlers
+  // Grid / chip handlers — tactical freeMove also uses chips (more reliable on touch).
   const onPointerDown = (zone, e) => {
-    if (!canInteract || isTactical) return;
+    if (!canInteract) return;
+    if (isTactical && !freeMove) return;
     if (e.button != null && e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
     armDrag(zone, e);
   };
 
   const onPointerMove = (zone, e) => {
-    if (isTactical) return;
+    if (isTactical && !freeMove) return;
+    if (isTactical && freeMove) {
+      onLayerPointerMove(e);
+      return;
+    }
     onLayerPointerMove(e);
     if (!dragging.current || freeMove) return;
     const pct = pctFromEvent(e);
@@ -369,7 +376,7 @@ export default function MatchCourt({
   };
 
   const onPointerUp = (zone, e) => {
-    if (isTactical) return;
+    if (isTactical && !freeMove) return;
     onLayerPointerUp(e);
   };
 
@@ -437,6 +444,14 @@ export default function MatchCourt({
           },
           role: canInteract ? "button" : undefined,
           tabIndex: canInteract ? 0 : undefined,
+          ...(freeMove
+            ? {
+                onPointerDown: (e) => onPointerDown(zone, e),
+                onPointerMove: (e) => onPointerMove(zone, e),
+                onPointerUp: (e) => onPointerUp(zone, e),
+                onPointerCancel: onLayerPointerCancel,
+              }
+            : {}),
         }
       : {
           type: "button",

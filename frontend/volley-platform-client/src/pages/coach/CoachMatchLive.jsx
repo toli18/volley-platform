@@ -713,7 +713,7 @@ export default function CoachMatchLive() {
           title={`Ротация ${mset?.rotation ?? 1}`}
           subtitle={`${state.system} · ${phaseLabel}`}
           activeZone={selected?.zone ?? null}
-          positionEditable={canEditPositions && playing}
+          positionEditable={canEditPositions && Boolean(mset) && mset.status === "in_progress" && !viewOnly && !matchDone}
           positionOverrides={positionOverrides}
           showAlignment={canEditPositions}
           onPositionsChange={(next) => {

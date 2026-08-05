@@ -83,6 +83,6 @@ export function alignmentStatusBg(result) {
 export function clampCourtPct(x, y) {
   return {
     x: Math.min(94, Math.max(6, Number(x) || 50)),
-    y: Math.min(92, Math.max(8, Number(y) || 50)),
+    y: Math.min(86, Math.max(6, Number(y) || 50)),
   };
 }
