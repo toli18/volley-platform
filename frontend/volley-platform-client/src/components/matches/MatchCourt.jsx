@@ -7,7 +7,7 @@ import { positionColor, positionShort, shortPlayerName } from "../../utils/match
 const LONG_PRESS_MS = 380;
 const ZONES = [4, 3, 2, 5, 6, 1];
 /** Max screen px from chip center to count as a hit (after 3D projection). */
-const HIT_RADIUS_PX = 72;
+const HIT_RADIUS_PX = 88;
 
 export default function MatchCourt({
   slots = [],
@@ -134,7 +134,7 @@ export default function MatchCourt({
   };
 
   const pctFromEvent = (e) => {
-    const el = planeRef.current;
+    const el = layerRef.current || planeRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
@@ -143,7 +143,7 @@ export default function MatchCourt({
     return clampCourtPct(x, y);
   };
 
-  /** Pick chip by visual screen position (fixes 3D perspective stealing hits). */
+  /** Pick chip by visual screen position (nearest center). */
   const findZoneAtClient = (clientX, clientY) => {
     let best = null;
     let bestScore = Infinity;
@@ -156,14 +156,13 @@ export default function MatchCourt({
       const cx = (r.left + r.right) / 2;
       const cy = (r.top + r.bottom) / 2;
       const dist = Math.hypot(clientX - cx, clientY - cy);
-      const pad = 6;
+      const pad = 14;
       const inside =
         clientX >= r.left - pad &&
         clientX <= r.right + pad &&
         clientY >= r.top - pad &&
         clientY <= r.bottom + pad;
-      // Prefer the visually nearest center; slight boost if inside AABB
-      const score = inside ? dist * 0.35 : dist;
+      const score = inside ? dist * 0.25 : dist;
       if (score < bestScore) {
         bestScore = score;
         best = z;
@@ -214,7 +213,6 @@ export default function MatchCourt({
     const isTouch = e.pointerType === "touch";
     if (freeMove || rearrangeable) {
       if (freeMove) {
-        // Immediate drag for both mouse and touch (coach stacks).
         dragging.current = true;
         setDragFrom(zone);
       } else if (isTouch && rearrangeable) {
@@ -231,17 +229,49 @@ export default function MatchCourt({
           }
         }, LONG_PRESS_MS);
       }
-      try {
-        (e.currentTarget || layerRef.current)?.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
     }
   };
+
+  // Window-level drag tracking — reliable on phone + desktop mouse.
+  useEffect(() => {
+    if (!freeMove || dragFrom == null) return undefined;
+
+    const onMove = (e) => {
+      if (startZone.current == null) return;
+      moved.current = true;
+      if (!dragging.current) {
+        dragging.current = true;
+        dragZoneRef.current = startZone.current;
+      }
+      const pct = pctFromEvent(e);
+      const z = dragZoneRef.current ?? startZone.current;
+      if (pct && z != null) {
+        const next = { zone: Number(z), x: pct.x, y: pct.y };
+        livePosRef.current = next;
+        setLivePos(next);
+      }
+    };
+
+    const onUp = (e) => {
+      endFreeDrag(e);
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeMove, dragFrom]);
 
   const onLayerPointerDown = (e) => {
     if (!canInteract || !isTactical) return;
     if (e.button != null && e.button !== 0) return;
+    // Chip handlers own freeMove starts; layer only for empty-court pick / rearrange.
+    if (freeMove && e.target !== layerRef.current && e.target?.closest?.("[data-zone]")) return;
     e.preventDefault();
     const zone = findZoneAtClient(e.clientX, e.clientY);
     if (zone == null) return;
@@ -251,6 +281,7 @@ export default function MatchCourt({
   const onLayerPointerMove = (e) => {
     if (!isTactical) return;
     if (!rearrangeable && !freeMove) return;
+    if (freeMove) return; // window listener owns freeMove
     if (startZone.current == null) return;
 
     const dist = Math.abs(e.movementX) + Math.abs(e.movementY);
@@ -266,17 +297,6 @@ export default function MatchCourt({
     }
     if (!dragging.current) return;
 
-    if (freeMove) {
-      const pct = pctFromEvent(e);
-      const z = dragZoneRef.current ?? startZone.current;
-      if (pct && z != null) {
-        const next = { zone: Number(z), x: pct.x, y: pct.y };
-        livePosRef.current = next;
-        setLivePos(next);
-      }
-      return;
-    }
-
     const pct = pctFromEvent(e);
     if (pct) {
       setHoverZone(nearestZone(pct.x, pct.y, { phase: layoutPhase, rotation }));
@@ -286,7 +306,7 @@ export default function MatchCourt({
   const onLayerPointerUp = (e) => {
     if (!isTactical) return;
     if (freeMove) {
-      endFreeDrag(e);
+      // Window listener handles freeMove up; ignore duplicate from layer.
       return;
     }
 
@@ -353,7 +373,7 @@ export default function MatchCourt({
     startZone.current = null;
   };
 
-  // Grid / chip handlers — tactical freeMove also uses chips (more reliable on touch).
+  // Chip handlers for freeMove / grid
   const onPointerDown = (zone, e) => {
     if (!canInteract) return;
     if (isTactical && !freeMove) return;
@@ -364,11 +384,8 @@ export default function MatchCourt({
   };
 
   const onPointerMove = (zone, e) => {
+    if (isTactical && freeMove) return; // window listener
     if (isTactical && !freeMove) return;
-    if (isTactical && freeMove) {
-      onLayerPointerMove(e);
-      return;
-    }
     onLayerPointerMove(e);
     if (!dragging.current || freeMove) return;
     const pct = pctFromEvent(e);
@@ -376,6 +393,7 @@ export default function MatchCourt({
   };
 
   const onPointerUp = (zone, e) => {
+    if (isTactical && freeMove) return; // window listener
     if (isTactical && !freeMove) return;
     onLayerPointerUp(e);
   };

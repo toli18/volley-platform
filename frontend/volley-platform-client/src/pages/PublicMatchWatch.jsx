@@ -28,6 +28,7 @@ export default function PublicMatchWatch() {
   const [fullscreen, setFullscreen] = useState(false);
   const [phaseOverride, setPhaseOverride] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [posByKey, setPosByKey] = useState({});
 
   const load = useCallback(
     async (phase) => {
@@ -188,6 +189,9 @@ export default function PublicMatchWatch() {
   const autoPhase = mset?.we_serve ? "serve" : "receive";
   const activePhase = phaseOverride || state.phase || autoPhase;
   const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
+  const posKey = `${mset?.rotation ?? 1}:${activePhase}`;
+  const positionOverrides = posByKey[posKey] || null;
+  const canEditPositions = (activePhase === "receive" || activePhase === "serve") && canWrite;
 
   return (
     <div ref={rootRef} className={`publicWatchPage${fullscreen ? " publicWatchPage--fs" : ""}`}>
@@ -299,8 +303,12 @@ export default function PublicMatchWatch() {
           title={`Ротация ${mset?.rotation ?? 1}`}
           subtitle={`${state.system} · ${phaseLabel}`}
           activeZone={selected?.zone ?? null}
-          positionEditable={false}
-          showAlignment={activePhase === "receive"}
+          positionEditable={canEditPositions && Boolean(mset) && mset.status !== "finished"}
+          positionOverrides={positionOverrides}
+          showAlignment={canEditPositions}
+          onPositionsChange={(next) => {
+            setPosByKey((prev) => ({ ...prev, [posKey]: next }));
+          }}
           onZoneClick={(zone) => {
             const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));
             if (p) setSelectedId(p.athlete_id);
