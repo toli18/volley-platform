@@ -130,6 +130,24 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS birth_date DATE"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS place_of_birth VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS libero_athlete_id INTEGER"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE matches ADD COLUMN IF NOT EXISTS format "
+                        "VARCHAR(8) NOT NULL DEFAULT 'bo5'"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "
+                        "INTEGER NOT NULL DEFAULT 1"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_we_serve "
+                        "INTEGER NOT NULL DEFAULT 1"
+                    )
+                )
                 # Placeholder дати за стари записи (годината се запазва).
                 conn.execute(
                     text(
