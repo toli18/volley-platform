@@ -255,6 +255,7 @@ class MatchPublicLiveRead(BaseModel):
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     expired: bool = False
+    input_locked: bool = False
 
 
 class MatchAthleteStatsRead(BaseModel):

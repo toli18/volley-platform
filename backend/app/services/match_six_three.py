@@ -95,7 +95,7 @@ def apply_formation_display(
     libero_athlete_id: Optional[int] = None,
 ) -> dict[int, int]:
     form = formation_for(rotation, phase)
-    zones, _ = apply_libero_display(form, role_to_athlete, libero_athlete_id, mb_roles={"C1"})
+    zones, _ = apply_libero_display(form, role_to_athlete, libero_athlete_id, mb_roles={"C1"}, phase=phase)
     return zones
 
 
@@ -107,5 +107,5 @@ def athlete_roles_on_court(
     libero_athlete_id: Optional[int] = None,
 ) -> dict[int, str]:
     form = formation_for(rotation, phase)
-    _, roles = apply_libero_display(form, role_to_athlete, libero_athlete_id, mb_roles={"C1"})
+    _, roles = apply_libero_display(form, role_to_athlete, libero_athlete_id, mb_roles={"C1"}, phase=phase)
     return roles

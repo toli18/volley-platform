@@ -146,17 +146,13 @@ def apply_formation_display(
     role_to_athlete: dict[str, int],
     libero_athlete_id: Optional[int] = None,
 ) -> dict[int, int]:
+    from app.services.match_formation_common import apply_libero_display
+
     form = formation_for(rotation, phase)
-    out: dict[int, int] = {}
-    for zone, role in form.items():
-        aid = role_to_athlete.get(role)
-        if aid is None:
-            continue
-        if libero_athlete_id and role in {"C1", "C2"} and int(zone) in BACK_ZONES:
-            out[int(zone)] = int(libero_athlete_id)
-        else:
-            out[int(zone)] = int(aid)
-    return out
+    zones, _ = apply_libero_display(
+        form, role_to_athlete, libero_athlete_id, mb_roles={"C1", "C2"}, phase=phase
+    )
+    return zones
 
 
 def athlete_roles_on_court(
@@ -166,17 +162,13 @@ def athlete_roles_on_court(
     role_to_athlete: dict[str, int],
     libero_athlete_id: Optional[int] = None,
 ) -> dict[int, str]:
+    from app.services.match_formation_common import apply_libero_display
+
     form = formation_for(rotation, phase)
-    out: dict[int, str] = {}
-    for zone, role in form.items():
-        aid = role_to_athlete.get(role)
-        if aid is None:
-            continue
-        if libero_athlete_id and role in {"C1", "C2"} and int(zone) in BACK_ZONES:
-            out[int(libero_athlete_id)] = "L"
-        else:
-            out[int(aid)] = role
-    return out
+    _, roles = apply_libero_display(
+        form, role_to_athlete, libero_athlete_id, mb_roles={"C1", "C2"}, phase=phase
+    )
+    return roles
 
 
 def phase_from_serve(we_serve: bool, override: Optional[str] = None) -> str:

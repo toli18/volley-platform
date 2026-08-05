@@ -33,16 +33,35 @@ def apply_libero_display(
     libero_athlete_id: int | None,
     *,
     mb_roles: set[str] | None = None,
+    phase: str | None = None,
 ) -> tuple[dict[int, int], dict[int, str]]:
-    """zone→athlete и athlete→role; либеро замества MB в задна линия."""
+    """zone→athlete и athlete→role; либеро замества MB в задна линия.
+
+    Правило: либерото не бие сервис. Когато MB е в зона 1 при наш сервис,
+    либерото излиза и центърът стои на корта да сервира.
+    """
     mb = mb_roles or {"C1", "C2"}
+    server_role = form.get(1)
+    mb_serving = (
+        (phase or "") == "serve"
+        and server_role in mb
+        and bool(libero_athlete_id)
+    )
+
     zones_out: dict[int, int] = {}
     roles_out: dict[int, str] = {}
     for zone, role in form.items():
         aid = role_to_athlete.get(role)
         if aid is None:
             continue
-        if libero_athlete_id and role in mb and int(zone) in BACK_ZONES:
+        # При сервис на център — без либеро на корта (MB сервира в зона 1)
+        use_libero = (
+            bool(libero_athlete_id)
+            and role in mb
+            and int(zone) in BACK_ZONES
+            and not mb_serving
+        )
+        if use_libero:
             zones_out[int(zone)] = int(libero_athlete_id)
             roles_out[int(libero_athlete_id)] = "L"
         else:

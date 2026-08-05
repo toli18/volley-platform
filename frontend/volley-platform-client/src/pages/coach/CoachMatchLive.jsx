@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import MatchCourt from "../../components/matches/MatchCourt";
+import MatchLiveSideStats, { MATCH_ACTION_LABEL } from "../../components/matches/MatchLiveSideStats";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { positionShort, shortPlayerName, MATCH_FORMATS } from "../../utils/matchPositions";
@@ -9,55 +10,8 @@ import { useToast } from "../../components/ToastProvider";
 import { normalizeError } from "../../utils/normalizeError";
 
 const POLL_MS = 2500;
-const STAT_GROUPS = [
-  {
-    title: "Атака",
-    items: [
-      { action: "kill", label: "Атака+", tone: "good" },
-      { action: "attack_error", label: "Атака−", tone: "bad" },
-    ],
-  },
-  {
-    title: "Сервис / блок",
-    items: [
-      { action: "ace", label: "Ас", tone: "good" },
-      { action: "error", label: "Грешка Сервис", tone: "bad" },
-      { action: "block", label: "Блок+", tone: "good" },
-    ],
-  },
-  {
-    title: "Защита",
-    items: [{ action: "dig", label: "Защита", tone: "neutral" }],
-  },
-  {
-    title: "Посрещане",
-    items: [
-      { action: "pass_3", label: "#", tone: "good" },
-      { action: "pass_2", label: "+", tone: "good" },
-      { action: "pass_1", label: "−", tone: "neutral" },
-      { action: "pass_error", label: "Грешка Поср.", tone: "bad" },
-    ],
-  },
-];
 
-const ACTION_LABEL = {
-  kill: "Атака+",
-  ace: "Ас",
-  block: "Блок+",
-  attack_error: "Атака−",
-  error: "Грешка сервис",
-  dig: "Защита",
-  pass_0: "Пос. 0",
-  pass_1: "Пос. −",
-  pass_2: "Пос. +",
-  pass_3: "Пос. #",
-  free_ball: "Свободна",
-  pass_error: "Грешка поср.",
-  opp_point: "Точка OPP",
-  our_point: "Точка НИЕ",
-  opp_error: "Грешка на противника",
-};
-
+const ACTION_LABEL = MATCH_ACTION_LABEL;
 const PHASES = [
   { id: "base", label: "База" },
   { id: "serve", label: "Сервис" },
@@ -195,6 +149,8 @@ export default function CoachMatchLive() {
   const [gateRotation, setGateRotation] = useState(1);
   const [gateMode, setGateMode] = useState("start"); // start | next
   const [shareHint, setShareHint] = useState("");
+  const [fullscreen, setFullscreen] = useState(false);
+  const rootRef = useRef(null);
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
@@ -368,34 +324,20 @@ export default function CoachMatchLive() {
 
   const openNextGate = () => openGate("next", state);
 
-  const copyShareLink = async (mode) => {
-    if (mode === "public") {
-      try {
-        setBusy(true);
-        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SHARE(teamIdNum, matchIdNum));
-        const path = res.data?.share_path || `/watch/${res.data?.share_token}`;
-        const url = `${window.location.origin}${path}`;
-        await navigator.clipboard.writeText(url);
-        setShareHint(url);
-        setState((prev) => (prev ? { ...prev, share_token: res.data.share_token } : prev));
-        toast.success("Публичният линк е копиран (без вход).");
-      } catch (err) {
-        toast.error(normalizeError(err, "Неуспешно създаване на публичен линк."));
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    const url = `${window.location.origin}/coach/teams/${teamIdNum}/matches/${matchIdNum}/live${
-      mode === "view" ? "?mode=view" : ""
-    }`;
+  const copyShareLink = async () => {
     try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SHARE(teamIdNum, matchIdNum));
+      const path = res.data?.share_path || `/watch/${res.data?.share_token}`;
+      const url = `${window.location.origin}${path}`;
       await navigator.clipboard.writeText(url);
-      setShareHint(mode === "view" ? "Копиран линк за преглед (с вход)" : "Копиран линк за въвеждане");
-      toast.success(mode === "view" ? "Линк за преглед копиран." : "Линк за въвеждане копиран.");
-    } catch {
       setShareHint(url);
-      toast.error("Копирай линка ръчно от полето по-долу.");
+      setState((prev) => (prev ? { ...prev, share_token: res.data.share_token } : prev));
+      toast.success("Линкът за помощник е копиран (без вход).");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно създаване на линк."));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -403,9 +345,26 @@ export default function CoachMatchLive() {
     run(async () => {
       const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SHARE_REVOKE(teamIdNum, matchIdNum));
       setShareHint("");
-      toast.success("Публичният линк е изтрит.");
+      toast.success("Линкът е изтрит.");
       return res.data;
     });
+
+  const toggleFullscreen = async () => {
+    const el = rootRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) await el.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
 
   const toggleLock = () => {
     if (viewOnly) {
@@ -443,8 +402,8 @@ export default function CoachMatchLive() {
     gateMode === "next" ? `Гейм ${nextSetNumber} — подготовка` : "Старт на гейм 1";
 
   return (
-    <section className="matchLivePage">
-      {gateOpen ? (
+    <section ref={rootRef} className={`matchLivePage${fullscreen ? " matchLivePage--fs" : ""}`}>
+      {gateOpen && !viewOnly ? (
         <div className="matchLiveGateOverlay" role="dialog" aria-modal="true" aria-label={gateTitle}>
           <div className="matchLiveGateCard">
             <h3>{gateTitle}</h3>
@@ -553,13 +512,16 @@ export default function CoachMatchLive() {
           <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
             Статистика
           </button>
+          <button type="button" className="matchLiveStatsOpenBtn" onClick={toggleFullscreen}>
+            {fullscreen ? "Изход екран" : "Пълен екран"}
+          </button>
           {!viewOnly && !matchDone ? (
             <button
               type="button"
               className={`matchLiveLockBtn${inputLocked ? " is-locked" : ""}`}
               disabled={busy}
               onClick={toggleLock}
-              title="Заключи въвеждането на другия екран"
+              title="Заключи въвеждането"
             >
               {inputLocked ? "Отключи" : "Заключи"}
             </button>
@@ -577,27 +539,26 @@ export default function CoachMatchLive() {
         </div>
       </div>
 
-      {viewOnly ? <div className="matchLiveViewBanner">Режим преглед — само наблюдение в реално време</div> : null}
+      {viewOnly ? <div className="matchLiveViewBanner">Режим преглед — само наблюдение</div> : null}
       {inputLocked && !matchDone ? (
         <div className="matchLiveLockBanner">Въвеждането е заключено</div>
       ) : null}
 
       {!matchDone && !viewOnly ? (
         <div className="matchLiveShareBar">
-          <button type="button" className="matchLiveShareBtn matchLiveShareBtn--public" disabled={busy} onClick={() => copyShareLink("public")}>
-            Публичен линк (без вход)
+          <button
+            type="button"
+            className="matchLiveShareBtn matchLiveShareBtn--public"
+            disabled={busy}
+            onClick={copyShareLink}
+          >
+            Линк за помощник (без вход)
           </button>
           {state.share_token ? (
             <button type="button" className="matchLiveShareBtn" disabled={busy} onClick={revokePublicLink}>
-              Изтрий публичния
+              Изтрий линка
             </button>
           ) : null}
-          <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("edit")}>
-            Линк въвеждане
-          </button>
-          <button type="button" className="matchLiveShareBtn" onClick={() => copyShareLink("view")}>
-            Линк преглед (с вход)
-          </button>
           {shareHint ? <span className="matchLiveShareHint">{shareHint}</span> : null}
         </div>
       ) : null}
@@ -672,11 +633,16 @@ export default function CoachMatchLive() {
         </div>
       </div>
 
-      <div className="matchLiveGrid matchLiveGrid--courtOnly">
+      <MatchLiveSideStats
+        selected={selected}
+        disabled={busy || !playing}
+        onStat={recordStat}
+        events={state.recent_events || []}
+      >
         <MatchCourt
           variant="pro"
           layout="tactical"
-          size="md"
+          size={fullscreen ? "lg" : "md"}
           phase={activePhase}
           rotation={mset?.rotation ?? 1}
           system={state.system || "5-1"}
@@ -697,64 +663,7 @@ export default function CoachMatchLive() {
             if (p) setSelectedId(p.athlete_id);
           }}
         />
-      </div>
-
-      <div className="matchLiveEntryBar">
-        <div className="matchLiveSelected">
-          {selected ? (
-            <>
-              <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
-              <span>
-                {shortPlayerName(selected.athlete_name)} · {positionShort(selected.position)}
-              </span>
-            </>
-          ) : (
-            <span>Избери състезател от корта за въвеждане</span>
-          )}
-        </div>
-
-        <div className="matchLiveEntryRow" role="group" aria-label="Въвеждане на статистика">
-          <button
-            type="button"
-            className="matchLiveStatBtn matchLiveStatBtn--good"
-            disabled={busy || !playing}
-            onClick={() => recordStat("opp_error")}
-            title="Грешка на противника"
-          >
-            Грешка на противника
-          </button>
-          {STAT_GROUPS.flatMap((g) =>
-            g.items.map((it) => (
-              <button
-                key={it.action}
-                type="button"
-                className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
-                  it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-                }`}
-                disabled={busy || !playing}
-                onClick={() => recordStat(it.action)}
-                title={`${g.title}: ${ACTION_LABEL[it.action] || it.label}`}
-              >
-                {it.label}
-              </button>
-            )),
-          )}
-        </div>
-
-        <div className="matchLiveEvents matchLiveEvents--compact">
-          <div className="matchLiveStatGroupTitle">Последни</div>
-          {(state.recent_events || []).slice(0, 4).map((ev) => (
-            <div key={ev.id} className="matchLiveEventRow">
-              <span>R{ev.rotation}</span>
-              <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
-              <span>{ACTION_LABEL[ev.action] || ev.action}</span>
-              <span>
-                {ev.our_score}:{ev.opp_score}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      </MatchLiveSideStats>
 
       {statsOpen ? (
         <div className="matchLiveStatsOverlay" role="dialog" aria-modal="true" aria-label="Статистика">

@@ -7736,6 +7736,62 @@ button.matchChipSlot:not(:disabled) {
   word-break: break-all;
 }
 
+.matchLiveCourtRow {
+  display: grid;
+  grid-template-columns: minmax(72px, 88px) minmax(0, 1fr) minmax(72px, 88px);
+  gap: 8px;
+  align-items: stretch;
+}
+.matchLiveSideCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: flex-start;
+}
+.matchLiveSideBtn {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 4px !important;
+  font-size: 11px !important;
+  line-height: 1.15;
+  white-space: normal;
+}
+.matchLiveCourtMain {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.matchLiveSideSelected {
+  justify-content: center;
+  text-align: center;
+}
+.matchLiveSideEvents {
+  max-height: 120px;
+  overflow: auto;
+}
+.matchLivePage--fs {
+  background: #0b1220;
+  color: #e2e8f0;
+  padding: 8px;
+  min-height: 100vh;
+}
+.matchLivePage--fs .matchLiveScore,
+.matchLivePage--fs .matchLiveSideSelected,
+.matchLivePage--fs .matchLiveEventRow {
+  color: #e2e8f0;
+}
+@media (max-width: 720px) {
+  .matchLiveCourtRow {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    gap: 4px;
+  }
+  .matchLiveSideBtn {
+    min-height: 36px;
+    font-size: 10px !important;
+    padding: 4px 2px !important;
+  }
+}
+
 .appShell--watch,
 .appContent--watch {
   min-height: 100vh;
@@ -7771,6 +7827,11 @@ button.matchChipSlot:not(:disabled) {
   align-items: flex-start;
   flex-wrap: wrap;
 }
+.publicWatchTopActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .publicWatchMeta {
   font-size: 13px;
   color: #94a3b8;
@@ -7789,12 +7850,6 @@ button.matchChipSlot:not(:disabled) {
   background: rgba(15, 23, 42, 0.85);
   border-radius: 14px;
   padding: 10px;
-}
-.publicWatchEntry {
-  opacity: 0.92;
-}
-.publicWatchSelectedHint {
-  color: #94a3b8 !important;
 }
 .publicWatchPage .matchLiveStatBtn:disabled {
   opacity: 0.55;

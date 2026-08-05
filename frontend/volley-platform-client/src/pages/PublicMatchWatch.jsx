@@ -2,81 +2,42 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import MatchCourt from "../components/matches/MatchCourt";
+import MatchLiveSideStats from "../components/matches/MatchLiveSideStats";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { MATCH_FORMATS, shortPlayerName } from "../utils/matchPositions";
+import { MATCH_FORMATS } from "../utils/matchPositions";
+import { useToast } from "../components/ToastProvider";
 import { normalizeError } from "../utils/normalizeError";
 
 const POLL_MS = 2000;
-
 const PHASES = [
   { id: "base", label: "База" },
   { id: "serve", label: "Сервис" },
   { id: "receive", label: "Посрещане" },
 ];
-
-const STAT_GROUPS = [
-  {
-    title: "Атака",
-    items: [
-      { action: "kill", label: "Атака+", tone: "good" },
-      { action: "attack_error", label: "Атака−", tone: "bad" },
-    ],
-  },
-  {
-    title: "Сервис / блок",
-    items: [
-      { action: "ace", label: "Ас", tone: "good" },
-      { action: "error", label: "Грешка Сервис", tone: "bad" },
-      { action: "block", label: "Блок+", tone: "good" },
-    ],
-  },
-  {
-    title: "Защита",
-    items: [{ action: "dig", label: "Защита", tone: "neutral" }],
-  },
-  {
-    title: "Посрещане",
-    items: [
-      { action: "pass_3", label: "#", tone: "good" },
-      { action: "pass_2", label: "+", tone: "good" },
-      { action: "pass_1", label: "−", tone: "neutral" },
-      { action: "pass_error", label: "Грешка Поср.", tone: "bad" },
-    ],
-  },
-];
-
-const ACTION_LABEL = {
-  kill: "Атака+",
-  ace: "Ас",
-  block: "Блок+",
-  attack_error: "Атака−",
-  error: "Грешка сервис",
-  dig: "Защита",
-  pass_1: "Пос. −",
-  pass_2: "Пос. +",
-  pass_3: "Пос. #",
-  pass_error: "Грешка поср.",
-  opp_point: "Точка OPP",
-  our_point: "Точка НИЕ",
-  opp_error: "Грешка на противника",
-};
+const NO_PLAYER = new Set(["opp_point", "our_point", "opp_error"]);
 
 export default function PublicMatchWatch() {
   const { token } = useParams();
+  const toast = useToast();
   const rootRef = useRef(null);
   const [state, setState] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [phaseOverride, setPhaseOverride] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
-  const load = useCallback(async () => {
-    const params = phaseOverride ? { phase: phaseOverride } : undefined;
-    const res = await axiosInstance.get(API_PATHS.PUBLIC_MATCH_LIVE(token), { params });
-    setState(res.data);
-    return res.data;
-  }, [token, phaseOverride]);
+  const load = useCallback(
+    async (phase) => {
+      const params = phase ? { phase } : phaseOverride ? { phase: phaseOverride } : undefined;
+      const res = await axiosInstance.get(API_PATHS.PUBLIC_MATCH_LIVE(token), { params });
+      setState(res.data);
+      return res.data;
+    },
+    [token, phaseOverride],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -97,15 +58,16 @@ export default function PublicMatchWatch() {
     return () => {
       alive = false;
     };
-  }, [load]);
+  }, [token]);
 
   useEffect(() => {
     if (loading || state?.expired || state?.status === "finished") return undefined;
     const t = setInterval(() => {
+      if (busy) return;
       load().catch(() => {});
     }, POLL_MS);
     return () => clearInterval(t);
-  }, [loading, state?.expired, state?.status, load]);
+  }, [loading, state?.expired, state?.status, busy, load]);
 
   useEffect(() => {
     const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -117,20 +79,59 @@ export default function PublicMatchWatch() {
     const el = rootRef.current;
     if (!el) return;
     try {
-      if (!document.fullscreenElement) {
-        await el.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
+      if (!document.fullscreenElement) await el.requestFullscreen();
+      else await document.exitFullscreen();
     } catch {
       /* ignore */
     }
+  };
+
+  const run = async (fn) => {
+    try {
+      setBusy(true);
+      const data = await fn();
+      setState(data);
+      if (data?.expired) setError("Мачът е приключен — линкът е изтрит.");
+      return data;
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при въвеждане."));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const score = (side) =>
+    run(async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_SCORE(token), { side })).data);
+
+  const undo = () => run(async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_UNDO(token))).data);
+
+  const recordStat = (action) => {
+    if (!selectedId && !NO_PLAYER.has(action)) {
+      toast.error("Изберете състезател от корта.");
+      return;
+    }
+    run(
+      async () =>
+        (
+          await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), {
+            action,
+            athlete_id: selectedId || null,
+            apply_score: true,
+          })
+        ).data,
+    );
   };
 
   const formatLabel = useMemo(() => {
     const code = state?.format || "bo5";
     return MATCH_FORMATS.find((f) => f.code === code)?.label || "3 от 5";
   }, [state?.format]);
+
+  const selected = useMemo(() => {
+    if (!state || !selectedId) return null;
+    return (state.court || []).find((p) => Number(p.athlete_id) === Number(selectedId)) || null;
+  }, [state, selectedId]);
 
   if (loading) {
     return (
@@ -152,15 +153,16 @@ export default function PublicMatchWatch() {
   if (!state) return null;
 
   const mset = state.set;
+  const setFinished = mset?.status === "finished";
+  const matchDone = state.status === "finished" || Boolean(state.match_won_by);
+  const locked = Boolean(state.input_locked);
+  const canWrite = !locked && !matchDone && !setFinished;
   const autoPhase = mset?.we_serve ? "serve" : "receive";
   const activePhase = phaseOverride || state.phase || autoPhase;
   const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
 
   return (
-    <div
-      ref={rootRef}
-      className={`publicWatchPage${fullscreen ? " publicWatchPage--fs" : ""}`}
-    >
+    <div ref={rootRef} className={`publicWatchPage${fullscreen ? " publicWatchPage--fs" : ""}`}>
       <div className="publicWatchTop">
         <div>
           <strong>vs {state.opponent_name || "противник"}</strong>
@@ -171,12 +173,20 @@ export default function PublicMatchWatch() {
                   mset.we_serve ? "наш сервис" : "чужд сервис"
                 }`
               : ""}
+            {locked ? " · заключено" : ""}
           </div>
         </div>
-        <button type="button" className="publicWatchFsBtn" onClick={toggleFullscreen}>
-          {fullscreen ? "Изход от пълен екран" : "Пълен екран"}
-        </button>
+        <div className="publicWatchTopActions">
+          <button type="button" className="publicWatchFsBtn" disabled={busy || !canWrite} onClick={undo}>
+            Undo
+          </button>
+          <button type="button" className="publicWatchFsBtn" onClick={toggleFullscreen}>
+            {fullscreen ? "Изход от пълен екран" : "Пълен екран"}
+          </button>
+        </div>
       </div>
+
+      {locked ? <div className="matchLiveLockBanner">Въвеждането е заключено от треньора</div> : null}
 
       {(state.sets || []).length > 0 ? (
         <div className="matchLiveSetStrip">
@@ -191,6 +201,9 @@ export default function PublicMatchWatch() {
       <div className="matchLiveScore publicWatchScore">
         <div className="matchLiveScoreRow">
           <div className="matchLiveScoreSide matchLiveScoreSide--us">
+            <button type="button" disabled={busy || !canWrite} onClick={() => score("us")}>
+              +
+            </button>
             <div>
               <div className="matchLiveScoreLabel">НИЕ</div>
               <div className="matchLiveScoreNum">{mset?.our_score ?? 0}</div>
@@ -207,10 +220,13 @@ export default function PublicMatchWatch() {
               <div className="matchLiveScoreLabel">OPP</div>
               <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
             </div>
+            <button type="button" disabled={busy || !canWrite} onClick={() => score("opp")}>
+              +
+            </button>
           </div>
         </div>
 
-        <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
+        <div className="matchLivePhaseBar" role="tablist">
           {PHASES.map((p) => (
             <button
               key={p.id}
@@ -218,7 +234,11 @@ export default function PublicMatchWatch() {
               role="tab"
               aria-selected={activePhase === p.id}
               className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
-              onClick={() => setPhaseOverride(p.id === autoPhase ? null : p.id)}
+              onClick={() => {
+                const next = p.id === autoPhase ? null : p.id;
+                setPhaseOverride(next);
+                load(next || undefined).catch(() => {});
+              }}
             >
               <span className="matchLivePhaseLabel">{p.label}</span>
               {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
@@ -227,7 +247,12 @@ export default function PublicMatchWatch() {
         </div>
       </div>
 
-      <div className="matchLiveGrid matchLiveGrid--courtOnly">
+      <MatchLiveSideStats
+        selected={selected}
+        disabled={busy || !canWrite}
+        onStat={recordStat}
+        events={state.recent_events || []}
+      >
         <MatchCourt
           variant="pro"
           layout="tactical"
@@ -240,50 +265,15 @@ export default function PublicMatchWatch() {
           showServe={Boolean(mset?.we_serve) && activePhase === "serve"}
           title={`Ротация ${mset?.rotation ?? 1}`}
           subtitle={`${state.system} · ${phaseLabel}`}
+          activeZone={selected?.zone ?? null}
           positionEditable={false}
           showAlignment={activePhase === "receive"}
+          onZoneClick={(zone) => {
+            const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));
+            if (p) setSelectedId(p.athlete_id);
+          }}
         />
-      </div>
-
-      {/* Визуални бутони за статистика — само преглед, без въвеждане */}
-      <div className="matchLiveEntryBar publicWatchEntry" aria-hidden={false}>
-        <div className="matchLiveSelected publicWatchSelectedHint">
-          Преглед на статистика (само наблюдение)
-        </div>
-        <div className="matchLiveEntryRow" role="group" aria-label="Статистика (преглед)">
-          <button type="button" className="matchLiveStatBtn matchLiveStatBtn--good" disabled>
-            Грешка на противника
-          </button>
-          {STAT_GROUPS.flatMap((g) =>
-            g.items.map((it) => (
-              <button
-                key={it.action}
-                type="button"
-                className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
-                  it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-                }`}
-                disabled
-                title={`${g.title}: ${ACTION_LABEL[it.action] || it.label}`}
-              >
-                {it.label}
-              </button>
-            )),
-          )}
-        </div>
-        <div className="matchLiveEvents matchLiveEvents--compact">
-          <div className="matchLiveStatGroupTitle">Последни</div>
-          {(state.recent_events || []).slice(0, 6).map((ev) => (
-            <div key={ev.id} className="matchLiveEventRow">
-              <span>R{ev.rotation}</span>
-              <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
-              <span>{ACTION_LABEL[ev.action] || ev.action}</span>
-              <span>
-                {ev.our_score}:{ev.opp_score}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      </MatchLiveSideStats>
     </div>
   );
 }
