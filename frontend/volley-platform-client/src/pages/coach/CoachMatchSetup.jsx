@@ -450,6 +450,28 @@ export default function CoachMatchSetup() {
                 ))}
               </select>
             </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Формат</span>
+              <select
+                value={meta.format}
+                onChange={(e) => setMeta((p) => ({ ...p, format: e.target.value }))}
+                disabled={match?.status === "live" || match?.status === "finished"}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #d8e1ec",
+                  fontSize: 15,
+                  background: "#fff",
+                }}
+              >
+                {MATCH_FORMATS.map((f) => (
+                  <option key={f.code} value={f.code}>
+                    {f.label} — {f.hint}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
