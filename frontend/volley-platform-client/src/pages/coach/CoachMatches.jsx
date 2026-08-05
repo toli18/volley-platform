@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { MATCH_STATUS_LABEL, MATCH_SYSTEMS } from "../../utils/matchPositions";
+import { MATCH_STATUS_LABEL, MATCH_SYSTEMS, MATCH_FORMATS } from "../../utils/matchPositions";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 import { normalizeError } from "../../utils/normalizeError";
@@ -29,6 +29,7 @@ export default function CoachMatches() {
     match_date: todayIso(),
     venue: "",
     system: "5-1",
+    format: "bo5",
   });
 
   const load = async () => {
@@ -63,6 +64,7 @@ export default function CoachMatches() {
         match_date: form.match_date || null,
         venue: form.venue.trim() || null,
         system: form.system || "5-1",
+        format: form.format || "bo5",
       });
       setCreateOpen(false);
       toast.success("Мачът е създаден.");
@@ -104,7 +106,9 @@ export default function CoachMatches() {
                 <span style={{ display: "grid", gap: 2 }}>
                   <strong>{m.opponent_name || "Без противник"}</strong>
                   <span className="coachMobileMuted" style={{ fontSize: 12 }}>
-                    {m.match_date || "без дата"} · {m.system} · {MATCH_STATUS_LABEL[m.status] || m.status}
+                    {m.match_date || "без дата"} · {m.system} ·{" "}
+                    {MATCH_FORMATS.find((f) => f.code === m.format)?.label || m.format || "3 от 5"} ·{" "}
+                    {MATCH_STATUS_LABEL[m.status] || m.status}
                     {typeof m.roster_count === "number" ? ` · ${m.roster_count}/14` : ""}
                     {m.has_lineup ? " · шестица ✓" : ""}
                   </span>
@@ -162,6 +166,27 @@ export default function CoachMatches() {
                 <option key={s.code} value={s.code} disabled={!s.enabled}>
                   {s.label}
                   {!s.enabled ? " (скоро)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Формат</span>
+            <select
+              value={form.format}
+              onChange={(e) => setForm((p) => ({ ...p, format: e.target.value }))}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #d8e1ec",
+                fontSize: 15,
+                background: "#fff",
+              }}
+            >
+              {MATCH_FORMATS.map((f) => (
+                <option key={f.code} value={f.code}>
+                  {f.label} — {f.hint}
                 </option>
               ))}
             </select>

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import MatchCourt from "../../components/matches/MatchCourt";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { positionShort, shortPlayerName } from "../../utils/matchPositions";
+import { positionShort, shortPlayerName, MATCH_FORMATS } from "../../utils/matchPositions";
 import { useToast } from "../../components/ToastProvider";
 import { normalizeError } from "../../utils/normalizeError";
 
@@ -183,16 +183,24 @@ export default function CoachMatchLive() {
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState("");
-  /** null = auto от we_serve (serve|receive); "base" = ръчен изглед */
   const [phaseOverride, setPhaseOverride] = useState(null);
   /** zone → {x,y}% coach stack overrides (per rotation+phase) */
   const [posByKey, setPosByKey] = useState({});
   const [statsOpen, setStatsOpen] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gateServe, setGateServe] = useState(true);
+  const [gateRotation, setGateRotation] = useState(1);
+  const [gateMode, setGateMode] = useState("start"); // start | next
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
     return (state.court || []).find((p) => Number(p.athlete_id) === Number(selectedId)) || null;
   }, [state, selectedId]);
+
+  const formatLabel = useMemo(() => {
+    const code = state?.format || "bo5";
+    return MATCH_FORMATS.find((f) => f.code === code)?.label || "3 от 5";
+  }, [state?.format]);
 
   const statRows = useMemo(
     () =>
@@ -212,6 +220,16 @@ export default function CoachMatchLive() {
     return res.data;
   };
 
+  const openGate = (mode, data) => {
+    setGateMode(mode);
+    setGateServe(true);
+    setGateRotation(1);
+    setGateOpen(true);
+    if (data?.can_edit_lineup && mode === "next") {
+      // keep defaults
+    }
+  };
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -221,17 +239,10 @@ export default function CoachMatchLive() {
         const detail = await axiosInstance.get(API_PATHS.TEAM_MATCH(teamIdNum, matchIdNum));
         if (!alive) return;
         setRoster(detail.data?.roster || []);
-        let data = await load();
+        const data = await load();
         if (!alive) return;
-        if (!data.set) {
-          data = (
-            await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_START(teamIdNum, matchIdNum), {
-              we_serve: true,
-              set_number: 1,
-            })
-          ).data;
-          if (!alive) return;
-          setState(data);
+        if (data.needs_set_start && data.status !== "finished") {
+          openGate((data.sets || []).length > 0 ? "next" : "start", data);
         }
       } catch (err) {
         if (!alive) return;
@@ -245,14 +256,25 @@ export default function CoachMatchLive() {
     };
   }, [teamIdNum, matchIdNum]);
 
-  const run = async (fn, { resetPhase = false } = {}) => {
+  const run = async (fn, { resetPhase = false, autoGate = false } = {}) => {
     try {
       setBusy(true);
       const data = await fn();
       if (resetPhase) setPhaseOverride(null);
       setState(data);
+      if (
+        autoGate &&
+        data?.needs_set_start &&
+        !data?.match_won_by &&
+        data?.status !== "finished" &&
+        (data.sets || []).some((s) => s.status === "finished")
+      ) {
+        openGate("next", data);
+      }
+      return data;
     } catch (err) {
       toast.error(normalizeError(err, "Грешка при live действие."));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -264,7 +286,7 @@ export default function CoachMatchLive() {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), { side });
         return res.data;
       },
-      { resetPhase: true },
+      { resetPhase: true, autoGate: true },
     );
 
   const undo = () =>
@@ -290,7 +312,7 @@ export default function CoachMatchLive() {
         });
         return res.data;
       },
-      { resetPhase: true },
+      { resetPhase: true, autoGate: true },
     );
   };
 
@@ -309,17 +331,27 @@ export default function CoachMatchLive() {
     run(async () => {
       const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_FINISH(teamIdNum, matchIdNum));
       toast.success("Мачът е приключен.");
+      setGateOpen(false);
       return res.data;
     });
 
-  const nextSet = () =>
-    run(async () => {
-      const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_NEXT_SET(teamIdNum, matchIdNum), {
-        we_serve: true,
-      });
-      toast.success("Нов сет.");
-      return res.data;
-    });
+  const confirmGate = () =>
+    run(
+      async () => {
+        const body = { we_serve: gateServe, rotation: gateRotation };
+        const path =
+          gateMode === "next"
+            ? API_PATHS.TEAM_MATCH_LIVE_NEXT_SET(teamIdNum, matchIdNum)
+            : API_PATHS.TEAM_MATCH_LIVE_START(teamIdNum, matchIdNum);
+        const res = await axiosInstance.post(path, body);
+        setGateOpen(false);
+        toast.success(gateMode === "next" ? "Нов гейм." : "Гейм 1 стартиран.");
+        return res.data;
+      },
+      { resetPhase: true },
+    );
+
+  const openNextGate = () => openGate("next", state);
 
   if (loading) return <p className="coachMobileMuted">Зареждане на live мач...</p>;
   if (error) return <p className="coachMobileMuted">{error}</p>;
@@ -327,15 +359,100 @@ export default function CoachMatchLive() {
 
   const mset = state.set;
   const setFinished = mset?.status === "finished";
+  const matchDone = state.status === "finished" || Boolean(state.match_won_by);
+  const playing = Boolean(mset) && mset.status === "in_progress" && !matchDone;
   const autoPhase = mset?.we_serve ? "serve" : "receive";
   const activePhase = phaseOverride || state.phase || autoPhase;
   const phaseLabel = PHASES.find((p) => p.id === activePhase)?.label || activePhase;
   const posKey = `${mset?.rotation ?? 1}:${activePhase}`;
   const positionOverrides = posByKey[posKey] || null;
   const canEditPositions = activePhase === "receive" || activePhase === "serve";
+  const nextSetNumber = (state.sets || []).length + 1;
+  const gateTitle =
+    gateMode === "next" ? `Гейм ${nextSetNumber} — подготовка` : "Старт на гейм 1";
 
   return (
     <section className="matchLivePage">
+      {gateOpen ? (
+        <div className="matchLiveGateOverlay" role="dialog" aria-modal="true" aria-label={gateTitle}>
+          <div className="matchLiveGateCard">
+            <h3>{gateTitle}</h3>
+            <p className="matchLiveGateHint">
+              {formatLabel} · геймове {state.sets_won_us ?? 0}:{state.sets_won_opp ?? 0}
+              {gateMode === "next" ? " · можеш да смениш шестицата преди старт" : ""}
+            </p>
+
+            <div className="matchLiveGateField">
+              <span>Започваме на</span>
+              <div className="matchLiveGateToggle">
+                <button
+                  type="button"
+                  className={gateServe ? "is-active" : ""}
+                  disabled={busy}
+                  onClick={() => setGateServe(true)}
+                >
+                  Сервис
+                </button>
+                <button
+                  type="button"
+                  className={!gateServe ? "is-active" : ""}
+                  disabled={busy}
+                  onClick={() => setGateServe(false)}
+                >
+                  Посрещане
+                </button>
+              </div>
+            </div>
+
+            <div className="matchLiveGateField">
+              <span>Стартова ротация</span>
+              <div className="matchLiveGateRots">
+                {[1, 2, 3, 4, 5, 6].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={gateRotation === r ? "is-active" : ""}
+                    disabled={busy}
+                    onClick={() => setGateRotation(r)}
+                  >
+                    R{r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {state.can_edit_lineup ? (
+              <Link
+                to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}`}
+                className="matchLiveGateLineupLink"
+              >
+                Промени шестицата →
+              </Link>
+            ) : null}
+
+            <div className="matchLiveGateActions">
+              <button type="button" className="matchLiveNext" disabled={busy} onClick={confirmGate}>
+                {busy ? "..." : gateMode === "next" ? "Старт на гейма" : "Започни мача"}
+              </button>
+              {gateMode === "next" || matchDone ? (
+                <button type="button" className="matchLiveStop" disabled={busy} onClick={finishMatch}>
+                  Приключи мача
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="matchLiveUndo"
+                  disabled={busy}
+                  onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}`)}
+                >
+                  Назад
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="matchLiveTop">
         <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}`} className="matchLiveBack">
           ← Корт
@@ -343,36 +460,60 @@ export default function CoachMatchLive() {
         <div className="matchLiveMeta">
           <strong>vs {state.opponent_name || "противник"}</strong>
           <span>
-            Сет {mset?.set_number ?? "—"} · R{mset?.rotation ?? "—"} · {mset?.we_serve ? "наш сервис" : "чужд сервис"} ·{" "}
-            {phaseLabel}
+            {formatLabel} · {state.sets_won_us ?? 0}:{state.sets_won_opp ?? 0}
+            {mset
+              ? ` · Гейм ${mset.set_number} · R${mset.rotation} · ${
+                  mset.we_serve ? "наш сервис" : "чужд сервис"
+                } · ${phaseLabel}`
+              : ""}
+            {matchDone
+              ? state.match_won_by === "us"
+                ? " · победа"
+                : state.match_won_by === "opp"
+                  ? " · загуба"
+                  : " · приключен"
+              : ""}
           </span>
         </div>
         <div className="matchLiveTopActions">
           <button type="button" className="matchLiveUndo" disabled={busy || !state.can_undo} onClick={undo}>
             Undo
           </button>
-          <button
-            type="button"
-            className="matchLiveStatsOpenBtn"
-            onClick={() => setStatsOpen(true)}
-          >
+          <button type="button" className="matchLiveStatsOpenBtn" onClick={() => setStatsOpen(true)}>
             Статистика
           </button>
-          {setFinished ? (
-            <button type="button" className="matchLiveNext" disabled={busy || state.status === "finished"} onClick={nextSet}>
-              Нов сет
+          {setFinished && state.needs_set_start && !matchDone ? (
+            <button type="button" className="matchLiveNext" disabled={busy} onClick={openNextGate}>
+              Следващ гейм
             </button>
           ) : null}
-          <button type="button" className="matchLiveStop" disabled={busy} onClick={finishMatch}>
+          <button type="button" className="matchLiveStop" disabled={busy || matchDone} onClick={finishMatch}>
             Stop
           </button>
         </div>
       </div>
 
+      {(state.sets || []).length > 0 ? (
+        <div className="matchLiveSetStrip" aria-label="Резултат по геймове">
+          {(state.sets || []).map((s) => (
+            <span key={s.set_number} className={s.status === "finished" ? "is-done" : "is-live"}>
+              G{s.set_number} {s.our_score}:{s.opp_score}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {matchDone ? (
+        <div className="matchLiveMatchDone">
+          Мачът е приключен · {state.sets_won_us}:{state.sets_won_opp}
+          {state.match_won_by === "us" ? " (победа)" : state.match_won_by === "opp" ? " (загуба)" : ""}
+        </div>
+      ) : null}
+
       <div className="matchLiveScore">
         <div className="matchLiveScoreRow">
           <div className="matchLiveScoreSide matchLiveScoreSide--us">
-            <button type="button" disabled={busy || setFinished} onClick={() => score("us")}>
+            <button type="button" disabled={busy || !playing} onClick={() => score("us")}>
               +
             </button>
             <div>
@@ -381,15 +522,17 @@ export default function CoachMatchLive() {
             </div>
           </div>
           <div className="matchLiveScoreMid">
-            <div>Сет {mset?.set_number ?? 1}</div>
-            <div className="matchLiveServePill">{mset?.we_serve ? "● наш сервис" : "○ чужд сервис"}</div>
+            <div>Гейм {mset?.set_number ?? "—"}</div>
+            <div className="matchLiveServePill">
+              {mset ? (mset.we_serve ? "● наш сервис" : "○ чужд сервис") : "изчаква старт"}
+            </div>
           </div>
           <div className="matchLiveScoreSide matchLiveScoreSide--opp">
             <div>
               <div className="matchLiveScoreLabel">OPP</div>
               <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
             </div>
-            <button type="button" disabled={busy || setFinished} onClick={() => score("opp")}>
+            <button type="button" disabled={busy || !playing} onClick={() => score("opp")}>
               +
             </button>
           </div>
@@ -403,7 +546,7 @@ export default function CoachMatchLive() {
               role="tab"
               aria-selected={activePhase === p.id}
               className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
-              disabled={busy || setFinished || state.status === "finished"}
+              disabled={busy || !playing}
               onClick={() => selectPhase(p.id)}
             >
               <span className="matchLivePhaseLabel">{p.label}</span>
@@ -427,7 +570,7 @@ export default function CoachMatchLive() {
           title={`Ротация ${mset?.rotation ?? 1}`}
           subtitle={`${state.system} · ${phaseLabel}`}
           activeZone={selected?.zone ?? null}
-          positionEditable={canEditPositions && !setFinished && state.status !== "finished"}
+          positionEditable={canEditPositions && playing}
           positionOverrides={positionOverrides}
           showAlignment={canEditPositions}
           onPositionsChange={(next) => {
@@ -458,7 +601,7 @@ export default function CoachMatchLive() {
           <button
             type="button"
             className="matchLiveStatBtn matchLiveStatBtn--good"
-            disabled={busy || setFinished || state.status === "finished"}
+            disabled={busy || !playing}
             onClick={() => recordStat("opp_error")}
             title="Грешка на противника"
           >
@@ -472,7 +615,7 @@ export default function CoachMatchLive() {
                 className={`matchLiveStatBtn matchLiveStatBtn--${it.tone}${
                   it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
                 }`}
-                disabled={busy || setFinished || state.status === "finished"}
+                disabled={busy || !playing}
                 onClick={() => recordStat(it.action)}
                 title={`${g.title}: ${ACTION_LABEL[it.action] || it.label}`}
               >

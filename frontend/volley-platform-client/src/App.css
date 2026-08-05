@@ -8085,6 +8085,110 @@ button.matchChipSlot:not(:disabled) {
   cursor: pointer;
 }
 
+.matchLiveGateOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.matchLiveGateCard {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 16px 14px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+}
+.matchLiveGateCard h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+.matchLiveGateHint {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+.matchLiveGateField {
+  display: grid;
+  gap: 6px;
+}
+.matchLiveGateField > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+.matchLiveGateToggle,
+.matchLiveGateRots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.matchLiveGateToggle button,
+.matchLiveGateRots button {
+  border: 1px solid #d8e1ec;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.matchLiveGateToggle button.is-active,
+.matchLiveGateRots button.is-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+.matchLiveGateLineupLink {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0369a1;
+  text-decoration: none;
+}
+.matchLiveGateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.matchLiveSetStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 4px;
+}
+.matchLiveSetStrip span {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+}
+.matchLiveSetStrip span.is-done {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.matchLiveSetStrip span.is-live {
+  background: #ecfccb;
+  color: #3f6212;
+}
+.matchLiveMatchDone {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 .matchStepTabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

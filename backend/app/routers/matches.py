@@ -7,7 +7,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, TeamMember, User, UserRole
-from app.models_matches import Match, MatchLineupSlot, MatchPosition, MatchRosterPlayer, MatchStatus, MatchSystem
+from app.models_matches import (
+    Match,
+    MatchFormat,
+    MatchLineupSlot,
+    MatchPosition,
+    MatchRosterPlayer,
+    MatchSet,
+    MatchSetStatus,
+    MatchStatus,
+    MatchSystem,
+)
 from app.routers.teams import _ensure_team_owner
 from app.schemas.matches import (
     MAX_MATCH_ROSTER,
@@ -39,6 +49,15 @@ def _system_value(raw: str | MatchSystem) -> MatchSystem:
     raise HTTPException(status_code=422, detail="Невалидна схема на игра")
 
 
+def _format_value(raw: str | MatchFormat) -> MatchFormat:
+    if isinstance(raw, MatchFormat):
+        return raw
+    for item in MatchFormat:
+        if item.value == raw or item.name == raw:
+            return item
+    raise HTTPException(status_code=422, detail="Невалиден формат (2 от 3 / 3 от 5)")
+
+
 def _status_value(raw: str | MatchStatus) -> MatchStatus:
     if isinstance(raw, MatchStatus):
         return raw
@@ -64,6 +83,22 @@ def _get_match(db: Session, team_id: int, match_id: int) -> Match:
     return match
 
 
+def _active_set(db: Session, match_id: int) -> MatchSet | None:
+    return (
+        db.query(MatchSet)
+        .filter(MatchSet.match_id == match_id, MatchSet.status == MatchSetStatus.in_progress)
+        .first()
+    )
+
+
+def _can_edit_lineup(db: Session, match: Match) -> bool:
+    if match.status == MatchStatus.finished:
+        return False
+    if match.status == MatchStatus.live and _active_set(db, match.id) is not None:
+        return False
+    return True
+
+
 def _roster_count(db: Session, match_id: int) -> int:
     return db.query(MatchRosterPlayer).filter(MatchRosterPlayer.match_id == match_id).count()
 
@@ -73,6 +108,9 @@ def _has_lineup(db: Session, match_id: int) -> bool:
 
 
 def _to_match_read(db: Session, match: Match) -> MatchRead:
+    fmt = match.format.value if isinstance(getattr(match, "format", None), MatchFormat) else (
+        str(getattr(match, "format", None) or "bo5")
+    )
     return MatchRead(
         id=match.id,
         team_id=match.team_id,
@@ -80,6 +118,7 @@ def _to_match_read(db: Session, match: Match) -> MatchRead:
         match_date=match.match_date,
         venue=match.venue,
         system=match.system.value if isinstance(match.system, MatchSystem) else str(match.system),
+        format=fmt,  # type: ignore[arg-type]
         status=match.status.value if isinstance(match.status, MatchStatus) else str(match.status),
         notes=match.notes,
         roster_count=_roster_count(db, match.id),
@@ -261,6 +300,7 @@ def create_match(
         match_date=payload.match_date,
         venue=(payload.venue or "").strip() or None,
         system=_system_value(payload.system),
+        format=_format_value(payload.format or "bo5"),
         status=MatchStatus.draft,
         notes=(payload.notes or "").strip() or None,
     )
@@ -301,6 +341,10 @@ def update_match(
         match.venue = (data["venue"] or "").strip() or None
     if "system" in data and data["system"] is not None:
         match.system = _system_value(data["system"])
+    if "format" in data and data["format"] is not None:
+        if match.status in (MatchStatus.live, MatchStatus.finished):
+            raise HTTPException(status_code=422, detail="Форматът не може да се сменя след старт на мача")
+        match.format = _format_value(data["format"])
     if "notes" in data:
         match.notes = (data["notes"] or "").strip() or None
     if "status" in data and data["status"] is not None:
@@ -384,8 +428,11 @@ def put_match_lineup(
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
 
-    if match.status in (MatchStatus.live, MatchStatus.finished):
-        raise HTTPException(status_code=422, detail="Стартовата шестица не може да се променя при live/приключен мач")
+    if not _can_edit_lineup(db, match):
+        raise HTTPException(
+            status_code=422,
+            detail="Шестицата може да се сменя преди старт и между геймове (не по време на активен гейм)",
+        )
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     if not match_systems.is_supported(system):

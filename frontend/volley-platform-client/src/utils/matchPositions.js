@@ -17,6 +17,11 @@ export const MATCH_SYSTEMS = [
   { code: "6-3", label: "6-3", enabled: true, hint: "3 разпределителя, редуват се · 2 посрещача · 1 център" },
 ];
 
+export const MATCH_FORMATS = [
+  { code: "bo3", label: "2 от 3", hint: "Първи до 2 гейма · решаващият до 15" },
+  { code: "bo5", label: "3 от 5", hint: "Първи до 3 гейма · 5-ият до 15" },
+];
+
 export const SYSTEM_LINEUP_HINT = {
   "5-1": "За 5-1 по гайда: 1=S(Р), 2=OH1(П), 3=MB2(Ц), 4=OPP(Д), 5=OH2(П), 6=MB1(Ц).",
   "6-2": "За 6-2: 1=S1(Р1 зад, задава), 2=OH1(П), 3=MB(Ц), 4=S2(Р2 пред, атакува), 5=OH2(П), 6=MB(Ц).",

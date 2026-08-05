@@ -38,6 +38,13 @@ class MatchSystem(str, Enum):
     six_three = "6-3"
 
 
+class MatchFormat(str, Enum):
+    """Best-of format: first to 2 (bo3) or first to 3 (bo5)."""
+
+    bo3 = "bo3"
+    bo5 = "bo5"
+
+
 class MatchPosition(str, Enum):
     """Канонични кодове; UI показва Р/П/Ц/Д/Л."""
 
@@ -62,6 +69,11 @@ class Match(Base):
         SqlEnum(MatchSystem, native_enum=False, length=8, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=MatchSystem.five_one,
+    )
+    format = Column(
+        SqlEnum(MatchFormat, native_enum=False, length=8, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=MatchFormat.bo5,
     )
     status = Column(
         SqlEnum(MatchStatus, native_enum=False, length=16, values_callable=lambda x: [e.value for e in x]),
@@ -148,6 +160,8 @@ class MatchSet(Base):
     opp_score = Column(Integer, nullable=False, default=0)
     rotation = Column(Integer, nullable=False, default=1)
     we_serve = Column(Integer, nullable=False, default=1)
+    start_rotation = Column(Integer, nullable=False, default=1)
+    start_we_serve = Column(Integer, nullable=False, default=1)
     status = Column(
         SqlEnum(MatchSetStatus, native_enum=False, length=16, values_callable=lambda x: [e.value for e in x]),
         nullable=False,

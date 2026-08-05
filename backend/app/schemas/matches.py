@@ -7,6 +7,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 MatchSystemLiteral = Literal["5-1", "6-2", "4-2", "6-3"]
+MatchFormatLiteral = Literal["bo3", "bo5"]
 MatchStatusLiteral = Literal["draft", "ready", "live", "finished", "cancelled"]
 MatchPositionLiteral = Literal["S", "OH", "MB", "OPP", "L"]
 
@@ -18,6 +19,7 @@ class MatchCreate(BaseModel):
     match_date: Optional[date] = None
     venue: Optional[str] = None
     system: MatchSystemLiteral = "5-1"
+    format: MatchFormatLiteral = "bo5"
     notes: Optional[str] = None
 
 
@@ -26,6 +28,7 @@ class MatchUpdate(BaseModel):
     match_date: Optional[date] = None
     venue: Optional[str] = None
     system: Optional[MatchSystemLiteral] = None
+    format: Optional[MatchFormatLiteral] = None
     notes: Optional[str] = None
     status: Optional[MatchStatusLiteral] = None
 
@@ -115,6 +118,7 @@ class MatchRead(BaseModel):
     match_date: Optional[date] = None
     venue: Optional[str] = None
     system: MatchSystemLiteral
+    format: MatchFormatLiteral = "bo5"
     status: MatchStatusLiteral
     notes: Optional[str] = None
     roster_count: int = 0
@@ -150,6 +154,7 @@ MatchStatActionLiteral = Literal[
 
 class MatchLiveStart(BaseModel):
     we_serve: bool = True
+    rotation: int = Field(default=1, ge=1, le=6)
     set_number: int = Field(default=1, ge=1, le=5)
 
 
@@ -183,6 +188,15 @@ class MatchLiveSetRead(BaseModel):
     opp_score: int
     rotation: int
     we_serve: bool
+    start_rotation: int = 1
+    start_we_serve: bool = True
+    status: str
+
+
+class MatchLiveSetSummary(BaseModel):
+    set_number: int
+    our_score: int
+    opp_score: int
     status: str
 
 
@@ -191,9 +205,18 @@ class MatchLiveStateRead(BaseModel):
     team_id: int
     opponent_name: Optional[str] = None
     system: MatchSystemLiteral
+    format: MatchFormatLiteral = "bo5"
     status: MatchStatusLiteral
     phase: Literal["base", "serve", "receive"] = "serve"
     set: Optional[MatchLiveSetRead] = None
+    sets: list[MatchLiveSetSummary] = Field(default_factory=list)
+    sets_won_us: int = 0
+    sets_won_opp: int = 0
+    sets_to_win: int = 3
+    max_sets: int = 5
+    needs_set_start: bool = False
+    can_edit_lineup: bool = False
+    match_won_by: Optional[Literal["us", "opp"]] = None
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)

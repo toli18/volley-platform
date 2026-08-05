@@ -12,6 +12,7 @@ import {
   MATCH_POSITIONS,
   MATCH_STATUS_LABEL,
   MATCH_SYSTEMS,
+  MATCH_FORMATS,
   SYSTEM_LINEUP_HINT,
   positionShort,
 } from "../../utils/matchPositions";
@@ -46,6 +47,7 @@ export default function CoachMatchSetup() {
     match_date: "",
     venue: "",
     system: "5-1",
+    format: "bo5",
   });
 
   const selectedIds = useMemo(
@@ -99,6 +101,7 @@ export default function CoachMatchSetup() {
       match_date: m.match_date || "",
       venue: m.venue || "",
       system: m.system || "5-1",
+      format: m.format || "bo5",
     });
 
     const nextSelected = {};
@@ -195,6 +198,7 @@ export default function CoachMatchSetup() {
       match_date: meta.match_date || null,
       venue: meta.venue.trim() || null,
       system: meta.system || "5-1",
+      format: meta.format || "bo5",
     });
     return res.data;
   };

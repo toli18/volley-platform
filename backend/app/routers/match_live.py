@@ -9,6 +9,7 @@ from app.dependencies.roles import require_role
 from app.models import Athlete, User, UserRole
 from app.models_matches import (
     Match,
+    MatchFormat,
     MatchLineupSlot,
     MatchPosition,
     MatchRosterPlayer,
@@ -25,13 +26,23 @@ from app.schemas.matches import (
     MatchLiveEventRead,
     MatchLiveScoreIn,
     MatchLiveSetRead,
+    MatchLiveSetSummary,
     MatchLiveStart,
     MatchLiveStateRead,
     MatchLiveStatIn,
 )
 from app.services.match_rotations import ZONE_LABELS_BG
 from app.services import match_systems
-from app.services.match_live import action_point_side, apply_point, is_set_won
+from app.services.match_live import (
+    action_point_side,
+    apply_point,
+    count_sets_won,
+    is_match_won,
+    is_set_won,
+    max_sets,
+    normalize_format,
+    sets_to_win,
+)
 
 router = APIRouter(prefix="/api/teams/{team_id}/matches", tags=["Match Live"])
 
@@ -52,6 +63,33 @@ def _active_set(db: Session, match_id: int) -> MatchSet | None:
         .order_by(MatchSet.set_number.desc())
         .first()
     )
+
+
+def _match_format(match: Match) -> str:
+    fmt = getattr(match, "format", None)
+    if isinstance(fmt, MatchFormat):
+        return fmt.value
+    return normalize_format(fmt)
+
+
+def _all_sets(db: Session, match_id: int) -> list[MatchSet]:
+    return (
+        db.query(MatchSet)
+        .filter(MatchSet.match_id == match_id)
+        .order_by(MatchSet.set_number.asc())
+        .all()
+    )
+
+
+def _set_start_rotation(mset: MatchSet) -> int:
+    return int(getattr(mset, "start_rotation", None) or mset.rotation or 1)
+
+
+def _set_start_we_serve(mset: MatchSet) -> bool:
+    raw = getattr(mset, "start_we_serve", None)
+    if raw is None:
+        return bool(mset.we_serve)
+    return bool(raw)
 
 
 def _roster_map(db: Session, match_id: int) -> dict[int, MatchRosterPlayer]:
@@ -193,14 +231,18 @@ def _recent_events(db: Session, match_id: int, set_id: int, limit: int = 12) -> 
 
 
 def _state(db: Session, match: Match, *, phase_override: str | None = None) -> MatchLiveStateRead:
-    mset = _active_set(db, match.id)
-    if match.status == MatchStatus.finished and not mset:
-        mset = (
-            db.query(MatchSet)
-            .filter(MatchSet.match_id == match.id)
-            .order_by(MatchSet.set_number.desc())
-            .first()
-        )
+    fmt = _match_format(match)
+    all_sets = _all_sets(db, match.id)
+    sets_won_us, sets_won_opp = count_sets_won(all_sets)
+    won_by = is_match_won(sets_won_us, sets_won_opp, fmt)
+    need = sets_to_win(fmt)
+    cap = max_sets(fmt)
+
+    active = _active_set(db, match.id)
+    mset = active
+    if not mset and all_sets:
+        # Between sets or finished: show last set for scoreboard context
+        mset = all_sets[-1]
 
     court: list[MatchCourtPlayerRead] = []
     libero = None
@@ -211,10 +253,14 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
 
     if mset:
         phase = match_systems.phase_from_serve(bool(mset.we_serve), phase_override)
-        court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
+        try:
+            court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
+        except HTTPException:
+            court, libero = [], None
         events = _recent_events(db, match.id, mset.id, limit=400)
         can_undo = (
-            db.query(MatchStatEvent)
+            active is not None
+            and db.query(MatchStatEvent)
             .filter(MatchStatEvent.set_id == mset.id, MatchStatEvent.undone == 0)
             .count()
             > 0
@@ -226,24 +272,59 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
             opp_score=int(mset.opp_score),
             rotation=int(mset.rotation),
             we_serve=bool(mset.we_serve),
+            start_rotation=_set_start_rotation(mset),
+            start_we_serve=_set_start_we_serve(mset),
             status=mset.status.value if isinstance(mset.status, MatchSetStatus) else str(mset.status),
         )
 
-    system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
+    set_summaries = [
+        MatchLiveSetSummary(
+            set_number=int(s.set_number),
+            our_score=int(s.our_score),
+            opp_score=int(s.opp_score),
+            status=s.status.value if isinstance(s.status, MatchSetStatus) else str(s.status),
+        )
+        for s in all_sets
+    ]
+
     status = match.status.value if isinstance(match.status, MatchStatus) else str(match.status)
+    finished = status == MatchStatus.finished.value or won_by is not None
+    needs_set_start = (not finished) and active is None and (won_by is None) and (
+        len(all_sets) < cap
+    )
+    # Lineup editable before first set, or between sets (no active set)
+    can_edit_lineup = (not finished) and active is None
+
+    system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     return MatchLiveStateRead(
         match_id=match.id,
         team_id=match.team_id,
         opponent_name=match.opponent_name,
         system=system,
-        status=status,
+        format=fmt,  # type: ignore[arg-type]
+        status=status,  # type: ignore[arg-type]
         phase=phase,  # type: ignore[arg-type]
         set=set_read,
+        sets=set_summaries,
+        sets_won_us=sets_won_us,
+        sets_won_opp=sets_won_opp,
+        sets_to_win=need,
+        max_sets=cap,
+        needs_set_start=needs_set_start,
+        can_edit_lineup=can_edit_lineup,
+        match_won_by=won_by,  # type: ignore[arg-type]
         court=court,
         libero=libero,
         recent_events=events,
         can_undo=can_undo,
     )
+
+
+def _maybe_finish_match(db: Session, match: Match) -> None:
+    fmt = _match_format(match)
+    us, opp = count_sets_won(_all_sets(db, match.id))
+    if is_match_won(us, opp, fmt):
+        match.status = MatchStatus.finished
 
 
 def _record_event(
@@ -284,19 +365,33 @@ def start_live(
     if db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).count() != 6:
         raise HTTPException(status_code=422, detail="Първо запишете стартовата шестица")
 
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+
     existing = _active_set(db, match.id)
     if existing:
         match.status = MatchStatus.live
         db.commit()
         return _state(db, match)
 
+    all_sets = _all_sets(db, match.id)
+    fmt = _match_format(match)
+    if all_sets:
+        raise HTTPException(status_code=422, detail="Има вече геймове — ползвайте следващ гейм")
+    if is_match_won(*count_sets_won(all_sets), fmt):
+        raise HTTPException(status_code=422, detail="Мачът вече има победител")
+
+    rotation = int(payload.rotation or 1)
+    we_serve = 1 if payload.we_serve else 0
     mset = MatchSet(
         match_id=match.id,
-        set_number=int(payload.set_number or 1),
+        set_number=1,
         our_score=0,
         opp_score=0,
-        rotation=1,
-        we_serve=1 if payload.we_serve else 0,
+        rotation=rotation,
+        we_serve=we_serve,
+        start_rotation=rotation,
+        start_we_serve=we_serve,
         status=MatchSetStatus.in_progress,
     )
     db.add(mset)
@@ -332,7 +427,7 @@ def live_score(
     match = _get_match(db, team_id, match_id)
     mset = _active_set(db, match.id)
     if not mset:
-        raise HTTPException(status_code=422, detail="Няма активен сет — стартирайте live")
+        raise HTTPException(status_code=422, detail="Няма активен гейм — стартирайте live")
 
     nxt = apply_point(
         our_score=mset.our_score,
@@ -348,11 +443,16 @@ def live_score(
     action = MatchStatAction.our_point if payload.side == "us" else MatchStatAction.opp_point
     _record_event(db, match=match, mset=mset, action=action, athlete_id=None, scored_for=payload.side)
 
-    winner = is_set_won(mset.our_score, mset.opp_score, mset.set_number)
+    fmt = _match_format(match)
+    winner = is_set_won(mset.our_score, mset.opp_score, mset.set_number, fmt)
     if winner:
         mset.status = MatchSetStatus.finished
+        match.status = MatchStatus.live
+        db.flush()
+        _maybe_finish_match(db, match)
+    else:
+        match.status = MatchStatus.live
 
-    match.status = MatchStatus.live
     db.commit()
     db.refresh(match)
     return _state(db, match)
@@ -370,7 +470,7 @@ def live_stat(
     match = _get_match(db, team_id, match_id)
     mset = _active_set(db, match.id)
     if not mset:
-        raise HTTPException(status_code=422, detail="Няма активен сет — стартирайте live")
+        raise HTTPException(status_code=422, detail="Няма активен гейм — стартирайте live")
 
     try:
         action = MatchStatAction(payload.action)
@@ -402,10 +502,15 @@ def live_stat(
         mset.we_serve = 1 if nxt["we_serve"] else 0
 
     _record_event(db, match=match, mset=mset, action=action, athlete_id=athlete_id, scored_for=scored_for)
-    winner = is_set_won(mset.our_score, mset.opp_score, mset.set_number)
+    fmt = _match_format(match)
+    winner = is_set_won(mset.our_score, mset.opp_score, mset.set_number, fmt)
     if winner:
         mset.status = MatchSetStatus.finished
-    match.status = MatchStatus.live
+        match.status = MatchStatus.live
+        db.flush()
+        _maybe_finish_match(db, match)
+    else:
+        match.status = MatchStatus.live
     db.commit()
     db.refresh(match)
     return _state(db, match)
@@ -430,7 +535,7 @@ def live_undo(
             .first()
         )
     if not mset:
-        raise HTTPException(status_code=422, detail="Няма сет за undo")
+        raise HTTPException(status_code=422, detail="Няма гейм за undo")
 
     last = (
         db.query(MatchStatEvent)
@@ -442,7 +547,6 @@ def live_undo(
         raise HTTPException(status_code=422, detail="Няма действие за undo")
 
     last.undone = 1
-    # Restore previous snapshot: find previous non-undone event, else 0-0 R1 serve start
     prev = (
         db.query(MatchStatEvent)
         .filter(MatchStatEvent.set_id == mset.id, MatchStatEvent.undone == 0, MatchStatEvent.id < last.id)
@@ -457,8 +561,8 @@ def live_undo(
     else:
         mset.our_score = 0
         mset.opp_score = 0
-        mset.rotation = 1
-        mset.we_serve = 1
+        mset.rotation = _set_start_rotation(mset)
+        mset.we_serve = 1 if _set_start_we_serve(mset) else 0
     if mset.status == MatchSetStatus.finished:
         mset.status = MatchSetStatus.in_progress
     match.status = MatchStatus.live
@@ -477,27 +581,42 @@ def live_next_set(
 ):
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+
     active = _active_set(db, match.id)
     if active:
-        raise HTTPException(status_code=422, detail="Има незавършен сет")
+        raise HTTPException(status_code=422, detail="Има незавършен гейм")
 
-    last = (
-        db.query(MatchSet)
-        .filter(MatchSet.match_id == match.id)
-        .order_by(MatchSet.set_number.desc())
-        .first()
-    )
+    if db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).count() != 6:
+        raise HTTPException(status_code=422, detail="Запишете шестицата преди следващия гейм")
+
+    all_sets = _all_sets(db, match.id)
+    fmt = _match_format(match)
+    us, opp = count_sets_won(all_sets)
+    if is_match_won(us, opp, fmt):
+        match.status = MatchStatus.finished
+        db.commit()
+        db.refresh(match)
+        raise HTTPException(status_code=422, detail="Мачът вече има победител")
+
+    last = all_sets[-1] if all_sets else None
     next_num = int(last.set_number) + 1 if last else 1
-    if next_num > 5:
-        raise HTTPException(status_code=422, detail="Достигнат е максимум сетове")
+    cap = max_sets(fmt)
+    if next_num > cap:
+        raise HTTPException(status_code=422, detail=f"Максимум {cap} гейма за този формат")
 
+    rotation = int(payload.rotation or 1)
+    we_serve = 1 if payload.we_serve else 0
     mset = MatchSet(
         match_id=match.id,
         set_number=next_num,
         our_score=0,
         opp_score=0,
-        rotation=1,
-        we_serve=1 if payload.we_serve else 0,
+        rotation=rotation,
+        we_serve=we_serve,
+        start_rotation=rotation,
+        start_we_serve=we_serve,
         status=MatchSetStatus.in_progress,
     )
     db.add(mset)
