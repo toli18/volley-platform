@@ -17,6 +17,7 @@ from app.models_matches import (
 )
 from app.routers import match_live as live
 from app.schemas.matches import (
+    MatchLivePositionsIn,
     MatchLiveScoreIn,
     MatchLiveStatIn,
     MatchPublicLiveRead,
@@ -59,6 +60,7 @@ def _to_public(full) -> MatchPublicLiveRead:
         match_won_by=full.match_won_by,
         court=full.court,
         libero=full.libero,
+        court_positions=dict(getattr(full, "court_positions", None) or {}),
         recent_events=full.recent_events[:40],
         expired=False,
         input_locked=bool(getattr(full, "input_locked", False)),
@@ -237,6 +239,19 @@ def public_undo(token: str, db: Session = Depends(get_db)):
     if mset.status == MatchSetStatus.finished:
         mset.status = MatchSetStatus.in_progress
     match.status = MatchStatus.live
+    db.commit()
+    db.refresh(match)
+    return _to_public(live._state(db, match))
+
+
+@router.put("/{token}/positions", response_model=MatchPublicLiveRead)
+def public_positions(token: str, payload: MatchLivePositionsIn, db: Session = Depends(get_db)):
+    """Помощникът също може да запазва влачене на корта."""
+    match = _match_by_token(db, token)
+    _assert_public_writable(match)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    live.apply_court_positions(match, payload)
     db.commit()
     db.refresh(match)
     return _to_public(live._state(db, match))

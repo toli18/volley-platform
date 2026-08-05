@@ -219,6 +219,7 @@ class MatchLiveStateRead(BaseModel):
     match_won_by: Optional[Literal["us", "opp"]] = None
     input_locked: bool = False
     share_token: Optional[str] = None
+    court_positions: dict = Field(default_factory=dict)
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
@@ -238,6 +239,14 @@ class MatchLiveShareRead(BaseModel):
     share_path: str  # /watch/{token}
 
 
+class MatchLivePositionsIn(BaseModel):
+    """Ключ rotation:phase → zone → {x,y} %."""
+
+    rotation: int = Field(..., ge=1, le=6)
+    phase: Literal["base", "serve", "receive"]
+    positions: dict[str, dict[str, float]] = Field(default_factory=dict)
+
+
 class MatchPublicLiveRead(BaseModel):
     """Публичен spectator payload — без чувствителни coach-only полета."""
 
@@ -253,6 +262,7 @@ class MatchPublicLiveRead(BaseModel):
     match_won_by: Optional[Literal["us", "opp"]] = None
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
+    court_positions: dict = Field(default_factory=dict)
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     expired: bool = False
     input_locked: bool = False

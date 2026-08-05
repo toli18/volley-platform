@@ -14,6 +14,7 @@ from sqlalchemy import (
     Enum as SqlEnum,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -86,6 +87,8 @@ class Match(Base):
     live_input_locked = Column(Integer, nullable=False, default=0)
     # Публичен spectator линк (без login); изтрива се при край на мача
     live_share_token = Column(String(64), nullable=True, unique=True, index=True)
+    # {"{rotation}:{phase}": {"1": {"x":..,"y":..}, ...}}
+    live_court_positions = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

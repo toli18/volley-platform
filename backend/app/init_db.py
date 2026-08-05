@@ -155,6 +155,9 @@ def _init_db_impl() -> None:
                     )
                 )
                 conn.execute(
+                    text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_court_positions JSON")
+                )
+                conn.execute(
                     text(
                         "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "
                         "INTEGER NOT NULL DEFAULT 1"

@@ -5,6 +5,8 @@ import MatchCourt from "../components/matches/MatchCourt";
 import MatchLiveSideStats from "../components/matches/MatchLiveSideStats";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
+import { formatServerToast, needsUndoConfirm, useLiveCourtPositions } from "../utils/liveCourtPositions";
+import { createLiveOfflineQueue, isLiveNetworkError } from "../utils/liveOfflineQueue";
 import { MATCH_FORMATS } from "../utils/matchPositions";
 import { useToast } from "../components/ToastProvider";
 import { normalizeError } from "../utils/normalizeError";
@@ -21,6 +23,7 @@ export default function PublicMatchWatch() {
   const { token } = useParams();
   const toast = useToast();
   const rootRef = useRef(null);
+  const offlineRef = useRef(null);
   const [state, setState] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -28,16 +31,21 @@ export default function PublicMatchWatch() {
   const [fullscreen, setFullscreen] = useState(false);
   const [phaseOverride, setPhaseOverride] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [posByKey, setPosByKey] = useState({});
+
+  const { posByKey, hydrateFromServer, onPositionsChange } = useLiveCourtPositions({
+    saveUrl: API_PATHS.PUBLIC_MATCH_LIVE_POSITIONS(token),
+    enabled: true,
+  });
 
   const load = useCallback(
     async (phase) => {
       const params = phase ? { phase } : phaseOverride ? { phase: phaseOverride } : undefined;
       const res = await axiosInstance.get(API_PATHS.PUBLIC_MATCH_LIVE(token), { params });
       setState(res.data);
+      hydrateFromServer(res.data?.court_positions);
       return res.data;
     },
-    [token, phaseOverride],
+    [token, phaseOverride, hydrateFromServer],
   );
 
   useEffect(() => {
@@ -59,6 +67,8 @@ export default function PublicMatchWatch() {
     return () => {
       alive = false;
     };
+    // initial load only for token
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -66,6 +76,7 @@ export default function PublicMatchWatch() {
     const t = setInterval(() => {
       if (busy) return;
       load().catch(() => {});
+      offlineRef.current?.flush?.();
     }, POLL_MS);
     return () => clearInterval(t);
   }, [loading, state?.expired, state?.status, busy, load]);
@@ -83,6 +94,45 @@ export default function PublicMatchWatch() {
       document.removeEventListener("webkitfullscreenchange", onFs);
     };
   }, []);
+
+  const applyLiveResult = (data, { resetPhase = false } = {}) => {
+    if (resetPhase) setPhaseOverride(null);
+    setState(data);
+    hydrateFromServer(data?.court_positions);
+    if (data?.expired) setError("Мачът е приключен — линкът е изтрит.");
+  };
+  const applyLiveResultRef = useRef(applyLiveResult);
+  applyLiveResultRef.current = applyLiveResult;
+
+  useEffect(() => {
+    const q = createLiveOfflineQueue({
+      storageKey: `vp_live_q_pub_${token}`,
+      send: async (item) => {
+        if (item.kind === "score") {
+          return (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_SCORE(token), item.body)).data;
+        }
+        if (item.kind === "stat") {
+          return (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), item.body)).data;
+        }
+        if (item.kind === "undo") {
+          return (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_UNDO(token))).data;
+        }
+        return null;
+      },
+      onState: (data) => applyLiveResultRef.current(data, { resetPhase: true }),
+      onQueued: () => toast.info("Няма мрежа — действието е в буфер."),
+      onFlushed: (n) => toast.success(n === 1 ? "Синхронизирано 1 действие." : `Синхронизирани ${n} действия.`),
+      onError: (err) => toast.error(normalizeError(err, "Грешка при синхронизация.")),
+    });
+    offlineRef.current = q;
+    const onOnline = () => q.flush();
+    window.addEventListener("online", onOnline);
+    q.flush();
+    return () => {
+      window.removeEventListener("online", onOnline);
+      if (offlineRef.current === q) offlineRef.current = null;
+    };
+  }, [token, toast]);
 
   const toggleFullscreen = async () => {
     if (!fullscreen) {
@@ -107,14 +157,18 @@ export default function PublicMatchWatch() {
     }
   };
 
-  const run = async (fn) => {
+  const run = async (fn, { resetPhase = false, queueItem = null } = {}) => {
     try {
       setBusy(true);
       const data = await fn();
-      setState(data);
-      if (data?.expired) setError("Мачът е приключен — линкът е изтрит.");
+      applyLiveResult(data, { resetPhase });
       return data;
     } catch (err) {
+      if (queueItem && isLiveNetworkError(err)) {
+        offlineRef.current?.enqueue(queueItem);
+        if (resetPhase) setPhaseOverride(null);
+        return { __offlineQueued: true };
+      }
       toast.error(normalizeError(err, "Грешка при въвеждане."));
       return null;
     } finally {
@@ -123,33 +177,45 @@ export default function PublicMatchWatch() {
   };
 
   const score = (side) =>
-    run(async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_SCORE(token), { side })).data);
+    run(
+      async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_SCORE(token), { side })).data,
+      { resetPhase: true, queueItem: { kind: "score", body: { side } } },
+    );
 
-  const undo = () => run(async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_UNDO(token))).data);
+  const undo = () => {
+    if (needsUndoConfirm() && !window.confirm("Отмени последното действие?")) return;
+    run(
+      async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_UNDO(token))).data,
+      { resetPhase: true, queueItem: { kind: "undo", body: {} } },
+    );
+  };
 
   const recordStat = (action) => {
     let athleteId = selectedId;
+    let serverPlayer = null;
     if (action === "ace" || action === "error") {
-      const server = (state?.court || []).find((s) => Number(s.zone) === 1);
-      if (server?.athlete_id) {
-        athleteId = server.athlete_id;
-        setSelectedId(server.athlete_id);
+      serverPlayer = (state?.court || []).find((s) => Number(s.zone) === 1) || null;
+      if (serverPlayer?.athlete_id) {
+        athleteId = serverPlayer.athlete_id;
+        setSelectedId(serverPlayer.athlete_id);
       }
     }
     if (!athleteId && !NO_PLAYER.has(action)) {
       toast.error("Изберете състезател от корта.");
       return;
     }
+    const body = {
+      action,
+      athlete_id: athleteId || null,
+      apply_score: true,
+    };
+    const showAceToast = action === "ace" || action === "error";
     run(
-      async () =>
-        (
-          await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), {
-            action,
-            athlete_id: athleteId || null,
-            apply_score: true,
-          })
-        ).data,
-    );
+      async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), body)).data,
+      { resetPhase: true, queueItem: { kind: "stat", body } },
+    ).then((data) => {
+      if (showAceToast && data) toast.success(formatServerToast(serverPlayer));
+    });
   };
 
   const formatLabel = useMemo(() => {
@@ -307,7 +373,7 @@ export default function PublicMatchWatch() {
           positionOverrides={positionOverrides}
           showAlignment={canEditPositions}
           onPositionsChange={(next) => {
-            setPosByKey((prev) => ({ ...prev, [posKey]: next }));
+            onPositionsChange(posKey, next);
           }}
           onZoneClick={(zone) => {
             const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));

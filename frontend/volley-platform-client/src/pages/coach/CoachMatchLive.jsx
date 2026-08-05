@@ -5,6 +5,8 @@ import MatchCourt from "../../components/matches/MatchCourt";
 import MatchLiveSideStats, { MATCH_ACTION_LABEL } from "../../components/matches/MatchLiveSideStats";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { formatServerToast, needsUndoConfirm, useLiveCourtPositions } from "../../utils/liveCourtPositions";
+import { createLiveOfflineQueue, isLiveNetworkError } from "../../utils/liveOfflineQueue";
 import { positionShort, shortPlayerName, MATCH_FORMATS } from "../../utils/matchPositions";
 import { useToast } from "../../components/ToastProvider";
 import { normalizeError } from "../../utils/normalizeError";
@@ -141,8 +143,6 @@ export default function CoachMatchLive() {
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState("");
   const [phaseOverride, setPhaseOverride] = useState(null);
-  /** zone → {x,y}% coach stack overrides (per rotation+phase) */
-  const [posByKey, setPosByKey] = useState({});
   const [statsOpen, setStatsOpen] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateServe, setGateServe] = useState(true);
@@ -151,6 +151,13 @@ export default function CoachMatchLive() {
   const [shareHint, setShareHint] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
   const rootRef = useRef(null);
+  const offlineRef = useRef(null);
+
+  const positionsUrl = API_PATHS.TEAM_MATCH_LIVE_POSITIONS(teamIdNum, matchIdNum);
+  const { posByKey, hydrateFromServer, onPositionsChange } = useLiveCourtPositions({
+    saveUrl: positionsUrl,
+    enabled: !viewOnly,
+  });
 
   const selected = useMemo(() => {
     if (!state || !selectedId) return null;
@@ -177,6 +184,7 @@ export default function CoachMatchLive() {
     const params = phase ? { phase } : undefined;
     const res = await axiosInstance.get(API_PATHS.TEAM_MATCH_LIVE(teamIdNum, matchIdNum), { params });
     setState(res.data);
+    hydrateFromServer(res.data?.court_positions);
     return res.data;
   };
 
@@ -222,27 +230,79 @@ export default function CoachMatchLive() {
     const t = setInterval(() => {
       if (busy || gateOpen) return;
       load(phaseOverride || undefined).catch(() => {});
+      offlineRef.current?.flush?.();
     }, POLL_MS);
     return () => clearInterval(t);
   }, [loading, state?.status, state?.set?.id, busy, gateOpen, phaseOverride, teamIdNum, matchIdNum]);
 
-  const run = async (fn, { resetPhase = false, autoGate = false } = {}) => {
+  const applyLiveResult = (data, { resetPhase = false, autoGate = false } = {}) => {
+    if (resetPhase) setPhaseOverride(null);
+    setState(data);
+    hydrateFromServer(data?.court_positions);
+    if (
+      autoGate &&
+      data?.needs_set_start &&
+      !data?.match_won_by &&
+      data?.status !== "finished" &&
+      (data.sets || []).some((s) => s.status === "finished")
+    ) {
+      openGate("next", data);
+    }
+  };
+  const applyLiveResultRef = useRef(applyLiveResult);
+  applyLiveResultRef.current = applyLiveResult;
+
+  useEffect(() => {
+    if (viewOnly) {
+      offlineRef.current = null;
+      return undefined;
+    }
+    const q = createLiveOfflineQueue({
+      storageKey: `vp_live_q_${teamIdNum}_${matchIdNum}`,
+      send: async (item) => {
+        if (item.kind === "score") {
+          const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), item.body);
+          return res.data;
+        }
+        if (item.kind === "stat") {
+          const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), item.body);
+          return res.data;
+        }
+        if (item.kind === "undo") {
+          const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_UNDO(teamIdNum, matchIdNum));
+          return res.data;
+        }
+        return null;
+      },
+      onState: (data) => applyLiveResultRef.current(data, { resetPhase: true, autoGate: true }),
+      onQueued: () => toast.info("Няма мрежа — действието е в буфер."),
+      onFlushed: (n) => toast.success(n === 1 ? "Синхронизирано 1 действие." : `Синхронизирани ${n} действия.`),
+      onError: (err) => toast.error(normalizeError(err, "Грешка при синхронизация.")),
+    });
+    offlineRef.current = q;
+    const onOnline = () => {
+      q.flush();
+    };
+    window.addEventListener("online", onOnline);
+    q.flush();
+    return () => {
+      window.removeEventListener("online", onOnline);
+      if (offlineRef.current === q) offlineRef.current = null;
+    };
+  }, [teamIdNum, matchIdNum, viewOnly, toast]);
+
+  const run = async (fn, { resetPhase = false, autoGate = false, queueItem = null } = {}) => {
     try {
       setBusy(true);
       const data = await fn();
-      if (resetPhase) setPhaseOverride(null);
-      setState(data);
-      if (
-        autoGate &&
-        data?.needs_set_start &&
-        !data?.match_won_by &&
-        data?.status !== "finished" &&
-        (data.sets || []).some((s) => s.status === "finished")
-      ) {
-        openGate("next", data);
-      }
+      applyLiveResult(data, { resetPhase, autoGate });
       return data;
     } catch (err) {
+      if (queueItem && isLiveNetworkError(err)) {
+        offlineRef.current?.enqueue(queueItem);
+        if (resetPhase) setPhaseOverride(null);
+        return { __offlineQueued: true };
+      }
       toast.error(normalizeError(err, "Грешка при live действие."));
       return null;
     } finally {
@@ -256,42 +316,53 @@ export default function CoachMatchLive() {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SCORE(teamIdNum, matchIdNum), { side });
         return res.data;
       },
-      { resetPhase: true, autoGate: true },
+      { resetPhase: true, autoGate: true, queueItem: { kind: "score", body: { side } } },
     );
 
-  const undo = () =>
+  const undo = () => {
+    if (needsUndoConfirm() && !window.confirm("Отмени последното действие?")) return;
     run(
       async () => {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_UNDO(teamIdNum, matchIdNum));
         return res.data;
       },
-      { resetPhase: true },
+      { resetPhase: true, queueItem: { kind: "undo", body: {} } },
     );
+  };
 
   const recordStat = (action) => {
     let athleteId = selectedId;
+    let serverPlayer = null;
     if (action === "ace" || action === "error") {
-      const server = (state?.court || []).find((s) => Number(s.zone) === 1);
-      if (server?.athlete_id) {
-        athleteId = server.athlete_id;
-        setSelectedId(server.athlete_id);
+      serverPlayer = (state?.court || []).find((s) => Number(s.zone) === 1) || null;
+      if (serverPlayer?.athlete_id) {
+        athleteId = serverPlayer.athlete_id;
+        setSelectedId(serverPlayer.athlete_id);
       }
     }
     if (!athleteId && !NO_PLAYER_ACTIONS.has(action)) {
       toast.error("Изберете състезател от корта.");
       return;
     }
+    const body = {
+      action,
+      athlete_id: athleteId || null,
+      apply_score: true,
+    };
+    const showAceToast = action === "ace" || action === "error";
     run(
       async () => {
-        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), {
-          action,
-          athlete_id: athleteId || null,
-          apply_score: true,
-        });
+        const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), body);
         return res.data;
       },
-      { resetPhase: true, autoGate: true },
-    );
+      {
+        resetPhase: true,
+        autoGate: true,
+        queueItem: { kind: "stat", body },
+      },
+    ).then((data) => {
+      if (showAceToast && data) toast.success(formatServerToast(serverPlayer));
+    });
   };
 
   const selectPhase = (phaseId) => {
@@ -567,7 +638,7 @@ export default function CoachMatchLive() {
               </button>
             ) : null}
           </div>
-          {!viewOnly ? (
+          {!viewOnly && !fullscreen ? (
             <div className="matchLiveTopActionsDanger">
               {!matchDone ? (
                 <button
@@ -718,7 +789,7 @@ export default function CoachMatchLive() {
           positionOverrides={positionOverrides}
           showAlignment={canEditPositions}
           onPositionsChange={(next) => {
-            setPosByKey((prev) => ({ ...prev, [posKey]: next }));
+            onPositionsChange(posKey, next);
           }}
           onZoneClick={(zone) => {
             const p = (state.court || []).find((s) => Number(s.zone) === Number(zone));

@@ -28,6 +28,7 @@ from app.schemas.matches import (
     MatchCourtPlayerRead,
     MatchLiveEventRead,
     MatchLiveLockIn,
+    MatchLivePositionsIn,
     MatchLiveScoreIn,
     MatchLiveSetRead,
     MatchLiveSetSummary,
@@ -324,6 +325,7 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         match_won_by=won_by,  # type: ignore[arg-type]
         input_locked=bool(getattr(match, "live_input_locked", 0)),
         share_token=getattr(match, "live_share_token", None) or None,
+        court_positions=dict(getattr(match, "live_court_positions", None) or {}),
         court=court,
         libero=libero,
         recent_events=events,
@@ -704,6 +706,53 @@ def live_lock(
     if match.status == MatchStatus.finished:
         raise HTTPException(status_code=422, detail="Мачът е приключен")
     match.live_input_locked = 1 if payload.locked else 0
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
+def apply_court_positions(match: Match, payload: MatchLivePositionsIn) -> None:
+    """Записва XY позиции за ключ rotation:phase върху match.live_court_positions."""
+    key = f"{int(payload.rotation)}:{payload.phase}"
+    cleaned: dict[str, dict[str, float]] = {}
+    for z_raw, xy in (payload.positions or {}).items():
+        try:
+            z = int(z_raw)
+        except (TypeError, ValueError):
+            continue
+        if z < 1 or z > 6 or not isinstance(xy, dict):
+            continue
+        try:
+            x = float(xy.get("x", 50))
+            y = float(xy.get("y", 50))
+        except (TypeError, ValueError):
+            continue
+        cleaned[str(z)] = {
+            "x": max(0.0, min(100.0, x)),
+            "y": max(0.0, min(100.0, y)),
+        }
+
+    blob = dict(getattr(match, "live_court_positions", None) or {})
+    if cleaned:
+        blob[key] = cleaned
+    elif key in blob:
+        del blob[key]
+    match.live_court_positions = blob or None
+
+
+@router.put("/{match_id}/live/positions", response_model=MatchLiveStateRead)
+def live_positions(
+    team_id: int,
+    match_id: int,
+    payload: MatchLivePositionsIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Запазва XY позиции за ротация+фаза (влачене на корта)."""
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    _assert_writable(match)
+    apply_court_positions(match, payload)
     db.commit()
     db.refresh(match)
     return _state(db, match)
