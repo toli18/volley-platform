@@ -11,6 +11,7 @@ export const MATCH_STAT_SIDE_LEFT = [
 
 export const MATCH_STAT_SIDE_RIGHT = [
   { action: "dig", label: "Защита", tone: "neutral" },
+  { action: "our_point", label: "Точка+", tone: "good" },
   { action: "pass_3", label: "#", tone: "good" },
   { action: "pass_2", label: "+", tone: "good" },
   { action: "pass_1", label: "−", tone: "neutral" },

@@ -8085,20 +8085,21 @@ body:has(.publicWatchPage--fs) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: rotateX(16deg);
-  transform-origin: 50% 42%;
+  transform: rotateX(10deg);
+  transform-origin: 50% 45%;
 }
 /* Keep desktop-like court proportions — never squash by height */
 .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-  aspect-ratio: 1.22 / 1 !important;
-  width: min(100%, calc((100dvh - 96px) * 1.22)) !important;
+  aspect-ratio: 1.28 / 1 !important;
+  width: min(100%, calc((100dvh - 84px) * 1.28)) !important;
   height: auto !important;
-  max-height: calc(100dvh - 96px) !important;
+  max-height: calc(100dvh - 84px) !important;
   min-height: 0 !important;
   flex: none !important;
+  overflow: visible;
 }
 .matchLivePage--fs .matchLiveScore,
 .matchLivePage--fs .matchLiveSideSelected,
@@ -8263,7 +8264,7 @@ body:has(.publicWatchPage--fs) {
 @media (orientation: landscape) and (max-height: 700px) {
   .matchLivePage--fs,
   .publicWatchPage--fs {
-    --live-chrome: 52px;
+    --live-chrome: 44px;
     gap: 2px;
     padding: max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px))
       max(2px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
@@ -8340,16 +8341,23 @@ body:has(.publicWatchPage--fs) {
   }
   .matchLivePage--fs .matchCourtPlane--3d,
   .publicWatchPage--fs .matchCourtPlane--3d {
-    transform: rotateX(10deg);
+    transform: rotateX(6deg);
+    transform-origin: 50% 50%;
+  }
+  .matchLivePage--fs .matchCourtStage--perspective,
+  .publicWatchPage--fs .matchCourtStage--perspective {
+    perspective: 1400px;
+    overflow: visible;
   }
   .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-    aspect-ratio: 1.28 / 1 !important;
-    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.28)) !important;
+    aspect-ratio: 1.35 / 1 !important;
+    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.35)) !important;
     max-height: calc(100dvh - var(--live-chrome)) !important;
     height: auto !important;
+    overflow: visible;
   }
   .matchLivePage--fs .matchLiveCourtRow,
   .publicWatchPage--fs .matchLiveCourtRow {

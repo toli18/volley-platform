@@ -92,65 +92,57 @@ export function positionChipShape(position) {
 }
 
 /**
- * SERVE — PDF «Rotation N – Serve»
- * Стек при сервис; S често долу вдясно (serving).
+ * SERVE — предварителни атакуващи места (не FIVB стекове).
+ * Посрещач: предна → з4, задна → з6
+ * Диагонал / разпределител: предна → з2, задна → з1
+ * Център: предна → з3, задна → з5 · Либеро → з5
+ * Сервиращият (офисегашна зона 1) остава на начален удар.
  */
-const SERVE_ROLE_XY = {
-  1: {
-    O: { x: 44, y: 24 },
-    C1: { x: 54, y: 12 },
-    P1: { x: 62, y: 34 },
-    P2: { x: 16, y: 54 },
-    C2: { x: 52, y: 82 },
-    L: { x: 52, y: 82 },
-    A: { x: 90, y: 88 },
-  },
-  2: {
-    P2: { x: 18, y: 22 },
-    O: { x: 46, y: 24 },
-    C1: { x: 54, y: 12 },
-    C2: { x: 52, y: 80 },
-    L: { x: 52, y: 80 },
-    A: { x: 78, y: 48 },
-    P1: { x: 90, y: 88 },
-  },
-  3: {
-    C2: { x: 42, y: 14 },
-    L: { x: 90, y: 88 },
-    P2: { x: 52, y: 22 },
-    O: { x: 78, y: 20 },
-    A: { x: 46, y: 52 },
-    P1: { x: 52, y: 68 },
-    C1: { x: 88, y: 78 },
-  },
-  4: {
-    A: { x: 48, y: 28 },
-    C2: { x: 52, y: 14 },
-    L: { x: 52, y: 78 },
-    P2: { x: 58, y: 36 },
-    P1: { x: 18, y: 52 },
-    C1: { x: 52, y: 58 },
-    O: { x: 90, y: 88 },
-  },
-  5: {
-    P1: { x: 18, y: 22 },
-    A: { x: 48, y: 30 },
-    C2: { x: 54, y: 14 },
-    L: { x: 52, y: 76 },
-    C1: { x: 52, y: 56 },
-    O: { x: 76, y: 48 },
-    P2: { x: 90, y: 88 },
-  },
-  6: {
-    C1: { x: 54, y: 14 },
-    P1: { x: 56, y: 32 },
-    A: { x: 78, y: 14 },
-    O: { x: 44, y: 52 },
-    P2: { x: 52, y: 68 },
-    C2: { x: 90, y: 88 },
-    L: { x: 90, y: 88 },
-  },
+function serveAttackTargetZone(role, rotation, officialZone) {
+  const key = String(role || "").toUpperCase();
+  if (!key) return officialZone;
+  if (Number(officialZone) === 1) return 1; // сервиращ
+  const front = isFrontRole(key, rotation);
+  if (key === "P1" || key === "P2") return front ? 4 : 6;
+  if (key === "O" || key === "A" || key === "S1" || key === "S2" || key === "S3") {
+    return front ? 2 : 1;
+  }
+  if (key === "C1" || key === "C2") return front ? 3 : 5;
+  if (key === "L") return 5;
+  return officialZone;
+}
+
+function buildServeAttackXy(zoneRoleByRot) {
+  const out = {};
+  for (const [rotStr, zones] of Object.entries(zoneRoleByRot)) {
+    const rot = Number(rotStr);
+    const row = {};
+    for (const [zoneStr, role] of Object.entries(zones)) {
+      const officialZone = Number(zoneStr);
+      const target = serveAttackTargetZone(role, rot, officialZone);
+      // Сервиращият малко по-назад/встрани; останалите в центъра на атакуващата зона
+      if (officialZone === 1) {
+        row[role] = { x: 90, y: 88 };
+      } else {
+        row[role] = { ...(BASE_ZONE_XY[target] || BASE_ZONE_XY[officialZone]) };
+      }
+    }
+    row.L = { ...(BASE_ZONE_XY[5] || { x: 18, y: 62 }) };
+    out[rot] = row;
+  }
+  return out;
+}
+
+const ZONE_ROLE_BASE = {
+  1: { 4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A" },
+  2: { 4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1" },
+  3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
+  4: { 4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O" },
+  5: { 4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2" },
+  6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
 };
+
+const SERVE_ROLE_XY = buildServeAttackXy(ZONE_ROLE_BASE);
 
 /**
  * RECEIVE — PDF «Serve Receive»
@@ -230,15 +222,6 @@ function buildBaseRoleXy(zoneRoleByRot) {
   }
   return out;
 }
-
-const ZONE_ROLE_BASE = {
-  1: { 4: "O", 3: "C1", 2: "P1", 5: "P2", 6: "C2", 1: "A" },
-  2: { 4: "P2", 3: "O", 2: "C1", 5: "C2", 6: "A", 1: "P1" },
-  3: { 4: "C2", 3: "P2", 2: "O", 5: "A", 6: "P1", 1: "C1" },
-  4: { 4: "A", 3: "C2", 2: "P2", 5: "P1", 6: "C1", 1: "O" },
-  5: { 4: "P1", 3: "A", 2: "C2", 5: "C1", 6: "O", 1: "P2" },
-  6: { 4: "C1", 3: "P1", 2: "A", 5: "O", 6: "P2", 1: "C2" },
-};
 
 const BASE_ROLE_XY = buildBaseRoleXy(ZONE_ROLE_BASE);
 

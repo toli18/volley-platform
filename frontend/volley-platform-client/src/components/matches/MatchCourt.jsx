@@ -497,7 +497,11 @@ export default function MatchCourt({
       ) : null}
 
       {freeMove ? (
-        <p className="matchCourtHint">Влачи за позиция · зоните трябва да са легални при контакт</p>
+        <p className="matchCourtHint">
+          {layoutPhase === "serve"
+            ? "Влачи свободно · сервиращият остава на начален удар"
+            : "Влачи за позиция · зоните трябва да са легални при контакт"}
+        </p>
       ) : rearrangeable ? (
         <p className="matchCourtHint">
           {swapOnClick

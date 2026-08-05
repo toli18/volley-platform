@@ -127,7 +127,15 @@ export default function PublicMatchWatch() {
   const undo = () => run(async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_UNDO(token))).data);
 
   const recordStat = (action) => {
-    if (!selectedId && !NO_PLAYER.has(action)) {
+    let athleteId = selectedId;
+    if (action === "ace" || action === "error") {
+      const server = (state?.court || []).find((s) => Number(s.zone) === 1);
+      if (server?.athlete_id) {
+        athleteId = server.athlete_id;
+        setSelectedId(server.athlete_id);
+      }
+    }
+    if (!athleteId && !NO_PLAYER.has(action)) {
       toast.error("Изберете състезател от корта.");
       return;
     }
@@ -136,7 +144,7 @@ export default function PublicMatchWatch() {
         (
           await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), {
             action,
-            athlete_id: selectedId || null,
+            athlete_id: athleteId || null,
             apply_score: true,
           })
         ).data,

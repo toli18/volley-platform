@@ -269,7 +269,15 @@ export default function CoachMatchLive() {
     );
 
   const recordStat = (action) => {
-    if (!selectedId && !NO_PLAYER_ACTIONS.has(action)) {
+    let athleteId = selectedId;
+    if (action === "ace" || action === "error") {
+      const server = (state?.court || []).find((s) => Number(s.zone) === 1);
+      if (server?.athlete_id) {
+        athleteId = server.athlete_id;
+        setSelectedId(server.athlete_id);
+      }
+    }
+    if (!athleteId && !NO_PLAYER_ACTIONS.has(action)) {
       toast.error("Изберете състезател от корта.");
       return;
     }
@@ -277,7 +285,7 @@ export default function CoachMatchLive() {
       async () => {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), {
           action,
-          athlete_id: selectedId || null,
+          athlete_id: athleteId || null,
           apply_score: true,
         });
         return res.data;
