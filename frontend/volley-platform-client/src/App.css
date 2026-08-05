@@ -8189,6 +8189,114 @@ button.matchChipSlot:not(:disabled) {
   font-size: 14px;
 }
 
+.matchReportPage {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+.matchReportTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.matchReportMeta h2 {
+  margin: 4px 0 2px;
+  font-size: 20px;
+}
+.matchReportMeta p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+.matchReportTopActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.matchReportLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d8e1ec;
+  background: #fff;
+  color: #334155;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+}
+.matchReportLinkBtn--live {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+.matchReportInsights {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+.matchReportInsights h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.matchReportInsights ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: #334155;
+}
+.matchReportEventCount {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+.matchReportTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.matchReportTabs button {
+  border: 1px solid #d8e1ec;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.matchReportTabs button.is-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+.matchReportTableWrap {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.matchReportPage .matchReportTable {
+  min-width: 920px;
+}
+.matchReportPage .matchLiveStatTable th,
+.matchReportPage .matchLiveStatTable td {
+  color: #0f172a;
+  border-bottom-color: #e2e8f0;
+}
+.matchReportPage .matchLiveStatTable th {
+  background: #f1f5f9;
+  color: #475569;
+}
+.matchReportPage .matchLiveStatTableSum {
+  color: #64748b;
+}
+
 .matchStepTabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

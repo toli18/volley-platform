@@ -683,6 +683,16 @@ export default function CoachMatchSetup() {
               onShowLineupCard={() => setLineupCardOpen(true)}
               onStartLive={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/live`)}
             />
+            {match.status === "finished" || match.status === "live" ? (
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/report`)}
+                style={{ marginBottom: 8 }}
+              >
+                Отчет / статистика
+              </Button>
+            ) : null}
             <Button variant="secondary" disabled={busy} onClick={() => navigate(`/coach/teams/${teamIdNum}/matches`)}>
               Към списъка с мачове
             </Button>

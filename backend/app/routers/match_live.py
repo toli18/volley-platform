@@ -22,6 +22,7 @@ from app.models_matches import (
 )
 from app.routers.teams import _ensure_team_owner
 from app.schemas.matches import (
+    MatchAthleteStatsRead,
     MatchCourtPlayerRead,
     MatchLiveEventRead,
     MatchLiveScoreIn,
@@ -30,6 +31,8 @@ from app.schemas.matches import (
     MatchLiveStart,
     MatchLiveStateRead,
     MatchLiveStatIn,
+    MatchReportRead,
+    MatchSetStatsRead,
 )
 from app.services.match_rotations import ZONE_LABELS_BG
 from app.services import match_systems
@@ -43,6 +46,7 @@ from app.services.match_live import (
     normalize_format,
     sets_to_win,
 )
+from app.services import match_report as match_report_svc
 
 router = APIRouter(prefix="/api/teams/{team_id}/matches", tags=["Match Live"])
 
@@ -642,3 +646,123 @@ def live_finish(
     db.commit()
     db.refresh(match)
     return _state(db, match)
+
+
+@router.get("/{match_id}/report", response_model=MatchReportRead)
+def match_report(
+    team_id: int,
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Full-match box score + short insights from all non-undone events."""
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+
+    roster_rows = (
+        db.query(MatchRosterPlayer, Athlete)
+        .join(Athlete, Athlete.id == MatchRosterPlayer.athlete_id)
+        .filter(MatchRosterPlayer.match_id == match.id)
+        .order_by(MatchRosterPlayer.sort_order.asc(), MatchRosterPlayer.jersey_number.asc())
+        .all()
+    )
+    roster = [
+        {
+            "athlete_id": int(p.athlete_id),
+            "athlete_name": athlete.athlete_name or "",
+            "jersey_number": int(p.jersey_number),
+            "position": p.position.value if isinstance(p.position, MatchPosition) else str(p.position),
+        }
+        for p, athlete in roster_rows
+    ]
+
+    all_sets = _all_sets(db, match.id)
+    fmt = _match_format(match)
+    sets_won_us, sets_won_opp = count_sets_won(all_sets)
+    won_by = is_match_won(sets_won_us, sets_won_opp, fmt)
+
+    events = (
+        db.query(MatchStatEvent)
+        .filter(MatchStatEvent.match_id == match.id, MatchStatEvent.undone == 0)
+        .order_by(MatchStatEvent.id.asc())
+        .all()
+    )
+
+    events_by_set: dict[int, list] = {int(s.id): [] for s in all_sets}
+    for ev in events:
+        sid = int(ev.set_id)
+        events_by_set.setdefault(sid, []).append(ev)
+
+    athletes_raw = match_report_svc.aggregate_events(events, roster=roster)
+    athletes = [MatchAthleteStatsRead(**row) for row in athletes_raw]
+
+    by_set: list[MatchSetStatsRead] = []
+    set_summaries: list[MatchLiveSetSummary] = []
+    for s in all_sets:
+        status = s.status.value if isinstance(s.status, MatchSetStatus) else str(s.status)
+        set_summaries.append(
+            MatchLiveSetSummary(
+                set_number=int(s.set_number),
+                our_score=int(s.our_score),
+                opp_score=int(s.opp_score),
+                status=status,
+            )
+        )
+        set_athletes = match_report_svc.aggregate_events(events_by_set.get(int(s.id), []), roster=roster)
+        # Only show athletes with any recorded action in this set
+        set_athletes = [
+            a
+            for a in set_athletes
+            if any(
+                int(a.get(k) or 0) > 0
+                for k in (
+                    "kills",
+                    "attack_err",
+                    "aces",
+                    "serve_err",
+                    "blocks",
+                    "digs",
+                    "pass_hash",
+                    "pass_plus",
+                    "pass_minus",
+                    "pass_err",
+                )
+            )
+        ]
+        by_set.append(
+            MatchSetStatsRead(
+                set_number=int(s.set_number),
+                our_score=int(s.our_score),
+                opp_score=int(s.opp_score),
+                status=status,
+                athletes=[MatchAthleteStatsRead(**row) for row in set_athletes],
+            )
+        )
+
+    insights = match_report_svc.build_insights(
+        athletes_raw,
+        sets_won_us=sets_won_us,
+        sets_won_opp=sets_won_opp,
+    )
+
+    system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
+    status = match.status.value if isinstance(match.status, MatchStatus) else str(match.status)
+
+    return MatchReportRead(
+        match_id=match.id,
+        team_id=match.team_id,
+        opponent_name=match.opponent_name,
+        match_date=match.match_date,
+        venue=match.venue,
+        system=system,  # type: ignore[arg-type]
+        format=fmt,  # type: ignore[arg-type]
+        status=status,  # type: ignore[arg-type]
+        sets_won_us=sets_won_us,
+        sets_won_opp=sets_won_opp,
+        match_won_by=won_by,  # type: ignore[arg-type]
+        sets=set_summaries,
+        athletes=athletes,
+        by_set=by_set,
+        insights=insights,
+        event_count=len(events),
+    )

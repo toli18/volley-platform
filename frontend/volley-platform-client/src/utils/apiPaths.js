@@ -160,6 +160,7 @@ export const API_PATHS = {
   TEAM_MATCH_LIVE_UNDO: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/undo`,
   TEAM_MATCH_LIVE_NEXT_SET: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/next-set`,
   TEAM_MATCH_LIVE_FINISH: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/finish`,
+  TEAM_MATCH_REPORT: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/report`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
   TEAM_ATHLETE_PHOTO: (athleteId) => `/api/teams/athletes/${athleteId}/photo`,
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",

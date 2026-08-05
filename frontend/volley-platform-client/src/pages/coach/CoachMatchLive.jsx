@@ -332,6 +332,7 @@ export default function CoachMatchLive() {
       const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_FINISH(teamIdNum, matchIdNum));
       toast.success("Мачът е приключен.");
       setGateOpen(false);
+      navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/report`);
       return res.data;
     });
 
@@ -507,6 +508,14 @@ export default function CoachMatchLive() {
         <div className="matchLiveMatchDone">
           Мачът е приключен · {state.sets_won_us}:{state.sets_won_opp}
           {state.match_won_by === "us" ? " (победа)" : state.match_won_by === "opp" ? " (загуба)" : ""}
+          <button
+            type="button"
+            className="matchLiveNext"
+            style={{ marginLeft: 10 }}
+            onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/report`)}
+          >
+            Отчет
+          </button>
         </div>
       ) : null}
 

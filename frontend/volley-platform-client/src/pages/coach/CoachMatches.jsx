@@ -100,25 +100,34 @@ export default function CoachMatches() {
         />
       ) : (
         <ul className="coachMobileRosterList">
-          {matches.map((m) => (
-            <li key={m.id}>
-              <Link to={`/coach/teams/${teamIdNum}/matches/${m.id}`} className="coachMobileRosterRow">
-                <span style={{ display: "grid", gap: 2 }}>
-                  <strong>{m.opponent_name || "Без противник"}</strong>
-                  <span className="coachMobileMuted" style={{ fontSize: 12 }}>
-                    {m.match_date || "без дата"} · {m.system} ·{" "}
-                    {MATCH_FORMATS.find((f) => f.code === m.format)?.label || m.format || "3 от 5"} ·{" "}
-                    {MATCH_STATUS_LABEL[m.status] || m.status}
-                    {typeof m.roster_count === "number" ? ` · ${m.roster_count}/14` : ""}
-                    {m.has_lineup ? " · шестица ✓" : ""}
+          {matches.map((m) => {
+            const href =
+              m.status === "finished"
+                ? `/coach/teams/${teamIdNum}/matches/${m.id}/report`
+                : m.status === "live"
+                  ? `/coach/teams/${teamIdNum}/matches/${m.id}/live`
+                  : `/coach/teams/${teamIdNum}/matches/${m.id}`;
+            return (
+              <li key={m.id}>
+                <Link to={href} className="coachMobileRosterRow">
+                  <span style={{ display: "grid", gap: 2 }}>
+                    <strong>{m.opponent_name || "Без противник"}</strong>
+                    <span className="coachMobileMuted" style={{ fontSize: 12 }}>
+                      {m.match_date || "без дата"} · {m.system} ·{" "}
+                      {MATCH_FORMATS.find((f) => f.code === m.format)?.label || m.format || "3 от 5"} ·{" "}
+                      {MATCH_STATUS_LABEL[m.status] || m.status}
+                      {typeof m.roster_count === "number" ? ` · ${m.roster_count}/14` : ""}
+                      {m.has_lineup ? " · шестица ✓" : ""}
+                      {m.status === "finished" ? " · отчет" : ""}
+                    </span>
                   </span>
-                </span>
-                <span className="coachMobileTeamChevron" aria-hidden>
-                  ›
-                </span>
-              </Link>
-            </li>
-          ))}
+                  <span className="coachMobileTeamChevron" aria-hidden>
+                    ›
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
 

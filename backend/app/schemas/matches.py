@@ -225,3 +225,54 @@ class MatchLiveStateRead(BaseModel):
 
 class MatchLivePhaseIn(BaseModel):
     phase: Literal["base", "serve", "receive"]
+
+
+class MatchAthleteStatsRead(BaseModel):
+    athlete_id: int
+    athlete_name: str = ""
+    jersey_number: int = 0
+    position: MatchPositionLiteral | str = ""
+    kills: int = 0
+    attack_err: int = 0
+    aces: int = 0
+    serve_err: int = 0
+    blocks: int = 0
+    digs: int = 0
+    pass_hash: int = 0
+    pass_plus: int = 0
+    pass_minus: int = 0
+    pass_err: int = 0
+    attack_attempts: int = 0
+    attack_pct: Optional[float] = None
+    pass_total: int = 0
+    pass_avg: Optional[float] = None
+    points: int = 0
+    errors: int = 0
+    summary: str = ""
+
+
+class MatchSetStatsRead(BaseModel):
+    set_number: int
+    our_score: int
+    opp_score: int
+    status: str
+    athletes: list[MatchAthleteStatsRead] = Field(default_factory=list)
+
+
+class MatchReportRead(BaseModel):
+    match_id: int
+    team_id: int
+    opponent_name: Optional[str] = None
+    match_date: Optional[date] = None
+    venue: Optional[str] = None
+    system: MatchSystemLiteral
+    format: MatchFormatLiteral = "bo5"
+    status: MatchStatusLiteral
+    sets_won_us: int = 0
+    sets_won_opp: int = 0
+    match_won_by: Optional[Literal["us", "opp"]] = None
+    sets: list[MatchLiveSetSummary] = Field(default_factory=list)
+    athletes: list[MatchAthleteStatsRead] = Field(default_factory=list)
+    by_set: list[MatchSetStatsRead] = Field(default_factory=list)
+    insights: list[str] = Field(default_factory=list)
+    event_count: int = 0
