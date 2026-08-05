@@ -6164,10 +6164,11 @@
 }
 .coachMobileShell--matchLive .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--md .matchCourtField--tactical,
 .coachMobileShell--matchLive .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--lg .matchCourtField--tactical {
-  max-height: none !important;
+  aspect-ratio: 1.22 / 1 !important;
+  width: min(100%, calc((100dvh - 160px) * 1.22)) !important;
+  max-height: calc(100dvh - 160px) !important;
+  height: auto !important;
   min-height: 0 !important;
-  height: 100% !important;
-  aspect-ratio: auto !important;
 }
 
 .coachMobileTopBar {
@@ -8026,6 +8027,16 @@ body:has(.publicWatchPage--fs) {
   font-size: 10px !important;
   padding: 3px 2px !important;
 }
+.matchLiveHud {
+  display: grid;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.matchLivePage--fs .matchLiveHud,
+.publicWatchPage--fs .matchLiveHud {
+  gap: 4px;
+}
+
 .matchLivePage--fs .matchCourtBoard,
 .publicWatchPage--fs .matchCourtBoard,
 .matchLivePage--fs .matchCourtBoard--md,
@@ -8038,6 +8049,8 @@ body:has(.publicWatchPage--fs) {
   width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 0 !important;
 }
 .matchLivePage--fs .matchCourtBoardHead,
@@ -8057,31 +8070,35 @@ body:has(.publicWatchPage--fs) {
 .publicWatchPage--fs .matchCourtStage--perspective {
   flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
   padding: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
   perspective: 900px;
 }
 .matchLivePage--fs .matchCourtPlane--3d,
 .publicWatchPage--fs .matchCourtPlane--3d {
-  flex: 1;
-  min-height: 0;
   width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   display: flex;
-  transform: rotateX(18deg);
+  flex-direction: column;
+  align-items: center;
+  transform: rotateX(16deg);
   transform-origin: 50% 42%;
 }
+/* Keep desktop-like court proportions — never squash by height */
 .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
 .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-  max-height: none !important;
+  aspect-ratio: 1.22 / 1 !important;
+  width: min(100%, calc((100dvh - 96px) * 1.22)) !important;
+  height: auto !important;
+  max-height: calc(100dvh - 96px) !important;
   min-height: 0 !important;
-  height: 100% !important;
-  flex: 1;
-  aspect-ratio: auto !important;
-  width: 100%;
+  flex: none !important;
 }
 .matchLivePage--fs .matchLiveScore,
 .matchLivePage--fs .matchLiveSideSelected,
@@ -8095,7 +8112,7 @@ body:has(.publicWatchPage--fs) {
   display: none;
 }
 
-/* Phone + small tablet: denser live chrome, court gets the height */
+/* Phone + small tablet: denser live chrome, court keeps shape */
 @media (max-width: 1024px) {
   .matchLiveCourtRow {
     grid-template-columns: minmax(64px, 84px) minmax(0, 1fr) minmax(64px, 84px);
@@ -8175,10 +8192,6 @@ body:has(.publicWatchPage--fs) {
     padding: 3px 5px;
     gap: 2px;
   }
-  .matchLivePage--fs .matchLiveScoreRow,
-  .publicWatchPage--fs .matchLiveScoreRow {
-    gap: 4px;
-  }
   .matchLivePage--fs .matchLiveScoreNum,
   .publicWatchPage--fs .matchLiveScoreNum {
     font-size: 18px;
@@ -8216,26 +8229,28 @@ body:has(.publicWatchPage--fs) {
   .publicWatchPage--fs .matchCourtBoardHead {
     display: none;
   }
+  .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
+  .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
+  .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
+  .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
+    width: min(100%, calc((100dvh - 118px) * 1.22)) !important;
+    max-height: calc(100dvh - 118px) !important;
+  }
   .matchLivePage--fs .matchCourtPlane--3d,
   .publicWatchPage--fs .matchCourtPlane--3d {
-    transform: rotateX(10deg);
-    transform-origin: 50% 48%;
-  }
-  .matchLivePage--fs .matchCourtStage--perspective,
-  .publicWatchPage--fs .matchCourtStage--perspective {
-    perspective: 1200px;
-    padding: 0 0 2px;
+    transform: rotateX(12deg);
+    transform-origin: 50% 46%;
   }
   .matchLivePage--fs .matchChipSlot--abs,
   .publicWatchPage--fs .matchChipSlot--abs {
-    width: 52px;
-    min-height: 56px;
+    width: 54px;
+    min-height: 58px;
   }
   .matchLivePage--fs .matchCourtBoard--tactical .matchChipCircle,
   .publicWatchPage--fs .matchCourtBoard--tactical .matchChipCircle {
-    width: 38px;
-    height: 38px;
-    font-size: 11px;
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
   }
   .matchLivePage--fs .matchChipTag,
   .publicWatchPage--fs .matchChipTag {
@@ -8244,33 +8259,61 @@ body:has(.publicWatchPage--fs) {
   }
 }
 
-/* Phone landscape / short height: maximize court */
-@media (max-height: 520px), (orientation: landscape) and (max-height: 640px) {
+/* Phone landscape: one HUD row + court with real proportions (like desktop) */
+@media (orientation: landscape) and (max-height: 700px) {
   .matchLivePage--fs,
   .publicWatchPage--fs {
+    --live-chrome: 52px;
     gap: 2px;
     padding: max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px))
       max(2px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
   }
+  .matchLivePage--fs .matchLiveHud,
+  .publicWatchPage--fs .matchLiveHud {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+  }
+  .matchLivePage--fs .matchLiveTop,
+  .publicWatchPage--fs .publicWatchTop {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .matchLivePage--fs .matchLiveTopActions,
+  .publicWatchPage--fs .publicWatchTopActions {
+    width: auto;
+  }
   .matchLivePage--fs .matchLiveScore,
   .publicWatchPage--fs .matchLiveScore {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
     align-items: center;
-    gap: 4px;
-    padding: 2px 4px;
+    gap: 6px;
+    padding: 2px 6px;
+    min-width: 0;
   }
   .matchLivePage--fs .matchLiveScoreRow,
   .publicWatchPage--fs .matchLiveScoreRow {
-    margin: 0;
+    flex: 0 1 auto;
+    min-width: 0;
   }
   .matchLivePage--fs .matchLiveScore .matchLivePhaseBar,
   .publicWatchPage--fs .matchLiveScore .matchLivePhaseBar {
+    flex: 1 1 180px;
+    max-width: 280px;
     margin: 0;
+  }
+  .matchLivePage--fs .matchLiveScoreLabel,
+  .publicWatchPage--fs .matchLiveScoreLabel {
+    display: none;
   }
   .matchLivePage--fs .matchLiveScoreNum,
   .publicWatchPage--fs .matchLiveScoreNum {
-    font-size: 16px;
+    font-size: 18px;
   }
   .matchLivePage--fs .matchLiveScoreSide button,
   .publicWatchPage--fs .matchLiveScoreSide button {
@@ -8278,37 +8321,51 @@ body:has(.publicWatchPage--fs) {
     height: 26px;
     font-size: 14px;
   }
+  .matchLivePage--fs .matchLiveScoreMid,
+  .publicWatchPage--fs .matchLiveScoreMid {
+    font-size: 10px;
+  }
   .matchLivePage--fs .matchLiveScore .matchLivePhaseBtn,
   .publicWatchPage--fs .matchLiveScore .matchLivePhaseBtn {
-    padding: 3px 2px;
-    font-size: 0.6rem;
+    padding: 4px 3px;
+    font-size: 0.62rem;
   }
   .matchLivePage--fs .matchLiveSideSelected,
   .publicWatchPage--fs .matchLiveSideSelected {
     display: none;
   }
+  .matchLivePage--fs .matchLiveCourtMain,
+  .publicWatchPage--fs .matchLiveCourtMain {
+    grid-template-rows: minmax(0, 1fr);
+  }
   .matchLivePage--fs .matchCourtPlane--3d,
   .publicWatchPage--fs .matchCourtPlane--3d {
-    transform: none;
+    transform: rotateX(10deg);
   }
-  .matchLivePage--fs .matchCourtStage--perspective,
-  .publicWatchPage--fs .matchCourtStage--perspective {
-    perspective: none;
+  .matchLivePage--fs .matchCourtBoard--md .matchCourtField--tactical,
+  .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
+  .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
+  .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
+    aspect-ratio: 1.28 / 1 !important;
+    width: min(100%, calc((100dvh - var(--live-chrome)) * 1.28)) !important;
+    max-height: calc(100dvh - var(--live-chrome)) !important;
+    height: auto !important;
   }
   .matchLivePage--fs .matchLiveCourtRow,
   .publicWatchPage--fs .matchLiveCourtRow {
-    grid-template-columns: 48px minmax(0, 1fr) 48px;
+    grid-template-columns: 52px minmax(0, 1fr) 52px;
+    gap: 4px;
   }
   .matchLivePage--fs .matchChipSlot--abs,
   .publicWatchPage--fs .matchChipSlot--abs {
-    width: 46px;
-    min-height: 48px;
+    width: 50px;
+    min-height: 54px;
   }
   .matchLivePage--fs .matchCourtBoard--tactical .matchChipCircle,
   .publicWatchPage--fs .matchCourtBoard--tactical .matchChipCircle {
-    width: 34px;
-    height: 34px;
-    font-size: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 11px;
   }
 }
 
@@ -8335,7 +8392,8 @@ body:has(.publicWatchPage--fs) {
   .matchLivePage--fs .matchCourtBoard--lg .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--md .matchCourtField--tactical,
   .publicWatchPage--fs .matchCourtBoard--lg .matchCourtField--tactical {
-    max-height: none !important;
+    width: min(100%, calc((100dvh - 88px) * 1.22)) !important;
+    max-height: calc(100dvh - 88px) !important;
   }
   .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--md .matchCourtField--tactical,
   .matchLivePage:not(.matchLivePage--fs) .matchCourtBoard--lg .matchCourtField--tactical {
@@ -8368,7 +8426,6 @@ body:has(.publicWatchPage--fs) {
   color: #e2e8f0;
 }
 .publicWatchPage--fs {
-  /* base FS styles shared above; keep grid override off */
   display: flex;
 }
 .publicWatchPage--ended {

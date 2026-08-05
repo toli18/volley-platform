@@ -510,6 +510,7 @@ export default function CoachMatchLive() {
         </div>
       ) : null}
 
+      <div className="matchLiveHud">
       <div className="matchLiveTop">
         <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}`} className="matchLiveBack">
           ← Корт
@@ -590,6 +591,53 @@ export default function CoachMatchLive() {
         </div>
       </div>
 
+      <div className="matchLiveScore">
+        <div className="matchLiveScoreRow">
+          <div className="matchLiveScoreSide matchLiveScoreSide--us">
+            <button type="button" disabled={busy || !playing} onClick={() => score("us")}>
+              +
+            </button>
+            <div>
+              <div className="matchLiveScoreLabel">НИЕ</div>
+              <div className="matchLiveScoreNum">{mset?.our_score ?? 0}</div>
+            </div>
+          </div>
+          <div className="matchLiveScoreMid">
+            <div>Гейм {mset?.set_number ?? "—"}</div>
+            <div className="matchLiveServePill">
+              {mset ? (mset.we_serve ? "● наш сервис" : "○ чужд сервис") : "изчаква старт"}
+            </div>
+          </div>
+          <div className="matchLiveScoreSide matchLiveScoreSide--opp">
+            <div>
+              <div className="matchLiveScoreLabel">OPP</div>
+              <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
+            </div>
+            <button type="button" disabled={busy || !playing} onClick={() => score("opp")}>
+              +
+            </button>
+          </div>
+        </div>
+
+        <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
+          {PHASES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={activePhase === p.id}
+              className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
+              disabled={busy || !playing}
+              onClick={() => selectPhase(p.id)}
+            >
+              <span className="matchLivePhaseLabel">{p.label}</span>
+              {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
+            </button>
+          ))}
+        </div>
+      </div>
+      </div>
+
       {viewOnly ? <div className="matchLiveViewBanner">Режим преглед — само наблюдение</div> : null}
       {inputLocked && !matchDone ? (
         <div className="matchLiveLockBanner">Въвеждането е заключено</div>
@@ -637,52 +685,6 @@ export default function CoachMatchLive() {
           </button>
         </div>
       ) : null}
-
-      <div className="matchLiveScore">
-        <div className="matchLiveScoreRow">
-          <div className="matchLiveScoreSide matchLiveScoreSide--us">
-            <button type="button" disabled={busy || !playing} onClick={() => score("us")}>
-              +
-            </button>
-            <div>
-              <div className="matchLiveScoreLabel">НИЕ</div>
-              <div className="matchLiveScoreNum">{mset?.our_score ?? 0}</div>
-            </div>
-          </div>
-          <div className="matchLiveScoreMid">
-            <div>Гейм {mset?.set_number ?? "—"}</div>
-            <div className="matchLiveServePill">
-              {mset ? (mset.we_serve ? "● наш сервис" : "○ чужд сервис") : "изчаква старт"}
-            </div>
-          </div>
-          <div className="matchLiveScoreSide matchLiveScoreSide--opp">
-            <div>
-              <div className="matchLiveScoreLabel">OPP</div>
-              <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
-            </div>
-            <button type="button" disabled={busy || !playing} onClick={() => score("opp")}>
-              +
-            </button>
-          </div>
-        </div>
-
-        <div className="matchLivePhaseBar" role="tablist" aria-label="Формация">
-          {PHASES.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={activePhase === p.id}
-              className={`matchLivePhaseBtn${activePhase === p.id ? " is-active" : ""}`}
-              disabled={busy || !playing}
-              onClick={() => selectPhase(p.id)}
-            >
-              <span className="matchLivePhaseLabel">{p.label}</span>
-              {p.id === autoPhase && !phaseOverride ? <span className="matchLivePhaseAuto">auto</span> : null}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <MatchLiveSideStats
         selected={selected}

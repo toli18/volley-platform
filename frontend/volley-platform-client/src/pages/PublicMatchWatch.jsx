@@ -183,6 +183,7 @@ export default function PublicMatchWatch() {
 
   return (
     <div ref={rootRef} className={`publicWatchPage${fullscreen ? " publicWatchPage--fs" : ""}`}>
+      <div className="matchLiveHud publicWatchHud">
       <div className="publicWatchTop">
         <div>
           <strong>vs {state.opponent_name || "противник"}</strong>
@@ -208,18 +209,6 @@ export default function PublicMatchWatch() {
           </button>
         </div>
       </div>
-
-      {locked ? <div className="matchLiveLockBanner">Въвеждането е заключено от треньора</div> : null}
-
-      {(state.sets || []).length > 0 ? (
-        <div className="matchLiveSetStrip">
-          {(state.sets || []).map((s) => (
-            <span key={s.set_number} className={s.status === "finished" ? "is-done" : "is-live"}>
-              G{s.set_number} {s.our_score}:{s.opp_score}
-            </span>
-          ))}
-        </div>
-      ) : null}
 
       <div className="matchLiveScore publicWatchScore">
         <div className="matchLiveScoreRow">
@@ -269,6 +258,19 @@ export default function PublicMatchWatch() {
           ))}
         </div>
       </div>
+      </div>
+
+      {locked ? <div className="matchLiveLockBanner">Въвеждането е заключено от треньора</div> : null}
+
+      {(state.sets || []).length > 0 ? (
+        <div className="matchLiveSetStrip">
+          {(state.sets || []).map((s) => (
+            <span key={s.set_number} className={s.status === "finished" ? "is-done" : "is-live"}>
+              G{s.set_number} {s.our_score}:{s.opp_score}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <MatchLiveSideStats
         selected={selected}
