@@ -97,7 +97,7 @@ const profileInitials = (profile) => {
   return String(profile.athlete_name || "?").slice(0, 2).toUpperCase();
 };
 
-function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack }) {
+function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack, onDelete, canDelete }) {
   return (
     <Modal open={open} onClose={onClose} title="Още" size="compact" className="athleteProfileMoreSheet">
       <div className="athleteProfileMoreBtns">
@@ -110,6 +110,19 @@ function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack }) {
         <Button type="button" variant="secondary" block onClick={() => { onCopyParent(); onClose(); }}>
           Копирай линк
         </Button>
+        {canDelete && onDelete ? (
+          <Button
+            type="button"
+            variant="danger"
+            block
+            onClick={() => {
+              onClose();
+              onDelete();
+            }}
+          >
+            Изтрий състезател
+          </Button>
+        ) : null}
         <Button type="button" variant="ghost" block onClick={() => { onBack(); onClose(); }}>
           Назад
         </Button>
@@ -222,6 +235,8 @@ export default function AthleteProfileCoachMobile({
   syncingPhoto = false,
   /** Само главен треньор / админ: създаване, свързване и синхрон със СЕК. */
   canManageSek = false,
+  onDelete,
+  deleting = false,
 }) {
   const toast = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -244,6 +259,7 @@ export default function AthleteProfileCoachMobile({
   const summary = profile.attendance_summary || {};
   const teamsShort = (profile.teams || []).map(shortenTeamName).join(", ") || "—";
   const identityLocked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
+  const canDelete = Boolean(onDelete) && !profile.bvf_player_id;
 
   const currentPayment = useMemo(() => {
     const rows = profile.monthly_payments || [];
@@ -332,6 +348,11 @@ export default function AthleteProfileCoachMobile({
               <Button type="button" size="sm" variant="secondary" onClick={onStartEdit}>
                 Редактирай
               </Button>
+              {canDelete ? (
+                <Button type="button" size="sm" variant="danger" disabled={deleting} onClick={onDelete}>
+                  {deleting ? "…" : "Изтрий"}
+                </Button>
+              ) : null}
               <button type="button" className="athleteProfileMenuBtn" aria-label="Още" onClick={() => setMoreOpen(true)}>
                 ⋯
               </button>
@@ -881,6 +902,8 @@ export default function AthleteProfileCoachMobile({
         onHistory={goHistoryTab}
         onCopyParent={onCopyParentUrl}
         onBack={onBack}
+        canDelete={canDelete}
+        onDelete={onDelete}
       />
     </div>
   );

@@ -340,6 +340,10 @@ export default function MonthlyFees() {
   };
 
   const removeAthlete = async (athlete) => {
+    if (athlete?.bvf_player_id) {
+      toast.error("Състезател, свързан със СЕК, не може да се изтрие.");
+      return;
+    }
     if (!window.confirm(`Да изтрия ли ${athlete.athlete_name}?`)) return;
     try {
       setBusy(true);
@@ -832,10 +836,11 @@ export default function MonthlyFees() {
                     >
                       Редактирай
                     </Button>
-                    <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                      Изтрий
-                    </Button>
-                    <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
+                    {!a.bvf_player_id ? (
+                      <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                        Изтрий
+                      </Button>
+                    ) : null}                    <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                       Отчет
                     </Button>
                     {isHeadCoach && (
@@ -924,9 +929,11 @@ export default function MonthlyFees() {
                           >
                             Редактирай
                           </Button>
-                          <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                            Изтрий
-                          </Button>
+                          {!a.bvf_player_id ? (
+                            <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                              Изтрий
+                            </Button>
+                          ) : null}
                           <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                             Отчет
                           </Button>

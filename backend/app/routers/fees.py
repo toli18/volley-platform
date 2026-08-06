@@ -937,6 +937,11 @@ def delete_athlete(
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
 ):
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    if getattr(athlete, "bvf_player_id", None):
+        raise HTTPException(
+            status_code=409,
+            detail="Състезател, свързан със СЕК, не може да се изтрие от платформата.",
+        )
     db.delete(athlete)
     db.commit()
     return None

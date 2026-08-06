@@ -52,6 +52,7 @@ export default function CoachAthleteProfile() {
   const [bvfOpen, setBvfOpen] = useState(false);
   const [bvfLinkOpen, setBvfLinkOpen] = useState(false);
   const [syncingPhoto, setSyncingPhoto] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const feesAllHref = useMemo(() => {
     if (!profile?.athlete_id) return "/coach/fees";
@@ -278,6 +279,31 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const deleteAthlete = async () => {
+    if (!profile?.athlete_id) return;
+    if (profile.bvf_player_id) {
+      toast.error("Състезател, свързан със СЕК, не може да се изтрие.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Изтриване на ${profile.athlete_name}? Това премахва локалния запис (такси, групи). Действието е необратимо.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setDeleting(true);
+      await axiosInstance.delete(API_PATHS.FEES_ATHLETE_DELETE(profile.athlete_id));
+      toast.success("Състезателят е изтрит.");
+      navigate(from || "/coach/athletes", { replace: true });
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтриване."));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return <p className="coachMobileMuted">Зареждане...</p>;
   }
@@ -316,6 +342,8 @@ export default function CoachAthleteProfile() {
         onUploadPhoto={uploadLocalPhoto}
         syncingPhoto={syncingPhoto}
         canManageSek={isHeadCoach}
+        onDelete={!profile.bvf_player_id ? deleteAthlete : undefined}
+        deleting={deleting}
       />
       {isHeadCoach ? (
         <>
