@@ -67,12 +67,17 @@ def _coach_show_card_indexes_nav(db: Session, user: User) -> bool:
     )
     if not app:
         return False
+    from sqlalchemy import or_
+
     count = (
         db.query(BvfCardIndex.id)
         .filter(
             BvfCardIndex.club_id == int(user.club_id),
             BvfCardIndex.year == year,
-            BvfCardIndex.assigned_coach_user_id == int(user.id),
+            or_(
+                BvfCardIndex.assigned_coach_user_id == int(user.id),
+                BvfCardIndex.second_coach_user_id == int(user.id),
+            ),
         )
         .count()
     )

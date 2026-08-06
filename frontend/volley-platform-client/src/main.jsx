@@ -49,6 +49,7 @@ const CoachClubHub = React.lazy(() => import("./pages/coach/CoachClubHub.jsx"));
 const CoachBvfHub = React.lazy(() => import("./pages/coach/CoachBvfHub.jsx"));
 const CoachBvfAdmin = React.lazy(() => import("./pages/coach/CoachBvfAdmin.jsx"));
 const CoachBvfCardIndexes = React.lazy(() => import("./pages/coach/CoachBvfCardIndexes.jsx"));
+const CoachBvfCardIndexDetail = React.lazy(() => import("./pages/coach/CoachBvfCardIndexDetail.jsx"));
 const CoachClubProfile = React.lazy(() => import("./pages/coach/CoachClubProfile.jsx"));
 const CoachAssessmentSession = React.lazy(() => import("./pages/coach/CoachAssessmentSession.jsx"));
 const CoachTestingHub = React.lazy(() => import("./pages/coach/CoachTestingHub.jsx"));
@@ -226,6 +227,7 @@ const router = createBrowserRouter([
               { path: "bvf-admin", element: <CoachBvfAdmin /> },
               { path: "club-profile", element: <CoachClubProfile /> },
               { path: "bvf-card-indexes", element: <CoachBvfCardIndexes /> },
+              { path: "bvf-card-indexes/:localId", element: <CoachBvfCardIndexDetail /> },
               { path: "learning", element: <CoachLearningHub /> },
               { path: "my-content", element: <CoachMyContentHub /> },
               { path: "assessment", element: <CoachTestingHub /> },

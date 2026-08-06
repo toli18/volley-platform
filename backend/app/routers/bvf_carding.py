@@ -97,30 +97,47 @@ def _require_submit_role(user: User) -> None:
         )
 
 
+def _coach_assigned_to_card_index(user: User, local: BvfCardIndex) -> bool:
+    uid = int(user.id)
+    if local.assigned_coach_user_id and int(local.assigned_coach_user_id) == uid:
+        return True
+    if getattr(local, "second_coach_user_id", None) and int(local.second_coach_user_id) == uid:
+        return True
+    if local.created_by_user_id and int(local.created_by_user_id) == uid:
+        return True
+    return False
+
+
 def _can_edit_card_index(user: User, local: BvfCardIndex) -> bool:
     if local.is_signed or local.status in ("signed", "pending_bvf_sign"):
         return False
     if _can_submit_card_index(user):
         return True
     if user.role == UserRole.coach:
-        if local.assigned_coach_user_id and int(local.assigned_coach_user_id) == int(user.id):
-            return True
-        if local.created_by_user_id and int(local.created_by_user_id) == int(user.id):
-            return True
-        return False
+        return _coach_assigned_to_card_index(user, local)
     return False
 
 
 def _require_card_index_access(db: Session, user: User, local: BvfCardIndex) -> None:
     if _can_submit_card_index(user):
         return
+    if user.role == UserRole.coach and _coach_assigned_to_card_index(user, local):
+        return
     if user.role == UserRole.coach:
-        if local.assigned_coach_user_id and int(local.assigned_coach_user_id) == int(user.id):
-            return
-        if local.created_by_user_id and int(local.created_by_user_id) == int(user.id):
-            return
-        raise HTTPException(status_code=403, detail="???? ?????????? ????? ?? ? ???????? ?? ???.")
-    raise HTTPException(status_code=403, detail="???? ?????? ?? ??????????? ?????.")
+        raise HTTPException(status_code=403, detail="Този картотечен отбор не е назначен на теб.")
+    raise HTTPException(status_code=403, detail="Нямаш достъп до картотечния отбор.")
+
+
+def _coach_card_index_filter(query, user: User):
+    """Ограничава query до отбори, назначени на треньора (главен / втори)."""
+    from sqlalchemy import or_
+
+    return query.filter(
+        or_(
+            BvfCardIndex.assigned_coach_user_id == user.id,
+            BvfCardIndex.second_coach_user_id == user.id,
+        )
+    )
 
 
 def _local_card_index(db: Session, club: Club, local_id: int) -> BvfCardIndex:
@@ -156,7 +173,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         if not athlete:
             continue
         docs = athlete_docs_as_dicts(athlete)
-        checklist = _doc_checklist(athlete, docs, year)
+        checklist = _doc_checklist(athlete, docs, year, db=db)
         ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
         has_form = athlete_has_form_03(athlete, year, db=db)
         if not ready:
@@ -537,19 +554,26 @@ def _upsert_doc_mirrors(db: Session, athlete: Athlete, docs: list) -> list[dict]
     return out
 
 
-def _doc_checklist(athlete: Athlete, docs: list[dict], season_year: int) -> list[dict]:
+def _doc_checklist(
+    athlete: Athlete, docs: list[dict], season_year: int, db: Session | None = None
+) -> list[dict]:
     has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
     season_docs = [
         d
         for d in docs
         if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
     ]
-    has_form = any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in (season_docs or docs))
+    has_form_docs = any(
+        looks_like_form_03(d.get("doc_type"), d.get("description")) for d in (season_docs or docs)
+    )
+    has_form = (
+        athlete_has_form_03(athlete, int(season_year), db=db) if db is not None else has_form_docs
+    )
     return [
-        {"key": "photo", "label": "??????", "ok": has_photo},
-        {"key": "egn", "label": "???", "ok": bool((athlete.egn or "").strip())},
-        {"key": "carding_form", "label": f"????? 03 / 03-? ({season_year})", "ok": has_form},
-        {"key": "any_doc", "label": "???? ???? ???????? ? ???", "ok": len(docs) > 0},
+        {"key": "photo", "label": "Снимка", "ok": has_photo},
+        {"key": "egn", "label": "ЕГН", "ok": bool((athlete.egn or "").strip())},
+        {"key": "carding_form", "label": f"Форма 03 / 03-А ({season_year})", "ok": has_form},
+        {"key": "any_doc", "label": "Има поне документ в СЕК", "ok": len(docs) > 0},
     ]
 
 
@@ -834,6 +858,12 @@ def list_eligible_card_index_athletes(
     year = int(season_year or datetime.utcnow().year)
     filter_age = age
     filter_sex = sex
+    # Треньорът вижда допустими само в контекста на назначен отбор.
+    if local_id is None and current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
+        raise HTTPException(
+            status_code=422,
+            detail="Избери картотечен отбор (local_id), за да видиш допустимите състезатели.",
+        )
     if local_id is not None:
         local = _local_card_index(db, club, int(local_id))
         _require_card_index_access(db, current_user, local)
@@ -1403,7 +1433,7 @@ def get_or_list_season_application(
     )
     indexes_q = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club.id, BvfCardIndex.year == y)
     if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
-        indexes_q = indexes_q.filter(BvfCardIndex.assigned_coach_user_id == current_user.id)
+        indexes_q = _coach_card_index_filter(indexes_q, current_user)
     indexes = indexes_q.order_by(BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
     return {
         "application": None
@@ -1834,7 +1864,7 @@ def list_local_card_indexes(
     if year:
         q = q.filter(BvfCardIndex.year == int(year))
     if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
-        q = q.filter(BvfCardIndex.assigned_coach_user_id == current_user.id)
+        q = _coach_card_index_filter(q, current_user)
     rows = q.order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
     return {
         "items": [serialize_card_index_row(db, r) for r in rows],

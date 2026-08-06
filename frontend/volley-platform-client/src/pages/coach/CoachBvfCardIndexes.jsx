@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
@@ -37,6 +37,7 @@ function statusLabel(it) {
 export default function CoachBvfCardIndexes() {
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const { permanent, tokenBody } = useClubBvfLink();
   const role = normalizeRole(user);
   const isHead =
@@ -53,25 +54,11 @@ export default function CoachBvfCardIndexes() {
   const [assignSecondCoachId, setAssignSecondCoachId] = useState("");
   const [assignDoctorName, setAssignDoctorName] = useState("");
   const [items, setItems] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [detail, setDetail] = useState(null);
-  const [eligible, setEligible] = useState([]);
-  const [selectedAthleteIds, setSelectedAthleteIds] = useState(() => new Set());
-  const [requestNote, setRequestNote] = useState("");
   const [bvfMirrorItems, setBvfMirrorItems] = useState([]);
+  const [autoOpened, setAutoOpened] = useState(false);
 
   const canCallBvf = permanent || Boolean(token.trim());
   const canManage = Boolean(season?.can_manage) || isHead;
-
-  const memberIds = useMemo(
-    () => new Set((detail?.members || []).map((m) => m.athlete_id)),
-    [detail],
-  );
-
-  const availableAthletes = useMemo(
-    () => eligible.filter((a) => !memberIds.has(a.id)),
-    [eligible, memberIds],
-  );
 
   const loadSeason = useCallback(async () => {
     try {
@@ -80,8 +67,10 @@ export default function CoachBvfCardIndexes() {
       });
       setSeason(res.data);
       setItems(res.data?.slots || []);
+      return res.data?.slots || [];
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на сезонната заявка."));
+      return [];
     }
   }, [toast, year]);
 
@@ -96,43 +85,19 @@ export default function CoachBvfCardIndexes() {
     }
   }, [assignCoachId, isHead]);
 
-  const loadEligible = useCallback(
-    async (forLocalId) => {
-      try {
-        const params = { season_year: Number(year), require_form_03: true };
-        if (forLocalId) params.local_id = Number(forLocalId);
-        const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, { params });
-        setEligible(res.data?.athletes || []);
-      } catch (err) {
-        toast.error(normalizeError(err, "Неуспешно зареждане на допустими състезатели."));
-      }
-    },
-    [toast, year],
-  );
-
-  const loadDetail = useCallback(
-    async (localId) => {
-      if (!localId) {
-        setDetail(null);
-        setEligible([]);
-        return;
-      }
-      try {
-        const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL(localId));
-        setDetail(res.data);
-        await loadEligible(localId);
-      } catch (err) {
-        setDetail(null);
-        toast.error(normalizeError(err, "Неуспешно зареждане на състава."));
-      }
-    },
-    [toast, loadEligible],
-  );
-
   useEffect(() => {
     loadSeason();
     loadCoaches();
   }, [loadSeason, loadCoaches]);
+
+  // Треньор с точно 1 назначен отбор → направо в екрана за състав.
+  useEffect(() => {
+    if (isHead || autoOpened || !items.length) return;
+    if (items.length === 1 && items[0]?.id) {
+      setAutoOpened(true);
+      navigate(`/coach/bvf-card-indexes/${items[0].id}`, { replace: true });
+    }
+  }, [autoOpened, isHead, items, navigate]);
 
   const openSeason = async () => {
     try {
@@ -243,20 +208,13 @@ export default function CoachBvfCardIndexes() {
         doctor_name: assignDoctorName.trim() || null,
       });
       toast.success(`Назначен: ${res.data?.assigned_coach_name || "треньор"} · ${res.data?.age_group}`);
-      setSelectedId(String(res.data?.id || ""));
       await loadSeason();
-      if (res.data?.id) await loadDetail(res.data.id);
+      if (res.data?.id) navigate(`/coach/bvf-card-indexes/${res.data.id}`);
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно назначение."));
     } finally {
       setBusy(false);
     }
-  };
-
-  const selectRow = async (localId) => {
-    setSelectedId(String(localId));
-    setSelectedAthleteIds(new Set());
-    await loadDetail(localId);
   };
 
   const deleteDraft = async (it, e) => {
@@ -270,101 +228,9 @@ export default function CoachBvfCardIndexes() {
       setBusy(true);
       await axiosInstance.delete(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DELETE(it.id));
       toast.success("Отборът е изтрит.");
-      if (String(selectedId) === String(it.id)) {
-        setSelectedId("");
-        setDetail(null);
-      }
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно изтриване."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const toggleAthlete = (id) => {
-    setSelectedAthleteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const addPlayers = async () => {
-    if (!selectedId) return;
-    const ids = [...selectedAthleteIds];
-    if (!ids.length) {
-      toast.error("Избери състезатели с Форма 03.");
-      return;
-    }
-    try {
-      setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_ADD(selectedId), {
-        athlete_ids: ids,
-      });
-      toast.success(`Добавени: ${res.data?.added || 0}`);
-      if (res.data?.errors?.length) toast.error(res.data.errors.slice(0, 3).join("; "));
-      setSelectedAthleteIds(new Set());
-      await loadDetail(selectedId);
-      await loadSeason();
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно добавяне."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const requestHead = async () => {
-    if (!selectedId) return;
-    if (!window.confirm("Изпращаш заявка към главния треньор за запис в СЕК?")) return;
-    try {
-      setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REQUEST(selectedId), {
-        note: requestNote || null,
-      });
-      toast.success(res.data?.message || "Заявката е изпратена.");
-      setRequestNote("");
-      await loadDetail(selectedId);
-      await loadSeason();
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешна заявка."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const reopen = async () => {
-    if (!selectedId) return;
-    try {
-      setBusy(true);
-      await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REOPEN(selectedId), {
-        note: "Върнат за корекции",
-      });
-      toast.success("Отборът е върнат на треньора.");
-      await loadDetail(selectedId);
-      await loadSeason();
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно връщане."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitToBvf = async () => {
-    if (!selectedId) return;
-    if (!window.confirm("Запис в СЕК / изпращане към БФВ. Продължаваш?")) return;
-    try {
-      setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT(selectedId), {
-        ...tokenBody(token),
-      });
-      toast.success(`Статус: ${res.data?.status || "ok"}`);
-      await loadDetail(selectedId);
-      await loadSeason();
-    } catch (err) {
-      toast.error(normalizeError(err, "Записът в СЕК чака write token или връзка с БФВ."));
-      await loadDetail(selectedId);
     } finally {
       setBusy(false);
     }
@@ -395,8 +261,8 @@ export default function CoachBvfCardIndexes() {
         title="Картотечни отбори"
         subtitle={
           isHead
-            ? "Сезонна заявка (активира Форма 03 за родителите) → назначение по възраст → състав само с подписана форма → запис в СЕК."
-            : "Попълваш назначения ти отбор от допустими състезатели (Форма 03) и пращаш заявка към главния."
+            ? "Сезонна заявка → назначение по възраст → клик на отбор за състав и запис в СЕК."
+            : "Отваряш назначения ти отбор, попълваш състава (Форма 03) и пращаш заявка към главния."
         }
         actions={
           isHead ? (
@@ -407,76 +273,83 @@ export default function CoachBvfCardIndexes() {
         }
       />
 
-      <Card title="Сезон">
-        <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-          Отворен сезон = картотекиране (назначение и състав). Форма 03/03-А се включва отделно, когато е
-          готово с Eurotrust. Затворен сезон = спират и картотекирането, и формите.
-          След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
-            <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
-          </label>
-          {canManage ? (
-            <>
-              <Button type="button" disabled={busy} onClick={openSeason}>
-                {season?.application?.status === "open" ? "Отвори отново" : "Отвори сезон"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={busy || season?.application?.status !== "open" || season?.application?.forms_active}
-                onClick={activateForms}
-                title={
-                  season?.application?.status !== "open"
-                    ? "Първо отвори сезона"
-                    : season?.application?.forms_active
-                      ? "Форма 03 вече е активна"
-                      : undefined
-                }
-              >
-                {season?.application?.forms_active ? "Форма 03 активна" : "Активирай Форма 03"}
-              </Button>
-              <Button
-                type="button"
-                disabled={busy || !canCallBvf}
-                onClick={importFromSek}
-                title={!canCallBvf ? "Нужен е СЕК token / постоянен линк" : undefined}
-              >
-                Импортни отбори от СЕК
-              </Button>
-              {season?.application?.status === "open" ? (
-                <Button type="button" variant="secondary" disabled={busy} onClick={closeSeason}>
-                  Затвори сезон
+      {isHead || canManage ? (
+        <Card title="Сезон">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            Отворен сезон = картотекиране (назначение и състав). Форма 03/03-А се включва отделно.
+            След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
+            </label>
+            {canManage ? (
+              <>
+                <Button type="button" disabled={busy} onClick={openSeason}>
+                  {season?.application?.status === "open" ? "Отвори отново" : "Отвори сезон"}
                 </Button>
-              ) : null}
-            </>
-          ) : null}
-          <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason}>
-            Презареди
-          </Button>
-        </div>
-        <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
-          {season?.application
-            ? `Заявка #${season.application.id} · ${
-                season.application.status === "open"
-                  ? "ОТВОРЕН"
-                  : season.application.status === "closed"
-                    ? "ЗАТВОРЕН"
-                    : season.application.status === "draft"
-                      ? "ЧЕРНОВА"
-                      : season.application.status
-              } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
-            : "Все още няма сезонна заявка за тази година."}
-        </p>
-      </Card>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={busy || season?.application?.status !== "open" || season?.application?.forms_active}
+                  onClick={activateForms}
+                >
+                  {season?.application?.forms_active ? "Форма 03 активна" : "Активирай Форма 03"}
+                </Button>
+                <Button type="button" disabled={busy || !canCallBvf} onClick={importFromSek}>
+                  Импортни отбори от СЕК
+                </Button>
+                {season?.application?.status === "open" ? (
+                  <Button type="button" variant="secondary" disabled={busy} onClick={closeSeason}>
+                    Затвори сезон
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+            <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason}>
+              Презареди
+            </Button>
+          </div>
+          <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
+            {season?.application
+              ? `Заявка #${season.application.id} · ${
+                  season.application.status === "open"
+                    ? "ОТВОРЕН"
+                    : season.application.status === "closed"
+                      ? "ЗАТВОРЕН"
+                      : season.application.status === "draft"
+                        ? "ЧЕРНОВА"
+                        : season.application.status
+                } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
+              : "Все още няма сезонна заявка за тази година."}
+          </p>
+        </Card>
+      ) : (
+        <Card title="Сезон">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
+            </label>
+            <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason}>
+              Презареди
+            </Button>
+          </div>
+          <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
+            {season?.application
+              ? `Сезон ${season.year} · ${
+                  season.application.status === "open" ? "отворен" : season.application.status
+                } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"}`
+              : "Няма сезонна заявка."}
+          </p>
+        </Card>
+      )}
 
       {canManage ? (
         <Card title="1. Назначи треньор по възраст">
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Създава локална чернова на картотечен отбор (треньор, втори треньор, лекар). Записът в СЕК е
-            отделна стъпка след заявка от треньора.
+            Създава локална чернова. След назначение се отваря екранът за състав.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 4 }}>
@@ -541,6 +414,9 @@ export default function CoachBvfCardIndexes() {
       ) : null}
 
       <Card title={isHead ? "2. Отбори за сезона" : "Моите картотечни отбори"}>
+        <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+          Кликни отбор, за да отвориш състава и търсачката.
+        </p>
         {items.length === 0 ? (
           <EmptyState
             title="Няма отбори"
@@ -569,11 +445,8 @@ export default function CoachBvfCardIndexes() {
                 {items.map((it) => (
                   <tr
                     key={it.id}
-                    style={{
-                      cursor: "pointer",
-                      background: String(selectedId) === String(it.id) ? "#ecfdf5" : undefined,
-                    }}
-                    onClick={() => selectRow(it.id)}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => navigate(`/coach/bvf-card-indexes/${it.id}`)}
                   >
                     <td>
                       {it.age_group || it.age}
@@ -588,7 +461,13 @@ export default function CoachBvfCardIndexes() {
                     {isHead ? (
                       <td onClick={(e) => e.stopPropagation()}>
                         {it.can_delete ? (
-                          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={(e) => deleteDraft(it, e)}>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={(e) => deleteDraft(it, e)}
+                          >
                             Изтрий
                           </Button>
                         ) : (
@@ -606,148 +485,21 @@ export default function CoachBvfCardIndexes() {
         )}
       </Card>
 
-      <Card title="3. Състав (само с Форма 03 / 03-А)">
-        {!selectedId ? (
-          <EmptyState title="Избери отбор" description="Кликни ред от списъка." />
-        ) : (
-          <>
-            <p className="uiMuted" style={{ marginTop: 0 }}>
-              Избран: <strong>#{selectedId}</strong>
-              {detail?.age_group ? ` · ${detail.age_group}` : ""} · {statusLabel(detail || {})}
-              {detail?.all_ready ? " · готов" : " · има липси"}
-            </p>
-
-            {(detail?.members || []).length ? (
-              <div style={{ overflowX: "auto", marginBottom: 12 }}>
-                <table className="uiTable">
-                  <thead>
-                    <tr>
-                      <th>Име</th>
-                      <th>БФВ №</th>
-                      <th>Форма 03</th>
-                      <th>Готов</th>
-                      <th>Липси</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.members.map((m) => (
-                      <tr key={m.athlete_id}>
-                        <td style={{ fontWeight: 600 }}>{m.athlete_name}</td>
-                        <td>{m.bvf_player_number || m.bvf_player_id}</td>
-                        <td>{m.has_form_03 ? "✓" : "○"}</td>
-                        <td>{m.ready ? "✓" : "○"}</td>
-                        <td style={{ fontSize: 12, color: "#92400e" }}>
-                          {(m.checklist || [])
-                            .filter((c) => !c.ok && c.key !== "any_doc")
-                            .map((c) => c.label)
-                            .join(", ") || "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="uiMuted">Все още няма добавени състезатели.</p>
-            )}
-
-            {detail?.can_edit ? (
-              <>
-                <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-                  Добави допустими (пол/възраст на отбора + Форма 03 за {year})
-                </p>
-                {availableAthletes.length === 0 ? (
-                  <p className="uiMuted" style={{ fontSize: 13 }}>
-                    Няма свободни състезатели за този отбор (пол/възраст + подписана Форма 03).
-                  </p>
-                ) : (
-                  <div
-                    style={{
-                      maxHeight: 220,
-                      overflow: "auto",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 8,
-                      padding: 8,
-                    }}
-                  >
-                    {availableAthletes.map((a) => (
-                      <label key={a.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 0" }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedAthleteIds.has(a.id)}
-                          onChange={() => toggleAthlete(a.id)}
-                        />
-                        <span style={{ fontSize: 13 }}>
-                          {a.athlete_name} · № {a.bvf_player_number || a.bvf_player_id}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <Button type="button" disabled={busy || !selectedAthleteIds.size} onClick={addPlayers}>
-                    Добави избраните ({selectedAthleteIds.size})
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p style={{ color: "#166534", fontSize: 13 }}>Съставът е заключен за редакция.</p>
-            )}
-
-            {!isHead && detail?.can_request_head ? (
-              <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
-                <p style={{ fontSize: 13, fontWeight: 700, marginTop: 0 }}>4. Заявка към главния треньор</p>
-                <Input
-                  value={requestNote}
-                  onChange={(e) => setRequestNote(e.target.value)}
-                  placeholder="Бележка (по желание)"
-                  style={{ marginBottom: 8 }}
-                />
-                <Button type="button" disabled={busy} onClick={requestHead}>
-                  Изпрати заявка за картотекиране
-                </Button>
-              </div>
-            ) : null}
-
-            {isHead && detail && !detail?.is_signed && detail?.status !== "signed" && detail?.status !== "pending_bvf_sign" ? (
-              <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
-                <p style={{ fontSize: 13, fontWeight: 700, marginTop: 0 }}>4. Запис в СЕК (главен треньор)</p>
-                <p className="uiMuted" style={{ fontSize: 13 }}>
-                  {detail?.status === "ready_for_head"
-                    ? "Има заявка от треньора. Без write ApiKey записът остава готов при нас."
-                    : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка)."}
-                </p>
-                {!permanent ? (
-                  <textarea
-                    className="uiInput"
-                    rows={2}
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="БФВ token (временно)"
-                    style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, width: "100%", marginBottom: 8 }}
-                  />
-                ) : null}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <Button type="button" disabled={busy || !detail?.all_ready} onClick={submitToBvf}>
-                    Запиши в СЕК / изпрати към БФВ
-                  </Button>
-                  {detail?.status === "ready_for_head" ? (
-                    <Button type="button" variant="secondary" disabled={busy} onClick={reopen}>
-                      Върни на треньора
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </>
-        )}
-      </Card>
-
       {isHead ? (
         <Card title="Огледало от БФВ (по желание)">
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Синхронизира вече съществуващи картотечни отбори от федерацията — отделно от локалния сезонни поток.
+            Синхронизира вече съществуващи картотечни отбори от федерацията — отделно от локалния сезонен поток.
           </p>
+          {!permanent ? (
+            <textarea
+              className="uiInput"
+              rows={2}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="БФВ token (временно)"
+              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, width: "100%", marginBottom: 8 }}
+            />
+          ) : null}
           <Button type="button" variant="secondary" disabled={busy || !canCallBvf} onClick={fetchBvfMirror}>
             Зареди от БФВ
           </Button>
