@@ -7,13 +7,7 @@ import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
-import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
-import {
-  buildAthletePayload,
-  emptyAthleteIdentityForm,
-  validateAthleteIdentityForm,
-} from "../utils/athleteIdentity";
 
 const teamGenderLabel = (gender) => {
   if (gender === "male") return "Мъжки";
@@ -36,8 +30,6 @@ export default function Teams() {
   const [editTeamForm, setEditTeamForm] = useState({ name: "", age_group: "", season: "", gender: "", is_active: true });
   const [assignTeam, setAssignTeam] = useState(null);
   const [assignCoachId, setAssignCoachId] = useState("");
-  const [showAthleteForm, setShowAthleteForm] = useState(false);
-  const [athleteForm, setAthleteForm] = useState(() => emptyAthleteIdentityForm());
 
   const roleRaw = user?.role;
   const roleValue = typeof roleRaw === "object" && roleRaw && "value" in roleRaw ? roleRaw.value : roleRaw;
@@ -171,30 +163,6 @@ export default function Teams() {
     }
   };
 
-  const resetAthleteForm = () => {
-    setAthleteForm(emptyAthleteIdentityForm());
-  };
-
-  const saveAthlete = async () => {
-    const err = validateAthleteIdentityForm(athleteForm, { requireSplitNames: true });
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    const payload = buildAthletePayload(athleteForm, { includeEgn: false });
-    try {
-      setBusy(true);
-      await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
-      resetAthleteForm();
-      setShowAthleteForm(false);
-      toast.success("Състезателят е създаден.");
-    } catch (err2) {
-      toast.error(normalizeError(err2, "Неуспешно създаване на състезател."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const openAssignCoach = (team) => {
     setAssignTeam(team);
     setAssignCoachId(String(team?.coach_id || ""));
@@ -230,7 +198,7 @@ export default function Teams() {
           subtitle="Първо избери група, после отвори отделния ѝ екран."
           actions={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Button variant="secondary" onClick={() => setShowAthleteForm(true)}>
+              <Button as={Link} to="/coach/athletes?tab=add" variant="secondary">
                 Нов състезател
               </Button>
               <Link to="/coach/schedule">
@@ -243,7 +211,7 @@ export default function Teams() {
 
       {isMobileCoachShell ? (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <Button variant="secondary" size="sm" onClick={() => setShowAthleteForm(true)}>
+          <Button as={Link} to="/coach/athletes?tab=add" variant="secondary" size="sm">
             Нов състезател
           </Button>
           <Button as={Link} to="/coach/schedule" size="sm">
@@ -421,20 +389,6 @@ export default function Teams() {
             <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
             <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
           </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={showAthleteForm}
-        onClose={() => setShowAthleteForm(false)}
-        dismissable={!busy}
-        title="Нов състезател"
-        size="compact"
-      >
-        <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn={false} />
-        <div className="uiModalActions" style={{ marginTop: 12 }}>
-          <Button disabled={busy} onClick={saveAthlete}>Създай състезател</Button>
-          <Button variant="secondary" disabled={busy} onClick={() => setShowAthleteForm(false)}>Отказ</Button>
         </div>
       </Modal>
 

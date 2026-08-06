@@ -23,6 +23,8 @@ class AthleteCreate(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    # Тренировъчна група при създаване (TeamMember)
+    team_id: Optional[int] = None
 
     @field_validator("first_name", "middle_name", "last_name", "place_of_birth")
     @classmethod
@@ -86,6 +88,7 @@ class AthleteRead(BaseModel):
     bvf_photo_id: Optional[str] = None
     bvf_synced_at: Optional[datetime] = None
     bvf_identity_locked: bool = False
+    has_photo: bool = False
     team_names: list[str] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
     created_at: Optional[datetime] = None

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import MonthlyFeesCoachView from "./coach/MonthlyFeesCoachView";
 
@@ -46,16 +46,14 @@ export default function MonthlyFees() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
   const isCoachShell = location.pathname.startsWith("/coach/fees");
   const feesPath = isCoachShell ? "/coach/fees" : "/monthly-fees";
-  const coachTab = searchParams.get("tab") === "add" ? "add" : "list";
-  const setCoachTab = (tab) => setSearchParams({ tab }, { replace: true });
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
+  const [payFilter, setPayFilter] = useState("all"); // all | unpaid | paid
   const [coachFilter, setCoachFilter] = useState("");
   const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
@@ -104,7 +102,19 @@ export default function MonthlyFees() {
     loadAthletes(coachFilter);
   }, [coachFilter, isHeadCoach]);
 
-  const filteredAthletes = useMemo(() => filterFeesAthletes(athletes, query), [athletes, query]);
+  const filteredAthletes = useMemo(() => {
+    let list = filterFeesAthletes(athletes, query);
+    if (remindMonth && payFilter === "unpaid") {
+      list = list.filter(
+        (a) => !(a.recent_payments || []).some((p) => p.month_key === remindMonth),
+      );
+    } else if (remindMonth && payFilter === "paid") {
+      list = list.filter((a) =>
+        (a.recent_payments || []).some((p) => p.month_key === remindMonth),
+      );
+    }
+    return list;
+  }, [athletes, query, payFilter, remindMonth]);
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search || "");
@@ -616,46 +626,29 @@ export default function MonthlyFees() {
     return (
       <>
         <MonthlyFeesCoachView
-          tab={coachTab}
-          setTab={setCoachTab}
           athletesCount={athletes.length}
           filteredCount={filteredAthletes.length}
           query={query}
           setQuery={setQuery}
           remindMonth={remindMonth}
           setRemindMonth={setRemindMonth}
+          payFilter={payFilter}
+          setPayFilter={setPayFilter}
           loading={loading}
           filteredAthletes={filteredAthletes}
           highlightAthleteId={highlightAthleteId}
-          athleteForm={athleteForm}
-          setAthleteForm={setAthleteForm}
           busy={busy}
           isHeadCoach={isHeadCoach}
           coachFilter={coachFilter}
           setCoachFilter={setCoachFilter}
           clubCoaches={clubCoaches}
-          importInputRef={importInputRef}
-          onImportFile={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            await importAthletes(file);
-          }}
-          onSaveAthlete={saveAthlete}
-          onResetForm={resetAthleteForm}
           onRemind={remindUnpaidFees}
-          onTemplate={downloadImportTemplate}
           onAthleteOpen={onAthleteContainerClick}
           onPay={(a) => {
             setPayAthlete(a);
             setPayForm((p) => ({ ...p, month_key: remindMonth || currentMonthKey() }));
           }}
-          onEdit={openEditAthlete}
-          onDelete={removeAthlete}
           onReport={loadAthleteReport}
-          onTransfer={(a) => {
-            setTransferAthlete(a);
-            setTargetCoachId("");
-          }}
         />
         {feesModals}
       </>
@@ -666,29 +659,18 @@ export default function MonthlyFees() {
     <div className="uiPage">
       <PageHero
         title="Месечни Такси"
-        subtitle="Управлявай състезатели, плащания и отчетни периоди от едно място."
+        subtitle="Плащания, напомняния и финансови отчети. Профили и нов състезател са в модул „Състезатели“."
+        actions={
+          <Button as={Link} to="/coach/athletes" variant="secondary">
+            Към състезатели
+          </Button>
+        }
       />
 
-      <Card title="Нов състезател">
-        <div className="feesFormGrid" style={{ gap: 8 }}>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn={false} />
-          </div>
-          <div className="feesFormActions">
-            <Button disabled={busy} onClick={saveAthlete} block className="feesFormPrimaryBtn">
-              Създай състезател
-            </Button>
-            <Button variant="secondary" onClick={resetAthleteForm} block className="feesFormSecondaryBtn">
-              Изчисти
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Списък състезатели">
+      <Card title="Списък и плащания">
         <div style={{ marginBottom: 8 }}>
           <span className="uiBadge uiBadge--info">
-            {query.trim()
+            {query.trim() || payFilter !== "all"
               ? `Показани ${filteredAthletes.length} от ${athletes.length}`
               : `Общо: ${athletes.length}`}
           </span>
@@ -722,6 +704,22 @@ export default function MonthlyFees() {
               aria-label="Месец за напомняне"
               title="Месец за напомняне"
             />
+            <div className="athletesHubFilters" role="group" aria-label="Филтър плащане">
+              {[
+                { id: "all", label: "Всички" },
+                { id: "unpaid", label: "Неплатили" },
+                { id: "paid", label: "Платили" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`athletesHubFilterBtn${payFilter === f.id ? " is-active" : ""}`}
+                  onClick={() => setPayFilter(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             <Button
               type="button"
               size="sm"
@@ -732,39 +730,17 @@ export default function MonthlyFees() {
             >
               Напомни неплатили
             </Button>
-            <Input
-              ref={importInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              style={{ display: "none" }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                await importAthletes(file);
-              }}
-            />
-            <Button
-              title="Импорт на готов списък (CSV/XLSX)"
-              size="sm"
-              disabled={busy}
-              onClick={() => importInputRef.current?.click()}
-            >
-              Импорт
-            </Button>
-            <Button
-              title="Изтегли примерен шаблон за импорт"
-              size="sm"
-              variant="secondary"
-              onClick={downloadImportTemplate}
-            >
-              Шаблон
+            <Button as={Link} to="/coach/athletes?tab=add" size="sm" variant="secondary">
+              Нов състезател
             </Button>
           </div>
         </div>
         {loading && <p>Зареждане...</p>}
-        {!loading && athletes.length === 0 && <EmptyState title="Няма състезатели" description="Добави първия състезател или импортирай списък." />}
+        {!loading && athletes.length === 0 && (
+          <EmptyState title="Няма състезатели" description="Добави първия от модул „Състезатели“." />
+        )}
         {!loading && athletes.length > 0 && filteredAthletes.length === 0 && (
-          <EmptyState title="Няма съвпадения" description="Променете търсенето или изчистете полето." />
+          <EmptyState title="Няма съвпадения" description="Променете търсенето или филтъра за неплатили." />
         )}
         {!loading && filteredAthletes.length > 0 && (
           <>

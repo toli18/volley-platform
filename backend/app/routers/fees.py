@@ -106,13 +106,42 @@ def _team_names_by_athlete(db: Session, athlete_ids: list[int]) -> dict[int, lis
 
 
 def _athlete_reads_with_teams(db: Session, athletes: list[Athlete]) -> list[AthleteRead]:
+    from app.services.athlete_photo import has_cached_photo
+
     team_map = _team_names_by_athlete(db, [a.id for a in athletes])
     return [
         AthleteRead.model_validate(athlete).model_copy(
-            update={"team_names": team_map.get(athlete.id, [])}
+            update={
+                "team_names": team_map.get(athlete.id, []),
+                "has_photo": has_cached_photo(athlete.id),
+            }
         )
         for athlete in athletes
     ]
+
+
+def _attach_athlete_to_team(db: Session, athlete: Athlete, team_id: int, user: User) -> None:
+    team = db.query(Team).filter(Team.id == int(team_id)).first()
+    if not team:
+        raise HTTPException(status_code=422, detail="Тренировъчната група не е намерена")
+    if not user.club_id or int(team.club_id or 0) != int(user.club_id):
+        raise HTTPException(status_code=403, detail="Групата не е от твоя клуб")
+    if not _is_head_coach(user) and int(team.coach_id) != int(user.id):
+        raise HTTPException(status_code=403, detail="Можеш да добавяш само в групи, които водиш")
+    team_gender = (team.gender or "").strip().lower() or None
+    athlete_gender = (athlete.gender or "").strip().lower() or None
+    if team_gender and athlete_gender and team_gender != athlete_gender:
+        raise HTTPException(status_code=422, detail="Полът на състезателя не съвпада с типа на групата")
+    existing = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team.id, TeamMember.athlete_id == athlete.id)
+        .first()
+    )
+    if existing:
+        existing.is_active = True
+        existing.left_at = None
+    else:
+        db.add(TeamMember(team_id=team.id, athlete_id=athlete.id, is_active=True))
 
 
 def _ensure_athlete_access(db: Session, athlete_id: int, user: User) -> Athlete:
@@ -520,9 +549,12 @@ def create_athlete(
         bvf_player_number=payload.bvf_player_number,
     )
     db.add(athlete)
+    db.flush()
+    if payload.team_id:
+        _attach_athlete_to_team(db, athlete, int(payload.team_id), current_user)
     db.commit()
     db.refresh(athlete)
-    return athlete
+    return _athlete_reads_with_teams(db, [athlete])[0]
 
 
 @router.post("/fees/athletes/import")

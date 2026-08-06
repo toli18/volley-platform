@@ -823,12 +823,12 @@ def list_eligible_card_index_athletes(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """????????????? ???????????; ?? ???????????? ???? ? ????? 03 ?? ??????."""
+    """Клубни състезатели със СЕК връзка; за картотека — с форма 03 за сезона.
+    Груповият треньор вижда целия клубен списък (не само fee-състезателите си).
+    """
     club = _club_for_any_coach(db, current_user, club_id)
     year = int(season_year or datetime.utcnow().year)
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
-    if current_user.role == UserRole.coach:
-        q = q.filter(Athlete.coach_id == current_user.id)
     rows = q.order_by(Athlete.athlete_name.asc()).all()
     athletes = [eligible_athlete_payload(a, year, db=db) for a in rows]
     roster = [a for a in athletes if a["eligible_for_roster"]] if require_form_03 else athletes
