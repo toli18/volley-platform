@@ -9284,6 +9284,125 @@ body:has(.publicWatchPage--fs) {
   color: #0f766e;
 }
 
+/* —— Match setup: meta + roster cards —— */
+.matchSetupMeta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.matchSetupMetaField {
+  display: grid;
+  gap: 4px;
+}
+.matchSetupMetaField > span {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+.matchSetupSelect {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d8e1ec;
+  font-size: 15px;
+  background: #fff;
+}
+.matchRosterGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.matchRosterCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  min-width: 0;
+}
+.matchRosterCard.is-selected {
+  background: #fff;
+  border-color: #99f6e4;
+  box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.12);
+}
+.matchRosterCardMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+.matchRosterCardMain input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.matchRosterCardName {
+  font-weight: 650;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.matchRosterCardFields {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 6px;
+}
+.matchRosterField {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.matchRosterField > span {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.matchRosterField .uiField {
+  margin: 0;
+}
+.matchRosterField .uiControl,
+.matchRosterField input {
+  padding: 7px 8px !important;
+  font-size: 13px !important;
+  min-height: 0 !important;
+}
+.matchRosterPosSelect {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid #d8e1ec;
+  font-size: 13px;
+  background: #fff;
+  min-width: 0;
+}
+
+@media (min-width: 520px) {
+  .matchRosterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .matchSetupMeta {
+    grid-template-columns: 1fr 1fr;
+  }
+  .matchSetupMetaField--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 900px) {
+  .matchRosterGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
 @media (min-width: 860px) {
   .matchCourtField:not(.matchCourtField--tactical) {
     min-height: 300px;

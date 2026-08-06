@@ -409,14 +409,14 @@ export default function CoachMatchSetup() {
 
       {step === "roster" ? (
         <>
-          <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+          <div className="matchSetupMeta">
             <Input
               placeholder="Противник"
               value={meta.opponent_name}
               onChange={(e) => setMeta((p) => ({ ...p, opponent_name: e.target.value }))}
             />
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Дата</span>
+            <label className="matchSetupMetaField">
+              <span>Дата</span>
               <Input
                 type="date"
                 value={meta.match_date}
@@ -428,19 +428,12 @@ export default function CoachMatchSetup() {
               value={meta.venue}
               onChange={(e) => setMeta((p) => ({ ...p, venue: e.target.value }))}
             />
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Схема</span>
+            <label className="matchSetupMetaField">
+              <span>Схема</span>
               <select
                 value={meta.system}
                 onChange={(e) => setMeta((p) => ({ ...p, system: e.target.value }))}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #d8e1ec",
-                  fontSize: 15,
-                  background: "#fff",
-                }}
+                className="matchSetupSelect"
               >
                 {MATCH_SYSTEMS.map((s) => (
                   <option key={s.code} value={s.code} disabled={!s.enabled && s.code !== meta.system}>
@@ -450,20 +443,13 @@ export default function CoachMatchSetup() {
                 ))}
               </select>
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Формат</span>
+            <label className="matchSetupMetaField matchSetupMetaField--wide">
+              <span>Формат</span>
               <select
                 value={meta.format}
                 onChange={(e) => setMeta((p) => ({ ...p, format: e.target.value }))}
                 disabled={match?.status === "live" || match?.status === "finished"}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #d8e1ec",
-                  fontSize: 15,
-                  background: "#fff",
-                }}
+                className="matchSetupSelect"
               >
                 {MATCH_FORMATS.map((f) => (
                   <option key={f.code} value={f.code}>
@@ -474,7 +460,7 @@ export default function CoachMatchSetup() {
             </label>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <strong style={{ fontSize: 14 }}>
               Състезатели ({selectedIds.length}/{MATCH_MAX_ROSTER})
             </strong>
@@ -483,7 +469,7 @@ export default function CoachMatchSetup() {
           {members.length === 0 ? (
             <EmptyState title="Празен състав" description="Добавете състезатели в отбора първо." />
           ) : (
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, background: "#f8fafc", overflow: "hidden" }}>
+            <div className="matchRosterGrid">
               {members.map((m) => {
                 const id = Number(m.athlete_id);
                 const row = selected[id];
@@ -491,29 +477,18 @@ export default function CoachMatchSetup() {
                 return (
                   <div
                     key={id}
-                    style={{
-                      display: "grid",
-                      gap: 8,
-                      padding: "10px 12px",
-                      borderBottom: "1px solid #eef2f7",
-                      background: checked ? "#fff" : "transparent",
-                    }}
+                    className={`matchRosterCard${checked ? " is-selected" : ""}`}
                   >
-                    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                    <label className="matchRosterCardMain">
                       <input type="checkbox" checked={checked} disabled={busy} onChange={() => toggleAthlete(id)} />
-                      <span style={{ fontWeight: 600, fontSize: 14 }}>
+                      <span className="matchRosterCardName">
                         {m.athlete_name || m.name || `Състезател #${id}`}
                       </span>
-                      {checked ? (
-                        <span className="coachMobileMuted" style={{ marginLeft: "auto", fontSize: 12 }}>
-                          {row.jersey_number ? `#${row.jersey_number}` : ""} {positionShort(row.position)}
-                        </span>
-                      ) : null}
                     </label>
                     {checked ? (
-                      <div style={{ display: "grid", gridTemplateColumns: "88px 1fr", gap: 8, paddingLeft: 28 }}>
-                        <label style={{ display: "grid", gap: 4 }}>
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>№ екип</span>
+                      <div className="matchRosterCardFields">
+                        <label className="matchRosterField">
+                          <span>№</span>
                           <Input
                             type="number"
                             min={0}
@@ -522,19 +497,12 @@ export default function CoachMatchSetup() {
                             onChange={(e) => updatePlayer(id, { jersey_number: e.target.value })}
                           />
                         </label>
-                        <label style={{ display: "grid", gap: 4 }}>
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>Позиция</span>
+                        <label className="matchRosterField matchRosterField--pos">
+                          <span>Поз.</span>
                           <select
                             value={row.position}
                             onChange={(e) => updatePlayer(id, { position: e.target.value })}
-                            style={{
-                              width: "100%",
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              border: "1px solid #d8e1ec",
-                              fontSize: 14,
-                              background: "#fff",
-                            }}
+                            className="matchRosterPosSelect"
                           >
                             {MATCH_POSITIONS.map((p) => (
                               <option key={p.code} value={p.code}>
