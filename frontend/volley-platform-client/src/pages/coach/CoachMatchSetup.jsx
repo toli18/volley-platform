@@ -474,6 +474,7 @@ export default function CoachMatchSetup() {
                 const id = Number(m.athlete_id);
                 const row = selected[id];
                 const checked = Boolean(row);
+                const fullName = m.athlete_name || m.name || `Състезател #${id}`;
                 return (
                   <div
                     key={id}
@@ -481,19 +482,21 @@ export default function CoachMatchSetup() {
                   >
                     <label className="matchRosterCardMain">
                       <input type="checkbox" checked={checked} disabled={busy} onChange={() => toggleAthlete(id)} />
-                      <span className="matchRosterCardName">
-                        {m.athlete_name || m.name || `Състезател #${id}`}
+                      <span className="matchRosterCardName" title={fullName}>
+                        {fullName}
                       </span>
                     </label>
                     {checked ? (
                       <div className="matchRosterCardFields">
                         <label className="matchRosterField">
                           <span>№</span>
-                          <Input
+                          <input
+                            className="matchRosterNativeInput"
                             type="number"
                             min={0}
                             max={99}
                             value={row.jersey_number}
+                            disabled={busy}
                             onChange={(e) => updatePlayer(id, { jersey_number: e.target.value })}
                           />
                         </label>
@@ -501,12 +504,13 @@ export default function CoachMatchSetup() {
                           <span>Поз.</span>
                           <select
                             value={row.position}
+                            disabled={busy}
                             onChange={(e) => updatePlayer(id, { position: e.target.value })}
                             className="matchRosterPosSelect"
                           >
                             {MATCH_POSITIONS.map((p) => (
                               <option key={p.code} value={p.code}>
-                                {p.short} — {p.label}
+                                {p.short}
                               </option>
                             ))}
                           </select>
