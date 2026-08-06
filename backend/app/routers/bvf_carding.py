@@ -45,6 +45,8 @@ from app.services.bvf_season_carding import (
     eligible_athlete_payload,
     list_ready_for_head,
     looks_like_form_03,
+    map_sek_season_age_group,
+    sek_entry_age_group_label,
     serialize_card_index_row,
 )
 
@@ -1280,6 +1282,13 @@ class SeasonApplicationCloseIn(BaseModel):
     note: Optional[str] = None
 
 
+class SeasonImportFromSekIn(BaseModel):
+    year: Optional[int] = None
+    club_id: Optional[int] = None
+    bvf_token: Optional[str] = None
+    open_if_needed: bool = True
+
+
 class SeasonAssignCoachIn(BaseModel):
     year: Optional[int] = None
     age: int
@@ -1454,6 +1463,161 @@ def close_season_application(
         "note": app.note,
         "forms_active": False,
         "message": "Сезонът е затворен. Форма 03 / 03-А вече не се изисква от родителите.",
+    }
+
+
+@router.post("/season-applications/import-from-sek")
+def import_season_teams_from_sek(
+    payload: SeasonImportFromSekIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Дърпа заявените отбори от СЕК (GET /clubs/{id}/season-applications) → локални картотеки.
+
+    Не назначава треньори автоматично (няма ги в SEK заявката) — главният ги слага след импорта.
+    Опционално отваря локалния сезон (Форма 03), без да подава нищо обратно към СЕК.
+    """
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Клубът не е свързан със СЕК")
+    token = _token_matches_club(payload.bvf_token, club)
+
+    y = int(payload.year or datetime.utcnow().year)
+    path = f"/api/clubs/{int(club.bvf_club_id)}/season-applications?season={y}"
+    remote = _bvf_get(path, token)
+    if not isinstance(remote, dict):
+        raise HTTPException(status_code=502, detail="СЕК върна неочакван отговор за сезонната заявка")
+
+    remote_year = int(remote.get("year") or y)
+    entries = remote.get("entries") if isinstance(remote.get("entries"), list) else []
+    window = remote.get("window") if isinstance(remote.get("window"), dict) else {}
+
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == remote_year)
+        .first()
+    )
+    opened_now = False
+    if not app:
+        app = BvfSeasonApplication(
+            club_id=club.id,
+            year=remote_year,
+            status="open" if payload.open_if_needed else "draft",
+            created_by_user_id=current_user.id,
+            note="Импорт от СЕК заявка за участие",
+        )
+        db.add(app)
+        db.flush()
+        opened_now = payload.open_if_needed
+    elif payload.open_if_needed and app.status != "open":
+        app.status = "open"
+        opened_now = True
+
+    created = 0
+    updated = 0
+    skipped = 0
+    unknown = 0
+    slots_out: list[dict] = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            skipped += 1
+            continue
+        # SeasonApplicationStatus: 0 active, 1 withdrawn
+        try:
+            status_code = int(entry.get("status") if entry.get("status") is not None else 0)
+        except (TypeError, ValueError):
+            status_code = 0
+        if status_code == 1:
+            skipped += 1
+            continue
+
+        mapped = map_sek_season_age_group(entry.get("ageGroup"))
+        if not mapped:
+            unknown += 1
+            continue
+        age, sex, _base_lbl = mapped
+        label = sek_entry_age_group_label(entry.get("ageGroup"), entry.get("league"))
+
+        existing = (
+            db.query(BvfCardIndex)
+            .filter(
+                BvfCardIndex.club_id == club.id,
+                BvfCardIndex.year == remote_year,
+                BvfCardIndex.age == age,
+                BvfCardIndex.sex == sex,
+                BvfCardIndex.season_application_id == app.id,
+            )
+            .first()
+        )
+        if not existing:
+            # Fallback: same year/age/sex without season link (mirror / old drafts)
+            existing = (
+                db.query(BvfCardIndex)
+                .filter(
+                    BvfCardIndex.club_id == club.id,
+                    BvfCardIndex.year == remote_year,
+                    BvfCardIndex.age == age,
+                    BvfCardIndex.sex == sex,
+                )
+                .order_by(BvfCardIndex.id.asc())
+                .first()
+            )
+
+        if existing:
+            if existing.is_signed or existing.status in ("signed", "pending_bvf_sign"):
+                skipped += 1
+                slots_out.append(serialize_card_index_row(db, existing))
+                continue
+            existing.season_application_id = app.id
+            existing.age_group = label or existing.age_group
+            if not existing.status:
+                existing.status = "draft"
+            updated += 1
+            slots_out.append(serialize_card_index_row(db, existing))
+        else:
+            local = BvfCardIndex(
+                club_id=club.id,
+                bvf_card_index_id=None,
+                year=remote_year,
+                age=age,
+                sex=sex,
+                age_group=label,
+                status="draft",
+                created_by_user_id=current_user.id,
+                season_application_id=app.id,
+            )
+            db.add(local)
+            db.flush()
+            created += 1
+            slots_out.append(serialize_card_index_row(db, local))
+
+    db.commit()
+    slots_out.sort(key=lambda r: (r.get("age") or 0, r.get("sex") or 0))
+
+    return {
+        "year": remote_year,
+        "season_id": remote.get("seasonId"),
+        "window_open": bool(window.get("isOpen")) if window else None,
+        "remote_entry_count": len(entries),
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "unknown_age_groups": unknown,
+        "opened_local_season": opened_now,
+        "application": {
+            "id": app.id,
+            "year": app.year,
+            "status": app.status,
+        },
+        "slots": slots_out,
+        "message": (
+            f"Импорт от СЕК: нови {created}, обновени {updated}, пропуснати {skipped}"
+            + (f", неизвестни възрасти {unknown}" if unknown else "")
+            + (". Локалният сезон е отворен (Форма 03 активна)." if opened_now else ".")
+        ),
     }
 
 

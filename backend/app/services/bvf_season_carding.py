@@ -20,9 +20,52 @@ AGE_GROUP_LABELS: dict[int, str] = {
     99: "Мъже / Жени",
 }
 
+# СЕК SeasonApplication.AgeGroup (0–13) → (локален age, sex 0=М/1=Ж, етикет).
+# Редът следва UI-то на db.bvf.bg: момичета/момчета по възрастови ленти, после жени/мъже.
+SEK_SEASON_AGE_GROUP_MAP: dict[int, tuple[int, int, str]] = {
+    0: (12, 1, "Детски"),
+    1: (12, 0, "Детски"),
+    2: (13, 1, "Мини"),
+    3: (13, 0, "Мини"),
+    4: (14, 1, "Под 14"),
+    5: (14, 0, "Под 14"),
+    6: (16, 1, "Под 16"),
+    7: (16, 0, "Под 16"),
+    8: (18, 1, "Под 18"),
+    9: (18, 0, "Под 18"),
+    10: (20, 1, "Под 20"),
+    11: (20, 0, "Под 20"),
+    12: (99, 1, "Жени"),
+    13: (99, 0, "Мъже"),
+}
+
+SEK_LEAGUE_LABELS: dict[int, str] = {
+    0: "",
+    1: "Висша лига",
+    2: "А НВГ",
+}
+
 
 def age_group_label(age: int) -> str:
     return AGE_GROUP_LABELS.get(int(age), f"До {age}")
+
+
+def map_sek_season_age_group(age_group: int) -> tuple[int, int, str] | None:
+    """Връща (age, sex, label) или None ако кодът е неизвестен."""
+    try:
+        key = int(age_group)
+    except (TypeError, ValueError):
+        return None
+    return SEK_SEASON_AGE_GROUP_MAP.get(key)
+
+
+def sek_entry_age_group_label(age_group: int, league: int | None = None) -> str:
+    mapped = map_sek_season_age_group(age_group)
+    base = mapped[2] if mapped else f"Група {age_group}"
+    league_lbl = SEK_LEAGUE_LABELS.get(int(league or 0), "")
+    if league_lbl and int(age_group) >= 12:
+        return f"{base} · {league_lbl}"
+    return base
 
 
 def card_index_display_label(ci) -> str:

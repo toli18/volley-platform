@@ -171,6 +171,34 @@ export default function CoachBvfCardIndexes() {
     }
   };
 
+  const importFromSek = async () => {
+    if (!canCallBvf) {
+      toast.error("Нужен е линк към СЕК (постоянни данни или token).");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Импорт на заявените отбори от СЕК за ${year}? Ще се създадат локални картотеки. Форма 03 се активира, ако сезонът още не е отворен. Треньорите се назначават след това.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS_IMPORT_SEK, {
+        year: Number(year),
+        open_if_needed: true,
+        ...tokenBody(token),
+      });
+      toast.success(res.data?.message || "Импортът от СЕК е готов.");
+      await loadSeason();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен импорт от СЕК заявка."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const assignCoach = async () => {
     if (!assignCoachId) {
       toast.error("Избери треньор.");
@@ -355,6 +383,7 @@ export default function CoachBvfCardIndexes() {
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
           Отворен сезон = картотекиране + Форма 03/03-А към родителите. Затворен = формите не излизат.
           При повторно отваряне се искат само от тези без подпис за годината (и без вече записани в СЕК).
+          След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки за сезона.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
           <label style={{ display: "grid", gap: 4 }}>
@@ -369,6 +398,14 @@ export default function CoachBvfCardIndexes() {
                   : season?.application
                     ? "Отвори сезон + активирай Форма 03"
                     : "Отвори сезон + активирай Форма 03"}
+              </Button>
+              <Button
+                type="button"
+                disabled={busy || !canCallBvf}
+                onClick={importFromSek}
+                title={!canCallBvf ? "Нужен е СЕК token / постоянен линк" : undefined}
+              >
+                Импортни отбори от СЕК
               </Button>
               {season?.application?.status === "open" ? (
                 <Button type="button" variant="secondary" disabled={busy} onClick={closeSeason}>
