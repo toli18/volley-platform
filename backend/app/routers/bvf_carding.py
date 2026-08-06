@@ -41,6 +41,7 @@ from app.services.athlete_photo import has_cached_photo, save_athlete_photo
 from app.services.bvf_season_carding import (
     age_group_label,
     athlete_docs_as_dicts,
+    athlete_fits_card_index_rules,
     athlete_has_form_03,
     eligible_athlete_payload,
     list_ready_for_head,
@@ -820,25 +821,52 @@ def list_eligible_card_index_athletes(
     club_id: int | None = None,
     season_year: int | None = None,
     require_form_03: bool = True,
+    local_id: int | None = None,
+    age: int | None = None,
+    sex: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Клубни състезатели със СЕК връзка; за картотека — с форма 03 за сезона.
-    Груповият треньор вижда целия клубен списък (не само fee-състезателите си).
-    """
+    """Клубни състезатели със СЕК връзка; за картотека — с форма 03 + пол/възраст на отбора."""
     club = _club_for_any_coach(db, current_user, club_id)
     year = int(season_year or datetime.utcnow().year)
+    filter_age = age
+    filter_sex = sex
+    if local_id is not None:
+        local = _local_card_index(db, club, int(local_id))
+        _require_card_index_access(db, current_user, local)
+        year = int(local.year or year)
+        filter_age = int(local.age)
+        filter_sex = int(local.sex)
+
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
     rows = q.order_by(Athlete.athlete_name.asc()).all()
     athletes = [eligible_athlete_payload(a, year, db=db) for a in rows]
     roster = [a for a in athletes if a["eligible_for_roster"]] if require_form_03 else athletes
+
+    if filter_age is not None and filter_sex is not None:
+        by_id = {a.id: a for a in rows}
+        filtered = []
+        for row in roster:
+            ath = by_id.get(row["id"])
+            if not ath:
+                continue
+            ok, _reason = athlete_fits_card_index_rules(
+                ath, season_year=year, age=int(filter_age), sex=int(filter_sex)
+            )
+            if ok:
+                filtered.append(row)
+        roster = filtered
+
     return {
         "athletes": roster,
         "all_linked": athletes,
         "season_year": year,
         "require_form_03": require_form_03,
+        "filter_age": filter_age,
+        "filter_sex": filter_sex,
         "can_submit": _can_submit_card_index(current_user),
     }
 
@@ -1857,7 +1885,16 @@ def add_players_to_local_card_index(
             errors.append(f"#{aid} ???? ??? id (?? ? ? ???)")
             continue
         if not athlete_has_form_03(athlete, int(season_year), db=db):
-            errors.append(f"{athlete.athlete_name}: ?????? ????? 03 / 03-? ?? {season_year}")
+            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
+            continue
+        ok_fit, reason = athlete_fits_card_index_rules(
+            athlete,
+            season_year=int(season_year),
+            age=int(local.age),
+            sex=int(local.sex),
+        )
+        if not ok_fit:
+            errors.append(f"{athlete.athlete_name}: {reason or 'не съвпада с отбора'}")
             continue
         mem = (
             db.query(BvfCardIndexMember)

@@ -62,14 +62,10 @@ export const COACH_PRIMARY_NAV = [
     label: "Обучение & Ресурси",
     icon: "book",
     children: [
-      { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book" },
-      { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "layers" },
-      { id: "club-method", label: "Методика БФВ (клуб)", to: "/club-head?tab=method", icon: "shield", headCoachOnly: true },
+      { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book" },
+      { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill" },
       { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true },
       { id: "articles", label: "Статии", to: "/articles", icon: "article" },
-      { id: "drills", label: "Упражнения", to: "/drills", icon: "drill" },
-      { id: "my-drills", label: "Моите упражнения", to: "/my-drills", icon: "drill" },
-      { id: "my-articles", label: "Моите статии", to: "/articles/my", icon: "article" },
     ],
   },
   { type: "link", id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
@@ -197,10 +193,30 @@ export const COACH_TESTING_HUB_LINKS = [
 ];
 
 /** @type {NavLinkItem[]} */
-export const COACH_BVF_HUB_LINKS = [
+export const COACH_LEARNING_HUB_LINKS = [
   { id: "textbook", label: "Учебник БФВ", to: "/textbook", icon: "book", hint: "Методика и конспекти" },
   { id: "national-library", label: "Годишна програма", to: "/national-library", icon: "layers", hint: "Мезоцикли и планиране" },
-  { id: "club-method", label: "Методика БФВ (клуб)", to: "/club-head?tab=method", icon: "shield", headCoachOnly: true, hint: "Цикли и задачи към треньорите" },
+  { id: "drills", label: "Упражнения", to: "/drills", icon: "drill", hint: "Каталог с упражнения" },
+  {
+    id: "club-method",
+    label: "Методика БФВ (клуб)",
+    to: "/club-head?tab=method",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Цикли и задачи към треньорите",
+  },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_MY_CONTENT_HUB_LINKS = [
+  { id: "my-drills", label: "Моите упражнения", to: "/my-drills", icon: "drill", hint: "Лични и чернови упражнения" },
+  { id: "my-articles", label: "Моите статии", to: "/articles/my", icon: "article", hint: "Лични статии" },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_BVF_HUB_LINKS = [
+  { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book", hint: "Учебник, програма, упражнения" },
+  { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill", hint: "Моите упражнения и статии" },
   {
     id: "bvf-admin",
     label: "Администрация БФВ",
@@ -232,11 +248,10 @@ export const COACH_MORE_MENU_SECTIONS = [
   {
     title: "Съдържание",
     links: [
+      { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book" },
+      { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill" },
       { id: "articles", label: "Статии", to: "/articles", icon: "article" },
-      { id: "my-articles", label: "Моите статии", to: "/articles/my", icon: "article" },
       { id: "forum", label: "Форум", to: "/forum", icon: "forum" },
-      { id: "drills", label: "Упражнения", to: "/drills", icon: "drill" },
-      { id: "my-drills", label: "Моите упражнения", to: "/my-drills", icon: "drill" },
     ],
   },
   {

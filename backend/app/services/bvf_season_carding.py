@@ -149,6 +149,50 @@ def eligible_athlete_payload(athlete: Athlete, season_year: int, db: Session | N
     }
 
 
+def athlete_sex_code(athlete: Athlete) -> int | None:
+    g = (getattr(athlete, "gender", None) or "").strip().lower()
+    if g in ("female", "f", "ж", "женски"):
+        return 1
+    if g in ("male", "m", "м", "мъжки"):
+        return 0
+    return None
+
+
+def athlete_fits_card_index_rules(
+    athlete: Athlete,
+    *,
+    season_year: int,
+    age: int,
+    sex: int,
+) -> tuple[bool, str | None]:
+    """Локални правила близо до СЕК: пол + „достатъчно млад“ за възрастовата група.
+
+    СЕК също изисква „без прескачане на възраст“ и лимит 2 картотеки/сезон — това се
+    валидира окончателно при запис в СЕК; тук филтрираме очевидните несъответствия.
+    """
+    want_sex = int(sex)
+    got_sex = athlete_sex_code(athlete)
+    if got_sex is None:
+        return False, "липсва пол"
+    if got_sex != want_sex:
+        return False, "полът не съвпада с отбора"
+
+    age_code = int(age)
+    # 99 = мъже/жени (възрастни) — без горна граница по рождена година
+    if age_code >= 99:
+        return True, None
+
+    from app.services.carding_form import athlete_age_in_season
+
+    age_in_season = athlete_age_in_season(athlete, int(season_year))
+    if age_in_season is None:
+        return False, "липсва година на раждане"
+    # „Под N“: възрастта в сезонната година не надвишава N (young enough).
+    if age_in_season > age_code:
+        return False, f"твърде възрастен за {age_group_label(age_code)} (възраст {age_in_season})"
+    return True, None
+
+
 def coach_display_name(db: Session, user_id: int | None) -> str | None:
     if not user_id:
         return None

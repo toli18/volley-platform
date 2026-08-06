@@ -96,39 +96,43 @@ export default function CoachBvfCardIndexes() {
     }
   }, [assignCoachId, isHead]);
 
-  const loadEligible = useCallback(async () => {
-    try {
-      const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
-        params: { season_year: Number(year), require_form_03: true },
-      });
-      setEligible(res.data?.athletes || []);
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно зареждане на допустими състезатели."));
-    }
-  }, [toast, year]);
+  const loadEligible = useCallback(
+    async (forLocalId) => {
+      try {
+        const params = { season_year: Number(year), require_form_03: true };
+        if (forLocalId) params.local_id = Number(forLocalId);
+        const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, { params });
+        setEligible(res.data?.athletes || []);
+      } catch (err) {
+        toast.error(normalizeError(err, "Неуспешно зареждане на допустими състезатели."));
+      }
+    },
+    [toast, year],
+  );
 
   const loadDetail = useCallback(
     async (localId) => {
       if (!localId) {
         setDetail(null);
+        setEligible([]);
         return;
       }
       try {
         const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL(localId));
         setDetail(res.data);
+        await loadEligible(localId);
       } catch (err) {
         setDetail(null);
         toast.error(normalizeError(err, "Неуспешно зареждане на състава."));
       }
     },
-    [toast],
+    [toast, loadEligible],
   );
 
   useEffect(() => {
     loadSeason();
-    loadEligible();
     loadCoaches();
-  }, [loadSeason, loadEligible, loadCoaches]);
+  }, [loadSeason, loadCoaches]);
 
   const openSeason = async () => {
     try {
@@ -650,11 +654,11 @@ export default function CoachBvfCardIndexes() {
             {detail?.can_edit ? (
               <>
                 <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-                  Добави допустими (подписана Форма 03 за {year})
+                  Добави допустими (пол/възраст на отбора + Форма 03 за {year})
                 </p>
                 {availableAthletes.length === 0 ? (
                   <p className="uiMuted" style={{ fontSize: 13 }}>
-                    Няма свободни състезатели с подписана Форма 03. Родителят я попълва в портала след отваряне на сезона.
+                    Няма свободни състезатели за този отбор (пол/възраст + подписана Форма 03).
                   </p>
                 ) : (
                   <div

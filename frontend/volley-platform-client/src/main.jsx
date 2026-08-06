@@ -52,6 +52,8 @@ const CoachBvfCardIndexes = React.lazy(() => import("./pages/coach/CoachBvfCardI
 const CoachClubProfile = React.lazy(() => import("./pages/coach/CoachClubProfile.jsx"));
 const CoachAssessmentSession = React.lazy(() => import("./pages/coach/CoachAssessmentSession.jsx"));
 const CoachTestingHub = React.lazy(() => import("./pages/coach/CoachTestingHub.jsx"));
+const CoachLearningHub = React.lazy(() => import("./pages/coach/CoachLearningHub.jsx"));
+const CoachMyContentHub = React.lazy(() => import("./pages/coach/CoachMyContentHub.jsx"));
 const AthleteDevelopmentCard = React.lazy(() => import("./pages/coach/AthleteDevelopmentCard.jsx"));
 const CoachTestBattery = React.lazy(() => import("./pages/coach/CoachTestBattery.jsx"));
 const CoachScoutingTable = React.lazy(() => import("./pages/coach/CoachScoutingTable.jsx"));
@@ -224,6 +226,8 @@ const router = createBrowserRouter([
               { path: "bvf-admin", element: <CoachBvfAdmin /> },
               { path: "club-profile", element: <CoachClubProfile /> },
               { path: "bvf-card-indexes", element: <CoachBvfCardIndexes /> },
+              { path: "learning", element: <CoachLearningHub /> },
+              { path: "my-content", element: <CoachMyContentHub /> },
               { path: "assessment", element: <CoachTestingHub /> },
               { path: "assessment/session", element: <CoachAssessmentSession /> },
               { path: "assessment/battery", element: <CoachTestBattery /> },

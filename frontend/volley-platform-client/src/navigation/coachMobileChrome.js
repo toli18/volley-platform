@@ -53,9 +53,16 @@ export function coachForeignBackTarget(pathname) {
   if (
     pathname.startsWith("/textbook") ||
     pathname.startsWith("/national-library") ||
-    pathname.startsWith("/ai-generator") ||
-    pathname.startsWith("/method-guidelines")
+    pathname.startsWith("/method-guidelines") ||
+    pathname === "/drills" ||
+    pathname.startsWith("/drills/")
   ) {
+    return "/coach/learning";
+  }
+  if (pathname.startsWith("/my-drills") || pathname.startsWith("/articles/my")) {
+    return "/coach/my-content";
+  }
+  if (pathname.startsWith("/ai-generator")) {
     return "/coach/bvf";
   }
   if (
@@ -66,12 +73,7 @@ export function coachForeignBackTarget(pathname) {
   ) {
     return "/coach/club";
   }
-  if (
-    pathname.startsWith("/articles") ||
-    pathname.startsWith("/forum") ||
-    pathname.startsWith("/drills") ||
-    pathname.startsWith("/my-drills")
-  ) {
+  if (pathname.startsWith("/articles") || pathname.startsWith("/forum")) {
     return "/coach/menu";
   }
   return "/coach/today";
