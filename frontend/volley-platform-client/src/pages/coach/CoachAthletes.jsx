@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthContext";
 import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
+import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import { normalizeError } from "../../utils/normalizeError";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
@@ -327,14 +328,21 @@ export default function CoachAthletes() {
                         ? `СЕК${a.bvf_player_number ? ` №${a.bvf_player_number}` : ""}`
                         : "без СЕК"}
                     </span>
-                    {" · "}
-                    <span className={a.has_photo ? "feesSekMark feesSekMark--on" : "feesSekMark feesSekMark--off"}>
-                      {a.has_photo ? "снимка" : "без снимка"}
-                    </span>
+                    {!a.bvf_player_id ? (
+                      <>
+                        {" · "}
+                        <span className={a.has_photo ? "feesSekMark feesSekMark--on" : "feesSekMark feesSekMark--off"}>
+                          {a.has_photo ? "снимка" : "без снимка"}
+                        </span>
+                      </>
+                    ) : null}
                   </p>
-                  <p className="feesAthleteCardCompactMeta">
-                    {(a.team_names || []).length ? (a.team_names || []).join(", ") : "без тренировъчна група"}
-                  </p>
+                  <AthleteMembershipChips
+                    dense
+                    teamNames={a.team_names}
+                    cardedTeams={a.carded_teams}
+                    showEmpty={!a.team_names?.length && !a.carded_teams?.length}
+                  />
                 </div>
                 <div className="feesAthleteCardCompactActions">
                   <Button

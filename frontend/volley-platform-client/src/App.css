@@ -3125,6 +3125,11 @@
   font-size: 14px;
 }
 
+.parentPortalHero .athleteMembershipChips,
+.teamRoomAthleteHero .athleteMembershipChips {
+  margin-top: 10px;
+}
+
 .parentPortalHighlightGrid {
   display: grid;
   gap: 12px;

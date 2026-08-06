@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
+import { formatMoney } from "../../utils/currency";
 
 const PAY_FILTERS = [
   { id: "all", label: "Всички" },
@@ -19,7 +21,29 @@ function monthPaid(athlete, monthKey) {
   return Boolean((athlete.recent_payments || []).find((p) => p.month_key === monthKey));
 }
 
-function AthleteActionsSheet({ athlete, busy, onClose, onReport }) {
+function MonthSummaryBar({ summary, isHeadCoach }) {
+  if (!summary) return null;
+  return (
+    <section className="feesMonthSummaryBar" aria-label="Събрани такси за месеца">
+      <p className="feesMonthSummaryTotal">Събрани: {formatMoney(summary.total_collected)}</p>
+      <p className="feesMonthSummaryMeta">
+        Платили {summary.paid_count} · неплатили {summary.unpaid_count} · общо {summary.athlete_count}
+      </p>
+      {isHeadCoach && Array.isArray(summary.by_coach) && summary.by_coach.length ? (
+        <ul className="feesMonthSummaryCoaches">
+          {summary.by_coach.map((row) => (
+            <li key={row.coach_id}>
+              <strong>{row.coach_name}</strong>: {formatMoney(row.total_collected)} · платени {row.paid_count} /
+              неплатени {row.unpaid_count}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function AthleteActionsSheet({ athlete, onClose, onReport }) {
   return (
     <Modal
       open={Boolean(athlete)}
@@ -29,7 +53,14 @@ function AthleteActionsSheet({ athlete, busy, onClose, onReport }) {
       className="feesCoachActionSheet"
     >
       <div className="feesCoachActionSheetBtns">
-        <Button variant="secondary" block onClick={() => { onReport(athlete); onClose(); }}>
+        <Button
+          variant="secondary"
+          block
+          onClick={() => {
+            onReport(athlete);
+            onClose();
+          }}
+        >
           Отчет по месеци
         </Button>
         <Button as={Link} to={`/coach/athletes/${athlete?.id}`} variant="secondary" block onClick={onClose}>
@@ -45,7 +76,6 @@ function AthleteActionsSheet({ athlete, busy, onClose, onReport }) {
 
 function MoreSheet({
   open,
-  busy,
   isHeadCoach,
   coachFilter,
   setCoachFilter,
@@ -54,7 +84,6 @@ function MoreSheet({
   setRemindMonth,
   payFilter,
   setPayFilter,
-  onRemind,
   onClose,
 }) {
   return (
@@ -62,11 +91,7 @@ function MoreSheet({
       {isHeadCoach ? (
         <label style={{ display: "grid", gap: 4, marginBottom: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>Треньор</span>
-          <select
-            className="uiInput"
-            value={coachFilter}
-            onChange={(e) => setCoachFilter(e.target.value)}
-          >
+          <select className="uiInput" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
             <option value="">Всички треньори</option>
             {(clubCoaches || []).map((c) => (
               <option key={c.id} value={c.id}>
@@ -77,9 +102,7 @@ function MoreSheet({
         </label>
       ) : null}
       <div style={{ marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, display: "block", marginBottom: 6 }}>
-          Статус за месеца
-        </span>
+        <span style={{ fontSize: 12, fontWeight: 700, display: "block", marginBottom: 6 }}>Статус за месеца</span>
         <div className="athletesHubFilters" role="group" aria-label="Филтър плащане">
           {PAY_FILTERS.map((f) => (
             <button
@@ -99,9 +122,6 @@ function MoreSheet({
         onChange={(e) => setRemindMonth(e.target.value)}
         aria-label="Месец за напомняне"
       />
-      <Button type="button" variant="secondary" block disabled={busy} onClick={() => { onRemind(); onClose(); }}>
-        Напомни неплатили
-      </Button>
       <Button as={Link} to="/coach/athletes" variant="secondary" block onClick={onClose}>
         Към състезатели
       </Button>
@@ -129,6 +149,7 @@ export default function MonthlyFeesCoachView({
   setRemindMonth,
   payFilter = "all",
   setPayFilter,
+  monthSummary = null,
   onRemind,
   onAthleteOpen,
   onPay,
@@ -137,9 +158,8 @@ export default function MonthlyFeesCoachView({
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionAthlete, setActionAthlete] = useState(null);
 
-  const countLabel = query.trim() || payFilter !== "all"
-    ? `${filteredCount} от ${athletesCount}`
-    : `Общо ${athletesCount}`;
+  const countLabel =
+    query.trim() || payFilter !== "all" ? `${filteredCount} от ${athletesCount}` : `Общо ${athletesCount}`;
 
   return (
     <div className="coachMobilePage feesCoachPage">
@@ -168,6 +188,10 @@ export default function MonthlyFeesCoachView({
               Още
             </Button>
           </div>
+          <MonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
+          <Button type="button" className="feesRemindVisibleBtn" disabled={busy} onClick={onRemind}>
+            Напомни неплатилите за {remindMonth}
+          </Button>
           <div className="athletesHubFilters" role="group" aria-label="Филтър плащане">
             {PAY_FILTERS.map((f) => (
               <button
@@ -189,10 +213,7 @@ export default function MonthlyFeesCoachView({
 
         {loading ? <p className="coachMobileMuted">Зареждане...</p> : null}
         {!loading && athletesCount === 0 ? (
-          <EmptyState
-            title="Няма състезатели"
-            description="Добави състезател от модул „Състезатели“."
-          />
+          <EmptyState title="Няма състезатели" description="Добави състезател от модул „Състезатели“." />
         ) : null}
         {!loading && athletesCount > 0 && filteredAthletes.length === 0 ? (
           <EmptyState title="Няма съвпадения" description="Промени търсенето или филтъра за плащане." />
@@ -222,7 +243,10 @@ export default function MonthlyFeesCoachView({
                             : "без СЕК"}
                         </span>
                       </p>
-                      <span className={`feesAthleteCardCompactPay uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                      <AthleteMembershipChips dense teamNames={a.team_names} cardedTeams={a.carded_teams} />
+                      <span
+                        className={`feesAthleteCardCompactPay uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}
+                      >
                         {remindMonth}: {paid ? "платено" : "липсва"}
                       </span>
                     </div>
@@ -259,7 +283,6 @@ export default function MonthlyFeesCoachView({
 
       <MoreSheet
         open={moreOpen}
-        busy={busy}
         isHeadCoach={isHeadCoach}
         coachFilter={coachFilter}
         setCoachFilter={setCoachFilter}
@@ -268,15 +291,9 @@ export default function MonthlyFeesCoachView({
         setRemindMonth={setRemindMonth}
         payFilter={payFilter}
         setPayFilter={setPayFilter}
-        onRemind={onRemind}
         onClose={() => setMoreOpen(false)}
       />
-      <AthleteActionsSheet
-        athlete={actionAthlete}
-        busy={busy}
-        onClose={() => setActionAthlete(null)}
-        onReport={onReport}
-      />
+      <AthleteActionsSheet athlete={actionAthlete} onClose={() => setActionAthlete(null)} onReport={onReport} />
     </div>
   );
 }

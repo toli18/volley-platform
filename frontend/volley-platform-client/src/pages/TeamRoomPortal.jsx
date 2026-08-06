@@ -7,6 +7,7 @@ import TeamRoomBottomNav from "../components/teamRoom/TeamRoomBottomNav";
 import TeamRoomFeeStatus from "../components/teamRoom/TeamRoomFeeStatus";
 import TeamRoomChat from "../components/teamRoom/TeamRoomChat";
 import TeamRoomHomeAlerts from "../components/teamRoom/TeamRoomHomeAlerts";
+import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
 import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
@@ -298,10 +299,12 @@ export default function TeamRoomPortal() {
           <>
             <header className="teamRoomAthleteHero">
               <h1 className="teamRoomTopTitle">{data.athlete_name}</h1>
-              <p className="teamRoomTopSub">
-                {data.club_name ? `${data.club_name} · ` : ""}
-                {teamLabel}
-              </p>
+              <p className="teamRoomTopSub">{data.club_name || ""}</p>
+              <AthleteMembershipChips
+                teamNames={data.teams}
+                cardedTeams={data.carded_teams}
+                showEmpty
+              />
             </header>
 
             <TabPanel id="home" activeTab={activeTab}>

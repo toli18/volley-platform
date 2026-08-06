@@ -115,7 +115,10 @@ def _current_month_fee(db: Session, athlete: Athlete) -> ParentCurrentMonthFee:
 
 
 def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> AthleteRoomMeResponse:
+    from app.services.athlete_memberships import carded_team_badges_by_athlete
+
     teams = _team_names(db, athlete.id)
+    carded_teams = carded_team_badges_by_athlete(db, [athlete.id]).get(athlete.id, [])
     team_ids = _team_ids_for_athlete(db, athlete.id)
     mk = (month_key or _month_key_now()).strip()
     if not _MONTH_KEY_RE.match(mk):
@@ -158,6 +161,7 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         athlete_name=athlete.athlete_name,
         birth_year=athlete.birth_year,
         teams=teams,
+        carded_teams=carded_teams,
         club_name=club_row.name if club_row else None,
         club_logo_url=club_row.logo_url if club_row else None,
         schedule_month_key=mk,

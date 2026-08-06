@@ -135,6 +135,7 @@ export const API_PATHS = {
   FEES_PERIOD_REPORT: "/api/fees/reports/period",
   FEES_PAYMENT_RECEIPT: (paymentId) => `/api/fees/payments/${paymentId}/receipt.pdf`,
   FEES_PAYMENT_ACTIVITY: "/api/fees/payments/activity",
+  FEES_MONTH_SUMMARY: "/api/fees/month-summary",
 
   // Teams
   TEAMS_LIST: "/api/teams",

@@ -162,6 +162,7 @@ class AthleteProfileResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     teams: list[str] = Field(default_factory=list)
+    carded_teams: list[dict] = Field(default_factory=list)
     attendance_summary: AthleteAttendanceSummary
     last_attendance: list[dict] = Field(default_factory=list)
     monthly_payments: list[AthletePaymentMini] = Field(default_factory=list)

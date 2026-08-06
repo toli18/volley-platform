@@ -9,6 +9,7 @@ import ParentPortalLayout from "../components/parentPortal/ParentPortalLayout";
 import ParentPortalProfileContent from "../components/parentPortal/ParentPortalProfileContent";
 import ParentMembershipConsentGate from "../components/parentPortal/ParentMembershipConsentGate";
 import ParentCardingFormGate from "../components/parentPortal/ParentCardingFormGate";
+import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
 import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
 import { Button, Card, EmptyState } from "../components/ui";
 import {
@@ -257,6 +258,13 @@ export default function ParentPortal() {
                 ? "Необходима е Форма 03 / 03-А за картотекиране"
                 : "Присъствие, график и месечни такси"}
           </p>
+          {profile && !gated ? (
+            <AthleteMembershipChips
+              teamNames={profile.teams}
+              cardedTeams={profile.carded_teams}
+              showEmpty
+            />
+          ) : null}
         </header>
 
         {loading ? (

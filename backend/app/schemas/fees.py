@@ -62,6 +62,13 @@ class AthleteRecentPayment(BaseModel):
     payment_id: Optional[int] = None
 
 
+class CardedTeamBadge(BaseModel):
+    label: str
+    year: Optional[int] = None
+    age_group: Optional[str] = None
+    sex_label: Optional[str] = None
+
+
 class AthleteRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,6 +97,7 @@ class AthleteRead(BaseModel):
     bvf_identity_locked: bool = False
     has_photo: bool = False
     team_names: list[str] = Field(default_factory=list)
+    carded_teams: list[CardedTeamBadge] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -99,6 +107,23 @@ class AthleteRead(BaseModel):
         if self.bvf_player_id and not self.bvf_identity_locked:
             self.bvf_identity_locked = True
         return self
+
+
+class FeesMonthCoachRow(BaseModel):
+    coach_id: int
+    coach_name: str
+    total_collected: float = 0
+    paid_count: int = 0
+    unpaid_count: int = 0
+
+
+class FeesMonthSummary(BaseModel):
+    month_key: str
+    total_collected: float = 0
+    paid_count: int = 0
+    unpaid_count: int = 0
+    athlete_count: int = 0
+    by_coach: list[FeesMonthCoachRow] = Field(default_factory=list)
 
 
 class AthletePaymentCreate(BaseModel):

@@ -8,6 +8,7 @@ import { API_PATHS } from "../utils/apiPaths";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
+import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
 import { Button, Card, EmptyState, Input, Modal, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
@@ -54,6 +55,7 @@ export default function MonthlyFees() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [payFilter, setPayFilter] = useState("all"); // all | unpaid | paid
+  const [monthSummary, setMonthSummary] = useState(null);
   const [coachFilter, setCoachFilter] = useState("");
   const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
@@ -98,9 +100,28 @@ export default function MonthlyFees() {
     }
   };
 
+  const loadMonthSummary = async (month = remindMonth, selectedCoach = coachFilter) => {
+    if (!month) {
+      setMonthSummary(null);
+      return;
+    }
+    try {
+      const params = { month_key: month };
+      if (isHeadCoach && selectedCoach) params.coach_id = Number(selectedCoach);
+      const res = await axiosInstance.get(API_PATHS.FEES_MONTH_SUMMARY, { params });
+      setMonthSummary(res.data || null);
+    } catch {
+      setMonthSummary(null);
+    }
+  };
+
   useEffect(() => {
     loadAthletes(coachFilter);
   }, [coachFilter, isHeadCoach]);
+
+  useEffect(() => {
+    loadMonthSummary(remindMonth, coachFilter);
+  }, [remindMonth, coachFilter, isHeadCoach]);
 
   const filteredAthletes = useMemo(() => {
     let list = filterFeesAthletes(athletes, query);
@@ -353,6 +374,7 @@ export default function MonthlyFees() {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_PAYMENT_SAVE(athleteForRefresh.id), payload);
       await loadAthletes(coachFilter);
+      await loadMonthSummary(remindMonth, coachFilter);
       if (reportAthlete?.id === athleteForRefresh.id) {
         await loadAthleteReport(athleteForRefresh);
       }
@@ -509,6 +531,7 @@ export default function MonthlyFees() {
       toast.success(
         `Готово за ${monthLabel}: насочени ${data.targeted ?? 0}, изпратени ${data.notified ?? 0}, без push ${data.skipped_no_push ?? 0}.`,
       );
+      await loadMonthSummary(remindMonth, coachFilter);
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -634,6 +657,7 @@ export default function MonthlyFees() {
           setRemindMonth={setRemindMonth}
           payFilter={payFilter}
           setPayFilter={setPayFilter}
+          monthSummary={monthSummary}
           loading={loading}
           filteredAthletes={filteredAthletes}
           highlightAthleteId={highlightAthleteId}
@@ -722,19 +746,33 @@ export default function MonthlyFees() {
             </div>
             <Button
               type="button"
-              size="sm"
-              variant="secondary"
               disabled={busy}
               title="Push напомняне до родители с неплатена такса за избрания месец"
               onClick={remindUnpaidFees}
             >
               Напомни неплатили
             </Button>
-            <Button as={Link} to="/coach/athletes?tab=add" size="sm" variant="secondary">
-              Нов състезател
-            </Button>
           </div>
         </div>
+        {monthSummary ? (
+          <div className="feesMonthSummaryBar" style={{ marginTop: 10 }}>
+            <p className="feesMonthSummaryTotal">Събрани: {formatMoney(monthSummary.total_collected)}</p>
+            <p className="feesMonthSummaryMeta">
+              Платили {monthSummary.paid_count} · неплатили {monthSummary.unpaid_count} · общо{" "}
+              {monthSummary.athlete_count}
+            </p>
+            {isHeadCoach && Array.isArray(monthSummary.by_coach) && monthSummary.by_coach.length ? (
+              <ul className="feesMonthSummaryCoaches">
+                {monthSummary.by_coach.map((row) => (
+                  <li key={row.coach_id}>
+                    <strong>{row.coach_name}</strong>: {formatMoney(row.total_collected)} · платени {row.paid_count} /
+                    неплатени {row.unpaid_count}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         {loading && <p>Зареждане...</p>}
         {!loading && athletes.length === 0 && (
           <EmptyState title="Няма състезатели" description="Добави първия от модул „Състезатели“." />
@@ -764,6 +802,7 @@ export default function MonthlyFees() {
                           : "без СЕК"}
                       </span>
                     </div>
+                    <AthleteMembershipChips dense teamNames={a.team_names} cardedTeams={a.carded_teams} />
                   </div>
                   <div className="feesAthleteCardRow">
                     <div>Родител: {a.parent_name || "—"}</div>
@@ -860,6 +899,7 @@ export default function MonthlyFees() {
                               : "без СЕК"}
                           </span>
                         </div>
+                        <AthleteMembershipChips dense teamNames={a.team_names} cardedTeams={a.carded_teams} />
                       </TableCell>
                       <TableCell>
                         <div>Родител: {a.parent_name || "-"}</div>

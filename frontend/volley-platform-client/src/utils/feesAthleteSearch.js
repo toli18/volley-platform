@@ -8,6 +8,9 @@ export function filterFeesAthletes(athletes, query) {
 
   return list.filter((a) => {
     const teams = Array.isArray(a.team_names) ? a.team_names : [];
+    const carded = Array.isArray(a.carded_teams)
+      ? a.carded_teams.map((c) => (typeof c === "string" ? c : c?.label)).filter(Boolean)
+      : [];
     const haystack = [
       a.athlete_name,
       a.parent_name,
@@ -15,7 +18,9 @@ export function filterFeesAthletes(athletes, query) {
       a.parent_phone,
       a.birth_year != null ? String(a.birth_year) : "",
       a.notes,
+      a.bvf_player_number != null ? String(a.bvf_player_number) : "",
       ...teams,
+      ...carded,
     ]
       .filter(Boolean)
       .join(" ")

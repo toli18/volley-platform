@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
+import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import AthleteTestsPanel from "../../components/athletes/AthleteTestsPanel";
 import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
 import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDocumentsPanel";
@@ -268,7 +269,7 @@ export default function AthleteProfileCoachMobile({
     if (!profile?.sek_task_code || profile.bvf_player_id) return "";
     const missing = Array.isArray(profile.bvf_missing) ? profile.bvf_missing : [];
     if (!missing.length) {
-      return profile.sek_task_detail || "Нужни са снимка/данни — виж таб БФВ.";
+      return profile.sek_task_detail || "Нужни са снимка/данни — виж таб СЕК.";
     }
     if (missing.length === 1 && missing[0] === "снимка") {
       return "Липсва портретна снимка за създаване в СЕК.";
@@ -297,9 +298,14 @@ export default function AthleteProfileCoachMobile({
             <p className="athleteProfileHeadMeta">
               {profile.birth_year || "—"} · {genderShort(profile.gender)} ·{" "}
               {profile.is_active ? "Активен" : "Неактивен"}
-              {teamsShort !== "—" ? ` · ${teamsShort}` : ""}
-              {profile.bvf_player_number ? ` · БФВ №${profile.bvf_player_number}` : ""}
+              {profile.bvf_player_number ? ` · СЕК №${profile.bvf_player_number}` : ""}
             </p>
+            <AthleteMembershipChips
+              dense
+              teamNames={profile.teams}
+              cardedTeams={profile.carded_teams}
+              showEmpty
+            />
           </div>
         </div>
         {profile.sek_task_code && !profile.bvf_player_id ? (
@@ -314,7 +320,7 @@ export default function AthleteProfileCoachMobile({
               color: "#92400e",
             }}
           >
-            <strong>СЕК:</strong> {sekLiveDetail || "Нужни са снимка/данни — виж таб БФВ."}
+            <strong>СЕК:</strong> {sekLiveDetail || "Нужни са снимка/данни — виж таб СЕК."}
           </p>
         ) : null}
         <div className="athleteProfileHeadActions">

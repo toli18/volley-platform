@@ -23,6 +23,7 @@ class AthleteRoomMeResponse(BaseModel):
     athlete_name: str
     birth_year: Optional[int] = None
     teams: list[str] = Field(default_factory=list)
+    carded_teams: list[dict] = Field(default_factory=list)
     club_name: Optional[str] = None
     club_logo_url: Optional[str] = None
     schedule_month_key: str

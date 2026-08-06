@@ -1071,6 +1071,7 @@ def athlete_profile(
     raw_timeline.sort(key=lambda row: row["at"], reverse=True)
     timeline = [AthleteTimelineEvent(**row) for row in raw_timeline[:100]]
 
+    from app.services.athlete_memberships import athlete_display_has_photo, carded_team_badges_by_athlete
     from app.services.club_membership_consent import apply_athlete_identity_from_consent
     from app.services.sek_athlete_readiness import refresh_open_sek_task
 
@@ -1079,6 +1080,8 @@ def athlete_profile(
     if healed or task_changed:
         db.commit()
         db.refresh(athlete)
+
+    carded = carded_team_badges_by_athlete(db, [athlete.id]).get(athlete.id, [])
 
     return AthleteProfileResponse(
         athlete_id=athlete.id,
@@ -1100,7 +1103,7 @@ def athlete_profile(
         bvf_player_id=getattr(athlete, "bvf_player_id", None),
         bvf_player_number=getattr(athlete, "bvf_player_number", None),
         bvf_photo_id=getattr(athlete, "bvf_photo_id", None),
-        has_photo=has_cached_photo(athlete.id),
+        has_photo=athlete_display_has_photo(athlete, cached=has_cached_photo(athlete.id)),
         bvf_identity_locked=bool(getattr(athlete, "bvf_player_id", None)),
         bvf_ready=_bvf_ready(athlete),
         bvf_missing=_bvf_missing(athlete),
@@ -1110,6 +1113,7 @@ def athlete_profile(
         created_at=created_at_v,
         updated_at=updated_at_v,
         teams=teams,
+        carded_teams=carded,
         attendance_summary=AthleteAttendanceSummary(
             present=present,
             late=late,

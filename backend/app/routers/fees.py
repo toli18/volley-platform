@@ -36,6 +36,9 @@ from app.schemas.fees import (
     AthletePaymentRead,
     AthleteRead,
     AthleteUpdate,
+    CardedTeamBadge,
+    FeesMonthCoachRow,
+    FeesMonthSummary,
     MonthStatusRow,
     PeriodAthleteReportRow,
     PeriodReportResponse,
@@ -106,14 +109,19 @@ def _team_names_by_athlete(db: Session, athlete_ids: list[int]) -> dict[int, lis
 
 
 def _athlete_reads_with_teams(db: Session, athletes: list[Athlete]) -> list[AthleteRead]:
+    from app.services.athlete_memberships import athlete_display_has_photo, carded_team_badges_by_athlete
     from app.services.athlete_photo import has_cached_photo
 
     team_map = _team_names_by_athlete(db, [a.id for a in athletes])
+    carded_map = carded_team_badges_by_athlete(db, [a.id for a in athletes])
     return [
         AthleteRead.model_validate(athlete).model_copy(
             update={
                 "team_names": team_map.get(athlete.id, []),
-                "has_photo": has_cached_photo(athlete.id),
+                "carded_teams": [CardedTeamBadge(**row) for row in carded_map.get(athlete.id, [])],
+                "has_photo": athlete_display_has_photo(
+                    athlete, cached=has_cached_photo(athlete.id)
+                ),
             }
         )
         for athlete in athletes
@@ -441,6 +449,78 @@ def list_athletes(
             reads.sort(key=lambda x: x.athlete_name.lower())
 
     return reads
+
+
+@router.get("/fees/month-summary", response_model=FeesMonthSummary)
+def fees_month_summary(
+    month_key: str = Query(..., description="YYYY-MM"),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    """Събрани такси за месеца: груповият треньор — само своите; главният — всички + разбивка."""
+    month_key = _validate_month_key(month_key)
+    q = db.query(Athlete).filter(Athlete.is_active.is_(True))
+    if _is_head_coach(current_user):
+        if not current_user.club_id:
+            raise HTTPException(status_code=422, detail="Главният треньор няма клуб")
+        q = q.filter(Athlete.club_id == current_user.club_id)
+        if coach_id:
+            q = q.filter(Athlete.coach_id == int(coach_id))
+    else:
+        q = q.filter(Athlete.coach_id == current_user.id)
+    athletes = q.all()
+    athlete_ids = [a.id for a in athletes]
+    payments = []
+    if athlete_ids:
+        payments = (
+            db.query(AthletePayment)
+            .filter(AthletePayment.athlete_id.in_(athlete_ids), AthletePayment.month_key == month_key)
+            .all()
+        )
+    paid_by_athlete = {int(p.athlete_id): float(p.amount or 0) for p in payments}
+    total_collected = round(sum(paid_by_athlete.values()), 2)
+    paid_count = len(paid_by_athlete)
+    unpaid_count = max(0, len(athletes) - paid_count)
+
+    by_coach: list[FeesMonthCoachRow] = []
+    if _is_head_coach(current_user) and not coach_id:
+        coach_ids = sorted({int(a.coach_id) for a in athletes if a.coach_id})
+        names = {}
+        if coach_ids:
+            names = {
+                int(uid): (name or "").strip() or f"Треньор #{uid}"
+                for uid, name in db.query(User.id, User.name).filter(User.id.in_(coach_ids)).all()
+            }
+        for cid in coach_ids:
+            subset = [a for a in athletes if int(a.coach_id) == cid]
+            paid_amt = 0.0
+            paid_n = 0
+            for a in subset:
+                if a.id in paid_by_athlete:
+                    paid_n += 1
+                    paid_amt += paid_by_athlete[a.id]
+            by_coach.append(
+                FeesMonthCoachRow(
+                    coach_id=cid,
+                    coach_name=names.get(cid, f"Треньор #{cid}"),
+                    total_collected=round(paid_amt, 2),
+                    paid_count=paid_n,
+                    unpaid_count=max(0, len(subset) - paid_n),
+                )
+            )
+        by_coach.sort(key=lambda r: r.coach_name.lower())
+
+    return FeesMonthSummary(
+        month_key=month_key,
+        total_collected=total_collected,
+        paid_count=paid_count,
+        unpaid_count=unpaid_count,
+        athlete_count=len(athletes),
+        by_coach=by_coach,
+    )
 
 
 @router.post("/fees/remind-unpaid", response_model=FeeReminderResponse)
