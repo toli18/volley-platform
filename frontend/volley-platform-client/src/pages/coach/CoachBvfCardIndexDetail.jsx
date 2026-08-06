@@ -46,6 +46,7 @@ export default function CoachBvfCardIndexDetail() {
   const [detail, setDetail] = useState(null);
   const [eligible, setEligible] = useState([]);
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [pickedId, setPickedId] = useState(null);
   const [requestNote, setRequestNote] = useState("");
 
@@ -66,7 +67,7 @@ export default function CoachBvfCardIndexDetail() {
     [availableAthletes, search],
   );
 
-  const showSearchDropdown = Boolean(search.trim()) && detail?.can_edit;
+  const showSearchDropdown = searchOpen && detail?.can_edit && availableAthletes.length > 0;
 
   const loadAll = useCallback(async () => {
     if (!localId) return;
@@ -264,7 +265,15 @@ export default function CoachBvfCardIndexDetail() {
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
                     <Input
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setSearchOpen(true);
+                      }}
+                      onFocus={() => setSearchOpen(true)}
+                      onBlur={() => {
+                        // Delay so option click registers before list closes.
+                        window.setTimeout(() => setSearchOpen(false), 150);
+                      }}
                       placeholder="Търси състезател…"
                       style={{ flex: "1 1 240px" }}
                       autoComplete="off"
@@ -301,7 +310,12 @@ export default function CoachBvfCardIndexDetail() {
                             type="button"
                             role="option"
                             aria-selected={active}
-                            onClick={() => setPickedId(a.id)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setPickedId(a.id);
+                              setSearch(a.athlete_name || "");
+                              setSearchOpen(false);
+                            }}
                             style={{
                               display: "block",
                               width: "100%",
@@ -326,15 +340,13 @@ export default function CoachBvfCardIndexDetail() {
                 ) : null}
               </div>
 
-              {!search.trim() && availableAthletes.length === 0 ? (
+              {availableAthletes.length === 0 ? (
                 <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
                   Няма свободни състезатели за този отбор (пол/възраст + подписана Форма 03).
                 </p>
-              ) : null}
-
-              {!search.trim() && availableAthletes.length > 0 ? (
+              ) : !searchOpen ? (
                 <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
-                  {availableAthletes.length} допустими — започни да пишеш име или БФВ №.
+                  {availableAthletes.length} допустими — кликни в полето, за да ги видиш.
                 </p>
               ) : null}
             </Card>
