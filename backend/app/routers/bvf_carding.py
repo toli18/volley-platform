@@ -1286,7 +1286,8 @@ class SeasonImportFromSekIn(BaseModel):
     year: Optional[int] = None
     club_id: Optional[int] = None
     bvf_token: Optional[str] = None
-    open_if_needed: bool = True
+    # Форма 03 остава ръчна (Eurotrust) — по подразбиране не отваряме сезона.
+    open_if_needed: bool = False
 
 
 class SeasonAssignCoachIn(BaseModel):
@@ -1477,7 +1478,7 @@ def import_season_teams_from_sek(
     """Дърпа заявените отбори от СЕК (GET /clubs/{id}/season-applications) → локални картотеки.
 
     Не назначава треньори автоматично (няма ги в SEK заявката) — главният ги слага след импорта.
-    Опционално отваря локалния сезон (Форма 03), без да подава нищо обратно към СЕК.
+    По подразбиране НЕ отваря локалния сезон / Форма 03 (остава ръчно заради Eurotrust).
     """
     club = _club_for_user(db, current_user, payload.club_id)
     if not club.bvf_club_id:
@@ -1514,7 +1515,7 @@ def import_season_teams_from_sek(
     elif payload.open_if_needed and app.status != "open":
         app.status = "open"
         opened_now = True
-
+    # Без open_if_needed: ако няма app → draft; ако има closed/open — не пипаме статуса.
     created = 0
     updated = 0
     skipped = 0
@@ -1616,7 +1617,11 @@ def import_season_teams_from_sek(
         "message": (
             f"Импорт от СЕК: нови {created}, обновени {updated}, пропуснати {skipped}"
             + (f", неизвестни възрасти {unknown}" if unknown else "")
-            + (". Локалният сезон е отворен (Форма 03 активна)." if opened_now else ".")
+            + (
+                ". Локалният сезон е отворен (Форма 03 активна)."
+                if opened_now
+                else ". Форма 03 не е пипана — отвори сезона ръчно, когато е готово."
+            )
         ),
     }
 

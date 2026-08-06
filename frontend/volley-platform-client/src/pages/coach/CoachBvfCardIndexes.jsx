@@ -178,7 +178,7 @@ export default function CoachBvfCardIndexes() {
     }
     if (
       !window.confirm(
-        `Импорт на заявените отбори от СЕК за ${year}? Ще се създадат локални картотеки. Форма 03 се активира, ако сезонът още не е отворен. Треньорите се назначават след това.`,
+        `Импорт на заявените отбори от СЕК за ${year}? Ще се създадат локални картотеки. Форма 03 / сезонът НЕ се отваря автоматично — остава ръчно.`,
       )
     ) {
       return;
@@ -187,7 +187,7 @@ export default function CoachBvfCardIndexes() {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS_IMPORT_SEK, {
         year: Number(year),
-        open_if_needed: true,
+        open_if_needed: false,
         ...tokenBody(token),
       });
       toast.success(res.data?.message || "Импортът от СЕК е готов.");
@@ -383,7 +383,8 @@ export default function CoachBvfCardIndexes() {
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
           Отворен сезон = картотекиране + Форма 03/03-А към родителите. Затворен = формите не излизат.
           При повторно отваряне се искат само от тези без подпис за годината (и без вече записани в СЕК).
-          След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки за сезона.
+          След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки.
+          Форма 03 остава ръчна („Отвори сезон“), докато е готово с Eurotrust.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
           <label style={{ display: "grid", gap: 4 }}>
