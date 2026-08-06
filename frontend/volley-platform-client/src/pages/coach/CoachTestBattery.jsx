@@ -91,7 +91,7 @@ export default function CoachTestBattery() {
     <div className="coachMobilePage">
       <div className="devHead">
         <Link to="/coach/assessment" className="devBack">
-          ← Към диагностиката
+          ← Тестирания
         </Link>
         <h2 className="coachMobileSectionTitle" style={{ margin: 0 }}>
           Тестова батерия <span className="batteryCode">{version}</span>

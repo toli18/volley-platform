@@ -30,9 +30,7 @@ export const COACH_PRIMARY_NAV = [
       { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
       { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
       { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck" },
-      { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart" },
-      { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table" },
-      { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch" },
+      { id: "testing", label: "Тестирания", to: "/coach/assessment", icon: "chart" },
       {
         id: "club-head",
         label: "Клубен преглед",
@@ -147,9 +145,13 @@ export const COACH_CLUB_HUB_LINKS = [
   { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
   { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target", hint: "Текуща позиция, теми и тренировки" },
   { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По групи" },
-  { id: "assessment", label: "Диагностика", to: "/coach/assessment", icon: "chart", hint: "Сесии и развитие" },
-  { id: "scouting", label: "Скаут таблица", to: "/coach/assessment/scouting", icon: "table", hint: "Деца × тестове · сравнения" },
-  { id: "battery", label: "Тестова батерия", to: "/coach/assessment/battery", icon: "stopwatch", hint: "Каталог с протоколи" },
+  {
+    id: "testing",
+    label: "Тестирания",
+    to: "/coach/assessment",
+    icon: "chart",
+    hint: "Диагностика, скаут и тестова батерия",
+  },
   { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
   {
     id: "bvf-admin",
@@ -166,6 +168,31 @@ export const COACH_CLUB_HUB_LINKS = [
     icon: "shield",
     hint: "Сезон × възраст · състав",
     assignedCardIndexOnly: true,
+  },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_TESTING_HUB_LINKS = [
+  {
+    id: "assessment-session",
+    label: "Диагностика",
+    to: "/coach/assessment/session",
+    icon: "chart",
+    hint: "Сесии, въвеждане на резултати и развитие",
+  },
+  {
+    id: "scouting",
+    label: "Скаут таблица",
+    to: "/coach/assessment/scouting",
+    icon: "table",
+    hint: "Деца × тестове · сравнения",
+  },
+  {
+    id: "battery",
+    label: "Тестова батерия",
+    to: "/coach/assessment/battery",
+    icon: "stopwatch",
+    hint: "Каталог с протоколи",
   },
 ];
 

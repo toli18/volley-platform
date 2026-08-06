@@ -261,7 +261,7 @@ export default function CoachScoutingTable() {
           Скаут таблица
         </h2>
         <Link to="/coach/assessment" className="devBack scoutNoPrint">
-          ← Диагностика
+          ← Тестирания
         </Link>
       </div>
 

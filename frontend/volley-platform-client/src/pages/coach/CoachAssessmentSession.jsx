@@ -292,6 +292,9 @@ export default function CoachAssessmentSession() {
         <h2 className="coachMobileSectionTitle" style={{ margin: 0 }}>
           Диагностична сесия
         </h2>
+        <Link to="/coach/assessment" className="devBack">
+          ← Тестирания
+        </Link>
         <Link to="/coach/assessment/scouting" className="devBack">
           Скаут таблица →
         </Link>
@@ -383,7 +386,7 @@ export default function CoachAssessmentSession() {
             disabled={isFinalized || saving || finalizing}
             athleteHref={
               isFinalized
-                ? (athleteId) => `/coach/assessment/athletes/${athleteId}?from=/coach/assessment`
+                ? (athleteId) => `/coach/assessment/athletes/${athleteId}?from=/coach/assessment/session`
                 : null
             }
           />

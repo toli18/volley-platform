@@ -16,6 +16,8 @@ export function coachMobileActiveTab(pathname) {
     pathname.startsWith("/coach/teams") ||
     pathname.startsWith("/coach/fees") ||
     pathname.startsWith("/coach/athletes") ||
+    pathname.startsWith("/coach/assessment") ||
+    pathname.startsWith("/coach/program-week") ||
     pathname.startsWith("/coach/trainings")
   ) {
     return "club";
