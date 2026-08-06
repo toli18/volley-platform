@@ -8695,6 +8695,102 @@ body:has(.publicWatchPage--fs) {
   justify-content: end;
   grid-template-columns: 1fr minmax(300px, min(920px, 96vw));
 }
+
+/* —— Live substitution drawer —— */
+.matchLiveSubOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.matchLiveSubBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.55);
+  cursor: pointer;
+}
+.matchLiveSubDrawer {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px 18px;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+}
+.matchLiveSubHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.matchLiveSubHint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+.matchLiveSubSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.matchLiveSubLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.matchLiveSubChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.matchLiveSubChip.is-active {
+  border-color: #38bdf8;
+  background: #0c4a6e;
+}
+.matchLiveSubChip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.matchLiveSubTag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fbbf24;
+  text-transform: uppercase;
+}
+.matchLiveSubEmpty {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+.matchLiveSubActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
 .matchLiveStatsLegend {
   margin-top: 4px;
   font-size: 11px;
@@ -8906,8 +9002,22 @@ body:has(.publicWatchPage--fs) {
   flex: 0 0 auto;
   min-height: 36px !important;
 }
+.matchLiveStatBtn--sub {
+  background: #1e3a5f;
+  color: #e2e8f0;
+  flex: 0 0 auto;
+  min-height: 36px !important;
+  border: 1px solid #3b82f6;
+}
+.matchLiveStatBtn.is-ctxOff {
+  opacity: 0.28;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
+}
 .matchLivePage--fs .matchLiveStatBtn--stats,
-.publicWatchPage--fs .matchLiveStatBtn--stats {
+.publicWatchPage--fs .matchLiveStatBtn--stats,
+.matchLivePage--fs .matchLiveStatBtn--sub,
+.publicWatchPage--fs .matchLiveStatBtn--sub {
   min-height: 0;
   flex: 0 0 auto;
 }
@@ -9277,6 +9387,36 @@ body:has(.publicWatchPage--fs) {
   text-decoration: none;
   color: #0f172a;
   font-weight: 600;
+}
+
+.coachMatchListItem {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.coachMatchListLink {
+  flex: 1;
+  min-width: 0;
+}
+.coachMatchDeleteBtn {
+  flex: 0 0 auto;
+  align-self: center;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.coachMatchDeleteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.coachMatchDeleteBtn:hover:not(:disabled) {
+  background: #fef2f2;
 }
 
 .coachMobileMenuGroup {

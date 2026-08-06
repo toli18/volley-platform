@@ -99,6 +99,23 @@ class MatchCourtPlayerRead(BaseModel):
     role: Optional[str] = None  # A/O/P… или S1/S2… според схемата
 
 
+class MatchBenchPlayerRead(BaseModel):
+    """Резерва / играч извън текущия дисплей на корта."""
+
+    athlete_id: int
+    athlete_name: str
+    jersey_number: int
+    position: MatchPositionLiteral | str
+    reason: Literal["bench", "off_court"] = "bench"
+
+
+class MatchLiveSubIn(BaseModel):
+    """Смяна: out напуска шестицата, in влиза на неговото място в R1 слота."""
+
+    out_athlete_id: int
+    in_athlete_id: int
+
+
 class MatchLineupRead(BaseModel):
     slots: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
@@ -222,6 +239,8 @@ class MatchLiveStateRead(BaseModel):
     court_positions: dict = Field(default_factory=dict)
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
+    bench: list[MatchBenchPlayerRead] = Field(default_factory=list)
+    off_court: list[MatchBenchPlayerRead] = Field(default_factory=list)
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     can_undo: bool = False
 
@@ -262,6 +281,8 @@ class MatchPublicLiveRead(BaseModel):
     match_won_by: Optional[Literal["us", "opp"]] = None
     court: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
+    bench: list[MatchBenchPlayerRead] = Field(default_factory=list)
+    off_court: list[MatchBenchPlayerRead] = Field(default_factory=list)
     court_positions: dict = Field(default_factory=dict)
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     expired: bool = False

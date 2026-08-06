@@ -768,8 +768,25 @@ export default function CoachMatchLive() {
       <MatchLiveSideStats
         selected={selected}
         disabled={busy || !playing}
+        phase={activePhase}
         onStat={recordStat}
         onOpenStats={() => setStatsOpen(true)}
+        onSub={
+          viewOnly
+            ? null
+            : (outId, inId) =>
+                run(async () => {
+                  const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_SUB(teamIdNum, matchIdNum), {
+                    out_athlete_id: outId,
+                    in_athlete_id: inId,
+                  });
+                  toast.success("Смяната е записана.");
+                  return res.data;
+                })
+        }
+        bench={state.bench || []}
+        liberoId={state.libero?.athlete_id || null}
+        busy={busy}
         events={state.recent_events || []}
       >
         <MatchCourt

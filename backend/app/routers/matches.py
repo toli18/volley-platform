@@ -15,6 +15,7 @@ from app.models_matches import (
     MatchRosterPlayer,
     MatchSet,
     MatchSetStatus,
+    MatchStatEvent,
     MatchStatus,
     MatchSystem,
 )
@@ -482,12 +483,16 @@ def delete_match(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*COACH_ROLES)),
 ):
+    """Изтрива мач заедно със сетoве, събития, състав и шестица."""
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
-    if match.status == MatchStatus.live:
-        raise HTTPException(status_code=422, detail="Не може да се изтрие мач в ход")
-    db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).delete()
-    db.query(MatchRosterPlayer).filter(MatchRosterPlayer.match_id == match.id).delete()
+    set_ids = [int(s.id) for s in db.query(MatchSet.id).filter(MatchSet.match_id == match.id).all()]
+    if set_ids:
+        db.query(MatchStatEvent).filter(MatchStatEvent.set_id.in_(set_ids)).delete(synchronize_session=False)
+    db.query(MatchStatEvent).filter(MatchStatEvent.match_id == match.id).delete(synchronize_session=False)
+    db.query(MatchSet).filter(MatchSet.match_id == match.id).delete(synchronize_session=False)
+    db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).delete(synchronize_session=False)
+    db.query(MatchRosterPlayer).filter(MatchRosterPlayer.match_id == match.id).delete(synchronize_session=False)
     db.delete(match)
     db.commit()
     return {"ok": True}

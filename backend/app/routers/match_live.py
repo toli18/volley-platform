@@ -25,6 +25,7 @@ from app.models_matches import (
 from app.routers.teams import _ensure_team_owner
 from app.schemas.matches import (
     MatchAthleteStatsRead,
+    MatchBenchPlayerRead,
     MatchCourtPlayerRead,
     MatchLiveEventRead,
     MatchLiveLockIn,
@@ -36,6 +37,7 @@ from app.schemas.matches import (
     MatchLiveStart,
     MatchLiveStateRead,
     MatchLiveStatIn,
+    MatchLiveSubIn,
     MatchPublicLiveRead,
     MatchReportRead,
     MatchSetStatsRead,
@@ -210,6 +212,43 @@ def _court_for_rotation(
     return court, libero
 
 
+def _bench_and_off_court(
+    db: Session,
+    match: Match,
+    court: list[MatchCourtPlayerRead],
+) -> tuple[list[MatchBenchPlayerRead], list[MatchBenchPlayerRead]]:
+    roster = _roster_map(db, match.id)
+    slots = db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).all()
+    lineup_ids = {int(s.athlete_id) for s in slots}
+    on_court_ids = {int(p.athlete_id) for p in court}
+    libero_id = int(match.libero_athlete_id) if match.libero_athlete_id else None
+    names = _athlete_names(db, list(roster.keys()))
+
+    bench: list[MatchBenchPlayerRead] = []
+    off_court: list[MatchBenchPlayerRead] = []
+    for aid, rp in roster.items():
+        aid_i = int(aid)
+        pos = rp.position.value if isinstance(rp.position, MatchPosition) else str(rp.position)
+        row = MatchBenchPlayerRead(
+            athlete_id=aid_i,
+            athlete_name=names.get(aid_i, ""),
+            jersey_number=int(rp.jersey_number),
+            position=pos,
+            reason="bench",
+        )
+        if aid_i in lineup_ids:
+            if aid_i not in on_court_ids:
+                off_court.append(row.model_copy(update={"reason": "off_court"}))
+            continue
+        if libero_id and aid_i == libero_id:
+            continue
+        bench.append(row)
+
+    bench.sort(key=lambda p: p.jersey_number)
+    off_court.sort(key=lambda p: p.jersey_number)
+    return bench, off_court
+
+
 def _recent_events(db: Session, match_id: int, set_id: int, limit: int = 12) -> list[MatchLiveEventRead]:
     rows = (
         db.query(MatchStatEvent)
@@ -256,6 +295,8 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
 
     court: list[MatchCourtPlayerRead] = []
     libero = None
+    bench: list[MatchBenchPlayerRead] = []
+    off_court: list[MatchBenchPlayerRead] = []
     events: list[MatchLiveEventRead] = []
     can_undo = False
     set_read = None
@@ -265,8 +306,10 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         phase = match_systems.phase_from_serve(bool(mset.we_serve), phase_override)
         try:
             court, libero = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
+            bench, off_court = _bench_and_off_court(db, match, court)
         except HTTPException:
             court, libero = [], None
+            bench, off_court = [], []
         events = _recent_events(db, match.id, mset.id, limit=400)
         can_undo = (
             active is not None
@@ -328,6 +371,8 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         court_positions=dict(getattr(match, "live_court_positions", None) or {}),
         court=court,
         libero=libero,
+        bench=bench,
+        off_court=off_court,
         recent_events=events,
         can_undo=can_undo,
     )
@@ -753,6 +798,67 @@ def live_positions(
     match = _get_match(db, team_id, match_id)
     _assert_writable(match)
     apply_court_positions(match, payload)
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
+def apply_live_substitution(db: Session, match: Match, *, out_athlete_id: int, in_athlete_id: int) -> None:
+    """Сменя състезател в стартовата шестица (R1 слот) по време на live."""
+    out_id = int(out_athlete_id)
+    in_id = int(in_athlete_id)
+    if out_id == in_id:
+        raise HTTPException(status_code=422, detail="Един и същ състезател")
+
+    roster = _roster_map(db, match.id)
+    if out_id not in roster:
+        raise HTTPException(status_code=422, detail="Играчът за излизане не е в състава")
+    if in_id not in roster:
+        raise HTTPException(status_code=422, detail="Играчът за влизане не е в състава")
+
+    libero_id = int(match.libero_athlete_id) if match.libero_athlete_id else None
+    if libero_id and out_id == libero_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Либеро ↔ център е автоматично и не се брои за смяна",
+        )
+    if libero_id and in_id == libero_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Либерото влиза автоматично — смяната е само полеви ↔ резерва",
+        )
+
+    slots = db.query(MatchLineupSlot).filter(MatchLineupSlot.match_id == match.id).all()
+    if len(slots) != 6:
+        raise HTTPException(status_code=422, detail="Няма пълна шестица")
+
+    lineup_ids = {int(s.athlete_id) for s in slots}
+    if out_id not in lineup_ids:
+        raise HTTPException(status_code=422, detail="Играчът не е в шестицата")
+    if in_id in lineup_ids:
+        raise HTTPException(status_code=422, detail="Играчът вече е на корта / в шестицата")
+
+    slot = next(s for s in slots if int(s.athlete_id) == out_id)
+    slot.athlete_id = in_id
+
+
+@router.post("/{match_id}/live/sub", response_model=MatchLiveStateRead)
+def live_sub(
+    team_id: int,
+    match_id: int,
+    payload: MatchLiveSubIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    """Смяна по време на гейм — out ↔ in (резерва)."""
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    _assert_writable(match)
+    mset = _active_set(db, match.id)
+    if not mset or mset.status != MatchSetStatus.in_progress:
+        raise HTTPException(status_code=422, detail="Няма активен гейм")
+
+    apply_live_substitution(db, match, out_athlete_id=payload.out_athlete_id, in_athlete_id=payload.in_athlete_id)
     db.commit()
     db.refresh(match)
     return _state(db, match)

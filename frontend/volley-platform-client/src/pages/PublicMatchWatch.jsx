@@ -353,7 +353,23 @@ export default function PublicMatchWatch() {
       <MatchLiveSideStats
         selected={selected}
         disabled={busy || !canWrite}
+        phase={activePhase}
         onStat={recordStat}
+        onSub={(outId, inId) =>
+          run(async () => {
+            const data = (
+              await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_SUB(token), {
+                out_athlete_id: outId,
+                in_athlete_id: inId,
+              })
+            ).data;
+            toast.success("Смяната е записана.");
+            return data;
+          })
+        }
+        bench={state.bench || []}
+        liberoId={state.libero?.athlete_id || null}
+        busy={busy}
         events={state.recent_events || []}
       >
         <MatchCourt

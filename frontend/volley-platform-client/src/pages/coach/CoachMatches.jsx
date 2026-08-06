@@ -24,6 +24,7 @@ export default function CoachMatches() {
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [form, setForm] = useState({
     opponent_name: "",
     match_date: todayIso(),
@@ -76,6 +77,22 @@ export default function CoachMatches() {
     }
   };
 
+  const deleteMatch = async (m) => {
+    const name = m.opponent_name || "този мач";
+    const liveNote = m.status === "live" ? " Мачът е в ход — статистиката също ще се изтрие." : "";
+    if (!window.confirm(`Изтрий мача срещу ${name}?${liveNote}`)) return;
+    try {
+      setDeletingId(m.id);
+      await axiosInstance.delete(API_PATHS.TEAM_MATCH(teamIdNum, m.id));
+      setMatches((prev) => prev.filter((row) => Number(row.id) !== Number(m.id)));
+      toast.success("Мачът е изтрит.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтриване."));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) return <p className="coachMobileMuted">Зареждане...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
 
@@ -108,8 +125,8 @@ export default function CoachMatches() {
                   ? `/coach/teams/${teamIdNum}/matches/${m.id}/live`
                   : `/coach/teams/${teamIdNum}/matches/${m.id}`;
             return (
-              <li key={m.id}>
-                <Link to={href} className="coachMobileRosterRow">
+              <li key={m.id} className="coachMatchListItem">
+                <Link to={href} className="coachMobileRosterRow coachMatchListLink">
                   <span style={{ display: "grid", gap: 2 }}>
                     <strong>{m.opponent_name || "Без противник"}</strong>
                     <span className="coachMobileMuted" style={{ fontSize: 12 }}>
@@ -125,6 +142,20 @@ export default function CoachMatches() {
                     ›
                   </span>
                 </Link>
+                <button
+                  type="button"
+                  className="coachMatchDeleteBtn"
+                  disabled={busy || deletingId === m.id}
+                  title="Изтрий мача"
+                  aria-label={`Изтрий мач срещу ${m.opponent_name || "противник"}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deleteMatch(m);
+                  }}
+                >
+                  {deletingId === m.id ? "…" : "Изтрий"}
+                </button>
               </li>
             );
           })}

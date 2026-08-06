@@ -20,6 +20,7 @@ from app.schemas.matches import (
     MatchLivePositionsIn,
     MatchLiveScoreIn,
     MatchLiveStatIn,
+    MatchLiveSubIn,
     MatchPublicLiveRead,
 )
 from app.services.match_live import action_point_side, apply_point, is_set_won
@@ -60,6 +61,8 @@ def _to_public(full) -> MatchPublicLiveRead:
         match_won_by=full.match_won_by,
         court=full.court,
         libero=full.libero,
+        bench=list(getattr(full, "bench", None) or []),
+        off_court=list(getattr(full, "off_court", None) or []),
         court_positions=dict(getattr(full, "court_positions", None) or {}),
         recent_events=full.recent_events[:40],
         expired=False,
@@ -252,6 +255,25 @@ def public_positions(token: str, payload: MatchLivePositionsIn, db: Session = De
     if match.status == MatchStatus.finished:
         raise HTTPException(status_code=422, detail="Мачът е приключен")
     live.apply_court_positions(match, payload)
+    db.commit()
+    db.refresh(match)
+    return _to_public(live._state(db, match))
+
+
+@router.post("/{token}/sub", response_model=MatchPublicLiveRead)
+def public_sub(token: str, payload: MatchLiveSubIn, db: Session = Depends(get_db)):
+    match = _match_by_token(db, token)
+    _assert_public_writable(match)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    mset = (
+        db.query(MatchSet)
+        .filter(MatchSet.match_id == match.id, MatchSet.status == MatchSetStatus.in_progress)
+        .first()
+    )
+    if not mset:
+        raise HTTPException(status_code=422, detail="Няма активен гейм")
+    live.apply_live_substitution(db, match, out_athlete_id=payload.out_athlete_id, in_athlete_id=payload.in_athlete_id)
     db.commit()
     db.refresh(match)
     return _to_public(live._state(db, match))
