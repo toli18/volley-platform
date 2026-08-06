@@ -328,6 +328,19 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE bvf_season_applications ADD COLUMN IF NOT EXISTS forms_active "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                # Вече отворени сезони са имали Форма 03 заедно със status=open — запазваме поведението.
+                conn.execute(
+                    text(
+                        "UPDATE bvf_season_applications SET forms_active = true "
+                        "WHERE status = 'open' AND forms_active IS DISTINCT FROM true"
+                    )
+                )
+                conn.execute(
+                    text(
                         "CREATE INDEX IF NOT EXISTS ix_athletes_bvf_player_number "
                         "ON athletes (bvf_player_number)"
                     )
@@ -499,6 +512,25 @@ def _init_db_impl() -> None:
                     if "doctor_name" not in ci_names:
                         conn.execute(text("ALTER TABLE bvf_card_indexes ADD COLUMN doctor_name VARCHAR(255)"))
                         print("✅ Added bvf_card_indexes.doctor_name")
+            except Exception:
+                pass
+
+            try:
+                sa_cols = conn.execute(text("PRAGMA table_info(bvf_season_applications)")).fetchall()
+                sa_names = {row[1] for row in sa_cols}
+                if "forms_active" not in sa_names:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE bvf_season_applications ADD COLUMN forms_active "
+                            "BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "UPDATE bvf_season_applications SET forms_active = 1 WHERE status = 'open'"
+                        )
+                    )
+                    print("✅ Added bvf_season_applications.forms_active")
             except Exception:
                 pass
 

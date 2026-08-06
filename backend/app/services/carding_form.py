@@ -21,12 +21,13 @@ def season_label(year: int) -> str:
 
 
 def open_carding_season_year(db: Session, club_id: int) -> int | None:
-    """Активна (open) сезонна заявка на клуба — активира Форма 03 за родителите."""
+    """Сезон с активна Форма 03 (status=open + forms_active) — gate за родителския портал."""
     app = (
         db.query(BvfSeasonApplication)
         .filter(
             BvfSeasonApplication.club_id == int(club_id),
             BvfSeasonApplication.status == "open",
+            BvfSeasonApplication.forms_active.is_(True),
         )
         .order_by(BvfSeasonApplication.year.desc())
         .first()
@@ -35,7 +36,7 @@ def open_carding_season_year(db: Session, club_id: int) -> int | None:
 
 
 def athlete_needs_carding_form(db: Session, athlete: Athlete) -> bool:
-    """Gate: само бутон „Отвори сезон“ активира формата; нужен е подпис за годината."""
+    """Gate: само „Активирай Форма 03“ пуска бланката; нужен е подпис за годината."""
     if not athlete.club_id or not getattr(athlete, "is_active", True):
         return False
     year = open_carding_season_year(db, int(athlete.club_id))

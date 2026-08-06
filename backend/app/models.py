@@ -707,8 +707,10 @@ class BvfSeasonApplication(Base):
     id = Column(Integer, primary_key=True, index=True)
     club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)
-    # draft | open | closed
+    # draft | open | closed  — open = картотекиране активно (назначение, състав)
     status = Column(String(32), nullable=False, default="open")
+    # Отделно от status: Форма 03/03-А към родителите (Eurotrust) — ръчно активиране
+    forms_active = Column(Boolean, nullable=False, default=False)
     note = Column(Text, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())

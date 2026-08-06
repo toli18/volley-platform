@@ -1384,6 +1384,7 @@ def get_or_list_season_application(
             "id": app.id,
             "year": app.year,
             "status": app.status,
+            "forms_active": bool(getattr(app, "forms_active", False)),
             "note": app.note,
             "created_by_user_id": app.created_by_user_id,
         },
@@ -1403,7 +1404,7 @@ def upsert_season_application(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Отваря / активира сезон — Форма 03/03-А се показва на родителите без подписана форма за годината."""
+    """Отваря сезон за картотекиране (назначение/състав). Не активира Форма 03."""
     club = _club_for_user(db, current_user, payload.club_id)
     y = int(payload.year)
     app = (
@@ -1416,10 +1417,55 @@ def upsert_season_application(
             club_id=club.id,
             year=y,
             status="open",
+            forms_active=False,
             created_by_user_id=current_user.id,
         )
         db.add(app)
     app.status = "open"
+    # Не пипаме forms_active — активира се с отделен бутон.
+    if payload.note is not None:
+        app.note = (payload.note or "").strip() or None
+    db.commit()
+    db.refresh(app)
+    return {
+        "id": app.id,
+        "year": app.year,
+        "status": app.status,
+        "note": app.note,
+        "forms_active": bool(app.forms_active),
+        "message": (
+            f"Сезон {app.year} е отворен за картотекиране. "
+            + (
+                "Форма 03 вече е активна."
+                if app.forms_active
+                else "Форма 03 още не е активна — ползвай „Активирай Форма 03“."
+            )
+        ),
+    }
+
+
+@router.post("/season-applications/activate-forms")
+def activate_season_forms(
+    payload: SeasonApplicationUpsertIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Активира Форма 03/03-А за родителите. Изисква отворен сезон."""
+    club = _club_for_user(db, current_user, payload.club_id)
+    y = int(payload.year)
+    app = (
+        db.query(BvfSeasonApplication)
+        .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == y)
+        .first()
+    )
+    if not app or app.status != "open":
+        raise HTTPException(
+            status_code=409,
+            detail="Първо отворете сезона с „Отвори сезон“, после активирайте Форма 03.",
+        )
+    app.forms_active = True
     if payload.note is not None:
         app.note = (payload.note or "").strip() or None
     db.commit()
@@ -1430,7 +1476,7 @@ def upsert_season_application(
         "status": app.status,
         "note": app.note,
         "forms_active": True,
-        "message": "Сезонът е отворен. Форма 03 / 03-А е активна за родителите без подпис за тази година.",
+        "message": f"Форма 03 / 03-А е активна за сезон {app.year} (родители без подпис).",
     }
 
 
@@ -1442,7 +1488,7 @@ def close_season_application(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Затваря сезон — Форма 03/03-А спира да излиза на родителите."""
+    """Затваря сезон — спира картотекиране и Форма 03."""
     club = _club_for_user(db, current_user, payload.club_id)
     y = int(payload.year)
     app = (
@@ -1453,6 +1499,7 @@ def close_season_application(
     if not app:
         raise HTTPException(status_code=404, detail="Няма сезонна заявка за тази година")
     app.status = "closed"
+    app.forms_active = False
     if payload.note is not None:
         app.note = (payload.note or "").strip() or None
     db.commit()
@@ -1645,7 +1692,7 @@ def assign_coach_to_age_slot(
     if not app or app.status != "open":
         raise HTTPException(
             status_code=409,
-            detail="Първо отворете сезона с бутона „Отвори сезон + активирай Форма 03“. Назначаването не активира формите.",
+            detail="Първо отворете сезона с „Отвори сезон“. Назначаването не активира Форма 03.",
         )
 
     coach = (

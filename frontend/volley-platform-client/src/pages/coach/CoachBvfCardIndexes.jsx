@@ -137,13 +137,37 @@ export default function CoachBvfCardIndexes() {
         year: Number(year),
         note: null,
       });
-      toast.success(
-        res.data?.message ||
-          `Сезон ${year} е отворен — Форма 03 / 03-А е активирана за родителите без подпис.`,
-      );
+      toast.success(res.data?.message || `Сезон ${year} е отворен за картотекиране.`);
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно отваряне на сезон."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activateForms = async () => {
+    if (season?.application?.status !== "open") {
+      toast.error("Първо отвори сезона, после активирай Форма 03.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Активиране на Форма 03 / 03-А за ${year}? Родителите без подпис ще я видят в портала.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS_ACTIVATE_FORMS, {
+        year: Number(year),
+        note: null,
+      });
+      toast.success(res.data?.message || `Форма 03 е активна за ${year}.`);
+      await loadSeason();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно активиране на Форма 03."));
     } finally {
       setBusy(false);
     }
@@ -381,10 +405,9 @@ export default function CoachBvfCardIndexes() {
 
       <Card title="Сезон">
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-          Отворен сезон = картотекиране + Форма 03/03-А към родителите. Затворен = формите не излизат.
-          При повторно отваряне се искат само от тези без подпис за годината (и без вече записани в СЕК).
+          Отворен сезон = картотекиране (назначение и състав). Форма 03/03-А се включва отделно, когато е
+          готово с Eurotrust. Затворен сезон = спират и картотекирането, и формите.
           След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки.
-          Форма 03 остава ръчна („Отвори сезон“), докато е готово с Eurotrust.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
           <label style={{ display: "grid", gap: 4 }}>
@@ -394,11 +417,22 @@ export default function CoachBvfCardIndexes() {
           {canManage ? (
             <>
               <Button type="button" disabled={busy} onClick={openSeason}>
-                {season?.application?.status === "open"
-                  ? "Отвори отново / активирай форми"
-                  : season?.application
-                    ? "Отвори сезон + активирай Форма 03"
-                    : "Отвори сезон + активирай Форма 03"}
+                {season?.application?.status === "open" ? "Отвори отново" : "Отвори сезон"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy || season?.application?.status !== "open" || season?.application?.forms_active}
+                onClick={activateForms}
+                title={
+                  season?.application?.status !== "open"
+                    ? "Първо отвори сезона"
+                    : season?.application?.forms_active
+                      ? "Форма 03 вече е активна"
+                      : undefined
+                }
+              >
+                {season?.application?.forms_active ? "Форма 03 активна" : "Активирай Форма 03"}
               </Button>
               <Button
                 type="button"
@@ -423,11 +457,13 @@ export default function CoachBvfCardIndexes() {
           {season?.application
             ? `Заявка #${season.application.id} · ${
                 season.application.status === "open"
-                  ? "ОТВОРЕН (форми активни)"
+                  ? "ОТВОРЕН"
                   : season.application.status === "closed"
-                    ? "ЗАТВОРЕН (форми неактивни)"
-                    : season.application.status
-              } · ${season.year}`
+                    ? "ЗАТВОРЕН"
+                    : season.application.status === "draft"
+                      ? "ЧЕРНОВА"
+                      : season.application.status
+              } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
             : "Все още няма сезонна заявка за тази година."}
         </p>
       </Card>
