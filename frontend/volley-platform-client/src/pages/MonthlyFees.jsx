@@ -9,6 +9,7 @@ import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import AthleteIdentityFields from "../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
+import FeesMonthSummaryBar from "../components/fees/FeesMonthSummaryBar";
 import { Button, Card, EmptyState, Input, Modal, PageHero, ResponsiveDataView, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
@@ -755,22 +756,8 @@ export default function MonthlyFees() {
           </div>
         </div>
         {monthSummary ? (
-          <div className="feesMonthSummaryBar" style={{ marginTop: 10 }}>
-            <p className="feesMonthSummaryTotal">Събрани: {formatMoney(monthSummary.total_collected)}</p>
-            <p className="feesMonthSummaryMeta">
-              Платили {monthSummary.paid_count} · неплатили {monthSummary.unpaid_count} · общо{" "}
-              {monthSummary.athlete_count}
-            </p>
-            {isHeadCoach && Array.isArray(monthSummary.by_coach) && monthSummary.by_coach.length ? (
-              <ul className="feesMonthSummaryCoaches">
-                {monthSummary.by_coach.map((row) => (
-                  <li key={row.coach_id}>
-                    <strong>{row.coach_name}</strong>: {formatMoney(row.total_collected)} · платени {row.paid_count} /
-                    неплатени {row.unpaid_count}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+          <div style={{ marginTop: 10 }}>
+            <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
           </div>
         ) : null}
         {loading && <p>Зареждане...</p>}

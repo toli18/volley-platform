@@ -1183,12 +1183,29 @@
 
 .feesMonthSummaryBar {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
   margin-bottom: 10px;
   padding: 10px 12px;
   border-radius: 12px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.feesMonthSummaryBar--collapsed {
+  gap: 2px;
+  padding: 8px 12px;
+}
+
+.feesMonthSummaryToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
 }
 
 .feesMonthSummaryTotal {
@@ -1198,10 +1215,31 @@
   color: #14532d;
 }
 
+.feesMonthSummaryChevron {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: #166534;
+}
+
 .feesMonthSummaryMeta {
   margin: 0;
   font-size: 12px;
   color: #166534;
+}
+
+.feesMonthSummaryMeta--truncated {
+  color: #4d7c5a;
+}
+
+.feesMonthSummaryCoachesLine {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #14532d;
+}
+
+.feesMonthSummaryCoachSep {
+  color: #86efac;
 }
 
 .feesMonthSummaryCoaches {
@@ -1212,6 +1250,40 @@
   list-style: none;
   font-size: 12px;
   color: #14532d;
+}
+
+.athletesHubStatsBar {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.athletesHubStatsTotal {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.athletesHubStatsMeta {
+  margin: 0;
+  font-size: 12px;
+  color: #1d4ed8;
+}
+
+.athletesHubStatsCoaches {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #1e3a8a;
+}
+
+.athletesHubStatsCoachSep {
+  color: #93c5fd;
 }
 
 .feesRemindVisibleBtn {

@@ -81,6 +81,7 @@ export default function CoachAthletes() {
   const [athleteForm, setAthleteForm] = useState(() => emptyAthleteIdentityForm());
   const [teamId, setTeamId] = useState("");
   const [cardIndexes, setCardIndexes] = useState([]);
+  const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
 
   const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, TABS.map((t) => t.id));
@@ -114,12 +115,25 @@ export default function CoachAthletes() {
     }
   };
 
+  const loadClubCoaches = async () => {
+    if (!isHeadCoach) {
+      setClubCoaches([]);
+      return;
+    }
+    try {
+      const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
+      setClubCoaches(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setClubCoaches([]);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoading(true);
-        await Promise.all([loadAthletes(), loadTeams(), loadCardIndexes()]);
+        await Promise.all([loadAthletes(), loadTeams(), loadCardIndexes(), loadClubCoaches()]);
       } catch (err) {
         if (!cancelled) toast.error(normalizeError(err));
       } finally {
@@ -135,6 +149,32 @@ export default function CoachAthletes() {
     const byQuery = filterFeesAthletes(athletes, query);
     return byQuery.filter((a) => matchesStatusFilter(a, statusFilter));
   }, [athletes, query, statusFilter]);
+
+  const rosterStats = useMemo(() => {
+    const total = athletes.length;
+    const inSek = athletes.filter((a) => a.bvf_player_id).length;
+    const withoutSek = Math.max(0, total - inSek);
+    const nameById = new Map(
+      (clubCoaches || []).map((c) => [Number(c.id), (c.name || "").trim() || `Треньор #${c.id}`]),
+    );
+    const byCoachMap = new Map();
+    for (const a of athletes) {
+      const cid = Number(a.coach_id || 0);
+      if (!cid) continue;
+      const row = byCoachMap.get(cid) || { coach_id: cid, coach_name: nameById.get(cid) || `Треньор #${cid}`, count: 0, sek: 0 };
+      row.count += 1;
+      if (a.bvf_player_id) row.sek += 1;
+      if (!row.coach_name || row.coach_name.startsWith("Треньор #")) {
+        const n = nameById.get(cid);
+        if (n) row.coach_name = n;
+      }
+      byCoachMap.set(cid, row);
+    }
+    const byCoach = Array.from(byCoachMap.values()).sort((a, b) =>
+      String(a.coach_name).localeCompare(String(b.coach_name), "bg"),
+    );
+    return { total, inSek, withoutSek, byCoach };
+  }, [athletes, clubCoaches]);
 
   const teamsForForm = useMemo(() => {
     const g = athleteForm.gender;
@@ -249,6 +289,26 @@ export default function CoachAthletes() {
           <Button as={Link} to="/coach/bvf-card-indexes" size="sm" variant="secondary">
             Към картотечни отбори
           </Button>
+        </section>
+      ) : null}
+
+      {!loading && athletes.length > 0 ? (
+        <section className="athletesHubStatsBar" aria-label="Брой състезатели">
+          <p className="athletesHubStatsTotal">В системата: {rosterStats.total}</p>
+          <p className="athletesHubStatsMeta">
+            В СЕК: {rosterStats.inSek} · без СЕК: {rosterStats.withoutSek}
+          </p>
+          {isHeadCoach && rosterStats.byCoach.length > 0 ? (
+            <p className="athletesHubStatsCoaches">
+              {rosterStats.byCoach.map((row, i) => (
+                <span key={row.coach_id}>
+                  {i > 0 ? <span className="athletesHubStatsCoachSep"> · </span> : null}
+                  <strong>{row.coach_name}</strong> {row.count}
+                  <span className="athletesHubStatsMeta"> ({row.sek} СЕК)</span>
+                </span>
+              ))}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

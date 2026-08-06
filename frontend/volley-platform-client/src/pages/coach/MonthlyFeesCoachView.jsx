@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
+import FeesMonthSummaryBar from "../../components/fees/FeesMonthSummaryBar";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
-import { formatMoney } from "../../utils/currency";
 
 const PAY_FILTERS = [
   { id: "all", label: "Всички" },
@@ -19,28 +19,6 @@ function formatGenderShort(v) {
 
 function monthPaid(athlete, monthKey) {
   return Boolean((athlete.recent_payments || []).find((p) => p.month_key === monthKey));
-}
-
-function MonthSummaryBar({ summary, isHeadCoach }) {
-  if (!summary) return null;
-  return (
-    <section className="feesMonthSummaryBar" aria-label="Събрани такси за месеца">
-      <p className="feesMonthSummaryTotal">Събрани: {formatMoney(summary.total_collected)}</p>
-      <p className="feesMonthSummaryMeta">
-        Платили {summary.paid_count} · неплатили {summary.unpaid_count} · общо {summary.athlete_count}
-      </p>
-      {isHeadCoach && Array.isArray(summary.by_coach) && summary.by_coach.length ? (
-        <ul className="feesMonthSummaryCoaches">
-          {summary.by_coach.map((row) => (
-            <li key={row.coach_id}>
-              <strong>{row.coach_name}</strong>: {formatMoney(row.total_collected)} · платени {row.paid_count} /
-              неплатени {row.unpaid_count}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
 }
 
 function AthleteActionsSheet({ athlete, onClose, onReport }) {
@@ -188,7 +166,7 @@ export default function MonthlyFeesCoachView({
               Още
             </Button>
           </div>
-          <MonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
+          <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
           <Button type="button" className="feesRemindVisibleBtn" disabled={busy} onClick={onRemind}>
             Напомни неплатилите за {remindMonth}
           </Button>
