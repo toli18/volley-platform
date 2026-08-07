@@ -1,16 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui";
+import PushIosSetupCard from "../shared/PushIosSetupCard";
 import {
   disableParentPushNotifications,
   enableParentPushNotifications,
   fetchParentPushStatus,
+  isIosDevice,
+  isStandalonePwa,
   pushSetupHint,
   pushSupported,
   sendParentPushTest,
 } from "../../utils/parentPush";
 import { markPushHintSeen, shouldAutoOpenPushHint } from "../../utils/parentPortalPushHint";
 import { IconBell } from "./parentPortalIcons";
+
+function mapPushError(raw) {
+  const msg = String(raw || "");
+  if (/VAPID|not configured/i.test(msg)) {
+    return "Известията не са конфигурирани на сървъра (липсват VAPID ключове).";
+  }
+  return msg || "Неуспешна операция с известията.";
+}
 
 export default function ParentPushPrompt({ isSession, legacyToken }) {
   const [status, setStatus] = useState({ subscribed: false, push_available: false, loading: true });
@@ -38,7 +49,8 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
 
   useEffect(() => {
     if (status.loading || status.subscribed || autoOpenedRef.current) return;
-    if (!shouldAutoOpenPushHint(isSession, legacyToken)) return;
+    const needsIosHelp = isIosDevice() && !isStandalonePwa();
+    if (!needsIosHelp && !shouldAutoOpenPushHint(isSession, legacyToken)) return;
     autoOpenedRef.current = true;
     setExpanded(true);
     markPushHintSeen(isSession, legacyToken);
@@ -46,8 +58,28 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
 
   const setupHint = pushSetupHint();
 
-  if (status.loading || !pushSupported()) return null;
-  if (!status.push_available) return null;
+  if (status.loading) return null;
+
+  if (!pushSupported()) {
+    return (
+      <div className="parentPortalDetails parentPortalPushDetails parentPortalPushDetails--static">
+        <p className="parentPushPromptText" style={{ margin: 0 }}>
+          Този браузър не поддържа известия. На Android ползвайте Chrome; на iPhone — Safari + икона на началния екран.
+        </p>
+      </div>
+    );
+  }
+
+  if (!status.push_available) {
+    return (
+      <div className="parentPortalDetails parentPortalPushDetails parentPortalPushDetails--static">
+        <p className="parentPushPromptText" style={{ margin: 0 }}>
+          Известията още не са включени на сървъра (липсват VAPID ключове). Кажете на клуба / администратора да ги
+          настрои — после тук ще можете да ги активирате.
+        </p>
+      </div>
+    );
+  }
 
   const onEnable = async () => {
     try {
@@ -55,8 +87,9 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       setError("");
       await enableParentPushNotifications(isSession, legacyToken);
       setStatus((s) => ({ ...s, subscribed: true }));
+      setTestMsg("Включени. Натиснете „Тестово известие“, за да проверите телефона.");
     } catch (err) {
-      setError(err?.message || "Неуспешно включване на известията.");
+      setError(mapPushError(err?.message) || "Неуспешно включване на известията.");
     } finally {
       setBusy(false);
     }
@@ -68,8 +101,9 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       setError("");
       await disableParentPushNotifications(isSession, legacyToken);
       setStatus((s) => ({ ...s, subscribed: false }));
+      setTestMsg("");
     } catch (err) {
-      setError(err?.message || "Неуспешно изключване.");
+      setError(mapPushError(err?.message) || "Неуспешно изключване.");
     } finally {
       setBusy(false);
     }
@@ -82,14 +116,15 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       setError("");
       const data = await sendParentPushTest(isSession, legacyToken);
       if (data.sent > 0) {
-        setTestMsg("Тестовото известие е изпратено — проверете телефона.");
+        setTestMsg("Тестовото известие е изпратено — проверете телефона (и центъра за известия).");
       } else {
         setError(
-          data.errors?.[0] || "Изпращането не успя. Натиснете „Изключи“, после „Включи“ отново.",
+          mapPushError(data.errors?.[0])
+            || "Изпращането не успя. Натиснете „Изключи“, после „Включи“ отново.",
         );
       }
     } catch (err) {
-      setError(err?.message || "Тестът не успя.");
+      setError(mapPushError(err?.message) || "Тестът не успя.");
     } finally {
       setBusy(false);
     }
@@ -112,10 +147,12 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
       </summary>
 
       <div className="parentPortalDetailsBody parentPortalPushBody">
+        <PushIosSetupCard />
         {status.subscribed ? (
           <>
             <p className="parentPushPromptText">
-              Ще получавате известие при отменена или променена тренировка, състезание или платена такса.
+              Получавате известие при: отменена/променена тренировка, състезание, новина от треньора, платена такса и
+              напомняне за неплатена.
             </p>
             <div className="parentPortalPushActions">
               <Button type="button" size="sm" disabled={busy} onClick={onTest} block className="parentPortalTouchBtn">
@@ -138,7 +175,7 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
         ) : (
           <>
             <p className="parentPushPromptText">
-              Включете известия, за да научавате веднага при промяна или отмяна на тренировка.
+              Включете известия за график, новини и такси. После натиснете „Тестово известие“, за да проверите телефона.
             </p>
             {setupHint ? (
               <p className="uiHint parentPushPromptHint parentPushPromptHint--warn">{setupHint}</p>
@@ -149,11 +186,6 @@ export default function ParentPushPrompt({ isSession, legacyToken }) {
           </>
         )}
         {error ? <p className="uiErrorText parentPushPromptError">{error}</p> : null}
-        {!setupHint ? (
-          <p className="uiHint parentPushPromptHint">
-            На iPhone: Safari → Сподели → „Добави на началния екран“, после включете известия от иконата.
-          </p>
-        ) : null}
       </div>
     </details>
   );

@@ -525,6 +525,13 @@ def update_schedule_rule(
 
     db.commit()
     db.refresh(rule)
+    queue_team_change(
+        int(rule.team_id),
+        str(rule.effective_from),
+        CHANGE_TRAINING_CHANGED,
+        f"rule:upd:{rule.id}",
+        extra=f"{rule.location} · {rule.start_time}-{rule.end_time}",
+    )
     return rule
 
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Athlete, ParentPortalChangeMarker, Team, TeamMember
-from app.services.parent_push import format_date_bg, notify_athlete
+from app.services.parent_push import PORTAL_ATHLETE_ROOM, format_date_bg, notify_athlete
 
 logger = logging.getLogger(__name__)
 
@@ -348,7 +348,8 @@ def _queue_team_chat_message_sync(
         for aid in athlete_ids:
             if exclude_athlete_id is not None and int(aid) == int(exclude_athlete_id):
                 continue
-            notify_athlete(db, aid, title, body)
+            # Чатът е в отборната стая — не пращаме push към родителския портал.
+            notify_athlete(db, aid, title, body, portals=[PORTAL_ATHLETE_ROOM])
         logger.info("Team chat notify team=%s athletes=%s", team_id, len(athlete_ids))
     except Exception as exc:
         logger.exception("Team chat notify failed: %s", exc)

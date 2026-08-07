@@ -4505,6 +4505,39 @@
   margin-bottom: 12px;
 }
 
+.parentPortalPushDetails--static {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.pushIosSetupCard {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.pushIosSetupCard__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.pushIosSetupCard__steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pushIosSetupCard__steps li + li {
+  margin-top: 4px;
+}
+
 .parentPortalPushSummary {
   display: flex;
   align-items: center;

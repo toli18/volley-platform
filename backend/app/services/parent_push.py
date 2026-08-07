@@ -158,17 +158,24 @@ def notify_athlete(
     title: str,
     body: str,
     url: str | None = None,
+    *,
+    portals: list[str] | None = None,
 ) -> dict:
-    """Send push to all subscriptions for this athlete (parent + athlete room devices)."""
+    """Send push to subscriptions for this athlete.
+
+    portals=None → parent + athlete_room (график, такси, новини).
+    portals=["athlete_room"] → само отборната стая (чат).
+    """
     if not push_configured():
-        return {"sent": 0, "subscriptions": 0, "errors": ["VAPID keys not configured on server"]}
-    subs = (
-        db.query(ParentPushSubscription)
-        .filter(ParentPushSubscription.athlete_id == int(athlete_id))
-        .all()
-    )
+        return {"sent": 0, "subscriptions": 0, "errors": ["Известията не са конфигурирани на сървъра (липсват VAPID ключове)."]}
+    q = db.query(ParentPushSubscription).filter(ParentPushSubscription.athlete_id == int(athlete_id))
+    if portals:
+        wanted = {(p or "").strip() for p in portals if (p or "").strip()}
+        if wanted:
+            q = q.filter(ParentPushSubscription.portal.in_(list(wanted)))
+    subs = q.all()
     if not subs:
-        return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this athlete"]}
+        return {"sent": 0, "subscriptions": 0, "errors": ["Няма запазен абонамент за известия на това устройство."]}
     sent = 0
     stale: list[ParentPushSubscription] = []
     errors: list[str] = []
@@ -197,7 +204,11 @@ def notify_athlete(
 
 def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PARENT) -> dict:
     if not push_configured():
-        return {"sent": 0, "subscriptions": 0, "errors": ["VAPID keys not configured on server"]}
+        return {
+            "sent": 0,
+            "subscriptions": 0,
+            "errors": ["Известията не са конфигурирани на сървъра (липсват VAPID ключове)."],
+        }
     subs = (
         db.query(ParentPushSubscription)
         .filter(
@@ -207,7 +218,11 @@ def send_test_notification(db: Session, athlete_id: int, portal: str = PORTAL_PA
         .all()
     )
     if not subs:
-        return {"sent": 0, "subscriptions": 0, "errors": ["No push subscription saved for this portal"]}
+        return {
+            "sent": 0,
+            "subscriptions": 0,
+            "errors": ["Няма запазен абонамент. Натиснете „Включи известия“, после опитайте теста."],
+        }
     subs_info = [_push_sub_info(s) for s in subs]
     target_url = portal_url_for_portal(portal)
     icon_url = club_icon_url_for_athlete(db, athlete_id)
