@@ -7,13 +7,15 @@
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.models import (
     AssessmentConsent,
+    AssessmentResult,
+    AssessmentSession,
     AssessmentWindow,
     Athlete,
     DevelopmentScore,
@@ -80,23 +82,48 @@ def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: 
     )
     window_ids = sorted({s.window_id for s in scores})
     windows = []
+    conducted_by_window: dict[int, date] = {}
     if window_ids:
         windows = (
             db.query(AssessmentWindow)
             .filter(AssessmentWindow.id.in_(window_ids))
             .all()
         )
+        # Дата на тестиране = conducted_on от сесията, в която има резултат за атлета.
+        session_rows = (
+            db.query(AssessmentSession.window_id, AssessmentSession.conducted_on)
+            .join(AssessmentResult, AssessmentResult.session_id == AssessmentSession.id)
+            .filter(
+                AssessmentSession.window_id.in_(window_ids),
+                AssessmentResult.athlete_id == athlete.id,
+                AssessmentSession.conducted_on.isnot(None),
+            )
+            .all()
+        )
+        for wid, conducted in session_rows:
+            if conducted is None:
+                continue
+            prev = conducted_by_window.get(wid)
+            if prev is None or conducted > prev:
+                conducted_by_window[wid] = conducted
+
+        def _window_sort_key(w: AssessmentWindow):
+            return (
+                conducted_by_window.get(w.id) or w.start_date or date.min,
+                w.id,
+            )
+
+        windows = sorted(windows, key=_window_sort_key)
 
     deficits: list[dict] = []
     main_focus = None
     secondary_focus = None
-    if window_ids:
-        latest_window = next((w for w in windows if w.id == window_ids[-1]), None)
-        if latest_window is not None:
-            deficits = find_deficits(db, athlete.id, latest_window)
-            focus_order = [d["domain"] for d in deficits]
-            main_focus = focus_order[0] if focus_order else None
-            secondary_focus = focus_order[1] if len(focus_order) > 1 else None
+    if windows:
+        latest_window = windows[-1]
+        deficits = find_deficits(db, athlete.id, latest_window)
+        focus_order = [d["domain"] for d in deficits]
+        main_focus = focus_order[0] if focus_order else None
+        secondary_focus = focus_order[1] if len(focus_order) > 1 else None
 
     # Позитивен мотивационен слой (рекорди, следваща цел, % връстници, талант).
     # Надстроечен — не докосва официалните оценки. None при липса на данни.
@@ -107,7 +134,15 @@ def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: 
         "athlete_name": athlete.athlete_name,
         "scores": scores,
         "windows": [
-            {"id": w.id, "season": w.season, "phase": getattr(w.phase, "value", w.phase)}
+            {
+                "id": w.id,
+                "season": w.season,
+                "phase": getattr(w.phase, "value", w.phase),
+                "label": w.label,
+                "start_date": w.start_date,
+                "end_date": w.end_date,
+                "conducted_on": conducted_by_window.get(w.id),
+            }
             for w in windows
         ],
         "deficits": deficits,

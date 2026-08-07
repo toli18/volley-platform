@@ -4733,6 +4733,48 @@
   gap: 10px;
 }
 
+.parentPortalFeeFoldTop {
+  margin-bottom: 12px;
+}
+
+.parentPortalFeeDesktopTop {
+  margin-bottom: 14px;
+}
+
+.parentPortalTestsTab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.parentPortalTestDateTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0 6px;
+  scrollbar-width: thin;
+}
+
+.parentPortalTestDateTab {
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 77, 58, 0.18);
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.parentPortalTestDateTab.is-active {
+  background: #0f4d3a;
+  border-color: #0f4d3a;
+  color: #fff;
+}
+
 .parentPortalHighlightFoldSummary {
   display: flex;
   align-items: center;

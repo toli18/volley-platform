@@ -185,6 +185,7 @@ export default function ParentPortalProfileContent({
   statusBadgeClass,
   onSwitchTab,
   onProfileRefresh,
+  onTestsAvailabilityChange,
 }) {
   const currentFee = profile.current_month_fee;
   const feeCoach = profile.fee_coach || {};
@@ -250,10 +251,39 @@ export default function ParentPortalProfileContent({
     </section>
   );
 
+  const feeFold = (
+    <details className="parentPortalDetails parentPortalHighlightFold parentPortalFeeFoldTop">
+      <summary className="parentPortalDetailsSummary parentPortalHighlightFoldSummary">
+        <span className="parentPortalHighlightFoldLead">
+          <IconEuro className="parentPortalInlineIcon" size={20} />
+          Такса — {formatMonthKey(currentFee?.month_key)}
+          {profile.fee_change_highlight ? (
+            <span className="parentPortalUnreadDot parentPortalUnreadDot--inline" aria-hidden />
+          ) : null}
+        </span>
+        <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+          {currentFee?.paid ? "Платена" : "Неплатена"}
+        </span>
+      </summary>
+      <div className="parentPortalDetailsBody">
+        {feeBlock}
+        <div style={{ marginTop: 10 }}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
+            История на таксите
+          </Button>
+        </div>
+      </div>
+    </details>
+  );
+
   return (
     <>
       <ParentPortalTabPanel tabId="home" activeTab={activeTab}>
         <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
+
+        {/* Статус на таксата — горе на Начало. */}
+        <div className="parentPortalHighlightDesktopOnly parentPortalFeeDesktopTop">{feeBlock}</div>
+        {feeFold}
 
         <div className="parentPortalHomeStack">
           <Card title="Новини от треньора">
@@ -284,8 +314,6 @@ export default function ParentPortalProfileContent({
               </>
             )}
           </Card>
-
-          <ParentDevelopmentSection isSession={isSession} token={token} />
 
           {(profile.membership_consent?.has_signed || profile.carding_form?.has_signed) ? (
             <Card title="Документи">
@@ -384,25 +412,17 @@ export default function ParentPortalProfileContent({
             <div className="parentPortalDetailsBody">{eventsBlock}</div>
           </details>
 
-          <details className="parentPortalDetails parentPortalHighlightFold">
-            <summary className="parentPortalDetailsSummary parentPortalHighlightFoldSummary">
-              <span className="parentPortalHighlightFoldLead">
-                <IconEuro className="parentPortalInlineIcon" size={20} />
-                Такса — {formatMonthKey(currentFee?.month_key)}
-                {profile.fee_change_highlight ? (
-                  <span className="parentPortalUnreadDot parentPortalUnreadDot--inline" aria-hidden />
-                ) : null}
-              </span>
-              <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-                {currentFee?.paid ? "Платена" : "Неплатена"}
-              </span>
-            </summary>
-            <div className="parentPortalDetailsBody">{feeBlock}</div>
-          </details>
-
           <div className="parentPortalHighlightDesktopOnly">{eventsBlock}</div>
-          <div className="parentPortalHighlightDesktopOnly">{feeBlock}</div>
         </div>
+      </ParentPortalTabPanel>
+
+      <ParentPortalTabPanel tabId="tests" activeTab={activeTab}>
+        <ParentDevelopmentSection
+          isSession={isSession}
+          token={token}
+          variant="tab"
+          onAvailabilityChange={onTestsAvailabilityChange}
+        />
       </ParentPortalTabPanel>
 
       <ParentPortalTabPanel tabId="schedule" activeTab={activeTab} className="parentPortalTabPanel--schedule">

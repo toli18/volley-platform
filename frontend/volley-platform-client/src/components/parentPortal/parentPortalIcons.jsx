@@ -126,6 +126,18 @@ export function IconLocation({ className, size }) {
   );
 }
 
+/** Clipboard / tests icon for bottom nav. */
+export function IconTests({ className, size }) {
+  return (
+    <Svg className={className} size={size}>
+      <path
+        fill="currentColor"
+        d="M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1Zm1 2v1h4V4h-4Zm-4 4v12h12V8H6Zm3 2h6v2H9v-2Zm0 4h6v2H9v-2Zm0 4h4v2H9v-2Z"
+      />
+    </Svg>
+  );
+}
+
 export function EventTypeChip({ variant, label }) {
   const isComp = variant === "competition";
   return (

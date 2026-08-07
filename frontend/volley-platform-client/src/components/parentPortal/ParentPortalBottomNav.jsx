@@ -1,15 +1,18 @@
-import { IconCalendar, IconEuro, IconHome } from "./parentPortalIcons";
+import { IconCalendar, IconEuro, IconHome, IconTests } from "./parentPortalIcons";
 
-const TABS = [
+const BASE_TABS = [
   { id: "home", label: "Начало", Icon: IconHome },
   { id: "schedule", label: "График", Icon: IconCalendar },
+  { id: "tests", label: "Тестове", Icon: IconTests, optional: true },
   { id: "fees", label: "Такси", Icon: IconEuro },
 ];
 
-export default function ParentPortalBottomNav({ activeTab, onChange, scheduleDot }) {
+export default function ParentPortalBottomNav({ activeTab, onChange, scheduleDot, showTests }) {
+  const tabs = BASE_TABS.filter((t) => !t.optional || showTests);
+
   return (
     <nav className="parentPortalBottomNav" aria-label="Навигация в профила">
-      {TABS.map(({ id, label, Icon }) => {
+      {tabs.map(({ id, label, Icon }) => {
         const active = activeTab === id;
         const showDot = id === "schedule" && scheduleDot && !active;
         return (

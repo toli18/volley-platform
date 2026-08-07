@@ -91,6 +91,17 @@ export default function ParentPortal() {
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
   const [activeTab, setActiveTab] = useState("home");
+  const [showTests, setShowTests] = useState(false);
+
+  const handleTestsAvailabilityChange = useCallback(({ available }) => {
+    setShowTests(Boolean(available));
+  }, []);
+
+  useEffect(() => {
+    if (!showTests && activeTab === "tests") {
+      setActiveTab("home");
+    }
+  }, [showTests, activeTab]);
 
   const highlightDates = useMemo(
     () => new Set(profile?.pending_schedule_dates || []),
@@ -237,7 +248,12 @@ export default function ParentPortal() {
   ) : null;
 
   const bottomNav = profile && !gated ? (
-    <ParentPortalBottomNav activeTab={activeTab} onChange={setActiveTab} scheduleDot={hasUnreadChanges} />
+    <ParentPortalBottomNav
+      activeTab={activeTab}
+      onChange={setActiveTab}
+      scheduleDot={hasUnreadChanges}
+      showTests={showTests}
+    />
   ) : null;
 
   return (
@@ -256,7 +272,7 @@ export default function ParentPortal() {
               ? "Необходимо е клубно заявление"
               : needsCardingForm
                 ? "Необходима е Форма 03 / 03-А за картотекиране"
-                : "Присъствие, график и месечни такси"}
+                : "Присъствие, график, такси и тестове"}
           </p>
           {profile && !gated ? (
             <AthleteMembershipChips
@@ -315,6 +331,7 @@ export default function ParentPortal() {
             statusBadgeClass={statusBadgeClass}
             onSwitchTab={setActiveTab}
             onProfileRefresh={() => loadProfile({ silent: true })}
+            onTestsAvailabilityChange={handleTestsAvailabilityChange}
           />
         ) : null}
       </div>

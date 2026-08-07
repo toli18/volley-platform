@@ -472,6 +472,11 @@ class ParentWindowOut(BaseModel):
     id: int
     season: str
     phase: WindowPhaseLiteral
+    label: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    # Дата на диагностичната сесия за този състезател (ако е записана).
+    conducted_on: Optional[date] = None
 
 
 class ParentDevelopmentOut(BaseModel):
