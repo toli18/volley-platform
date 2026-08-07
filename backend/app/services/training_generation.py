@@ -147,3 +147,44 @@ def persist_generated_training(
     db.refresh(training)
     return training
 
+
+def persist_text_training(
+    db: Session,
+    user: User,
+    *,
+    title: str,
+    plan_text: str,
+    team_id: Optional[int] = None,
+    session_date: Optional[str] = None,
+    status: str = "запазена",
+    notes: Optional[str] = None,
+    request_meta: Optional[Dict[str, Any]] = None,
+) -> Training:
+    """Записва текстова тренировка без drill план (домашни / методически планове)."""
+    from ..models import TrainingSource, TrainingStatus
+
+    status_input = (status or "чернова").strip().lower()
+    training_status = TrainingStatus.saved if status_input in {"saved", "запазена"} else TrainingStatus.draft
+    meta = dict(request_meta or {})
+    meta["trainingPlanText"] = plan_text
+
+    training = Training(
+        title=(title or "").strip() or "Текстов план",
+        coach_id=user.id,
+        club_id=user.club_id,
+        team_id=team_id,
+        session_date=(session_date or "").strip() or None,
+        source=TrainingSource.generator,
+        status=training_status,
+        plan={},
+        notes=notes or "Текстов план (без библиотека упражнения)",
+        generation_request=meta,
+        model_version="home-text-v1",
+        score_summary=None,
+        selected_drill_ids=[],
+    )
+    db.add(training)
+    db.commit()
+    db.refresh(training)
+    return training
+

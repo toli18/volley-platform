@@ -100,7 +100,7 @@ from app.services.norm_producer import (
 from app.services.peer_norms import birth_year_for_band
 from app.services.scouting_service import build_scouting_table
 from app.services.talent_profile_service import compute_athlete_talent_profile
-from app.services.training_generation import persist_generated_training, run_generation
+from app.services.training_generation import persist_generated_training, persist_text_training, run_generation
 
 # Подреждане на прозорците по фаза в логически ред.
 _PHASE_ORDER = {"baseline": 0, "mid": 1, "endline": 2}
@@ -753,7 +753,13 @@ def generate_session_home_workouts(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_WRITE_ROLES)),
 ):
-    """Генерира и записва кратки домашни тренировки по индивидуалните акценти."""
+    """Генерира и записва текстови домашни планове по индивидуалните акценти.
+
+    Без библиотека упражнения — само естествен план (физика, плиометрия,
+    координация, фокус) по методика БФВ / учебник.
+    """
+    from app.national_method.home_workout_plans import build_home_workout_text
+
     session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
     if session is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сесията не е намерена")
@@ -783,28 +789,34 @@ def generate_session_home_workouts(
             failed.append({"athlete_id": aid, "error": "Липсва акцент или състезател."})
             continue
         try:
-            gen_req = build_home_generate_request(
-                athlete,
+            plan_text = build_home_workout_text(
+                athlete_name=athlete.athlete_name,
+                birth_year=athlete.birth_year,
+                gender=athlete.gender,
                 main_focus=row["main_focus"],
                 secondary_focus=row.get("secondary_focus"),
                 duration_min=payload.duration_min,
             )
-            generation = run_generation(gen_req, user=current_user, db=db)
             title = f"Домашна · {athlete.athlete_name} · {row['main_focus']}"
-            training = persist_generated_training(
+            training = persist_text_training(
                 db,
                 current_user,
-                generation,
                 title=title,
+                plan_text=plan_text,
                 team_id=session.team_id,
                 session_date=None,
                 status="запазена",
-                notes=f"Домашна тренировка за athlete_id={athlete.id}",
-                extra_request_fields={
+                notes=f"Домашна текстова тренировка за athlete_id={athlete.id}",
+                request_meta={
                     "kind": "home_workout",
+                    "source": "bvf-method-text",
                     "athlete_id": athlete.id,
                     "athlete_name": athlete.athlete_name,
                     "assessment_session_id": session_id,
+                    "mainFocus": row.get("main_focus"),
+                    "secondaryFocus": row.get("secondary_focus"),
+                    "durationTotalMin": payload.duration_min,
+                    "playersCount": 1,
                 },
             )
             created.append(
@@ -815,7 +827,7 @@ def generate_session_home_workouts(
                     session_date=training.session_date,
                     athlete_id=athlete.id,
                     athlete_name=athlete.athlete_name,
-                    training_plan_text=(training.generation_request or {}).get("trainingPlanText"),
+                    training_plan_text=plan_text,
                     main_focus=row.get("main_focus"),
                 )
             )

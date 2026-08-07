@@ -628,6 +628,9 @@ export default function CoachAssessmentSession() {
                     <Button type="button" onClick={generateHomeWorkouts} disabled={homeBusy}>
                       {homeBusy ? "Генериране на домашни..." : "Генерирай домашни тренировки"}
                     </Button>
+                    <span className="assessMuted">
+                      Текстов план (~30 мин): координация, физика, плиометрия + фокус — без библиотека упражнения.
+                    </span>
                   </div>
                   {homeResult?.created?.length ? (
                     <ul style={{ marginTop: 10, paddingLeft: 18 }}>
