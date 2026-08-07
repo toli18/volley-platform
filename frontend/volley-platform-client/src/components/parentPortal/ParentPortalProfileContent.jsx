@@ -5,6 +5,7 @@ import ParentCoachContact, { parentHasCoachContact } from "./ParentCoachContact"
 import ParentPortalFeed from "./ParentPortalFeed";
 import ParentDevelopmentSection from "./ParentDevelopmentSection";
 import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
+import AthleteMembershipChips from "../athletes/AthleteMembershipChips";
 import { IconCalendar, IconEuro } from "./parentPortalIcons";
 import { Button, Card, EmptyState, Input } from "../ui";
 import { formatMoney } from "../../utils/currency";
@@ -120,14 +121,23 @@ function FeeHighlightBody({
   formatMoney,
   formatPaidAtBg,
   formatFeeDueLabel,
+  onOpenFees,
 }) {
+  const statusBadge = currentFee?.paid ? (
+    <button type="button" className="uiBadge uiBadge--success parentPortalFeeStatusBadgeBtn" onClick={onOpenFees}>
+      Платена
+    </button>
+  ) : (
+    <button type="button" className="uiBadge uiBadge--danger parentPortalFeeStatusBadgeBtn" onClick={onOpenFees}>
+      Неплатена
+    </button>
+  );
+
   return (
     <>
       {currentFee?.paid ? (
         <>
-          <p className="parentPortalHighlightMain">
-            <span className="uiBadge uiBadge--success">Платена</span>
-          </p>
+          <p className="parentPortalHighlightMain">{statusBadge}</p>
           <p className="parentPortalHighlightDetail">
             {formatMoney(currentFee.amount)}
             {currentFee.paid_at ? ` · ${new Date(currentFee.paid_at).toLocaleDateString("bg-BG")}` : ""}
@@ -141,9 +151,7 @@ function FeeHighlightBody({
         </>
       ) : (
         <>
-          <p className="parentPortalHighlightMain">
-            <span className="uiBadge uiBadge--danger">Неплатена</span>
-          </p>
+          <p className="parentPortalHighlightMain">{statusBadge}</p>
           <p className="parentPortalHighlightDetail parentPortalHighlightDetail--feeDue">
             <span className="uiBadge uiBadge--warning">Срок</span> {formatFeeDueLabel(feeDueDay, currentFee?.month_key)}
           </p>
@@ -161,6 +169,12 @@ function FeeHighlightBody({
     </>
   );
 }
+
+const PROFILE_SECTIONS = [
+  { id: "fees", label: "Такси" },
+  { id: "attendance", label: "Присъствие" },
+  { id: "development", label: "Развитие" },
+];
 
 export default function ParentPortalProfileContent({
   profile,
@@ -184,6 +198,8 @@ export default function ParentPortalProfileContent({
   statusLabel,
   statusBadgeClass,
   onSwitchTab,
+  profileSection = "fees",
+  setProfileSection,
   onProfileRefresh,
   onTestsAvailabilityChange,
 }) {
@@ -193,6 +209,7 @@ export default function ParentPortalProfileContent({
   const feeDueDay = currentFee?.due_day ?? profile.fee_due_day ?? 10;
   const scheduleMonthKey = profile.schedule_month_key || new Date().toISOString().slice(0, 7);
   const competitionsMonthLabel = formatCompetitionsMonthLabel(profile.competitions_this_month ?? 0, scheduleMonthKey);
+  const section = PROFILE_SECTIONS.some((s) => s.id === profileSection) ? profileSection : "fees";
 
   const allAttendance = profile.last_attendance ?? [];
   const allPayments = profile.monthly_payments ?? [];
@@ -204,6 +221,11 @@ export default function ParentPortalProfileContent({
   if (attendanceSummary.present) attendanceHomeParts.push(`${attendanceSummary.present} присъства`);
   if (attendanceSummary.late) attendanceHomeParts.push(`${attendanceSummary.late} закъсня`);
   if (attendanceSummary.absent) attendanceHomeParts.push(`${attendanceSummary.absent} отсъства`);
+
+  const openFees = () => {
+    if (profile.fee_change_highlight) onAckFeeHighlight?.();
+    onSwitchTab?.("profile", "fees");
+  };
 
   const eventsBlock = (
     <section className="parentPortalHighlightCard parentPortalHighlightCard--schedule">
@@ -223,19 +245,6 @@ export default function ParentPortalProfileContent({
 
   const feeBlock = (
     <section
-      role={profile.fee_change_highlight ? "button" : undefined}
-      tabIndex={profile.fee_change_highlight ? 0 : undefined}
-      onClick={profile.fee_change_highlight ? onAckFeeHighlight : undefined}
-      onKeyDown={
-        profile.fee_change_highlight
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onAckFeeHighlight();
-              }
-            }
-          : undefined
-      }
       className={`parentPortalHighlightCard ${currentFee?.paid ? "parentPortalHighlightCard--paid" : "parentPortalHighlightCard--unpaid"}${profile.fee_change_highlight ? " parentPortalHighlightCard--change parentPortalHighlightCard--ackBtn" : ""}`}
     >
       <h2 className="parentPortalHighlightTitle parentPortalHighlightTitle--desktop">Такса — {formatMonthKey(currentFee?.month_key)}</h2>
@@ -247,43 +256,203 @@ export default function ParentPortalProfileContent({
         formatMoney={formatMoney}
         formatPaidAtBg={formatPaidAtBg}
         formatFeeDueLabel={formatFeeDueLabel}
+        onOpenFees={openFees}
       />
+      <Button type="button" variant="secondary" size="sm" onClick={openFees} style={{ marginTop: 10 }}>
+        Към такси
+      </Button>
     </section>
   );
 
-  const feeFold = (
-    <details className="parentPortalDetails parentPortalHighlightFold parentPortalFeeFoldTop">
-      <summary className="parentPortalDetailsSummary parentPortalHighlightFoldSummary">
-        <span className="parentPortalHighlightFoldLead">
-          <IconEuro className="parentPortalInlineIcon" size={20} />
-          Такса — {formatMonthKey(currentFee?.month_key)}
-          {profile.fee_change_highlight ? (
-            <span className="parentPortalUnreadDot parentPortalUnreadDot--inline" aria-hidden />
-          ) : null}
-        </span>
-        <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-          {currentFee?.paid ? "Платена" : "Неплатена"}
-        </span>
-      </summary>
-      <div className="parentPortalDetailsBody">
-        {feeBlock}
-        <div style={{ marginTop: 10 }}>
-          <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
-            История на таксите
-          </Button>
-        </div>
-      </div>
-    </details>
+  const feeStatusBar = (
+    <button
+      type="button"
+      className={`parentPortalFeeStatusBar ${currentFee?.paid ? "parentPortalFeeStatusBar--paid" : "parentPortalFeeStatusBar--unpaid"}${profile.fee_change_highlight ? " parentPortalFeeStatusBar--change" : ""}`}
+      onClick={openFees}
+      aria-label={`Такса ${formatMonthKey(currentFee?.month_key)} — ${currentFee?.paid ? "платена" : "неплатена"}. Отвори такси.`}
+    >
+      <span className="parentPortalHighlightFoldLead">
+        <IconEuro className="parentPortalInlineIcon" size={20} />
+        Такса — {formatMonthKey(currentFee?.month_key)}
+        {profile.fee_change_highlight ? (
+          <span className="parentPortalUnreadDot parentPortalUnreadDot--inline" aria-hidden />
+        ) : null}
+      </span>
+      <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+        {currentFee?.paid ? "Платена" : "Неплатена"}
+      </span>
+    </button>
   );
+
+  const attendanceCard = (
+    <Card
+      title="Присъствие"
+      subtitle={
+        attendancePeriod === "30d"
+          ? `Показани ${visibleAttendance.length} записа (последните 30 дни)`
+          : visibleAttendance.length !== allAttendance.length
+            ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
+            : undefined
+      }
+      actions={
+        <PeriodFilterSelect id="parent-attendance-period" value={attendancePeriod} onChange={setAttendancePeriod} options={attendanceOptions} />
+      }
+    >
+      <div className="parentPortalBadgeRow">
+        <span className="uiBadge uiBadge--success">Присъства: {visibleAttendanceSummary.present}</span>
+        <span className="uiBadge uiBadge--warning">Закъсня: {visibleAttendanceSummary.late}</span>
+        <span className="uiBadge uiBadge--danger">Отсъства: {visibleAttendanceSummary.absent}</span>
+        <span className="uiBadge uiBadge--secondary">Извинен: {visibleAttendanceSummary.excused}</span>
+        <span className="uiBadge uiBadge--info">Процент: {visibleAttendanceSummary.attendance_rate_percent}%</span>
+      </div>
+      {!visibleAttendanceSummary.total ? (
+        <p className="parentPortalHighlightMuted" style={{ marginTop: 12 }}>
+          Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
+        </p>
+      ) : null}
+      {allAttendance.length === 0 ? (
+        <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
+      ) : visibleAttendance.length === 0 ? (
+        <EmptyState title="Няма записи за избрания период" description="Променете филтъра или изчакайте маркиране от треньора." />
+      ) : (
+        <div className="parentPortalAgendaRecords">
+          {visibleAttendance.map((row, idx) => (
+            <ParentAgendaRecord
+              key={`${row.date}-${row.team_id || row.team_name || idx}`}
+              date={formatShortDate(row.date)}
+              meta={row.team_name ? abbreviateTeamName(row.team_name) : null}
+              metaTitle={row.team_name || undefined}
+              badge={statusLabel(row.status, row.is_cancelled)}
+              badgeClass={statusBadgeClass(row.status, row.is_cancelled)}
+              cancelled={row.is_cancelled}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+
+  const feesCard = (
+    <Card
+      title="Такси"
+      subtitle={
+        allPayments.length > 3
+          ? `Показани ${visiblePayments.length} от ${allPayments.length} месеца`
+          : "История на месечните такси"
+      }
+      actions={
+        <PeriodFilterSelect id="parent-fees-period" value={feesPeriod} onChange={setFeesPeriod} options={feesOptions} />
+      }
+    >
+      {visiblePayments.length === 0 ? (
+        <EmptyState title="Няма записани такси" description="Историята ще се появи след първото плащане." />
+      ) : (
+        <div className="parentPortalAgendaRecords">
+          {visiblePayments.map((row) => (
+            <ParentAgendaRecord
+              key={row.month_key}
+              date={formatMonthKey(row.month_key)}
+              time={row.paid ? formatMoney(row.amount) : "—"}
+              meta={
+                row.paid_at
+                  ? new Date(row.paid_at).toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })
+                  : null
+              }
+              badge={row.paid ? "Платено" : "Неплатено"}
+              badgeClass={row.paid ? "uiBadge--success" : "uiBadge--danger"}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+
+  const documentsBlock =
+    profile.membership_consent?.has_signed || profile.carding_form?.has_signed ? (
+      <div className="parentPortalProfileDocs">
+        {profile.membership_consent?.has_signed ? (
+          <div className="parentPortalProfileDocRow">
+            <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+              Клубно заявление — подписано
+              {profile.membership_consent.signed_at
+                ? ` на ${new Date(profile.membership_consent.signed_at).toLocaleDateString("bg-BG")}`
+                : ""}
+              .
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const path = isSession
+                    ? API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME
+                    : API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN(token);
+                  const res = await axiosInstance.get(path, { responseType: "blob" });
+                  const url = URL.createObjectURL(res.data);
+                  window.open(url, "_blank", "noopener,noreferrer");
+                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              Преглед заявление
+            </Button>
+          </div>
+        ) : null}
+        {profile.carding_form?.has_signed ? (
+          <div className="parentPortalProfileDocRow">
+            <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+              {profile.carding_form.form_kind === "03a" ? "Форма 0-3 А" : "Форма 0-3"} — сезон{" "}
+              {profile.carding_form.season_label || profile.carding_form.season_year}
+              {profile.carding_form.signed_at
+                ? ` · ${new Date(profile.carding_form.signed_at).toLocaleDateString("bg-BG")}`
+                : ""}
+              .
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const path = isSession
+                    ? API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_ME
+                    : API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN(token);
+                  const res = await axiosInstance.get(path, { responseType: "blob" });
+                  const url = URL.createObjectURL(res.data);
+                  window.open(url, "_blank", "noopener,noreferrer");
+                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              Преглед Форма 03
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <>
       <ParentPortalTabPanel tabId="home" activeTab={activeTab}>
         <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
 
-        {/* Статус на таксата — горе на Начало. */}
         <div className="parentPortalHighlightDesktopOnly parentPortalFeeDesktopTop">{feeBlock}</div>
-        {feeFold}
+        <div className="parentPortalHighlightFold parentPortalFeeFoldTop">{feeStatusBar}</div>
+
+        <Card title="Предварително извинение" className="parentPortalAbsenceHomeCard">
+          <ParentAbsenceNoticeSection
+            notices={profile.absence_notices || []}
+            isSession={isSession}
+            token={token}
+            onChanged={onProfileRefresh}
+            formatShortDate={formatShortDate}
+          />
+        </Card>
 
         <div className="parentPortalHomeStack">
           <Card title="Новини от треньора">
@@ -299,7 +468,7 @@ export default function ParentPortalProfileContent({
                     <span> · {attendanceHomeParts.join(", ")}</span>
                   ) : null}
                 </p>
-                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("profile", "attendance")}>
                   Пълен списък
                 </Button>
               </>
@@ -308,96 +477,11 @@ export default function ParentPortalProfileContent({
                 <p className="parentPortalHighlightMuted">
                   Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
                 </p>
-                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("fees")}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onSwitchTab?.("profile", "attendance")}>
                   Виж присъствие
                 </Button>
               </>
             )}
-          </Card>
-
-          {(profile.membership_consent?.has_signed || profile.carding_form?.has_signed) ? (
-            <Card title="Документи">
-              {profile.membership_consent?.has_signed ? (
-                <>
-                  <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                    Клубно заявление — подписано
-                    {profile.membership_consent.signed_at
-                      ? ` на ${new Date(profile.membership_consent.signed_at).toLocaleDateString("bg-BG")}`
-                      : ""}
-                    .
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        const path = isSession
-                          ? API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_ME
-                          : API_PATHS.PARENT_PORTAL_MEMBERSHIP_CONSENT_PREVIEW_TOKEN(token);
-                        const res = await axiosInstance.get(path, { responseType: "blob" });
-                        const url = URL.createObjectURL(res.data);
-                        window.open(url, "_blank", "noopener,noreferrer");
-                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                  >
-                    Преглед заявление
-                  </Button>
-                </>
-              ) : null}
-              {profile.carding_form?.has_signed ? (
-                <>
-                  <p className="uiMuted" style={{ marginTop: 12, fontSize: 13 }}>
-                    {profile.carding_form.form_kind === "03a" ? "Форма 0-3 А" : "Форма 0-3"} — сезон{" "}
-                    {profile.carding_form.season_label || profile.carding_form.season_year}
-                    {profile.carding_form.signed_at
-                      ? ` · ${new Date(profile.carding_form.signed_at).toLocaleDateString("bg-BG")}`
-                      : ""}
-                    .
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        const path = isSession
-                          ? API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_ME
-                          : API_PATHS.PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN(token);
-                        const res = await axiosInstance.get(path, { responseType: "blob" });
-                        const url = URL.createObjectURL(res.data);
-                        window.open(url, "_blank", "noopener,noreferrer");
-                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                  >
-                    Преглед Форма 03
-                  </Button>
-                </>
-              ) : null}
-            </Card>
-          ) : null}
-
-          <Card title="Контакт с треньора">
-            <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--standalone" />
-            {!parentHasCoachContact(feeCoach) ? (
-              <p className="parentPortalHighlightMuted">Няма въведен телефон или контакт за треньора.</p>
-            ) : null}
-          </Card>
-
-          <Card title="Предварително извинение">
-            <ParentAbsenceNoticeSection
-              notices={profile.absence_notices || []}
-              isSession={isSession}
-              token={token}
-              onChanged={onProfileRefresh}
-              formatShortDate={formatShortDate}
-            />
           </Card>
         </div>
 
@@ -442,99 +526,76 @@ export default function ParentPortalProfileContent({
         </section>
       </ParentPortalTabPanel>
 
-      <ParentPortalTabPanel tabId="fees" activeTab={activeTab}>
-        <div className="parentPortalLowerGrid">
-          <Card
-            title="Присъствие"
-            subtitle={
-              attendancePeriod === "30d"
-                ? `Показани ${visibleAttendance.length} записа (последните 30 дни)`
-                : visibleAttendance.length !== allAttendance.length
-                  ? `Показани ${visibleAttendance.length} от ${allAttendance.length} записа`
-                  : undefined
-            }
-            actions={
-              <PeriodFilterSelect id="parent-attendance-period" value={attendancePeriod} onChange={setAttendancePeriod} options={attendanceOptions} />
-            }
-          >
-            <div className="parentPortalBadgeRow">
-              <span className="uiBadge uiBadge--success">Присъства: {visibleAttendanceSummary.present}</span>
-              <span className="uiBadge uiBadge--warning">Закъсня: {visibleAttendanceSummary.late}</span>
-              <span className="uiBadge uiBadge--danger">Отсъства: {visibleAttendanceSummary.absent}</span>
-              <span className="uiBadge uiBadge--secondary">Извинен: {visibleAttendanceSummary.excused}</span>
-              <span className="uiBadge uiBadge--info">Процент: {visibleAttendanceSummary.attendance_rate_percent}%</span>
-            </div>
-            {!visibleAttendanceSummary.total ? (
-              <p className="parentPortalHighlightMuted" style={{ marginTop: 12 }}>
-                Още няма маркирани тренировки — процентът ще се появи след първото присъствие.
-              </p>
-            ) : null}
-            {allAttendance.length === 0 ? (
-              <EmptyState title="Няма записани присъствия" description="Ще се показват след маркиране от треньора." />
-            ) : visibleAttendance.length === 0 ? (
-              <EmptyState title="Няма записи за избрания период" description="Променете филтъра или изчакайте маркиране от треньора." />
-            ) : (
-              <div className="parentPortalAgendaRecords">
-                {visibleAttendance.map((row, idx) => (
-                  <ParentAgendaRecord
-                    key={`${row.date}-${row.team_id || row.team_name || idx}`}
-                    date={formatShortDate(row.date)}
-                    meta={row.team_name ? abbreviateTeamName(row.team_name) : null}
-                    metaTitle={row.team_name || undefined}
-                    badge={statusLabel(row.status, row.is_cancelled)}
-                    badgeClass={statusBadgeClass(row.status, row.is_cancelled)}
-                    cancelled={row.is_cancelled}
-                  />
-                ))}
-              </div>
-            )}
-          </Card>
+      <ParentPortalTabPanel tabId="profile" activeTab={activeTab}>
+        <Card title="Състезател">
+          <p className="parentPortalProfileAthleteName">{profile.athlete_name}</p>
+          {profile.club_name || feeCoach.club_name ? (
+            <p className="parentPortalHighlightMuted" style={{ marginTop: 4 }}>
+              {profile.club_name || feeCoach.club_name}
+            </p>
+          ) : null}
 
-          <Card
-            title="Такси"
-            subtitle={
-              allPayments.length > 3
-                ? `Показани ${visiblePayments.length} от ${allPayments.length} месеца`
-                : "История на месечните такси"
-            }
-            actions={
-              <PeriodFilterSelect id="parent-fees-period" value={feesPeriod} onChange={setFeesPeriod} options={feesOptions} />
-            }
-          >
-            {visiblePayments.length === 0 ? (
-              <EmptyState title="Няма записани такси" description="Историята ще се появи след първото плащане." />
-            ) : (
-              <div className="parentPortalAgendaRecords">
-                {visiblePayments.map((row) => (
-                  <ParentAgendaRecord
-                    key={row.month_key}
-                    date={formatMonthKey(row.month_key)}
-                    time={row.paid ? formatMoney(row.amount) : "—"}
-                    meta={
-                      row.paid_at
-                        ? new Date(row.paid_at).toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })
-                        : null
-                    }
-                    badge={row.paid ? "Платено" : "Неплатено"}
-                    badgeClass={row.paid ? "uiBadge--success" : "uiBadge--danger"}
-                  />
-                ))}
-              </div>
-            )}
-          </Card>
+          <div style={{ marginTop: 12 }}>
+            <AthleteMembershipChips
+              teamNames={profile.teams}
+              cardedTeams={profile.carded_teams}
+              showEmpty
+            />
+          </div>
+
+          <div className="parentPortalInfoGrid" style={{ marginTop: 12 }}>
+            {profile.birth_year ? <span className="uiBadge">Роден/а: {profile.birth_year}</span> : null}
+            {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
+            {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
+            <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+              Такса {formatMonthKey(currentFee?.month_key)}: {currentFee?.paid ? "платена" : "неплатена"}
+            </span>
+            {attendanceSummary.total ? (
+              <span className="uiBadge uiBadge--info">Присъствие: {attendanceSummary.attendance_rate_percent}%</span>
+            ) : null}
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <p className="parentPortalProfileSectionLabel">Контакт с треньора</p>
+            <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--athleteDetails" />
+            {!parentHasCoachContact(feeCoach) ? (
+              <p className="parentPortalHighlightMuted">Няма въведен телефон или контакт за треньора.</p>
+            ) : null}
+          </div>
+
+          {documentsBlock ? (
+            <div style={{ marginTop: 14 }}>
+              <p className="parentPortalProfileSectionLabel">Документи</p>
+              {documentsBlock}
+            </div>
+          ) : null}
+        </Card>
+
+        <div className="parentPortalProfileSectionTabs" role="tablist" aria-label="Раздели в профила">
+          {PROFILE_SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={section === s.id}
+              className={`parentPortalProfileSectionTab${section === s.id ? " is-active" : ""}`}
+              onClick={() => setProfileSection?.(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
 
-        <details className="parentPortalDetails">
-          <summary className="parentPortalDetailsSummary">Данни за състезателя</summary>
-          <div className="parentPortalDetailsBody">
-            <div className="parentPortalInfoGrid">
-              {profile.birth_year ? <span className="uiBadge">Година на раждане: {profile.birth_year}</span> : null}
-              {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
-              {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
-            </div>
-            <ParentCoachContact coach={feeCoach} className="parentPortalContactBox--athleteDetails" />
-          </div>
-        </details>
+        {section === "fees" ? feesCard : null}
+        {section === "attendance" ? attendanceCard : null}
+        {section === "development" ? (
+          <ParentDevelopmentSection
+            isSession={isSession}
+            token={token}
+            variant="card"
+            preferEmptyState
+          />
+        ) : null}
       </ParentPortalTabPanel>
     </>
   );

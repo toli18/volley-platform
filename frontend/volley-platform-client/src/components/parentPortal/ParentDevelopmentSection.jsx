@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Card } from "../ui";
+import { Card, EmptyState } from "../ui";
 import DevelopmentScoreChart from "../assessment/DevelopmentScoreChart";
 import MotivationView from "../assessment/MotivationView";
 import "../assessment/assessment.css";
@@ -50,6 +50,7 @@ export default function ParentDevelopmentSection({
   path,
   variant = "card",
   onAvailabilityChange,
+  preferEmptyState = false,
 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -126,9 +127,27 @@ export default function ParentDevelopmentSection({
     );
   }
 
-  // Без съгласие — не показваме нищо. Таб „Тестове" се появява само при реални резултати.
-  if (!data?.consent_granted) return null;
+  // Без съгласие — не показваме нищо (освен ако preferEmptyState).
+  if (!data?.consent_granted) {
+    if (preferEmptyState) {
+      return (
+        <EmptyState
+          title="Няма споделени резултати"
+          description="Когато клубът сподели диагностика, развитието ще се появи тук."
+        />
+      );
+    }
+    return null;
+  }
   if (variant === "tab" && !scores.length) return null;
+  if (preferEmptyState && !scores.length) {
+    return (
+      <EmptyState
+        title="Няма споделени резултати"
+        description="Все още няма изчислени резултати от тестиране."
+      />
+    );
+  }
 
   const renderScoreBody = (chartScores, { showFocus, showDisclaimer } = {}) =>
     chartScores.length || scores.length ? (

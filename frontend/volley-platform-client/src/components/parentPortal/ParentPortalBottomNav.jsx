@@ -1,10 +1,10 @@
-import { IconCalendar, IconEuro, IconHome, IconTests } from "./parentPortalIcons";
+import { IconCalendar, IconHome, IconTeam, IconTests } from "./parentPortalIcons";
 
 const BASE_TABS = [
   { id: "home", label: "Начало", Icon: IconHome },
   { id: "schedule", label: "График", Icon: IconCalendar },
   { id: "tests", label: "Тестове", Icon: IconTests, optional: true },
-  { id: "fees", label: "Такси", Icon: IconEuro },
+  { id: "profile", label: "Профил", Icon: IconTeam },
 ];
 
 export default function ParentPortalBottomNav({ activeTab, onChange, scheduleDot, showTests }) {
