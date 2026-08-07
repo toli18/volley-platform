@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import MatchCourt from "../components/matches/MatchCourt";
-import MatchLiveSideStats from "../components/matches/MatchLiveSideStats";
+import MatchLiveSideStats, { actionAffectsScore } from "../components/matches/MatchLiveSideStats";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { formatServerToast, needsUndoConfirm, useLiveCourtPositions } from "../utils/liveCourtPositions";
@@ -204,15 +204,16 @@ export default function PublicMatchWatch() {
       toast.error("Изберете състезател от корта.");
       return;
     }
+    const affectsScore = actionAffectsScore(action);
     const body = {
       action,
       athlete_id: athleteId || null,
-      apply_score: true,
+      apply_score: affectsScore,
     };
     const showAceToast = action === "ace" || action === "error";
     run(
       async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), body)).data,
-      { resetPhase: true, queueItem: { kind: "stat", body } },
+      { resetPhase: affectsScore, queueItem: { kind: "stat", body } },
     ).then((data) => {
       if (showAceToast && data) toast.success(formatServerToast(serverPlayer));
     });

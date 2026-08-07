@@ -18,6 +18,15 @@ POINT_FOR_OPP = {
     MatchStatAction.pass_error,
     MatchStatAction.opp_point,
 }
+# pass_1 / pass_2 / pass_3 / dig — само качество, без точка и без ротация
+NO_POINT_ACTIONS = {
+    MatchStatAction.dig,
+    MatchStatAction.pass_0,
+    MatchStatAction.pass_1,
+    MatchStatAction.pass_2,
+    MatchStatAction.pass_3,
+    MatchStatAction.free_ball,
+}
 
 
 def normalize_format(value: MatchFormat | str | None) -> str:
@@ -120,6 +129,8 @@ def action_point_side(action: MatchStatAction | str) -> str | None:
             action = MatchStatAction(action)
         except ValueError:
             return None
+    if action in NO_POINT_ACTIONS:
+        return None
     if action in POINT_FOR_US:
         return "us"
     if action in POINT_FOR_OPP:

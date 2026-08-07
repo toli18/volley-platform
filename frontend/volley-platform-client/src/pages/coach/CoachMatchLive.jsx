@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import MatchCourt from "../../components/matches/MatchCourt";
-import MatchLiveSideStats, { MATCH_ACTION_LABEL } from "../../components/matches/MatchLiveSideStats";
+import MatchLiveSideStats, {
+  MATCH_ACTION_LABEL,
+  actionAffectsScore,
+} from "../../components/matches/MatchLiveSideStats";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { formatServerToast, needsUndoConfirm, useLiveCourtPositions } from "../../utils/liveCourtPositions";
@@ -347,17 +350,18 @@ export default function CoachMatchLive() {
     const body = {
       action,
       athlete_id: athleteId || null,
-      apply_score: true,
+      apply_score: actionAffectsScore(action),
     };
     const showAceToast = action === "ace" || action === "error";
+    const affectsScore = actionAffectsScore(action);
     run(
       async () => {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), body);
         return res.data;
       },
       {
-        resetPhase: true,
-        autoGate: true,
+        resetPhase: affectsScore,
+        autoGate: affectsScore,
         queueItem: { kind: "stat", body },
       },
     ).then((data) => {

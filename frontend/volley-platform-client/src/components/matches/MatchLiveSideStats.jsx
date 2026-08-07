@@ -35,6 +35,24 @@ export const MATCH_ACTION_LABEL = {
   opp_error: "Грешка на противника",
 };
 
+/** Действия, които местят резултат / сервис / ротация (side-out). */
+export const SCORE_ACTIONS = new Set([
+  "kill",
+  "ace",
+  "block",
+  "our_point",
+  "opp_error",
+  "attack_error",
+  "error",
+  "pass_error",
+  "opp_point",
+]);
+
+/** Посрещане #/+/- и защита — само статистика, без точка и без ротация. */
+export function actionAffectsScore(action) {
+  return SCORE_ACTIONS.has(action);
+}
+
 /** Кои бутони са активни според фазата (сервис / посрещане). */
 export function actionEnabledForPhase(ctx, phase) {
   if (!ctx || ctx === "always") return true;
