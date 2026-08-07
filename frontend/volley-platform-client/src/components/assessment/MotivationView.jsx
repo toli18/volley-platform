@@ -1,4 +1,9 @@
 import "./assessment.css";
+import {
+  NATIONAL_2022_DISCLAIMER,
+  national2022ChipTitle,
+  national2022RefLabel,
+} from "../../utils/nationalNormLabels";
 
 // Цветово ниво по словесната оценка 2022 (споделено с таланта/скаута).
 const LEVEL_CLASS = {
@@ -32,6 +37,8 @@ export default function MotivationView({ data }) {
   }
 
   const tests = data.tests || [];
+  const refLabel = national2022RefLabel(data.gender);
+  const refTitle = national2022ChipTitle(data.gender);
 
   return (
     <div className="motivWrap">
@@ -43,8 +50,8 @@ export default function MotivationView({ data }) {
           <strong>{data.personal_best_count}</strong> нови лични рекорда
         </span>
         {data.talent_index != null ? (
-          <span className={`talentBadge ${LEVEL_CLASS[data.talent_index_label] || "talentBadge--good"}`}>
-            Спрямо големите ({data.reference_age_band}): {fmt(data.talent_index)} · {data.talent_index_label}
+          <span className={`talentBadge ${LEVEL_CLASS[data.talent_index_label] || "talentBadge--good"}`} title={refTitle}>
+            {refLabel}: {fmt(data.talent_index)} · {data.talent_index_label}
           </span>
         ) : null}
       </div>
@@ -91,9 +98,9 @@ export default function MotivationView({ data }) {
                 {t.talent_score != null ? (
                   <span
                     className={`talentBadge talentBadgeSm ${LEVEL_CLASS[t.talent_label] || "talentBadge--good"}`}
-                    title="Колко покриваш летвата на по-големите (национален стандарт 2022)"
+                    title={refTitle}
                   >
-                    Спрямо големите: {fmt(t.talent_score)} · {t.talent_label}
+                    {refLabel}: {fmt(t.talent_score)} · {t.talent_label}
                   </span>
                 ) : null}
                 {t.peer_percentile != null ? (
@@ -110,10 +117,7 @@ export default function MotivationView({ data }) {
         })}
       </div>
 
-      <p className="assessMuted rawLegend">
-        Това е окуражителен изглед — върху реално въведените резултати. „Спрямо големите" и „% връстници"
-        са ориентири (индикативни при малка извадка „*") и не променят официалната оценка.
-      </p>
+      <p className="assessMuted rawLegend">{NATIONAL_2022_DISCLAIMER}</p>
     </div>
   );
 }

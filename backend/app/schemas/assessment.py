@@ -468,6 +468,44 @@ class ConsentOut(BaseModel):
     note: Optional[str] = None
 
 
+class SessionConsentBulkOut(BaseModel):
+    """Резултат от масово споделяне с родители за сесия."""
+    session_id: int
+    granted: bool
+    updated: list[ConsentOut] = Field(default_factory=list)
+    skipped_no_data: list[int] = Field(default_factory=list)  # athlete_id без резултати
+
+
+class TeamDomainAggregateOut(BaseModel):
+    domain: str
+    deficit_count: int = 0
+    athlete_count: int = 0
+    mean_normalized: Optional[float] = None
+    is_team_deficit: bool = False
+
+
+class TeamAthleteDiagnosisOut(BaseModel):
+    athlete_id: int
+    athlete_name: str
+    main_focus: Optional[str] = None
+    secondary_focus: Optional[str] = None
+    deficits: list[DeficitOut] = Field(default_factory=list)
+
+
+class TeamDiagnosisOut(BaseModel):
+    session_id: int
+    team_id: int
+    window_id: int
+    athlete_count: int = 0
+    main_focus: Optional[str] = None
+    secondary_focus: Optional[str] = None
+    domains: list[TeamDomainAggregateOut] = Field(default_factory=list)
+    athletes: list[TeamAthleteDiagnosisOut] = Field(default_factory=list)
+    coach_notes: list[str] = Field(default_factory=list)
+    generate_request: dict[str, Any] = Field(default_factory=dict)
+    generated: Optional[dict[str, Any]] = None
+
+
 class ParentWindowOut(BaseModel):
     id: int
     season: str

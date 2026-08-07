@@ -201,7 +201,6 @@ export default function ParentPortalProfileContent({
   profileSection = "fees",
   setProfileSection,
   onProfileRefresh,
-  onTestsAvailabilityChange,
 }) {
   const currentFee = profile.current_month_fee;
   const feeCoach = profile.fee_coach || {};
@@ -500,15 +499,6 @@ export default function ParentPortalProfileContent({
         </div>
       </ParentPortalTabPanel>
 
-      <ParentPortalTabPanel tabId="tests" activeTab={activeTab}>
-        <ParentDevelopmentSection
-          isSession={isSession}
-          token={token}
-          variant="tab"
-          onAvailabilityChange={onTestsAvailabilityChange}
-        />
-      </ParentPortalTabPanel>
-
       <ParentPortalTabPanel tabId="schedule" activeTab={activeTab} className="parentPortalTabPanel--schedule">
         <section className="parentPortalScheduleSection">
           <Card title={`График — ${formatMonthKey(scheduleMonthKey)}`}>
@@ -592,7 +582,7 @@ export default function ParentPortalProfileContent({
           <ParentDevelopmentSection
             isSession={isSession}
             token={token}
-            variant="card"
+            variant="tab"
             preferEmptyState
           />
         ) : null}

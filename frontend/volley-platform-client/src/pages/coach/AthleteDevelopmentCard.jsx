@@ -152,8 +152,42 @@ export default function AthleteDevelopmentCard() {
     }
   };
 
-  const downloadPdf = () => {
-    openDevelopmentReport({ athleteName, scores, windowMap, deficits, mainFocus });
+  const downloadPdf = async () => {
+    try {
+      setRecNotice(null);
+      let nextDeficits = deficits;
+      let nextMain = mainFocus;
+      let nextSecondary = secondaryFocus;
+
+      if (!nextDeficits.length && selectedWindowId) {
+        const res = await axiosInstance.post(
+          `${API_PATHS.ASSESSMENT_RECOMMEND(athleteIdNum)}?window_id=${Number(selectedWindowId)}&generate=false`
+        );
+        nextDeficits = Array.isArray(res.data?.deficits) ? res.data.deficits : [];
+        nextMain = res.data?.main_focus || "";
+        nextSecondary = res.data?.secondary_focus || "";
+        applyRecommendation(res.data);
+      }
+
+      const [motRes, rawRes] = await Promise.all([
+        axiosInstance.get(API_PATHS.ASSESSMENT_MOTIVATION(athleteIdNum)).catch(() => ({ data: null })),
+        axiosInstance.get(API_PATHS.ASSESSMENT_RESULTS(athleteIdNum)).catch(() => ({ data: [] })),
+      ]);
+
+      openDevelopmentReport({
+        athleteName,
+        scores,
+        windowMap,
+        deficits: nextDeficits,
+        mainFocus: nextMain,
+        secondaryFocus: nextSecondary,
+        motivation: motRes.data || null,
+        rawWindows: Array.isArray(rawRes.data) ? rawRes.data : [],
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setRecNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешно генериране на PDF." });
+    }
   };
 
   if (loading) return <p className="coachMobileMuted">Зареждане...</p>;

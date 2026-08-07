@@ -7,6 +7,8 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { Button, EmptyState } from "../../components/ui";
 import AssessmentEntryGrid from "../../components/assessment/AssessmentEntryGrid";
 import TeamLiveCard from "../../components/assessment/TeamLiveCard";
+import DeficitRecommendations from "../../components/assessment/DeficitRecommendations";
+import "../../components/assessment/assessment.css";
 
 const PHASES = [
   { value: "baseline", label: "Входящо (baseline)" },
@@ -54,6 +56,11 @@ export default function CoachAssessmentSession() {
   const [newSeason, setNewSeason] = useState(currentSeason());
   const [newPhase, setNewPhase] = useState("baseline");
   const [creatingWindow, setCreatingWindow] = useState(false);
+
+  const [teamDiag, setTeamDiag] = useState(null);
+  const [teamDiagLoading, setTeamDiagLoading] = useState(false);
+  const [teamGenerating, setTeamGenerating] = useState(false);
+  const [sharingParents, setSharingParents] = useState(false);
 
   const isFinalized = session?.status === "finalized";
 
@@ -132,6 +139,7 @@ export default function CoachAssessmentSession() {
     if (!selectedTeamId || !selectedWindowId) {
       setSession(null);
       setValues({});
+      setTeamDiag(null);
       return;
     }
     let alive = true;
@@ -148,6 +156,7 @@ export default function CoachAssessmentSession() {
         const full = await axiosInstance.get(API_PATHS.ASSESSMENT_SESSION_GET(createRes.data.id));
         if (!alive) return;
         setSession(full.data);
+        setTeamDiag(null);
         prefillFromSession(full.data);
       } catch (err) {
         if (!alive) return;
@@ -224,12 +233,66 @@ export default function CoachAssessmentSession() {
       const res = await axiosInstance.post(API_PATHS.ASSESSMENT_SESSION_FINALIZE(session.id));
       setSession(res.data);
       prefillFromSession(res.data);
+      setTeamDiag(null);
       setNotice({ type: "ok", text: "Сесията е приключена и резултатите са изчислени." });
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешно приключване на сесията." });
     } finally {
       setFinalizing(false);
+    }
+  };
+
+  const runTeamDiagnosis = async ({ generate = false } = {}) => {
+    if (!session?.id) return;
+    try {
+      if (generate) setTeamGenerating(true);
+      else setTeamDiagLoading(true);
+      setNotice(null);
+      const res = await axiosInstance.post(
+        `${API_PATHS.ASSESSMENT_SESSION_TEAM_DIAGNOSIS(session.id)}?generate=${generate ? "true" : "false"}`
+      );
+      setTeamDiag(res.data || null);
+      setNotice({
+        type: "ok",
+        text: generate ? "Отборната тренировка е генерирана." : "Отборната диагностика е готова.",
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешна отборна диагностика." });
+    } finally {
+      setTeamDiagLoading(false);
+      setTeamGenerating(false);
+    }
+  };
+
+  const shareAllParents = async (granted) => {
+    if (!session?.id) return;
+    const ok = window.confirm(
+      granted
+        ? "Споделяне с родителите на всички състезатели с попълнени данни в тази сесия?"
+        : "Оттегляне на споделянето за всички състезатели с данни в тази сесия?"
+    );
+    if (!ok) return;
+    try {
+      setSharingParents(true);
+      setNotice(null);
+      const res = await axiosInstance.put(API_PATHS.ASSESSMENT_SESSION_SHARE_PARENTS(session.id), {
+        granted,
+      });
+      const n = (res.data?.updated || []).length;
+      const skipped = (res.data?.skipped_no_data || []).length;
+      setNotice({
+        type: "ok",
+        text: granted
+          ? `Споделено с ${n} родител(и). Пропуснати без данни: ${skipped}.`
+          : `Оттеглено за ${n} състезател(и).`,
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешно споделяне с родителите." });
+    } finally {
+      setSharingParents(false);
     }
   };
 
@@ -368,10 +431,71 @@ export default function CoachAssessmentSession() {
       ) : (
         <>
           {isFinalized ? (
-            <p className="assessMuted">
-              Сесията е приключена. Резултатите са изчислени и въвеждането е заключено. Натиснете
-              име на състезател за Картата за развитие.
-            </p>
+            <>
+              <p className="assessMuted">
+                Сесията е приключена. Резултатите са изчислени и въвеждането е заключено. Натиснете
+                име на състезател за индивидуална Карта за развитие (диагностика + тренировка).
+              </p>
+
+              <div className="assessActions" style={{ marginBottom: 12 }}>
+                <Button
+                  type="button"
+                  onClick={() => shareAllParents(true)}
+                  disabled={sharingParents}
+                >
+                  {sharingParents ? "Споделяне..." : "Сподели с всички родители (с данни)"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => shareAllParents(false)}
+                  disabled={sharingParents}
+                >
+                  Оттегли споделянето
+                </Button>
+              </div>
+
+              <h3 className="devSectionTitle">Отборна диагностика</h3>
+              <DeficitRecommendations
+                deficits={(teamDiag?.domains || []).map((d) => ({
+                  domain: d.domain,
+                  normalized: d.mean_normalized,
+                  is_deficit: d.is_team_deficit,
+                }))}
+                mainFocus={teamDiag?.main_focus}
+                secondaryFocus={teamDiag?.secondary_focus}
+                onAnalyze={() => runTeamDiagnosis({ generate: false })}
+                onGenerate={() => runTeamDiagnosis({ generate: true })}
+                loading={teamDiagLoading}
+                generating={teamGenerating}
+                generated={teamDiag?.generated || null}
+              />
+              {teamDiag?.coach_notes?.length ? (
+                <ul className="assessMuted" style={{ marginTop: 10, paddingLeft: 18 }}>
+                  {teamDiag.coach_notes.map((note, idx) => (
+                    <li key={idx}>{note}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {teamDiag?.athletes?.length ? (
+                <div style={{ marginTop: 12 }}>
+                  <p className="devSectionTitle" style={{ marginBottom: 6 }}>
+                    Индивидуални акценти
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {teamDiag.athletes.map((a) => (
+                      <li key={a.athlete_id}>
+                        <Link to={`/coach/assessment/athletes/${a.athlete_id}?from=/coach/assessment/session`}>
+                          {a.athlete_name}
+                        </Link>
+                        {a.main_focus ? ` — ${a.main_focus}` : ""}
+                        {a.secondary_focus ? ` · ${a.secondary_focus}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           {members.length ? (

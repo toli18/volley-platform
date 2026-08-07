@@ -91,12 +91,7 @@ export default function ParentPortal() {
   const [attendancePeriod, setAttendancePeriod] = useState("3");
   const [feesPeriod, setFeesPeriod] = useState("3");
   const [activeTab, setActiveTab] = useState("home");
-  const [showTests, setShowTests] = useState(false);
   const [profileSection, setProfileSection] = useState("fees");
-
-  const handleTestsAvailabilityChange = useCallback(({ available }) => {
-    setShowTests(Boolean(available));
-  }, []);
 
   const handleSwitchTab = useCallback((tab, section) => {
     setActiveTab(tab);
@@ -105,15 +100,9 @@ export default function ParentPortal() {
     }
   }, []);
 
+  // Стари таб id-та → актуални
   useEffect(() => {
-    if (!showTests && activeTab === "tests") {
-      setActiveTab("home");
-    }
-  }, [showTests, activeTab]);
-
-  // Старият таб id "fees" → "profile"
-  useEffect(() => {
-    if (activeTab === "fees") setActiveTab("profile");
+    if (activeTab === "fees" || activeTab === "tests") setActiveTab("profile");
   }, [activeTab]);
 
   const highlightDates = useMemo(
@@ -265,7 +254,6 @@ export default function ParentPortal() {
       activeTab={activeTab}
       onChange={setActiveTab}
       scheduleDot={hasUnreadChanges}
-      showTests={showTests}
     />
   ) : null;
 
@@ -346,7 +334,6 @@ export default function ParentPortal() {
             profileSection={profileSection}
             setProfileSection={setProfileSection}
             onProfileRefresh={() => loadProfile({ silent: true })}
-            onTestsAvailabilityChange={handleTestsAvailabilityChange}
           />
         ) : null}
       </div>

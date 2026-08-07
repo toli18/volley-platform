@@ -127,7 +127,6 @@ export default function ParentDevelopmentSection({
     );
   }
 
-  // Без съгласие — не показваме нищо (освен ако preferEmptyState).
   if (!data?.consent_granted) {
     if (preferEmptyState) {
       return (
@@ -139,14 +138,16 @@ export default function ParentDevelopmentSection({
     }
     return null;
   }
-  if (variant === "tab" && !scores.length) return null;
-  if (preferEmptyState && !scores.length) {
-    return (
-      <EmptyState
-        title="Няма споделени резултати"
-        description="Все още няма изчислени резултати от тестиране."
-      />
-    );
+  if (!scores.length) {
+    if (preferEmptyState) {
+      return (
+        <EmptyState
+          title="Няма споделени резултати"
+          description="Все още няма изчислени резултати от тестиране."
+        />
+      );
+    }
+    if (variant === "tab") return null;
   }
 
   const renderScoreBody = (chartScores, { showFocus, showDisclaimer } = {}) =>

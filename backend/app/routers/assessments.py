@@ -47,6 +47,8 @@ from app.schemas.assessment import (
     MethodicalIndexOut,
     ConsentIn,
     ConsentOut,
+    SessionConsentBulkOut,
+    TeamDiagnosisOut,
     AgeEquivalentOut,
     AgeEquivalentTestOut,
     MotivationNextGoalOut,
@@ -71,7 +73,7 @@ from app.schemas.assessment import (
 from app.national_method.assessment_battery import BATTERY_VERSION
 from app.services.assessment_consent import get_consent, set_consent
 from app.services.assessment_dashboard import build_federation_dashboard
-from app.services.assessment_generator_bridge import build_generate_request
+from app.services.assessment_generator_bridge import build_generate_request, build_team_diagnosis
 from app.services.assessment_scoring import (
     compute_session_scores,
     compute_team_methodical_index,
@@ -592,6 +594,90 @@ def finalize_session(
     db.refresh(session)
 
     return _session_out_with_scores(db, session)
+
+
+@router.put("/sessions/{session_id}/share-parents", response_model=SessionConsentBulkOut)
+def share_session_with_parents(
+    session_id: int,
+    payload: ConsentIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Споделя/оттегля Картата за развитие за всички състезатели със данни в сесията.
+
+    Състезатели без нито един резултат в сесията се пропускат (не се праща нищо).
+    """
+    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сесията не е намерена")
+
+    team = db.query(Team).filter(Team.id == session.team_id).first()
+    if team is not None:
+        _ensure_team_access(current_user, team)
+
+    athlete_ids_with_data = {
+        aid
+        for (aid,) in db.query(AssessmentResult.athlete_id)
+        .filter(AssessmentResult.session_id == session.id)
+        .distinct()
+        .all()
+    }
+
+    # Всички членове на отбора — за да знаем кого пропускаме.
+    member_ids = {
+        mid
+        for (mid,) in db.query(TeamMember.athlete_id).filter(TeamMember.team_id == session.team_id).all()
+    }
+    skipped = sorted(member_ids - athlete_ids_with_data)
+
+    updated = []
+    for aid in sorted(athlete_ids_with_data):
+        consent = set_consent(
+            db,
+            aid,
+            bool(payload.granted),
+            user_id=current_user.id,
+            note=payload.note,
+        )
+        updated.append(_consent_out(aid, consent))
+
+    return SessionConsentBulkOut(
+        session_id=session_id,
+        granted=bool(payload.granted),
+        updated=updated,
+        skipped_no_data=skipped,
+    )
+
+
+@router.post("/sessions/{session_id}/team-diagnosis", response_model=TeamDiagnosisOut)
+def team_session_diagnosis(
+    session_id: int,
+    generate: bool = Query(False, description="Ако е true — генерира отборна тренировка"),
+    duration_min: int = Query(90, ge=30, le=180),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Отборна диагностика след приключена сесия: общи + индивидуални акценти."""
+    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сесията не е намерена")
+
+    team = db.query(Team).filter(Team.id == session.team_id).first()
+    if team is not None:
+        _ensure_team_access(current_user, team)
+
+    if session.status != AssessmentSessionStatus.finalized:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Отборната диагностика е достъпна след приключване на сесията.",
+        )
+
+    built = build_team_diagnosis(db, session, duration_min=duration_min)
+    generated = None
+    if generate and built.get("generate_request"):
+        generated = run_generation(built["generate_request"], user=current_user, db=db)["result"]
+
+    return TeamDiagnosisOut(**built, generated=generated)
 
 
 @router.post("/sessions/{session_id}/results/bulk")
