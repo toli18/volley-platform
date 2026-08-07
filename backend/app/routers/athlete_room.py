@@ -237,7 +237,7 @@ def athlete_room_ack_change_me(
 def athlete_room_push_vapid_public_key():
     key = (settings.vapid_public_key or "").strip()
     if not push_configured():
-        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+        raise HTTPException(status_code=503, detail="Известията не са конфигурирани на сървъра (липсват VAPID ключове).")
     return ParentPushVapidResponse(public_key=key, configured=True)
 
 
@@ -257,7 +257,7 @@ def athlete_room_push_subscribe_me(
     athlete: Athlete = Depends(get_current_athlete_room_athlete),
 ):
     if not push_configured():
-        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+        raise HTTPException(status_code=503, detail="Известията не са конфигурирани на сървъра (липсват VAPID ключове).")
     upsert_subscription(
         db,
         athlete.id,

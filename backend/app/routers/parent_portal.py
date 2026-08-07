@@ -977,7 +977,7 @@ def parent_ack_changes_token(token: str, db: Session = Depends(get_db)):
 def parent_push_vapid_public_key():
     key = (settings.vapid_public_key or "").strip()
     if not push_configured():
-        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+        raise HTTPException(status_code=503, detail="Известията не са конфигурирани на сървъра (липсват VAPID ключове).")
     return ParentPushVapidResponse(public_key=key, configured=True)
 
 
@@ -1003,7 +1003,7 @@ def parent_push_subscribe_me(
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
     if not push_configured():
-        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+        raise HTTPException(status_code=503, detail="Известията не са конфигурирани на сървъра (липсват VAPID ключове).")
     upsert_subscription(
         db,
         athlete.id,
@@ -1054,7 +1054,7 @@ def parent_push_subscribe_token(
     db: Session = Depends(get_db),
 ):
     if not push_configured():
-        raise HTTPException(status_code=503, detail="Push notifications are not configured.")
+        raise HTTPException(status_code=503, detail="Известията не са конфигурирани на сървъра (липсват VAPID ключове).")
     athlete = _resolve_parent_portal_athlete(db, token)
     upsert_subscription(
         db,
