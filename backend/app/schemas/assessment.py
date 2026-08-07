@@ -506,6 +506,37 @@ class TeamDiagnosisOut(BaseModel):
     generated: Optional[dict[str, Any]] = None
 
 
+class SaveTeamPlanIn(BaseModel):
+    session_date: str = Field(..., description="YYYY-MM-DD — дата от графика")
+    duration_min: int = Field(90, ge=30, le=180)
+
+
+class SavedTrainingRefOut(BaseModel):
+    id: int
+    title: str
+    team_id: Optional[int] = None
+    session_date: Optional[str] = None
+    athlete_id: Optional[int] = None
+    athlete_name: Optional[str] = None
+    training_plan_text: Optional[str] = None
+    main_focus: Optional[str] = None
+
+
+class SaveTeamPlanOut(BaseModel):
+    training: SavedTrainingRefOut
+
+
+class HomeWorkoutsIn(BaseModel):
+    athlete_ids: Optional[list[int]] = None  # None = всички с акценти
+    duration_min: int = Field(30, ge=20, le=45)
+
+
+class HomeWorkoutsOut(BaseModel):
+    session_id: int
+    created: list[SavedTrainingRefOut] = Field(default_factory=list)
+    failed: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class ParentWindowOut(BaseModel):
     id: int
     season: str
@@ -529,6 +560,8 @@ class ParentDevelopmentOut(BaseModel):
     # Позитивен мотивационен слой за детето/родителя (рекорди, следваща цел,
     # % връстници, талант). Надстроечен — не променя официалните оценки.
     motivation: Optional[MotivationOut] = None
+    # Домашни индивидуални планове, споделени от треньора (ако има).
+    home_workouts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # =========================

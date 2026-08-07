@@ -61,6 +61,12 @@ export default function CoachAssessmentSession() {
   const [teamDiagLoading, setTeamDiagLoading] = useState(false);
   const [teamGenerating, setTeamGenerating] = useState(false);
   const [sharingParents, setSharingParents] = useState(false);
+  const [scheduleDates, setScheduleDates] = useState([]);
+  const [savePlanDate, setSavePlanDate] = useState("");
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [savedPlan, setSavedPlan] = useState(null);
+  const [homeBusy, setHomeBusy] = useState(false);
+  const [homeResult, setHomeResult] = useState(null);
 
   const isFinalized = session?.status === "finalized";
 
@@ -140,6 +146,8 @@ export default function CoachAssessmentSession() {
       setSession(null);
       setValues({});
       setTeamDiag(null);
+      setSavedPlan(null);
+      setHomeResult(null);
       return;
     }
     let alive = true;
@@ -157,6 +165,8 @@ export default function CoachAssessmentSession() {
         if (!alive) return;
         setSession(full.data);
         setTeamDiag(null);
+        setSavedPlan(null);
+        setHomeResult(null);
         prefillFromSession(full.data);
       } catch (err) {
         if (!alive) return;
@@ -293,6 +303,99 @@ export default function CoachAssessmentSession() {
       setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешно споделяне с родителите." });
     } finally {
       setSharingParents(false);
+    }
+  };
+
+  // Предстоящи дати от графика за избрания отбор (за „Запази за дата").
+  useEffect(() => {
+    if (!selectedTeamId || !isFinalized) {
+      setScheduleDates([]);
+      setSavePlanDate("");
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const from = new Date();
+        const to = new Date();
+        to.setDate(to.getDate() + 45);
+        const iso = (d) => d.toISOString().slice(0, 10);
+        const res = await axiosInstance.get(API_PATHS.SCHEDULE_OCCURRENCES, {
+          params: { from: iso(from), to: iso(to), team_id: Number(selectedTeamId) },
+        });
+        if (!alive) return;
+        const items = Array.isArray(res.data) ? res.data : res.data?.items || [];
+        const dates = [
+          ...new Set(
+            items
+              .filter((x) => (x.event_type || "training") === "training" && !x.is_cancelled)
+              .map((x) => x.date)
+              .filter(Boolean)
+          ),
+        ].sort();
+        setScheduleDates(dates);
+        setSavePlanDate((prev) => prev || dates[0] || "");
+      } catch {
+        if (alive) setScheduleDates([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [selectedTeamId, isFinalized, session?.id]);
+
+  const saveTeamPlanToDate = async () => {
+    if (!session?.id || !savePlanDate) {
+      setNotice({ type: "err", text: "Изберете дата от графика." });
+      return;
+    }
+    try {
+      setSavingPlan(true);
+      setNotice(null);
+      const res = await axiosInstance.post(API_PATHS.ASSESSMENT_SESSION_SAVE_TEAM_PLAN(session.id), {
+        session_date: savePlanDate,
+        duration_min: 90,
+      });
+      setSavedPlan(res.data?.training || null);
+      setNotice({
+        type: "ok",
+        text: `Планът е записан като тренировка #${res.data?.training?.id} за ${savePlanDate}.`,
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешен запис към графика." });
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const generateHomeWorkouts = async () => {
+    if (!session?.id) return;
+    const n = teamDiag?.athletes?.length || 0;
+    const ok = window.confirm(
+      n
+        ? `Генериране на домашни тренировки (~30 мин) за ${n} състезател(и) с акценти? Може да отнеме минута.`
+        : "Първо натиснете „Анализирай“, за да има индивидуални акценти."
+    );
+    if (!ok || !n) return;
+    try {
+      setHomeBusy(true);
+      setNotice(null);
+      const res = await axiosInstance.post(API_PATHS.ASSESSMENT_SESSION_HOME_WORKOUTS(session.id), {
+        duration_min: 30,
+      });
+      setHomeResult(res.data || null);
+      const created = res.data?.created?.length || 0;
+      const failed = res.data?.failed?.length || 0;
+      setNotice({
+        type: "ok",
+        text: `Домашни тренировки: ${created} записани` + (failed ? `, ${failed} неуспешни.` : "."),
+      });
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setNotice({ type: "err", text: typeof detail === "string" ? detail : "Неуспешно генериране на домашни." });
+    } finally {
+      setHomeBusy(false);
     }
   };
 
@@ -470,6 +573,34 @@ export default function CoachAssessmentSession() {
                 generating={teamGenerating}
                 generated={teamDiag?.generated || null}
               />
+
+              {teamDiag?.generate_request ? (
+                <div className="assessToolbar" style={{ marginTop: 12, flexWrap: "wrap", gap: 10 }}>
+                  <label className="assessField">
+                    <span>Запази отборния план за дата</span>
+                    <select value={savePlanDate} onChange={(e) => setSavePlanDate(e.target.value)}>
+                      <option value="">— Избери дата —</option>
+                      {scheduleDates.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button type="button" onClick={saveTeamPlanToDate} disabled={savingPlan || !savePlanDate}>
+                    {savingPlan ? "Запис..." : "Запази към графика"}
+                  </Button>
+                  {savedPlan?.id ? (
+                    <Link className="devBack" to={`/trainings/${savedPlan.id}`}>
+                      Отвори тренировка #{savedPlan.id} →
+                    </Link>
+                  ) : null}
+                  {!scheduleDates.length ? (
+                    <span className="assessMuted">Няма предстоящи тренировки в графика за този отбор (45 дни).</span>
+                  ) : null}
+                </div>
+              ) : null}
+
               {teamDiag?.coach_notes?.length ? (
                 <ul className="assessMuted" style={{ marginTop: 10, paddingLeft: 18 }}>
                   {teamDiag.coach_notes.map((note, idx) => (
@@ -493,6 +624,21 @@ export default function CoachAssessmentSession() {
                       </li>
                     ))}
                   </ul>
+                  <div className="assessActions" style={{ marginTop: 10 }}>
+                    <Button type="button" onClick={generateHomeWorkouts} disabled={homeBusy}>
+                      {homeBusy ? "Генериране на домашни..." : "Генерирай домашни тренировки"}
+                    </Button>
+                  </div>
+                  {homeResult?.created?.length ? (
+                    <ul style={{ marginTop: 10, paddingLeft: 18 }}>
+                      {homeResult.created.map((h) => (
+                        <li key={h.id}>
+                          <Link to={`/trainings/${h.id}`}>{h.title}</Link>
+                          {h.main_focus ? ` · ${h.main_focus}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               ) : null}
             </>

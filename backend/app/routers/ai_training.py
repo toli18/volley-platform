@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies.roles import require_role
-from ..models import Drill, Team, Training, TrainingSource, TrainingStatus, User, UserRole
-from ..services.bulgarian_training_generator import BLOCK_TO_PLAN_KEY
-from ..services.training_generation import run_generation
+from ..models import Team, Training, User, UserRole
+from ..services.training_generation import persist_generated_training, run_generation
 
 
 router = APIRouter(prefix="/api/ai/training", tags=["AI Training"])
@@ -87,7 +86,7 @@ def training_for_day(
 def generate_ai_training(
     payload: GenerateRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)),
+    user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)),
 ):
     return run_generation(payload.model_dump(), user=user, db=db)["result"]
 
@@ -96,54 +95,24 @@ def generate_ai_training(
 def generate_and_save_ai_training(
     payload: GenerateAndSaveRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.coach, UserRole.platform_admin, UserRole.federation_admin)),
+    user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)),
 ):
-    generation = run_generation(payload.model_dump(), user=user, db=db)
-    generated = generation["result"]
-    request_data = generation["request_data"]
+    payload_data = payload.model_dump()
+    edited_blocks = payload_data.pop("editedBlocks", None)
+    training_title = payload_data.pop("trainingTitle", None)
+    training_status = payload_data.pop("trainingStatus", "чернова")
+    team_id_in = payload_data.pop("teamId", None)
+    session_date = payload_data.pop("sessionDate", None)
 
-    session = generated["session"]
-    if payload.editedBlocks:
-        edited_blocks = payload.editedBlocks
+    generation = run_generation(payload_data, user=user, db=db)
+    if edited_blocks:
+        session = generation["result"].setdefault("session", {})
         session["blocks"] = edited_blocks
         session["totalMinutes"] = int(sum(int(b.get("targetMinutes", 0) or 0) for b in edited_blocks))
-    blocks = session.get("blocks", [])
-    plan: Dict[str, list] = {}
-    selected_drill_ids: List[int] = []
-    weighted_score_sum = 0.0
-    weighted_score_count = 0
 
-    def _append_entry(section_key: str, drill: dict) -> None:
-        did = int(drill["drillId"])
-        mins = max(3, int(drill.get("minutes") or 10))
-        plan.setdefault(section_key, []).append({"drillId": did, "minutes": mins, "coachNote": ""})
-        selected_drill_ids.append(did)
-
-    for block in blocks:
-        block_type = block.get("blockType")
-        drills_in_block = block.get("drills") or []
-        if block_type in {"Tactics", "Интеграция"}:
-            for idx, d in enumerate(drills_in_block):
-                key = "serve_receive" if idx % 2 == 0 else "attack_block"
-                _append_entry(key, d)
-        else:
-            plan_key = BLOCK_TO_PLAN_KEY.get(block_type, str(block_type or "main").lower())
-            for d in drills_in_block:
-                _append_entry(plan_key, d)
-        for d in drills_in_block:
-            weighted_score_sum += float(d.get("score", 0))
-            weighted_score_count += 1
-
-    avg_score = weighted_score_sum / weighted_score_count if weighted_score_count else 0.0
-    title = (payload.trainingTitle or "").strip() or f"AI Training ({payload.periodPhase})"
-
-    status_input = (payload.trainingStatus or "чернова").strip().lower()
-    training_status = TrainingStatus.saved if status_input in {"saved", "запазена"} else TrainingStatus.draft
-
-    # Програмна връзка: ако е подаден отбор, проверяваме достъпа и закачаме тренировката към отбор + ден.
     team_id: Optional[int] = None
-    if payload.teamId is not None:
-        team = db.query(Team).filter(Team.id == payload.teamId).first()
+    if team_id_in is not None:
+        team = db.query(Team).filter(Team.id == team_id_in).first()
         if not team:
             raise HTTPException(status_code=404, detail="Отборът не е намерен")
         is_admin = user.role in (UserRole.platform_admin, UserRole.federation_admin)
@@ -153,31 +122,15 @@ def generate_and_save_ai_training(
             raise HTTPException(status_code=403, detail="Нямате достъп до този отбор")
         team_id = team.id
 
-    request_data["sessionReview"] = generated.get("sessionReview")
-    request_data["trainingPlanText"] = generated.get("trainingPlanText")
-
-    training = Training(
-        title=title,
-        coach_id=user.id,
-        club_id=user.club_id,
+    training = persist_generated_training(
+        db,
+        user,
+        generation,
+        title=training_title,
         team_id=team_id,
-        session_date=(payload.sessionDate or "").strip() or None,
-        source=TrainingSource.generator,
-        status=training_status,
-        plan=plan,
-        notes="Generated by hybrid-v1",
-        generation_request=request_data,
-        model_version="hybrid-v1",
-        score_summary={
-            "average_score": round(avg_score, 4),
-            "minutesOk": bool(session.get("checks", {}).get("minutesOk")),
-            "intensityProgressionOk": bool(session.get("checks", {}).get("intensityProgressionOk")),
-        },
-        selected_drill_ids=selected_drill_ids,
+        session_date=session_date,
+        status=training_status or "чернова",
     )
-    db.add(training)
-    db.commit()
-    db.refresh(training)
 
     return {
         "training": {
@@ -190,6 +143,5 @@ def generate_and_save_ai_training(
             "team_id": training.team_id,
             "session_date": training.session_date,
         },
-        "session": session,
+        "session": generation["result"].get("session"),
     }
-

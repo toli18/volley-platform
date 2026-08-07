@@ -268,3 +268,36 @@ def build_team_diagnosis(
         "coach_notes": coach_notes,
         "generate_request": generate_request,
     }
+
+
+def build_home_generate_request(
+    athlete: Athlete,
+    *,
+    main_focus: str,
+    secondary_focus: Optional[str] = None,
+    duration_min: int = 30,
+) -> dict[str, Any]:
+    """Заявка за кратка индивидуална/домашна тренировка по акцент."""
+    age = _athlete_age(athlete)
+    focus_skills = [f for f in (main_focus, secondary_focus) if f]
+    return {
+        "age": age if age is not None else "U14",
+        "level": "развиващи се",
+        "mainFocus": main_focus or DEFAULT_FOCUS,
+        "secondaryFocus": secondary_focus,
+        "periodPhase": "inseason",
+        "durationTotalMin": max(20, min(45, int(duration_min))),
+        "playersCount": 1,
+        "equipmentAvailable": ["топка"],
+        "focusSkills": focus_skills,
+        "focusDomains": focus_skills,
+        "intensityTarget": "low",
+        "gender": athlete.gender,
+        "notes": (
+            f"Домашна индивидуална тренировка за {athlete.athlete_name}. "
+            "Без зала / непрофесионални условия — акцент върху техника, координация и контрол."
+        ),
+        "kind": "home_workout",
+        "athlete_id": athlete.id,
+        "athlete_name": athlete.athlete_name,
+    }

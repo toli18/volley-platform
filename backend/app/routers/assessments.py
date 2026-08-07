@@ -49,6 +49,11 @@ from app.schemas.assessment import (
     ConsentOut,
     SessionConsentBulkOut,
     TeamDiagnosisOut,
+    SaveTeamPlanIn,
+    SaveTeamPlanOut,
+    SavedTrainingRefOut,
+    HomeWorkoutsIn,
+    HomeWorkoutsOut,
     AgeEquivalentOut,
     AgeEquivalentTestOut,
     MotivationNextGoalOut,
@@ -73,7 +78,11 @@ from app.schemas.assessment import (
 from app.national_method.assessment_battery import BATTERY_VERSION
 from app.services.assessment_consent import get_consent, set_consent
 from app.services.assessment_dashboard import build_federation_dashboard
-from app.services.assessment_generator_bridge import build_generate_request, build_team_diagnosis
+from app.services.assessment_generator_bridge import (
+    build_generate_request,
+    build_home_generate_request,
+    build_team_diagnosis,
+)
 from app.services.assessment_scoring import (
     compute_session_scores,
     compute_team_methodical_index,
@@ -91,7 +100,7 @@ from app.services.norm_producer import (
 from app.services.peer_norms import birth_year_for_band
 from app.services.scouting_service import build_scouting_table
 from app.services.talent_profile_service import compute_athlete_talent_profile
-from app.services.training_generation import run_generation
+from app.services.training_generation import persist_generated_training, run_generation
 
 # Подреждане на прозорците по фаза в логически ред.
 _PHASE_ORDER = {"baseline": 0, "mid": 1, "endline": 2}
@@ -678,6 +687,142 @@ def team_session_diagnosis(
         generated = run_generation(built["generate_request"], user=current_user, db=db)["result"]
 
     return TeamDiagnosisOut(**built, generated=generated)
+
+
+@router.post("/sessions/{session_id}/team-plan/save", response_model=SaveTeamPlanOut)
+def save_team_diagnosis_plan(
+    session_id: int,
+    payload: SaveTeamPlanIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Генерира отборен план по диагнозата и го записва към отбор + дата от графика."""
+    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сесията не е намерена")
+
+    team = db.query(Team).filter(Team.id == session.team_id).first()
+    if team is not None:
+        _ensure_team_access(current_user, team)
+
+    if session.status != AssessmentSessionStatus.finalized:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Записът към графика е достъпен след приключване на сесията.",
+        )
+
+    date_s = (payload.session_date or "").strip()
+    if len(date_s) != 10 or date_s[4] != "-" or date_s[7] != "-":
+        raise HTTPException(status_code=422, detail="session_date трябва да е YYYY-MM-DD")
+
+    built = build_team_diagnosis(db, session, duration_min=payload.duration_min)
+    gen_req = built.get("generate_request") or {}
+    if not gen_req:
+        raise HTTPException(status_code=400, detail="Няма данни за отборна генерация.")
+
+    generation = run_generation(gen_req, user=current_user, db=db)
+    title = f"По диагноза · {built.get('main_focus') or 'фокус'} · {date_s}"
+    training = persist_generated_training(
+        db,
+        current_user,
+        generation,
+        title=title,
+        team_id=session.team_id,
+        session_date=date_s,
+        status="запазена",
+        notes="Отборна тренировка по диагностична сесия",
+        extra_request_fields={"kind": "team_diagnosis_plan", "assessment_session_id": session_id},
+    )
+
+    return SaveTeamPlanOut(
+        training=SavedTrainingRefOut(
+            id=training.id,
+            title=training.title,
+            team_id=training.team_id,
+            session_date=training.session_date,
+            training_plan_text=(training.generation_request or {}).get("trainingPlanText"),
+            main_focus=built.get("main_focus"),
+        )
+    )
+
+
+@router.post("/sessions/{session_id}/home-workouts", response_model=HomeWorkoutsOut)
+def generate_session_home_workouts(
+    session_id: int,
+    payload: HomeWorkoutsIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Генерира и записва кратки домашни тренировки по индивидуалните акценти."""
+    session = db.query(AssessmentSession).filter(AssessmentSession.id == session_id).first()
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сесията не е намерена")
+
+    team = db.query(Team).filter(Team.id == session.team_id).first()
+    if team is not None:
+        _ensure_team_access(current_user, team)
+
+    if session.status != AssessmentSessionStatus.finalized:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Домашните тренировки са достъпни след приключване на сесията.",
+        )
+
+    built = build_team_diagnosis(db, session)
+    athletes = built.get("athletes") or []
+    if payload.athlete_ids:
+        wanted = set(payload.athlete_ids)
+        athletes = [a for a in athletes if a.get("athlete_id") in wanted]
+
+    created = []
+    failed = []
+    for row in athletes:
+        aid = row.get("athlete_id")
+        athlete = db.query(Athlete).filter(Athlete.id == aid).first()
+        if athlete is None or not row.get("main_focus"):
+            failed.append({"athlete_id": aid, "error": "Липсва акцент или състезател."})
+            continue
+        try:
+            gen_req = build_home_generate_request(
+                athlete,
+                main_focus=row["main_focus"],
+                secondary_focus=row.get("secondary_focus"),
+                duration_min=payload.duration_min,
+            )
+            generation = run_generation(gen_req, user=current_user, db=db)
+            title = f"Домашна · {athlete.athlete_name} · {row['main_focus']}"
+            training = persist_generated_training(
+                db,
+                current_user,
+                generation,
+                title=title,
+                team_id=session.team_id,
+                session_date=None,
+                status="запазена",
+                notes=f"Домашна тренировка за athlete_id={athlete.id}",
+                extra_request_fields={
+                    "kind": "home_workout",
+                    "athlete_id": athlete.id,
+                    "athlete_name": athlete.athlete_name,
+                    "assessment_session_id": session_id,
+                },
+            )
+            created.append(
+                SavedTrainingRefOut(
+                    id=training.id,
+                    title=training.title,
+                    team_id=training.team_id,
+                    session_date=training.session_date,
+                    athlete_id=athlete.id,
+                    athlete_name=athlete.athlete_name,
+                    training_plan_text=(training.generation_request or {}).get("trainingPlanText"),
+                    main_focus=row.get("main_focus"),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 — искаме да продължим с останалите
+            failed.append({"athlete_id": aid, "athlete_name": row.get("athlete_name"), "error": str(exc)})
+
+    return HomeWorkoutsOut(session_id=session_id, created=created, failed=failed)
 
 
 @router.post("/sessions/{session_id}/results/bulk")

@@ -187,6 +187,33 @@ export default function ParentDevelopmentSection({
   const motivation = data.motivation || null;
   const hasMotivation = !!(motivation && (motivation.tests || []).length);
   const focusList = (data.deficits || []).slice(0, 4);
+  const homeWorkouts = data.home_workouts || [];
+
+  const homeWorkoutsCard =
+    homeWorkouts.length > 0 ? (
+      <Card title="Домашни тренировки">
+        <p className="parentPortalHighlightMuted" style={{ marginTop: 0 }}>
+          Кратки планове за вкъщи / без зала — от треньора по акцентите от тестирането.
+        </p>
+        {homeWorkouts.map((h) => (
+          <details key={h.id} className="parentPortalDetails" style={{ marginTop: 8 }}>
+            <summary className="parentPortalDetailsSummary">
+              {h.title || "Домашна тренировка"}
+              {h.main_focus ? ` · ${h.main_focus}` : ""}
+            </summary>
+            <div className="parentPortalDetailsBody">
+              {h.training_plan_text ? (
+                <pre className="deficitPlanText" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                  {h.training_plan_text}
+                </pre>
+              ) : (
+                <p className="parentPortalHighlightMuted">Няма текст на плана.</p>
+              )}
+            </div>
+          </details>
+        ))}
+      </Card>
+    ) : null;
 
   if (variant === "tab") {
     return (
@@ -223,6 +250,8 @@ export default function ParentDevelopmentSection({
             <MotivationView data={motivation} />
           </Card>
         ) : null}
+
+        {homeWorkoutsCard}
       </div>
     );
   }
@@ -241,6 +270,8 @@ export default function ParentDevelopmentSection({
           <MotivationView data={motivation} />
         </Card>
       ) : null}
+
+      {homeWorkoutsCard}
     </>
   );
 }
