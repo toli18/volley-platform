@@ -80,7 +80,6 @@ from app.services.assessment_consent import get_consent, set_consent
 from app.services.assessment_dashboard import build_federation_dashboard
 from app.services.assessment_generator_bridge import (
     build_generate_request,
-    build_home_generate_request,
     build_team_diagnosis,
 )
 from app.services.assessment_scoring import (
