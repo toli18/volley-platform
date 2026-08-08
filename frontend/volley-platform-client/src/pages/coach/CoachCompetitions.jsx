@@ -6,9 +6,10 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 import useNavRoles from "../../navigation/useNavRoles";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
+import CompetitionRosterPreview from "../../components/schedule/CompetitionRosterPreview";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
-import { openCompetitionRosterPrint } from "../../utils/competitionRosterPrint";
+import { buildRosterPrintModel } from "../../utils/competitionRosterPrint";
 import { Button } from "../../components/ui";
 
 function monthRange(offset = 0) {
@@ -67,6 +68,7 @@ export default function CoachCompetitions() {
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [cardIndexes, setCardIndexes] = useState([]);
+  const [printModel, setPrintModel] = useState(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -200,30 +202,18 @@ export default function CoachCompetitions() {
     }
   };
 
-  const previewRoster = async (event, rosterData = null, { autoPrint = true } = {}) => {
+  const previewRoster = async (event, rosterData = null) => {
     try {
       let data = rosterData;
       if (!data) {
         const res = await axiosInstance.get(API_PATHS.SCHEDULE_COMPETITION_ROSTER(event.id));
         data = res.data;
-      } else if (selectedIds?.length && rosterEvent?.id === event.id) {
-        // Преглед на текущия избор в drawer-а (още незаписан)
-        data = {
-          ...rosterData,
-          athlete_ids: selectedIds,
-          selected_count: selectedIds.length,
-          candidates: (rosterData.candidates || []).map((c) => ({
-            ...c,
-            selected: selectedIds.includes(Number(c.id)),
-          })),
-        };
       }
-      openCompetitionRosterPrint({
-        event,
-        roster: data,
-        clubName: user?.club_name || user?.club?.name || "",
-        autoPrint,
-      });
+      const overrideIds =
+        rosterEvent?.id === event.id && selectedIds?.length ? selectedIds : null;
+      setPrintModel(
+        buildRosterPrintModel(event, data, overrideIds),
+      );
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен преглед на тимовия лист."));
     }
@@ -296,7 +286,7 @@ export default function CoachCompetitions() {
                   : ""}
               </div>
             </div>
-            <div className="feesAthleteCardCompactActions" style={{ display: "grid", gap: 6 }}>
+            <div className="feesAthleteCardCompactActions feesAthleteCardCompactActions--stack" style={{ display: "grid", gap: 6 }}>
               <Button size="sm" variant={row.needs_roster ? undefined : "secondary"} onClick={() => openRoster(row)}>
                 Тимов лист
               </Button>
@@ -362,7 +352,7 @@ export default function CoachCompetitions() {
               <button
                 type="button"
                 className="matchLiveUndo"
-                onClick={() => previewRoster(rosterEvent, roster, { autoPrint: true })}
+                onClick={() => previewRoster(rosterEvent, roster)}
               >
                 Преглед / печат
               </button>
@@ -375,6 +365,13 @@ export default function CoachCompetitions() {
           </div>
         </div>
       ) : null}
+
+      <CompetitionRosterPreview
+        open={Boolean(printModel)}
+        model={printModel}
+        clubName={user?.club_name || user?.club?.name || ""}
+        onClose={() => setPrintModel(null)}
+      />
     </div>
   );
 }

@@ -7856,10 +7856,13 @@ button.matchChipSlot:not(:disabled) {
     visibility: hidden !important;
   }
   #match-lineup-print-sheet,
-  #match-lineup-print-sheet * {
+  #match-lineup-print-sheet *,
+  #competition-roster-print-sheet,
+  #competition-roster-print-sheet * {
     visibility: visible !important;
   }
-  #match-lineup-print-sheet {
+  #match-lineup-print-sheet,
+  #competition-roster-print-sheet {
     position: absolute;
     left: 0;
     top: 0;
@@ -7868,6 +7871,130 @@ button.matchChipSlot:not(:disabled) {
   }
   .no-print {
     display: none !important;
+  }
+}
+
+.competitionRosterPreviewOverlay {
+  z-index: 1200;
+}
+.competitionRosterPreviewModal {
+  width: min(720px, 100%);
+  max-height: min(92vh, 960px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.competitionRosterSheet {
+  background: #fff;
+  color: #0f172a;
+  padding: 8px 4px 16px;
+}
+.competitionRosterSheetTitle {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+.competitionRosterSheetSub {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+.competitionRosterMeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin-bottom: 12px;
+}
+.competitionRosterMeta span {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+.competitionRosterMeta strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.competitionRosterNotes {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: #334155;
+}
+.competitionRosterListTitle {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+.competitionRosterTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.competitionRosterTable th,
+.competitionRosterTable td {
+  border: 1px solid #cbd5e1;
+  padding: 8px 10px;
+  text-align: left;
+}
+.competitionRosterTable th {
+  background: #f1f5f9;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: #475569;
+}
+.competitionRosterNum {
+  width: 2.5rem;
+  text-align: center !important;
+}
+.competitionRosterSign {
+  width: 28%;
+  min-height: 2rem;
+}
+.competitionRosterEmpty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+.competitionRosterSigns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+.competitionRosterSigns p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+.competitionRosterSignLine {
+  border-bottom: 1px solid #94a3b8;
+  height: 1px;
+}
+.competitionRosterPreviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.feesAthleteCardCompactActions--stack {
+  min-width: min(140px, 38vw);
+}
+@media (max-width: 640px) {
+  .competitionRosterMeta {
+    grid-template-columns: 1fr;
+  }
+  .competitionRosterSigns {
+    grid-template-columns: 1fr;
+  }
+  .feesAthleteCardCompact {
+    flex-wrap: wrap;
+  }
+  .feesAthleteCardCompactActions--stack {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 1fr 1fr;
+  }
+  .feesAthleteCardCompactActions--stack .uiMuted {
+    grid-column: 1 / -1;
   }
 }
 
