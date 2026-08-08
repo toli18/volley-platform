@@ -9,23 +9,47 @@ import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
-import { Button } from "../../components/ui";
-
-function monthRange(offset = 0) {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() + offset);
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-  const last = new Date(y, m + 1, 0).getDate();
-  const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
-  return { from, to, label: d.toLocaleDateString("bg-BG", { month: "long", year: "numeric" }) };
-}
+import { Button, Input } from "../../components/ui";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
+
+function monthStartKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function monthEndKey(year, monthIndex) {
+  const last = new Date(year, monthIndex + 1, 0).getDate();
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+}
+
+/** from = начало на текущия месец; to = край на месеца след +monthsAhead (вкл. текущия). */
+function forwardMonthsRange(monthsAhead = 2) {
+  const now = new Date();
+  const from = monthStartKey(now);
+  const end = new Date(now.getFullYear(), now.getMonth() + Math.max(0, monthsAhead - 1), 1);
+  const to = monthEndKey(end.getFullYear(), end.getMonth());
+  return { from, to };
+}
+
+function formatRangeLabel(from, to) {
+  try {
+    const a = new Date(`${from}T12:00:00`);
+    const b = new Date(`${to}T12:00:00`);
+    const opts = { day: "numeric", month: "short", year: "numeric" };
+    return `${a.toLocaleDateString("bg-BG", opts)} – ${b.toLocaleDateString("bg-BG", opts)}`;
+  } catch {
+    return `${from} – ${to}`;
+  }
+}
+
+const PERIOD_PRESETS = [
+  { id: "2m", label: "2 месеца", months: 2 },
+  { id: "3m", label: "3 месеца", months: 3 },
+  { id: "month", label: "Този месец", months: 1 },
+  { id: "custom", label: "Период", months: null },
+];
 
 function defaultCompetitionForm(date, coachId = "") {
   return {
@@ -52,8 +76,10 @@ export default function CoachCompetitions() {
   const toast = useToast();
   const { user, isHeadCoachUser } = useNavRoles();
   const currentUserId = user?.id;
-  const [monthOffset, setMonthOffset] = useState(0);
-  const range = useMemo(() => monthRange(monthOffset), [monthOffset]);
+  const defaultRange = useMemo(() => forwardMonthsRange(2), []);
+  const [periodPreset, setPeriodPreset] = useState("2m");
+  const [fromDate, setFromDate] = useState(defaultRange.from);
+  const [toDate, setToDate] = useState(defaultRange.to);
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -70,10 +96,26 @@ export default function CoachCompetitions() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetCtx, setSheetCtx] = useState(null);
 
+  const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
+
+  const applyPreset = (presetId) => {
+    setPeriodPreset(presetId);
+    if (presetId === "custom") return;
+    const preset = PERIOD_PRESETS.find((p) => p.id === presetId);
+    const months = preset?.months || 2;
+    const next = forwardMonthsRange(months);
+    setFromDate(next.from);
+    setToDate(next.to);
+  };
+
   const load = useCallback(async () => {
+    if (!fromDate || !toDate || fromDate > toDate) {
+      toast.error("Невалиден период (от ≤ до).");
+      return;
+    }
     setBusy(true);
     try {
-      const params = { from: range.from, to: range.to };
+      const params = { from: fromDate, to: toDate };
       if (filter === "mine") params.mine = true;
       if (filter === "needs_roster") params.needs_roster = true;
       const res = await axiosInstance.get(API_PATHS.SCHEDULE_COMPETITIONS_LIST, { params });
@@ -84,7 +126,7 @@ export default function CoachCompetitions() {
     } finally {
       setBusy(false);
     }
-  }, [range.from, range.to, filter]);
+  }, [fromDate, toDate, filter]);
 
   useEffect(() => {
     load();
@@ -246,22 +288,53 @@ export default function CoachCompetitions() {
         <span className="feesCoachHeadBadge">{rows.length}</span>
       </header>
 
-      <div className="parentPortalScheduleNav" style={{ marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
-        <Button size="sm" variant="secondary" onClick={() => setMonthOffset((n) => n - 1)}>
-          ←
-        </Button>
-        <span className="parentPortalScheduleNavLabel" style={{ textTransform: "capitalize" }}>
-          {range.label}
+      <div className="coachMobileSubNav" style={{ marginBottom: 8 }}>
+        {PERIOD_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`coachMobileSubNavBtn${periodPreset === p.id ? " is-active" : ""}`}
+            onClick={() => applyPreset(p.id)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="parentPortalScheduleNav" style={{ marginBottom: 12, gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span className="parentPortalScheduleNavLabel" style={{ textTransform: "none" }}>
+          {rangeLabel}
         </span>
-        <Button size="sm" variant="secondary" onClick={() => setMonthOffset((n) => n + 1)}>
-          →
-        </Button>
         {isHeadCoachUser ? (
           <Button size="sm" onClick={openCreate}>
             Ново състезание
           </Button>
         ) : null}
       </div>
+
+      {periodPreset === "custom" ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr auto",
+            gap: 8,
+            marginBottom: 12,
+            alignItems: "end",
+          }}
+        >
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>От</span>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </label>
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>До</span>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </label>
+          <Button size="sm" variant="secondary" onClick={load} disabled={busy}>
+            Приложи
+          </Button>
+        </div>
+      ) : null}
 
       <div className="coachMobileSubNav" style={{ marginBottom: 12 }}>
         {[
