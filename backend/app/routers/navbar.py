@@ -104,6 +104,47 @@ def navbar_feed(
             logger.exception("navbar_feed: sek tasks failed")
             sek_tasks = {"items": []}
 
+    enrollments = {"items": []}
+    if is_coach_like and getattr(current_user, "club_id", None):
+        try:
+            from app.models import ClubEnrollmentRequest, ClubEnrollmentStatus
+
+            rows = (
+                db.query(ClubEnrollmentRequest)
+                .filter(
+                    ClubEnrollmentRequest.club_id == int(current_user.club_id),
+                    ClubEnrollmentRequest.status.in_(
+                        [
+                            ClubEnrollmentStatus.new.value,
+                            ClubEnrollmentStatus.trial_scheduled.value,
+                        ]
+                    ),
+                )
+                .order_by(ClubEnrollmentRequest.created_at.desc())
+                .limit(12)
+                .all()
+            )
+            enrollments = {
+                "items": [
+                    {
+                        "id": int(r.id),
+                        "child_name": " ".join(
+                            p for p in [r.child_first_name, r.child_last_name or ""] if p
+                        ).strip(),
+                        "parent_name": r.parent_name,
+                        "parent_phone": r.parent_phone,
+                        "status": r.status,
+                        "trial_date": r.trial_date,
+                        "trial_time": r.trial_time,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                    }
+                    for r in rows
+                ]
+            }
+        except Exception:  # noqa: BLE001
+            logger.exception("navbar_feed: enrollments failed")
+            enrollments = {"items": []}
+
     carding_requests = {"items": [], "ready_count": 0}
     role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     if role_val in ("club_head_coach", "platform_admin", "federation_admin") and getattr(current_user, "club_id", None):
@@ -131,6 +172,7 @@ def navbar_feed(
         "fee_activity": fee_activity,
         "task_reports": task_reports,
         "sek_tasks": sek_tasks,
+        "enrollments": enrollments,
         "carding_requests": carding_requests,
         "pilot_requests": pilot_requests,
     }

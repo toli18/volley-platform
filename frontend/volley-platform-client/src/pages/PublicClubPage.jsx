@@ -6,8 +6,22 @@ import { API_PATHS } from "../utils/apiPaths";
 import { normalizeError } from "../utils/normalizeError";
 import { competitionKindLabel } from "../utils/competitionKinds";
 import { Button, Input } from "../components/ui";
+import "./PublicClubPage.css";
 
 const YEARS = Array.from({ length: 20 }, (_, i) => new Date().getFullYear() - 5 - i);
+
+function formatBgDate(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("bg-BG", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export default function PublicClubPage() {
   const { slug } = useParams();
@@ -16,6 +30,10 @@ export default function PublicClubPage() {
   const [busy, setBusy] = useState(true);
   const [sending, setSending] = useState(false);
   const [doneMsg, setDoneMsg] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [slots, setSlots] = useState([]);
+  const [slotsBusy, setSlotsBusy] = useState(false);
+  const [slotKey, setSlotKey] = useState("");
   const [form, setForm] = useState({
     child_first_name: "",
     child_last_name: "",
@@ -24,7 +42,6 @@ export default function PublicClubPage() {
     parent_name: "",
     parent_phone: "",
     parent_email: "",
-    preferred_team_id: "",
     note: "",
     website: "",
   });
@@ -51,6 +68,36 @@ export default function PublicClubPage() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!teamId || !slug) {
+      setSlots([]);
+      setSlotKey("");
+      return;
+    }
+    let alive = true;
+    (async () => {
+      setSlotsBusy(true);
+      try {
+        const res = await axiosInstance.get(API_PATHS.PUBLIC_CLUB_UPCOMING_TRAININGS(slug, teamId), {
+          params: { limit: 5 },
+        });
+        if (!alive) return;
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        setSlots(items);
+        setSlotKey(items[0]?.slot_key || "");
+      } catch {
+        if (!alive) return;
+        setSlots([]);
+        setSlotKey("");
+      } finally {
+        if (alive) setSlotsBusy(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [slug, teamId]);
+
   const hoursByDay = useMemo(() => {
     const map = new Map();
     for (const h of page?.training_hours || []) {
@@ -61,15 +108,25 @@ export default function PublicClubPage() {
     return [...map.entries()];
   }, [page]);
 
+  const selectedSlot = slots.find((s) => s.slot_key === slotKey) || null;
+  const step = !teamId ? 1 : !selectedSlot ? 2 : 3;
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!teamId || !selectedSlot) {
+      setDoneMsg("Избери група и тренировка за пробна.");
+      return;
+    }
     setSending(true);
     setDoneMsg("");
     try {
       const res = await axiosInstance.post(API_PATHS.PUBLIC_CLUB_ENROLL(slug), {
         ...form,
         child_birth_year: Number(form.child_birth_year),
-        preferred_team_id: form.preferred_team_id ? Number(form.preferred_team_id) : null,
+        preferred_team_id: Number(teamId),
+        trial_date: selectedSlot.date,
+        trial_time: selectedSlot.start_time,
+        trial_rule_id: selectedSlot.rule_id || null,
         child_gender: form.child_gender || null,
       });
       setDoneMsg(res.data?.message || "Заявката е изпратена.");
@@ -90,15 +147,15 @@ export default function PublicClubPage() {
 
   if (busy) {
     return (
-      <div className="uiPage" style={{ maxWidth: 880, margin: "0 auto", padding: 24 }}>
-        <p className="uiMuted">Зареждане…</p>
+      <div className="publicClub">
+        <p className="publicClub__muted">Зареждане…</p>
       </div>
     );
   }
 
   if (error || !page) {
     return (
-      <div className="uiPage" style={{ maxWidth: 880, margin: "0 auto", padding: 24 }}>
+      <div className="publicClub">
         <h1>Клубна страница</h1>
         <p>{error || "Няма данни."}</p>
       </div>
@@ -108,86 +165,96 @@ export default function PublicClubPage() {
   const orgMeta = [
     page.bvf_region ? `Регион ${page.bvf_region}` : null,
     page.license_number ? `Лиценз ${page.license_number}` : null,
-    page.bulstat ? `ЕИК ${page.bulstat}` : null,
   ].filter(Boolean);
 
+  const fbEmbed = page.facebook_page_url
+    ? `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
+        page.facebook_page_url,
+      )}&tabs=timeline&width=500&height=560&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=false`
+    : null;
+
   return (
-    <div className="uiPage publicClubPage" style={{ maxWidth: 920, margin: "0 auto", padding: "20px 16px 48px" }}>
-      <header style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+    <div className="publicClub">
+      <div className="publicClub__top">
+        <nav className="publicClub__nav" aria-label="Клубна страница">
+          <a href="#za-kluba">За клуба</a>
+          <a href="#treniori">Треньори</a>
+          <a href="#grupi">Групи</a>
+          <a href="#chasove">Часове</a>
+          {(page.tournaments || []).length ? <a href="#turniri">Турнири</a> : null}
+          {fbEmbed ? <a href="#novini">Новини</a> : null}
+          <a href="#zapisvane" className="is-cta">
+            Пробна тренировка
+          </a>
+        </nav>
+      </div>
+
+      <header className="publicClub__hero">
         {page.logo_url ? (
-          <img src={page.logo_url} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: 12 }} />
+          <img className="publicClub__logo" src={page.logo_url} alt="" />
         ) : (
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 12,
-              background: "#0f766e",
-              color: "#fff",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 800,
-              fontSize: 22,
-            }}
-          >
-            {(page.name || "?").slice(0, 1)}
-          </div>
+          <div className="publicClub__logoFallback">{(page.name || "?").slice(0, 1)}</div>
         )}
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <h1 style={{ margin: "0 0 4px", fontSize: "1.6rem" }}>{page.name}</h1>
+        <div>
+          <h1>{page.name}</h1>
           {page.full_name && page.full_name !== page.name ? (
-            <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-              {page.full_name}
-            </p>
+            <p className="publicClub__muted">{page.full_name}</p>
           ) : null}
-          {page.tagline ? <p className="uiMuted" style={{ margin: "4px 0 0" }}>{page.tagline}</p> : null}
-          <p className="uiMuted" style={{ margin: "6px 0 0" }}>
+          {page.tagline ? <p className="publicClub__tagline">{page.tagline}</p> : null}
+          <p className="publicClub__meta">
             {[page.city, page.address].filter(Boolean).join(" · ")}
+            {orgMeta.length ? ` · ${orgMeta.join(" · ")}` : ""}
           </p>
-          {orgMeta.length ? (
-            <p className="uiMuted" style={{ margin: "4px 0 0", fontSize: 12 }}>
-              {orgMeta.join(" · ")}
-            </p>
-          ) : null}
         </div>
-        <a href="#zapisvane" style={{ textDecoration: "none" }}>
-          <Button type="button">Запиши дете</Button>
-        </a>
       </header>
 
-      {page.about ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>За клуба</h2>
-          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{page.about}</p>
-        </section>
-      ) : null}
-
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: "1.1rem" }}>Контакти</h2>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
-          {page.contact_phone ? <li>Тел: {page.contact_phone}</li> : null}
-          {page.contact_email ? <li>Имейл: {page.contact_email}</li> : null}
-          {page.website_url ? (
-            <li>
-              <a href={page.website_url} target="_blank" rel="noreferrer">
-                Уебсайт
+      <section id="za-kluba" className="publicClub__section">
+        <h2>За клуба</h2>
+        {page.about ? <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{page.about}</p> : null}
+        <div className="publicClub__cards">
+          <div className="publicClub__card">
+            <strong>Контакти</strong>
+            <div className="publicClub__muted">
+              {[
+                page.contact_phone ? `Тел: ${page.contact_phone}` : null,
+                page.contact_email ? `Имейл: ${page.contact_email}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "—"}
+            </div>
+            <div className="publicClub__actions">
+              {page.website_url ? (
+                <a href={page.website_url} target="_blank" rel="noreferrer">
+                  <Button type="button" size="sm" variant="secondary">
+                    Уебсайт
+                  </Button>
+                </a>
+              ) : null}
+              {page.facebook_page_url ? (
+                <a href={page.facebook_page_url} target="_blank" rel="noreferrer">
+                  <Button type="button" size="sm" variant="secondary">
+                    Facebook
+                  </Button>
+                </a>
+              ) : null}
+              <a href="#zapisvane">
+                <Button type="button" size="sm">
+                  Запиши пробна
+                </Button>
               </a>
-            </li>
-          ) : null}
-          {(page.locations || []).length ? (
-            <li>Зали / места: {page.locations.join(" · ")}</li>
-          ) : null}
-        </ul>
+            </div>
+          </div>
+        </div>
       </section>
 
       {(page.coaches || []).length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Треньори</h2>
-          <div style={{ display: "grid", gap: 8 }}>
+        <section id="treniori" className="publicClub__section">
+          <h2>Треньори</h2>
+          <div className="publicClub__cards">
             {page.coaches.map((c) => (
-              <div key={c.id} style={{ padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12 }}>
+              <div key={c.id} className="publicClub__card">
                 <strong>{c.name}</strong>
-                <div className="uiMuted" style={{ fontSize: 13 }}>
+                <div className="publicClub__muted">
                   {c.role_label || "Треньор"}
                   {c.phone ? ` · ${c.phone}` : ""}
                 </div>
@@ -198,44 +265,43 @@ export default function PublicClubPage() {
       ) : null}
 
       {(page.teams || []).length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Отбори / групи</h2>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {page.teams.map((t) => {
-              const bits = [t.age_group, t.gender_label, t.season].filter(Boolean);
-              return (
-                <span
-                  key={t.id}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    background: "#f1f5f9",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t.name}
-                  {bits.length ? ` · ${bits.join(" · ")}` : ""}
-                </span>
-              );
-            })}
+        <section id="grupi" className="publicClub__section">
+          <h2>Отбори / групи</h2>
+          <p className="publicClub__sectionLead">Избери група по-долу при записване за пробна тренировка.</p>
+          <div className="publicClub__chips">
+            {page.teams.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
+                onClick={() => {
+                  setTeamId(String(t.id));
+                  document.getElementById("zapisvane")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                <span className="publicClub__chipName">{t.name}</span>
+                {t.hint ? <span className="publicClub__chipHint">{t.hint}</span> : null}
+              </button>
+            ))}
           </div>
         </section>
       ) : null}
 
       {hoursByDay.length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Тренировъчни часове</h2>
-          <div style={{ display: "grid", gap: 10 }}>
+        <section id="chasove" className="publicClub__section">
+          <h2>Тренировъчни часове</h2>
+          <p className="publicClub__sectionLead">Седмичен график по групи.</p>
+          <div className="publicClub__hours">
             {hoursByDay.map(([day, items]) => (
-              <div key={day}>
+              <div key={day} className="publicClub__hourRow">
                 <strong>{day}</strong>
-                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                <ul>
                   {items.map((h, i) => (
                     <li key={`${day}-${i}`}>
-                      {h.start_time}–{h.end_time}
+                      <strong>
+                        {h.start_time}–{h.end_time}
+                      </strong>
                       {h.team_name ? ` · ${h.team_name}` : ""}
-                      {h.location ? ` · ${h.location}` : ""}
                     </li>
                   ))}
                 </ul>
@@ -246,72 +312,104 @@ export default function PublicClubPage() {
       ) : null}
 
       {(page.tournaments || []).length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Предстоящи състезания</h2>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+        <section id="turniri" className="publicClub__section">
+          <h2>Предстоящи състезания</h2>
+          <div className="publicClub__cards">
             {page.tournaments.map((t) => (
-              <li
-                key={t.id}
-                style={{ padding: "10px 12px", border: "1px solid #ffedd5", borderRadius: 12, background: "#fff7ed" }}
-              >
+              <div key={t.id} className="publicClub__card" style={{ borderColor: "#fdba74", background: "#fff7ed" }}>
                 <strong>
-                  {t.date} · {t.start_time}–{t.end_time}
+                  {formatBgDate(t.date)} · {t.start_time}–{t.end_time}
                 </strong>
-                <div className="uiMuted">
+                <div className="publicClub__muted">
                   {competitionKindLabel(t)}
-                  {t.location ? ` · ${t.location}` : ""}
                   {t.team_name ? ` · ${t.team_name}` : ""}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {(page.news || []).length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Новини</h2>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-            {page.news.map((n) => (
-              <li key={n.id} style={{ padding: "10px 12px", border: "1px solid #e2e8f0", borderRadius: 12 }}>
-                <strong>{n.title}</strong>
-                {n.excerpt ? (
-                  <p className="uiMuted" style={{ margin: "4px 0 0" }}>
-                    {n.excerpt}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {(page.photos || []).length ? (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: "1.1rem" }}>Снимки</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-            {page.photos.map((p) => (
-              <img
-                key={p.id || p.url}
-                src={p.url}
-                alt={p.caption || ""}
-                style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12 }}
-              />
+              </div>
             ))}
           </div>
         </section>
       ) : null}
 
-      <section
-        id="zapisvane"
-        style={{ marginBottom: 24, padding: 16, border: "1px solid #cbd5e1", borderRadius: 16, background: "#f8fafc" }}
-      >
-        <h2 style={{ fontSize: "1.15rem", marginTop: 0 }}>Запиши детето</h2>
-        <p className="uiMuted" style={{ marginTop: 0 }}>
-          Оставете заявка. Клубът ще ви покани на пробна тренировка. След приемане ще получите достъп до
-          родителския профил.
+      {fbEmbed ? (
+        <section id="novini" className="publicClub__section">
+          <h2>Новини</h2>
+          <p className="publicClub__sectionLead">От Facebook страницата на клуба.</p>
+          <iframe
+            title="Facebook новини"
+            className="publicClub__fb"
+            src={fbEmbed}
+            scrolling="no"
+            frameBorder="0"
+            allow="encrypted-media"
+          />
+          <div className="publicClub__actions">
+            <a href={page.facebook_page_url} target="_blank" rel="noreferrer">
+              <Button type="button" size="sm" variant="secondary">
+                Отвори във Facebook
+              </Button>
+            </a>
+          </div>
+        </section>
+      ) : null}
+
+      <section id="zapisvane" className="publicClub__section publicClub__enroll">
+        <h2>Пробна тренировка</h2>
+        <p className="publicClub__sectionLead">
+          Избери група → виж следващите 5 тренировки → запиши се за тази, на която можеш да дойдеш.
+          Треньорът получава известие. След пробната и приемането ще получиш вход за родителски профил.
         </p>
-        <form onSubmit={submit} style={{ display: "grid", gap: 8 }}>
+
+        <div className="publicClub__steps">
+          <span className={`publicClub__step${step >= 1 ? " is-on" : ""}`}>1. Група</span>
+          <span className={`publicClub__step${step >= 2 ? " is-on" : ""}`}>2. Тренировка</span>
+          <span className={`publicClub__step${step >= 3 ? " is-on" : ""}`}>3. Данни</span>
+        </div>
+
+        <div className="publicClub__chips" style={{ marginBottom: 12 }}>
+          {(page.teams || []).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
+              onClick={() => setTeamId(String(t.id))}
+            >
+              <span className="publicClub__chipName">{t.name}</span>
+              {t.hint ? <span className="publicClub__chipHint">{t.hint}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        {!(page.teams || []).length ? (
+          <p className="publicClub__muted">В момента няма отворени групи за записване.</p>
+        ) : !teamId ? (
+          <p className="publicClub__muted">Първо избери група по име.</p>
+        ) : slotsBusy ? (
+          <p className="publicClub__muted">Зареждане на тренировки…</p>
+        ) : slots.length === 0 ? (
+          <p className="publicClub__muted">Няма насрочени тренировки за тази група в близките дни.</p>
+        ) : (
+          <div className="publicClub__slots">
+            {slots.map((s) => (
+              <button
+                key={s.slot_key}
+                type="button"
+                className={`publicClub__slot${slotKey === s.slot_key ? " is-active" : ""}`}
+                onClick={() => setSlotKey(s.slot_key)}
+              >
+                <span aria-hidden>{slotKey === s.slot_key ? "●" : "○"}</span>
+                <span>
+                  <strong>
+                    {formatBgDate(s.date)} · {s.start_time}
+                    {s.end_time ? `–${s.end_time}` : ""}
+                  </strong>
+                  <div className="publicClub__muted">{s.team_name}</div>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={submit} className="publicClub__form">
           <input
             tabIndex={-1}
             autoComplete="off"
@@ -320,7 +418,7 @@ export default function PublicClubPage() {
             style={{ position: "absolute", left: -9999, opacity: 0, height: 0 }}
             aria-hidden
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div className="publicClub__formRow">
             <Input
               required
               placeholder="Име на детето"
@@ -333,13 +431,12 @@ export default function PublicClubPage() {
               onChange={(e) => setForm((p) => ({ ...p, child_last_name: e.target.value }))}
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Година на раждане</span>
+          <div className="publicClub__formRow">
+            <label className="publicClub__label">
+              Година на раждане
               <select
                 value={form.child_birth_year}
                 onChange={(e) => setForm((p) => ({ ...p, child_birth_year: e.target.value }))}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #cbd5e1" }}
               >
                 {YEARS.map((y) => (
                   <option key={y} value={y}>
@@ -348,12 +445,11 @@ export default function PublicClubPage() {
                 ))}
               </select>
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Пол</span>
+            <label className="publicClub__label">
+              Пол
               <select
                 value={form.child_gender}
                 onChange={(e) => setForm((p) => ({ ...p, child_gender: e.target.value }))}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #cbd5e1" }}
               >
                 <option value="">—</option>
                 <option value="female">Момиче</option>
@@ -361,23 +457,6 @@ export default function PublicClubPage() {
               </select>
             </label>
           </div>
-          {(page.teams || []).length ? (
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Желана група</span>
-              <select
-                value={form.preferred_team_id}
-                onChange={(e) => setForm((p) => ({ ...p, preferred_team_id: e.target.value }))}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #cbd5e1" }}
-              >
-                <option value="">Без предпочитание</option>
-                {page.teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <Input
             required
             placeholder="Име на родител"
@@ -396,16 +475,21 @@ export default function PublicClubPage() {
             onChange={(e) => setForm((p) => ({ ...p, parent_email: e.target.value }))}
           />
           <textarea
-            placeholder="Бележка"
+            placeholder="Бележка (по желание)"
             value={form.note}
             onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
             rows={3}
-            style={{ padding: 12, borderRadius: 10, border: "1px solid #cbd5e1", fontFamily: "inherit" }}
           />
-          <Button disabled={sending} type="submit">
-            {sending ? "Изпращане…" : "Изпрати заявка"}
+          {selectedSlot ? (
+            <p className="publicClub__muted" style={{ margin: 0 }}>
+              Пробна: {formatBgDate(selectedSlot.date)} · {selectedSlot.start_time}
+              {selectedSlot.end_time ? `–${selectedSlot.end_time}` : ""}
+            </p>
+          ) : null}
+          <Button disabled={sending || !teamId || !selectedSlot} type="submit">
+            {sending ? "Изпращане…" : "Запиши пробна тренировка"}
           </Button>
-          {doneMsg ? <p style={{ margin: 0 }}>{doneMsg}</p> : null}
+          {doneMsg ? <p className="publicClub__done">{doneMsg}</p> : null}
         </form>
       </section>
     </div>

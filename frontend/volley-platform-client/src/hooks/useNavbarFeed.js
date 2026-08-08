@@ -41,6 +41,8 @@ export default function useNavbarFeed() {
   const [pilotUnreadCount, setPilotUnreadCount] = useState(0);
   const [sekTasks, setSekTasks] = useState([]);
   const [sekTasksUnread, setSekTasksUnread] = useState(0);
+  const [enrollmentAlerts, setEnrollmentAlerts] = useState([]);
+  const [enrollmentUnreadCount, setEnrollmentUnreadCount] = useState(0);
   const [clubSeenTick, setClubSeenTick] = useState(0);
 
   const combinedUnreadCount = useMemo(() => {
@@ -51,6 +53,7 @@ export default function useNavbarFeed() {
     }
     if (isCoachUser) {
       n += Number(sekTasksUnread) || 0;
+      n += Number(enrollmentUnreadCount) || 0;
     }
     if (isPlatformAdmin) {
       n += Number(pilotUnreadCount) || 0;
@@ -61,6 +64,7 @@ export default function useNavbarFeed() {
     feeUnreadCount,
     taskReportsUnread,
     sekTasksUnread,
+    enrollmentUnreadCount,
     pilotUnreadCount,
     isHeadCoachUser,
     isCoachUser,
@@ -71,6 +75,7 @@ export default function useNavbarFeed() {
     let feeSeen = new Set();
     let taskSeen = new Set();
     let sekSeen = new Set();
+    let enrollSeen = new Set();
     if (isHeadCoachUser && user?.id) {
       try {
         feeSeen = new Set(JSON.parse(localStorage.getItem(`vp-fee-alerts-seen-${user.id}`) || "[]"));
@@ -88,6 +93,11 @@ export default function useNavbarFeed() {
         sekSeen = new Set(JSON.parse(localStorage.getItem(`vp-sek-tasks-seen-${user.id}`) || "[]"));
       } catch {
         sekSeen = new Set();
+      }
+      try {
+        enrollSeen = new Set(JSON.parse(localStorage.getItem(`vp-enroll-alerts-seen-${user.id}`) || "[]"));
+      } catch {
+        enrollSeen = new Set();
       }
     }
     let pilotSeen = new Set();
@@ -113,6 +123,16 @@ export default function useNavbarFeed() {
         const unread = !sekSeen.has(Number(s.athlete_id));
         out.push({ kind: "sek", key: `sek-${s.athlete_id}`, ts: s.sek_task_at, unread, sek: s });
       });
+      (enrollmentAlerts || []).forEach((e) => {
+        const unread = !enrollSeen.has(Number(e.id));
+        out.push({
+          kind: "enrollment",
+          key: `enroll-${e.id}`,
+          ts: e.created_at,
+          unread,
+          enrollment: e,
+        });
+      });
     }
     if (isHeadCoachUser) {
       (feeAlerts || []).forEach((f) => {
@@ -129,6 +149,7 @@ export default function useNavbarFeed() {
     feeAlerts,
     taskReports,
     sekTasks,
+    enrollmentAlerts,
     pilotRequests,
     isHeadCoachUser,
     isCoachUser,
@@ -188,6 +209,23 @@ export default function useNavbarFeed() {
     [user, sekTasks],
   );
 
+  const markEnrollmentItemSeen = useCallback(
+    (enrollmentId) => {
+      if (!user?.id) return;
+      const key = `vp-enroll-alerts-seen-${user.id}`;
+      try {
+        const arr = JSON.parse(localStorage.getItem(key) || "[]");
+        const next = Array.from(new Set([...arr.map(Number), Number(enrollmentId)]));
+        localStorage.setItem(key, JSON.stringify(next));
+        setEnrollmentUnreadCount(enrollmentAlerts.filter((x) => !next.includes(Number(x.id))).length);
+        setClubSeenTick((x) => x + 1);
+      } catch {
+        // ignore
+      }
+    },
+    [user, enrollmentAlerts],
+  );
+
   const markAllClubFeedSeen = useCallback(() => {
     if (!user?.id) return;
     try {
@@ -197,14 +235,19 @@ export default function useNavbarFeed() {
         `vp-sek-tasks-seen-${user.id}`,
         JSON.stringify(sekTasks.map((x) => x.athlete_id)),
       );
+      localStorage.setItem(
+        `vp-enroll-alerts-seen-${user.id}`,
+        JSON.stringify(enrollmentAlerts.map((x) => x.id)),
+      );
       setFeeUnreadCount(0);
       setTaskReportsUnread(0);
       setSekTasksUnread(0);
+      setEnrollmentUnreadCount(0);
       setClubSeenTick((x) => x + 1);
     } catch {
       // ignore
     }
-  }, [user, feeAlerts, taskReports, sekTasks]);
+  }, [user, feeAlerts, taskReports, sekTasks, enrollmentAlerts]);
 
   const markPilotItemSeen = useCallback(
     async (requestId) => {
@@ -272,6 +315,8 @@ export default function useNavbarFeed() {
       setPilotUnreadCount(0);
       setSekTasks([]);
       setSekTasksUnread(0);
+      setEnrollmentAlerts([]);
+      setEnrollmentUnreadCount(0);
       return;
     }
     let cancelled = false;
@@ -320,6 +365,17 @@ export default function useNavbarFeed() {
         setSekTasksUnread(list.filter((x) => !seen.includes(Number(x.athlete_id))).length);
       } catch {
         setSekTasksUnread(0);
+      }
+    };
+
+    const applyEnrollments = (items) => {
+      const list = Array.isArray(items) ? items : [];
+      setEnrollmentAlerts(list);
+      try {
+        const seen = JSON.parse(localStorage.getItem(`vp-enroll-alerts-seen-${user.id}`) || "[]");
+        setEnrollmentUnreadCount(list.filter((x) => !seen.includes(Number(x.id))).length);
+      } catch {
+        setEnrollmentUnreadCount(0);
       }
     };
 
@@ -397,6 +453,7 @@ export default function useNavbarFeed() {
         applyFeeActivity(data.fee_activity?.items);
         applyTaskReports(data.task_reports?.items);
         applySekTasks(data.sek_tasks?.items);
+        applyEnrollments(data.enrollments?.items);
         applyPilotRequests(data.pilot_requests);
       } catch {
         if (cancelled) return;
@@ -428,6 +485,7 @@ export default function useNavbarFeed() {
     markFeeItemSeen,
     markTaskItemSeen,
     markSekItemSeen,
+    markEnrollmentItemSeen,
     markAllClubFeedSeen,
     markForumItemRead,
     markAllForumRead,

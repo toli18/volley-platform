@@ -138,6 +138,17 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS facebook_page_url VARCHAR(500)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE teams ADD COLUMN IF NOT EXISTS public_enrollment_open "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(
+                    text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_public_slug "
                         "ON clubs (public_slug)"
                     )

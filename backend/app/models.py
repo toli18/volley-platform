@@ -113,6 +113,7 @@ class Club(Base):
     public_page_enabled = Column(Boolean, nullable=False, default=False)
     public_tagline = Column(String(255), nullable=True)
     public_about = Column(Text, nullable=True)
+    facebook_page_url = Column(String(500), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -885,6 +886,8 @@ class Team(Base):
     season = Column(String(40), nullable=True)
     gender = Column(String(16), nullable=True)  # "male" | "female"
     is_active = Column(Boolean, nullable=False, default=True)
+    # Публична страница: разрешено записване за пробна в тази група
+    public_enrollment_open = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

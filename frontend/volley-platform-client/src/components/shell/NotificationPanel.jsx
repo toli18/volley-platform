@@ -11,6 +11,7 @@ export default function NotificationPanel({
   markFeeItemSeen,
   markTaskItemSeen,
   markSekItemSeen,
+  markEnrollmentItemSeen,
   markAllClubFeedSeen,
   markForumItemRead,
   markAllForumRead,
@@ -107,6 +108,30 @@ export default function NotificationPanel({
               <div className="navShellPanel__rowMeta">
                 {item.sek_task_detail ||
                   (item.sek_task_code === "need_photo" ? "Липсва снимка" : "Липсват данни")}
+              </div>
+            </Link>
+          );
+        }
+        if (row.kind === "enrollment") {
+          const item = row.enrollment;
+          const trial =
+            item.trial_date && item.trial_time
+              ? `${item.trial_date} · ${item.trial_time}`
+              : item.trial_date || "Нова заявка";
+          return (
+            <Link
+              key={row.key}
+              to="/coach/enrollments"
+              onClick={() => {
+                markEnrollmentItemSeen?.(item.id);
+                onClose();
+              }}
+              className={`navShellPanel__row navShellPanel__row--task ${row.unread ? "navShellPanel__row--unread" : ""}`}
+            >
+              <div className="navShellPanel__tag">Пробна · записване</div>
+              <div className="navShellPanel__rowTitle">{item.child_name}</div>
+              <div className="navShellPanel__rowMeta">
+                {trial} · {item.parent_name} · {item.parent_phone}
               </div>
             </Link>
           );

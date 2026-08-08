@@ -6,15 +6,20 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 import useNavRoles from "../../navigation/useNavRoles";
 import { useToast } from "../../components/ToastProvider";
-import { Button, Input } from "../../components/ui";
+import { Button } from "../../components/ui";
 
 const STATUS_LABEL = {
   new: "Нова",
-  trial_scheduled: "Пробна насрочена",
+  trial_scheduled: "Пробна записана",
   accepted: "Приета",
   declined: "Отказана",
   cancelled: "Отменена",
 };
+
+function formatTrial(row) {
+  if (!row.trial_date) return null;
+  return `${row.trial_date}${row.trial_time ? ` · ${row.trial_time}` : ""}`;
+}
 
 export default function CoachEnrollments() {
   const toast = useToast();
@@ -23,8 +28,7 @@ export default function CoachEnrollments() {
   const [counts, setCounts] = useState({});
   const [teams, setTeams] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [trialDraft, setTrialDraft] = useState({});
+  const [filter, setFilter] = useState("trial_scheduled");
   const [acceptTeam, setAcceptTeam] = useState({});
 
   const load = useCallback(async () => {
@@ -48,26 +52,6 @@ export default function CoachEnrollments() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const scheduleTrial = async (id) => {
-    const d = trialDraft[id] || {};
-    if (!d.trial_date) {
-      toast.error("Избери дата за пробната тренировка.");
-      return;
-    }
-    try {
-      await axiosInstance.post(API_PATHS.CLUB_ENROLLMENT_SCHEDULE_TRIAL(id), {
-        trial_date: d.trial_date,
-        trial_time: d.trial_time || null,
-        trial_location: d.trial_location || null,
-        trial_notes: d.trial_notes || null,
-      });
-      toast.success("Пробната е насрочена.");
-      await load();
-    } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно насрочване."));
-    }
-  };
 
   const accept = async (row) => {
     const teamId = Number(acceptTeam[row.id] || row.preferred_team_id || 0);
@@ -104,19 +88,23 @@ export default function CoachEnrollments() {
         <span className="feesCoachHeadBadge">{(counts.new || 0) + (counts.trial_scheduled || 0)}</span>
       </header>
 
-      {isHeadCoachUser ? (
-        <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-          Публичната страница се включва от{" "}
-          <Link to="/coach/club-profile">Профил на клуба</Link>.
-        </p>
-      ) : null}
+      <p className="coachMobileMuted" style={{ marginTop: 0 }}>
+        Родителят сам избира група и дата за пробна. След пробната приеми детето — после сподели вход от
+        профила на състезателя.
+        {isHeadCoachUser ? (
+          <>
+            {" "}
+            Публичната страница: <Link to="/coach/club-profile">Профил на клуба</Link>.
+          </>
+        ) : null}
+      </p>
 
       <div className="coachMobileSubNav" style={{ marginBottom: 12 }}>
         {[
-          { id: "", label: "Всички" },
-          { id: "new", label: `Нови (${counts.new || 0})` },
           { id: "trial_scheduled", label: `Пробни (${counts.trial_scheduled || 0})` },
+          { id: "new", label: `Нови (${counts.new || 0})` },
           { id: "accepted", label: "Приети" },
+          { id: "", label: "Всички" },
         ].map((f) => (
           <button
             key={f.id || "all"}
@@ -144,77 +132,47 @@ export default function CoachEnrollments() {
               </strong>
               <span className="coachMobileMuted">{STATUS_LABEL[row.status] || row.status}</span>
             </div>
+            {formatTrial(row) ? (
+              <p style={{ margin: "8px 0 0", fontWeight: 700, color: "#0f766e" }}>
+                Пробна: {formatTrial(row)}
+                {row.preferred_team_name ? ` · ${row.preferred_team_name}` : ""}
+              </p>
+            ) : null}
             <div className="coachMobileMuted" style={{ marginTop: 4 }}>
               Родител: {row.parent_name} · {row.parent_phone}
-              {row.preferred_team_name ? ` · желана: ${row.preferred_team_name}` : ""}
             </div>
             {row.note ? <p style={{ margin: "6px 0 0", fontSize: 13 }}>{row.note}</p> : null}
 
             {row.status === "accepted" && row.athlete_id ? (
               <p style={{ margin: "8px 0 0", fontSize: 13 }}>
                 Състезател #{row.athlete_id}
-                {row.accepted_team_name ? ` · ${row.accepted_team_name}` : ""}. Родителят влиза с телефона и
-                годината.
+                {row.accepted_team_name ? ` · ${row.accepted_team_name}` : ""}.{" "}
+                <Link to={row.athlete_profile_path || `/coach/athletes/${row.athlete_id}`}>
+                  Профил — сподели родителски вход
+                </Link>
               </p>
             ) : null}
 
             {row.status === "new" || row.status === "trial_scheduled" ? (
-              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                  <Input
-                    type="date"
-                    value={trialDraft[row.id]?.trial_date || row.trial_date || ""}
-                    onChange={(e) =>
-                      setTrialDraft((p) => ({
-                        ...p,
-                        [row.id]: { ...(p[row.id] || {}), trial_date: e.target.value },
-                      }))
-                    }
-                  />
-                  <Input
-                    type="time"
-                    value={trialDraft[row.id]?.trial_time || row.trial_time || ""}
-                    onChange={(e) =>
-                      setTrialDraft((p) => ({
-                        ...p,
-                        [row.id]: { ...(p[row.id] || {}), trial_time: e.target.value },
-                      }))
-                    }
-                  />
-                </div>
-                <Input
-                  placeholder="Място за пробна"
-                  value={trialDraft[row.id]?.trial_location || row.trial_location || ""}
-                  onChange={(e) =>
-                    setTrialDraft((p) => ({
-                      ...p,
-                      [row.id]: { ...(p[row.id] || {}), trial_location: e.target.value },
-                    }))
-                  }
-                />
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  <Button size="sm" variant="secondary" onClick={() => scheduleTrial(row.id)}>
-                    Насрочи пробна
-                  </Button>
-                  <select
-                    value={acceptTeam[row.id] || row.preferred_team_id || ""}
-                    onChange={(e) => setAcceptTeam((p) => ({ ...p, [row.id]: e.target.value }))}
-                    style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #cbd5e1" }}
-                  >
-                    <option value="">Група за прием</option>
-                    {teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button size="sm" onClick={() => accept(row)}>
-                    Приеми
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => decline(row.id)}>
-                    Откажи
-                  </Button>
-                </div>
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                <select
+                  value={acceptTeam[row.id] || row.preferred_team_id || ""}
+                  onChange={(e) => setAcceptTeam((p) => ({ ...p, [row.id]: e.target.value }))}
+                  style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #cbd5e1" }}
+                >
+                  <option value="">Група за прием</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <Button size="sm" onClick={() => accept(row)}>
+                  Приеми след пробна
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => decline(row.id)}>
+                  Откажи
+                </Button>
               </div>
             ) : null}
           </li>

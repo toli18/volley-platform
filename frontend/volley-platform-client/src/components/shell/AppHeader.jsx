@@ -78,6 +78,7 @@ export default function AppHeader() {
     markFeeItemSeen: feed.markFeeItemSeen,
     markTaskItemSeen: feed.markTaskItemSeen,
     markSekItemSeen: feed.markSekItemSeen,
+    markEnrollmentItemSeen: feed.markEnrollmentItemSeen,
     markAllClubFeedSeen: feed.markAllClubFeedSeen,
     markForumItemRead: feed.markForumItemRead,
     markAllForumRead: feed.markAllForumRead,

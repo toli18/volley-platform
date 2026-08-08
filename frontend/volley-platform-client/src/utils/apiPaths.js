@@ -327,6 +327,8 @@ export const API_PATHS = {
   // Public club page + enrollment
   PUBLIC_CLUB_PAGE: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}`,
   PUBLIC_CLUB_ENROLL: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}/enroll`,
+  PUBLIC_CLUB_UPCOMING_TRAININGS: (slug, teamId) =>
+    `/api/public/clubs/${encodeURIComponent(slug)}/teams/${teamId}/upcoming-trainings`,
   CLUB_PUBLIC_PAGE_SETTINGS: "/api/club/public-page",
   CLUB_ENROLLMENTS: "/api/club/enrollments",
   CLUB_ENROLLMENT_SCHEDULE_TRIAL: (id) => `/api/club/enrollments/${id}/schedule-trial`,

@@ -30,8 +30,12 @@ export default function CoachClubProfile() {
     public_slug: "",
     public_tagline: "",
     public_about: "",
+    facebook_page_url: "",
   });
   const [publicMeta, setPublicMeta] = useState(null);
+
+  const [enrollmentTeamIds, setEnrollmentTeamIds] = useState([]);
+  const [clubTeams, setClubTeams] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -55,7 +59,13 @@ export default function CoachClubProfile() {
           public_slug: pubRes.data.public_slug || "",
           public_tagline: pubRes.data.public_tagline || "",
           public_about: pubRes.data.public_about || "",
+          facebook_page_url: pubRes.data.facebook_page_url || "",
         });
+        const teams = Array.isArray(pubRes.data.teams) ? pubRes.data.teams : [];
+        setClubTeams(teams);
+        setEnrollmentTeamIds(
+          teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
+        );
       }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
@@ -144,14 +154,23 @@ export default function CoachClubProfile() {
   const savePublicPage = async () => {
     try {
       setBusy(true);
-      const res = await axiosInstance.put(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS, publicForm);
+      const res = await axiosInstance.put(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS, {
+        ...publicForm,
+        enrollment_team_ids: enrollmentTeamIds,
+      });
       setPublicMeta(res.data);
       setPublicForm({
         public_page_enabled: Boolean(res.data.public_page_enabled),
         public_slug: res.data.public_slug || "",
         public_tagline: res.data.public_tagline || "",
         public_about: res.data.public_about || "",
+        facebook_page_url: res.data.facebook_page_url || "",
       });
+      const teams = Array.isArray(res.data.teams) ? res.data.teams : [];
+      setClubTeams(teams);
+      setEnrollmentTeamIds(
+        teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
+      );
       toast.success("Публичната страница е обновена.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен запис на публичната страница."));
@@ -212,6 +231,63 @@ export default function CoachClubProfile() {
             placeholder="За клуба (публичен текст)"
           />
         </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Facebook страница</span>
+          <Input
+            placeholder="https://www.facebook.com/..."
+            value={publicForm.facebook_page_url}
+            disabled={busy}
+            onChange={(e) => setPublicForm((p) => ({ ...p, facebook_page_url: e.target.value }))}
+          />
+        </label>
+        <div style={{ display: "grid", gap: 8 }}>
+          <strong style={{ fontSize: 13 }}>Групи за публично записване</strong>
+          <p className="uiMuted" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+            Родителите виждат името на групата (напр. „ДЕВОЙКИ“), не маркерите с години. Включи само
+            групите, в които приемат пробни тренировки.
+          </p>
+          {clubTeams.length === 0 ? (
+            <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+              Няма тренировъчни групи.
+            </p>
+          ) : (
+            clubTeams.map((t) => (
+              <label
+                key={t.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  fontSize: 14,
+                  opacity: t.is_active ? 1 : 0.55,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  disabled={busy || !t.is_active}
+                  checked={enrollmentTeamIds.includes(Number(t.id))}
+                  onChange={(e) => {
+                    const id = Number(t.id);
+                    setEnrollmentTeamIds((prev) =>
+                      e.target.checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id),
+                    );
+                  }}
+                />
+                <span>
+                  <strong>{t.name}</strong>
+                  {!t.is_active ? (
+                    <span className="uiMuted"> · неактивна</span>
+                  ) : t.gender_label || t.season ? (
+                    <span className="uiMuted">
+                      {" "}
+                      · {[t.gender_label, t.season].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
         <div>
           <Button type="button" disabled={busy} onClick={savePublicPage}>
             Запази публичната страница

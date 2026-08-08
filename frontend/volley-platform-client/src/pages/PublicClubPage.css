@@ -1,0 +1,332 @@
+.publicClub {
+  --pc-ink: #0f172a;
+  --pc-muted: #64748b;
+  --pc-line: #e2e8f0;
+  --pc-soft: #f8fafc;
+  --pc-accent: #0f766e;
+  --pc-accent-soft: #ccfbf1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 56px;
+  color: var(--pc-ink);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.publicClub__top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--pc-line);
+  margin: 0 -16px 20px;
+  padding: 10px 16px;
+}
+
+.publicClub__nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.publicClub__nav a {
+  text-decoration: none;
+  color: var(--pc-ink);
+  font-size: 13px;
+  font-weight: 650;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.publicClub__nav a:hover {
+  background: var(--pc-soft);
+  border-color: var(--pc-line);
+}
+
+.publicClub__nav a.is-cta {
+  background: var(--pc-accent);
+  color: #fff;
+  margin-left: auto;
+}
+
+.publicClub__hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.publicClub__logo,
+.publicClub__logoFallback {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  object-fit: contain;
+}
+
+.publicClub__logoFallback {
+  display: grid;
+  place-items: center;
+  background: var(--pc-accent);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.publicClub__hero h1 {
+  margin: 0 0 4px;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  letter-spacing: -0.02em;
+}
+
+.publicClub__tagline {
+  margin: 0;
+  color: var(--pc-muted);
+  font-size: 1rem;
+}
+
+.publicClub__meta {
+  margin: 8px 0 0;
+  color: var(--pc-muted);
+  font-size: 13px;
+}
+
+.publicClub__section {
+  margin-bottom: 28px;
+  scroll-margin-top: 72px;
+}
+
+.publicClub__section h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.publicClub__sectionLead {
+  margin: -4px 0 14px;
+  color: var(--pc-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.publicClub__cards {
+  display: grid;
+  gap: 10px;
+}
+
+.publicClub__card {
+  border: 1px solid var(--pc-line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.publicClub__card strong {
+  display: block;
+}
+
+.publicClub__muted {
+  color: var(--pc-muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.publicClub__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.publicClub__chip {
+  border: 1px solid var(--pc-line);
+  background: var(--pc-soft);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 180px);
+}
+
+.publicClub__chipName {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--pc-ink);
+}
+
+.publicClub__chipHint {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--pc-muted);
+}
+
+.publicClub__chip.is-active {
+  border-color: var(--pc-accent);
+  background: var(--pc-accent-soft);
+  color: #115e59;
+}
+
+.publicClub__hours {
+  display: grid;
+  gap: 8px;
+}
+
+.publicClub__hourRow {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--pc-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.publicClub__hourRow strong {
+  font-size: 13px;
+}
+
+.publicClub__hourRow ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.publicClub__hourRow li {
+  font-size: 13px;
+  color: #334155;
+}
+
+.publicClub__enroll {
+  border: 1px solid #99f6e4;
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 48%);
+  border-radius: 18px;
+  padding: 18px 16px;
+}
+
+.publicClub__steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.publicClub__step {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.publicClub__step.is-on {
+  background: var(--pc-accent);
+  color: #fff;
+}
+
+.publicClub__slots {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.publicClub__slot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--pc-line);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.publicClub__slot.is-active {
+  border-color: var(--pc-accent);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
+  background: #f0fdfa;
+}
+
+.publicClub__slot strong {
+  font-size: 14px;
+}
+
+.publicClub__form {
+  display: grid;
+  gap: 8px;
+}
+
+.publicClub__formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.publicClub__label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pc-muted);
+}
+
+.publicClub__label select,
+.publicClub__form textarea {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font: inherit;
+  color: var(--pc-ink);
+  background: #fff;
+}
+
+.publicClub__fb {
+  width: 100%;
+  min-height: 520px;
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--pc-soft);
+}
+
+.publicClub__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.publicClub__done {
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .publicClub__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .publicClub__formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .publicClub__nav a.is-cta {
+    margin-left: 0;
+  }
+}
