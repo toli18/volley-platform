@@ -396,13 +396,16 @@ export default function PublicClubPage() {
                 className={`publicClub__slot${slotKey === s.slot_key ? " is-active" : ""}`}
                 onClick={() => setSlotKey(s.slot_key)}
               >
-                <span aria-hidden>{slotKey === s.slot_key ? "●" : "○"}</span>
-                <span>
-                  <strong>
+                <span className="publicClub__slotRadio" aria-hidden>
+                  {slotKey === s.slot_key ? "●" : "○"}
+                </span>
+                <span className="publicClub__slotBody">
+                  <strong className="publicClub__slotTitle">
                     {formatBgDate(s.date)} · {s.start_time}
                     {s.end_time ? `–${s.end_time}` : ""}
                   </strong>
-                  <div className="publicClub__muted">{s.team_name}</div>
+                  {s.location ? <div className="publicClub__slotHall">{s.location}</div> : null}
+                  <div className="publicClub__slotTeam">{s.team_name}</div>
                 </span>
               </button>
             ))}
@@ -484,6 +487,7 @@ export default function PublicClubPage() {
             <p className="publicClub__muted" style={{ margin: 0 }}>
               Пробна: {formatBgDate(selectedSlot.date)} · {selectedSlot.start_time}
               {selectedSlot.end_time ? `–${selectedSlot.end_time}` : ""}
+              {selectedSlot.location ? ` · ${selectedSlot.location}` : ""}
             </p>
           ) : null}
           <Button disabled={sending || !teamId || !selectedSlot} type="submit">

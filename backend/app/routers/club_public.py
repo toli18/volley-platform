@@ -154,6 +154,11 @@ def _upcoming_trainings_for_team(
                 exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
             )
             end_v = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+            loc_v = None
+            if exc and exc.kind == "override" and (exc.location or "").strip():
+                loc_v = (exc.location or "").strip()
+            else:
+                loc_v = (r.location or "").strip() or None
             if cur_s == today.isoformat() and (start_v or "") < now_hm:
                 continue
             out.append(
@@ -163,6 +168,7 @@ def _upcoming_trainings_for_team(
                     "weekday_label": _WEEKDAY_BG[weekday] if 0 <= weekday < 7 else str(weekday),
                     "start_time": start_v,
                     "end_time": end_v,
+                    "location": loc_v,
                     "team_id": int(team_id),
                     "team_name": team_name,
                     "rule_id": int(r.id),
@@ -450,6 +456,7 @@ def create_public_enrollment(slug: str, payload: PublicEnrollmentCreate, db: Ses
         status=ClubEnrollmentStatus.trial_scheduled.value,
         trial_date=trial_date,
         trial_time=trial_time,
+        trial_location=(match.get("location") or None),
         trial_notes=f"Избрана от родител · правило #{match.get('rule_id')}",
     )
     db.add(row)
