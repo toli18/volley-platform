@@ -354,6 +354,7 @@ export default function CoachMatchLive() {
     };
     const showAceToast = action === "ace" || action === "error";
     const affectsScore = actionAffectsScore(action);
+    setSelectedId(null);
     run(
       async () => {
         const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_STAT(teamIdNum, matchIdNum), body);

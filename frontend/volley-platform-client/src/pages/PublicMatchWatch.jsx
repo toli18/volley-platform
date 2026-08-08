@@ -211,6 +211,7 @@ export default function PublicMatchWatch() {
       apply_score: affectsScore,
     };
     const showAceToast = action === "ace" || action === "error";
+    setSelectedId(null);
     run(
       async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), body)).data,
       { resetPhase: affectsScore, queueItem: { kind: "stat", body } },
