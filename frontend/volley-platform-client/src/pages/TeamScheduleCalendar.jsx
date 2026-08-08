@@ -896,6 +896,11 @@ export default function TeamScheduleCalendar() {
             >
               + Състезание
             </Button>
+            <Link to="/coach/competitions" onClick={() => setFabOpen(false)}>
+              <Button size="sm" variant="secondary">
+                Състезания / тимов лист
+              </Button>
+            </Link>
           </div>
         ) : null}
         <button type="button" className="calendarShellFab" aria-label="Добави" onClick={() => setFabOpen((v) => !v)}>
@@ -931,11 +936,14 @@ export default function TeamScheduleCalendar() {
     <div className="uiPage">
       <PageHero
         title="Месечен график"
-        subtitle="Тренировки и състезания. Тренировките отварят присъствие; състезанията са в оранжево."
+        subtitle="Тренировки и състезания. Тимовият лист и филтрите са в Състезания (Клуб & Групи)."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={() => openAddForDate(todayKey())}>+ Тренировка</Button>
             <Button variant="secondary" onClick={() => openCompetitionForDate(todayKey())}>+ Състезание</Button>
+            <Link to="/coach/competitions">
+              <Button variant="secondary">Състезания</Button>
+            </Link>
             <Link to="/coach/teams">
               <Button variant="secondary">Назад към Отбори</Button>
             </Link>
