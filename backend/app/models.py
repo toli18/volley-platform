@@ -79,6 +79,7 @@ class Club(Base):
     address = Column(Text)
     contact_email = Column(String(255))
     contact_phone = Column(String(50))
+    contact_name = Column(String(255), nullable=True)  # председател / контактно лице
     website_url = Column(String(500))
     logo_url = Column(String(500))
     bulstat = Column(String(32), nullable=True)

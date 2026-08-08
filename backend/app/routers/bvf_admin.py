@@ -1155,6 +1155,7 @@ def clear_sek_task_for_athlete(
 class ClubProfileUpdateIn(BaseModel):
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    contact_name: Optional[str] = None
     website_url: Optional[str] = None
     facebook_page_url: Optional[str] = None
     address: Optional[str] = None

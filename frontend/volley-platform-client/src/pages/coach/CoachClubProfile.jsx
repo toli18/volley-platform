@@ -107,6 +107,7 @@ export default function CoachClubProfile() {
       const res = await axiosInstance.patch(API_PATHS.BVF_ADMIN_CLUB_PROFILE, {
         contact_phone: profile.contact_phone || null,
         contact_email: profile.contact_email || null,
+        contact_name: profile.contact_name || null,
         website_url: profile.website_url || null,
         address: profile.address || null,
         city: profile.city || null,
@@ -434,6 +435,15 @@ export default function CoachClubProfile() {
                 value={profile.address || ""}
                 disabled={!profile.can_edit || busy}
                 onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Председател (име)</span>
+              <Input
+                placeholder="Име на председателя"
+                value={profile.contact_name || ""}
+                disabled={!profile.can_edit || busy}
+                onChange={(e) => setProfile((p) => ({ ...p, contact_name: e.target.value }))}
               />
             </label>
             <label style={{ display: "grid", gap: 4 }}>

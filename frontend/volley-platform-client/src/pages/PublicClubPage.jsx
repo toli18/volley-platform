@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { normalizeError } from "../utils/normalizeError";
+import { resolveStaticUrl } from "../utils/staticUrl";
 import { Button, Input } from "../components/ui";
 import "./PublicClubPage.css";
 
@@ -33,6 +34,7 @@ export default function PublicClubPage() {
   const [slots, setSlots] = useState([]);
   const [slotsBusy, setSlotsBusy] = useState(false);
   const [slotKey, setSlotKey] = useState("");
+  const [logoFailed, setLogoFailed] = useState(false);
   const [form, setForm] = useState({
     child_first_name: "",
     child_last_name: "",
@@ -50,6 +52,7 @@ export default function PublicClubPage() {
     (async () => {
       setBusy(true);
       setError("");
+      setLogoFailed(false);
       try {
         const res = await axiosInstance.get(API_PATHS.PUBLIC_CLUB_PAGE(slug));
         if (!alive) return;
@@ -156,10 +159,12 @@ export default function PublicClubPage() {
     Boolean(page.about) ||
     Boolean(page.contact_phone) ||
     Boolean(page.contact_email) ||
+    Boolean(page.contact_name) ||
     Boolean(page.website_url) ||
     Boolean(page.city) ||
     Boolean(page.address) ||
     coaches.length > 0;
+  const logoSrc = resolveStaticUrl(page.logo_url);
 
   return (
     <div className="publicClub">
@@ -174,8 +179,13 @@ export default function PublicClubPage() {
 
       <section id="zapisvane" className="publicClub__first">
         <header className="publicClub__hero">
-          {page.logo_url ? (
-            <img className="publicClub__logo" src={page.logo_url} alt="" />
+          {logoSrc && !logoFailed ? (
+            <img
+              className="publicClub__logo"
+              src={logoSrc}
+              alt=""
+              onError={() => setLogoFailed(true)}
+            />
           ) : (
             <div className="publicClub__logoFallback">{(page.name || "?").slice(0, 1)}</div>
           )}
@@ -348,15 +358,33 @@ export default function PublicClubPage() {
           <div className="publicClub__aboutGrid">
             <div className="publicClub__card">
               <strong>Контакти</strong>
-              <div className="publicClub__muted">
-                {[
-                  [page.city, page.address].filter(Boolean).join(", ") || null,
-                  page.contact_phone ? `Тел: ${page.contact_phone}` : null,
-                  page.contact_email ? `Имейл: ${page.contact_email}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || "—"}
-              </div>
+              {(page.city || page.address) ? (
+                <div className="publicClub__muted" style={{ marginTop: 8 }}>
+                  {[page.city, page.address].filter(Boolean).join(", ")}
+                </div>
+              ) : null}
+              {page.contact_name || page.contact_phone ? (
+                <ul className="publicClub__coachList">
+                  <li>
+                    {page.contact_name ? (
+                      <span className="publicClub__coachName">{page.contact_name}</span>
+                    ) : null}
+                    <span className="publicClub__muted">
+                      Председател
+                      {page.contact_phone ? ` · ${page.contact_phone}` : ""}
+                    </span>
+                  </li>
+                </ul>
+              ) : (
+                <div className="publicClub__muted" style={{ marginTop: 8 }}>
+                  —
+                </div>
+              )}
+              {page.contact_email ? (
+                <div className="publicClub__muted" style={{ marginTop: 8 }}>
+                  Имейл: {page.contact_email}
+                </div>
+              ) : null}
               {page.website_url ? (
                 <div className="publicClub__actions">
                   <a href={page.website_url} target="_blank" rel="noreferrer">

@@ -41,6 +41,21 @@ def apply_bvf_club_remote_to_local(club: Club, remote: dict) -> dict[str, Any]:
     address = str(remote.get("address") or "").strip() or None
     email = str(remote.get("email") or "").strip() or None
     phone = _pick_phone(remote)
+    contact_name = None
+    for key in (
+        "contactName",
+        "contactPerson",
+        "president",
+        "presidentName",
+        "chairman",
+        "chairmanName",
+        "managerName",
+        "representativeName",
+    ):
+        val = str(remote.get(key) or "").strip()
+        if val:
+            contact_name = val
+            break
     website = str(remote.get("websiteUrl") or remote.get("website") or "").strip() or None
     bulstat = str(remote.get("bulstat") or "").strip() or None
     license_number = str(remote.get("licenseNumber") or "").strip() or None
@@ -73,6 +88,9 @@ def apply_bvf_club_remote_to_local(club: Club, remote: dict) -> dict[str, Any]:
     if phone:
         club.contact_phone = phone
         changed.append("contact_phone")
+    if contact_name and not (getattr(club, "contact_name", None) or "").strip():
+        club.contact_name = contact_name
+        changed.append("contact_name")
     if website:
         club.website_url = website if website.startswith("http") else f"https://{website}"
         changed.append("website_url")
@@ -88,6 +106,9 @@ def apply_bvf_club_remote_to_local(club: Club, remote: dict) -> dict[str, Any]:
     if logo_id:
         club.bvf_logo_id = logo_id
         changed.append("bvf_logo_id")
+        if not (club.logo_url or "").strip():
+            club.logo_url = f"https://cdn.bgvolley.dev/club-logos/{logo_id}"
+            changed.append("logo_url")
 
     return {"changed_fields": sorted(set(changed))}
 
@@ -178,6 +199,7 @@ def serialize_club_profile(club: Club, *, coaches: list[User] | None = None) -> 
         "address": club.address,
         "contact_email": club.contact_email,
         "contact_phone": club.contact_phone,
+        "contact_name": getattr(club, "contact_name", None),
         "website_url": club.website_url,
         "facebook_page_url": getattr(club, "facebook_page_url", None),
         "logo_url": club.logo_url,

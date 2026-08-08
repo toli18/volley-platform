@@ -143,6 +143,11 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "ALTER TABLE teams ADD COLUMN IF NOT EXISTS public_enrollment_open "
                         "BOOLEAN NOT NULL DEFAULT false"
                     )

@@ -76,8 +76,36 @@ def _public_club_or_404(db: Session, slug: str) -> Club:
 
 
 def _logo_url(club: Club) -> str | None:
+    # Prefer public CDN when we have SEK logo id — works on the public page without API host.
+    logo_id = (getattr(club, "bvf_logo_id", None) or "").strip()
+    if logo_id:
+        return f"https://cdn.bgvolley.dev/club-logos/{logo_id}"
     url = (club.logo_url or "").strip()
-    return url or None
+    if url:
+        return url
+    bvf_id = getattr(club, "bvf_club_id", None)
+    if bvf_id:
+        return f"/static/club-logos/{int(bvf_id)}.png"
+    return None
+
+
+def _digits(phone: str | None) -> str:
+    return "".join(ch for ch in str(phone or "") if ch.isdigit())
+
+
+def _contact_name_for_club(club: Club, coaches: list) -> str | None:
+    name = (getattr(club, "contact_name", None) or "").strip()
+    if name:
+        return name
+    want = _digits(club.contact_phone)
+    if len(want) < 8:
+        return None
+    for u in coaches:
+        phone = u.phone if bool(getattr(u, "phone_visible_to_parents", True)) else None
+        got = _digits(phone)
+        if got and (got == want or got.endswith(want[-8:]) or want.endswith(got[-8:])):
+            return (u.name or "").strip() or None
+    return None
 
 
 def _normalize_facebook_url(raw: str | None) -> str | None:
@@ -311,6 +339,7 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
         "address": club.address,
         "contact_email": club.contact_email,
         "contact_phone": club.contact_phone,
+        "contact_name": _contact_name_for_club(club, coaches),
         "website_url": club.website_url,
         "facebook_page_url": fb,
         "logo_url": _logo_url(club),
