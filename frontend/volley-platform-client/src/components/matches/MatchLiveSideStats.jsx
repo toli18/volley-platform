@@ -9,6 +9,8 @@ export const MATCH_STAT_SIDE_LEFT = [
   { action: "error", label: "Гр.Серв", tone: "bad", ctx: "serve" },
   { action: "block", label: "Блок+", tone: "good", ctx: "always" },
   { action: "opp_error", label: "Гр.OPP", tone: "good", ctx: "always" },
+  // Противникът забива / блок-аут / топка в нашето поле — точка за тях, без наш играч
+  { action: "opp_point", label: "Точ.OPP", tone: "bad", ctx: "always" },
 ];
 
 export const MATCH_STAT_SIDE_RIGHT = [
@@ -30,7 +32,7 @@ export const MATCH_ACTION_LABEL = {
   pass_2: "Пос. +",
   pass_3: "Пос. #",
   pass_error: "Грешка поср.",
-  opp_point: "Точка OPP",
+  opp_point: "Точка за противника (атака / блок-аут)",
   our_point: "Точка НИЕ",
   opp_error: "Грешка на противника",
   substitution: "Смяна",

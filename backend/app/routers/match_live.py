@@ -43,6 +43,7 @@ from app.schemas.matches import (
     MatchRotationStatsRead,
     MatchSetStatsRead,
     MatchSideOutRead,
+    MatchSubHistoryRead,
 )
 from app.services.match_rotations import ZONE_LABELS_BG
 from app.services import match_systems
@@ -955,6 +956,8 @@ def match_report(
     athletes_raw = match_report_svc.aggregate_events(events, roster=roster)
     athletes = [MatchAthleteStatsRead(**row) for row in athletes_raw]
 
+    set_number_by_id = {int(s.id): int(s.set_number) for s in all_sets}
+
     # Match-level side-out: replay across sets in order (each set has own start serve/rot)
     match_side = {
         "side_out_attempts": 0,
@@ -999,6 +1002,7 @@ def match_report(
                     "pass_plus",
                     "pass_minus",
                     "pass_err",
+                    "subs",
                 )
             )
         ]
@@ -1041,6 +1045,12 @@ def match_report(
             ):
                 acc[k] = int(acc[k]) + int(row.get(k) or 0)
 
+        set_subs = match_report_svc.list_substitutions(
+            set_events,
+            roster=roster,
+            set_number_by_set_id=set_number_by_id,
+            default_set_number=int(s.set_number),
+        )
         by_set.append(
             MatchSetStatsRead(
                 set_number=int(s.set_number),
@@ -1050,6 +1060,7 @@ def match_report(
                 athletes=[MatchAthleteStatsRead(**row) for row in set_athletes],
                 side_out=MatchSideOutRead(**so),
                 by_rotation=[MatchRotationStatsRead(**row) for row in analysis["by_rotation"]],
+                substitutions=[MatchSubHistoryRead(**row) for row in set_subs],
             )
         )
 
@@ -1067,6 +1078,12 @@ def match_report(
         acc["point_diff"] = int(acc["points_for"]) - int(acc["points_against"])
         match_by_rotation.append(MatchRotationStatsRead(**acc))
 
+    match_subs = match_report_svc.list_substitutions(
+        events,
+        roster=roster,
+        set_number_by_set_id=set_number_by_id,
+    )
+
     match_analysis = {"side_out": match_side, "by_rotation": [r.model_dump() for r in match_by_rotation]}
 
     insights = match_report_svc.build_insights(
@@ -1075,6 +1092,8 @@ def match_report(
         sets_won_opp=sets_won_opp,
     )
     insights = match_report_svc.enrich_insights_with_side_out(insights, match_analysis)
+    if match_subs:
+        insights.append(f"Смени: {len(match_subs)}")
 
     system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
     status = match.status.value if isinstance(match.status, MatchStatus) else str(match.status)
@@ -1096,6 +1115,7 @@ def match_report(
         by_set=by_set,
         side_out=MatchSideOutRead(**match_side),
         by_rotation=match_by_rotation,
+        substitutions=[MatchSubHistoryRead(**row) for row in match_subs],
         insights=insights,
         event_count=len(events),
     )

@@ -293,7 +293,12 @@ export default function PublicMatchWatch() {
       <div className="matchLiveScore publicWatchScore">
         <div className="matchLiveScoreRow">
           <div className="matchLiveScoreSide matchLiveScoreSide--us">
-            <button type="button" disabled={busy || !canWrite} onClick={() => score("us")}>
+            <button
+              type="button"
+              disabled={busy || !canWrite}
+              onClick={() => score("us")}
+              title="Точка за нас (без статистика на играч)"
+            >
               +
             </button>
             <div>
@@ -312,7 +317,12 @@ export default function PublicMatchWatch() {
               <div className="matchLiveScoreLabel">OPP</div>
               <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
             </div>
-            <button type="button" disabled={busy || !canWrite} onClick={() => score("opp")}>
+            <button
+              type="button"
+              disabled={busy || !canWrite}
+              onClick={() => score("opp")}
+              title="Точка за противника (атака / блок-аут)"
+            >
               +
             </button>
           </div>

@@ -342,6 +342,23 @@ class MatchRotationStatsRead(BaseModel):
     point_diff: int = 0
 
 
+class MatchSubHistoryRead(BaseModel):
+    """Една смяна: излиза → влиза."""
+
+    id: int
+    set_number: int = 1
+    rotation: int = 1
+    our_score: int = 0
+    opp_score: int = 0
+    out_athlete_id: Optional[int] = None
+    out_athlete_name: str = ""
+    out_jersey: int = 0
+    in_athlete_id: Optional[int] = None
+    in_athlete_name: str = ""
+    in_jersey: int = 0
+    created_at: Optional[datetime] = None
+
+
 class MatchSetStatsRead(BaseModel):
     set_number: int
     our_score: int
@@ -350,6 +367,7 @@ class MatchSetStatsRead(BaseModel):
     athletes: list[MatchAthleteStatsRead] = Field(default_factory=list)
     side_out: Optional[MatchSideOutRead] = None
     by_rotation: list[MatchRotationStatsRead] = Field(default_factory=list)
+    substitutions: list[MatchSubHistoryRead] = Field(default_factory=list)
 
 
 class MatchReportRead(BaseModel):
@@ -369,5 +387,6 @@ class MatchReportRead(BaseModel):
     by_set: list[MatchSetStatsRead] = Field(default_factory=list)
     side_out: Optional[MatchSideOutRead] = None
     by_rotation: list[MatchRotationStatsRead] = Field(default_factory=list)
+    substitutions: list[MatchSubHistoryRead] = Field(default_factory=list)
     insights: list[str] = Field(default_factory=list)
     event_count: int = 0

@@ -9643,6 +9643,57 @@ body:has(.publicWatchPage--fs) {
   margin: 4px 0 0;
   font-size: 15px;
 }
+.matchReportSubs h3 {
+  margin: 4px 0 8px;
+  font-size: 15px;
+}
+.matchReportSubsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 10px;
+}
+.matchReportSubsList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding: 8px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+}
+.matchReportSubsList li:last-child {
+  border-bottom: 0;
+}
+.matchReportSubsMeta {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  min-width: 7rem;
+}
+.matchReportSubsSwap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.matchReportSubsOut {
+  color: #b91c1c;
+}
+.matchReportSubsIn {
+  color: #0f766e;
+}
+.matchReportSubsArrow {
+  color: #94a3b8;
+  font-weight: 900;
+}
 .matchReportRotation tr.is-good td:first-child {
   color: #0f766e;
 }

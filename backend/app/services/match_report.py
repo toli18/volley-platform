@@ -341,3 +341,58 @@ def enrich_insights_with_side_out(lines: list[str], analysis: dict[str, Any]) ->
                 f"({worst['points_for']}:{worst['points_against']}, diff {worst['point_diff']:+d})"
             )
     return lines
+
+
+def list_substitutions(
+    events: list[Any],
+    *,
+    roster: list[dict[str, Any]],
+    set_number_by_set_id: dict[int, int] | None = None,
+    default_set_number: int = 1,
+) -> list[dict[str, Any]]:
+    """Хронология на смените (излиза → влиза)."""
+    by_id = {int(p["athlete_id"]): p for p in roster if p.get("athlete_id") is not None}
+    set_map = set_number_by_set_id or {}
+    out: list[dict[str, Any]] = []
+
+    def g(ev: Any, key: str, default=None):
+        if isinstance(ev, dict):
+            return ev.get(key, default)
+        return getattr(ev, key, default)
+
+    for ev in events:
+        action = g(ev, "action")
+        is_sub = action == MatchStatAction.substitution or (
+            isinstance(action, str) and action == MatchStatAction.substitution.value
+        )
+        if not is_sub:
+            continue
+
+        out_id = g(ev, "athlete_id")
+        in_id = g(ev, "related_athlete_id")
+        set_id = g(ev, "set_id")
+        set_number = default_set_number
+        if set_id is not None:
+            set_number = int(set_map.get(int(set_id), default_set_number))
+
+        out_row = by_id.get(int(out_id)) if out_id else None
+        in_row = by_id.get(int(in_id)) if in_id else None
+
+        out.append(
+            {
+                "id": int(g(ev, "id") or 0),
+                "set_number": set_number,
+                "rotation": int(g(ev, "rotation") or 1),
+                "our_score": int(g(ev, "our_score") or 0),
+                "opp_score": int(g(ev, "opp_score") or 0),
+                "out_athlete_id": int(out_id) if out_id else None,
+                "out_athlete_name": (out_row or {}).get("athlete_name") or "",
+                "out_jersey": int((out_row or {}).get("jersey_number") or 0),
+                "in_athlete_id": int(in_id) if in_id else None,
+                "in_athlete_name": (in_row or {}).get("athlete_name") or "",
+                "in_jersey": int((in_row or {}).get("jersey_number") or 0),
+                "created_at": g(ev, "created_at"),
+            }
+        )
+
+    return out

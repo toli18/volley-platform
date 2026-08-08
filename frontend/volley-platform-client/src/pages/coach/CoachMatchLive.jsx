@@ -678,7 +678,12 @@ export default function CoachMatchLive() {
       <div className="matchLiveScore">
         <div className="matchLiveScoreRow">
           <div className="matchLiveScoreSide matchLiveScoreSide--us">
-            <button type="button" disabled={busy || !playing} onClick={() => score("us")}>
+            <button
+              type="button"
+              disabled={busy || !playing}
+              onClick={() => score("us")}
+              title="Точка за нас (без статистика на играч)"
+            >
               +
             </button>
             <div>
@@ -697,7 +702,12 @@ export default function CoachMatchLive() {
               <div className="matchLiveScoreLabel">OPP</div>
               <div className="matchLiveScoreNum">{mset?.opp_score ?? 0}</div>
             </div>
-            <button type="button" disabled={busy || !playing} onClick={() => score("opp")}>
+            <button
+              type="button"
+              disabled={busy || !playing}
+              onClick={() => score("opp")}
+              title="Точка за противника (атака / блок-аут)"
+            >
               +
             </button>
           </div>

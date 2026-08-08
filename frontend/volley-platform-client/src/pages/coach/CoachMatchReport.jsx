@@ -103,6 +103,45 @@ function RotationTable({ rows }) {
   );
 }
 
+function playerLabel(jersey, name) {
+  const short = shortPlayerName(name) || name || "—";
+  return jersey ? `#${jersey} ${short}` : short;
+}
+
+function SubstitutionsList({ rows, showSet = true }) {
+  if (!rows?.length) {
+    return (
+      <div className="matchReportSubs">
+        <h3>Смени</h3>
+        <p className="coachMobileMuted">Няма записани смени.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="matchReportSubs">
+      <h3>Смени ({rows.length})</h3>
+      <ol className="matchReportSubsList">
+        {rows.map((row) => (
+          <li key={row.id || `${row.set_number}-${row.out_athlete_id}-${row.in_athlete_id}-${row.our_score}`}>
+            <span className="matchReportSubsMeta">
+              {showSet ? `G${row.set_number} · ` : ""}
+              {row.our_score}:{row.opp_score}
+              {row.rotation ? ` · R${row.rotation}` : ""}
+            </span>
+            <span className="matchReportSubsSwap">
+              <span className="matchReportSubsOut">{playerLabel(row.out_jersey, row.out_athlete_name)}</span>
+              <span className="matchReportSubsArrow" aria-hidden>
+                →
+              </span>
+              <span className="matchReportSubsIn">{playerLabel(row.in_jersey, row.in_athlete_name)}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function StatTable({ rows }) {
   if (!rows?.length) {
     return <p className="coachMobileMuted">Няма записи за този изглед.</p>;
@@ -211,6 +250,7 @@ export default function CoachMatchReport() {
 
   const sideOut = tab === "all" ? report?.side_out : activeSet?.side_out;
   const byRotation = tab === "all" ? report?.by_rotation : activeSet?.by_rotation;
+  const substitutions = tab === "all" ? report?.substitutions : activeSet?.substitutions;
 
   if (loading) return <p className="coachMobileMuted">Зареждане на отчет...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
@@ -291,6 +331,7 @@ export default function CoachMatchReport() {
 
       <SideOutCards sideOut={sideOut} />
       <RotationTable rows={byRotation} />
+      <SubstitutionsList rows={substitutions || []} showSet={tab === "all"} />
 
       <h3 className="matchReportPlayersTitle">По състезател</h3>
       <StatTable rows={rows} />
