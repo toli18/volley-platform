@@ -157,12 +157,6 @@ export default function PublicClubPage() {
     page.license_number ? `Лиценз ${page.license_number}` : null,
   ].filter(Boolean);
 
-  const fbEmbed = page.facebook_page_url
-    ? `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
-        page.facebook_page_url,
-      )}&tabs=timeline&width=500&height=560&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=false`
-    : null;
-
   return (
     <div className="publicClub">
       <div className="publicClub__top">
@@ -170,7 +164,6 @@ export default function PublicClubPage() {
           <a href="#za-kluba">За клуба</a>
           <a href="#treniori">Треньори</a>
           <a href="#kalendar">Календар</a>
-          {fbEmbed ? <a href="#novini">Новини</a> : null}
           <a href="#zapisvane" className="is-cta">
             Пробна тренировка
           </a>
@@ -215,13 +208,6 @@ export default function PublicClubPage() {
                 <a href={page.website_url} target="_blank" rel="noreferrer">
                   <Button type="button" size="sm" variant="secondary">
                     Уебсайт
-                  </Button>
-                </a>
-              ) : null}
-              {page.facebook_page_url ? (
-                <a href={page.facebook_page_url} target="_blank" rel="noreferrer">
-                  <Button type="button" size="sm" variant="secondary">
-                    Facebook
                   </Button>
                 </a>
               ) : null}
@@ -276,35 +262,11 @@ export default function PublicClubPage() {
         )}
       </section>
 
-      {fbEmbed ? (
-        <section id="novini" className="publicClub__section">
-          <h2>Новини</h2>
-          <p className="publicClub__sectionLead">
-            Актуални публикации от Facebook страницата на клуба.
-          </p>
-          <iframe
-            title="Facebook новини"
-            className="publicClub__fb"
-            src={fbEmbed}
-            scrolling="no"
-            frameBorder="0"
-            allow="encrypted-media"
-          />
-          <div className="publicClub__actions">
-            <a href={page.facebook_page_url} target="_blank" rel="noreferrer">
-              <Button type="button" size="sm" variant="secondary">
-                Отвори във Facebook
-              </Button>
-            </a>
-          </div>
-        </section>
-      ) : null}
-
       <section id="zapisvane" className="publicClub__section publicClub__enroll">
-        <h2>Пробна тренировка</h2>
+        <h2>Записване за пробна тренировка</h2>
         <p className="publicClub__sectionLead">
-          Избери група → виж следващите 5 тренировки → запиши се за тази, на която можеш да дойдеш.
-          Треньорът получава известие. След пробната и приемането ще получиш вход за родителски профил.
+          Избери група → виж следващите 5 тренировки → попълни данните. Треньорът получава известие.
+          След пробната и приемането ще получиш вход за родителски профил.
         </p>
 
         <div className="publicClub__steps">

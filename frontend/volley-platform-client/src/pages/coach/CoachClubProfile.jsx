@@ -64,9 +64,6 @@ export default function CoachClubProfile() {
         setEnrollmentTeamIds(
           teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
         );
-        if (pubRes.data.facebook_page_url && !res.data?.facebook_page_url) {
-          setProfile((p) => (p ? { ...p, facebook_page_url: pubRes.data.facebook_page_url } : p));
-        }
       }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
@@ -111,7 +108,6 @@ export default function CoachClubProfile() {
         contact_phone: profile.contact_phone || null,
         contact_email: profile.contact_email || null,
         website_url: profile.website_url || null,
-        facebook_page_url: profile.facebook_page_url || null,
         address: profile.address || null,
         city: profile.city || null,
       });
@@ -183,15 +179,29 @@ export default function CoachClubProfile() {
   const publicPath = publicMeta?.public_url_path;
   const publicUrl =
     typeof window !== "undefined" && publicPath ? `${window.location.origin}${publicPath}` : null;
+  const shareUrl = publicUrl ? `${publicUrl}#zapisvane` : null;
+
+  const copyShareLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Линкът е копиран — публикувай го във Facebook.");
+    } catch {
+      toast.error("Неуспешно копиране. Маркирай линка ръчно.");
+    }
+  };
 
   const publicPageCard = isHead ? (
-    <Card title="Набиране на нови деца (публична страница)">
+    <Card title="Бланка за записване (линк за Facebook)">
+      <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+        Това е страницата, която клубът публикува ръчно във Facebook (пост или бутон в био). Родителят
+        отваря линка и попълва заявка за пробна тренировка — без отделен сайт и без връзка с Facebook
+        новини.
+      </p>
       <ol style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 14, lineHeight: 1.5 }}>
-        <li>Включи публичната страница и запази (линкът е по-долу).</li>
-        <li>
-          <strong>Отвори групите за набиране</strong> с отметките — само те се показват на родителите.
-        </li>
-        <li>Родителят избира група по <strong>име</strong> и дата за пробна тренировка.</li>
+        <li>Включи страницата, отметни групите за набиране и запази.</li>
+        <li>Копирай линка по-долу и го публикувай във Facebook страницата на клуба.</li>
+        <li>Родителят избира група и дата за пробна; заявките идват в „Записвания“.</li>
       </ol>
       <div style={{ display: "grid", gap: 10 }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
@@ -294,16 +304,35 @@ export default function CoachClubProfile() {
             Запази набирането и публичната страница
           </Button>
         </div>
-        {publicUrl ? (
-          <p style={{ margin: 0, fontSize: 13 }}>
-            Публичен линк:{" "}
-            <a href={publicUrl} target="_blank" rel="noreferrer">
-              {publicUrl}
+        {shareUrl ? (
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid #93c5fd",
+              background: "#eff6ff",
+            }}
+          >
+            <strong style={{ fontSize: 14 }}>Линк за публикуване във Facebook</strong>
+            <a href={shareUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13, wordBreak: "break-all" }}>
+              {shareUrl}
             </a>
-          </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button type="button" size="sm" onClick={copyShareLink} disabled={busy}>
+                Копирай линка
+              </Button>
+              <a href={shareUrl} target="_blank" rel="noreferrer">
+                <Button type="button" size="sm" variant="secondary">
+                  Преглед
+                </Button>
+              </a>
+            </div>
+          </div>
         ) : (
           <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-            Включи страницата, отметни групи и запази — после ще се появи линкът.
+            Включи страницата, отметни групи и запази — после ще се появи линкът за Facebook.
           </p>
         )}
         <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
@@ -431,18 +460,6 @@ export default function CoachClubProfile() {
                 onChange={(e) => setProfile((p) => ({ ...p, website_url: e.target.value }))}
               />
             </label>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Facebook страница</span>
-              <Input
-                placeholder="https://www.facebook.com/troyanvolley"
-                value={profile.facebook_page_url || ""}
-                disabled={!profile.can_edit || busy}
-                onChange={(e) => setProfile((p) => ({ ...p, facebook_page_url: e.target.value }))}
-              />
-            </label>
-            <p className="uiMuted" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
-              Facebook линкът се ползва за секция „Новини“ на публичната клубна страница.
-            </p>
             <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
               {[
                 profile.bulstat ? `ЕИК ${profile.bulstat}` : null,
