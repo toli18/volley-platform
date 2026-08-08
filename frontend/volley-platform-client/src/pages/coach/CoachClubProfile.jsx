@@ -254,8 +254,8 @@ export default function CoachClubProfile() {
         >
           <strong style={{ fontSize: 14 }}>2) Кои групи приемат нови деца?</strong>
           <p className="uiMuted" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
-            Отметни групата и натисни „Запази“. На сайта родителите виждат само името (напр. ДЕВОЙКИ),
-            без годините 2017/2018…
+            Отметни групата и натисни „Запази“. На сайта родителите виждат името + годините от колона
+            „Група“ (напр. 2017, 2018…), без сезона.
           </p>
           {clubTeams.length === 0 ? (
             <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>

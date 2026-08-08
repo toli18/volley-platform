@@ -183,19 +183,14 @@ def _gender_label(g: str | None) -> str | None:
 
 
 def _public_team_hint(age_group: str | None, gender: str | None, season: str | None) -> str | None:
-    """Подзаглавие за родители: без маркери с години на раждане (2017, 2018…)."""
+    """Подзаглавие за родители: пол + колона „Група“ (години), без сезон."""
     bits: list[str] = []
     gl = _gender_label(gender)
     if gl:
         bits.append(gl)
     raw = (age_group or "").strip()
     if raw:
-        year_hits = re.findall(r"20\d{2}", raw)
-        looks_like_birth_years = len(year_hits) >= 2 or ("," in raw and bool(year_hits))
-        if not looks_like_birth_years:
-            bits.append(raw)
-    if season and str(season).strip():
-        bits.append(str(season).strip())
+        bits.append(raw)
     return " · ".join(bits) if bits else None
 
 
