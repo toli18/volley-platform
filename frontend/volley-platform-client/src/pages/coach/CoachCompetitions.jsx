@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "react-hot-toast";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 import useNavRoles from "../../navigation/useNavRoles";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
+import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
 import { Button } from "../../components/ui";
 
@@ -48,6 +48,7 @@ function statusLabel(row) {
 }
 
 export default function CoachCompetitions() {
+  const toast = useToast();
   const { user, isHeadCoachUser } = useNavRoles();
   const currentUserId = user?.id;
   const [monthOffset, setMonthOffset] = useState(0);
