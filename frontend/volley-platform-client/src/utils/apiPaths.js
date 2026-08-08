@@ -324,6 +324,15 @@ export const API_PATHS = {
   SCHEDULE_COMPETITION_DELETE: (eventId) => `/api/schedule/competitions/${eventId}`,
   SCHEDULE_COMPETITION_ROSTER: (eventId) => `/api/schedule/competitions/${eventId}/roster`,
 
+  // Public club page + enrollment
+  PUBLIC_CLUB_PAGE: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}`,
+  PUBLIC_CLUB_ENROLL: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}/enroll`,
+  CLUB_PUBLIC_PAGE_SETTINGS: "/api/club/public-page",
+  CLUB_ENROLLMENTS: "/api/club/enrollments",
+  CLUB_ENROLLMENT_SCHEDULE_TRIAL: (id) => `/api/club/enrollments/${id}/schedule-trial`,
+  CLUB_ENROLLMENT_ACCEPT: (id) => `/api/club/enrollments/${id}/accept`,
+  CLUB_ENROLLMENT_DECLINE: (id) => `/api/club/enrollments/${id}/decline`,
+
   // National method library (BVF)
   NATIONAL_METHOD_META: "/api/national-method/meta",
   NATIONAL_METHOD_COACH_HUB: "/api/national-method/coach-hub",

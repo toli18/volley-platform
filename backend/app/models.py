@@ -108,6 +108,12 @@ class Club(Base):
     membership_consent_fee_amount = Column(Integer, nullable=True)
     membership_consent_fee_due_day = Column(Integer, nullable=True)
 
+    # Публична клубна страница (/c/:slug)
+    public_slug = Column(String(80), nullable=True, unique=True, index=True)
+    public_page_enabled = Column(Boolean, nullable=False, default=False)
+    public_tagline = Column(String(255), nullable=True)
+    public_about = Column(Text, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1372,6 +1378,57 @@ class PilotRequest(Base):
     admin_seen = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# =========================
+# Club enrollment (parent → trial → accept → athlete)
+# =========================
+class ClubEnrollmentStatus(str, Enum):
+    new = "new"
+    trial_scheduled = "trial_scheduled"
+    accepted = "accepted"
+    declined = "declined"
+    cancelled = "cancelled"
+
+
+class ClubEnrollmentRequest(Base):
+    """Заявка от родител за записване на дете (публична форма → coach inbox)."""
+
+    __tablename__ = "club_enrollment_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    child_first_name = Column(String(80), nullable=False)
+    child_last_name = Column(String(80), nullable=True)
+    child_birth_year = Column(Integer, nullable=False)
+    child_gender = Column(String(16), nullable=True)  # male | female
+
+    parent_name = Column(String(255), nullable=False)
+    parent_phone = Column(String(50), nullable=False)
+    parent_email = Column(String(255), nullable=True)
+
+    preferred_team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    note = Column(Text, nullable=True)
+
+    status = Column(String(24), nullable=False, default=ClubEnrollmentStatus.new.value, index=True)
+    trial_date = Column(String(10), nullable=True)  # YYYY-MM-DD
+    trial_time = Column(String(5), nullable=True)  # HH:MM
+    trial_location = Column(String(255), nullable=True)
+    trial_notes = Column(Text, nullable=True)
+
+    accepted_team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    handled_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    handled_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    preferred_team = relationship("Team", foreign_keys=[preferred_team_id])
+    accepted_team = relationship("Team", foreign_keys=[accepted_team_id])
+    athlete = relationship("Athlete")
 
 
 # =========================

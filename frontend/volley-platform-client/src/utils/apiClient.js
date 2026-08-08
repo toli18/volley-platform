@@ -59,6 +59,7 @@ axiosInstance.interceptors.request.use((config) => {
   if (
     url.includes("/parent-auth/") ||
     url.includes("/athlete-room-auth/") ||
+    url.includes("/api/public/") ||
     /\/parent-portal\/[^/]+/.test(url)
   ) {
     return config;

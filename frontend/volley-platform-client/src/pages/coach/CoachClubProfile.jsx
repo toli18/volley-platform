@@ -25,11 +25,20 @@ export default function CoachClubProfile() {
   const [profile, setProfile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [coachDrafts, setCoachDrafts] = useState({});
+  const [publicForm, setPublicForm] = useState({
+    public_page_enabled: false,
+    public_slug: "",
+    public_tagline: "",
+    public_about: "",
+  });
+  const [publicMeta, setPublicMeta] = useState(null);
 
   const load = useCallback(async () => {
     try {
       setBusy(true);
-      const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_PROFILE);
+      const jobs = [axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_PROFILE)];
+      if (isHead) jobs.push(axiosInstance.get(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS));
+      const [res, pubRes] = await Promise.all(jobs);
       setProfile(res.data);
       const drafts = {};
       for (const c of res.data?.coaches || []) {
@@ -39,12 +48,21 @@ export default function CoachClubProfile() {
         };
       }
       setCoachDrafts(drafts);
+      if (pubRes?.data) {
+        setPublicMeta(pubRes.data);
+        setPublicForm({
+          public_page_enabled: Boolean(pubRes.data.public_page_enabled),
+          public_slug: pubRes.data.public_slug || "",
+          public_tagline: pubRes.data.public_tagline || "",
+          public_about: pubRes.data.public_about || "",
+        });
+      }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
     } finally {
       setBusy(false);
     }
-  }, [toast]);
+  }, [toast, isHead]);
 
   useEffect(() => {
     load();
@@ -123,6 +141,102 @@ export default function CoachClubProfile() {
     }
   };
 
+  const savePublicPage = async () => {
+    try {
+      setBusy(true);
+      const res = await axiosInstance.put(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS, publicForm);
+      setPublicMeta(res.data);
+      setPublicForm({
+        public_page_enabled: Boolean(res.data.public_page_enabled),
+        public_slug: res.data.public_slug || "",
+        public_tagline: res.data.public_tagline || "",
+        public_about: res.data.public_about || "",
+      });
+      toast.success("Публичната страница е обновена.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен запис на публичната страница."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const publicPath = publicMeta?.public_url_path;
+  const publicUrl =
+    typeof window !== "undefined" && publicPath ? `${window.location.origin}${publicPath}` : null;
+
+  const publicPageCard = isHead ? (
+    <Card title="Публична страница на клуба">
+      <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+        Маркетингова страница за нови родители: лого, отбори, треньори, часове, турнири и форма за
+        записване. Без вход към родителски портал или клубна стая — достъпът се дава след приемане на
+        детето.
+      </p>
+      <div style={{ display: "grid", gap: 10 }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={publicForm.public_page_enabled}
+            disabled={busy}
+            onChange={(e) =>
+              setPublicForm((p) => ({ ...p, public_page_enabled: e.target.checked }))
+            }
+          />
+          Активна публична страница
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Slug в линка (/c/…)</span>
+          <Input
+            placeholder="напр. troyan-volley"
+            value={publicForm.public_slug}
+            disabled={busy}
+            onChange={(e) => setPublicForm((p) => ({ ...p, public_slug: e.target.value }))}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Мото</span>
+          <Input
+            placeholder="Кратко мото"
+            value={publicForm.public_tagline}
+            disabled={busy}
+            onChange={(e) => setPublicForm((p) => ({ ...p, public_tagline: e.target.value }))}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Описание</span>
+          <textarea
+            rows={4}
+            value={publicForm.public_about}
+            disabled={busy}
+            onChange={(e) => setPublicForm((p) => ({ ...p, public_about: e.target.value }))}
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #cbd5e1", fontFamily: "inherit" }}
+            placeholder="За клуба (публичен текст)"
+          />
+        </label>
+        <div>
+          <Button type="button" disabled={busy} onClick={savePublicPage}>
+            Запази публичната страница
+          </Button>
+        </div>
+        {publicUrl ? (
+          <p style={{ margin: 0, fontSize: 13 }}>
+            Линк:{" "}
+            <a href={publicUrl} target="_blank" rel="noreferrer">
+              {publicUrl}
+            </a>
+          </p>
+        ) : (
+          <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+            Включи страницата и запази, за да получиш публичен линк.
+          </p>
+        )}
+        <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+          Заявките се обработват в{" "}
+          <Link to="/coach/enrollments">Записвания</Link>.
+        </p>
+      </div>
+    </Card>
+  ) : null;
+
   if (!profile) {
     return (
       <div className="uiPage">
@@ -160,6 +274,7 @@ export default function CoachClubProfile() {
             </p>
           )}
         </Card>
+        {publicPageCard}
       </div>
     );
   }
@@ -258,10 +373,12 @@ export default function CoachClubProfile() {
         </div>
       </Card>
 
+      {publicPageCard}
+
       <Card title="Треньори — телефони за родители">
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
           Телефоните се изтеглят от СЕК при sync (ако ги има). Можеш да ги допълниш ръчно — видимите се
-          показват в родителския портал.
+          показват в родителския портал и на публичната страница на клуба.
         </p>
         {(profile.coaches || []).length === 0 ? (
           <EmptyState title="Няма треньори" description="Добави треньори в клуба." />

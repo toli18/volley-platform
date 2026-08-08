@@ -28,7 +28,8 @@ export default function App() {
       path.startsWith("/parent/") ||
       path === "/room" ||
       path.startsWith("/room/") ||
-      path.startsWith("/watch/")
+      path.startsWith("/watch/") ||
+      path.startsWith("/c/")
     );
   }, [location.pathname]);
 

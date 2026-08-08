@@ -68,6 +68,8 @@ const CoachMatchSetup = React.lazy(() => import("./pages/coach/CoachMatchSetup.j
 const CoachMatchLive = React.lazy(() => import("./pages/coach/CoachMatchLive.jsx"));
 const CoachMatchReport = React.lazy(() => import("./pages/coach/CoachMatchReport.jsx"));
 const CoachCompetitions = React.lazy(() => import("./pages/coach/CoachCompetitions.jsx"));
+const CoachEnrollments = React.lazy(() => import("./pages/coach/CoachEnrollments.jsx"));
+const PublicClubPage = React.lazy(() => import("./pages/PublicClubPage.jsx"));
 const CoachChat = React.lazy(() => import("./pages/CoachChat.jsx"));
 const CoachChatList = React.lazy(() => import("./pages/coach/CoachChatList.jsx"));
 const CoachChatRoom = React.lazy(() => import("./pages/coach/CoachChatRoom.jsx"));
@@ -157,6 +159,7 @@ const router = createBrowserRouter([
       { path: "room/portal", element: <TeamRoomPortal /> },
       { path: "room", element: <Navigate to="/room/login" replace /> },
       { path: "watch/:token", element: <PublicMatchWatch /> },
+      { path: "c/:slug", element: <PublicClubPage /> },
       { path: "team/:token", element: <Navigate to="/room/login" replace /> },
       { path: "team", element: <Navigate to="/room/login" replace /> },
 
@@ -219,6 +222,7 @@ const router = createBrowserRouter([
               { path: "attendance", element: <CoachAttendanceTeams /> },
               { path: "schedule", element: <CoachSchedule /> },
               { path: "competitions", element: <CoachCompetitions /> },
+              { path: "enrollments", element: <CoachEnrollments /> },
               { path: "club", element: <CoachClubHub /> },
               { path: "program-week", element: <CoachProgramWeek /> },
               { path: "chat", element: <CoachChatList /> },

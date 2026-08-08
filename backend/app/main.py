@@ -31,6 +31,7 @@ from app.routers.team_chat import router as team_chat_router
 from app.routers.national_method import router as national_method_router
 from app.routers.navbar import router as navbar_router
 from app.routers.pilot_requests import router as pilot_requests_router
+from app.routers.club_public import router as club_public_router
 from app.routers.assessments import router as assessments_router
 from app.routers.matches import router as matches_router
 from app.routers.match_live import router as match_live_router
@@ -109,6 +110,7 @@ app.include_router(bvf_carding_router)
 app.include_router(club_consent_router)
 app.include_router(athlete_docs_router)
 app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])
+app.include_router(club_public_router)
 
 # --- Root ---
 @app.get("/")

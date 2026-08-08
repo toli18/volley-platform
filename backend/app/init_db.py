@@ -115,6 +115,79 @@ def _init_db_impl() -> None:
         except Exception as early_exc:
             print(f"⚠️ early phone/club-profile patch: {early_exc}")
 
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS public_slug VARCHAR(80)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS public_page_enabled "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS public_tagline VARCHAR(255)"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS public_about TEXT")
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_clubs_public_slug "
+                        "ON clubs (public_slug)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS club_enrollment_requests (
+                            id SERIAL PRIMARY KEY,
+                            club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+                            child_first_name VARCHAR(80) NOT NULL,
+                            child_last_name VARCHAR(80),
+                            child_birth_year INTEGER NOT NULL,
+                            child_gender VARCHAR(16),
+                            parent_name VARCHAR(255) NOT NULL,
+                            parent_phone VARCHAR(50) NOT NULL,
+                            parent_email VARCHAR(255),
+                            preferred_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+                            note TEXT,
+                            status VARCHAR(24) NOT NULL DEFAULT 'new',
+                            trial_date VARCHAR(10),
+                            trial_time VARCHAR(5),
+                            trial_location VARCHAR(255),
+                            trial_notes TEXT,
+                            accepted_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+                            athlete_id INTEGER REFERENCES athletes(id) ON DELETE SET NULL,
+                            handled_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            handled_at TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_club_enrollment_requests_club_id "
+                        "ON club_enrollment_requests (club_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_club_enrollment_requests_status "
+                        "ON club_enrollment_requests (status)"
+                    )
+                )
+            print("✅ PostgreSQL: public club page / enrollment schema ensured")
+        except Exception as enroll_exc:
+            print(f"⚠️ public club / enrollment patch: {enroll_exc}")
+
         # Critical for schedule / live match / parent portal after recent deploys.
         try:
             with engine.begin() as conn:
