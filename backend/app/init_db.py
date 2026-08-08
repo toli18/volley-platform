@@ -115,6 +115,79 @@ def _init_db_impl() -> None:
         except Exception as early_exc:
             print(f"⚠️ early phone/club-profile patch: {early_exc}")
 
+        # Critical for schedule / live match / parent portal after recent deploys.
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE match_stat_events "
+                        "ADD COLUMN IF NOT EXISTS related_athlete_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_match_stat_events_related_athlete_id "
+                        "ON match_stat_events (related_athlete_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_status VARCHAR(16) "
+                        "NOT NULL DEFAULT 'pending'"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_edit_count INTEGER "
+                        "NOT NULL DEFAULT 0"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_confirmed_at TIMESTAMP"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_locked_at TIMESTAMP"
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS competition_roster_athletes (
+                            id SERIAL PRIMARY KEY,
+                            competition_id INTEGER NOT NULL
+                                REFERENCES club_competition_events(id) ON DELETE CASCADE,
+                            athlete_id INTEGER NOT NULL
+                                REFERENCES athletes(id) ON DELETE CASCADE,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            CONSTRAINT uq_competition_roster_athlete
+                                UNIQUE (competition_id, athlete_id)
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_competition_roster_athletes_competition_id "
+                        "ON competition_roster_athletes (competition_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_competition_roster_athletes_athlete_id "
+                        "ON competition_roster_athletes (athlete_id)"
+                    )
+                )
+            print("✅ PostgreSQL: early match-stat / competition-roster schema ensured")
+        except Exception as early_roster_exc:
+            print(f"⚠️ early match-stat / competition-roster patch: {early_roster_exc}")
+
     # PostgreSQL: Alembic often не се пуска на Railway — добавяме липсващи колони идемпотентно.
     db_url = (settings.database_url or "").lower()
     if "postgres" in db_url:
@@ -364,6 +437,73 @@ def _init_db_impl() -> None:
                         "ADD COLUMN IF NOT EXISTS card_index_id INTEGER"
                     )
                 )
+                # Match substitutions + competition travel roster (ако Alembic не е минал на Railway).
+                conn.execute(
+                    text(
+                        "ALTER TABLE match_stat_events "
+                        "ADD COLUMN IF NOT EXISTS related_athlete_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_match_stat_events_related_athlete_id "
+                        "ON match_stat_events (related_athlete_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_status VARCHAR(16) "
+                        "NOT NULL DEFAULT 'pending'"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_edit_count INTEGER "
+                        "NOT NULL DEFAULT 0"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_confirmed_at TIMESTAMP"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE club_competition_events "
+                        "ADD COLUMN IF NOT EXISTS roster_locked_at TIMESTAMP"
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS competition_roster_athletes (
+                            id SERIAL PRIMARY KEY,
+                            competition_id INTEGER NOT NULL
+                                REFERENCES club_competition_events(id) ON DELETE CASCADE,
+                            athlete_id INTEGER NOT NULL
+                                REFERENCES athletes(id) ON DELETE CASCADE,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            CONSTRAINT uq_competition_roster_athlete
+                                UNIQUE (competition_id, athlete_id)
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_competition_roster_athletes_competition_id "
+                        "ON competition_roster_athletes (competition_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_competition_roster_athletes_athlete_id "
+                        "ON competition_roster_athletes (athlete_id)"
+                    )
+                )
                 conn.execute(
                     text(
                         "ALTER TABLE parent_absence_notices "
@@ -383,6 +523,8 @@ def _init_db_impl() -> None:
             print("✅ PostgreSQL: clubs/athletes BVF link columns ensured")
             print("✅ PostgreSQL: club profile / users.phone columns ensured")
             print("✅ PostgreSQL: club_competition_events.card_index_id ensured")
+            print("✅ PostgreSQL: match_stat_events.related_athlete_id ensured")
+            print("✅ PostgreSQL: competition travel roster columns/table ensured")
             print("✅ PostgreSQL: parent_absence_notices.end_date ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")

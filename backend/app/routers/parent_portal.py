@@ -284,6 +284,10 @@ def _build_schedule_for_teams(
                 )
     except SQLAlchemyError as exc:
         logger.warning("Competition schedule query failed: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         comp_rows = []
 
     extra_team_ids = {int(e.team_id) for e in comp_rows} - set(team_name_map.keys())
@@ -309,12 +313,20 @@ def _build_schedule_for_teams(
 
     roster_comp_ids: set[int] = set()
     if athlete is not None:
-        roster_comp_ids = {
-            int(r[0])
-            for r in db.query(CompetitionRosterAthlete.competition_id)
-            .filter(CompetitionRosterAthlete.athlete_id == int(athlete.id))
-            .all()
-        }
+        try:
+            roster_comp_ids = {
+                int(r[0])
+                for r in db.query(CompetitionRosterAthlete.competition_id)
+                .filter(CompetitionRosterAthlete.athlete_id == int(athlete.id))
+                .all()
+            }
+        except SQLAlchemyError as exc:
+            logger.warning("Competition roster lookup failed: %s", exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            roster_comp_ids = set()
 
     for e in comp_rows:
         kind = str(e.competition_kind or "friendly")

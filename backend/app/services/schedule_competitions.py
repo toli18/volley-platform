@@ -85,25 +85,32 @@ def load_competition_occurrences(
     location: str | None,
     line_coach_user_id: int | None,
 ) -> list[ScheduleOccurrence]:
-    q = db.query(ClubCompetitionEvent).filter(
-        ClubCompetitionEvent.club_id == club_id,
-        ClubCompetitionEvent.is_cancelled.is_(False),
-        ClubCompetitionEvent.date >= d0.isoformat(),
-        ClubCompetitionEvent.date <= d1.isoformat(),
-    )
-    if coach_id:
-        q = q.filter(ClubCompetitionEvent.coach_id == int(coach_id))
-    if team_id:
-        q = q.filter(ClubCompetitionEvent.team_id == int(team_id))
-    if location and location.strip():
-        q = q.filter(ClubCompetitionEvent.location.ilike(f"%{location.strip()}%"))
-    if line_coach_user_id:
-        owned = line_coach_team_ids(db, club_id, line_coach_user_id)
-        if not owned:
-            return []
-        q = q.filter(ClubCompetitionEvent.team_id.in_(owned))
+    try:
+        q = db.query(ClubCompetitionEvent).filter(
+            ClubCompetitionEvent.club_id == club_id,
+            ClubCompetitionEvent.is_cancelled.is_(False),
+            ClubCompetitionEvent.date >= d0.isoformat(),
+            ClubCompetitionEvent.date <= d1.isoformat(),
+        )
+        if coach_id:
+            q = q.filter(ClubCompetitionEvent.coach_id == int(coach_id))
+        if team_id:
+            q = q.filter(ClubCompetitionEvent.team_id == int(team_id))
+        if location and location.strip():
+            q = q.filter(ClubCompetitionEvent.location.ilike(f"%{location.strip()}%"))
+        if line_coach_user_id:
+            owned = line_coach_team_ids(db, club_id, line_coach_user_id)
+            if not owned:
+                return []
+            q = q.filter(ClubCompetitionEvent.team_id.in_(owned))
 
-    events = q.all()
+        events = q.all()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return []
     if not events:
         return []
 
