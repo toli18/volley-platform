@@ -48,7 +48,11 @@
 .publicClub__nav a.is-cta {
   background: var(--pc-accent);
   color: #fff;
-  margin-left: auto;
+}
+
+.publicClub__first {
+  scroll-margin-top: 72px;
+  margin-bottom: 36px;
 }
 
 .publicClub__hero {
@@ -56,7 +60,7 @@
   grid-template-columns: auto 1fr;
   gap: 16px;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 
 .publicClub__logo,
@@ -88,15 +92,44 @@
   font-size: 1rem;
 }
 
-.publicClub__meta {
-  margin: 8px 0 0;
-  color: var(--pc-muted);
-  font-size: 13px;
-}
-
 .publicClub__section {
   margin-bottom: 28px;
   scroll-margin-top: 72px;
+}
+
+.publicClub__about {
+  padding-top: 8px;
+  border-top: 1px solid var(--pc-line);
+}
+
+.publicClub__aboutText {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.publicClub__aboutGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.publicClub__coachList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.publicClub__coachList li {
+  display: grid;
+  gap: 2px;
+}
+
+.publicClub__coachName {
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .publicClub__section h2 {
@@ -171,46 +204,6 @@
   border-color: var(--pc-accent);
   background: var(--pc-accent-soft);
   color: #115e59;
-}
-
-.publicClub__eventCard {
-  border-color: #fdba74;
-  background: #fff7ed;
-}
-
-.publicClub__eventMeta {
-  margin-top: 4px;
-  color: var(--pc-muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.publicClub__hourRow {
-  display: grid;
-  grid-template-columns: 52px 1fr;
-  gap: 10px;
-  align-items: start;
-  padding: 10px 12px;
-  border: 1px solid var(--pc-line);
-  border-radius: 12px;
-  background: #fff;
-}
-
-.publicClub__hourRow strong {
-  font-size: 13px;
-}
-
-.publicClub__hourRow ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 4px;
-}
-
-.publicClub__hourRow li {
-  font-size: 13px;
-  color: #334155;
 }
 
 .publicClub__enroll {
@@ -325,15 +318,6 @@
   background: #fff;
 }
 
-.publicClub__fb {
-  width: 100%;
-  min-height: 520px;
-  border: 0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--pc-soft);
-}
-
 .publicClub__actions {
   display: flex;
   flex-wrap: wrap;
@@ -361,7 +345,4 @@
     grid-template-columns: 1fr;
   }
 
-  .publicClub__nav a.is-cta {
-    margin-left: 0;
-  }
 }
