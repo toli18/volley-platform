@@ -184,12 +184,14 @@ export default function CoachClubProfile() {
     typeof window !== "undefined" && publicPath ? `${window.location.origin}${publicPath}` : null;
 
   const publicPageCard = isHead ? (
-    <Card title="Публична страница на клуба">
-      <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
-        Маркетингова страница за нови родители: лого, отбори, треньори, часове, турнири и форма за
-        записване. Без вход към родителски портал или клубна стая — достъпът се дава след приемане на
-        детето.
-      </p>
+    <Card title="Набиране на нови деца (публична страница)">
+      <ol style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 14, lineHeight: 1.5 }}>
+        <li>Включи публичната страница и запази (линкът е по-долу).</li>
+        <li>
+          <strong>Отвори групите за набиране</strong> с отметките — само те се показват на родителите.
+        </li>
+        <li>Родителят избира група по <strong>име</strong> и дата за пробна тренировка.</li>
+      </ol>
       <div style={{ display: "grid", gap: 10 }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
           <input
@@ -200,7 +202,7 @@ export default function CoachClubProfile() {
               setPublicForm((p) => ({ ...p, public_page_enabled: e.target.checked }))
             }
           />
-          Активна публична страница
+          1) Активна публична страница
         </label>
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>Slug в линка (/c/…)</span>
@@ -240,15 +242,24 @@ export default function CoachClubProfile() {
             onChange={(e) => setPublicForm((p) => ({ ...p, facebook_page_url: e.target.value }))}
           />
         </label>
-        <div style={{ display: "grid", gap: 8 }}>
-          <strong style={{ fontSize: 13 }}>Групи за публично записване</strong>
+        <div
+          style={{
+            display: "grid",
+            gap: 8,
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #99f6e4",
+            background: "#f0fdfa",
+          }}
+        >
+          <strong style={{ fontSize: 14 }}>2) Кои групи приемат нови деца?</strong>
           <p className="uiMuted" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
-            Родителите виждат името на групата (напр. „ДЕВОЙКИ“), не маркерите с години. Включи само
-            групите, в които приемат пробни тренировки.
+            Отметни групата и натисни „Запази“. На сайта родителите виждат само името (напр. ДЕВОЙКИ),
+            без годините 2017/2018…
           </p>
           {clubTeams.length === 0 ? (
             <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-              Няма тренировъчни групи.
+              Няма тренировъчни групи. Създай ги в „Тренировъчни групи“.
             </p>
           ) : (
             clubTeams.map((t) => (
@@ -275,14 +286,12 @@ export default function CoachClubProfile() {
                 />
                 <span>
                   <strong>{t.name}</strong>
-                  {!t.is_active ? (
-                    <span className="uiMuted"> · неактивна</span>
-                  ) : t.gender_label || t.season ? (
-                    <span className="uiMuted">
-                      {" "}
-                      · {[t.gender_label, t.season].filter(Boolean).join(" · ")}
-                    </span>
-                  ) : null}
+                  {enrollmentTeamIds.includes(Number(t.id)) ? (
+                    <span style={{ color: "#0f766e", fontWeight: 700 }}> · отворена за набиране</span>
+                  ) : (
+                    <span className="uiMuted"> · затворена</span>
+                  )}
+                  {!t.is_active ? <span className="uiMuted"> · неактивна</span> : null}
                 </span>
               </label>
             ))
@@ -290,24 +299,25 @@ export default function CoachClubProfile() {
         </div>
         <div>
           <Button type="button" disabled={busy} onClick={savePublicPage}>
-            Запази публичната страница
+            Запази набирането и публичната страница
           </Button>
         </div>
         {publicUrl ? (
           <p style={{ margin: 0, fontSize: 13 }}>
-            Линк:{" "}
+            Публичен линк:{" "}
             <a href={publicUrl} target="_blank" rel="noreferrer">
               {publicUrl}
             </a>
           </p>
         ) : (
           <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-            Включи страницата и запази, за да получиш публичен линк.
+            Включи страницата, отметни групи и запази — после ще се появи линкът.
           </p>
         )}
         <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
-          Заявките се обработват в{" "}
-          <Link to="/coach/enrollments">Записвания</Link>.
+          Заявките идват в{" "}
+          <Link to="/coach/enrollments">Записвания</Link>. Можеш да отваряш/затваряш набиране и от{" "}
+          <Link to="/coach/teams">Тренировъчни групи</Link>.
         </p>
       </div>
     </Card>

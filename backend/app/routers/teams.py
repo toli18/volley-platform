@@ -134,6 +134,7 @@ def _serialize_team(team: Team, coach_name: str | None = None) -> TeamRead:
         season=team.season,
         gender=team.gender,
         is_active=bool(team.is_active),
+        public_enrollment_open=bool(getattr(team, "public_enrollment_open", False)),
         created_at=team.created_at,
         updated_at=team.updated_at,
     )
@@ -282,6 +283,13 @@ def update_team(
         team.gender = _normalize_gender(data.get("gender"))
     if "is_active" in data:
         team.is_active = bool(data.get("is_active"))
+    if "public_enrollment_open" in data:
+        if not _is_head_coach(current_user) and _role_value(current_user) not in {
+            UserRole.platform_admin.value,
+            UserRole.federation_admin.value,
+        }:
+            raise HTTPException(status_code=403, detail="Само главният треньор отваря групи за набиране")
+        team.public_enrollment_open = bool(data.get("public_enrollment_open")) and bool(team.is_active)
     team.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(team)

@@ -18,6 +18,7 @@ class TeamUpdate(BaseModel):
     season: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     is_active: Optional[bool] = None
+    public_enrollment_open: Optional[bool] = None
 
 
 class TeamAssignCoach(BaseModel):
@@ -36,6 +37,7 @@ class TeamRead(BaseModel):
     season: Optional[str] = None
     gender: Optional[Literal["male", "female"]] = None
     is_active: bool = True
+    public_enrollment_open: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

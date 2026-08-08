@@ -133,6 +133,29 @@ export default function Teams() {
     });
   };
 
+  const toggleRecruitment = async (team) => {
+    if (!isHeadCoach) return;
+    const next = !Boolean(team.public_enrollment_open);
+    try {
+      setBusy(true);
+      const res = await axiosInstance.put(API_PATHS.TEAM_UPDATE(team.id), {
+        public_enrollment_open: next,
+      });
+      setTeams((prev) =>
+        normalizeTeamsList(prev.map((t) => (Number(t.id) === Number(team.id) ? { ...t, ...res.data } : t))),
+      );
+      toast.success(
+        next
+          ? `„${team.name}“ е отворена за набиране на публичната страница.`
+          : `„${team.name}“ е затворена за набиране.`,
+      );
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешна промяна на набирането."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveEditTeam = async () => {
     if (!editTeam) return;
     const payload = {
@@ -195,9 +218,14 @@ export default function Teams() {
       ) : (
         <PageHero
           title="Тренировъчни групи"
-          subtitle="Първо избери група, после отвори отделния ѝ екран."
+          subtitle="Първо избери група, после отвори отделния ѝ екран. Главният отваря групи за набиране с бутона „Отвори за набиране“."
           actions={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {isHeadCoach ? (
+                <Button as={Link} to="/coach/club-profile" variant="secondary">
+                  Публична страница
+                </Button>
+              ) : null}
               <Button as={Link} to="/coach/athletes?tab=add" variant="secondary">
                 Нов състезател
               </Button>
@@ -247,6 +275,18 @@ export default function Teams() {
                     <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
                       {team.is_active ? "Активен" : "Неактивен"}
                     </span>
+                    {isHeadCoach ? (
+                      <span
+                        className={`uiBadge ${team.public_enrollment_open ? "uiBadge--success" : ""}`}
+                        style={
+                          team.public_enrollment_open
+                            ? undefined
+                            : { background: "#f1f5f9", color: "#64748b" }
+                        }
+                      >
+                        {team.public_enrollment_open ? "Отворена за набиране" : "Затворена за набиране"}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="teamsMobileActions">
                     <Link to={teamDetailPath(team.id)} style={{ display: "block" }}>
@@ -254,6 +294,17 @@ export default function Teams() {
                         Отвори
                       </Button>
                     </Link>
+                    {isHeadCoach ? (
+                      <Button
+                        size="sm"
+                        variant={team.public_enrollment_open ? "secondary" : "primary"}
+                        block
+                        disabled={busy || team.is_active === false}
+                        onClick={() => toggleRecruitment(team)}
+                      >
+                        {team.public_enrollment_open ? "Затвори набиране" : "Отвори за набиране"}
+                      </Button>
+                    ) : null}
                     <Button size="sm" variant="secondary" block onClick={() => openEditTeam(team)}>
                       Редактирай
                     </Button>
@@ -279,6 +330,7 @@ export default function Teams() {
                     <TableHead>Сезон</TableHead>
                     <TableHead>Тип</TableHead>
                     <TableHead>Статус</TableHead>
+                    {isHeadCoach ? <TableHead>Набиране</TableHead> : null}
                     <TableHead>Действия</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -300,6 +352,18 @@ export default function Teams() {
                           {team.is_active ? "Активен" : "Неактивен"}
                         </span>
                       </TableCell>
+                      {isHeadCoach ? (
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant={team.public_enrollment_open ? "secondary" : "primary"}
+                            disabled={busy || team.is_active === false}
+                            onClick={() => toggleRecruitment(team)}
+                          >
+                            {team.public_enrollment_open ? "Отворена · затвори" : "Отвори за набиране"}
+                          </Button>
+                        </TableCell>
+                      ) : null}
                       <TableCell>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <Link to={teamDetailPath(team.id)}>
