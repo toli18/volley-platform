@@ -1206,8 +1206,21 @@ def generate_team_sheet_pdf(
         aid = int(raw_id)
         if aid in seen:
             continue
-        if aid not in members_by_id:
-            raise HTTPException(status_code=422, detail=f"Състезател {aid} не е в този отбор")
+        athlete = members_by_id.get(aid)
+        if athlete is None and team.club_id:
+            # Картотечен състав за мач може да не е в тренировъчната група.
+            athlete = (
+                db.query(Athlete)
+                .filter(
+                    Athlete.id == aid,
+                    Athlete.club_id == int(team.club_id),
+                    Athlete.is_active.is_(True),
+                )
+                .first()
+            )
+        if athlete is None:
+            raise HTTPException(status_code=422, detail=f"Състезател {aid} не е в този клуб/отбор")
+        members_by_id[aid] = athlete
         seen.add(aid)
         selected_ids.append(aid)
         if len(selected_ids) >= MAX_PLAYERS:

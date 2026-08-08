@@ -5,11 +5,10 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 import useNavRoles from "../../navigation/useNavRoles";
+import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
-import CompetitionRosterPreview from "../../components/schedule/CompetitionRosterPreview";
 import { useToast } from "../../components/ToastProvider";
-import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
-import { buildRosterPrintModel } from "../../utils/competitionRosterPrint";
+import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { Button } from "../../components/ui";
 
 function monthRange(offset = 0) {
@@ -68,7 +67,8 @@ export default function CoachCompetitions() {
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [cardIndexes, setCardIndexes] = useState([]);
-  const [printModel, setPrintModel] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetCtx, setSheetCtx] = useState(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -202,20 +202,40 @@ export default function CoachCompetitions() {
     }
   };
 
-  const previewRoster = async (event, rosterData = null) => {
+  const openOfficialSheet = async (event, rosterData = null) => {
     try {
       let data = rosterData;
       if (!data) {
         const res = await axiosInstance.get(API_PATHS.SCHEDULE_COMPETITION_ROSTER(event.id));
         data = res.data;
       }
+      const team = teams.find((t) => Number(t.id) === Number(event.team_id));
       const overrideIds =
-        rosterEvent?.id === event.id && selectedIds?.length ? selectedIds : null;
-      setPrintModel(
-        buildRosterPrintModel(event, data, overrideIds),
-      );
+        rosterEvent?.id === event.id && selectedIds?.length ? selectedIds : data?.athlete_ids || [];
+      const athletes = (data?.candidates || []).map((c) => ({
+        athlete_id: Number(c.id),
+        athlete_name: c.name,
+      }));
+      const kind = competitionKindLabel(event);
+      const titleBits = [kind, event.carded_team_label].filter(Boolean);
+      setSheetCtx({
+        teamId: Number(event.team_id),
+        athletes,
+        athleteIds: (overrideIds || []).map(Number).filter(Boolean),
+        form: {
+          competition: titleBits.join(" · ") || kind,
+          venue_city: event.location || "",
+          age_group: team?.age_group || event.carded_team_label || "",
+          sheet_date: event.date || todayKey(),
+          jersey_color: "",
+          head_coach: event.coach_name || user?.name || user?.email || "",
+          assistant_1: "",
+          assistant_2: "",
+        },
+      });
+      setSheetOpen(true);
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешен преглед на тимовия лист."));
+      toast.error(normalizeError(err, "Неуспешно отваряне на бланка О-2."));
     }
   };
 
@@ -290,8 +310,8 @@ export default function CoachCompetitions() {
               <Button size="sm" variant={row.needs_roster ? undefined : "secondary"} onClick={() => openRoster(row)}>
                 Тимов лист
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => previewRoster(row)}>
-                Преглед / печат
+              <Button size="sm" variant="secondary" onClick={() => openOfficialSheet(row)}>
+                Генерирай тимов лист
               </Button>
               <Link to="/coach/schedule" className="uiMuted" style={{ fontSize: 12, textAlign: "center" }}>
                 В календара
@@ -352,9 +372,9 @@ export default function CoachCompetitions() {
               <button
                 type="button"
                 className="matchLiveUndo"
-                onClick={() => previewRoster(rosterEvent, roster)}
+                onClick={() => openOfficialSheet(rosterEvent, roster)}
               >
-                Преглед / печат
+                Генерирай тимов лист
               </button>
               {rosterEvent.can_edit_roster && !roster.locked ? (
                 <button type="button" className="matchLiveNext" disabled={savingRoster} onClick={saveRoster}>
@@ -366,11 +386,16 @@ export default function CoachCompetitions() {
         </div>
       ) : null}
 
-      <CompetitionRosterPreview
-        open={Boolean(printModel)}
-        model={printModel}
-        clubName={user?.club_name || user?.club?.name || ""}
-        onClose={() => setPrintModel(null)}
+      <TeamSheetO2Modal
+        open={sheetOpen}
+        onClose={() => {
+          setSheetOpen(false);
+          setSheetCtx(null);
+        }}
+        teamId={sheetCtx?.teamId}
+        athletes={sheetCtx?.athletes || []}
+        initialAthleteIds={sheetCtx?.athleteIds}
+        initialForm={sheetCtx?.form}
       />
     </div>
   );
