@@ -497,19 +497,25 @@ export default function MatchCourt({
         <span className="matchChipZoneBadge">{zone}</span>
         {player ? (
           <span className="matchChipStack">
-            <span
-              className={`matchChipCircle${shapeClass}`}
-              style={{ background: color }}
-              title={`${label || ""} · ${player.athlete_name || ""}`}
-            >
-              {label}
+            <span className="matchChipAvatar">
+              {isActive ? <span className="matchChipSelectRing" aria-hidden /> : null}
+              <span
+                className={`matchChipCircle${shapeClass}`}
+                style={{ background: color }}
+                title={`${label || ""} · ${player.athlete_name || ""}`}
+              >
+                {label}
+              </span>
             </span>
             <span className="matchChipTag">
               {player.jersey_number} {shortPlayerName(player.athlete_name)}
             </span>
           </span>
         ) : (
-          <span className="matchChipEmpty">{editable ? "+" : "—"}</span>
+          <span className={`matchChipEmpty${isActive ? " matchChipEmpty--active" : ""}`}>
+            {isActive ? <span className="matchChipSelectRing" aria-hidden /> : null}
+            {editable ? "+" : "—"}
+          </span>
         )}
         {isServe && player ? <span className="matchChipBall" aria-hidden title="Сервис" /> : null}
       </Tag>

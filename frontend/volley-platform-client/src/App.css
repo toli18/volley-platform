@@ -7338,17 +7338,48 @@
 button.matchChipSlot:not(:disabled) {
   cursor: pointer;
 }
-.matchChipSlot--active .matchChipCircle,
-.matchChipSlot--active .matchChipEmpty {
-  box-shadow: 0 0 0 3px #ef4444, 0 12px 28px rgba(239, 68, 68, 0.55);
-  outline: 2px solid #fecaca;
-  outline-offset: 2px;
-  background: #b91c1c;
+.matchChipAvatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  margin: 0 auto;
+}
+.matchChipSelectRing {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% + 14px);
+  height: calc(100% + 14px);
+  transform: translate(-50%, -50%);
+  border: 3px solid #dc2626;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px rgba(254, 226, 226, 0.95),
+    0 0 14px rgba(220, 38, 38, 0.55);
+  pointer-events: none;
+  z-index: 5;
+  box-sizing: border-box;
+}
+.matchLivePage .matchChipSelectRing,
+.publicWatchPage .matchChipSelectRing {
+  width: calc(100% + 16px);
+  height: calc(100% + 16px);
+  border-width: 3.5px;
+}
+.matchChipEmpty {
+  position: relative;
+}
+.matchChipEmpty--active {
+  color: #fecaca;
 }
 .matchChipSlot--active .matchChipName,
 .matchChipSlot--active .matchChipRole {
   color: #fee2e2;
   font-weight: 900;
+}
+.matchChipSlot--active .matchChipTag {
+  outline: 1px solid rgba(220, 38, 38, 0.45);
 }
 .matchChipSlot--serve .matchChipCircle {
   box-shadow: 0 0 0 2px #fbbf24, 0 8px 18px rgba(0, 0, 0, 0.35);
