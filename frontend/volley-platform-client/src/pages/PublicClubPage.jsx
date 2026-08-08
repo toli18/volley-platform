@@ -169,7 +169,6 @@ export default function PublicClubPage() {
         <nav className="publicClub__nav" aria-label="Клубна страница">
           <a href="#za-kluba">За клуба</a>
           <a href="#treniori">Треньори</a>
-          <a href="#grupi">Групи</a>
           <a href="#kalendar">Календар</a>
           {fbEmbed ? <a href="#novini">Новини</a> : null}
           <a href="#zapisvane" className="is-cta">
@@ -253,29 +252,6 @@ export default function PublicClubPage() {
         </section>
       ) : null}
 
-      {(page.teams || []).length ? (
-        <section id="grupi" className="publicClub__section">
-          <h2>Отбори / групи</h2>
-          <p className="publicClub__sectionLead">Избери група по-долу при записване за пробна тренировка.</p>
-          <div className="publicClub__chips">
-            {page.teams.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
-                onClick={() => {
-                  setTeamId(String(t.id));
-                  document.getElementById("zapisvane")?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <span className="publicClub__chipName">{t.name}</span>
-                {t.hint ? <span className="publicClub__chipHint">{t.hint}</span> : null}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       <section id="kalendar" className="publicClub__section">
         <h2>Календар на събитията</h2>
         <p className="publicClub__sectionLead">Предстоящи състезания и турнири на клуба.</p>
@@ -303,7 +279,9 @@ export default function PublicClubPage() {
       {fbEmbed ? (
         <section id="novini" className="publicClub__section">
           <h2>Новини</h2>
-          <p className="publicClub__sectionLead">От Facebook страницата на клуба.</p>
+          <p className="publicClub__sectionLead">
+            Актуални публикации от Facebook страницата на клуба.
+          </p>
           <iframe
             title="Facebook новини"
             className="publicClub__fb"

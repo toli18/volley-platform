@@ -179,6 +179,7 @@ def serialize_club_profile(club: Club, *, coaches: list[User] | None = None) -> 
         "contact_email": club.contact_email,
         "contact_phone": club.contact_phone,
         "website_url": club.website_url,
+        "facebook_page_url": getattr(club, "facebook_page_url", None),
         "logo_url": club.logo_url,
         "bulstat": getattr(club, "bulstat", None),
         "license_number": getattr(club, "license_number", None),

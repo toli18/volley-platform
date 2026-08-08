@@ -1156,6 +1156,7 @@ class ClubProfileUpdateIn(BaseModel):
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
     website_url: Optional[str] = None
+    facebook_page_url: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
     club_id: Optional[int] = None
@@ -1286,9 +1287,24 @@ def update_club_profile_local(
     data = payload.model_dump(exclude_unset=True)
     data.pop("club_id", None)
     for key, val in data.items():
+        if key == "facebook_page_url":
+            cleaned = str(val or "").strip() or None
+            if cleaned:
+                low = cleaned.lower()
+                if not cleaned.startswith("http"):
+                    cleaned = f"https://{cleaned}"
+                    low = cleaned.lower()
+                if "facebook.com" not in low and "fb.com" not in low:
+                    raise HTTPException(status_code=422, detail="Невалиден Facebook линк")
+                cleaned = cleaned[:500]
+            club.facebook_page_url = cleaned
+            continue
         if val is None:
             continue
-        setattr(club, key, str(val).strip() or None)
+        cleaned = str(val).strip() or None
+        if key == "website_url" and cleaned and not cleaned.startswith("http"):
+            cleaned = f"https://{cleaned}"
+        setattr(club, key, cleaned)
     db.commit()
     db.refresh(club)
     coaches = (

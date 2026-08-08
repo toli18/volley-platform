@@ -30,7 +30,6 @@ export default function CoachClubProfile() {
     public_slug: "",
     public_tagline: "",
     public_about: "",
-    facebook_page_url: "",
   });
   const [publicMeta, setPublicMeta] = useState(null);
 
@@ -59,13 +58,15 @@ export default function CoachClubProfile() {
           public_slug: pubRes.data.public_slug || "",
           public_tagline: pubRes.data.public_tagline || "",
           public_about: pubRes.data.public_about || "",
-          facebook_page_url: pubRes.data.facebook_page_url || "",
         });
         const teams = Array.isArray(pubRes.data.teams) ? pubRes.data.teams : [];
         setClubTeams(teams);
         setEnrollmentTeamIds(
           teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
         );
+        if (pubRes.data.facebook_page_url && !res.data?.facebook_page_url) {
+          setProfile((p) => (p ? { ...p, facebook_page_url: pubRes.data.facebook_page_url } : p));
+        }
       }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
@@ -110,6 +111,7 @@ export default function CoachClubProfile() {
         contact_phone: profile.contact_phone || null,
         contact_email: profile.contact_email || null,
         website_url: profile.website_url || null,
+        facebook_page_url: profile.facebook_page_url || null,
         address: profile.address || null,
         city: profile.city || null,
       });
@@ -164,7 +166,6 @@ export default function CoachClubProfile() {
         public_slug: res.data.public_slug || "",
         public_tagline: res.data.public_tagline || "",
         public_about: res.data.public_about || "",
-        facebook_page_url: res.data.facebook_page_url || "",
       });
       const teams = Array.isArray(res.data.teams) ? res.data.teams : [];
       setClubTeams(teams);
@@ -231,15 +232,6 @@ export default function CoachClubProfile() {
             onChange={(e) => setPublicForm((p) => ({ ...p, public_about: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #cbd5e1", fontFamily: "inherit" }}
             placeholder="За клуба (публичен текст)"
-          />
-        </label>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Facebook страница</span>
-          <Input
-            placeholder="https://www.facebook.com/..."
-            value={publicForm.facebook_page_url}
-            disabled={busy}
-            onChange={(e) => setPublicForm((p) => ({ ...p, facebook_page_url: e.target.value }))}
           />
         </label>
         <div
@@ -439,6 +431,18 @@ export default function CoachClubProfile() {
                 onChange={(e) => setProfile((p) => ({ ...p, website_url: e.target.value }))}
               />
             </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Facebook страница</span>
+              <Input
+                placeholder="https://www.facebook.com/troyanvolley"
+                value={profile.facebook_page_url || ""}
+                disabled={!profile.can_edit || busy}
+                onChange={(e) => setProfile((p) => ({ ...p, facebook_page_url: e.target.value }))}
+              />
+            </label>
+            <p className="uiMuted" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+              Facebook линкът се ползва за секция „Новини“ на публичната клубна страница.
+            </p>
             <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
               {[
                 profile.bulstat ? `ЕИК ${profile.bulstat}` : null,
