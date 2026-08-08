@@ -8,6 +8,7 @@ import useNavRoles from "../../navigation/useNavRoles";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
+import { openCompetitionRosterPrint } from "../../utils/competitionRosterPrint";
 import { Button } from "../../components/ui";
 
 function monthRange(offset = 0) {
@@ -199,6 +200,35 @@ export default function CoachCompetitions() {
     }
   };
 
+  const previewRoster = async (event, rosterData = null, { autoPrint = true } = {}) => {
+    try {
+      let data = rosterData;
+      if (!data) {
+        const res = await axiosInstance.get(API_PATHS.SCHEDULE_COMPETITION_ROSTER(event.id));
+        data = res.data;
+      } else if (selectedIds?.length && rosterEvent?.id === event.id) {
+        // Преглед на текущия избор в drawer-а (още незаписан)
+        data = {
+          ...rosterData,
+          athlete_ids: selectedIds,
+          selected_count: selectedIds.length,
+          candidates: (rosterData.candidates || []).map((c) => ({
+            ...c,
+            selected: selectedIds.includes(Number(c.id)),
+          })),
+        };
+      }
+      openCompetitionRosterPrint({
+        event,
+        roster: data,
+        clubName: user?.club_name || user?.club?.name || "",
+        autoPrint,
+      });
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен преглед на тимовия лист."));
+    }
+  };
+
   return (
     <div className="coachMobilePage">
       <header className="feesCoachHead">
@@ -270,6 +300,9 @@ export default function CoachCompetitions() {
               <Button size="sm" variant={row.needs_roster ? undefined : "secondary"} onClick={() => openRoster(row)}>
                 Тимов лист
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => previewRoster(row)}>
+                Преглед / печат
+              </Button>
               <Link to="/coach/schedule" className="uiMuted" style={{ fontSize: 12, textAlign: "center" }}>
                 В календара
               </Link>
@@ -325,6 +358,13 @@ export default function CoachCompetitions() {
             <div className="matchLiveSubActions">
               <button type="button" className="matchLiveUndo" onClick={() => setRosterEvent(null)}>
                 Затвори
+              </button>
+              <button
+                type="button"
+                className="matchLiveUndo"
+                onClick={() => previewRoster(rosterEvent, roster, { autoPrint: true })}
+              >
+                Преглед / печат
               </button>
               {rosterEvent.can_edit_roster && !roster.locked ? (
                 <button type="button" className="matchLiveNext" disabled={savingRoster} onClick={saveRoster}>
