@@ -543,7 +543,7 @@ export default function ParentScheduleViews({
               setSelectedDate("");
             }}
           >
-            Клубни мачове
+            Клубен календар
           </button>
         </div>
         <div className="parentPortalScheduleViewToggle">
@@ -595,8 +595,9 @@ export default function ParentScheduleViews({
       {scheduleHint ? (
         <p className="uiHint parentPortalScheduleHint parentPortalScheduleHint--mobile">
           {scheduleScope === "club_matches"
-            ? "Всички клубни мачове и турнири (тренировъчни групи + картотечни отбори). Маркер „Участва“ = детето е в групата/картотеката."
+            ? "Всички мачове на клуба. Маркер „Участва“ = детето е в потвърдения тимов лист."
             : scheduleHint}
+
         </p>
       ) : null}
 

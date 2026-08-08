@@ -7340,7 +7340,15 @@ button.matchChipSlot:not(:disabled) {
 }
 .matchChipSlot--active .matchChipCircle,
 .matchChipSlot--active .matchChipEmpty {
-  box-shadow: 0 0 0 3px #22d3ee, 0 12px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 3px #ef4444, 0 12px 28px rgba(239, 68, 68, 0.55);
+  outline: 2px solid #fecaca;
+  outline-offset: 2px;
+  background: #b91c1c;
+}
+.matchChipSlot--active .matchChipName,
+.matchChipSlot--active .matchChipRole {
+  color: #fee2e2;
+  font-weight: 900;
 }
 .matchChipSlot--serve .matchChipCircle {
   box-shadow: 0 0 0 2px #fbbf24, 0 8px 18px rgba(0, 0, 0, 0.35);
@@ -9144,10 +9152,36 @@ body:has(.publicWatchPage--fs) {
   color: #e2e8f0;
   font-weight: 700;
   font-size: 12px;
+  border: 1px solid transparent;
+}
+.matchLiveSelected.is-picked {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fee2e2;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
+}
+.matchLiveSelectedMark {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fecaca;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  border-radius: 999px;
 }
 .matchLiveSelectedJersey {
-  color: #22d3ee;
+  color: #fca5a5;
   font-weight: 900;
+}
+.matchLiveSelected.is-picked .matchLiveSelectedJersey {
+  color: #fecaca;
+}
+.matchLiveSelectedRole {
+  margin-left: auto;
+  font-size: 11px;
+  color: #fecaca;
+  opacity: 0.9;
 }
 .matchLiveStatGroupTitle {
   font-size: 10px;

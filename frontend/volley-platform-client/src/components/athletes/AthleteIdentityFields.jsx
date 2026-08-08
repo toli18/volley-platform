@@ -3,6 +3,7 @@ import { DEFAULT_NATIONALITY } from "../../utils/athleteIdentity";
 
 /**
  * Shared identity fields for create/edit athlete forms.
+ * mode="minimal" — само полета за бързо създаване от треньор.
  * When identityLocked (linked to BVF), name/birth/city/nationality/gender/egn are read-only.
  */
 export default function AthleteIdentityFields({
@@ -11,19 +12,70 @@ export default function AthleteIdentityFields({
   identityLocked = false,
   showEgn = true,
   showLegacyNameHint = false,
+  mode = "full",
 }) {
   const patch = (key, value) => setForm((p) => ({ ...p, [key]: value }));
 
   const onPlaceChange = (value) => {
     setForm((p) => {
       const next = { ...p, place_of_birth: value };
-      // Ако националността е празна или още е default — дръж България при попълнен град
-      if (value.trim() && (!p.nationality || p.nationality === DEFAULT_NATIONALITY)) {
-        next.nationality = DEFAULT_NATIONALITY;
+      // При попълнен град → националност България (ако още няма друга изрична)
+      if (value.trim()) {
+        if (!p.nationality || p.nationality === DEFAULT_NATIONALITY || !(p.nationality || "").trim()) {
+          next.nationality = DEFAULT_NATIONALITY;
+        }
       }
       return next;
     });
   };
+
+  if (mode === "minimal") {
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+          Минимални данни за старт. Родителят попълва трите имена, ЕГН, град и дата чрез заявлението
+          за прием. Ти добавяш снимка за СЕК.
+        </p>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Собствено име *</span>
+          <Input
+            value={form.first_name}
+            onChange={(e) => patch("first_name", e.target.value)}
+            placeholder="мин. 3 символа"
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Година на раждане *</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={form.birth_year}
+            onChange={(e) => patch("birth_year", e.target.value)}
+            placeholder="напр. 2013"
+            min={1970}
+            max={new Date().getFullYear()}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Пол *</span>
+          <Input as="select" value={form.gender} onChange={(e) => patch("gender", e.target.value)}>
+            <option value="">Избери</option>
+            <option value="male">Мъж</option>
+            <option value="female">Жена</option>
+          </Input>
+        </label>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Телефон на родител *</span>
+          <Input
+            value={form.parent_phone}
+            onChange={(e) => patch("parent_phone", e.target.value)}
+            placeholder="за родителски вход"
+            inputMode="tel"
+          />
+        </label>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: 8 }}>

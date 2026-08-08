@@ -322,6 +322,7 @@ export const API_PATHS = {
   SCHEDULE_COMPETITION_CREATE: "/api/schedule/competitions",
   SCHEDULE_COMPETITION_UPDATE: (eventId) => `/api/schedule/competitions/${eventId}`,
   SCHEDULE_COMPETITION_DELETE: (eventId) => `/api/schedule/competitions/${eventId}`,
+  SCHEDULE_COMPETITION_ROSTER: (eventId) => `/api/schedule/competitions/${eventId}/roster`,
 
   // National method library (BVF)
   NATIONAL_METHOD_META: "/api/national-method/meta",

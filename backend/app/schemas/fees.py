@@ -5,17 +5,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class AthleteCreate(BaseModel):
+    """Минимално създаване от треньор: име, година, пол, телефон родител, група.
+
+    Пълните данни за СЕК идват от родителското заявление (+ снимка от треньора).
+    """
+
     first_name: str
-    middle_name: str
-    last_name: str
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     # Legacy single-field create still accepted if name parts missing (import / old clients)
     athlete_name: Optional[str] = None
     athlete_phone: Optional[str] = None
     parent_name: Optional[str] = None
-    parent_phone: Optional[str] = None
-    birth_date: date
+    parent_phone: str
+    birth_date: Optional[date] = None
     birth_year: Optional[int] = None
-    place_of_birth: str
+    place_of_birth: Optional[str] = None
     nationality: Optional[str] = None
     gender: Literal["male", "female"]
     notes: Optional[str] = None
@@ -23,16 +28,30 @@ class AthleteCreate(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
-    # Тренировъчна група при създаване (TeamMember)
-    team_id: Optional[int] = None
+    # Тренировъчна група при създаване (TeamMember) — задължителна
+    team_id: int
 
-    @field_validator("first_name", "middle_name", "last_name", "place_of_birth")
+    @field_validator("first_name", "parent_phone")
     @classmethod
     def strip_required(cls, v: str) -> str:
         s = (v or "").strip()
         if not s:
             raise ValueError("задължително поле")
         return s
+
+    @field_validator("middle_name", "last_name", "place_of_birth", "nationality", mode="before")
+    @classmethod
+    def empty_to_none(cls, v):
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
+
+    @model_validator(mode="after")
+    def require_birth(self):
+        if self.birth_date is None and self.birth_year is None:
+            raise ValueError("Годината или датата на раждане е задължителна")
+        return self
 
 
 class AthleteUpdate(BaseModel):
@@ -183,4 +202,3 @@ class PeriodReportResponse(BaseModel):
     total_athletes: int
     months_count: int
     rows: list[PeriodAthleteReportRow] = Field(default_factory=list)
-

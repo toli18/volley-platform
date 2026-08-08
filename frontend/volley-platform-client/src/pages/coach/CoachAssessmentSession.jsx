@@ -625,23 +625,8 @@ export default function CoachAssessmentSession() {
                     ))}
                   </ul>
                   <div className="assessActions" style={{ marginTop: 10 }}>
-                    <Button type="button" onClick={generateHomeWorkouts} disabled={homeBusy}>
-                      {homeBusy ? "Генериране на домашни..." : "Генерирай домашни тренировки"}
-                    </Button>
-                    <span className="assessMuted">
-                      Текстов план (~30 мин): координация, физика, плиометрия + фокус — без библиотека упражнения.
-                    </span>
+                    {/* Домашни тренировки — временно скрити */}
                   </div>
-                  {homeResult?.created?.length ? (
-                    <ul style={{ marginTop: 10, paddingLeft: 18 }}>
-                      {homeResult.created.map((h) => (
-                        <li key={h.id}>
-                          <Link to={`/trainings/${h.id}`}>{h.title}</Link>
-                          {h.main_focus ? ` · ${h.main_focus}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
                 </div>
               ) : null}
             </>

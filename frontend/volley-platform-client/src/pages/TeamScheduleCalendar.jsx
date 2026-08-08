@@ -201,8 +201,8 @@ export default function TeamScheduleCalendar() {
     [teams, isHeadCoach, myTeamIds]
   );
   const canEditItem = (it) => {
+    if (isCompetitionEvent(it)) return isHeadCoach;
     if (isHeadCoach) return true;
-    if (isCompetitionEvent(it)) return myTeamIds.includes(Number(it.team_id));
     return Number(it.coach_id) === currentUserId;
   };
   const canEditOccurrence = (it) => !isCompetitionEvent(it) && canEditItem(it);
@@ -589,6 +589,10 @@ export default function TeamScheduleCalendar() {
   };
 
   const openCompetitionForDate = (date) => {
+    if (!isHeadCoach) {
+      toast.error("Само главният треньор създава състезания. Тимовият лист е в меню Състезания.");
+      return;
+    }
     setCompEditId(null);
     setCompForm(defaultCompetitionForm(date, isHeadCoach ? "" : currentUserId));
     setCompOpen(true);

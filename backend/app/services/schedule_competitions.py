@@ -30,6 +30,12 @@ def can_manage_team(db: Session, user, club_id: int, team_id: int, is_head: bool
 
 
 def can_edit_competition(db: Session, user, event: ClubCompetitionEvent, is_head: bool) -> bool:
+    """Само главният треньор редактира самото състезание (дата/място/отбор)."""
+    return bool(is_head)
+
+
+def can_edit_roster(db: Session, user, event: ClubCompetitionEvent, is_head: bool) -> bool:
+    """Тимов лист: главен или треньор на отбора."""
     if is_head:
         return True
     if int(event.coach_id) == int(user.id):

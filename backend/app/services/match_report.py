@@ -20,6 +20,7 @@ def _empty_counts() -> dict[str, int]:
         "pass_plus": 0,
         "pass_minus": 0,
         "pass_err": 0,
+        "subs": 0,
     }
 
 
@@ -35,6 +36,7 @@ ACTION_FIELD = {
     MatchStatAction.pass_1: "pass_minus",
     MatchStatAction.pass_error: "pass_err",
     MatchStatAction.pass_0: "pass_err",
+    MatchStatAction.substitution: "subs",
 }
 
 
@@ -88,6 +90,9 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"поср. #{pass_hash}/+{pass_plus}/−{pass_minus}/гр{pass_err}")
         if pass_avg is not None:
             summary_bits.append(f"ср. поср. {pass_avg}")
+    subs = int(counts.get("subs", 0))
+    if subs:
+        summary_bits.append(f"{subs} смени")
 
     return {
         "attack_attempts": attack_att,
@@ -136,13 +141,19 @@ def aggregate_events(
         aid = getattr(ev, "athlete_id", None)
         if aid is None and isinstance(ev, dict):
             aid = ev.get("athlete_id")
-        if not aid:
-            continue
-        row = ensure(int(aid))
         action = getattr(ev, "action", None)
         if action is None and isinstance(ev, dict):
             action = ev.get("action")
-        apply_action(row, action)
+        if aid:
+            apply_action(ensure(int(aid)), action)
+        rel = getattr(ev, "related_athlete_id", None)
+        if rel is None and isinstance(ev, dict):
+            rel = ev.get("related_athlete_id")
+        is_sub = action == MatchStatAction.substitution or (
+            isinstance(action, str) and action == MatchStatAction.substitution.value
+        )
+        if rel and is_sub:
+            apply_action(ensure(int(rel)), MatchStatAction.substitution)
 
     out: list[dict[str, Any]] = []
     for row in by_id.values():

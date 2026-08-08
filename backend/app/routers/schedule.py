@@ -16,7 +16,13 @@ from app.models import (
     User,
     UserRole,
 )
-from app.schemas.competitions import CompetitionEventCreate, CompetitionEventRead, CompetitionEventUpdate
+from app.schemas.competitions import (
+    CompetitionEventCreate,
+    CompetitionEventRead,
+    CompetitionEventUpdate,
+    CompetitionRosterRead,
+    CompetitionRosterSaveIn,
+)
 from app.services.parent_portal_notify import (
     CHANGE_COMPETITION_ADDED,
     CHANGE_COMPETITION_CANCELLED,
@@ -39,6 +45,7 @@ from app.schemas.schedule import (
 )
 from app.services.schedule_competitions import (
     can_edit_competition,
+    can_edit_roster,
     can_manage_team,
     load_competition_occurrences,
 )
@@ -668,9 +675,16 @@ def _validate_competition_times(start_time: str, end_time: str) -> None:
         raise HTTPException(status_code=422, detail="end_time must be after start_time")
 
 
-def _competition_to_read(db: Session, event: ClubCompetitionEvent) -> CompetitionEventRead:
+def _competition_to_read(
+    db: Session,
+    event: ClubCompetitionEvent,
+    *,
+    current_user: User | None = None,
+) -> CompetitionEventRead:
     from app.models import BvfCardIndex
     from app.services.bvf_season_carding import card_index_display_label
+    from app.services.competition_roster import roster_is_locked, roster_summary
+    from app.services.schedule_competitions import can_edit_competition, can_edit_roster
 
     team_name = db.query(Team.name).filter(Team.id == event.team_id).scalar()
     coach_name = db.query(User.name).filter(User.id == event.coach_id).scalar()
@@ -681,6 +695,12 @@ def _competition_to_read(db: Session, event: ClubCompetitionEvent) -> Competitio
         ci = db.query(BvfCardIndex).filter(BvfCardIndex.id == int(ci_id)).first()
         if ci:
             carded_team_label = card_index_display_label(ci)
+
+    summary = roster_summary(db, event)
+    is_head = _is_head_coach(current_user) if current_user else False
+    can_event = bool(current_user and can_edit_competition(db, current_user, event, is_head))
+    can_roster = bool(current_user and can_edit_roster(db, current_user, event, is_head))
+
     return CompetitionEventRead(
         id=int(event.id),
         club_id=int(event.club_id),
@@ -694,6 +714,14 @@ def _competition_to_read(db: Session, event: ClubCompetitionEvent) -> Competitio
         competition_kind_label=competition_kind_label(kind),
         notes=event.notes,
         is_cancelled=bool(event.is_cancelled),
+        roster_status=str(getattr(event, "roster_status", None) or "pending"),
+        roster_edit_count=int(getattr(event, "roster_edit_count", 0) or 0),
+        roster_locked=roster_is_locked(event),
+        roster_selected_count=int(summary.get("selected_count") or 0),
+        roster_candidate_count=int(summary.get("candidate_count") or 0),
+        needs_roster=bool(summary.get("needs_roster")),
+        can_edit_event=can_event,
+        can_edit_roster=can_roster and not roster_is_locked(event),
         created_at=event.created_at,
         updated_at=event.updated_at,
         team_name=team_name,
@@ -723,15 +751,19 @@ def list_competition_events(
     to_date: str = Query(..., alias="to"),
     coach_id: int | None = Query(default=None),
     team_id: int | None = Query(default=None),
+    mine: bool = Query(default=False),
+    needs_roster: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
+    from app.services.schedule_competitions import line_coach_team_ids
+
     club_id = _ensure_club(current_user)
     d0 = _parse_date(from_date, "from")
     d1 = _parse_date(to_date, "to")
     if d1 < d0:
         raise HTTPException(status_code=422, detail="to must be >= from")
-    line_filter = None if _is_head_coach(current_user) else int(current_user.id)
+    # Всички треньори виждат всички мачове; mine филтрира по собствени отбори.
     occ = load_competition_occurrences(
         db,
         club_id=club_id,
@@ -740,14 +772,22 @@ def list_competition_events(
         coach_id=int(coach_id) if coach_id else None,
         team_id=int(team_id) if team_id else None,
         location=None,
-        line_coach_user_id=line_filter,
+        line_coach_user_id=None,
     )
+    if mine:
+        owned = set(line_coach_team_ids(db, club_id, int(current_user.id)))
+        if _is_head_coach(current_user) and not owned:
+            pass  # главен без собствени групи — показва всички при mine=false; при mine=true празно е ок
+        occ = [o for o in occ if int(o.team_id or 0) in owned] if owned else []
     if not occ:
         return []
     comp_ids = [int(o.competition_id) for o in occ if o.competition_id]
     events = db.query(ClubCompetitionEvent).filter(ClubCompetitionEvent.id.in_(comp_ids)).all()
     by_id = {int(e.id): e for e in events}
-    return [_competition_to_read(db, by_id[cid]) for cid in comp_ids if cid in by_id]
+    out = [_competition_to_read(db, by_id[cid], current_user=current_user) for cid in comp_ids if cid in by_id]
+    if needs_roster:
+        out = [r for r in out if r.needs_roster or r.roster_status == "pending"]
+    return out
 
 
 @router.post("/schedule/competitions", response_model=CompetitionEventRead, status_code=status.HTTP_201_CREATED)
@@ -756,13 +796,15 @@ def create_competition_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
 ):
+    if not _is_head_coach(current_user):
+        raise HTTPException(status_code=403, detail="Само главният треньор създава състезания")
     club_id = _ensure_club(current_user)
     if not is_valid_competition_kind(payload.competition_kind):
         raise HTTPException(status_code=422, detail="Невалиден вид състезание")
     _parse_date(payload.date, "date")
     _validate_competition_times(payload.start_time, payload.end_time)
     team = _ensure_team_in_club(db, club_id, payload.team_id)
-    if not can_manage_team(db, current_user, club_id, team.id, _is_head_coach(current_user)):
+    if not can_manage_team(db, current_user, club_id, team.id, True):
         raise HTTPException(status_code=403, detail="Нямате право за този отбор")
     coach = _resolve_competition_coach(db, club_id, current_user, payload.coach_id, team)
     location = _normalize_location(payload.location)
@@ -794,18 +836,31 @@ def create_competition_event(
         competition_kind=str(payload.competition_kind).strip(),
         notes=(payload.notes or "").strip() or None,
         is_cancelled=False,
+        roster_status="pending",
+        roster_edit_count=0,
     )
     db.add(event)
+    db.flush()
+
+    from app.services.competition_roster import notify_roster_parents, try_auto_confirm_roster
+
+    auto_ok = False
+    try:
+        auto_ok = try_auto_confirm_roster(db, event)
+    except ValueError:
+        auto_ok = False
+
     db.commit()
     db.refresh(event)
-    queue_team_change(
-        int(event.team_id),
-        str(event.date),
-        CHANGE_COMPETITION_ADDED,
-        f"comp:{event.id}",
-        extra=competition_kind_label(str(event.competition_kind)),
-    )
-    return _competition_to_read(db, event)
+
+    # Родители се уведомяват само при потвърден състав (не при голото създаване).
+    if auto_ok:
+        from app.services.competition_roster import roster_athlete_ids
+
+        ids = roster_athlete_ids(db, event.id)
+        notify_roster_parents(event, {"added": sorted(ids), "removed": []})
+
+    return _competition_to_read(db, event, current_user=current_user)
 
 
 @router.put("/schedule/competitions/{event_id}", response_model=CompetitionEventRead)
@@ -874,15 +929,74 @@ def update_competition_event(
 
     db.commit()
     db.refresh(event)
+    # При промяна/отмяна — уведомяваме само потвърдения състав (ако има).
+    from app.services.competition_roster import roster_athlete_ids
+
+    roster_ids = roster_athlete_ids(db, event.id)
     change_type = CHANGE_COMPETITION_CANCELLED if event.is_cancelled else CHANGE_COMPETITION_CHANGED
-    queue_team_change(
-        int(event.team_id),
-        str(event.date),
-        change_type,
-        f"comp:{event.id}",
-        extra=competition_kind_label(str(event.competition_kind)),
-    )
-    return _competition_to_read(db, event)
+    if roster_ids:
+        from app.services.parent_portal_notify import queue_athlete_change
+
+        for aid in roster_ids:
+            queue_athlete_change(
+                int(aid),
+                str(event.date),
+                change_type,
+                f"comp:{event.id}",
+                extra=competition_kind_label(str(event.competition_kind)),
+            )
+    return _competition_to_read(db, event, current_user=current_user)
+
+
+@router.get("/schedule/competitions/{event_id}/roster", response_model=CompetitionRosterRead)
+def get_competition_roster(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    from app.schemas.competitions import CompetitionRosterRead
+    from app.services.competition_roster import roster_summary
+    from app.services.schedule_competitions import can_edit_roster
+
+    club_id = _ensure_club(current_user)
+    event = db.query(ClubCompetitionEvent).filter(
+        ClubCompetitionEvent.id == int(event_id), ClubCompetitionEvent.club_id == club_id
+    ).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Състезанието не е намерено")
+    # Преглед — всички треньори; редакцията се проверява при save
+    _ = can_edit_roster
+    summary = roster_summary(db, event)
+    return CompetitionRosterRead(competition_id=int(event.id), **summary)
+
+
+@router.put("/schedule/competitions/{event_id}/roster", response_model=CompetitionRosterRead)
+def save_competition_roster(
+    event_id: int,
+    payload: CompetitionRosterSaveIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    from app.services.competition_roster import notify_roster_parents, roster_summary, set_roster
+    from app.services.schedule_competitions import can_edit_roster
+
+    club_id = _ensure_club(current_user)
+    event = db.query(ClubCompetitionEvent).filter(
+        ClubCompetitionEvent.id == int(event_id), ClubCompetitionEvent.club_id == club_id
+    ).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Състезанието не е намерено")
+    if not can_edit_roster(db, current_user, event, _is_head_coach(current_user)):
+        raise HTTPException(status_code=403, detail="Нямате право да редактирате тимовия лист")
+    try:
+        meta = set_roster(db, event, list(payload.athlete_ids or []))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(event)
+    notify_roster_parents(event, meta)
+    summary = roster_summary(db, event)
+    return CompetitionRosterRead(competition_id=int(event.id), **summary)
 
 
 @router.delete("/schedule/competitions/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

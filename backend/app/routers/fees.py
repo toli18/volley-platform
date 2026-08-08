@@ -587,25 +587,45 @@ def create_athlete(
 ):
     try:
         first_name = validate_name_part("Собствено име", payload.first_name)
-        middle_name = validate_name_part("Бащино име", payload.middle_name)
-        last_name = validate_name_part("Фамилия", payload.last_name)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    place = (payload.place_of_birth or "").strip()
-    if not place:
-        raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
-    if not payload.birth_date:
-        raise HTTPException(status_code=422, detail="Датата на раждане е задължителна")
+    middle_name = (payload.middle_name or "").strip() or None
+    last_name = (payload.last_name or "").strip() or None
+    if middle_name:
+        try:
+            middle_name = validate_name_part("Бащино име", middle_name)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if last_name:
+        try:
+            last_name = validate_name_part("Фамилия", last_name)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    parent_phone = (payload.parent_phone or "").strip()
+    if len(parent_phone) < 6:
+        raise HTTPException(status_code=422, detail="Телефонът на родителя е задължителен")
     if not payload.gender:
         raise HTTPException(status_code=422, detail="Полът е задължителен")
+    if not payload.team_id:
+        raise HTTPException(status_code=422, detail="Тренировъчната група е задължителна")
 
     birth_date, birth_year = resolve_birth_date(
         birth_date=payload.birth_date,
         birth_year=payload.birth_year,
     )
-    nationality = default_nationality_from_city(place, payload.nationality)
-    full_name = compose_athlete_name(first_name, middle_name, last_name)
+    if birth_year is None:
+        raise HTTPException(status_code=422, detail="Годината на раждане е задължителна")
+
+    place = (payload.place_of_birth or "").strip() or None
+    nationality = None
+    if place:
+        nationality = default_nationality_from_city(place, payload.nationality)
+    elif (payload.nationality or "").strip():
+        nationality = (payload.nationality or "").strip()
+
+    full_name = compose_athlete_name(first_name, middle_name or "", last_name or "") or first_name
 
     athlete = Athlete(
         coach_id=current_user.id,
@@ -616,7 +636,7 @@ def create_athlete(
         last_name=last_name,
         athlete_phone=(payload.athlete_phone or "").strip() or None,
         parent_name=(payload.parent_name or "").strip() or None,
-        parent_phone=(payload.parent_phone or "").strip() or None,
+        parent_phone=parent_phone,
         birth_date=birth_date,
         birth_year=birth_year,
         place_of_birth=place,
@@ -630,8 +650,7 @@ def create_athlete(
     )
     db.add(athlete)
     db.flush()
-    if payload.team_id:
-        _attach_athlete_to_team(db, athlete, int(payload.team_id), current_user)
+    _attach_athlete_to_team(db, athlete, int(payload.team_id), current_user)
     db.commit()
     db.refresh(athlete)
     return _athlete_reads_with_teams(db, [athlete])[0]

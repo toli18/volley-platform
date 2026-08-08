@@ -287,24 +287,7 @@ export default function MonthlyFees() {
   }, [payAthlete, payForm.month_key]);
 
   const saveAthlete = async () => {
-    const err = validateAthleteIdentityForm(athleteForm, { requireSplitNames: true });
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    const payload = buildAthletePayload(athleteForm);
-    try {
-      setBusy(true);
-      await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
-      resetAthleteForm();
-      await loadAthletes(coachFilter);
-      toast.success("Състезателят е създаден.");
-      if (isCoachShell) setCoachTab("list");
-    } catch (err2) {
-      toast.error(normalizeError(err2));
-    } finally {
-      setBusy(false);
-    }
+    toast.info("Създаването на състезател е в модул „Състезатели“.");
   };
 
   const saveEditedAthlete = async () => {

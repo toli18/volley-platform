@@ -44,8 +44,35 @@ class CompetitionEventRead(CompetitionEventBase):
     club_id: int
     competition_kind_label: str = ""
     is_cancelled: bool = False
+    roster_status: str = "pending"
+    roster_edit_count: int = 0
+    roster_locked: bool = False
+    roster_selected_count: int = 0
+    roster_candidate_count: int = 0
+    needs_roster: bool = False
+    can_edit_event: bool = False
+    can_edit_roster: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     team_name: Optional[str] = None
     coach_name: Optional[str] = None
     carded_team_label: Optional[str] = None
+
+
+class CompetitionRosterSaveIn(BaseModel):
+    athlete_ids: list[int] = Field(default_factory=list)
+
+
+class CompetitionRosterRead(BaseModel):
+    competition_id: int
+    status: str
+    locked: bool
+    edit_count: int
+    edits_remaining: int
+    max_athletes: int
+    candidate_count: int
+    selected_count: int
+    needs_roster: bool
+    auto_eligible: bool
+    athlete_ids: list[int] = Field(default_factory=list)
+    candidates: list[dict] = Field(default_factory=list)

@@ -247,10 +247,22 @@ export default function MembershipConsentLiveForm({
                 minLength={2}
                 maxLength={25}
                 value={fields.child_place_of_birth}
-                onChange={(e) => setField("child_place_of_birth", e.target.value)}
+                onChange={(e) => {
+                  const place = e.target.value;
+                  setFields((prev) => ({
+                    ...prev,
+                    child_place_of_birth: place,
+                    // Националността се записва на състезателя от града (България по подразбиране).
+                  }));
+                }}
                 placeholder="напр. София"
                 autoComplete="address-level2"
               />
+              {String(fields.child_place_of_birth || "").trim() ? (
+                <span className="uiMuted" style={{ fontSize: 12 }}>
+                  Националност: България (попълва се автоматично от града)
+                </span>
+              ) : null}
             </label>
             <label className="membershipConsentField">
               <span>Телефон (по желание)</span>

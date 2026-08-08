@@ -153,6 +153,7 @@ class MatchStatAction(str, Enum):
     opp_point = "opp_point"
     our_point = "our_point"
     opp_error = "opp_error"  # грешка на противника → точка за нас
+    substitution = "substitution"  # смяна полеви ↔ резерва; related_athlete_id = влизащият
 
 
 class MatchSet(Base):
@@ -194,6 +195,8 @@ class MatchStatEvent(Base):
     opp_score = Column(Integer, nullable=False, default=0)
     we_serve = Column(Integer, nullable=False, default=1)
     scored_for = Column(String(8), nullable=True)
+    # При substitution: athlete_id = излиза, related_athlete_id = влиза
+    related_athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
     undone = Column(Integer, nullable=False, default=0)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

@@ -257,16 +257,24 @@ def _recent_events(db: Session, match_id: int, set_id: int, limit: int = 12) -> 
         .limit(limit)
         .all()
     )
-    ids = [int(r.athlete_id) for r in rows if r.athlete_id]
+    ids: list[int] = []
+    for r in rows:
+        if r.athlete_id:
+            ids.append(int(r.athlete_id))
+        if getattr(r, "related_athlete_id", None):
+            ids.append(int(r.related_athlete_id))
     names = _athlete_names(db, ids)
     out: list[MatchLiveEventRead] = []
     for r in rows:
         action = r.action.value if isinstance(r.action, MatchStatAction) else str(r.action)
+        rel_id = int(r.related_athlete_id) if getattr(r, "related_athlete_id", None) else None
         out.append(
             MatchLiveEventRead(
                 id=r.id,
                 athlete_id=int(r.athlete_id) if r.athlete_id else None,
                 athlete_name=names.get(int(r.athlete_id), None) if r.athlete_id else None,
+                related_athlete_id=rel_id,
+                related_athlete_name=names.get(rel_id) if rel_id else None,
                 action=action,
                 rotation=int(r.rotation),
                 our_score=int(r.our_score),
@@ -406,11 +414,13 @@ def _record_event(
     action: MatchStatAction,
     athlete_id: int | None,
     scored_for: str | None,
+    related_athlete_id: int | None = None,
 ) -> MatchStatEvent:
     ev = MatchStatEvent(
         match_id=match.id,
         set_id=mset.id,
         athlete_id=athlete_id,
+        related_athlete_id=related_athlete_id,
         action=action,
         rotation=int(mset.rotation),
         our_score=int(mset.our_score),
@@ -840,6 +850,18 @@ def apply_live_substitution(db: Session, match: Match, *, out_athlete_id: int, i
 
     slot = next(s for s in slots if int(s.athlete_id) == out_id)
     slot.athlete_id = in_id
+
+    mset = _active_set(db, match.id)
+    if mset:
+        _record_event(
+            db,
+            match=match,
+            mset=mset,
+            action=MatchStatAction.substitution,
+            athlete_id=out_id,
+            related_athlete_id=in_id,
+            scored_for=None,
+        )
 
 
 @router.post("/{match_id}/live/sub", response_model=MatchLiveStateRead)

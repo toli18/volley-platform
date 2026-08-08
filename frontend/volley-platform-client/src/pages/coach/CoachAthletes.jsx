@@ -188,7 +188,7 @@ export default function CoachAthletes() {
   };
 
   const saveAthlete = async () => {
-    const err = validateAthleteIdentityForm(athleteForm, { requireSplitNames: true });
+    const err = validateAthleteIdentityForm(athleteForm, { mode: "minimal" });
     if (err) {
       toast.error(err);
       return;
@@ -198,13 +198,13 @@ export default function CoachAthletes() {
       toast.error("Избери тренировъчна група.");
       return;
     }
-    const payload = { ...buildAthletePayload(athleteForm), team_id: tid };
+    const payload = { ...buildAthletePayload(athleteForm, { mode: "minimal" }), team_id: tid };
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetForm();
       await loadAthletes();
-      toast.success("Състезателят е създаден и добавен в групата.");
+      toast.success("Състезателят е създаден. Родителят да попълни заявлението за прием.");
       setTab("list");
     } catch (err2) {
       toast.error(normalizeError(err2));
@@ -428,13 +428,13 @@ export default function CoachAthletes() {
   const addBody = (
     <section className="feesCoachAddSection athletesHubAdd">
       <p className="coachMobileMuted">
-        Попълни данните и избери тренировъчната група. Създаването в СЕК прави само главният треньор
-        по-късно.
+        Само име, година, пол, телефон на родител и група. Останалото идва от заявлението за прием;
+        снимката добавяш ти за СЕК.
       </p>
       <div className="feesCoachForm">
-        <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} showEgn />
+        <AthleteIdentityFields form={athleteForm} setForm={setAthleteForm} mode="minimal" showEgn={false} />
         <label className="athletesHubTeamField">
-          <span>Тренировъчна група</span>
+          <span>Тренировъчна група *</span>
           <select
             className="uiInput"
             value={teamId}

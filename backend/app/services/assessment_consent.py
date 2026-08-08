@@ -131,39 +131,8 @@ def build_parent_development(db: Session, athlete: Athlete, *, respect_consent: 
     # Надстроечен — не докосва официалните оценки. None при липса на данни.
     motivation = compute_athlete_motivation(db, athlete.id)
 
-    # Домашни планове: Training с generation_request.kind=home_workout + athlete_id.
+    # Домашни планове — временно изключени от родителския портал.
     home_workouts: list[dict] = []
-    team_ids = [
-        tid
-        for (tid,) in db.query(TeamMember.team_id).filter(TeamMember.athlete_id == athlete.id).all()
-    ]
-    if team_ids:
-        recent = (
-            db.query(Training)
-            .filter(Training.team_id.in_(team_ids))
-            .order_by(Training.created_at.desc(), Training.id.desc())
-            .limit(80)
-            .all()
-        )
-        for row in recent:
-            req = row.generation_request or {}
-            if req.get("kind") != "home_workout":
-                continue
-            if int(req.get("athlete_id") or 0) != int(athlete.id):
-                continue
-            home_workouts.append(
-                {
-                    "id": row.id,
-                    "title": row.title,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                    "main_focus": req.get("mainFocus"),
-                    "secondary_focus": req.get("secondaryFocus"),
-                    "training_plan_text": req.get("trainingPlanText"),
-                    "duration_min": req.get("durationTotalMin"),
-                }
-            )
-            if len(home_workouts) >= 5:
-                break
 
     return {
         "consent_granted": True,

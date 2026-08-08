@@ -166,6 +166,7 @@ MatchStatActionLiteral = Literal[
     "opp_point",
     "our_point",
     "opp_error",
+    "substitution",
 ]
 
 
@@ -189,6 +190,8 @@ class MatchLiveEventRead(BaseModel):
     id: int
     athlete_id: Optional[int] = None
     athlete_name: Optional[str] = None
+    related_athlete_id: Optional[int] = None
+    related_athlete_name: Optional[str] = None
     action: MatchStatActionLiteral
     rotation: int
     our_score: int

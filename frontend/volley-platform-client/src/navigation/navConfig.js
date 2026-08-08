@@ -27,6 +27,7 @@ export const COACH_PRIMARY_NAV = [
       { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams" },
       { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck" },
       { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
+      { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target" },
       { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
       { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
       { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck" },
@@ -138,6 +139,7 @@ export const COACH_CLUB_HUB_LINKS = [
   { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
   { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК готовност, нов състезател" },
   { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar", hint: "Календар на тренировки" },
+  { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове, тимов лист, филтри" },
   { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
   { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target", hint: "Текуща позиция, теми и тренировки" },
   { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По групи" },
@@ -245,6 +247,13 @@ export const COACH_MORE_QUICK_LINKS = [
 
 /** @type {{ title: string, links: NavLinkItem[] }[]} */
 export const COACH_MORE_MENU_SECTIONS = [
+  {
+    title: "Клуб",
+    links: [
+      { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове и тимов лист" },
+      { id: "schedule-more", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
+    ],
+  },
   {
     title: "Съдържание",
     links: [

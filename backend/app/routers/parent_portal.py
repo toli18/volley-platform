@@ -304,6 +304,18 @@ def _build_schedule_for_teams(
     athlete_team_set = set(int(x) for x in team_ids)
     athlete_ci_set = set(card_index_ids)
 
+    # Потвърдени тимови листове: кой мач включва това дете
+    from app.models import CompetitionRosterAthlete
+
+    roster_comp_ids: set[int] = set()
+    if athlete is not None:
+        roster_comp_ids = {
+            int(r[0])
+            for r in db.query(CompetitionRosterAthlete.competition_id)
+            .filter(CompetitionRosterAthlete.athlete_id == int(athlete.id))
+            .all()
+        }
+
     for e in comp_rows:
         kind = str(e.competition_kind or "friendly")
         tid = int(e.team_id)
@@ -312,7 +324,18 @@ def _build_schedule_for_teams(
         carded_label = card_label_by_id.get(ci_id) if ci_id else None
         if not carded_label and scope_norm == "child":
             carded_label = _guess_carded_label_for_team(team, card_indexes)
-        participates = tid in athlete_team_set or (ci_id is not None and ci_id in athlete_ci_set)
+
+        roster_status = str(getattr(e, "roster_status", None) or "pending").strip().lower()
+        on_roster = int(e.id) in roster_comp_ids
+        # Моето дете: мачът се показва само ако е в потвърден/заключен състав.
+        # Клубен календар: всички мачове; „Участва“ = в тимовия лист.
+        if scope_norm == "child":
+            if roster_status not in {"confirmed", "locked"} or not on_roster:
+                continue
+            participates = True
+        else:
+            participates = on_roster and roster_status in {"confirmed", "locked"}
+
         schedule_items.append(
             ParentScheduleItem(
                 date=_schedule_text(e.date),

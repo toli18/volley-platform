@@ -9,6 +9,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models import Athlete, AthleteClubConsent, Club
+from app.services.athlete_identity import (
+    DEFAULT_NATIONALITY,
+    apply_birth_date_from_egn,
+    default_nationality_from_city,
+)
 
 DEFAULT_FEE_AMOUNT = 15
 DEFAULT_FEE_DUE_DAY = 10
@@ -229,6 +234,7 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
     Покрива стари подписи, които са записали само child_full_name / child_egn в consent,
     без first_name / middle_name / last_name на атлета.
     Не пипа идентичност след връзка с БФВ.
+    При град на раждане → националност България (ако липсва/празна).
     """
     if getattr(athlete, "bvf_player_id", None):
         return False
@@ -263,24 +269,30 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
     if len(consent_egn) == 10 and athlete_egn != consent_egn:
         athlete.egn = consent_egn
         changed = True
-        try:
-            from app.services.athlete_identity import apply_birth_date_from_egn
 
-            apply_birth_date_from_egn(athlete)
+    # Пълна дата от ЕГН (винаги коригира при валидно ЕГН)
+    if len("".join(ch for ch in str(athlete.egn or "") if ch.isdigit())) == 10:
+        try:
+            if apply_birth_date_from_egn(athlete):
+                changed = True
         except Exception:
             pass
 
+    # Място на раждане е записано при подпис; националност — автоматично от града.
+    place = (athlete.place_of_birth or "").strip()
+    if place:
+        nat = default_nationality_from_city(place, athlete.nationality)
+        if (athlete.nationality or "").strip() != nat:
+            athlete.nationality = nat
+            changed = True
+    elif not (athlete.nationality or "").strip():
+        athlete.nationality = DEFAULT_NATIONALITY
+        changed = True
     if not (athlete.parent_name or "").strip() and (consent.parent_full_name or "").strip():
         athlete.parent_name = consent.parent_full_name.strip()
         changed = True
     if not (athlete.parent_phone or "").strip() and (consent.parent_phone or "").strip():
         athlete.parent_phone = consent.parent_phone.strip()
-        changed = True
-
-    if not (athlete.nationality or "").strip():
-        from app.services.athlete_identity import default_nationality_from_city
-
-        athlete.nationality = default_nationality_from_city(athlete.place_of_birth, None)
         changed = True
 
     return changed

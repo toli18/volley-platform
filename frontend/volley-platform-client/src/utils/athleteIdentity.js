@@ -16,6 +16,7 @@ export function emptyAthleteIdentityForm(overrides = {}) {
     parent_name: "",
     parent_phone: "",
     birth_date: "",
+    birth_year: "",
     place_of_birth: "",
     nationality: DEFAULT_NATIONALITY,
     gender: "",
@@ -37,6 +38,7 @@ export function athleteToIdentityForm(athlete) {
     parent_name: athlete.parent_name || "",
     parent_phone: athlete.parent_phone || "",
     birth_date: athlete.birth_date ? String(athlete.birth_date).slice(0, 10) : "",
+    birth_year: athlete.birth_year ? String(athlete.birth_year) : "",
     place_of_birth: athlete.place_of_birth || "",
     nationality: athlete.nationality || DEFAULT_NATIONALITY,
     gender: athlete.gender || "",
@@ -46,8 +48,27 @@ export function athleteToIdentityForm(athlete) {
   });
 }
 
-/** Validate create/update form. Returns error string or null. */
-export function validateAthleteIdentityForm(form, { requireEgn = false, requireSplitNames = false } = {}) {
+/** Validate create/update form. Returns error string or null.
+ * mode: "full" (edit / legacy) | "minimal" (coach quick create)
+ */
+export function validateAthleteIdentityForm(
+  form,
+  { requireEgn = false, requireSplitNames = false, mode = "full" } = {},
+) {
+  if (mode === "minimal") {
+    const first = (form.first_name || "").trim();
+    if (first.length < 3) return "Собственото име трябва да е поне 3 символа.";
+    const year = Number(form.birth_year);
+    if (!Number.isFinite(year) || year < 1970 || year > new Date().getFullYear()) {
+      return "Попълни валидна година на раждане.";
+    }
+    if (!(form.parent_phone || "").trim() || String(form.parent_phone).trim().length < 6) {
+      return "Телефонът на родителя е задължителен.";
+    }
+    if (!form.gender) return "Избери пол.";
+    return null;
+  }
+
   const first = (form.first_name || "").trim();
   const middle = (form.middle_name || "").trim();
   const last = (form.last_name || "").trim();
@@ -69,12 +90,25 @@ export function validateAthleteIdentityForm(form, { requireEgn = false, requireS
   return null;
 }
 
-export function buildAthletePayload(form, { includeEgn = true } = {}) {
+export function buildAthletePayload(form, { includeEgn = true, mode = "full" } = {}) {
   const first = (form.first_name || "").trim();
   const middle = (form.middle_name || "").trim();
   const last = (form.last_name || "").trim();
   const place = (form.place_of_birth || "").trim();
   const nationality = (form.nationality || "").trim() || DEFAULT_NATIONALITY;
+
+  if (mode === "minimal") {
+    const payload = {
+      first_name: first,
+      parent_phone: (form.parent_phone || "").trim(),
+      birth_year: Number(form.birth_year),
+      gender: form.gender || null,
+      athlete_name: first,
+      is_active: Boolean(form.is_active),
+      notes: (form.notes || "").trim() || null,
+    };
+    return payload;
+  }
 
   const payload = {
     athlete_phone: (form.athlete_phone || "").trim() || null,

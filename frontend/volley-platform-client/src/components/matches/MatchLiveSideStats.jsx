@@ -33,6 +33,7 @@ export const MATCH_ACTION_LABEL = {
   opp_point: "Точка OPP",
   our_point: "Точка НИЕ",
   opp_error: "Грешка на противника",
+  substitution: "Смяна",
 };
 
 /** Действия, които местят резултат / сервис / ротация (side-out). */
@@ -62,13 +63,15 @@ export function actionEnabledForPhase(ctx, phase) {
   return true;
 }
 
-function SideCol({ items, side, disabled, phase, onStat, extraTop = null }) {
+function SideCol({ items, side, disabled, phase, onStat, extraTop = null, requirePlayer = false }) {
   return (
     <div className={`matchLiveSideCol matchLiveSideCol--${side}`} role="group" aria-label={`Статистика ${side}`}>
       {extraTop}
       {items.map((it) => {
         const ctxOk = actionEnabledForPhase(it.ctx, phase);
-        const isOff = disabled || !ctxOk;
+        const needsPlayer =
+          requirePlayer && !["opp_error", "ace", "error", "our_point", "opp_point"].includes(it.action);
+        const isOff = disabled || !ctxOk || needsPlayer;
         return (
           <button
             key={it.action}
@@ -79,9 +82,11 @@ function SideCol({ items, side, disabled, phase, onStat, extraTop = null }) {
             disabled={isOff}
             onClick={() => onStat?.(it.action)}
             title={
-              ctxOk
-                ? MATCH_ACTION_LABEL[it.action] || it.label
-                : `${MATCH_ACTION_LABEL[it.action] || it.label} (не за тази фаза)`
+              needsPlayer
+                ? "Първо избери състезател от корта (червено)"
+                : ctxOk
+                  ? MATCH_ACTION_LABEL[it.action] || it.label
+                  : `${MATCH_ACTION_LABEL[it.action] || it.label} (не за тази фаза)`
             }
           >
             {it.label}
@@ -223,13 +228,27 @@ export default function MatchLiveSideStats({
 
   return (
     <div className="matchLiveCourtRow">
-      <SideCol items={leftItems} side="left" disabled={disabled} phase={phase} onStat={onStat} />
+      <SideCol
+        items={leftItems}
+        side="left"
+        disabled={disabled}
+        phase={phase}
+        onStat={onStat}
+        requirePlayer={!selected}
+      />
       <div className="matchLiveCourtMain">
-        <div className="matchLiveSelected matchLiveSideSelected">
+        <div className={`matchLiveSelected matchLiveSideSelected${selected ? " is-picked" : ""}`}>
           {selected ? (
             <>
+              <span className="matchLiveSelectedMark">Избран</span>
               <span className="matchLiveSelectedJersey">#{selected.jersey_number}</span>
               <span>{shortPlayerName(selected.athlete_name)}</span>
+              {selected.role || selected.position ? (
+                <span className="matchLiveSelectedRole">
+                  {positionShort(selected.position || selected.role)}
+                  {selected.zone != null ? ` · з.${selected.zone}` : ""}
+                </span>
+              ) : null}
             </>
           ) : (
             <span>{disabled ? "Въвеждането е спряно" : "Избери състезател от корта"}</span>
@@ -237,16 +256,24 @@ export default function MatchLiveSideStats({
         </div>
         {children}
         <div className="matchLiveEvents matchLiveEvents--compact matchLiveSideEvents">
-          {(events || []).slice(0, 4).map((ev) => (
-            <div key={ev.id} className="matchLiveEventRow">
-              <span>R{ev.rotation}</span>
-              <span>{ev.athlete_name ? shortPlayerName(ev.athlete_name) : "—"}</span>
-              <span>{MATCH_ACTION_LABEL[ev.action] || ev.action}</span>
-              <span>
-                {ev.our_score}:{ev.opp_score}
-              </span>
-            </div>
-          ))}
+          {(events || []).slice(0, 4).map((ev) => {
+            const isSub = ev.action === "substitution";
+            const nameBit = isSub
+              ? `${shortPlayerName(ev.athlete_name) || "—"} → ${shortPlayerName(ev.related_athlete_name) || "—"}`
+              : ev.athlete_name
+                ? shortPlayerName(ev.athlete_name)
+                : "—";
+            return (
+              <div key={ev.id} className="matchLiveEventRow">
+                <span>R{ev.rotation}</span>
+                <span>{nameBit}</span>
+                <span>{MATCH_ACTION_LABEL[ev.action] || ev.action}</span>
+                <span>
+                  {ev.our_score}:{ev.opp_score}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
       <SideCol
@@ -255,6 +282,7 @@ export default function MatchLiveSideStats({
         disabled={disabled}
         phase={phase}
         onStat={onStat}
+        requirePlayer={!selected}
         extraTop={
           <>
             {subBtn}
