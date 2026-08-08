@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -98,16 +98,6 @@ export default function PublicClubPage() {
     };
   }, [slug, teamId]);
 
-  const hoursByDay = useMemo(() => {
-    const map = new Map();
-    for (const h of page?.training_hours || []) {
-      const key = h.weekday_label || h.weekday;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(h);
-    }
-    return [...map.entries()];
-  }, [page]);
-
   const selectedSlot = slots.find((s) => s.slot_key === slotKey) || null;
   const step = !teamId ? 1 : !selectedSlot ? 2 : 3;
 
@@ -180,8 +170,7 @@ export default function PublicClubPage() {
           <a href="#za-kluba">За клуба</a>
           <a href="#treniori">Треньори</a>
           <a href="#grupi">Групи</a>
-          <a href="#chasove">Часове</a>
-          {(page.tournaments || []).length ? <a href="#turniri">Турнири</a> : null}
+          <a href="#kalendar">Календар</a>
           {fbEmbed ? <a href="#novini">Новини</a> : null}
           <a href="#zapisvane" className="is-cta">
             Пробна тренировка
@@ -287,48 +276,29 @@ export default function PublicClubPage() {
         </section>
       ) : null}
 
-      {hoursByDay.length ? (
-        <section id="chasove" className="publicClub__section">
-          <h2>Тренировъчни часове</h2>
-          <p className="publicClub__sectionLead">Седмичен график по групи.</p>
-          <div className="publicClub__hours">
-            {hoursByDay.map(([day, items]) => (
-              <div key={day} className="publicClub__hourRow">
-                <strong>{day}</strong>
-                <ul>
-                  {items.map((h, i) => (
-                    <li key={`${day}-${i}`}>
-                      <strong>
-                        {h.start_time}–{h.end_time}
-                      </strong>
-                      {h.team_name ? ` · ${h.team_name}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {(page.tournaments || []).length ? (
-        <section id="turniri" className="publicClub__section">
-          <h2>Предстоящи състезания</h2>
+      <section id="kalendar" className="publicClub__section">
+        <h2>Календар на събитията</h2>
+        <p className="publicClub__sectionLead">Предстоящи състезания и турнири на клуба.</p>
+        {(page.tournaments || []).length ? (
           <div className="publicClub__cards">
             {page.tournaments.map((t) => (
-              <div key={t.id} className="publicClub__card" style={{ borderColor: "#fdba74", background: "#fff7ed" }}>
+              <div key={t.id} className="publicClub__card publicClub__eventCard">
                 <strong>
-                  {formatBgDate(t.date)} · {t.start_time}–{t.end_time}
+                  {formatBgDate(t.date)} · {t.start_time}
+                  {t.end_time ? `–${t.end_time}` : ""}
                 </strong>
-                <div className="publicClub__muted">
+                <div className="publicClub__eventMeta">
                   {competitionKindLabel(t)}
                   {t.team_name ? ` · ${t.team_name}` : ""}
+                  {t.location ? ` · ${t.location}` : ""}
                 </div>
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="publicClub__muted">Няма предстоящи събития в календара.</p>
+        )}
+      </section>
 
       {fbEmbed ? (
         <section id="novini" className="publicClub__section">
@@ -403,8 +373,13 @@ export default function PublicClubPage() {
                   <strong className="publicClub__slotTitle">
                     {formatBgDate(s.date)} · {s.start_time}
                     {s.end_time ? `–${s.end_time}` : ""}
+                    {s.location ? (
+                      <>
+                        {" · "}
+                        <span className="publicClub__slotHallInline">{s.location}</span>
+                      </>
+                    ) : null}
                   </strong>
-                  {s.location ? <div className="publicClub__slotHall">{s.location}</div> : null}
                   <div className="publicClub__slotTeam">{s.team_name}</div>
                 </span>
               </button>

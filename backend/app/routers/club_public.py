@@ -345,11 +345,11 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
                 "date": c.date,
                 "start_time": c.start_time,
                 "end_time": c.end_time,
+                "location": c.location,
                 "competition_kind": c.competition_kind,
                 "team_name": team_names.get(int(c.team_id)),
             }
             for c in comps
-            if not enroll_ids or int(c.team_id) in enroll_ids
         ],
         "enrollment_open": bool(enroll_teams),
     }
