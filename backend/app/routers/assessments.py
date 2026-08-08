@@ -805,7 +805,7 @@ def generate_session_home_workouts(
                 team_id=session.team_id,
                 session_date=None,
                 status="запазена",
-                notes=f"Домашна текстова тренировка за athlete_id={athlete.id}",
+                notes=f"Домашна текстова тренировка · {athlete.athlete_name}",
                 request_meta={
                     "kind": "home_workout",
                     "source": "bvf-method-text",

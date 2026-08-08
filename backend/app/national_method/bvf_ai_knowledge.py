@@ -857,20 +857,27 @@ def method_context_from_stored_request(
     """sessionReview + trainingPlanText от записана AI генерация (или rebuild от цикъл)."""
     if not gen_req or not isinstance(gen_req, dict):
         return {}
+
+    text = gen_req.get("trainingPlanText")
+
     if gen_req.get("sessionReview"):
         return {
             "sessionReview": gen_req["sessionReview"],
-            "trainingPlanText": gen_req.get("trainingPlanText"),
+            "trainingPlanText": text,
         }
     bvf = gen_req.get("bvfKnowledge") or {}
     if bvf.get("sessionReview"):
         return {
             "sessionReview": bvf["sessionReview"],
-            "trainingPlanText": gen_req.get("trainingPlanText"),
+            "trainingPlanText": text,
         }
     if db and (gen_req.get("cycleId") or gen_req.get("textbookSlug") or gen_req.get("ageBand")):
         enriched = enrich_request(dict(gen_req), db)
         sr = (enriched.get("bvfKnowledge") or {}).get("sessionReview")
         if sr:
-            return {"sessionReview": sr, "trainingPlanText": gen_req.get("trainingPlanText")}
+            return {"sessionReview": sr, "trainingPlanText": text}
+
+    # Текстови планове (домашни и др.) — без sessionReview / без drill plan.
+    if text:
+        return {"trainingPlanText": text}
     return {}
