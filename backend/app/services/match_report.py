@@ -201,3 +201,143 @@ def build_insights(athletes: list[dict[str, Any]], *, sets_won_us: int, sets_won
     if len(lines) == 1:
         lines.append("Няма записани действия по състезатели за изводи.")
     return lines
+
+
+def _pct(won: int, attempts: int) -> float | None:
+    if attempts <= 0:
+        return None
+    return round((won / attempts) * 100, 1)
+
+
+def _next_rotation(rotation: int) -> int:
+    r = int(rotation or 1)
+    return 1 if r >= 6 else r + 1
+
+
+def _empty_rotation_row(rotation: int) -> dict[str, Any]:
+    return {
+        "rotation": int(rotation),
+        "points_for": 0,
+        "points_against": 0,
+        "side_out_attempts": 0,
+        "side_out_won": 0,
+        "side_out_pct": None,
+        "break_attempts": 0,
+        "break_won": 0,
+        "break_pct": None,
+        "point_diff": 0,
+    }
+
+
+def analyze_side_out_and_rotations(
+    events: list[Any],
+    *,
+    start_rotation: int = 1,
+    start_we_serve: bool = True,
+) -> dict[str, Any]:
+    """Side-out / break-point + по ротация от scoring events.
+
+    Replay-ваме състоянието *преди* всяка точка, защото event.we_serve/rotation
+    са записани след apply_point.
+    """
+    we_serve = bool(start_we_serve)
+    rotation = max(1, min(6, int(start_rotation or 1)))
+
+    side_out_att = side_out_won = 0
+    break_att = break_won = 0
+    points_for = points_against = 0
+    by_rot: dict[int, dict[str, Any]] = {r: _empty_rotation_row(r) for r in range(1, 7)}
+
+    for ev in events:
+        scored = getattr(ev, "scored_for", None)
+        if scored is None and isinstance(ev, dict):
+            scored = ev.get("scored_for")
+        if scored not in ("us", "opp"):
+            continue
+
+        rot = rotation
+        serving = we_serve
+        row = by_rot[rot]
+
+        if scored == "us":
+            points_for += 1
+            row["points_for"] += 1
+            if serving:
+                break_att += 1
+                break_won += 1
+                row["break_attempts"] += 1
+                row["break_won"] += 1
+            else:
+                side_out_att += 1
+                side_out_won += 1
+                row["side_out_attempts"] += 1
+                row["side_out_won"] += 1
+                rotation = _next_rotation(rotation)
+                we_serve = True
+        else:
+            points_against += 1
+            row["points_against"] += 1
+            if serving:
+                break_att += 1
+                row["break_attempts"] += 1
+                we_serve = False
+            else:
+                side_out_att += 1
+                row["side_out_attempts"] += 1
+
+    for row in by_rot.values():
+        row["side_out_pct"] = _pct(row["side_out_won"], row["side_out_attempts"])
+        row["break_pct"] = _pct(row["break_won"], row["break_attempts"])
+        row["point_diff"] = int(row["points_for"]) - int(row["points_against"])
+
+    # Показвай само ротации с поне една точка
+    rotations = [by_rot[r] for r in range(1, 7) if by_rot[r]["points_for"] or by_rot[r]["points_against"]]
+
+    return {
+        "side_out": {
+            "side_out_attempts": side_out_att,
+            "side_out_won": side_out_won,
+            "side_out_pct": _pct(side_out_won, side_out_att),
+            "break_attempts": break_att,
+            "break_won": break_won,
+            "break_pct": _pct(break_won, break_att),
+            "points_for": points_for,
+            "points_against": points_against,
+        },
+        "by_rotation": rotations,
+    }
+
+
+def enrich_insights_with_side_out(lines: list[str], analysis: dict[str, Any]) -> list[str]:
+    so = analysis.get("side_out") or {}
+    if so.get("side_out_attempts"):
+        pct = so.get("side_out_pct")
+        pct_s = f"{pct}%" if pct is not None else "—"
+        lines.append(
+            f"Side-out: {so['side_out_won']}/{so['side_out_attempts']} ({pct_s}) — "
+            f"точки при посрещане"
+        )
+    if so.get("break_attempts"):
+        pct = so.get("break_pct")
+        pct_s = f"{pct}%" if pct is not None else "—"
+        lines.append(
+            f"Break-point: {so['break_won']}/{so['break_attempts']} ({pct_s}) — "
+            f"точки при наш сервис"
+        )
+
+    rotations = analysis.get("by_rotation") or []
+    with_diff = [r for r in rotations if (r.get("points_for") or 0) + (r.get("points_against") or 0) >= 2]
+    if with_diff:
+        best = max(with_diff, key=lambda r: int(r.get("point_diff") or 0))
+        worst = min(with_diff, key=lambda r: int(r.get("point_diff") or 0))
+        if int(best.get("point_diff") or 0) > 0:
+            lines.append(
+                f"Най-силна ротация: R{best['rotation']} "
+                f"({best['points_for']}:{best['points_against']}, diff {best['point_diff']:+d})"
+            )
+        if int(worst.get("point_diff") or 0) < 0 and worst["rotation"] != best["rotation"]:
+            lines.append(
+                f"Най-слаба ротация: R{worst['rotation']} "
+                f"({worst['points_for']}:{worst['points_against']}, diff {worst['point_diff']:+d})"
+            )
+    return lines

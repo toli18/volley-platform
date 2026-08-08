@@ -12,6 +12,97 @@ function cell(v) {
   return v;
 }
 
+function pctLabel(v) {
+  if (v == null) return "—";
+  return `${v}%`;
+}
+
+function SideOutCards({ sideOut }) {
+  if (!sideOut) return null;
+  const hasAny =
+    (sideOut.side_out_attempts || 0) + (sideOut.break_attempts || 0) + (sideOut.points_for || 0) > 0;
+  if (!hasAny) return null;
+  return (
+    <div className="matchReportSideOut">
+      <div className="matchReportSideOutCard">
+        <span className="matchReportSideOutLabel">Side-out</span>
+        <strong>
+          {sideOut.side_out_won || 0}/{sideOut.side_out_attempts || 0}
+        </strong>
+        <span className="matchReportSideOutPct">{pctLabel(sideOut.side_out_pct)}</span>
+        <span className="matchReportSideOutHint">точки при посрещане</span>
+      </div>
+      <div className="matchReportSideOutCard">
+        <span className="matchReportSideOutLabel">Break-point</span>
+        <strong>
+          {sideOut.break_won || 0}/{sideOut.break_attempts || 0}
+        </strong>
+        <span className="matchReportSideOutPct">{pctLabel(sideOut.break_pct)}</span>
+        <span className="matchReportSideOutHint">точки при наш сервис</span>
+      </div>
+      <div className="matchReportSideOutCard">
+        <span className="matchReportSideOutLabel">Точки</span>
+        <strong>
+          {sideOut.points_for || 0}:{sideOut.points_against || 0}
+        </strong>
+        <span className="matchReportSideOutPct">
+          {(sideOut.points_for || 0) - (sideOut.points_against || 0) >= 0 ? "+" : ""}
+          {(sideOut.points_for || 0) - (sideOut.points_against || 0)}
+        </span>
+        <span className="matchReportSideOutHint">за нас : противник</span>
+      </div>
+    </div>
+  );
+}
+
+function RotationTable({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="matchReportRotation">
+      <h3>По ротация</h3>
+      <div className="matchReportTableWrap">
+        <table className="matchLiveStatTable matchReportTable">
+          <thead>
+            <tr>
+              <th>R</th>
+              <th title="Точки за нас">За нас</th>
+              <th title="Точки против">Срещу</th>
+              <th title="Разлика">Diff</th>
+              <th title="Side-out">SO</th>
+              <th title="Side-out %">SO%</th>
+              <th title="Break-point">BP</th>
+              <th title="Break-point %">BP%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.rotation} className={row.point_diff > 0 ? "is-good" : row.point_diff < 0 ? "is-bad" : ""}>
+                <td>
+                  <strong>R{row.rotation}</strong>
+                </td>
+                <td>{cell(row.points_for)}</td>
+                <td>{cell(row.points_against)}</td>
+                <td>
+                  {row.point_diff > 0 ? "+" : ""}
+                  {row.point_diff}
+                </td>
+                <td>
+                  {row.side_out_won || 0}/{row.side_out_attempts || 0}
+                </td>
+                <td>{pctLabel(row.side_out_pct)}</td>
+                <td>
+                  {row.break_won || 0}/{row.break_attempts || 0}
+                </td>
+                <td>{pctLabel(row.break_pct)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function StatTable({ rows }) {
   if (!rows?.length) {
     return <p className="coachMobileMuted">Няма записи за този изглед.</p>;
@@ -106,13 +197,20 @@ export default function CoachMatchReport() {
     return MATCH_FORMATS.find((f) => f.code === code)?.label || "3 от 5";
   }, [report?.format]);
 
+  const activeSet = useMemo(() => {
+    if (!report || tab === "all") return null;
+    const setNum = Number(String(tab).replace("set:", ""));
+    return (report.by_set || []).find((s) => Number(s.set_number) === setNum) || null;
+  }, [report, tab]);
+
   const rows = useMemo(() => {
     if (!report) return [];
     if (tab === "all") return report.athletes || [];
-    const setNum = Number(String(tab).replace("set:", ""));
-    const block = (report.by_set || []).find((s) => Number(s.set_number) === setNum);
-    return block?.athletes || [];
-  }, [report, tab]);
+    return activeSet?.athletes || [];
+  }, [report, tab, activeSet]);
+
+  const sideOut = tab === "all" ? report?.side_out : activeSet?.side_out;
+  const byRotation = tab === "all" ? report?.by_rotation : activeSet?.by_rotation;
 
   if (loading) return <p className="coachMobileMuted">Зареждане на отчет...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
@@ -191,6 +289,10 @@ export default function CoachMatchReport() {
         ))}
       </div>
 
+      <SideOutCards sideOut={sideOut} />
+      <RotationTable rows={byRotation} />
+
+      <h3 className="matchReportPlayersTitle">По състезател</h3>
       <StatTable rows={rows} />
     </section>
   );

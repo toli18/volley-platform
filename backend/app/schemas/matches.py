@@ -316,12 +316,40 @@ class MatchAthleteStatsRead(BaseModel):
     summary: str = ""
 
 
+class MatchSideOutRead(BaseModel):
+    """Side-out = точка при посрещане; break = точка при наш сервис."""
+
+    side_out_attempts: int = 0
+    side_out_won: int = 0
+    side_out_pct: Optional[float] = None
+    break_attempts: int = 0
+    break_won: int = 0
+    break_pct: Optional[float] = None
+    points_for: int = 0
+    points_against: int = 0
+
+
+class MatchRotationStatsRead(BaseModel):
+    rotation: int
+    points_for: int = 0
+    points_against: int = 0
+    side_out_attempts: int = 0
+    side_out_won: int = 0
+    side_out_pct: Optional[float] = None
+    break_attempts: int = 0
+    break_won: int = 0
+    break_pct: Optional[float] = None
+    point_diff: int = 0
+
+
 class MatchSetStatsRead(BaseModel):
     set_number: int
     our_score: int
     opp_score: int
     status: str
     athletes: list[MatchAthleteStatsRead] = Field(default_factory=list)
+    side_out: Optional[MatchSideOutRead] = None
+    by_rotation: list[MatchRotationStatsRead] = Field(default_factory=list)
 
 
 class MatchReportRead(BaseModel):
@@ -339,5 +367,7 @@ class MatchReportRead(BaseModel):
     sets: list[MatchLiveSetSummary] = Field(default_factory=list)
     athletes: list[MatchAthleteStatsRead] = Field(default_factory=list)
     by_set: list[MatchSetStatsRead] = Field(default_factory=list)
+    side_out: Optional[MatchSideOutRead] = None
+    by_rotation: list[MatchRotationStatsRead] = Field(default_factory=list)
     insights: list[str] = Field(default_factory=list)
     event_count: int = 0
