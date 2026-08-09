@@ -23,7 +23,7 @@ const PHASES = [
   { id: "receive", label: "Посрещане" },
 ];
 
-const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error", "team_error"]);
+const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error"]);
 
 const EMPTY_ROW = () => ({
   kills: 0,
@@ -37,7 +37,7 @@ const EMPTY_ROW = () => ({
   pass_plus: 0,
   pass_minus: 0,
   pass_err: 0,
-  team_err: 0,
+  indiv_err: 0,
 });
 
 function buildStatTable({ roster = [], court = [], libero = null, events = [] }) {
@@ -112,8 +112,9 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
       case "pass_error":
         row.pass_err += 1;
         break;
+      case "indiv_error":
       case "team_error":
-        row.team_err = (row.team_err || 0) + 1;
+        row.indiv_err = (row.indiv_err || 0) + 1;
         break;
       default:
         break;
@@ -132,7 +133,7 @@ function rowSummary(row) {
   if (row.serve_err) bits.push(`${row.serve_err} гр. сервис`);
   if (row.blocks) bits.push(`${row.blocks} блок`);
   if (row.digs) bits.push(`${row.digs} защита`);
-  if (row.team_err) bits.push(`${row.team_err} гр. отбор`);
+  if (row.indiv_err) bits.push(`${row.indiv_err} гр. индив.`);
   const passTotal = row.pass_hash + row.pass_plus + row.pass_minus + row.pass_err;
   if (passTotal) {
     bits.push(`поср. #${row.pass_hash}/+${row.pass_plus}/−${row.pass_minus}/гр${row.pass_err}`);
@@ -848,7 +849,7 @@ export default function CoachMatchLive() {
               <div>
                 <strong>Статистика на мача</strong>
                 <div className="matchLiveStatsLegend">
-                  Атака + / 0 / − · # перфектно · + добро · − слабо · Гр.Отб = мрежа/улавяне
+                  Атака + / 0 / − · Гр.Инд = мрежа / улавяне / двойно / линия · # + − посрещане
                 </div>
               </div>
               <button type="button" className="matchLiveStatsClose" onClick={() => setStatsOpen(false)}>
@@ -874,7 +875,7 @@ export default function CoachMatchLive() {
                     <th title="Посрещане +">+</th>
                     <th title="Посрещане −">−</th>
                     <th title="Грешка посрещане">П−</th>
-                    <th title="Отборна грешка">Отб−</th>
+                    <th title="Отборна / индивидуална грешка">Инд−</th>
                     <th>Разтълкуване</th>
                   </tr>
                 </thead>
@@ -895,7 +896,7 @@ export default function CoachMatchLive() {
                       <td>{row.pass_plus || "·"}</td>
                       <td>{row.pass_minus || "·"}</td>
                       <td>{row.pass_err || "·"}</td>
-                      <td>{row.team_err || "·"}</td>
+                      <td>{row.indiv_err || "·"}</td>
                       <td className="matchLiveStatTableSum">{rowSummary(row)}</td>
                     </tr>
                   ))}

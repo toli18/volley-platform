@@ -1004,6 +1004,7 @@ def match_report(
                     "pass_minus",
                     "pass_err",
                     "team_err",
+                    "indiv_err",
                     "subs",
                 )
             )

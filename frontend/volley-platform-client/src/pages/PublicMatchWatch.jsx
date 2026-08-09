@@ -17,7 +17,7 @@ const PHASES = [
   { id: "serve", label: "Сервис" },
   { id: "receive", label: "Посрещане" },
 ];
-const NO_PLAYER = new Set(["opp_point", "our_point", "opp_error", "team_error"]);
+const NO_PLAYER = new Set(["opp_point", "our_point", "opp_error"]);
 
 export default function PublicMatchWatch() {
   const { token } = useParams();

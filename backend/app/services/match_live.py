@@ -18,6 +18,7 @@ POINT_FOR_OPP = {
     MatchStatAction.pass_error,
     MatchStatAction.opp_point,
     MatchStatAction.team_error,
+    MatchStatAction.indiv_error,
 }
 # pass / dig / attack_zero — качество или опит без край на раллито
 NO_POINT_ACTIONS = {

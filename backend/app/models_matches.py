@@ -154,7 +154,8 @@ class MatchStatAction(str, Enum):
     opp_point = "opp_point"
     our_point = "our_point"
     opp_error = "opp_error"  # грешка на противника → точка за нас
-    team_error = "team_error"  # отборна грешка (мрежа на блок, улавяне…) → точка за OPP
+    team_error = "team_error"  # legacy: отборна грешка
+    indiv_error = "indiv_error"  # индивидуална: мрежа, улавяне, двойно, линия… → точка за OPP
     substitution = "substitution"  # смяна полеви ↔ резерва; related_athlete_id = влизащият
 
 

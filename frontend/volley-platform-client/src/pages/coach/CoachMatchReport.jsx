@@ -168,7 +168,7 @@ function StatTable({ rows }) {
             <th title="Посрещане −">−</th>
             <th title="Грешка посрещане">П−</th>
             <th title="Средно посрещане">Поср</th>
-            <th title="Отборна грешка">Отб−</th>
+            <th title="Индивидуална грешка (мрежа, улавяне…)">Инд−</th>
             <th>Гр</th>
             <th>Разтълкуване</th>
           </tr>
@@ -193,7 +193,7 @@ function StatTable({ rows }) {
               <td>{cell(row.pass_minus)}</td>
               <td>{cell(row.pass_err)}</td>
               <td>{row.pass_avg != null ? row.pass_avg : "·"}</td>
-              <td>{cell(row.team_err)}</td>
+              <td>{cell(row.indiv_err)}</td>
               <td>{cell(row.errors)}</td>
               <td className="matchLiveStatTableSum">{row.summary || "—"}</td>
             </tr>

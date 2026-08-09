@@ -168,6 +168,7 @@ MatchStatActionLiteral = Literal[
     "our_point",
     "opp_error",
     "team_error",
+    "indiv_error",
     "substitution",
 ]
 
@@ -311,6 +312,7 @@ class MatchAthleteStatsRead(BaseModel):
     pass_minus: int = 0
     pass_err: int = 0
     team_err: int = 0
+    indiv_err: int = 0
     attack_attempts: int = 0
     attack_pct: Optional[float] = None
     pass_total: int = 0

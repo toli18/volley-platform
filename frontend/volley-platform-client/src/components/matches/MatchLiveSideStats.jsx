@@ -10,10 +10,8 @@ export const MATCH_STAT_SIDE_LEFT = [
   { action: "error", label: "Гр.Серв", tone: "bad", ctx: "serve" },
   { action: "block", label: "Блок+", tone: "good", ctx: "always" },
   { action: "opp_error", label: "Гр.OPP", tone: "good", ctx: "always" },
-  // Противникът забива / блок-аут / топка в нашето поле — точка за тях, без наш играч
-  { action: "opp_point", label: "Точ.OPP", tone: "bad", ctx: "always" },
-  // Отборна грешка: мрежа на блок, улавяне, чужд предмет… — точка за OPP
-  { action: "team_error", label: "Гр.Отб", tone: "bad", ctx: "always" },
+  // Избери играч → мрежа / улавяне / двойно / линия / друга индивидуална грешка
+  { action: "indiv_error", label: "Гр.Инд", tone: "bad", ctx: "always" },
 ];
 
 export const MATCH_STAT_SIDE_RIGHT = [
@@ -39,7 +37,8 @@ export const MATCH_ACTION_LABEL = {
   opp_point: "Точка за противника (атака / блок-аут)",
   our_point: "Точка НИЕ",
   opp_error: "Грешка на противника",
-  team_error: "Отборна грешка (мрежа / улавяне…)",
+  team_error: "Отборна грешка",
+  indiv_error: "Индивидуална грешка (мрежа, улавяне, двойно, линия…)",
   substitution: "Смяна",
 };
 
@@ -55,6 +54,7 @@ export const SCORE_ACTIONS = new Set([
   "pass_error",
   "opp_point",
   "team_error",
+  "indiv_error",
 ]);
 
 /** Посрещане #/+/- и защита — само статистика, без точка и без ротация. */
@@ -78,8 +78,7 @@ function SideCol({ items, side, disabled, phase, onStat, extraTop = null, requir
       {items.map((it) => {
         const ctxOk = actionEnabledForPhase(it.ctx, phase);
         const needsPlayer =
-          requirePlayer &&
-          !["opp_error", "ace", "error", "our_point", "opp_point", "team_error"].includes(it.action);
+          requirePlayer && !["opp_error", "ace", "error", "our_point", "opp_point"].includes(it.action);
         const isOff = disabled || !ctxOk || needsPlayer;
         return (
           <button

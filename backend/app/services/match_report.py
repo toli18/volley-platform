@@ -22,6 +22,7 @@ def _empty_counts() -> dict[str, int]:
         "pass_minus": 0,
         "pass_err": 0,
         "team_err": 0,
+        "indiv_err": 0,
         "subs": 0,
     }
 
@@ -39,7 +40,8 @@ ACTION_FIELD = {
     MatchStatAction.pass_1: "pass_minus",
     MatchStatAction.pass_error: "pass_err",
     MatchStatAction.pass_0: "pass_err",
-    MatchStatAction.team_error: "team_err",
+    MatchStatAction.team_error: "indiv_err",  # legacy → същата колона
+    MatchStatAction.indiv_error: "indiv_err",
     MatchStatAction.substitution: "subs",
 }
 
@@ -68,6 +70,7 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_minus = int(counts.get("pass_minus", 0))
     pass_err = int(counts.get("pass_err", 0))
     team_err = int(counts.get("team_err", 0))
+    indiv_err = int(counts.get("indiv_err", 0)) + team_err
 
     attack_att = kills + attack_zero + attack_err
     attack_pct = round((kills / attack_att) * 100, 1) if attack_att else None
@@ -77,7 +80,7 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_avg = round(pass_points / pass_total, 2) if pass_total else None
 
     points = kills + aces + blocks
-    errors = attack_err + serve_err + pass_err + team_err
+    errors = attack_err + serve_err + pass_err + indiv_err
 
     summary_bits: list[str] = []
     if kills:
@@ -94,8 +97,8 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"{blocks} блок")
     if digs:
         summary_bits.append(f"{digs} защита")
-    if team_err:
-        summary_bits.append(f"{team_err} гр. отбор")
+    if indiv_err:
+        summary_bits.append(f"{indiv_err} гр. индив.")
     if pass_total:
         summary_bits.append(f"поср. #{pass_hash}/+{pass_plus}/−{pass_minus}/гр{pass_err}")
         if pass_avg is not None:
@@ -107,6 +110,7 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     return {
         "attack_zero": attack_zero,
         "team_err": team_err,
+        "indiv_err": indiv_err,
         "attack_attempts": attack_att,
         "attack_pct": attack_pct,
         "pass_total": pass_total,
