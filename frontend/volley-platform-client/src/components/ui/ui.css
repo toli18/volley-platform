@@ -838,6 +838,24 @@
   }
 }
 
+.clubHeadPanelTabs {
+  margin: 0 0 16px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f8fafc;
+  padding: 8px 0 10px;
+}
+
+@media (max-width: 767px) {
+  .clubHeadPanelTabs {
+    margin-left: -4px;
+    margin-right: -4px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
 .feesFormActions {
   display: grid;
   grid-template-columns: 1fr 1fr;

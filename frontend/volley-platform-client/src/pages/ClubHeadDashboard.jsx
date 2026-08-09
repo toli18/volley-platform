@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-const VALID_TABS = ["athletes", "tasks", "schedule", "method"];
+const PANEL_TABS = [
+  { id: "overview", label: "Преглед" },
+  { id: "athletes", label: "Състезатели" },
+  { id: "tasks", label: "Задачи" },
+  { id: "schedule", label: "График" },
+  { id: "method", label: "Методика" },
+];
+const VALID_TABS = PANEL_TABS.map((t) => t.id);
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
@@ -54,11 +61,20 @@ export default function ClubHeadDashboard() {
   const isHeadCoach = normalizeRole(user) === "club_head_coach";
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => {
-    const t = searchParams.get("tab");
-    return VALID_TABS.includes(t) ? t : "athletes";
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const tab = VALID_TABS.includes(requestedTab) ? requestedTab : "overview";
+  const setTab = (id) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === "overview") next.delete("tab");
+        else next.set("tab", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const [monthKey, setMonthKey] = useState(nowMonth());
   const [period, setPeriod] = useState(() => monthRangeForKey(nowMonth()));
   const [overview, setOverview] = useState(null);
@@ -489,35 +505,28 @@ export default function ClubHeadDashboard() {
       </header>
       <PageHero
         title="Клубен панел"
-        subtitle="Състезатели, такси, присъствие и тренировки."
-        actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant={tab === "athletes" ? "primary" : "secondary"} onClick={() => setTab("athletes")}>
-              Състезатели
-            </Button>
-            <Button variant={tab === "tasks" ? "primary" : "secondary"} onClick={() => setTab("tasks")}>
-              Задачи
-            </Button>
-            <Button variant={tab === "schedule" ? "primary" : "secondary"} onClick={() => setTab("schedule")}>
-              График
-            </Button>
-            <Button variant={tab === "method" ? "primary" : "secondary"} onClick={() => setTab("method")}>
-              Методика БФВ
-            </Button>
-          </div>
-        }
+        subtitle="Преглед → състезатели → задачи → график → методика."
       />
 
-      {tab === "athletes" && (
+      <nav className="coachMobileSubNav clubHeadPanelTabs" aria-label="Секции на клубния панел">
+        {PANEL_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`coachMobileSubNavBtn${tab === t.id ? " is-active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "overview" && (
         <>
           <Card title="Филтри и обновяване">
             <div className="clubHeadFilterGrid">
-              <Input
-                placeholder="Търсене по име..."
-                value={athleteQuery}
-                onChange={(e) => setAthleteQuery(e.target.value)}
-              />
-              <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
+              <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} label="Месец" />
+              <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)} label="Треньор">
                 <option value="">Всички треньори</option>
                 {coaches.map((c) => (
                   <option key={c.id} value={String(c.id)}>
@@ -525,7 +534,7 @@ export default function ClubHeadDashboard() {
                   </option>
                 ))}
               </Input>
-              <div className="clubHeadFilterActions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+              <div className="clubHeadFilterActions" style={{ display: "flex", alignItems: "end", justifyContent: "flex-end" }}>
                 <Button onClick={load} disabled={busy} className="clubHeadRefreshBtn">
                   {busy ? "Обновяване..." : "Обнови"}
                 </Button>
@@ -551,6 +560,9 @@ export default function ClubHeadDashboard() {
                 <span className="uiBadge uiBadge--danger">Отсъства: {overview?.attendance?.absent || 0}</span>
                 <span className="uiBadge uiBadge--secondary">Извинен: {overview?.attendance?.excused || 0}</span>
               </div>
+              <p style={{ margin: "10px 0 0", color: "#64748b", fontSize: 13 }}>
+                Период: {period.from_date} – {period.to_date}
+              </p>
             </Card>
           </div>
 
@@ -589,7 +601,7 @@ export default function ClubHeadDashboard() {
               <div style={{ display: "grid", gap: 8 }}>
                 <strong style={{ fontSize: 13 }}>Присъствие</strong>
                 <span style={{ fontSize: 13, color: "#64748b" }}>
-                  Ползва периода от таблото: {period.from_date} – {period.to_date} (вързан с избрания месец по-горе).
+                  Ползва периода от таблото: {period.from_date} – {period.to_date}.
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   <Button
@@ -621,6 +633,33 @@ export default function ClubHeadDashboard() {
                     Присъствие PDF
                   </Button>
                 </div>
+              </div>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {tab === "athletes" && (
+        <>
+          <Card title="Филтри">
+            <div className="clubHeadFilterGrid">
+              <Input
+                placeholder="Търсене по име..."
+                value={athleteQuery}
+                onChange={(e) => setAthleteQuery(e.target.value)}
+              />
+              <Input as="select" value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}>
+                <option value="">Всички треньори</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name} ({c.role === "club_head_coach" ? "Главен треньор" : "Треньор"})
+                  </option>
+                ))}
+              </Input>
+              <div className="clubHeadFilterActions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                <Button onClick={load} disabled={busy} className="clubHeadRefreshBtn">
+                  {busy ? "Обновяване..." : "Обнови"}
+                </Button>
               </div>
             </div>
           </Card>
