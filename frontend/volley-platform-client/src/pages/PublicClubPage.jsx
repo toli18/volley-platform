@@ -200,7 +200,8 @@ export default function PublicClubPage() {
         <div className="publicClub__enroll">
           <h2>Записване за пробна тренировка</h2>
           <p className="publicClub__sectionLead">
-            Избери група → виж следващите 5 тренировки → попълни данните. Треньорът получава известие.
+            Избери група по пол и години → виж следващите 5 тренировки → попълни данните.
+            Треньорът получава известие.
           </p>
 
           <div className="publicClub__steps">
@@ -210,23 +211,25 @@ export default function PublicClubPage() {
           </div>
 
           <div className="publicClub__chips" style={{ marginBottom: 12 }}>
-            {(page.teams || []).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
-                onClick={() => setTeamId(String(t.id))}
-              >
-                <span className="publicClub__chipName">{t.name}</span>
-                {t.hint ? <span className="publicClub__chipHint">{t.hint}</span> : null}
-              </button>
-            ))}
+            {(page.teams || []).map((t) => {
+              const label = t.hint || t.gender_label || t.name;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
+                  onClick={() => setTeamId(String(t.id))}
+                >
+                  <span className="publicClub__chipHint">{label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {!(page.teams || []).length ? (
             <p className="publicClub__muted">В момента няма отворени групи за записване.</p>
           ) : !teamId ? (
-            <p className="publicClub__muted">Първо избери група по име.</p>
+            <p className="publicClub__muted">Първо избери група (пол и години).</p>
           ) : slotsBusy ? (
             <p className="publicClub__muted">Зареждане на тренировки…</p>
           ) : slots.length === 0 ? (
@@ -257,7 +260,9 @@ export default function PublicClubPage() {
                     {s.location_address ? (
                       <div className="publicClub__slotAddress">{s.location_address}</div>
                     ) : null}
-                    <div className="publicClub__slotTeam">{s.team_name}</div>
+                    {s.team_label || s.team_name ? (
+                      <div className="publicClub__slotTeam">{s.team_label || s.team_name}</div>
+                    ) : null}
                   </span>
                 </button>
               ))}

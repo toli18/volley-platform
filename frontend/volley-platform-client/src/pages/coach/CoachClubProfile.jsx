@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
@@ -8,6 +8,7 @@ import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import "./CoachClubProfile.css";
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -15,13 +16,37 @@ function normalizeRole(user) {
   return String(r || "").toLowerCase();
 }
 
+const PROFILE_TABS = [
+  { id: "club", label: "Клуб" },
+  { id: "halls", label: "Зали" },
+  { id: "enroll", label: "Записване", headOnly: true },
+  { id: "coaches", label: "Треньори" },
+];
+
 export default function CoachClubProfile() {
   const { user } = useAuth();
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const role = normalizeRole(user);
   const isHead =
     role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
 
+  const tabs = useMemo(
+    () => PROFILE_TABS.filter((t) => !t.headOnly || isHead),
+    [isHead],
+  );
+  const requestedTab = searchParams.get("tab") || "club";
+  const activeTab = tabs.some((t) => t.id === requestedTab) ? requestedTab : "club";
+  const setActiveTab = (id) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const [profile, setProfile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [coachDrafts, setCoachDrafts] = useState({});
@@ -462,7 +487,7 @@ export default function CoachClubProfile() {
 
   if (!profile.unlocked) {
     return (
-      <div className="uiPage">
+      <div className="uiPage clubProfilePage">
         <PageHero
           title="Профил на клуба"
           subtitle="Заключен до връзка със СЕК системата."
@@ -474,28 +499,45 @@ export default function CoachClubProfile() {
             ) : null
           }
         />
-        <Card title="Заключен">
-          <p style={{ marginTop: 0, lineHeight: 1.45 }}>
-            След като главният треньор свърже клуба със СЕК (ApiKey), профилът се отключва и данните се
-            изтеглят автоматично — име, адрес, контакти и телефони на треньорите.
-          </p>
-          {isHead ? (
-            <Link to="/coach/bvf-admin?tab=link">
-              <Button type="button">Свържи клуба със СЕК</Button>
-            </Link>
-          ) : (
-            <p className="uiMuted" style={{ marginBottom: 0 }}>
-              Поискай от главния треньор да направи връзката в Администрация БФВ.
+        <nav className="coachMobileSubNav clubProfilePage__tabs" aria-label="Секции на клубния профил">
+          {tabs
+            .filter((t) => t.id === "club" || t.id === "enroll")
+            .map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`coachMobileSubNavBtn${activeTab === t.id ? " is-active" : ""}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+        </nav>
+        {activeTab === "enroll" && isHead ? (
+          publicPageCard
+        ) : (
+          <Card title="Заключен">
+            <p style={{ marginTop: 0, lineHeight: 1.45 }}>
+              След като главният треньор свърже клуба със СЕК (ApiKey), профилът се отключва и данните се
+              изтеглят автоматично — име, адрес, контакти и телефони на треньорите.
             </p>
-          )}
-        </Card>
-        {publicPageCard}
+            {isHead ? (
+              <Link to="/coach/bvf-admin?tab=link">
+                <Button type="button">Свържи клуба със СЕК</Button>
+              </Link>
+            ) : (
+              <p className="uiMuted" style={{ marginBottom: 0 }}>
+                Поискай от главния треньор да направи връзката в Администрация БФВ.
+              </p>
+            )}
+          </Card>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="uiPage">
+    <div className="uiPage clubProfilePage">
       <PageHero
         title={profile.name || "Профил на клуба"}
         subtitle={
@@ -517,12 +559,26 @@ export default function CoachClubProfile() {
         }
       />
 
+      <nav className="coachMobileSubNav clubProfilePage__tabs" aria-label="Секции на клубния профил">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`coachMobileSubNavBtn${activeTab === t.id ? " is-active" : ""}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "club" ? (
       <Card title="Клуб">
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div className="clubProfilePage__clubGrid">
           {profile.logo_url ? (
             <ClubLogo logoUrl={profile.logo_url} name={profile.name} className="appHeaderClubLogo" />
           ) : null}
-          <div style={{ flex: "1 1 280px", display: "grid", gap: 8 }}>
+          <div className="clubProfilePage__fields">
             {profile.full_name ? (
               <p style={{ margin: 0, fontSize: 14 }}>
                 <strong>Официално име:</strong> {profile.full_name}
@@ -596,7 +652,9 @@ export default function CoachClubProfile() {
           </div>
         </div>
       </Card>
+      ) : null}
 
+      {activeTab === "halls" ? (
       <Card title="Зали">
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
           Ако има зали в СЕК — идват при sync. Ако няма, главният треньор ги попълва тук. Показват се на
@@ -736,9 +794,11 @@ export default function CoachClubProfile() {
           ) : null}
         </div>
       </Card>
+      ) : null}
 
-      {publicPageCard}
+      {activeTab === "enroll" ? publicPageCard : null}
 
+      {activeTab === "coaches" ? (
       <Card title="Треньори — телефони за родители">
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
           Телефоните се изтеглят от СЕК при sync (ако ги има). Можеш да ги допълниш ръчно — видимите се
@@ -814,6 +874,7 @@ export default function CoachClubProfile() {
           </div>
         )}
       </Card>
+      ) : null}
     </div>
   );
 }

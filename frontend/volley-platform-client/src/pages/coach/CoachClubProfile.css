@@ -1,0 +1,49 @@
+.clubProfilePage__tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f1f5f9;
+  margin: 0 -4px 14px;
+  padding: 8px 4px 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.clubProfilePage__clubGrid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.clubProfilePage__fields {
+  flex: 1 1 280px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .clubProfilePage__tabs {
+    margin-left: -8px;
+    margin-right: -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .clubProfilePage .uiAdminHeroActions {
+    width: 100%;
+  }
+
+  .clubProfilePage .uiAdminHeroActions .uiButton,
+  .clubProfilePage .uiAdminHeroActions a {
+    flex: 1 1 auto;
+  }
+
+  .clubProfilePage .uiAdminHeroActions a {
+    display: flex;
+  }
+
+  .clubProfilePage .uiAdminHeroActions a .uiButton {
+    width: 100%;
+  }
+}

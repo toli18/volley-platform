@@ -172,7 +172,17 @@ def _upcoming_trainings_for_team(
         .all()
     )
     exc_by_key = {(int(e.rule_id), e.date): e for e in exc_rows}
-    team_name = db.query(Team.name).filter(Team.id == int(team_id)).scalar()
+    team_row = db.query(Team).filter(Team.id == int(team_id)).first()
+    team_name = team_row.name if team_row else None
+    team_label = (
+        _public_team_hint(
+            getattr(team_row, "age_group", None) if team_row else None,
+            getattr(team_row, "gender", None) if team_row else None,
+            None,
+        )
+        if team_row
+        else None
+    ) or team_name
     now_hm = datetime.now().strftime("%H:%M")
     hall_rows = halls if halls is not None else load_club_halls(db, club_id, active_only=True)
     out: list[dict[str, Any]] = []
@@ -213,6 +223,7 @@ def _upcoming_trainings_for_team(
                         "location": loc_v,
                         "team_id": int(team_id),
                         "team_name": team_name,
+                        "team_label": team_label,
                         "rule_id": int(r.id),
                         "slot_key": f"{cur_s}|{start_v}|{int(r.id)}",
                     },
