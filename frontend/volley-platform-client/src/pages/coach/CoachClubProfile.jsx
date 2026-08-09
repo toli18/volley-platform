@@ -548,18 +548,11 @@ export default function CoachClubProfile() {
               : "Клубен профил"
         }
         actions={
-          <>
-            {profile.can_sync ? (
-              <Button type="button" variant="secondary" disabled={busy} onClick={syncFromSek}>
-                Изтегли от СЕК
-              </Button>
-            ) : null}
-            {isHead ? (
-              <Link to="/coach/bvf-admin">
-                <Button variant="secondary">Администрация БФВ</Button>
-              </Link>
-            ) : null}
-          </>
+          profile.can_sync ? (
+            <Button type="button" variant="secondary" disabled={busy} onClick={syncFromSek}>
+              Изтегли от СЕК
+            </Button>
+          ) : null
         }
       />
 

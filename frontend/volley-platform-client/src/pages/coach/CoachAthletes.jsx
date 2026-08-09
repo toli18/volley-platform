@@ -341,6 +341,9 @@ export default function CoachAthletes() {
           <Button type="button" size="sm" onClick={() => setTab("add")}>
             Нов състезател
           </Button>
+          <Button as={Link} to="/coach/enrollments" size="sm" variant="secondary">
+            Записвания онлайн
+          </Button>
         </div>
       </div>
 
@@ -461,6 +464,11 @@ export default function CoachAthletes() {
         <Button variant="secondary" onClick={resetForm} block disabled={busy}>
           Изчисти
         </Button>
+        {!isMobile ? (
+          <Button variant="secondary" onClick={() => setTab("list")} block disabled={busy}>
+            Към списъка
+          </Button>
+        ) : null}
       </div>
     </section>
   );
@@ -472,14 +480,6 @@ export default function CoachAthletes() {
           <h2 className="feesCoachHeadTitle">Състезатели</h2>
           <span className="feesCoachHeadBadge">{countLabel}</span>
         </header>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <Button as={Link} to="/coach/enrollments" variant="secondary" size="sm">
-            Записвания онлайн
-          </Button>
-          <Button as={Link} to="/coach/fees" variant="secondary" size="sm">
-            Такси
-          </Button>
-        </div>
         <nav className="coachMobileSubNav" aria-label="Състезатели секции">
           {TABS.map((t) => (
             <button
@@ -504,24 +504,6 @@ export default function CoachAthletes() {
       <PageHero
         title="Състезатели"
         subtitle="Профили, тренировъчни групи и готовност за СЕК. Таксите са в отделен модул."
-        actions={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant="secondary" onClick={() => setTab(tab === "add" ? "list" : "add")}>
-              {tab === "add" ? "Към списъка" : "Нов състезател"}
-            </Button>
-            <Button as={Link} to="/coach/enrollments" variant="secondary">
-              Записвания онлайн
-            </Button>
-            {showCardIndexes ? (
-              <Button as={Link} to="/coach/bvf-card-indexes" variant="secondary">
-                Картотечни отбори
-              </Button>
-            ) : null}
-            <Button as={Link} to="/coach/fees" variant="secondary">
-              Месечни такси
-            </Button>
-          </div>
-        }
       />
       {tab === "add" ? <Card title="Нов състезател">{addBody}</Card> : <Card title="Списък">{listBody}</Card>}
     </div>

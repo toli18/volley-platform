@@ -982,9 +982,6 @@ export default function TeamScheduleCalendar() {
             <Link to="/coach/competitions">
               <Button variant="secondary">Състезания</Button>
             </Link>
-            <Link to="/coach/teams">
-              <Button variant="secondary">Назад към Отбори</Button>
-            </Link>
           </div>
         }
       />
