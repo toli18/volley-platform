@@ -10217,6 +10217,46 @@ body:has(.publicWatchPage--fs) {
   border-bottom: none;
 }
 
+.teamsHubItem {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.teamsHubItem:last-child {
+  border-bottom: none;
+}
+
+.teamsHubItem .coachMobileMenuRow {
+  border-bottom: none;
+}
+
+.teamsHubItem--male .coachMobileMenuIconWrap {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.teamsHubItem--female .coachMobileMenuIconWrap {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.teamsHubItemActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.teamsHubCreate {
+  margin-top: 8px;
+}
+
+.teamsHubCreateCard {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+}
+
 .coachMobileMenuLabel {
   display: block;
   font-weight: 700;

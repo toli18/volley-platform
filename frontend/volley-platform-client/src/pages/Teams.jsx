@@ -8,13 +8,29 @@ import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
 import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
-import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
+import { CoachHubPage, MenuGroup } from "../components/coachMobile/CoachMenuParts";
+import { NavIcon } from "../navigation/navIcons";
+import { Button, EmptyState, Input, Modal } from "../components/ui";
 
 const teamGenderLabel = (gender) => {
   if (gender === "male") return "Мъжки";
   if (gender === "female") return "Женски";
   return "—";
 };
+
+function teamHint(team, { isHeadCoach }) {
+  const parts = [
+    team.coach_name || "Без треньор",
+    team.age_group || null,
+    teamGenderLabel(team.gender),
+    team.season || null,
+    team.is_active === false ? "Неактивна" : null,
+  ];
+  if (isHeadCoach) {
+    parts.push(team.public_enrollment_open ? "Отворена за набиране" : "Затворена за набиране");
+  }
+  return parts.filter(Boolean).join(" · ");
+}
 
 export default function Teams() {
   const toast = useToast();
@@ -23,6 +39,7 @@ export default function Teams() {
   const isCoachShell = location.pathname.startsWith("/coach/teams");
   const isMobileCoachShell = useIsCoachMobileShell();
   const [busy, setBusy] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
@@ -80,6 +97,13 @@ export default function Teams() {
     bootstrap();
   }, [isHeadCoach]);
 
+  const openCreate = () => {
+    setCreateOpen(true);
+    requestAnimationFrame(() => {
+      document.getElementById("teams-create")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const createTeam = async () => {
     const payload = {
       name: teamForm.name.trim(),
@@ -98,9 +122,10 @@ export default function Teams() {
     }
     try {
       setBusy(true);
-      const res = await axiosInstance.post(API_PATHS.TEAM_CREATE, payload);
+      await axiosInstance.post(API_PATHS.TEAM_CREATE, payload);
       await loadTeams();
       setTeamForm({ name: "", age_group: "", season: "", gender: "", is_active: true });
+      setCreateOpen(false);
       toast.success("Групата е създадена.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно създаване на група."));
@@ -204,7 +229,9 @@ export default function Teams() {
       await axiosInstance.put(API_PATHS.TEAM_ASSIGN_COACH(assignTeam.id), { coach_id: nextCoachId });
       setAssignTeam(null);
       await Promise.all([loadTeams(), loadCoaches()]);
-      toast.success("Треньорът на групата е сменен (график и присъствие). Таксите остават при отговорния треньор на всеки състезател.");
+      toast.success(
+        "Треньорът на групата е сменен (график и присъствие). Таксите остават при отговорния треньор на всеки състезател.",
+      );
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна смяна на треньор за групата."));
     } finally {
@@ -212,211 +239,147 @@ export default function Teams() {
     }
   };
 
-  return (
-    <div className={`uiPage ${isCoachShell ? "uiPage--coachTeams" : ""}`.trim()}>
-      {isMobileCoachShell ? (
-        <h2 className="coachMobileSectionTitle">Тренировъчни групи</h2>
-      ) : (
-        <PageHero
-          title="Тренировъчни групи"
-          subtitle="Първо избери група, после отвори отделния ѝ екран. Главният отваря групи за набиране с бутона „Отвори за набиране“."
-          actions={
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {isHeadCoach ? (
-                <Button as={Link} to="/coach/club-admin" variant="secondary">
-                  Клуб
-                </Button>
-              ) : null}
-              <Button as={Link} to="/coach/athletes?tab=add" variant="secondary">
-                Нов състезател
-              </Button>
-              <Link to="/coach/schedule">
-                <Button>График</Button>
-              </Link>
-            </div>
-          }
-        />
-      )}
-
-      <Card title="Списък тренировъчни групи">
+  const page = (
+    <CoachHubPage
+      title="Групи"
+      subtitle={
+        isHeadCoach
+          ? "Избери група за работа. Набирането се отваря от бутона под реда."
+          : "Избери група, после отвори отделния ѝ екран."
+      }
+      roleLabel={isHeadCoach ? "Главен треньор" : undefined}
+    >
+      <MenuGroup title="Тренировъчни групи">
         {teams.length === 0 ? (
-          <EmptyState
-            title="Няма създадени групи"
-            description={
-              isHeadCoach
-                ? "Създай първата група от формата по-долу."
-                : "Помолете главния треньор да ви назначи група или да създаде нова."
-            }
-          />
+          <li>
+            <EmptyState
+              title="Няма създадени групи"
+              description={
+                isHeadCoach
+                  ? "Създай първата група с бутона + или формата по-долу."
+                  : "Помолете главния треньор да ви назначи група или да създаде нова."
+              }
+            />
+          </li>
         ) : (
-          <>
-            <div className="teamsMobileList" aria-label="Тренировъчни групи (мобилен изглед)">
-              {teams.map((team) => (
-                <article
-                  key={`m-${team.id}`}
-                  className={`teamsMobileCard ${team.gender === "male" ? "teamsMobileCard--male" : team.gender === "female" ? "teamsMobileCard--female" : ""}`}
-                >
-                  <h3 className="teamsMobileCardTitle">{team.name}</h3>
-                  <div className="teamsMobileMeta">
-                    <span>Треньор: {team.coach_name || "—"}</span>
-                    <span>Група: {team.age_group || "—"}</span>
-                    <span>Сезон: {team.season || "—"}</span>
-                    <span>Тип: {teamGenderLabel(team.gender)}</span>
-                    <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-                      {team.is_active ? "Активен" : "Неактивен"}
-                    </span>
-                    {isHeadCoach ? (
-                      <span
-                        className={`uiBadge ${team.public_enrollment_open ? "uiBadge--success" : ""}`}
-                        style={
-                          team.public_enrollment_open
-                            ? undefined
-                            : { background: "#f1f5f9", color: "#64748b" }
-                        }
-                      >
-                        {team.public_enrollment_open ? "Отворена за набиране" : "Затворена за набиране"}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="teamsMobileActions">
-                    <Link to={teamDetailPath(team.id)} style={{ display: "block" }}>
-                      <Button size="sm" block>
-                        Отвори
-                      </Button>
-                    </Link>
-                    {isHeadCoach ? (
-                      <Button
-                        size="sm"
-                        variant={team.public_enrollment_open ? "secondary" : "primary"}
-                        block
-                        disabled={busy || team.is_active === false}
-                        onClick={() => toggleRecruitment(team)}
-                      >
-                        {team.public_enrollment_open ? "Затвори набиране" : "Отвори за набиране"}
-                      </Button>
-                    ) : null}
-                    <Button size="sm" variant="secondary" block onClick={() => openEditTeam(team)}>
-                      Редактирай
-                    </Button>
-                    {isHeadCoach ? (
-                      <Button size="sm" variant="secondary" block onClick={() => openAssignCoach(team)}>
-                        Назначи треньор
-                      </Button>
-                    ) : null}
-                    <Button size="sm" variant="danger" block onClick={() => deleteTeam(team)}>
-                      Изтрий
-                    </Button>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="teamsDesktopTable">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Име</TableHead>
-                    <TableHead>Треньор</TableHead>
-                    <TableHead>Група</TableHead>
-                    <TableHead>Сезон</TableHead>
-                    <TableHead>Тип</TableHead>
-                    <TableHead>Статус</TableHead>
-                    {isHeadCoach ? <TableHead>Набиране</TableHead> : null}
-                    <TableHead>Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teams.map((team) => (
-                    <TableRow
-                      key={team.id}
-                      className={team.gender === "male" ? "teamsRow--male" : team.gender === "female" ? "teamsRow--female" : undefined}
-                    >
-                      <TableCell>
-                        <strong>{team.name}</strong>
-                      </TableCell>
-                      <TableCell>{team.coach_name || "—"}</TableCell>
-                      <TableCell>{team.age_group || "-"}</TableCell>
-                      <TableCell>{team.season || "-"}</TableCell>
-                      <TableCell>{teamGenderLabel(team.gender)}</TableCell>
-                      <TableCell>
-                        <span className={`uiBadge ${team.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>
-                          {team.is_active ? "Активен" : "Неактивен"}
-                        </span>
-                      </TableCell>
-                      {isHeadCoach ? (
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant={team.public_enrollment_open ? "secondary" : "primary"}
-                            disabled={busy || team.is_active === false}
-                            onClick={() => toggleRecruitment(team)}
-                          >
-                            {team.public_enrollment_open ? "Отворена · затвори" : "Отвори за набиране"}
-                          </Button>
-                        </TableCell>
-                      ) : null}
-                      <TableCell>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Link to={teamDetailPath(team.id)}>
-                            <Button size="sm">Отвори</Button>
-                          </Link>
-                          <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>
-                            Редактирай
-                          </Button>
-                          {isHeadCoach ? (
-                            <Button size="sm" variant="secondary" onClick={() => openAssignCoach(team)}>
-                              Назначи треньор
-                            </Button>
-                          ) : null}
-                          <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>
-                            Изтрий
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
+          teams.map((team) => (
+            <li
+              key={team.id}
+              className={`teamsHubItem${team.gender === "male" ? " teamsHubItem--male" : team.gender === "female" ? " teamsHubItem--female" : ""}`}
+            >
+              <Link to={teamDetailPath(team.id)} className="coachMobileMenuRow">
+                <span className="coachMobileMenuIconWrap">
+                  <NavIcon name="teams" size={18} />
+                </span>
+                <span className="coachMobileMenuRowBody">
+                  <span className="coachMobileMenuLabel">{team.name}</span>
+                  <span className="coachMobileMuted coachMobileMenuHint">
+                    {teamHint(team, { isHeadCoach })}
+                  </span>
+                </span>
+                <span className="coachMobileTeamChevron" aria-hidden>
+                  ›
+                </span>
+              </Link>
+              <div className="teamsHubItemActions">
+                {isHeadCoach ? (
+                  <Button
+                    size="sm"
+                    variant={team.public_enrollment_open ? "secondary" : "primary"}
+                    disabled={busy || team.is_active === false}
+                    onClick={() => toggleRecruitment(team)}
+                  >
+                    {team.public_enrollment_open ? "Затвори набиране" : "Отвори за набиране"}
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>
+                  Редактирай
+                </Button>
+                {isHeadCoach ? (
+                  <Button size="sm" variant="secondary" onClick={() => openAssignCoach(team)}>
+                    Назначи треньор
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>
+                  Изтрий
+                </Button>
+              </div>
+            </li>
+          ))
         )}
-      </Card>
+      </MenuGroup>
 
-      <Card title="Нова тренировъчна група" id="teams-create">
-        <div className="feesFormGrid">
-          <Input placeholder="Име на група" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
-          <Input placeholder="Възрастова група (пример: U14)" value={teamForm.age_group} onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))} />
-          <Input placeholder="Сезон (пример: 2025/2026)" value={teamForm.season} onChange={(e) => setTeamForm((p) => ({ ...p, season: e.target.value }))} />
-          <Input as="select" value={teamForm.gender} onChange={(e) => setTeamForm((p) => ({ ...p, gender: e.target.value }))}>
-            <option value="">Избери тип на групата</option>
-            <option value="male">Мъжки</option>
-            <option value="female">Женски</option>
-          </Input>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={teamForm.is_active} onChange={(e) => setTeamForm((p) => ({ ...p, is_active: e.target.checked }))} />
-            Активна група
-          </label>
-          <div className="teamsCreateActions">
-            <Button disabled={busy} onClick={createTeam} block className="teamsCreateBtn">
-              Създай група
-            </Button>
+      {(createOpen || !isMobileCoachShell) && (isHeadCoach || teams.length === 0) ? (
+        <section className="teamsHubCreate" id="teams-create">
+          <h2 className="coachMobileSectionTitle">Нова група</h2>
+          <div className="teamsHubCreateCard">
+            <div className="feesFormGrid">
+              <Input
+                placeholder="Име на група"
+                value={teamForm.name}
+                onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))}
+              />
+              <Input
+                placeholder="Възрастова група (пример: U14)"
+                value={teamForm.age_group}
+                onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))}
+              />
+              <Input
+                placeholder="Сезон (пример: 2025/2026)"
+                value={teamForm.season}
+                onChange={(e) => setTeamForm((p) => ({ ...p, season: e.target.value }))}
+              />
+              <Input
+                as="select"
+                value={teamForm.gender}
+                onChange={(e) => setTeamForm((p) => ({ ...p, gender: e.target.value }))}
+              >
+                <option value="">Избери тип на групата</option>
+                <option value="male">Мъжки</option>
+                <option value="female">Женски</option>
+              </Input>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={teamForm.is_active}
+                  onChange={(e) => setTeamForm((p) => ({ ...p, is_active: e.target.checked }))}
+                />
+                Активна група
+              </label>
+              <div className="teamsCreateActions">
+                <Button disabled={busy} onClick={createTeam} block className="teamsCreateBtn">
+                  Създай група
+                </Button>
+                {isMobileCoachShell ? (
+                  <Button variant="secondary" block disabled={busy} onClick={() => setCreateOpen(false)}>
+                    Скрий
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </div>
-      </Card>
+        </section>
+      ) : null}
 
       {isMobileCoachShell ? (
         <CoachSpeedFab
           actions={[
+            isHeadCoach
+              ? {
+                  id: "create-team",
+                  label: "Нова група",
+                  primary: true,
+                  onClick: openCreate,
+                }
+              : null,
             {
-              id: "create-team",
-              label: "Нова група",
-              primary: true,
-              onClick: () => {
-                document.getElementById("teams-create")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              },
+              id: "athlete",
+              label: "Нов състезател",
+              primary: !isHeadCoach,
+              to: "/coach/athletes?tab=add",
             },
-            { id: "athlete", label: "Нов състезател", to: "/coach/athletes?tab=add" },
             { id: "schedule", label: "График", to: "/coach/schedule" },
-          ]}
+          ].filter(Boolean)}
         />
       ) : null}
 
@@ -443,7 +406,11 @@ export default function Teams() {
             value={editTeamForm.season}
             onChange={(e) => setEditTeamForm((p) => ({ ...p, season: e.target.value }))}
           />
-          <Input as="select" value={editTeamForm.gender} onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}>
+          <Input
+            as="select"
+            value={editTeamForm.gender}
+            onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}
+          >
             <option value="">Избери тип на групата</option>
             <option value="male">Мъжки</option>
             <option value="female">Женски</option>
@@ -457,8 +424,12 @@ export default function Teams() {
             Активна група
           </label>
           <div className="uiModalActions">
-            <Button disabled={busy} onClick={saveEditTeam}>Запази</Button>
-            <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>Отказ</Button>
+            <Button disabled={busy} onClick={saveEditTeam}>
+              Запази
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setEditTeam(null)}>
+              Отказ
+            </Button>
           </div>
         </div>
       </Modal>
@@ -483,15 +454,23 @@ export default function Teams() {
             ))}
           </Input>
           <div style={{ color: "#607693", fontSize: 12 }}>
-            Ще се смени треньорът на групата и активните състезатели в тази група ще бъдат прехвърлени към новия треньор.
+            Ще се смени треньорът на групата и активните състезатели в тази група ще бъдат прехвърлени към новия
+            треньор.
           </div>
           <div className="uiModalActions">
-            <Button disabled={busy} onClick={saveAssignCoach}>Запази</Button>
-            <Button variant="secondary" disabled={busy} onClick={() => setAssignTeam(null)}>Отказ</Button>
+            <Button disabled={busy} onClick={saveAssignCoach}>
+              Запази
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setAssignTeam(null)}>
+              Отказ
+            </Button>
           </div>
         </div>
       </Modal>
-
-    </div>
+    </CoachHubPage>
   );
+
+  if (isCoachShell) return page;
+
+  return <div className="uiPage">{page}</div>;
 }
