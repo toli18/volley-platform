@@ -180,13 +180,6 @@ export default function CoachTeamHubOverview({
       label: "Мач / Ротации",
       onClick: () => navigate(`/coach/teams/${teamIdNum}/matches`),
     },
-    ...(canManage
-      ? [
-          { id: "news", label: "Новини", onClick: () => onTab("news") },
-          { id: "chat", label: "Чат", onClick: () => onTab("chat") },
-        ]
-      : []),
-    { id: "roster", label: "Състав", onClick: () => onTab("roster") },
     {
       id: "room",
       label: "Стая на отбора",
