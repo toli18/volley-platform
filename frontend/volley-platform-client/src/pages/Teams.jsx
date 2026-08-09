@@ -7,6 +7,7 @@ import { normalizeError } from "../utils/normalizeError";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
+import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 
 const teamGenderLabel = (gender) => {
@@ -237,17 +238,6 @@ export default function Teams() {
         />
       )}
 
-      {isMobileCoachShell ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          <Button as={Link} to="/coach/athletes?tab=add" variant="secondary" size="sm">
-            Нов състезател
-          </Button>
-          <Button as={Link} to="/coach/schedule" size="sm">
-            График
-          </Button>
-        </div>
-      ) : null}
-
       <Card title="Списък тренировъчни групи">
         {teams.length === 0 ? (
           <EmptyState
@@ -391,7 +381,7 @@ export default function Teams() {
         )}
       </Card>
 
-      <Card title="Нова тренировъчна група">
+      <Card title="Нова тренировъчна група" id="teams-create">
         <div className="feesFormGrid">
           <Input placeholder="Име на група" value={teamForm.name} onChange={(e) => setTeamForm((p) => ({ ...p, name: e.target.value }))} />
           <Input placeholder="Възрастова група (пример: U14)" value={teamForm.age_group} onChange={(e) => setTeamForm((p) => ({ ...p, age_group: e.target.value }))} />
@@ -412,6 +402,23 @@ export default function Teams() {
           </div>
         </div>
       </Card>
+
+      {isMobileCoachShell ? (
+        <CoachSpeedFab
+          actions={[
+            {
+              id: "create-team",
+              label: "Нова група",
+              primary: true,
+              onClick: () => {
+                document.getElementById("teams-create")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              },
+            },
+            { id: "athlete", label: "Нов състезател", to: "/coach/athletes?tab=add" },
+            { id: "schedule", label: "График", to: "/coach/schedule" },
+          ]}
+        />
+      ) : null}
 
       <Modal
         open={Boolean(editTeam)}

@@ -9,6 +9,7 @@ import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
+import CoachSpeedFab from "../../components/coachMobile/CoachSpeedFab";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import { normalizeError } from "../../utils/normalizeError";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
@@ -495,6 +496,18 @@ export default function CoachAthletes() {
         <div className="feesCoachSwipeArea" {...swipeHandlers}>
           {tab === "list" ? listBody : addBody}
         </div>
+        <CoachSpeedFab
+          actions={[
+            {
+              id: "add",
+              label: "Нов състезател",
+              primary: true,
+              onClick: () => setTab("add"),
+            },
+            { id: "enroll", label: "Записвания онлайн", to: "/coach/enrollments" },
+            { id: "fees", label: "Плати такса", to: "/coach/fees" },
+          ]}
+        />
       </div>
     );
   }

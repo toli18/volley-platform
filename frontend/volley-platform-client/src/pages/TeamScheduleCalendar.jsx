@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import MobileDrawer from "../components/shell/MobileDrawer";
+import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
 import { Button, Card, EmptyState, Input, Modal, PageHero } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import useMediaQuery from "../utils/useMediaQuery";
@@ -142,7 +143,6 @@ export default function TeamScheduleCalendar() {
   const [calendarView, setCalendarView] = useState("list");
   const isCalendarShell = useMediaQuery("(max-width: 767px)");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState("");
   const calendarWrapRef = useRef(null);
@@ -909,40 +909,22 @@ export default function TeamScheduleCalendar() {
           )}
         </div>
 
-        {fabOpen ? (
-          <div className="calendarShellFabBackdrop" onClick={() => setFabOpen(false)} aria-hidden />
-        ) : null}
-        {fabOpen ? (
-          <div className="calendarShellFabMenu">
-            <Button
-              size="sm"
-              onClick={() => {
-                setFabOpen(false);
-                openAddForDate(todayKey());
-              }}
-            >
-              + Тренировка
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setFabOpen(false);
-                openCompetitionForDate(todayKey());
-              }}
-            >
-              + Състезание
-            </Button>
-            <Link to="/coach/competitions" onClick={() => setFabOpen(false)}>
-              <Button size="sm" variant="secondary">
-                Състезания / тимов лист
-              </Button>
-            </Link>
-          </div>
-        ) : null}
-        <button type="button" className="calendarShellFab" aria-label="Добави" onClick={() => setFabOpen((v) => !v)}>
-          +
-        </button>
+        <CoachSpeedFab
+          actions={[
+            {
+              id: "training",
+              label: "+ Тренировка",
+              primary: true,
+              onClick: () => openAddForDate(todayKey()),
+            },
+            {
+              id: "competition",
+              label: "+ Състезание",
+              onClick: () => openCompetitionForDate(todayKey()),
+            },
+            { id: "competitions", label: "Състезания / тимов лист", to: "/coach/competitions" },
+          ]}
+        />
 
         <MobileDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Филтри на графика">
           <div className="calendarShellFilters">{filterFields}</div>

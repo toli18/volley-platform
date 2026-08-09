@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import CoachSpeedFab from "../../components/coachMobile/CoachSpeedFab";
 import { EmptyState } from "../../components/ui";
 import useCoachTeams from "../../utils/useCoachTeams";
 
@@ -56,6 +57,22 @@ export default function CoachChatList() {
           ))}
         </ul>
       )}
+
+      <CoachSpeedFab
+        actions={[
+          {
+            id: "parents",
+            label: "Родителски новини",
+            primary: true,
+            to: "/coach/chat/parents",
+          },
+          {
+            id: "photo",
+            label: "Снимка към родители",
+            to: "/coach/chat/parents",
+          },
+        ]}
+      />
     </>
   );
 }
