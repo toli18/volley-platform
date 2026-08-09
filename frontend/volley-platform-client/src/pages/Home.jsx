@@ -8,6 +8,7 @@ import Drills from "./Drills";
 import {
   currentMonthKey,
   loadCoachDashboardData,
+  mergeDashboardData,
   readHeadStatsScope,
   writeHeadStatsScope,
 } from "../utils/loadCoachDashboardData";
@@ -38,6 +39,7 @@ export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(false);
   const [feesSummary, setFeesSummary] = useState({ total: 0, paid: 0, unpaid: 0 });
   const [forumItems, setForumItems] = useState([]);
   const [articleItems, setArticleItems] = useState([]);
@@ -53,11 +55,30 @@ export default function Home() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("today");
   const [headTeamScope, setHeadTeamScope] = useState("all");
+  const [loadedSections, setLoadedSections] = useState({});
 
   const role = String(user?.role || "").toLowerCase();
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
   const isHeadCoach = role === "club_head_coach";
   const monthKey = useMemo(() => currentMonthKey(), []);
+
+  const applyDashboardPartial = (partial) => {
+    setFeesSummary((prev) => partial.feesSummary ?? prev);
+    setFeeOverdue((prev) => partial.feeOverdue ?? prev);
+    setForumItems((prev) => partial.forumItems ?? prev);
+    setArticleItems((prev) => partial.articleItems ?? prev);
+    setLastTrainings((prev) => partial.lastTrainings ?? prev);
+    setTopDrills((prev) => partial.topDrills ?? prev);
+    setDraftCount((prev) => (partial.draftCount !== undefined ? partial.draftCount : prev));
+    setReturnedArticles((prev) => partial.returnedArticles ?? prev);
+    setActivityItems((prev) => {
+      if (!partial.activityItems) return prev;
+      return mergeDashboardData({ activityItems: prev }, { activityItems: partial.activityItems }).activityItems;
+    });
+    setMonthlyStats((prev) => partial.monthlyStats ?? prev);
+    setScheduleItems((prev) => partial.scheduleItems ?? prev);
+    setAttendanceRank((prev) => partial.attendanceRank ?? prev);
+  };
 
   useEffect(() => {
     if (!user?.id || !isHeadCoach) return;
@@ -81,41 +102,74 @@ export default function Home() {
   }, [showCoachDashboard, navigate]);
 
   useEffect(() => {
+    if (!showCoachDashboard) {
+      setLoading(false);
+      return undefined;
+    }
+    let active = true;
     const loadDashboard = async () => {
-      if (!showCoachDashboard) {
-        setLoading(false);
-        return;
-      }
       try {
         setLoading(true);
+        setError("");
+        setLoadedSections((prev) => (prev.content ? { content: true } : {}));
+        const data = await loadCoachDashboardData({
+          userId: user?.id,
+          isHeadCoach,
+          headTeamScope,
+          monthKey,
+          sections: ["today"],
+        });
+        if (!active) return;
+        applyDashboardPartial(data);
+        setLoadedSections((prev) => ({
+          today: true,
+          ...(prev.content ? { content: true } : {}),
+        }));
+      } catch (e) {
+        const detail = e?.response?.data?.detail;
+        if (active) setError(typeof detail === "string" ? detail : "Грешка при зареждане на началното табло.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    loadDashboard();
+    return () => {
+      active = false;
+    };
+  }, [monthKey, showCoachDashboard, user?.id, isHeadCoach, headTeamScope]);
+
+  useEffect(() => {
+    if (!showCoachDashboard || activeTab === "today" || loadedSections[activeTab] || loading) {
+      return undefined;
+    }
+    let active = true;
+    const loadTab = async () => {
+      try {
+        setTabLoading(true);
         setError("");
         const data = await loadCoachDashboardData({
           userId: user?.id,
           isHeadCoach,
           headTeamScope,
           monthKey,
+          sections: [activeTab],
+          includeTrainingStats: !loadedSections.content,
         });
-        setFeesSummary(data.feesSummary);
-        setFeeOverdue(data.feeOverdue);
-        setForumItems(data.forumItems);
-        setArticleItems(data.articleItems);
-        setLastTrainings(data.lastTrainings);
-        setTopDrills(data.topDrills);
-        setDraftCount(data.draftCount);
-        setReturnedArticles(data.returnedArticles);
-        setActivityItems(data.activityItems);
-        setMonthlyStats(data.monthlyStats);
-        setScheduleItems(data.scheduleItems);
-        setAttendanceRank(data.attendanceRank);
+        if (!active) return;
+        applyDashboardPartial(data);
+        setLoadedSections((prev) => ({ ...prev, [activeTab]: true }));
       } catch (e) {
         const detail = e?.response?.data?.detail;
-        setError(typeof detail === "string" ? detail : "Грешка при зареждане на началното табло.");
+        if (active) setError(typeof detail === "string" ? detail : "Грешка при зареждане на раздела.");
       } finally {
-        setLoading(false);
+        if (active) setTabLoading(false);
       }
     };
-    loadDashboard();
-  }, [monthKey, showCoachDashboard, user?.id, isHeadCoach, headTeamScope]);
+    loadTab();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, loadedSections, loading, showCoachDashboard, user?.id, isHeadCoach, headTeamScope, monthKey]);
 
   if (!user || !showCoachDashboard) {
     return <Drills />;
@@ -209,6 +263,10 @@ export default function Home() {
           );
         })}
       </div>
+
+      {(loading || tabLoading) && activeTab !== "today" ? (
+        <p style={{ marginBottom: 12, color: "#64748b" }}>Зареждане на раздела...</p>
+      ) : null}
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
       {activeTab === "today" && (

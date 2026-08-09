@@ -65,6 +65,18 @@ def _validate_month_key(month_key: str) -> str:
     return value
 
 
+def _shift_month_key(month_key: str, delta_months: int) -> str:
+    value = _validate_month_key(month_key)
+    y, m = int(value[:4]), int(value[5:7])
+    idx = y * 12 + (m - 1) + int(delta_months)
+    return f"{idx // 12:04d}-{(idx % 12) + 1:02d}"
+
+
+def _current_month_key(now: datetime | None = None) -> str:
+    d = now or datetime.utcnow()
+    return f"{d.year:04d}-{d.month:02d}"
+
+
 def _iter_months(from_month: str, to_month: str) -> list[str]:
     start = _validate_month_key(from_month)
     end = _validate_month_key(to_month)
@@ -110,17 +122,19 @@ def _team_names_by_athlete(db: Session, athlete_ids: list[int]) -> dict[int, lis
 
 def _athlete_reads_with_teams(db: Session, athletes: list[Athlete]) -> list[AthleteRead]:
     from app.services.athlete_memberships import athlete_display_has_photo, carded_team_badges_by_athlete
-    from app.services.athlete_photo import has_cached_photo
+    from app.services.athlete_photo import cached_photo_athlete_ids
 
-    team_map = _team_names_by_athlete(db, [a.id for a in athletes])
-    carded_map = carded_team_badges_by_athlete(db, [a.id for a in athletes])
+    athlete_ids = [a.id for a in athletes]
+    team_map = _team_names_by_athlete(db, athlete_ids)
+    carded_map = carded_team_badges_by_athlete(db, athlete_ids)
+    cached_ids = cached_photo_athlete_ids(athlete_ids)
     return [
         AthleteRead.model_validate(athlete).model_copy(
             update={
                 "team_names": team_map.get(athlete.id, []),
                 "carded_teams": [CardedTeamBadge(**row) for row in carded_map.get(athlete.id, [])],
                 "has_photo": athlete_display_has_photo(
-                    athlete, cached=has_cached_photo(athlete.id)
+                    athlete, cached=athlete.id in cached_ids
                 ),
             }
         )
@@ -403,9 +417,14 @@ def list_athletes(
 
     recent_by_athlete: dict[int, list[dict]] = {}
     if athlete_ids:
+        # Достатъчно за UI (последни 3 плащания) — без цялата история.
+        payments_from = _shift_month_key(_current_month_key(), -5)
         payments = (
             db.query(AthletePayment)
-            .filter(AthletePayment.athlete_id.in_(athlete_ids))
+            .filter(
+                AthletePayment.athlete_id.in_(athlete_ids),
+                AthletePayment.month_key >= payments_from,
+            )
             .order_by(AthletePayment.athlete_id.asc(), AthletePayment.month_key.desc(), AthletePayment.paid_at.desc())
             .all()
         )

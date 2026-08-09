@@ -22,6 +22,32 @@ def has_cached_photo(athlete_id: int) -> bool:
     return p.is_file() and p.stat().st_size > 0
 
 
+def cached_photo_athlete_ids(athlete_ids: list[int] | set[int] | None = None) -> set[int]:
+    """Еднократно сканиране на кеша вместо N× is_file/stat/mkdir."""
+    try:
+        PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return set()
+    wanted = {int(x) for x in athlete_ids} if athlete_ids is not None else None
+    found: set[int] = set()
+    try:
+        for path in PHOTO_DIR.glob("*.jpg"):
+            try:
+                aid = int(path.stem)
+            except ValueError:
+                continue
+            if wanted is not None and aid not in wanted:
+                continue
+            try:
+                if path.is_file() and path.stat().st_size > 0:
+                    found.add(aid)
+            except OSError:
+                continue
+    except OSError:
+        return set()
+    return found
+
+
 def save_athlete_photo(athlete_id: int, content: bytes) -> Path:
     if not content:
         raise ValueError("empty photo")

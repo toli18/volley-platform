@@ -7,8 +7,10 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 import { formatDaysUntil } from "../../utils/parentPortalDates";
 import {
+  EMPTY_DASHBOARD,
   currentMonthKey,
   loadCoachDashboardData,
+  mergeDashboardData,
   readHeadStatsScope,
   writeHeadStatsScope,
 } from "../../utils/loadCoachDashboardData";
@@ -155,27 +157,14 @@ export default function CoachToday() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("today");
   const [headTeamScope, setHeadTeamScope] = useState("all");
   const [programWeek, setProgramWeek] = useState(null);
   const [programThemes, setProgramThemes] = useState({});
-  const [dash, setDash] = useState({
-    feesSummary: { total: 0, paid: 0, unpaid: 0 },
-    feeOverdue: { late10: [], overTwo: [] },
-    forumItems: [],
-    articleItems: [],
-    lastTrainings: [],
-    topDrills: [],
-    draftCount: 0,
-    returnedArticles: [],
-    activityItems: [],
-    monthlyStats: { trainingsCreated: 0, drillsUsed: 0 },
-    scheduleItems: [],
-    attendanceRank: { top: [], bottom: [], sessionLimit: 10 },
-    absenceNotices: [],
-    monthKey: currentMonthKey(),
-  });
+  const [loadedSections, setLoadedSections] = useState({});
+  const [dash, setDash] = useState(() => ({ ...EMPTY_DASHBOARD, monthKey: currentMonthKey() }));
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -197,12 +186,32 @@ export default function CoachToday() {
       try {
         setLoading(true);
         setError("");
+        setLoadedSections((prev) => (prev.content ? { content: true } : {}));
         const data = await loadCoachDashboardData({
           userId: user?.id,
           isHeadCoach,
           headTeamScope,
+          sections: ["today"],
         });
-        if (active) setDash(data);
+        if (!active) return;
+        setDash((prev) => {
+          const base = {
+            ...EMPTY_DASHBOARD,
+            monthKey: currentMonthKey(),
+            forumItems: prev.forumItems,
+            articleItems: prev.articleItems,
+            lastTrainings: prev.lastTrainings,
+            topDrills: prev.topDrills,
+            draftCount: prev.draftCount,
+            returnedArticles: prev.returnedArticles,
+            monthlyStats: prev.monthlyStats,
+          };
+          return mergeDashboardData(base, data);
+        });
+        setLoadedSections((prev) => ({
+          today: true,
+          ...(prev.content ? { content: true } : {}),
+        }));
       } catch (err) {
         const detail = err?.response?.data?.detail;
         if (active) setError(typeof detail === "string" ? detail : "Грешка при зареждане на таблото.");
@@ -215,6 +224,36 @@ export default function CoachToday() {
       active = false;
     };
   }, [user?.id, isHeadCoach, headTeamScope]);
+
+  useEffect(() => {
+    if (activeTab === "today" || loadedSections[activeTab] || loading) return undefined;
+    let active = true;
+    const load = async () => {
+      try {
+        setTabLoading(true);
+        setError("");
+        const data = await loadCoachDashboardData({
+          userId: user?.id,
+          isHeadCoach,
+          headTeamScope,
+          sections: [activeTab],
+          includeTrainingStats: !loadedSections.content,
+        });
+        if (!active) return;
+        setDash((prev) => mergeDashboardData(prev, data));
+        setLoadedSections((prev) => ({ ...prev, [activeTab]: true }));
+      } catch (err) {
+        const detail = err?.response?.data?.detail;
+        if (active) setError(typeof detail === "string" ? detail : "Грешка при зареждане на раздела.");
+      } finally {
+        if (active) setTabLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, loadedSections, loading, user?.id, isHeadCoach, headTeamScope]);
 
   useEffect(() => {
     let active = true;
@@ -330,9 +369,10 @@ export default function CoachToday() {
       </div>
 
       {loading ? <p className="coachMobileMuted">Зареждане...</p> : null}
+      {!loading && tabLoading ? <p className="coachMobileMuted">Зареждане на раздела...</p> : null}
       {error ? <EmptyState title="Грешка" description={error} /> : null}
 
-      {!loading && !error && activeTab === "today" ? (
+      {!loading && !error && !tabLoading && activeTab === "today" ? (
         <>
           {programWeek ? (
             <Link
@@ -419,7 +459,7 @@ export default function CoachToday() {
         </>
       ) : null}
 
-      {!loading && !error && activeTab === "content" ? (
+      {!loading && !error && !tabLoading && activeTab === "content" ? (
         <>
           <SectionCard
             title="Твоите последни 5 тренировки"
@@ -540,7 +580,7 @@ export default function CoachToday() {
         </>
       ) : null}
 
-      {!loading && !error && activeTab === "stats" ? (
+      {!loading && !error && !tabLoading && activeTab === "stats" ? (
         <>
           {isHeadCoach ? (
             <SectionCard title="Обхват на статистиката">
