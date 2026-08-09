@@ -199,9 +199,65 @@ def sync_coach_phones_from_bvf(db: Session, club: Club, remote_coaches: list[dic
 
 def _hall_field(row: dict, *keys: str) -> str | None:
     for key in keys:
-        val = str(row.get(key) or "").strip()
-        if val:
-            return val
+        val = row.get(key)
+        if isinstance(val, dict):
+            continue
+        text = str(val or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _extract_hall_address(row: dict) -> str | None:
+    """Извлича адрес от HallDto — string или структурирани полета."""
+    direct = _hall_field(row, "address", "fullAddress", "location", "streetAddress", "street")
+    # Ако address е обект, _hall_field го пропуска
+    nested = row.get("address")
+    parts: list[str] = []
+    if isinstance(nested, dict):
+        for key in ("street", "streetAddress", "addressLine1", "line1", "fullAddress", "name"):
+            p = str(nested.get(key) or "").strip()
+            if p:
+                parts.append(p)
+                break
+        city = nested.get("city")
+        if isinstance(city, dict):
+            cname = str(city.get("name") or "").strip()
+            if cname:
+                parts.append(cname)
+        elif isinstance(city, str) and city.strip():
+            parts.append(city.strip())
+        for key in ("postCode", "postalCode", "zip"):
+            z = str(nested.get(key) or "").strip()
+            if z:
+                parts.append(z)
+                break
+    if not parts:
+        city = row.get("city")
+        if isinstance(city, dict):
+            cname = str(city.get("name") or "").strip()
+            if cname and direct:
+                return f"{direct}, {cname}"
+            if cname and not direct:
+                return cname
+        elif isinstance(city, str) and city.strip() and direct:
+            return f"{direct}, {city.strip()}"
+    if parts:
+        return ", ".join(parts)
+    return direct
+
+
+def _extract_hall_maps(row: dict) -> str | None:
+    maps = _hall_field(row, "googleMapsUrl", "googleMapsURL", "mapsUrl", "mapUrl", "googleMapUrl")
+    if maps:
+        return maps
+    lat = row.get("latitude") if row.get("latitude") is not None else row.get("lat")
+    lng = row.get("longitude") if row.get("longitude") is not None else row.get("lng")
+    try:
+        if lat is not None and lng is not None:
+            return f"https://www.google.com/maps?q={float(lat)},{float(lng)}"
+    except (TypeError, ValueError):
+        pass
     return None
 
 
@@ -228,11 +284,18 @@ def sync_halls_from_bvf(db: Session, club: Club, remote_halls: list[dict]) -> di
         except Exception:
             continue
         name = _hall_field(row, "name", "title", "hallName") or f"Зала #{hid}"
-        address = _hall_field(row, "address", "fullAddress", "location")
-        maps = _hall_field(row, "googleMapsUrl", "googleMapsURL", "mapsUrl", "mapUrl")
+        address = _extract_hall_address(row)
+        maps = _extract_hall_maps(row)
         hall = by_bvf.get(hid) or by_name.get(_norm_hall_key(name))
         if hall is None:
-            hall = ClubHall(club_id=int(club.id), bvf_hall_id=hid, name=name)
+            hall = ClubHall(
+                club_id=int(club.id),
+                bvf_hall_id=hid,
+                name=name,
+                address=address,
+                google_maps_url=maps,
+                is_active=True,
+            )
             db.add(hall)
             created += 1
         else:
@@ -243,10 +306,11 @@ def sync_halls_from_bvf(db: Session, club: Club, remote_halls: list[dict]) -> di
             if (hall.name or "") != name:
                 hall.name = name
                 changed = True
-            if (hall.address or None) != address:
+            # Не затриваме ръчно попълнен адрес с празна стойност от СЕК
+            if address and (hall.address or None) != address:
                 hall.address = address
                 changed = True
-            if (hall.google_maps_url or None) != maps:
+            if maps and (hall.google_maps_url or None) != maps:
                 hall.google_maps_url = maps
                 changed = True
             if not hall.is_active:
@@ -258,7 +322,6 @@ def sync_halls_from_bvf(db: Session, club: Club, remote_halls: list[dict]) -> di
 
     deactivated = 0
     # Ръчно добавените зали (без bvf_hall_id) никога не се махат от СЕК sync.
-    # Ако СЕК върне празен списък — оставяме ръчните празни за попълване от главния треньор.
     for h in local:
         if h.bvf_hall_id is not None and int(h.bvf_hall_id) not in seen_ids and h.is_active:
             h.is_active = False
@@ -270,6 +333,38 @@ def sync_halls_from_bvf(db: Session, club: Club, remote_halls: list[dict]) -> di
         "halls_updated": updated,
         "halls_deactivated": deactivated,
     }
+
+
+def enrich_halls_missing_address(
+    remote_halls: list[dict],
+    fetch_detail,
+) -> list[dict]:
+    """Ако в списъка няма адрес — дърпа GET /api/halls/{id} за детайл."""
+    out: list[dict] = []
+    for row in remote_halls or []:
+        if not isinstance(row, dict):
+            continue
+        merged = dict(row)
+        if _extract_hall_address(merged) and _extract_hall_maps(merged):
+            out.append(merged)
+            continue
+        try:
+            hid = int(row.get("id"))
+        except Exception:
+            out.append(merged)
+            continue
+        try:
+            detail = fetch_detail(hid)
+        except Exception:
+            detail = None
+        if isinstance(detail, dict):
+            for k, v in detail.items():
+                if v is not None and (merged.get(k) in (None, "", [])):
+                    merged[k] = v
+                elif k in ("address", "fullAddress", "googleMapsUrl", "latitude", "longitude") and v:
+                    merged[k] = v
+        out.append(merged)
+    return out
 
 
 def load_club_halls(db: Session, club_id: int, *, active_only: bool = True) -> list[ClubHall]:

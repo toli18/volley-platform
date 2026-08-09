@@ -481,6 +481,7 @@ def link_api_key(
         apply_bvf_club_remote_to_local,
         sync_coach_phones_from_bvf,
         sync_halls_from_bvf,
+        enrich_halls_missing_address,
     )
 
     apply_bvf_club_remote_to_local(club, remote)
@@ -493,6 +494,10 @@ def link_api_key(
     try:
         halls_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/halls", key)
         if isinstance(halls_remote, list):
+            halls_remote = enrich_halls_missing_address(
+                halls_remote,
+                lambda hid: _bvf_get(f"/api/halls/{hid}", key),
+            )
             sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
@@ -570,6 +575,7 @@ def link_club(
         apply_bvf_club_remote_to_local,
         sync_coach_phones_from_bvf,
         sync_halls_from_bvf,
+        enrich_halls_missing_address,
     )
 
     apply_bvf_club_remote_to_local(club, remote)
@@ -582,6 +588,10 @@ def link_club(
     try:
         halls_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/halls", token)
         if isinstance(halls_remote, list):
+            halls_remote = enrich_halls_missing_address(
+                halls_remote,
+                lambda hid: _bvf_get(f"/api/halls/{hid}", token),
+            )
             sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
@@ -1254,6 +1264,7 @@ def sync_club_profile_from_sek(
     from app.services.club_profile_sync import (
         apply_bvf_club_remote_to_local,
         club_profile_unlocked,
+        enrich_halls_missing_address,
         load_club_halls,
         serialize_club_profile,
         sync_coach_phones_from_bvf,
@@ -1284,6 +1295,10 @@ def sync_club_profile_from_sek(
     try:
         halls_remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/halls", token)
         if isinstance(halls_remote, list):
+            halls_remote = enrich_halls_missing_address(
+                halls_remote,
+                lambda hid: _bvf_get(f"/api/halls/{hid}", token),
+            )
             hall_stats = sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
