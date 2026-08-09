@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
 import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import useClubBvfLink from "../../hooks/useClubBvfLink";
+import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
@@ -38,6 +39,7 @@ export default function CoachBvfCardIndexes() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsCoachMobileShell();
   const { permanent, tokenBody } = useClubBvfLink();
   const role = normalizeRole(user);
   const isHead =
@@ -255,6 +257,224 @@ export default function CoachBvfCardIndexes() {
     }
   };
 
+  const seasonStatusLabel = season?.application
+    ? `Заявка #${season.application.id} · ${
+        season.application.status === "open"
+          ? "ОТВОРЕН"
+          : season.application.status === "closed"
+            ? "ЗАТВОРЕН"
+            : season.application.status === "draft"
+              ? "ЧЕРНОВА"
+              : season.application.status
+      } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
+    : "Все още няма сезонна заявка за тази година.";
+
+  const teamsEmpty = (
+    <EmptyState
+      title="Няма отбори"
+      description={
+        isHead
+          ? "Отвори сезон и назначи треньор по възраст."
+          : "Главният треньор още не ти е назначил възрастова група."
+      }
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="coachMobilePage cardIndexesMobilePage">
+        <header className="feesCoachHead">
+          <h2 className="feesCoachHeadTitle">Картотечни отбори</h2>
+          <span className="feesCoachHeadBadge">{items.length}</span>
+        </header>
+        <p className="coachMobileMuted" style={{ marginTop: 0 }}>
+          {isHead
+            ? "Сезон → назначение → клик на отбор за състав."
+            : "Отваряш назначения отбор, попълваш състава и пращаш заявка към главния."}
+        </p>
+
+        <section className="cardIndexesMobileSection">
+          <h3 className="coachMobileSectionTitle">Сезон</h3>
+          <div className="cardIndexesMobileStack">
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} />
+            </label>
+            {canManage ? (
+              <>
+                <Button type="button" disabled={busy} onClick={openSeason} block>
+                  {season?.application?.status === "open" ? "Отвори отново" : "Отвори сезон"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={busy || season?.application?.status !== "open" || season?.application?.forms_active}
+                  onClick={activateForms}
+                  block
+                >
+                  {season?.application?.forms_active ? "Форма 03 активна" : "Активирай Форма 03"}
+                </Button>
+                <Button type="button" disabled={busy || !canCallBvf} onClick={importFromSek} block>
+                  Импортни отбори от СЕК
+                </Button>
+                {season?.application?.status === "open" ? (
+                  <Button type="button" variant="secondary" disabled={busy} onClick={closeSeason} block>
+                    Затвори сезон
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+            <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason} block>
+              Презареди
+            </Button>
+          </div>
+          <p className="coachMobileMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
+            {seasonStatusLabel}
+          </p>
+        </section>
+
+        {canManage ? (
+          <section className="cardIndexesMobileSection">
+            <h3 className="coachMobileSectionTitle">Назначи треньор</h3>
+            <div className="cardIndexesMobileStack">
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Възраст</span>
+                <select className="uiInput" value={assignAge} onChange={(e) => setAssignAge(e.target.value)}>
+                  {AGE_OPTIONS.map((o) => (
+                    <option key={o.age} value={o.age}>
+                      {o.label} ({o.age})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Пол</span>
+                <select className="uiInput" value={assignSex} onChange={(e) => setAssignSex(e.target.value)}>
+                  <option value="0">Мъжки</option>
+                  <option value="1">Женски</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Треньор</span>
+                <select className="uiInput" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
+                  <option value="">—</option>
+                  {coaches.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Втори треньор</span>
+                <select
+                  className="uiInput"
+                  value={assignSecondCoachId}
+                  onChange={(e) => setAssignSecondCoachId(e.target.value)}
+                >
+                  <option value="">— по желание —</option>
+                  {coaches
+                    .filter((c) => String(c.id) !== String(assignCoachId))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Лекар</span>
+                <input
+                  className="uiInput"
+                  value={assignDoctorName}
+                  onChange={(e) => setAssignDoctorName(e.target.value)}
+                  placeholder="Име на лекар"
+                />
+              </label>
+              <Button type="button" disabled={busy || !assignCoachId} onClick={assignCoach} block>
+                Назначи / обнови
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="cardIndexesMobileSection">
+          <h3 className="coachMobileSectionTitle">{isHead ? "Отбори за сезона" : "Моите отбори"}</h3>
+          {items.length === 0 ? (
+            teamsEmpty
+          ) : (
+            <ul className="coachMobileTeamList" aria-label="Картотечни отбори">
+              {items.map((it) => (
+                <li key={it.id}>
+                  <div className="coachMobileTeamCard cardIndexesMobileTeamCard">
+                    <button
+                      type="button"
+                      className="cardIndexesMobileTeamMain"
+                      onClick={() => navigate(`/coach/bvf-card-indexes/${it.id}`)}
+                    >
+                      <span className="coachMobileTeamName">
+                        {it.age_group || it.age} · {it.sex === 1 ? "Ж" : "М"}
+                      </span>
+                      <span className="coachMobileMuted">
+                        {it.assigned_coach_name || "—"}
+                        {it.second_coach_name ? ` · ${it.second_coach_name}` : ""}
+                        {" · "}
+                        {it.members_count ?? 0} души · {statusLabel(it)}
+                      </span>
+                    </button>
+                    <span className="coachMobileTeamChevron" aria-hidden>
+                      ›
+                    </span>
+                    {isHead && it.can_delete ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={(e) => deleteDraft(it, e)}
+                      >
+                        Изтрий
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {isHead ? (
+          <section className="cardIndexesMobileSection">
+            <h3 className="coachMobileSectionTitle">Огледало БФВ</h3>
+            {!permanent ? (
+              <textarea
+                className="uiInput"
+                rows={2}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="БФВ token (временно)"
+                style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, width: "100%", marginBottom: 8 }}
+              />
+            ) : null}
+            <Button type="button" variant="secondary" disabled={busy || !canCallBvf} onClick={fetchBvfMirror} block>
+              Зареди от БФВ
+            </Button>
+            {bvfMirrorItems.length > 0 ? (
+              <p className="coachMobileMuted" style={{ marginBottom: 0, marginTop: 8, fontSize: 13 }}>
+                {bvfMirrorItems.length} записа · ползвай локалните отбори по-горе.
+              </p>
+            ) : null}
+            <div style={{ marginTop: 8 }}>
+              <Button as={Link} to="/coach/bvf-admin" variant="secondary" block>
+                Администрация БФВ
+              </Button>
+            </div>
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="uiPage">
       <PageHero
@@ -312,17 +532,7 @@ export default function CoachBvfCardIndexes() {
             </Button>
           </div>
           <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
-            {season?.application
-              ? `Заявка #${season.application.id} · ${
-                  season.application.status === "open"
-                    ? "ОТВОРЕН"
-                    : season.application.status === "closed"
-                      ? "ЗАТВОРЕН"
-                      : season.application.status === "draft"
-                        ? "ЧЕРНОВА"
-                        : season.application.status
-                } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
-              : "Все още няма сезонна заявка за тази година."}
+            {seasonStatusLabel}
           </p>
         </Card>
       ) : (
@@ -418,14 +628,7 @@ export default function CoachBvfCardIndexes() {
           Кликни отбор, за да отвориш състава и търсачката.
         </p>
         {items.length === 0 ? (
-          <EmptyState
-            title="Няма отбори"
-            description={
-              isHead
-                ? "Отвори сезон и назначи треньор по възраст."
-                : "Главният треньор още не ти е назначил възрастова група."
-            }
-          />
+          teamsEmpty
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="uiTable">

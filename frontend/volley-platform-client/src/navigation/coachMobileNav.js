@@ -2,6 +2,14 @@ import { COACH_MOBILE_TABS } from "./navConfig";
 
 export function coachMobileActiveTab(pathname) {
   if (pathname.startsWith("/coach/chat")) return "chat";
+  if (
+    pathname.startsWith("/coach/bvf-admin") ||
+    pathname.startsWith("/coach/bvf-card-indexes") ||
+    pathname.startsWith("/coach/club-admin") ||
+    pathname.startsWith("/coach/club-profile")
+  ) {
+    return "club";
+  }
   if (pathname.startsWith("/coach/bvf")) return "bvf";
   if (
     pathname.startsWith("/textbook") ||
@@ -21,7 +29,6 @@ export function coachMobileActiveTab(pathname) {
     pathname.startsWith("/coach/program-week") ||
     pathname.startsWith("/coach/enrollments") ||
     pathname.startsWith("/coach/competitions") ||
-    pathname.startsWith("/coach/club-profile") ||
     pathname.startsWith("/coach/trainings")
   ) {
     return "club";

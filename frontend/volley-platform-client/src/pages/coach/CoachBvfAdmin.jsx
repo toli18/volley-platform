@@ -247,8 +247,8 @@ export default function CoachBvfAdmin() {
         subtitle="Връзка с db.bvf.bg, състезатели към СЕК и клубно заявление."
         actions={
           <>
-            <Link to="/club-head">
-              <Button variant="secondary">Клубен преглед</Button>
+            <Link to="/coach/club-admin">
+              <Button variant="secondary">Клуб</Button>
             </Link>
             <Link to="/coach/bvf-card-indexes">
               <Button variant="secondary">Картотечни отбори</Button>

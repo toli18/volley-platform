@@ -24,38 +24,34 @@ export const COACH_PRIMARY_NAV = [
     label: "Клуб & Групи",
     icon: "teams",
     children: [
-      { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams" },
-      { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck" },
-      { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro" },
-      { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target" },
-      { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar" },
+      { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams", hint: "Тренировъчни групи и състав" },
+      { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК · записвания онлайн" },
+      { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
+      { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове, тимов лист, филтри" },
+      { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar", hint: "Месечен календар на тренировки" },
       {
         id: "group-work",
         label: "Работа с групата",
         to: "/coach/group-work",
         icon: "clipboardCheck",
+        hint: "Програмна седмица, присъствие, тестирания",
       },
       {
-        id: "club-profile",
+        id: "club-admin",
         label: "Клуб",
-        to: "/coach/club-profile",
+        to: "/coach/club-admin",
         icon: "shield",
         headCoachOnly: true,
-      },
-      {
-        id: "bvf-admin",
-        label: "Администрация БФВ",
-        to: "/coach/bvf-admin",
-        icon: "shield",
-        headCoachOnly: true,
+        hint: "Профил, администрация БФВ и картотека",
       },
       {
         id: "bvf-card-indexes",
         label: "Картотечни отбори",
         to: "/coach/bvf-card-indexes",
         icon: "shield",
+        hint: "Сезон × възраст · състав",
         // Видим само за треньор с назначени картотечни отбори в отворен сезон.
-        // Главният ползва бутона в „Администрация БФВ“.
+        // Главният ползва бутона в „Клуб“.
         assignedCardIndexOnly: true,
       },
     ],
@@ -66,10 +62,10 @@ export const COACH_PRIMARY_NAV = [
     label: "Обучение & Ресурси",
     icon: "book",
     children: [
-      { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book" },
-      { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill" },
-      { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true },
-      { id: "articles", label: "Статии", to: "/articles", icon: "article" },
+      { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book", hint: "Учебник, програма, упражнения" },
+      { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill", hint: "Моите упражнения и статии" },
+      { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true, hint: "Генериране на тренировки" },
+      { id: "articles", label: "Статии", to: "/articles", icon: "article", hint: "Библиотека със статии" },
     ],
   },
   { type: "link", id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
@@ -152,20 +148,12 @@ export const COACH_CLUB_HUB_LINKS = [
     hint: "Програмна седмица, присъствие, тестирания",
   },
   {
-    id: "club-profile",
+    id: "club-admin",
     label: "Клуб",
-    to: "/coach/club-profile",
+    to: "/coach/club-admin",
     icon: "shield",
     headCoachOnly: true,
-    hint: "Профил, зали, записване, треньори",
-  },
-  {
-    id: "bvf-admin",
-    label: "Администрация БФВ",
-    to: "/coach/bvf-admin",
-    icon: "shield",
-    headCoachOnly: true,
-    hint: "Картотека, импорт и клубен преглед",
+    hint: "Профил, администрация БФВ и картотека",
   },
   {
     id: "bvf-card-indexes",
@@ -174,6 +162,38 @@ export const COACH_CLUB_HUB_LINKS = [
     icon: "shield",
     hint: "Сезон × възраст · състав",
     assignedCardIndexOnly: true,
+  },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_CLUB_ADMIN_HUB_LINKS = [
+  {
+    id: "club-profile",
+    label: "Профил на клуба",
+    to: "/coach/club-profile",
+    icon: "shield",
+    hint: "Контакти, зали, записване, треньори",
+  },
+  {
+    id: "bvf-admin",
+    label: "Администрация БФВ",
+    to: "/coach/bvf-admin",
+    icon: "shield",
+    hint: "Връзка със СЕК, импорт и заявление",
+  },
+  {
+    id: "club-head",
+    label: "Клубен преглед",
+    to: "/club-head",
+    icon: "shield",
+    hint: "Обзор, присъствие и методика",
+  },
+  {
+    id: "bvf-card-indexes",
+    label: "Картотечни отбори",
+    to: "/coach/bvf-card-indexes",
+    icon: "shield",
+    hint: "Сезон × възраст · Форма 03 · състав",
   },
 ];
 

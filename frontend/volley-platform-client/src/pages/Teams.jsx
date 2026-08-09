@@ -222,8 +222,8 @@ export default function Teams() {
           actions={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {isHeadCoach ? (
-                <Button as={Link} to="/coach/club-profile" variant="secondary">
-                  Публична страница
+                <Button as={Link} to="/coach/club-admin" variant="secondary">
+                  Клуб
                 </Button>
               ) : null}
               <Button as={Link} to="/coach/athletes?tab=add" variant="secondary">

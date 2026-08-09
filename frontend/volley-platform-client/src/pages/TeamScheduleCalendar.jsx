@@ -110,6 +110,18 @@ const occurrenceKey = (it, i) =>
     ? `comp-${it.competition_id}-${it.date}-${i}`
     : `rule-${it.rule_id}-${it.date}-${it.start_time}-${i}`;
 
+const KIND_FILTER_STORAGE_KEY = "coachScheduleKindFilter";
+
+function readStoredKindFilter() {
+  try {
+    const v = localStorage.getItem(KIND_FILTER_STORAGE_KEY);
+    if (v === "training" || v === "match") return v;
+  } catch {
+    /* ignore */
+  }
+  return "";
+}
+
 export default function TeamScheduleCalendar() {
   const [searchParams] = useSearchParams();
   const toast = useToast();
@@ -125,6 +137,7 @@ export default function TeamScheduleCalendar() {
   const [teamFilter, setTeamFilter] = useState("");
   const [coachFilter, setCoachFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [kindFilter, setKindFilter] = useState(readStoredKindFilter);
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [calendarView, setCalendarView] = useState("list");
   const isCalendarShell = useMediaQuery("(max-width: 767px)");
@@ -168,9 +181,27 @@ export default function TeamScheduleCalendar() {
   const currentUserId = Number(user?.id || 0);
   const effectiveCoachFilter = coachFilter;
 
+  useEffect(() => {
+    try {
+      if (kindFilter === "training" || kindFilter === "match") {
+        localStorage.setItem(KIND_FILTER_STORAGE_KEY, kindFilter);
+      } else {
+        localStorage.removeItem(KIND_FILTER_STORAGE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [kindFilter]);
+
+  const visibleItems = useMemo(() => {
+    if (kindFilter === "training") return items.filter((it) => !isCompetitionEvent(it));
+    if (kindFilter === "match") return items.filter((it) => isCompetitionEvent(it));
+    return items;
+  }, [items, kindFilter]);
+
   const itemsByDate = useMemo(() => {
     const map = new Map();
-    for (const it of items) {
+    for (const it of visibleItems) {
       const arr = map.get(it.date) || [];
       arr.push(it);
       map.set(it.date, arr);
@@ -179,18 +210,18 @@ export default function TeamScheduleCalendar() {
       arr.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
     }
     return map;
-  }, [items]);
+  }, [visibleItems]);
 
   const calendarCells = useMemo(() => buildCalendarCells(monthKey), [monthKey]);
   const selectedDayItems = selectedDate ? (itemsByDate.get(selectedDate) || []) : [];
 
   const scheduleListSorted = useMemo(() => {
-    return [...items].sort((a, b) => {
+    return [...visibleItems].sort((a, b) => {
       const c = String(a.date).localeCompare(String(b.date));
       if (c !== 0) return c;
       return String(a.start_time).localeCompare(String(b.start_time));
     });
-  }, [items]);
+  }, [visibleItems]);
 
   const myTeamIds = useMemo(
     () => teams.filter((t) => Number(t.coach_id) === currentUserId).map((t) => Number(t.id)),
@@ -212,12 +243,18 @@ export default function TeamScheduleCalendar() {
     if (teamFilter) n += 1;
     if (coachFilter) n += 1;
     if (locationFilter.trim()) n += 1;
+    if (kindFilter) n += 1;
     return n;
-  }, [teamFilter, coachFilter, locationFilter]);
+  }, [teamFilter, coachFilter, locationFilter, kindFilter]);
 
   const filterFields = (
     <>
       <Input type="month" value={monthKey} onChange={(e) => setMonthKey(e.target.value)} />
+      <Input as="select" value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} aria-label="Тип събитие">
+        <option value="">Тренировки и мачове</option>
+        <option value="training">Само тренировки</option>
+        <option value="match">Само мачове</option>
+      </Input>
       <Input as="select" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
         <option value="">Всички отбори</option>
         {teams.map((t) => (
@@ -917,6 +954,7 @@ export default function TeamScheduleCalendar() {
                 setTeamFilter("");
                 setCoachFilter("");
                 setLocationFilter("");
+                setKindFilter("");
               }}
             >
               Изчисти
@@ -953,6 +991,23 @@ export default function TeamScheduleCalendar() {
 
       <Card title="Филтри">
         <div className="feesFormGrid">{filterFields}</div>
+        {activeFilterCount ? (
+          <div style={{ marginTop: 10 }}>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setTeamFilter("");
+                setCoachFilter("");
+                setLocationFilter("");
+                setKindFilter("");
+              }}
+            >
+              Изчисти филтри
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       <Card

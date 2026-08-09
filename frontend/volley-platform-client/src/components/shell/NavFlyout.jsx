@@ -64,7 +64,13 @@ export default function NavFlyout({ id, label, icon, children, accent }) {
               onClick={() => setOpen(false)}
             >
               <NavIcon name={child.icon} size={16} className="navFlyout__itemIcon" />
-              <span>{child.label}</span>
+              <span className="navFlyout__itemBody">
+                <span className="navFlyout__itemLabel">{child.label}</span>
+                {child.hint ? <span className="navFlyout__itemHint">{child.hint}</span> : null}
+              </span>
+              <span className="navFlyout__itemChevron" aria-hidden>
+                ›
+              </span>
             </Link>
           ))}
         </div>

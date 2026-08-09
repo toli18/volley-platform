@@ -22,6 +22,9 @@ export default function CoachMobileLayout() {
   const isAssessment = pathname.startsWith("/coach/assessment");
   const isEnrollments = pathname.startsWith("/coach/enrollments");
   const isClubProfile = pathname.startsWith("/coach/club-profile");
+  const isClubAdmin = pathname === "/coach/club-admin";
+  const isCardIndexes = pathname.startsWith("/coach/bvf-card-indexes");
+  const isBvfAdmin = pathname.startsWith("/coach/bvf-admin");
   const isFeesPage = pathname.startsWith("/coach/fees");
   const isChatRoom = pathname.startsWith("/coach/chat/") && pathname !== "/coach/chat";
   const isMatchLive = /\/matches\/[^/]+\/live(?:\/|$)/.test(pathname);
@@ -34,12 +37,23 @@ export default function CoachMobileLayout() {
     isAssessment ||
     isEnrollments ||
     isClubProfile ||
+    isClubAdmin ||
+    isCardIndexes ||
+    isBvfAdmin ||
     isChatRoom ||
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams" && !isMatchLive);
 
   const handleBack = () => {
-    if (isFeesPage || isEnrollments || isGroupWorkHub || isClubProfile) {
+    if (isClubAdmin || isFeesPage || isEnrollments || isGroupWorkHub) {
       navigate("/coach/club");
+      return;
+    }
+    if (/^\/coach\/bvf-card-indexes\/[^/]+/.test(pathname)) {
+      navigate("/coach/bvf-card-indexes");
+      return;
+    }
+    if (isClubProfile || isCardIndexes || isBvfAdmin) {
+      navigate(role === "club_head_coach" ? "/coach/club-admin" : "/coach/club");
       return;
     }
     if (isChatRoom) {
