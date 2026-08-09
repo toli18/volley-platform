@@ -156,8 +156,9 @@ function StatTable({ rows }) {
             <th>Поз</th>
             <th title="Точки (атака+ас+блок)">Тч</th>
             <th title="Точки атака">Ат+</th>
+            <th title="Атака 0 (продължава)">Ат0</th>
             <th title="Грешки атака">Ат−</th>
-            <th title="% атака">Ат%</th>
+            <th title="% атака (точки / опити)">Ат%</th>
             <th title="Асове">Ас</th>
             <th title="Грешки сервис">Ср−</th>
             <th title="Блок">Бл</th>
@@ -167,6 +168,7 @@ function StatTable({ rows }) {
             <th title="Посрещане −">−</th>
             <th title="Грешка посрещане">П−</th>
             <th title="Средно посрещане">Поср</th>
+            <th title="Отборна грешка">Отб−</th>
             <th>Гр</th>
             <th>Разтълкуване</th>
           </tr>
@@ -179,6 +181,7 @@ function StatTable({ rows }) {
               <td>{positionShort(row.position)}</td>
               <td>{cell(row.points)}</td>
               <td>{cell(row.kills)}</td>
+              <td>{cell(row.attack_zero)}</td>
               <td>{cell(row.attack_err)}</td>
               <td>{row.attack_pct != null ? `${row.attack_pct}%` : "·"}</td>
               <td>{cell(row.aces)}</td>
@@ -190,6 +193,7 @@ function StatTable({ rows }) {
               <td>{cell(row.pass_minus)}</td>
               <td>{cell(row.pass_err)}</td>
               <td>{row.pass_avg != null ? row.pass_avg : "·"}</td>
+              <td>{cell(row.team_err)}</td>
               <td>{cell(row.errors)}</td>
               <td className="matchLiveStatTableSum">{row.summary || "—"}</td>
             </tr>

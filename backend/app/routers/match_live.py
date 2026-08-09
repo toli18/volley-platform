@@ -993,6 +993,7 @@ def match_report(
                 int(a.get(k) or 0) > 0
                 for k in (
                     "kills",
+                    "attack_zero",
                     "attack_err",
                     "aces",
                     "serve_err",
@@ -1002,6 +1003,7 @@ def match_report(
                     "pass_plus",
                     "pass_minus",
                     "pass_err",
+                    "team_err",
                     "subs",
                 )
             )

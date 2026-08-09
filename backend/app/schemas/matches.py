@@ -155,6 +155,7 @@ MatchStatActionLiteral = Literal[
     "ace",
     "block",
     "attack_error",
+    "attack_zero",
     "error",
     "dig",
     "pass_0",
@@ -166,6 +167,7 @@ MatchStatActionLiteral = Literal[
     "opp_point",
     "our_point",
     "opp_error",
+    "team_error",
     "substitution",
 ]
 
@@ -298,6 +300,7 @@ class MatchAthleteStatsRead(BaseModel):
     jersey_number: int = 0
     position: MatchPositionLiteral | str = ""
     kills: int = 0
+    attack_zero: int = 0
     attack_err: int = 0
     aces: int = 0
     serve_err: int = 0
@@ -307,6 +310,7 @@ class MatchAthleteStatsRead(BaseModel):
     pass_plus: int = 0
     pass_minus: int = 0
     pass_err: int = 0
+    team_err: int = 0
     attack_attempts: int = 0
     attack_pct: Optional[float] = None
     pass_total: int = 0

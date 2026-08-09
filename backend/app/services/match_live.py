@@ -17,8 +17,9 @@ POINT_FOR_OPP = {
     MatchStatAction.error,
     MatchStatAction.pass_error,
     MatchStatAction.opp_point,
+    MatchStatAction.team_error,
 }
-# pass_1 / pass_2 / pass_3 / dig — само качество, без точка и без ротация
+# pass / dig / attack_zero — качество или опит без край на раллито
 NO_POINT_ACTIONS = {
     MatchStatAction.dig,
     MatchStatAction.pass_0,
@@ -26,6 +27,7 @@ NO_POINT_ACTIONS = {
     MatchStatAction.pass_2,
     MatchStatAction.pass_3,
     MatchStatAction.free_ball,
+    MatchStatAction.attack_zero,
 }
 
 

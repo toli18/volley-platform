@@ -142,6 +142,7 @@ class MatchStatAction(str, Enum):
     ace = "ace"
     block = "block"
     attack_error = "attack_error"
+    attack_zero = "attack_zero"  # атака извадена / раллито продължава — без точка
     error = "error"
     dig = "dig"
     pass_0 = "pass_0"
@@ -153,6 +154,7 @@ class MatchStatAction(str, Enum):
     opp_point = "opp_point"
     our_point = "our_point"
     opp_error = "opp_error"  # грешка на противника → точка за нас
+    team_error = "team_error"  # отборна грешка (мрежа на блок, улавяне…) → точка за OPP
     substitution = "substitution"  # смяна полеви ↔ резерва; related_athlete_id = влизащият
 
 

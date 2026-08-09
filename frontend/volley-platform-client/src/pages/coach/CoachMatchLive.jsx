@@ -23,10 +23,11 @@ const PHASES = [
   { id: "receive", label: "Посрещане" },
 ];
 
-const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error"]);
+const NO_PLAYER_ACTIONS = new Set(["opp_point", "our_point", "opp_error", "team_error"]);
 
 const EMPTY_ROW = () => ({
   kills: 0,
+  attack_zero: 0,
   attack_err: 0,
   aces: 0,
   serve_err: 0,
@@ -36,6 +37,7 @@ const EMPTY_ROW = () => ({
   pass_plus: 0,
   pass_minus: 0,
   pass_err: 0,
+  team_err: 0,
 });
 
 function buildStatTable({ roster = [], court = [], libero = null, events = [] }) {
@@ -80,6 +82,9 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
       case "kill":
         row.kills += 1;
         break;
+      case "attack_zero":
+        row.attack_zero += 1;
+        break;
       case "attack_error":
         row.attack_err += 1;
         break;
@@ -107,6 +112,9 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
       case "pass_error":
         row.pass_err += 1;
         break;
+      case "team_error":
+        row.team_err = (row.team_err || 0) + 1;
+        break;
       default:
         break;
     }
@@ -118,11 +126,13 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
 function rowSummary(row) {
   const bits = [];
   if (row.kills) bits.push(`${row.kills} точки атака`);
+  if (row.attack_zero) bits.push(`${row.attack_zero} атака 0`);
   if (row.attack_err) bits.push(`${row.attack_err} гр. атака`);
   if (row.aces) bits.push(`${row.aces} ас`);
   if (row.serve_err) bits.push(`${row.serve_err} гр. сервис`);
   if (row.blocks) bits.push(`${row.blocks} блок`);
   if (row.digs) bits.push(`${row.digs} защита`);
+  if (row.team_err) bits.push(`${row.team_err} гр. отбор`);
   const passTotal = row.pass_hash + row.pass_plus + row.pass_minus + row.pass_err;
   if (passTotal) {
     bits.push(`поср. #${row.pass_hash}/+${row.pass_plus}/−${row.pass_minus}/гр${row.pass_err}`);
@@ -838,7 +848,7 @@ export default function CoachMatchLive() {
               <div>
                 <strong>Статистика на мача</strong>
                 <div className="matchLiveStatsLegend">
-                  # перфектно · + добро · − слабо · посрещане / атака / сервис по състезател
+                  Атака + / 0 / − · # перфектно · + добро · − слабо · Гр.Отб = мрежа/улавяне
                 </div>
               </div>
               <button type="button" className="matchLiveStatsClose" onClick={() => setStatsOpen(false)}>
@@ -854,6 +864,7 @@ export default function CoachMatchLive() {
                     <th>Име</th>
                     <th>Поз</th>
                     <th title="Точки атака">Ат+</th>
+                    <th title="Атака 0 (продължава)">Ат0</th>
                     <th title="Грешки атака">Ат−</th>
                     <th title="Асове">Ас</th>
                     <th title="Грешки сервис">Ср−</th>
@@ -863,6 +874,7 @@ export default function CoachMatchLive() {
                     <th title="Посрещане +">+</th>
                     <th title="Посрещане −">−</th>
                     <th title="Грешка посрещане">П−</th>
+                    <th title="Отборна грешка">Отб−</th>
                     <th>Разтълкуване</th>
                   </tr>
                 </thead>
@@ -873,6 +885,7 @@ export default function CoachMatchLive() {
                       <td className="matchLiveStatTableName">{shortPlayerName(row.athlete_name) || row.athlete_name}</td>
                       <td>{positionShort(row.position)}</td>
                       <td>{row.kills || "·"}</td>
+                      <td>{row.attack_zero || "·"}</td>
                       <td>{row.attack_err || "·"}</td>
                       <td>{row.aces || "·"}</td>
                       <td>{row.serve_err || "·"}</td>
@@ -882,6 +895,7 @@ export default function CoachMatchLive() {
                       <td>{row.pass_plus || "·"}</td>
                       <td>{row.pass_minus || "·"}</td>
                       <td>{row.pass_err || "·"}</td>
+                      <td>{row.team_err || "·"}</td>
                       <td className="matchLiveStatTableSum">{rowSummary(row)}</td>
                     </tr>
                   ))}

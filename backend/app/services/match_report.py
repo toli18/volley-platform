@@ -11,6 +11,7 @@ from app.models_matches import MatchStatAction
 def _empty_counts() -> dict[str, int]:
     return {
         "kills": 0,
+        "attack_zero": 0,
         "attack_err": 0,
         "aces": 0,
         "serve_err": 0,
@@ -20,12 +21,14 @@ def _empty_counts() -> dict[str, int]:
         "pass_plus": 0,
         "pass_minus": 0,
         "pass_err": 0,
+        "team_err": 0,
         "subs": 0,
     }
 
 
 ACTION_FIELD = {
     MatchStatAction.kill: "kills",
+    MatchStatAction.attack_zero: "attack_zero",
     MatchStatAction.attack_error: "attack_err",
     MatchStatAction.ace: "aces",
     MatchStatAction.error: "serve_err",
@@ -36,6 +39,7 @@ ACTION_FIELD = {
     MatchStatAction.pass_1: "pass_minus",
     MatchStatAction.pass_error: "pass_err",
     MatchStatAction.pass_0: "pass_err",
+    MatchStatAction.team_error: "team_err",
     MatchStatAction.substitution: "subs",
 }
 
@@ -53,6 +57,7 @@ def apply_action(counts: dict[str, int], action: MatchStatAction | str) -> None:
 
 def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     kills = int(counts.get("kills", 0))
+    attack_zero = int(counts.get("attack_zero", 0))
     attack_err = int(counts.get("attack_err", 0))
     aces = int(counts.get("aces", 0))
     serve_err = int(counts.get("serve_err", 0))
@@ -62,8 +67,9 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_plus = int(counts.get("pass_plus", 0))
     pass_minus = int(counts.get("pass_minus", 0))
     pass_err = int(counts.get("pass_err", 0))
+    team_err = int(counts.get("team_err", 0))
 
-    attack_att = kills + attack_err
+    attack_att = kills + attack_zero + attack_err
     attack_pct = round((kills / attack_att) * 100, 1) if attack_att else None
 
     pass_total = pass_hash + pass_plus + pass_minus + pass_err
@@ -71,11 +77,13 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_avg = round(pass_points / pass_total, 2) if pass_total else None
 
     points = kills + aces + blocks
-    errors = attack_err + serve_err + pass_err
+    errors = attack_err + serve_err + pass_err + team_err
 
     summary_bits: list[str] = []
     if kills:
         summary_bits.append(f"{kills} точки атака")
+    if attack_zero:
+        summary_bits.append(f"{attack_zero} атака 0")
     if attack_err:
         summary_bits.append(f"{attack_err} гр. атака")
     if aces:
@@ -86,6 +94,8 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"{blocks} блок")
     if digs:
         summary_bits.append(f"{digs} защита")
+    if team_err:
+        summary_bits.append(f"{team_err} гр. отбор")
     if pass_total:
         summary_bits.append(f"поср. #{pass_hash}/+{pass_plus}/−{pass_minus}/гр{pass_err}")
         if pass_avg is not None:
@@ -95,6 +105,8 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"{subs} смени")
 
     return {
+        "attack_zero": attack_zero,
+        "team_err": team_err,
         "attack_attempts": attack_att,
         "attack_pct": attack_pct,
         "pass_total": pass_total,
