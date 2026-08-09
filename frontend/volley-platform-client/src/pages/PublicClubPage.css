@@ -192,19 +192,49 @@
 .publicClub__chipHint {
   font-size: 14px;
   font-weight: 750;
-  color: #0f766e;
+  color: #334155;
   line-height: 1.35;
   letter-spacing: -0.01em;
 }
 
-.publicClub__chip.is-active {
-  border-color: var(--pc-accent);
-  background: var(--pc-accent-soft);
-  color: #115e59;
+.publicClub__chip--female {
+  border-color: #f9a8d4;
+  background: #fdf2f8;
 }
 
-.publicClub__chip.is-active .publicClub__chipHint {
-  color: #115e59;
+.publicClub__chip--female .publicClub__chipHint {
+  color: #9d174d;
+}
+
+.publicClub__chip--male {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.publicClub__chip--male .publicClub__chipHint {
+  color: #1d4ed8;
+}
+
+.publicClub__chip.is-active {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.publicClub__chip--female.is-active {
+  border-color: #db2777;
+  background: #fce7f3;
+}
+
+.publicClub__chip--female.is-active .publicClub__chipHint {
+  color: #9d174d;
+}
+
+.publicClub__chip--male.is-active {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.publicClub__chip--male.is-active .publicClub__chipHint {
+  color: #1e40af;
 }
 
 .publicClub__enroll {
@@ -258,6 +288,40 @@
   border-color: var(--pc-accent);
   box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
   background: #f0fdfa;
+}
+
+.publicClub__slot--female {
+  border-color: #f9a8d4;
+  background: #fdf2f8;
+}
+
+.publicClub__slot--female .publicClub__slotRadio,
+.publicClub__slot--female .publicClub__slotHallInline,
+.publicClub__slot--female .publicClub__slotAddress {
+  color: #be185d;
+}
+
+.publicClub__slot--female.is-active {
+  border-color: #db2777;
+  box-shadow: 0 0 0 2px rgba(219, 39, 119, 0.18);
+  background: #fce7f3;
+}
+
+.publicClub__slot--male {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.publicClub__slot--male .publicClub__slotRadio,
+.publicClub__slot--male .publicClub__slotHallInline,
+.publicClub__slot--male .publicClub__slotAddress {
+  color: #1d4ed8;
+}
+
+.publicClub__slot--male.is-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  background: #dbeafe;
 }
 
 .publicClub__slotRadio {

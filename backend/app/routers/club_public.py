@@ -174,10 +174,13 @@ def _upcoming_trainings_for_team(
     exc_by_key = {(int(e.rule_id), e.date): e for e in exc_rows}
     team_row = db.query(Team).filter(Team.id == int(team_id)).first()
     team_name = team_row.name if team_row else None
+    team_gender = (
+        (getattr(team_row, "gender", None) or "").strip().lower() or None if team_row else None
+    )
     team_label = (
         _public_team_hint(
             getattr(team_row, "age_group", None) if team_row else None,
-            getattr(team_row, "gender", None) if team_row else None,
+            team_gender,
             None,
         )
         if team_row
@@ -224,6 +227,7 @@ def _upcoming_trainings_for_team(
                         "team_id": int(team_id),
                         "team_name": team_name,
                         "team_label": team_label,
+                        "team_gender": team_gender,
                         "rule_id": int(r.id),
                         "slot_key": f"{cur_s}|{start_v}|{int(r.id)}",
                     },
@@ -375,6 +379,7 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
                 "id": int(t.id),
                 "name": t.name,
                 "hint": _public_team_hint(t.age_group, t.gender, t.season),
+                "gender": (t.gender or "").strip().lower() or None,
                 "gender_label": _gender_label(t.gender),
             }
             for t in enroll_teams

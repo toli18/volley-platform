@@ -213,11 +213,19 @@ export default function PublicClubPage() {
           <div className="publicClub__chips" style={{ marginBottom: 12 }}>
             {(page.teams || []).map((t) => {
               const label = t.hint || t.gender_label || t.name;
+              const gender =
+                String(t.gender || "").toLowerCase() === "female"
+                  ? "female"
+                  : String(t.gender || "").toLowerCase() === "male"
+                    ? "male"
+                    : "";
               return (
                 <button
                   key={t.id}
                   type="button"
-                  className={`publicClub__chip${String(teamId) === String(t.id) ? " is-active" : ""}`}
+                  className={`publicClub__chip${gender ? ` publicClub__chip--${gender}` : ""}${
+                    String(teamId) === String(t.id) ? " is-active" : ""
+                  }`}
                   onClick={() => setTeamId(String(t.id))}
                 >
                   <span className="publicClub__chipHint">{label}</span>
@@ -236,11 +244,20 @@ export default function PublicClubPage() {
             <p className="publicClub__muted">Няма насрочени тренировки за тази група в близките дни.</p>
           ) : (
             <div className="publicClub__slots">
-              {slots.map((s) => (
+              {slots.map((s) => {
+                const gender =
+                  String(s.team_gender || "").toLowerCase() === "female"
+                    ? "female"
+                    : String(s.team_gender || "").toLowerCase() === "male"
+                      ? "male"
+                      : "";
+                return (
                 <button
                   key={s.slot_key}
                   type="button"
-                  className={`publicClub__slot${slotKey === s.slot_key ? " is-active" : ""}`}
+                  className={`publicClub__slot${gender ? ` publicClub__slot--${gender}` : ""}${
+                    slotKey === s.slot_key ? " is-active" : ""
+                  }`}
                   onClick={() => setSlotKey(s.slot_key)}
                 >
                   <span className="publicClub__slotRadio" aria-hidden>
@@ -265,7 +282,8 @@ export default function PublicClubPage() {
                     ) : null}
                   </span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
 
