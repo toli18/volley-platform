@@ -191,7 +191,7 @@ export default function PublicClubPage() {
           ) : (
             <div className="publicClub__logoFallback">{(page.name || "?").slice(0, 1)}</div>
           )}
-          <div>
+          <div className="publicClub__heroText">
             <h1>{page.name}</h1>
             {page.tagline ? <p className="publicClub__tagline">{page.tagline}</p> : null}
           </div>

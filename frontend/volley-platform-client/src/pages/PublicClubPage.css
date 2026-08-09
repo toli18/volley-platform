@@ -58,17 +58,23 @@
 .publicClub__hero {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
   margin-bottom: 18px;
 }
 
+.publicClub__heroText {
+  min-width: 0;
+}
+
 .publicClub__logo,
 .publicClub__logoFallback {
-  width: 88px;
-  height: 88px;
-  border-radius: 18px;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
   object-fit: contain;
+  flex-shrink: 0;
+  background: #fff;
 }
 
 .publicClub__logoFallback {
@@ -76,20 +82,22 @@
   place-items: center;
   background: var(--pc-accent);
   color: #fff;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
 }
 
 .publicClub__hero h1 {
   margin: 0 0 4px;
-  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-size: clamp(1.15rem, 4.2vw, 1.75rem);
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .publicClub__tagline {
   margin: 0;
   color: var(--pc-muted);
-  font-size: 1rem;
+  font-size: clamp(0.85rem, 3.2vw, 1rem);
+  line-height: 1.35;
 }
 
 .publicClub__section {
@@ -421,11 +429,31 @@
 
 @media (max-width: 640px) {
   .publicClub__hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .publicClub__logo,
+  .publicClub__logoFallback {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+  }
+
+  .publicClub__logoFallback {
+    font-size: 20px;
+  }
+
+  .publicClub__hero h1 {
+    font-size: 1.12rem;
+  }
+
+  .publicClub__tagline {
+    font-size: 0.82rem;
   }
 
   .publicClub__formRow {
     grid-template-columns: 1fr;
   }
-
 }
