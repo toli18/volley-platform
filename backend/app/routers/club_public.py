@@ -322,11 +322,6 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
             }
         )
 
-    def _role_label(role_raw: str) -> str:
-        if role_raw == UserRole.club_head_coach.value or role_raw == "club_head_coach":
-            return "Главен треньор"
-        return "Треньор"
-
     fb = (getattr(club, "facebook_page_url", None) or "").strip() or None
 
     return {
@@ -360,9 +355,7 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
                 "id": int(u.id),
                 "name": u.name,
                 "role": u.role.value if hasattr(u.role, "value") else str(u.role),
-                "role_label": _role_label(
-                    u.role.value if hasattr(u.role, "value") else str(u.role)
-                ),
+                "role_label": "Треньор",
                 "phone": u.phone if bool(getattr(u, "phone_visible_to_parents", True)) else None,
             }
             for u in coaches

@@ -175,26 +175,26 @@
 .publicClub__chip {
   border: 1px solid var(--pc-line);
   background: var(--pc-soft);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 9px 12px;
   font-size: 13px;
   cursor: pointer;
   text-align: left;
   display: grid;
-  gap: 4px;
-  min-width: min(100%, 180px);
+  gap: 2px;
+  min-width: min(100%, 160px);
 }
 
 .publicClub__chipName {
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 750;
   letter-spacing: -0.01em;
   color: var(--pc-ink);
 }
 
 .publicClub__chipHint {
-  font-size: 16px;
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 700;
   color: #0f766e;
   line-height: 1.35;
   letter-spacing: -0.01em;
@@ -242,11 +242,11 @@
 
 .publicClub__slot {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
   border: 1px solid var(--pc-line);
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 12px;
+  padding: 10px 12px;
   background: #fff;
   cursor: pointer;
   text-align: left;
@@ -272,8 +272,8 @@
 }
 
 .publicClub__slotTitle {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 750;
   letter-spacing: -0.01em;
   line-height: 1.35;
   color: var(--pc-ink);
