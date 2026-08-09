@@ -284,9 +284,27 @@
   color: #0f766e;
 }
 
+.publicClub__slotAddress {
+  font-size: 12px;
+  color: #0f766e;
+  line-height: 1.35;
+}
+
 .publicClub__slotTeam {
   font-size: 13px;
   color: var(--pc-muted);
+}
+
+.publicClub__mapsLink {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--pc-accent);
+  text-decoration: none;
+  width: fit-content;
+}
+
+.publicClub__mapsLink:hover {
+  text-decoration: underline;
 }
 
 .publicClub__form {

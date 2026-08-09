@@ -1,12 +1,15 @@
-"""Sync club profile + coach phones from BVF/SEK into local Club/User."""
+"""Sync club profile + coach phones + halls from BVF/SEK into local Club/User/ClubHall."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Club, User, UserRole
+from app.models import Club, ClubHall, User, UserRole
+
+_HALL_NOISE = re.compile(r"\b(зала|hall|gym)\b", re.IGNORECASE)
 
 
 def club_profile_unlocked(club: Club) -> bool:
@@ -117,6 +120,12 @@ def _norm_name(value: str | None) -> str:
     return " ".join(str(value or "").strip().lower().split())
 
 
+def _norm_hall_key(value: str | None) -> str:
+    raw = _norm_name(value)
+    raw = _HALL_NOISE.sub(" ", raw)
+    return " ".join(raw.split())
+
+
 def sync_coach_phones_from_bvf(db: Session, club: Club, remote_coaches: list[dict]) -> dict[str, Any]:
     """Обновява phone на локални треньори по bvf_coach_id или име."""
     by_id: dict[int, dict] = {}
@@ -188,7 +197,126 @@ def sync_coach_phones_from_bvf(db: Session, club: Club, remote_coaches: list[dic
     return {"coaches_matched": matched, "phones_updated": updated, "local_coaches": len(local)}
 
 
-def serialize_club_profile(club: Club, *, coaches: list[User] | None = None) -> dict[str, Any]:
+def _hall_field(row: dict, *keys: str) -> str | None:
+    for key in keys:
+        val = str(row.get(key) or "").strip()
+        if val:
+            return val
+    return None
+
+
+def sync_halls_from_bvf(db: Session, club: Club, remote_halls: list[dict]) -> dict[str, Any]:
+    """Upsert зали от GET /api/clubs/{id}/halls; деактивира липсващите."""
+    local = db.query(ClubHall).filter(ClubHall.club_id == int(club.id)).all()
+    by_bvf: dict[int, ClubHall] = {}
+    by_name: dict[str, ClubHall] = {}
+    for h in local:
+        if h.bvf_hall_id is not None:
+            by_bvf[int(h.bvf_hall_id)] = h
+        key = _norm_hall_key(h.name)
+        if key:
+            by_name[key] = h
+
+    seen_ids: set[int] = set()
+    created = 0
+    updated = 0
+    for row in remote_halls or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            hid = int(row.get("id"))
+        except Exception:
+            continue
+        name = _hall_field(row, "name", "title", "hallName") or f"Зала #{hid}"
+        address = _hall_field(row, "address", "fullAddress", "location")
+        maps = _hall_field(row, "googleMapsUrl", "googleMapsURL", "mapsUrl", "mapUrl")
+        hall = by_bvf.get(hid) or by_name.get(_norm_hall_key(name))
+        if hall is None:
+            hall = ClubHall(club_id=int(club.id), bvf_hall_id=hid, name=name)
+            db.add(hall)
+            created += 1
+        else:
+            changed = False
+            if hall.bvf_hall_id != hid:
+                hall.bvf_hall_id = hid
+                changed = True
+            if (hall.name or "") != name:
+                hall.name = name
+                changed = True
+            if (hall.address or None) != address:
+                hall.address = address
+                changed = True
+            if (hall.google_maps_url or None) != maps:
+                hall.google_maps_url = maps
+                changed = True
+            if not hall.is_active:
+                hall.is_active = True
+                changed = True
+            if changed:
+                updated += 1
+        seen_ids.add(hid)
+
+    deactivated = 0
+    # Ръчно добавените зали (без bvf_hall_id) никога не се махат от СЕК sync.
+    # Ако СЕК върне празен списък — оставяме ръчните празни за попълване от главния треньор.
+    for h in local:
+        if h.bvf_hall_id is not None and int(h.bvf_hall_id) not in seen_ids and h.is_active:
+            h.is_active = False
+            deactivated += 1
+
+    return {
+        "halls_remote": len(seen_ids),
+        "halls_created": created,
+        "halls_updated": updated,
+        "halls_deactivated": deactivated,
+    }
+
+
+def load_club_halls(db: Session, club_id: int, *, active_only: bool = True) -> list[ClubHall]:
+    q = db.query(ClubHall).filter(ClubHall.club_id == int(club_id))
+    if active_only:
+        q = q.filter(ClubHall.is_active.is_(True))
+    return q.order_by(ClubHall.name.asc()).all()
+
+
+def serialize_hall(hall: ClubHall) -> dict[str, Any]:
+    return {
+        "id": int(hall.id),
+        "bvf_hall_id": int(hall.bvf_hall_id) if hall.bvf_hall_id is not None else None,
+        "name": hall.name,
+        "address": hall.address,
+        "google_maps_url": hall.google_maps_url,
+        "is_active": bool(hall.is_active),
+    }
+
+
+def match_club_hall(location: str | None, halls: list[ClubHall]) -> ClubHall | None:
+    """Намира СЕК зала по текст от графика (име / частично съвпадение)."""
+    key = _norm_hall_key(location)
+    if not key or not halls:
+        return None
+    exact = [_norm_hall_key(h.name) for h in halls]
+    for h, nk in zip(halls, exact):
+        if nk and nk == key:
+            return h
+    for h, nk in zip(halls, exact):
+        if nk and (key in nk or nk in key):
+            return h
+    # „Троян“ ↔ „ЗАЛА ТРОЯН“
+    loc_raw = _norm_name(location)
+    for h in halls:
+        hn = _norm_name(h.name)
+        if loc_raw and hn and (loc_raw in hn or hn in loc_raw):
+            return h
+    return None
+
+
+def serialize_club_profile(
+    club: Club,
+    *,
+    coaches: list[User] | None = None,
+    halls: list[ClubHall] | None = None,
+) -> dict[str, Any]:
     unlocked = club_profile_unlocked(club)
     out: dict[str, Any] = {
         "unlocked": unlocked,
@@ -211,6 +339,7 @@ def serialize_club_profile(club: Club, *, coaches: list[User] | None = None) -> 
         "bvf_logo_id": getattr(club, "bvf_logo_id", None),
         "bvf_linked_at": club.bvf_linked_at.isoformat() if club.bvf_linked_at else None,
         "coaches": [],
+        "halls": [serialize_hall(h) for h in halls or []],
     }
     for c in coaches or []:
         out["coaches"].append(

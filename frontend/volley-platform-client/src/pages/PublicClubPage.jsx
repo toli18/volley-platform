@@ -155,6 +155,7 @@ export default function PublicClubPage() {
   }
 
   const coaches = page.coaches || [];
+  const halls = page.halls || [];
   const hasAbout =
     Boolean(page.about) ||
     Boolean(page.contact_phone) ||
@@ -163,7 +164,8 @@ export default function PublicClubPage() {
     Boolean(page.website_url) ||
     Boolean(page.city) ||
     Boolean(page.address) ||
-    coaches.length > 0;
+    coaches.length > 0 ||
+    halls.length > 0;
   const logoSrc = resolveStaticUrl(page.logo_url);
 
   return (
@@ -252,6 +254,9 @@ export default function PublicClubPage() {
                         </>
                       ) : null}
                     </strong>
+                    {s.location_address ? (
+                      <div className="publicClub__slotAddress">{s.location_address}</div>
+                    ) : null}
                     <div className="publicClub__slotTeam">{s.team_name}</div>
                   </span>
                 </button>
@@ -335,6 +340,7 @@ export default function PublicClubPage() {
                 Пробна: {formatBgDate(selectedSlot.date)} · {selectedSlot.start_time}
                 {selectedSlot.end_time ? `–${selectedSlot.end_time}` : ""}
                 {selectedSlot.location ? ` · ${selectedSlot.location}` : ""}
+                {selectedSlot.location_address ? ` · ${selectedSlot.location_address}` : ""}
               </p>
             ) : null}
             <Button disabled={sending || !teamId || !selectedSlot} type="submit">
@@ -407,6 +413,30 @@ export default function PublicClubPage() {
                         {c.role_label || "Треньор"}
                         {c.phone ? ` · ${c.phone}` : ""}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {halls.length ? (
+              <div className="publicClub__card">
+                <strong>Зали</strong>
+                <ul className="publicClub__coachList">
+                  {halls.map((h) => (
+                    <li key={h.id}>
+                      <span className="publicClub__coachName">{h.name}</span>
+                      {h.address ? <span className="publicClub__muted">{h.address}</span> : null}
+                      {h.google_maps_url ? (
+                        <a
+                          href={h.google_maps_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="publicClub__mapsLink"
+                        >
+                          Карта
+                        </a>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

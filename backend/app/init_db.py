@@ -200,6 +200,42 @@ def _init_db_impl() -> None:
                         "ON club_enrollment_requests (status)"
                     )
                 )
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS club_halls (
+                            id SERIAL PRIMARY KEY,
+                            club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+                            bvf_hall_id INTEGER,
+                            name VARCHAR(255) NOT NULL,
+                            address TEXT,
+                            google_maps_url VARCHAR(500),
+                            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_club_halls_club_id "
+                        "ON club_halls (club_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_club_halls_bvf_hall_id "
+                        "ON club_halls (bvf_hall_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_club_halls_club_bvf "
+                        "ON club_halls (club_id, bvf_hall_id) "
+                        "WHERE bvf_hall_id IS NOT NULL"
+                    )
+                )
             print("✅ PostgreSQL: public club page / enrollment schema ensured")
         except Exception as enroll_exc:
             print(f"⚠️ public club / enrollment patch: {enroll_exc}")

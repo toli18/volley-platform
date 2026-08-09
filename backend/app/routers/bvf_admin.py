@@ -477,13 +477,23 @@ def link_api_key(
     club.bvf_linked_at = datetime.utcnow()
     club.bvf_api_key_enc = encrypt_secret(key)
     club.bvf_api_key_prefix = api_key_display_prefix(key)
-    from app.services.club_profile_sync import apply_bvf_club_remote_to_local, sync_coach_phones_from_bvf
+    from app.services.club_profile_sync import (
+        apply_bvf_club_remote_to_local,
+        sync_coach_phones_from_bvf,
+        sync_halls_from_bvf,
+    )
 
     apply_bvf_club_remote_to_local(club, remote)
     try:
         coaches_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/coaches", key)
         if isinstance(coaches_remote, list):
             sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
+    try:
+        halls_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/halls", key)
+        if isinstance(halls_remote, list):
+            sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
     db.commit()
@@ -556,13 +566,23 @@ def link_club(
     if stored_user and stored_enc:
         club.bvf_username = stored_user
         club.bvf_password_enc = stored_enc
-    from app.services.club_profile_sync import apply_bvf_club_remote_to_local, sync_coach_phones_from_bvf
+    from app.services.club_profile_sync import (
+        apply_bvf_club_remote_to_local,
+        sync_coach_phones_from_bvf,
+        sync_halls_from_bvf,
+    )
 
     apply_bvf_club_remote_to_local(club, remote)
     try:
         coaches_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/coaches", token)
         if isinstance(coaches_remote, list):
             sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
+    try:
+        halls_remote = _bvf_get(f"/api/clubs/{bvf_club_id}/halls", token)
+        if isinstance(halls_remote, list):
+            sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
     db.commit()
@@ -1183,7 +1203,11 @@ def get_club_profile(
     ),
 ):
     """Профил на клуба — отключен след връзка със СЕК."""
-    from app.services.club_profile_sync import club_profile_unlocked, serialize_club_profile
+    from app.services.club_profile_sync import (
+        club_profile_unlocked,
+        load_club_halls,
+        serialize_club_profile,
+    )
 
     if current_user.role == UserRole.coach:
         if not current_user.club_id:
@@ -1210,7 +1234,8 @@ def get_club_profile(
         UserRole.platform_admin,
         UserRole.federation_admin,
     )
-    payload = serialize_club_profile(club, coaches=coaches)
+    halls = load_club_halls(db, club.id, active_only=True)
+    payload = serialize_club_profile(club, coaches=coaches, halls=halls)
     payload["can_edit"] = can_edit and club_profile_unlocked(club)
     payload["can_sync"] = can_edit and club_profile_unlocked(club)
     return payload
@@ -1224,13 +1249,15 @@ def sync_club_profile_from_sek(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Изтегля профила на клуба и телефоните на треньорите от СЕК."""
+    """Изтегля профила на клуба, телефоните на треньорите и залите от СЕК."""
     from app.services.bvf_auth import resolve_club_bvf_token
     from app.services.club_profile_sync import (
         apply_bvf_club_remote_to_local,
         club_profile_unlocked,
+        load_club_halls,
         serialize_club_profile,
         sync_coach_phones_from_bvf,
+        sync_halls_from_bvf,
     )
 
     _ensure_head_with_club(current_user)
@@ -1247,10 +1274,17 @@ def sync_club_profile_from_sek(
         raise HTTPException(status_code=502, detail="БФВ не върна профил на клуб")
     club_changes = apply_bvf_club_remote_to_local(club, remote)
     coach_stats = {"coaches_matched": 0, "phones_updated": 0, "local_coaches": 0}
+    hall_stats = {"halls_remote": 0, "halls_created": 0, "halls_updated": 0, "halls_deactivated": 0}
     try:
         coaches_remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/coaches", token)
         if isinstance(coaches_remote, list):
             coach_stats = sync_coach_phones_from_bvf(db, club, coaches_remote)
+    except Exception:
+        pass
+    try:
+        halls_remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/halls", token)
+        if isinstance(halls_remote, list):
+            hall_stats = sync_halls_from_bvf(db, club, halls_remote)
     except Exception:
         pass
     db.commit()
@@ -1264,10 +1298,11 @@ def sync_club_profile_from_sek(
         .order_by(User.name.asc())
         .all()
     )
-    out = serialize_club_profile(club, coaches=coaches)
+    halls = load_club_halls(db, club.id, active_only=True)
+    out = serialize_club_profile(club, coaches=coaches, halls=halls)
     out["can_edit"] = True
     out["can_sync"] = True
-    out["sync"] = {**club_changes, **coach_stats}
+    out["sync"] = {**club_changes, **coach_stats, **hall_stats}
     return out
 
 
@@ -1279,7 +1314,11 @@ def update_club_profile_local(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    from app.services.club_profile_sync import club_profile_unlocked, serialize_club_profile
+    from app.services.club_profile_sync import (
+        club_profile_unlocked,
+        load_club_halls,
+        serialize_club_profile,
+    )
 
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, payload.club_id)
@@ -1317,7 +1356,8 @@ def update_club_profile_local(
         .order_by(User.name.asc())
         .all()
     )
-    out = serialize_club_profile(club, coaches=coaches)
+    halls = load_club_halls(db, club.id, active_only=True)
+    out = serialize_club_profile(club, coaches=coaches, halls=halls)
     out["can_edit"] = True
     out["can_sync"] = True
     return out
@@ -1361,3 +1401,126 @@ def update_coach_phone_in_club_profile(
         "phone": coach.phone,
         "phone_visible_to_parents": bool(coach.phone_visible_to_parents),
     }
+
+
+class ClubHallWriteIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    address: Optional[str] = None
+    google_maps_url: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class ClubHallPatchIn(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    address: Optional[str] = None
+    google_maps_url: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+def _normalize_maps_url(raw: str | None) -> str | None:
+    url = (raw or "").strip() or None
+    if not url:
+        return None
+    if not url.startswith("http"):
+        url = f"https://{url}"
+    return url[:500]
+
+
+@router.post("/club-profile/halls")
+def create_club_hall(
+    payload: ClubHallWriteIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Ръчно добавяне на зала (когато СЕК няма зали или за допълване)."""
+    from app.models import ClubHall
+    from app.services.club_profile_sync import club_profile_unlocked, serialize_hall
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(status_code=423, detail="Профилът е заключен до връзка със СЕК.")
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Името на залата е задължително")
+    hall = ClubHall(
+        club_id=int(club.id),
+        bvf_hall_id=None,
+        name=name[:255],
+        address=(payload.address or "").strip() or None,
+        google_maps_url=_normalize_maps_url(payload.google_maps_url),
+        is_active=True,
+    )
+    db.add(hall)
+    db.commit()
+    db.refresh(hall)
+    return serialize_hall(hall)
+
+
+@router.patch("/club-profile/halls/{hall_id}")
+def update_club_hall(
+    hall_id: int,
+    payload: ClubHallPatchIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    from app.models import ClubHall
+    from app.services.club_profile_sync import club_profile_unlocked, serialize_hall
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(status_code=423, detail="Профилът е заключен до връзка със СЕК.")
+    hall = (
+        db.query(ClubHall)
+        .filter(ClubHall.id == int(hall_id), ClubHall.club_id == int(club.id))
+        .first()
+    )
+    if not hall or not hall.is_active:
+        raise HTTPException(status_code=404, detail="Залата не е намерена")
+    data = payload.model_dump(exclude_unset=True)
+    data.pop("club_id", None)
+    if "name" in data:
+        name = (data.get("name") or "").strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Името на залата е задължително")
+        hall.name = name[:255]
+    if "address" in data:
+        hall.address = (data.get("address") or "").strip() or None
+    if "google_maps_url" in data:
+        hall.google_maps_url = _normalize_maps_url(data.get("google_maps_url"))
+    db.commit()
+    db.refresh(hall)
+    return serialize_hall(hall)
+
+
+@router.delete("/club-profile/halls/{hall_id}")
+def delete_club_hall(
+    hall_id: int,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    from app.models import ClubHall
+    from app.services.club_profile_sync import club_profile_unlocked
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    if not club_profile_unlocked(club):
+        raise HTTPException(status_code=423, detail="Профилът е заключен до връзка със СЕК.")
+    hall = (
+        db.query(ClubHall)
+        .filter(ClubHall.id == int(hall_id), ClubHall.club_id == int(club.id))
+        .first()
+    )
+    if not hall or not hall.is_active:
+        raise HTTPException(status_code=404, detail="Залата не е намерена")
+    hall.is_active = False
+    db.commit()
+    return {"ok": True, "id": int(hall_id)}

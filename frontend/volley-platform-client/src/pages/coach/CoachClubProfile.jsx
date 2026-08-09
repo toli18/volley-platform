@@ -35,6 +35,8 @@ export default function CoachClubProfile() {
 
   const [enrollmentTeamIds, setEnrollmentTeamIds] = useState([]);
   const [clubTeams, setClubTeams] = useState([]);
+  const [hallDrafts, setHallDrafts] = useState({});
+  const [newHall, setNewHall] = useState({ name: "", address: "", google_maps_url: "" });
 
   const load = useCallback(async () => {
     try {
@@ -51,6 +53,15 @@ export default function CoachClubProfile() {
         };
       }
       setCoachDrafts(drafts);
+      const hDrafts = {};
+      for (const h of res.data?.halls || []) {
+        hDrafts[h.id] = {
+          name: h.name || "",
+          address: h.address || "",
+          google_maps_url: h.google_maps_url || "",
+        };
+      }
+      setHallDrafts(hDrafts);
       if (pubRes?.data) {
         setPublicMeta(pubRes.data);
         setPublicForm({
@@ -89,9 +100,18 @@ export default function CoachClubProfile() {
         };
       }
       setCoachDrafts(drafts);
+      const hDrafts = {};
+      for (const h of res.data?.halls || []) {
+        hDrafts[h.id] = {
+          name: h.name || "",
+          address: h.address || "",
+          google_maps_url: h.google_maps_url || "",
+        };
+      }
+      setHallDrafts(hDrafts);
       const s = res.data?.sync || {};
       toast.success(
-        `Синхронизирано от СЕК · телефони обновени: ${s.phones_updated ?? 0} · полета: ${(s.changed_fields || []).length}`,
+        `Синхронизирано от СЕК · зали: ${s.halls_remote ?? 0} · телефони: ${s.phones_updated ?? 0} · полета: ${(s.changed_fields || []).length}`,
       );
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен sync от СЕК."));
@@ -116,6 +136,93 @@ export default function CoachClubProfile() {
       toast.success("Клубният профил е записан.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен запис."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveHall = async (hallId) => {
+    const draft = hallDrafts[hallId];
+    if (!draft?.name?.trim()) {
+      toast.error("Името на залата е задължително.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.patch(API_PATHS.BVF_ADMIN_CLUB_PROFILE_HALL(hallId), {
+        name: draft.name.trim(),
+        address: draft.address?.trim() || null,
+        google_maps_url: draft.google_maps_url?.trim() || null,
+      });
+      setProfile((prev) => ({
+        ...prev,
+        halls: (prev?.halls || []).map((h) => (h.id === hallId ? { ...h, ...res.data } : h)),
+      }));
+      setHallDrafts((d) => ({
+        ...d,
+        [hallId]: {
+          name: res.data.name || "",
+          address: res.data.address || "",
+          google_maps_url: res.data.google_maps_url || "",
+        },
+      }));
+      toast.success("Залата е записана.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен запис на зала."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addHall = async () => {
+    if (!newHall.name.trim()) {
+      toast.error("Името на залата е задължително.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CLUB_PROFILE_HALLS, {
+        name: newHall.name.trim(),
+        address: newHall.address.trim() || null,
+        google_maps_url: newHall.google_maps_url.trim() || null,
+      });
+      setProfile((prev) => ({
+        ...prev,
+        halls: [...(prev?.halls || []), res.data],
+      }));
+      setHallDrafts((d) => ({
+        ...d,
+        [res.data.id]: {
+          name: res.data.name || "",
+          address: res.data.address || "",
+          google_maps_url: res.data.google_maps_url || "",
+        },
+      }));
+      setNewHall({ name: "", address: "", google_maps_url: "" });
+      toast.success("Залата е добавена.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно добавяне на зала."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeHall = async (hallId) => {
+    try {
+      setBusy(true);
+      await axiosInstance.delete(API_PATHS.BVF_ADMIN_CLUB_PROFILE_HALL(hallId));
+      setProfile((prev) => ({
+        ...prev,
+        halls: (prev?.halls || []).filter((h) => h.id !== hallId),
+      }));
+      setHallDrafts((d) => {
+        const next = { ...d };
+        delete next[hallId];
+        return next;
+      });
+      toast.success("Залата е премахната.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно премахване на зала."));
     } finally {
       setBusy(false);
     }
@@ -487,6 +594,146 @@ export default function CoachClubProfile() {
               </div>
             ) : null}
           </div>
+        </div>
+      </Card>
+
+      <Card title="Зали">
+        <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+          Ако има зали в СЕК — идват при sync. Ако няма, главният треньор ги попълва тук. Показват се на
+          публичния линк за записване (адресът се закача към пробния слот при съвпадение на името с
+          графика).
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          {(profile.halls || []).map((h) => {
+            const draft = hallDrafts[h.id] || {
+              name: h.name || "",
+              address: h.address || "",
+              google_maps_url: h.google_maps_url || "",
+            };
+            return (
+              <div
+                key={h.id}
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 10,
+                  padding: 12,
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                {profile.can_edit ? (
+                  <>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>
+                        Име{h.bvf_hall_id ? " (СЕК)" : ""}
+                      </span>
+                      <Input
+                        value={draft.name}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setHallDrafts((d) => ({
+                            ...d,
+                            [h.id]: { ...draft, name: e.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>Адрес</span>
+                      <Input
+                        value={draft.address}
+                        disabled={busy}
+                        placeholder="ул. …"
+                        onChange={(e) =>
+                          setHallDrafts((d) => ({
+                            ...d,
+                            [h.id]: { ...draft, address: e.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>Google Maps (по желание)</span>
+                      <Input
+                        value={draft.google_maps_url}
+                        disabled={busy}
+                        placeholder="https://maps.google.com/…"
+                        onChange={(e) =>
+                          setHallDrafts((d) => ({
+                            ...d,
+                            [h.id]: { ...draft, google_maps_url: e.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <Button type="button" size="sm" disabled={busy} onClick={() => saveHall(h.id)}>
+                        Запази
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => removeHall(h.id)}
+                      >
+                        Премахни
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <strong style={{ fontSize: 14 }}>{h.name}</strong>
+                    <span className="uiMuted" style={{ fontSize: 13 }}>
+                      {h.address || "—"}
+                    </span>
+                  </>
+                )}
+              </div>
+            );
+          })}
+
+          {profile.can_edit ? (
+            <div
+              style={{
+                border: "1px dashed #94a3b8",
+                borderRadius: 10,
+                padding: 12,
+                display: "grid",
+                gap: 8,
+                background: "#f8fafc",
+              }}
+            >
+              <strong style={{ fontSize: 14 }}>Добави зала</strong>
+              <Input
+                placeholder="Име на залата"
+                value={newHall.name}
+                disabled={busy}
+                onChange={(e) => setNewHall((p) => ({ ...p, name: e.target.value }))}
+              />
+              <Input
+                placeholder="Адрес"
+                value={newHall.address}
+                disabled={busy}
+                onChange={(e) => setNewHall((p) => ({ ...p, address: e.target.value }))}
+              />
+              <Input
+                placeholder="Google Maps (по желание)"
+                value={newHall.google_maps_url}
+                disabled={busy}
+                onChange={(e) => setNewHall((p) => ({ ...p, google_maps_url: e.target.value }))}
+              />
+              <div>
+                <Button type="button" size="sm" disabled={busy} onClick={addHall}>
+                  Добави
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {!profile.can_edit && (profile.halls || []).length === 0 ? (
+            <EmptyState title="Няма зали" description="Главният треньор може да ги попълни в профила." />
+          ) : null}
         </div>
       </Card>
 

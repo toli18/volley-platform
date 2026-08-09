@@ -122,6 +122,26 @@ class Club(Base):
     users = relationship("User", back_populates="club")
     trainings = relationship("Training", back_populates="club")
     membership_consents = relationship("AthleteClubConsent", back_populates="club")
+    halls = relationship("ClubHall", back_populates="club", cascade="all, delete-orphan")
+
+
+# =========================
+# Club halls (from SEK /api/clubs/{id}/halls)
+# =========================
+class ClubHall(Base):
+    __tablename__ = "club_halls"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    bvf_hall_id = Column(Integer, nullable=True, index=True)
+    name = Column(String(255), nullable=False)
+    address = Column(Text, nullable=True)
+    google_maps_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    club = relationship("Club", back_populates="halls")
 
 
 # =========================

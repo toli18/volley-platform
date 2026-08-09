@@ -19,6 +19,7 @@ from app.models import (
     ClubCompetitionEvent,
     ClubEnrollmentRequest,
     ClubEnrollmentStatus,
+    ClubHall,
     Team,
     TrainingScheduleException,
     TrainingScheduleRule,
@@ -26,6 +27,7 @@ from app.models import (
     UserRole,
 )
 from app.services.athlete_identity import compose_athlete_name
+from app.services.club_profile_sync import load_club_halls, match_club_hall, serialize_hall
 
 router = APIRouter(prefix="/api", tags=["Club Public & Enrollment"])
 
@@ -120,6 +122,15 @@ def _normalize_facebook_url(raw: str | None) -> str | None:
     return url[:500]
 
 
+def _enrich_slot_location(slot: dict[str, Any], halls: list[ClubHall]) -> dict[str, Any]:
+    hall = match_club_hall(slot.get("location"), halls)
+    slot["location_address"] = (hall.address if hall else None) or None
+    slot["location_maps_url"] = (hall.google_maps_url if hall else None) or None
+    if hall and hall.name and not slot.get("location"):
+        slot["location"] = hall.name
+    return slot
+
+
 def _upcoming_trainings_for_team(
     db: Session,
     *,
@@ -127,6 +138,7 @@ def _upcoming_trainings_for_team(
     team_id: int,
     limit: int = 5,
     horizon_days: int = 45,
+    halls: list[ClubHall] | None = None,
 ) -> list[dict[str, Any]]:
     """Следващите N реални тренировки за група (правила + изключения)."""
     today = date.today()
@@ -162,6 +174,7 @@ def _upcoming_trainings_for_team(
     exc_by_key = {(int(e.rule_id), e.date): e for e in exc_rows}
     team_name = db.query(Team.name).filter(Team.id == int(team_id)).scalar()
     now_hm = datetime.now().strftime("%H:%M")
+    hall_rows = halls if halls is not None else load_club_halls(db, club_id, active_only=True)
     out: list[dict[str, Any]] = []
     days = (d1 - d0).days
     for day_idx in range(days + 1):
@@ -190,18 +203,21 @@ def _upcoming_trainings_for_team(
             if cur_s == today.isoformat() and (start_v or "") < now_hm:
                 continue
             out.append(
-                {
-                    "date": cur_s,
-                    "weekday": weekday,
-                    "weekday_label": _WEEKDAY_BG[weekday] if 0 <= weekday < 7 else str(weekday),
-                    "start_time": start_v,
-                    "end_time": end_v,
-                    "location": loc_v,
-                    "team_id": int(team_id),
-                    "team_name": team_name,
-                    "rule_id": int(r.id),
-                    "slot_key": f"{cur_s}|{start_v}|{int(r.id)}",
-                }
+                _enrich_slot_location(
+                    {
+                        "date": cur_s,
+                        "weekday": weekday,
+                        "weekday_label": _WEEKDAY_BG[weekday] if 0 <= weekday < 7 else str(weekday),
+                        "start_time": start_v,
+                        "end_time": end_v,
+                        "location": loc_v,
+                        "team_id": int(team_id),
+                        "team_name": team_name,
+                        "rule_id": int(r.id),
+                        "slot_key": f"{cur_s}|{start_v}|{int(r.id)}",
+                    },
+                    hall_rows,
+                )
             )
     out.sort(key=lambda x: (x["date"], x["start_time"] or ""))
     return out[: max(1, min(int(limit), 10))]
@@ -323,6 +339,7 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
         )
 
     fb = (getattr(club, "facebook_page_url", None) or "").strip() or None
+    halls = load_club_halls(db, club.id, active_only=True)
 
     return {
         "slug": club.public_slug,
@@ -341,6 +358,7 @@ def _build_public_page(db: Session, club: Club) -> dict[str, Any]:
         "bvf_region": club.bvf_region,
         "bulstat": club.bulstat,
         "license_number": club.license_number,
+        "halls": [serialize_hall(h) for h in halls],
         "teams": [
             {
                 "id": int(t.id),

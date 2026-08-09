@@ -270,6 +270,8 @@ export const API_PATHS = {
   BVF_ADMIN_CLUB_PROFILE: "/api/bvf-admin/club-profile",
   BVF_ADMIN_CLUB_PROFILE_SYNC: "/api/bvf-admin/club-profile/sync",
   BVF_ADMIN_CLUB_PROFILE_COACH: (coachId) => `/api/bvf-admin/club-profile/coaches/${coachId}`,
+  BVF_ADMIN_CLUB_PROFILE_HALLS: "/api/bvf-admin/club-profile/halls",
+  BVF_ADMIN_CLUB_PROFILE_HALL: (hallId) => `/api/bvf-admin/club-profile/halls/${hallId}`,
   BVF_ADMIN_SEASON_APPLICATIONS: "/api/bvf-admin/season-applications",
   BVF_ADMIN_SEASON_APPLICATIONS_CLOSE: "/api/bvf-admin/season-applications/close",
   BVF_ADMIN_SEASON_APPLICATIONS_ACTIVATE_FORMS: "/api/bvf-admin/season-applications/activate-forms",
