@@ -65,11 +65,13 @@ export function coachForeignBackTarget(pathname) {
   if (pathname.startsWith("/ai-generator")) {
     return "/coach/bvf";
   }
+  if (pathname.startsWith("/club-head")) {
+    return "/coach/bvf";
+  }
   if (
     pathname.startsWith("/teams") ||
     pathname.startsWith("/my-trainings") ||
-    pathname.startsWith("/trainings") ||
-    pathname.startsWith("/club-head")
+    pathname.startsWith("/trainings")
   ) {
     return "/coach/club";
   }

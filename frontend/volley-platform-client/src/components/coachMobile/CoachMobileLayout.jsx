@@ -17,6 +17,11 @@ export default function CoachMobileLayout() {
   const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
   const isAttendanceHub = pathname === "/coach/attendance";
   const isAttendanceMonth = pathname.includes("/attendance-month");
+  const isGroupWorkHub = pathname === "/coach/group-work";
+  const isProgramWeek = pathname.startsWith("/coach/program-week");
+  const isAssessment = pathname.startsWith("/coach/assessment");
+  const isEnrollments = pathname.startsWith("/coach/enrollments");
+  const isClubProfile = pathname.startsWith("/coach/club-profile");
   const isFeesPage = pathname.startsWith("/coach/fees");
   const isChatRoom = pathname.startsWith("/coach/chat/") && pathname !== "/coach/chat";
   const isMatchLive = /\/matches\/[^/]+\/live(?:\/|$)/.test(pathname);
@@ -24,11 +29,16 @@ export default function CoachMobileLayout() {
     isFeesPage ||
     isAttendanceHub ||
     isAttendanceMonth ||
+    isGroupWorkHub ||
+    isProgramWeek ||
+    isAssessment ||
+    isEnrollments ||
+    isClubProfile ||
     isChatRoom ||
     (pathname.startsWith("/coach/teams/") && pathname !== "/coach/teams" && !isMatchLive);
 
   const handleBack = () => {
-    if (isFeesPage) {
+    if (isFeesPage || isEnrollments || isGroupWorkHub || isClubProfile) {
       navigate("/coach/club");
       return;
     }
@@ -40,8 +50,12 @@ export default function CoachMobileLayout() {
       navigate("/coach/attendance");
       return;
     }
-    if (isAttendanceHub) {
-      navigate("/coach/today");
+    if (isAssessment && pathname !== "/coach/assessment") {
+      navigate("/coach/assessment");
+      return;
+    }
+    if (isAttendanceHub || isProgramWeek || isAssessment) {
+      navigate("/coach/group-work");
       return;
     }
     navigate("/coach/teams");

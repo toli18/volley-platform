@@ -472,6 +472,14 @@ export default function CoachAthletes() {
           <h2 className="feesCoachHeadTitle">Състезатели</h2>
           <span className="feesCoachHeadBadge">{countLabel}</span>
         </header>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <Button as={Link} to="/coach/enrollments" variant="secondary" size="sm">
+            Записвания онлайн
+          </Button>
+          <Button as={Link} to="/coach/fees" variant="secondary" size="sm">
+            Такси
+          </Button>
+        </div>
         <nav className="coachMobileSubNav" aria-label="Състезатели секции">
           {TABS.map((t) => (
             <button
@@ -500,6 +508,9 @@ export default function CoachAthletes() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button variant="secondary" onClick={() => setTab(tab === "add" ? "list" : "add")}>
               {tab === "add" ? "Към списъка" : "Нов състезател"}
+            </Button>
+            <Button as={Link} to="/coach/enrollments" variant="secondary">
+              Записвания онлайн
             </Button>
             {showCardIndexes ? (
               <Button as={Link} to="/coach/bvf-card-indexes" variant="secondary">

@@ -17,7 +17,11 @@ export function coachMobileActiveTab(pathname) {
     pathname.startsWith("/coach/fees") ||
     pathname.startsWith("/coach/athletes") ||
     pathname.startsWith("/coach/assessment") ||
+    pathname.startsWith("/coach/group-work") ||
     pathname.startsWith("/coach/program-week") ||
+    pathname.startsWith("/coach/enrollments") ||
+    pathname.startsWith("/coach/competitions") ||
+    pathname.startsWith("/coach/club-profile") ||
     pathname.startsWith("/coach/trainings")
   ) {
     return "club";

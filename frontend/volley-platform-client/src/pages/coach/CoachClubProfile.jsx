@@ -541,9 +541,11 @@ export default function CoachClubProfile() {
       <PageHero
         title={profile.name || "Профил на клуба"}
         subtitle={
-          profile.bvf_club_id
-            ? `Свързан със СЕК · БФВ №${profile.bvf_club_id}${profile.bvf_club_name ? ` · ${profile.bvf_club_name}` : ""}`
-            : "Клубен профил"
+          !profile.can_edit
+            ? "Преглед · без право на редакция"
+            : profile.bvf_club_id
+              ? `Свързан със СЕК · БФВ №${profile.bvf_club_id}${profile.bvf_club_name ? ` · ${profile.bvf_club_name}` : ""}`
+              : "Клубен профил"
         }
         actions={
           <>
@@ -552,9 +554,11 @@ export default function CoachClubProfile() {
                 Изтегли от СЕК
               </Button>
             ) : null}
-            <Link to="/coach/bvf-admin">
-              <Button variant="secondary">Администрация БФВ</Button>
-            </Link>
+            {isHead ? (
+              <Link to="/coach/bvf-admin">
+                <Button variant="secondary">Администрация БФВ</Button>
+              </Link>
+            ) : null}
           </>
         }
       />

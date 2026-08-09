@@ -24,26 +24,21 @@ export const COACH_PRIMARY_NAV = [
     label: "Клуб & Групи",
     icon: "teams",
     children: [
-      { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams" },
+      { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams" },
       { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck" },
+      { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro" },
       { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target" },
-      { id: "enrollments", label: "Записвания", to: "/coach/enrollments", icon: "clipboardCheck" },
+      { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar" },
+      {
+        id: "group-work",
+        label: "Работа с групата",
+        to: "/coach/group-work",
+        icon: "clipboardCheck",
+      },
       {
         id: "club-profile",
-        label: "Профил на клуба",
+        label: "Клуб",
         to: "/coach/club-profile",
-        icon: "shield",
-        headCoachOnly: true,
-      },
-      { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
-      { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro" },
-      { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target" },
-      { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck" },
-      { id: "testing", label: "Тестирания", to: "/coach/assessment", icon: "chart" },
-      {
-        id: "club-head",
-        label: "Клубен преглед",
-        to: "/club-head",
         icon: "shield",
         headCoachOnly: true,
       },
@@ -144,37 +139,33 @@ export const COACH_MOBILE_TABS = [
 
 /** @type {NavLinkItem[]} */
 export const COACH_CLUB_HUB_LINKS = [
-  { id: "teams", label: "Тренировъчни групи", to: "/coach/teams", icon: "teams", hint: "Списък и детайли" },
-  { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК готовност, нов състезател" },
+  { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams", hint: "Тренировъчни групи и състав" },
+  { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК · записвания онлайн" },
+  { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
   { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове, тимов лист, филтри" },
-  { id: "enrollments", label: "Записвания", to: "/coach/enrollments", icon: "clipboardCheck", hint: "Заявки, пробни, прием" },
+  { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar", hint: "Месечен календар на тренировки" },
+  {
+    id: "group-work",
+    label: "Работа с групата",
+    to: "/coach/group-work",
+    icon: "clipboardCheck",
+    hint: "Програмна седмица, присъствие, тестирания",
+  },
   {
     id: "club-profile",
-    label: "Профил на клуба",
+    label: "Клуб",
     to: "/coach/club-profile",
     icon: "shield",
     headCoachOnly: true,
-    hint: "Контакти, публична страница, линк /c/…",
+    hint: "Профил, зали, записване, треньори",
   },
-  { id: "schedule", label: "Месечен график", to: "/coach/schedule", icon: "calendar", hint: "Календар на тренировки" },
-  { id: "fees", label: "Месечни такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
-  { id: "program-week", label: "Моята програмна седмица", to: "/coach/program-week", icon: "target", hint: "Текуща позиция, теми и тренировки" },
-  { id: "attendance", label: "Присъствие", to: "/coach/attendance", icon: "clipboardCheck", hint: "По групи" },
-  {
-    id: "testing",
-    label: "Тестирания",
-    to: "/coach/assessment",
-    icon: "chart",
-    hint: "Диагностика, скаут и тестова батерия",
-  },
-  { id: "club-head", label: "Клубен преглед", to: "/club-head", icon: "shield", headCoachOnly: true, hint: "Главен треньор" },
   {
     id: "bvf-admin",
     label: "Администрация БФВ",
     to: "/coach/bvf-admin",
     icon: "shield",
     headCoachOnly: true,
-    hint: "Картотека и селективен импорт",
+    hint: "Картотека, импорт и клубен преглед",
   },
   {
     id: "bvf-card-indexes",
@@ -183,6 +174,31 @@ export const COACH_CLUB_HUB_LINKS = [
     icon: "shield",
     hint: "Сезон × възраст · състав",
     assignedCardIndexOnly: true,
+  },
+];
+
+/** @type {NavLinkItem[]} */
+export const COACH_GROUP_WORK_HUB_LINKS = [
+  {
+    id: "program-week",
+    label: "Програмна седмица",
+    to: "/coach/program-week",
+    icon: "target",
+    hint: "Текуща позиция, теми и тренировки",
+  },
+  {
+    id: "attendance",
+    label: "Присъствие",
+    to: "/coach/attendance",
+    icon: "clipboardCheck",
+    hint: "По групи и месечен преглед",
+  },
+  {
+    id: "testing",
+    label: "Тестирания",
+    to: "/coach/assessment",
+    icon: "chart",
+    hint: "Диагностика, скаут и тестова батерия",
   },
 ];
 
@@ -245,6 +261,14 @@ export const COACH_BVF_HUB_LINKS = [
     hint: "Свързване на клуб и селективен импорт на състезатели",
   },
   {
+    id: "club-head",
+    label: "Клубен преглед",
+    to: "/club-head",
+    icon: "shield",
+    headCoachOnly: true,
+    hint: "Обзор, присъствие и методика на клуба",
+  },
+  {
     id: "bvf-card-indexes",
     label: "Картотечни отбори",
     to: "/coach/bvf-card-indexes",
@@ -268,8 +292,8 @@ export const COACH_MORE_MENU_SECTIONS = [
     title: "Клуб",
     links: [
       { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове и тимов лист" },
-      { id: "enrollments", label: "Записвания", to: "/coach/enrollments", icon: "clipboardCheck", hint: "Нови деца и публична страница" },
-      { id: "schedule-more", label: "Месечен график", to: "/coach/schedule", icon: "calendar" },
+      { id: "group-work", label: "Работа с групата", to: "/coach/group-work", icon: "clipboardCheck", hint: "Програма, присъствие, тестове" },
+      { id: "schedule-more", label: "График", to: "/coach/schedule", icon: "calendar" },
     ],
   },
   {
