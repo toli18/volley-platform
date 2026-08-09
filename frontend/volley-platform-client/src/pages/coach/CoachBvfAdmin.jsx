@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ToastProvider";
@@ -7,9 +7,18 @@ import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import BvfClubAthletesSekCard from "../../components/athletes/BvfClubAthletesSekCard";
 import BvfClubPhysicalSyncCard from "../../components/athletes/BvfClubPhysicalSyncCard";
 import MembershipConsentTemplateCard from "../../components/athletes/MembershipConsentTemplateCard";
+import CoachBvfCardIndexes from "./CoachBvfCardIndexes";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+
+const ADMIN_TABS = [
+  { id: "athletes", label: "Състезатели" },
+  { id: "cards", label: "Картотечни отбори" },
+  { id: "link", label: "Връзка / импорт" },
+  { id: "consent", label: "Клубно заявление" },
+];
+const VALID_ADMIN_TABS = ADMIN_TABS.map((t) => t.id);
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -42,17 +51,20 @@ export default function CoachBvfAdmin() {
   const [yearTo, setYearTo] = useState("");
   const [sexFilter, setSexFilter] = useState("all");
   const [onlyNew, setOnlyNew] = useState(true);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
-  const [pageTab, setPageTab] = useState(
-    tabFromUrl === "link" || tabFromUrl === "consent" ? tabFromUrl : "athletes"
-  ); // athletes | link | consent
-
-  useEffect(() => {
-    if (tabFromUrl === "link" || tabFromUrl === "consent" || tabFromUrl === "athletes") {
-      setPageTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
+  const pageTab = VALID_ADMIN_TABS.includes(tabFromUrl) ? tabFromUrl : "athletes";
+  const setPageTab = (id) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === "athletes") next.delete("tab");
+        else next.set("tab", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const permanent = Boolean(
     status?.permanent_link || status?.has_bvf_api_key || status?.has_bvf_credentials,
@@ -244,45 +256,21 @@ export default function CoachBvfAdmin() {
     <div className="uiPage">
       <PageHero
         title="Администрация БФВ"
-        subtitle="Връзка с db.bvf.bg, състезатели към СЕК и клубно заявление."
-        actions={
-          <>
-            <Link to="/coach/club-admin">
-              <Button variant="secondary">Клуб</Button>
-            </Link>
-            <Link to="/coach/bvf-card-indexes">
-              <Button variant="secondary">Картотечни отбори</Button>
-            </Link>
-            <Link to="/coach/bvf">
-              <Button variant="secondary">Назад към БФВ</Button>
-            </Link>
-          </>
-        }
+        subtitle="Състезатели към СЕК, картотека, връзка с db.bvf.bg и клубно заявление."
       />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-        <button
-          type="button"
-          className={`uiButton${pageTab === "athletes" ? "" : " uiButton--secondary"}`}
-          onClick={() => setPageTab("athletes")}
-        >
-          Състезатели
-        </button>
-        <button
-          type="button"
-          className={`uiButton${pageTab === "link" ? "" : " uiButton--secondary"}`}
-          onClick={() => setPageTab("link")}
-        >
-          Връзка / импорт
-        </button>
-        <button
-          type="button"
-          className={`uiButton${pageTab === "consent" ? "" : " uiButton--secondary"}`}
-          onClick={() => setPageTab("consent")}
-        >
-          Клубно заявление
-        </button>
-      </div>
+      <nav className="coachMobileSubNav clubHeadPanelTabs" aria-label="Секции на администрация БФВ">
+        {ADMIN_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`coachMobileSubNavBtn${pageTab === t.id ? " is-active" : ""}`}
+            onClick={() => setPageTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
       {pageTab === "athletes" ? (
         <>
@@ -292,6 +280,8 @@ export default function CoachBvfAdmin() {
           </div>
         </>
       ) : null}
+
+      {pageTab === "cards" ? <CoachBvfCardIndexes embedded /> : null}
 
       {pageTab === "consent" ? <MembershipConsentTemplateCard toast={toast} /> : null}
 

@@ -35,7 +35,7 @@ function statusLabel(it) {
   return "Чернова";
 }
 
-export default function CoachBvfCardIndexes() {
+export default function CoachBvfCardIndexes({ embedded = false }) {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
@@ -282,11 +282,13 @@ export default function CoachBvfCardIndexes() {
 
   if (isMobile) {
     return (
-      <div className="coachMobilePage cardIndexesMobilePage">
-        <header className="feesCoachHead">
-          <h2 className="feesCoachHeadTitle">Картотечни отбори</h2>
-          <span className="feesCoachHeadBadge">{items.length}</span>
-        </header>
+      <div className={embedded ? "cardIndexesMobilePage" : "coachMobilePage cardIndexesMobilePage"}>
+        {embedded ? null : (
+          <header className="feesCoachHead">
+            <h2 className="feesCoachHeadTitle">Картотечни отбори</h2>
+            <span className="feesCoachHeadBadge">{items.length}</span>
+          </header>
+        )}
         <p className="coachMobileMuted" style={{ marginTop: 0 }}>
           {isHead
             ? "Сезон → назначение → клик на отбор за състав."
@@ -464,11 +466,13 @@ export default function CoachBvfCardIndexes() {
                 {bvfMirrorItems.length} записа · ползвай локалните отбори по-горе.
               </p>
             ) : null}
-            <div style={{ marginTop: 8 }}>
-              <Button as={Link} to="/coach/bvf-admin" variant="secondary" block>
-                Администрация БФВ
-              </Button>
-            </div>
+            {embedded ? null : (
+              <div style={{ marginTop: 8 }}>
+                <Button as={Link} to="/coach/bvf-admin" variant="secondary" block>
+                  Администрация БФВ
+                </Button>
+              </div>
+            )}
           </section>
         ) : null}
       </div>
@@ -476,22 +480,24 @@ export default function CoachBvfCardIndexes() {
   }
 
   return (
-    <div className="uiPage">
-      <PageHero
-        title="Картотечни отбори"
-        subtitle={
-          isHead
-            ? "Сезонна заявка → назначение по възраст → клик на отбор за състав и запис в СЕК."
-            : "Отваряш назначения ти отбор, попълваш състава (Форма 03) и пращаш заявка към главния."
-        }
-        actions={
-          isHead ? (
-            <Link to="/coach/bvf-admin">
-              <Button variant="secondary">Администрация БФВ</Button>
-            </Link>
-          ) : null
-        }
-      />
+    <div className={embedded ? undefined : "uiPage"}>
+      {embedded ? null : (
+        <PageHero
+          title="Картотечни отбори"
+          subtitle={
+            isHead
+              ? "Сезонна заявка → назначение по възраст → клик на отбор за състав и запис в СЕК."
+              : "Отваряш назначения ти отбор, попълваш състава (Форма 03) и пращаш заявка към главния."
+          }
+          actions={
+            isHead ? (
+              <Link to="/coach/bvf-admin">
+                <Button variant="secondary">Администрация БФВ</Button>
+              </Link>
+            ) : null
+          }
+        />
+      )}
 
       {isHead || canManage ? (
         <Card title="Сезон">
