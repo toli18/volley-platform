@@ -354,6 +354,7 @@ export default function CoachAthleteProfile() {
             athleteName={profile.athlete_name}
             initialEgn={profile.egn || ""}
             missing={profile.bvf_missing || []}
+            hasPhoto={Boolean(profile.has_photo)}
             toast={toast}
             onCreated={async () => {
               await reloadProfile();

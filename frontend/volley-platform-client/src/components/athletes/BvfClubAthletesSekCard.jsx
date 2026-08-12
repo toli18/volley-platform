@@ -334,6 +334,11 @@ export default function BvfClubAthletesSekCard({
         athleteName={createTarget?.athlete_name}
         initialEgn={createTarget?.egn || ""}
         missing={createTarget?.missing || []}
+        hasPhoto={
+          createTarget?.readiness === "ready_create" ||
+          Boolean(createTarget?.has_photo) ||
+          !(createTarget?.missing || []).some((m) => String(m).toLowerCase().includes("снимка"))
+        }
         toast={toast}
         onCreated={() => {
           setCreateTarget(null);

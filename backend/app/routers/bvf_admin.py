@@ -922,7 +922,7 @@ async def create_player_from_athlete(
     first_coach_id: Optional[int] = Form(None),
     bvf_token: Optional[str] = Form(None),
     egn: Optional[str] = Form(None),
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(
@@ -934,11 +934,13 @@ async def create_player_from_athlete(
 ):
     """
     Създава състезател в БФВ от локалния профил + снимка.
+    Снимката: качен файл, иначе локалният портрет от профила.
     Записва bvf_player_id / number / photoId обратно; идентичността се заключва.
     FirstCoachId: подаден ръчно, иначе от мапинга на треньора / клубен default.
     Само главен треньор / админ.
     """
     _ensure_head_with_club(current_user)
+    from app.services.athlete_photo import read_athlete_photo, save_athlete_photo
     from app.services.bvf_auth import resolve_club_bvf_token
     from app.services.bvf_coach_link import resolve_first_coach_bvf_id, resolve_first_coach_label
 
@@ -986,11 +988,24 @@ async def create_player_from_athlete(
         raise HTTPException(status_code=422, detail="Градът на раждане е задължителен")
     nationality = default_nationality_from_city(place, athlete.nationality)
 
-    photo_bytes = await file.read()
+    photo_bytes = b""
+    filename = "photo.jpg"
+    content_type = "image/jpeg"
+    if file is not None and getattr(file, "filename", None):
+        photo_bytes = await file.read()
+        filename = file.filename or filename
+        content_type = file.content_type or content_type
     if not photo_bytes:
-        raise HTTPException(status_code=422, detail="Снимката е задължителна")
-    filename = file.filename or "photo.jpg"
-    content_type = file.content_type or "image/jpeg"
+        cached = read_athlete_photo(athlete.id)
+        if cached:
+            photo_bytes = cached
+            filename = f"{athlete.id}.jpg"
+            content_type = "image/jpeg"
+    if not photo_bytes:
+        raise HTTPException(
+            status_code=422,
+            detail="Няма портретна снимка в профила — качи JPG/PNG преди създаване в СЕК.",
+        )
 
     form_data = {
         "FirstClubId": str(int(club.bvf_club_id)),
@@ -1037,8 +1052,6 @@ async def create_player_from_athlete(
     db.refresh(athlete)
 
     try:
-        from app.services.athlete_photo import save_athlete_photo
-
         save_athlete_photo(athlete.id, photo_bytes)
     except Exception:
         pass

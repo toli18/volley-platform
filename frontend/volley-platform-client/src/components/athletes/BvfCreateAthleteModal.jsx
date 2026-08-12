@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button, Input, Modal } from "../ui";
 import useClubBvfLink from "../../hooks/useClubBvfLink";
@@ -10,6 +10,7 @@ import { normalizeError } from "../../utils/normalizeError";
  * Създава състезател в db.bvf.bg от локалния профил (снимка + FirstCoach).
  * FirstCoach се взима автоматично от мапинга на треньора / клубен default;
  * ръчен избор остава като override.
+ * Снимката по подразбиране е портретът от профила; качване е само override.
  */
 export default function BvfCreateAthleteModal({
   open,
@@ -18,6 +19,7 @@ export default function BvfCreateAthleteModal({
   athleteName,
   initialEgn = "",
   missing = [],
+  hasPhoto = false,
   onCreated,
   toast,
 }) {
@@ -31,6 +33,12 @@ export default function BvfCreateAthleteModal({
   const [busy, setBusy] = useState(false);
   const [loadingCoaches, setLoadingCoaches] = useState(false);
   const [loadingResolved, setLoadingResolved] = useState(false);
+
+  const canUseProfilePhoto = useMemo(() => {
+    if (hasPhoto) return true;
+    const miss = Array.isArray(missing) ? missing : [];
+    return !miss.some((m) => String(m).toLowerCase().includes("снимка"));
+  }, [hasPhoto, missing]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,8 +112,8 @@ export default function BvfCreateAthleteModal({
       toast?.error("Няма FirstCoach — задай разпознаване в Админ → Треньори или избери ръчно.");
       return;
     }
-    if (!photo) {
-      toast?.error("Качи портретна снимка (JPG/PNG).");
+    if (!photo && !canUseProfilePhoto) {
+      toast?.error("Качи портретна снимка (JPG/PNG) или запази снимка в профила.");
       return;
     }
     const form = new FormData();
@@ -113,7 +121,7 @@ export default function BvfCreateAthleteModal({
     appendToken(form, token);
     if (coachId) form.append("first_coach_id", String(coachId));
     form.append("egn", egn.trim());
-    form.append("file", photo);
+    if (photo) form.append("file", photo);
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CREATE_FROM_ATHLETE, form, {
@@ -129,7 +137,10 @@ export default function BvfCreateAthleteModal({
     }
   };
 
-  const blockers = (missing || []).filter((m) => m !== "ЕГН" && m !== "снимка");
+  const blockers = (missing || []).filter((m) => {
+    const s = String(m).toLowerCase();
+    return s !== "егн" && !s.includes("снимка");
+  });
   const sourceLabel =
     resolved?.source === "coach_self"
       ? "от треньора (СЕК)"
@@ -207,15 +218,27 @@ export default function BvfCreateAthleteModal({
           <Input value={egn} onChange={(e) => setEgn(e.target.value)} maxLength={10} placeholder="10 цифри" />
         </label>
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Портретна снимка *</span>
+        <div style={{ display: "grid", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>
+            Портретна снимка{canUseProfilePhoto ? "" : " *"}
+          </span>
+          {canUseProfilePhoto && !photo ? (
+            <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>
+              Ще се използва снимката от профила. Качи друг файл само ако искаш да я смениш.
+            </p>
+          ) : null}
+          {!canUseProfilePhoto && !photo ? (
+            <p style={{ margin: 0, fontSize: 13, color: "#b45309" }}>
+              Няма снимка в профила — качи JPG/PNG.
+            </p>
+          ) : null}
           <input
             type="file"
             accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
             onChange={(e) => setPhoto(e.target.files?.[0] || null)}
           />
-          {photo ? <span className="uiMuted" style={{ fontSize: 12 }}>{photo.name}</span> : null}
-        </label>
+          {photo ? <span className="uiMuted" style={{ fontSize: 12 }}>Нов файл: {photo.name}</span> : null}
+        </div>
 
         <div className="uiModalActions">
           <Button type="button" disabled={busy || blockers.length > 0} onClick={submit}>
