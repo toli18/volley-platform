@@ -1,4 +1,4 @@
-"""Canvas signature pad for Form 03 (touch + mouse)."""
+/** Canvas signature pad for Form 03 (touch + mouse). */
 
 import { useEffect, useRef, useState } from "react";
 
