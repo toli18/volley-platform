@@ -11560,6 +11560,56 @@ body:has(.publicWatchPage--fs) {
   font-size: 13px;
 }
 
+.signaturePad {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.signaturePadHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signaturePadLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.signaturePadClear {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #475569;
+}
+
+.signaturePadClear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.signaturePadCanvas {
+  display: block;
+  width: 100%;
+  border: 1.5px solid #94a3b8;
+  border-radius: 10px;
+  background: #fff;
+  cursor: crosshair;
+}
+
+.signaturePadHint {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
 @media (max-width: 559px) {
   .cardingFormNameEgn {
     flex-direction: column;

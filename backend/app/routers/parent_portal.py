@@ -88,6 +88,7 @@ from app.services.carding_form import (
     persist_carding_form_pdf,
     prefill_carding_form,
     read_carding_form_pdf,
+    save_carding_signature_png,
     season_label,
 )
 from app.services.parent_portal_notify import (
@@ -1517,8 +1518,13 @@ def _sign_carding_form(
         sig_ath = (body.signature_athlete or "").strip()
         if len(sig_ath) < 2:
             raise HTTPException(status_code=422, detail="За Форма 0-3 А е нужен подпис на състезателя")
+        if not (body.signature_athlete_image or "").strip():
+            raise HTTPException(status_code=422, detail="За Форма 0-3 А е нужен екранен подпис на състезателя")
     else:
         sig_ath = (body.signature_athlete or "").strip() or None
+
+    if not (body.signature_parent1_image or "").strip():
+        raise HTTPException(status_code=422, detail="Нужен е екранен подпис на родител 1")
 
     now = datetime.utcnow()
     deactivate_prior_carding_forms(db, athlete.id, year)
@@ -1545,6 +1551,16 @@ def _sign_carding_form(
     )
     db.add(form)
     db.flush()
+    try:
+        form.signature_parent1_image_rel = save_carding_signature_png(
+            form.id, "parent1", body.signature_parent1_image
+        )
+        if kind == FORM_KIND_03A and body.signature_athlete_image:
+            form.signature_athlete_image_rel = save_carding_signature_png(
+                form.id, "athlete", body.signature_athlete_image
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         form.pdf_rel_path = persist_carding_form_pdf(form, club=club)
     except Exception as exc:

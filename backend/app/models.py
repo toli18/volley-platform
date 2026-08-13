@@ -670,6 +670,8 @@ class AthleteCardingForm(Base):
     signature_parent1 = Column(String(255), nullable=False)
     signature_parent2 = Column(String(255), nullable=True)
     signature_athlete = Column(String(255), nullable=True)
+    signature_parent1_image_rel = Column(String(500), nullable=True)
+    signature_athlete_image_rel = Column(String(500), nullable=True)
     signed_at = Column(DateTime, nullable=False)
 
     club_name_snapshot = Column(String(255), nullable=True)

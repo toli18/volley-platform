@@ -263,6 +263,9 @@ class ParentCardingFormSignRequest(BaseModel):
     signature_parent1: str = Field(..., min_length=2, max_length=255)
     signature_parent2: str = Field(..., min_length=2, max_length=255)
     signature_athlete: Optional[str] = Field(None, max_length=255)
+    # data:image/png;base64,... — canvas подпис (родител 1 задължителен; състезател при 03-А)
+    signature_parent1_image: str = Field(..., min_length=32)
+    signature_athlete_image: Optional[str] = Field(None, min_length=32)
 
 
 class ParentCardingFormSignResponse(BaseModel):

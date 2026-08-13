@@ -172,6 +172,54 @@ def carding_form_pdf_dir() -> Path:
     return base
 
 
+def carding_signature_dir() -> Path:
+    base = carding_form_pdf_dir() / "signatures"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _decode_png_data_url(data_url: str) -> bytes:
+    import base64
+    import re
+
+    raw = (data_url or "").strip()
+    m = re.match(r"^data:image/(png|jpeg|jpg);base64,(.+)$", raw, re.IGNORECASE | re.DOTALL)
+    if not m:
+        raise ValueError("Невалиден формат на подписа (очаква се PNG/JPEG data URL).")
+    try:
+        data = base64.b64decode(m.group(2), validate=False)
+    except Exception as exc:
+        raise ValueError("Невалиден base64 на подписа.") from exc
+    if len(data) < 200:
+        raise ValueError("Подписът изглежда празен — моля, подпишете отново.")
+    if len(data) > 1_500_000:
+        raise ValueError("Подписът е твърде голям.")
+    return data
+
+
+def save_carding_signature_png(form_id: int, role: str, data_url: str) -> str:
+    """Записва canvas PNG; връща относителен път carding_forms/signatures/..."""
+    blob = _decode_png_data_url(data_url)
+    safe_role = "".join(ch for ch in str(role) if ch.isalnum() or ch in ("_", "-")) or "sig"
+    rel = f"signatures/{int(form_id)}_{safe_role}.png"
+    path = carding_form_pdf_dir() / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(blob)
+    return f"carding_forms/{rel}"
+
+
+def resolve_carding_signature_path(rel: str | None) -> Path | None:
+    if not rel:
+        return None
+    name = str(rel).replace("\\", "/").lstrip("/")
+    if name.startswith("carding_forms/"):
+        name = name[len("carding_forms/") :]
+    path = carding_form_pdf_dir() / name
+    if path.is_file() and path.stat().st_size > 0:
+        return path
+    return None
+
+
 def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -> bytes:
     """PDF близо до официалната бланка Форма 0-3 / 0-3 А (рамка, кутии, лога)."""
     from io import BytesIO
@@ -350,18 +398,52 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
     y -= meta_h + 8 * mm
 
     if form.form_kind == FORM_KIND_03A:
-        text(f"Състезател: {form.signature_athlete or '_______________'}", gap=6 * mm)
+        text("Състезател:", gap=3 * mm)
+        ath_img = resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None))
+        if ath_img:
+            try:
+                c.drawImage(
+                    str(ath_img),
+                    inner_l,
+                    y - 16 * mm,
+                    width=content_w * 0.45,
+                    height=14 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                text(form.signature_athlete or "_______________")
+            y -= 18 * mm
+        else:
+            text(f"{form.signature_athlete or '_______________'}", gap=6 * mm)
         text("Родители/попечители:", gap=5 * mm)
     else:
         text("Родители/настойници:", gap=5 * mm)
 
     c.setFont(font_name, 10)
-    c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
+    p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
+    sig_box_h = 16 * mm
+    half_w = content_w / 2 - 2 * mm
+    if p1_img:
+        try:
+            c.drawImage(
+                str(p1_img),
+                inner_l,
+                y - sig_box_h + 2 * mm,
+                width=half_w,
+                height=sig_box_h - 4 * mm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+        except Exception:
+            c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
+    else:
+        c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
     c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
-    y -= 4 * mm
+    y -= sig_box_h if p1_img else 4 * mm
     c.setFont(font_name, 7)
     c.setFillColorRGB(0.45, 0.5, 0.55)
-    c.drawCentredString(inner_l + content_w / 4, y, "(подпис)")
+    c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
     c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
 
     c.showPage()
