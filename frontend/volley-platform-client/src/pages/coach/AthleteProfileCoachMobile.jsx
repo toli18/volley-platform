@@ -356,9 +356,11 @@ export default function AthleteProfileCoachMobile({
         <div className="athleteProfileHeadActions">
           {!editing ? (
             <>
-              <Button as={Link} to={feesPayHref} size="sm">
-                Плати
-              </Button>
+              {monthlyFeesEnabled ? (
+                <Button as={Link} to={feesPayHref} size="sm">
+                  Плати
+                </Button>
+              ) : null}
               <Button type="button" size="sm" variant="secondary" onClick={onStartEdit}>
                 Редактирай
               </Button>
