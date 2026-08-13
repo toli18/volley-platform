@@ -530,6 +530,19 @@ def _init_db_impl() -> None:
                         "BOOLEAN NOT NULL DEFAULT false"
                     )
                 )
+                # Canvas подписи на Форма 03 (ако alembic още не е минал на prod)
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_parent1_image_rel VARCHAR(500)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_athlete_image_rel VARCHAR(500)"
+                    )
+                )
                 # Вече отворени сезони са имали Форма 03 заедно със status=open — запазваме поведението.
                 conn.execute(
                     text(
