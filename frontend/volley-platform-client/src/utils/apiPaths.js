@@ -302,6 +302,8 @@ export const API_PATHS = {
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/revoke`,
   ATHLETE_DOCUMENT_CARDING_PREVIEW: (athleteId, formId) =>
     `/api/athletes/${athleteId}/documents/carding-form/${formId}/preview`,
+  ATHLETE_DOCUMENT_CARDING_REVOKE: (athleteId, formId) =>
+    `/api/athletes/${athleteId}/documents/carding-form/${formId}/revoke`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

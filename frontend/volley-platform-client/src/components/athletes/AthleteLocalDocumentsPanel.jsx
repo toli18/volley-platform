@@ -13,12 +13,18 @@ function normalizeRole(user) {
 }
 
 /**
- * Локални документи на състезателя (заявление и др.) с преглед.
+ * Локални документи на състезателя (заявление, Форма 03) с преглед и връщане.
  */
 export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   const { user } = useAuth();
   const role = normalizeRole(user);
-  const canRevoke = role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
+  const canRevokeConsent =
+    role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
+  const canReturnCarding =
+    role === "coach" ||
+    role === "club_head_coach" ||
+    role === "platform_admin" ||
+    role === "federation_admin";
 
   const [docs, setDocs] = useState([]);
   const [active, setActive] = useState(false);
@@ -57,8 +63,8 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     }
   };
 
-  const revoke = async (consentId) => {
-    if (!window.confirm("Оттегляне на заявлението? Родителят ще трябва да подпише отново.")) return;
+  const revokeConsent = async (consentId) => {
+    if (!window.confirm("Оттегляне на клубното заявление? Родителят ще трябва да подпише отново.")) return;
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.ATHLETE_DOCUMENT_CONSENT_REVOKE(athleteId, consentId), {
@@ -73,7 +79,35 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     }
   };
 
-  const statusLabel = (s) => (s === "active" ? "Активно" : s === "revoked" ? "Оттеглено" : s);
+  const returnCarding = async (formId) => {
+    if (
+      !window.confirm(
+        "Връщане на Форма 03? Родителят ще трябва да я попълни и подпише отново в портала.",
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      await axiosInstance.post(API_PATHS.ATHLETE_DOCUMENT_CARDING_REVOKE(athleteId, formId), {
+        note: "Върната от треньор за повторно попълване",
+      });
+      toast?.success("Форма 03 е върната — родителят може да я попълни отново.");
+      await load();
+    } catch (err) {
+      toast?.error(normalizeError(err, "Неуспешно връщане на формата."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusLabel = (doc) => {
+    if (doc.status === "active") return "Активно";
+    if (doc.status === "revoked") {
+      return doc.doc_type === "carding_form" ? "Върнато" : "Оттеглено";
+    }
+    return doc.status;
+  };
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -96,7 +130,7 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
                   {d.signed_at ? ` · ${new Date(d.signed_at).toLocaleDateString("bg-BG")}` : ""}
                   {" · "}
                   <span className={`uiBadge${d.status === "active" ? " uiBadge--success" : " uiBadge--secondary"}`}>
-                    {statusLabel(d.status)}
+                    {statusLabel(d)}
                   </span>
                 </span>
                 {d.has_preview && (d.doc_type === "membership_consent" || d.doc_type === "carding_form") ? (
@@ -104,9 +138,14 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
                     Преглед
                   </Button>
                 ) : null}
-                {canRevoke && d.status === "active" && d.doc_type === "membership_consent" ? (
-                  <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => revoke(d.id)}>
+                {canRevokeConsent && d.status === "active" && d.doc_type === "membership_consent" ? (
+                  <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => revokeConsent(d.id)}>
                     Оттегли
+                  </Button>
+                ) : null}
+                {canReturnCarding && d.status === "active" && d.doc_type === "carding_form" ? (
+                  <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => returnCarding(d.id)}>
+                    Върни за попълване
                   </Button>
                 ) : null}
               </div>

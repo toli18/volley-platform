@@ -242,6 +242,45 @@ def preview_carding_form(
     )
 
 
+@docs_router.post("/{athlete_id}/documents/carding-form/{form_id}/revoke")
+def revoke_carding_form(
+    athlete_id: int,
+    form_id: int,
+    payload: RevokeConsentIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Връща Форма 03 — родителят трябва да я попълни и подпише отново."""
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    form = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.id == int(form_id),
+            AthleteCardingForm.athlete_id == athlete.id,
+            AthleteCardingForm.is_active.is_(True),
+        )
+        .first()
+    )
+    if not form:
+        raise HTTPException(status_code=404, detail="Активна Форма 03 не е намерена")
+    form.is_active = False
+    form.revoked_at = datetime.utcnow()
+    db.commit()
+    return {
+        "ok": True,
+        "form_id": form.id,
+        "needs_form": True,
+        "season_year": form.season_year,
+    }
+
+
 @docs_router.post("/{athlete_id}/documents/membership-consent/{consent_id}/revoke")
 def revoke_membership_consent(
     athlete_id: int,
