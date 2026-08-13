@@ -27,6 +27,10 @@ export default function CoachAthleteProfile() {
 
   const from = searchParams.get("from") || "/coach/teams";
   const rawTab = searchParams.get("tab") || "";
+  const role = String(user?.role || "").toLowerCase();
+  const isHeadCoach = role === "club_head_coach";
+  const currentUserId = Number(user?.id || 0);
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   // „tests“ е стар alias — съдържанието е обединено в physical.
   const tab = ["overview", "data", "bvf", "tests", "physical", "attendance", "fees", "history"].includes(rawTab)
     ? rawTab === "tests"
@@ -35,9 +39,11 @@ export default function CoachAthleteProfile() {
     : "overview";
   const setTab = (id) => setSearchParams({ tab: id, from }, { replace: true });
 
-  const role = String(user?.role || "").toLowerCase();
-  const isHeadCoach = role === "club_head_coach";
-  const currentUserId = Number(user?.id || 0);
+  useEffect(() => {
+    if (!monthlyFeesEnabled && tab === "fees") {
+      setSearchParams({ tab: "overview", from }, { replace: true });
+    }
+  }, [monthlyFeesEnabled, tab, from, setSearchParams]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

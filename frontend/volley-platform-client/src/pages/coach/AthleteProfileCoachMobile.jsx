@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "../../auth/AuthContext";
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
@@ -13,20 +14,20 @@ import { formatMoney } from "../../utils/currency";
 import { Button, EmptyState, Modal } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
-const TABS = [
+const ALL_TABS = [
   { id: "overview", label: "Преглед" },
   { id: "data", label: "Данни" },
   { id: "bvf", label: "СЕК" },
   { id: "physical", label: "Тестове" },
   { id: "attendance", label: "Присъствие" },
-  { id: "fees", label: "Такси" },
+  { id: "fees", label: "Такси", monthlyFeesOnly: true },
   { id: "history", label: "История" },
 ];
 
-const HISTORY_FILTERS = [
+const HISTORY_FILTERS_ALL = [
   { id: "all", label: "Всички" },
   { id: "attendance", label: "Присъствие" },
-  { id: "payment", label: "Плащания" },
+  { id: "payment", label: "Плащания", monthlyFeesOnly: true },
   { id: "system", label: "Система" },
 ];
 
@@ -238,7 +239,17 @@ export default function AthleteProfileCoachMobile({
   onDelete,
   deleting = false,
 }) {
+  const { user } = useAuth();
   const toast = useToast();
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
+  const tabs = useMemo(
+    () => ALL_TABS.filter((t) => !t.monthlyFeesOnly || monthlyFeesEnabled),
+    [monthlyFeesEnabled],
+  );
+  const historyFilters = useMemo(
+    () => HISTORY_FILTERS_ALL.filter((f) => !f.monthlyFeesOnly || monthlyFeesEnabled),
+    [monthlyFeesEnabled],
+  );
   const [moreOpen, setMoreOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(false);
@@ -254,7 +265,7 @@ export default function AthleteProfileCoachMobile({
     canFetchFromBvf: canFetchPhoto,
   });
 
-  const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, TABS.map((t) => t.id));
+  const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, tabs.map((t) => t.id));
 
   const summary = profile.attendance_summary || {};
   const teamsShort = (profile.teams || []).map(shortenTeamName).join(", ") || "—";
@@ -272,12 +283,15 @@ export default function AthleteProfileCoachMobile({
   const visibleAttendance = showAllAttendance ? attendanceRows : attendanceRows.slice(0, 8);
 
   const filteredTimeline = useMemo(() => {
-    const list = profile.timeline || [];
+    let list = profile.timeline || [];
+    if (!monthlyFeesEnabled) {
+      list = list.filter((e) => e.kind !== "payment");
+    }
     if (historyFilter === "all") return list;
     if (historyFilter === "attendance") return list.filter((e) => e.kind === "attendance");
     if (historyFilter === "payment") return list.filter((e) => e.kind === "payment");
     return list.filter((e) => SYSTEM_KINDS.has(e.kind));
-  }, [profile.timeline, historyFilter]);
+  }, [profile.timeline, historyFilter, monthlyFeesEnabled]);
 
   const visibleTimeline = filteredTimeline.slice(0, historyLimit);
 
@@ -371,7 +385,7 @@ export default function AthleteProfileCoachMobile({
       </header>
 
       <nav className="coachMobileSubNav" aria-label="Профил секции">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -387,6 +401,7 @@ export default function AthleteProfileCoachMobile({
       <div className="athleteProfileSwipeArea" {...(editing ? {} : swipeHandlers)}>
         {tab === "overview" ? (
           <div className="athleteProfileTab">
+            {monthlyFeesEnabled ? (
             <section
               className={`athleteProfileCard athleteProfileFeeCard${
                 currentMonthPaid ? " athleteProfileFeeCard--paid" : " athleteProfileFeeCard--due"
@@ -416,6 +431,7 @@ export default function AthleteProfileCoachMobile({
                 </Button>
               </div>
             </section>
+            ) : null}
 
             <section className="athleteProfileCard athleteProfileCard--compact">
               <h3 className="athleteProfileCardTitle">БФВ</h3>
@@ -804,7 +820,7 @@ export default function AthleteProfileCoachMobile({
           </div>
         ) : null}
 
-        {tab === "fees" ? (
+        {monthlyFeesEnabled && tab === "fees" ? (
           <div className="athleteProfileTab athleteProfileTab--fees">
             <div className="athleteProfileFeesSticky">
               <InputMonth value={feesMonth} onChange={setFeesMonth} />
@@ -847,7 +863,7 @@ export default function AthleteProfileCoachMobile({
         {tab === "history" ? (
           <div className="athleteProfileTab">
             <div className="athleteProfileHistoryFilters">
-              {HISTORY_FILTERS.map((f) => (
+              {historyFilters.map((f) => (
                 <button
                   key={f.id}
                   type="button"

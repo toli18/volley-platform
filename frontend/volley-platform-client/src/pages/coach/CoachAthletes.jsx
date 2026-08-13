@@ -55,6 +55,7 @@ function matchesStatusFilter(a, filterId) {
 
 export default function CoachAthletes() {
   const { user } = useAuth();
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -505,7 +506,9 @@ export default function CoachAthletes() {
               onClick: () => setTab("add"),
             },
             { id: "enroll", label: "Записвания онлайн", to: "/coach/enrollments" },
-            { id: "fees", label: "Плати такса", to: "/coach/fees" },
+            ...(monthlyFeesEnabled
+              ? [{ id: "fees", label: "Плати такса", to: "/coach/fees" }]
+              : []),
           ]}
         />
       </div>

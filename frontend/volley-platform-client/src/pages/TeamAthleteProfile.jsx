@@ -59,6 +59,7 @@ export default function TeamAthleteProfile() {
   const role = String(user?.role?.value ?? user?.role ?? "").toLowerCase();
   const canManageSek =
     role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -190,7 +191,11 @@ export default function TeamAthleteProfile() {
     <div className="uiPage">
       <PageHero
         title={`Профил: ${profile.athlete_name}`}
-        subtitle="Лични данни, БФВ, присъствие и такси на едно място."
+        subtitle={
+          monthlyFeesEnabled
+            ? "Лични данни, БФВ, присъствие и такси на едно място."
+            : "Лични данни, БФВ и присъствие на едно място."
+        }
         actions={
           <div className="athleteProfileHeroActions">
             {!editing ? (
@@ -203,9 +208,11 @@ export default function TeamAthleteProfile() {
                     Създай в СЕК
                   </Button>
                 ) : null}
-                <Button as={Link} to={feesPayHref} variant="secondary">
-                  Плащане
-                </Button>
+                {monthlyFeesEnabled ? (
+                  <Button as={Link} to={feesPayHref} variant="secondary">
+                    Плащане
+                  </Button>
+                ) : null}
               </>
             ) : (
               <>
@@ -409,6 +416,7 @@ export default function TeamAthleteProfile() {
         )}
       </Card>
 
+      {monthlyFeesEnabled ? (
       <Card
         title="Месечни такси (последни 12 месеца)"
         subtitle="Зелено: платено. Червено: липсва записано плащане за месеца."
@@ -460,6 +468,7 @@ export default function TeamAthleteProfile() {
           </Table>
         )}
       </Card>
+      ) : null}
 
       <Card id="athlete-history" title="История на състезателя" subtitle="Подредено по дата (най-нови отгоре). За редакции без отделен журнал авторът не е наличен.">
         {!(profile.timeline || []).length ? (
