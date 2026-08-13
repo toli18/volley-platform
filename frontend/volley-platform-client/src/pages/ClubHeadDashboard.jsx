@@ -57,6 +57,7 @@ const normalizeRole = (user) => {
 
 export default function ClubHeadDashboard() {
   const { user, loading: authLoading } = useAuth();
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const toast = useToast();
   const isHeadCoach = normalizeRole(user) === "club_head_coach";
   const [loading, setLoading] = useState(true);
@@ -543,6 +544,7 @@ export default function ClubHeadDashboard() {
           </Card>
 
           <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+            {monthlyFeesEnabled ? (
             <Card title="Месечни такси">
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <span className="uiBadge">Общо: {overview?.fees?.total_athletes || 0}</span>
@@ -551,6 +553,7 @@ export default function ClubHeadDashboard() {
                 <span className="uiBadge uiBadge--info">Сума: {formatMoney(overview?.fees?.total_paid_amount)}</span>
               </div>
             </Card>
+            ) : null}
 
             <Card title="Присъствие за период">
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -573,30 +576,38 @@ export default function ClubHeadDashboard() {
             <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
               <div style={{ display: "grid", gap: 8 }}>
                 <strong style={{ fontSize: 13 }}>Месечни такси</strong>
-                <Input type="month" value={expFeesFrom} onChange={(e) => setExpFeesFrom(e.target.value)} />
-                <Input type="month" value={expFeesTo} onChange={(e) => setExpFeesTo(e.target.value)} />
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_XLSX, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.xlsx`)
-                    }
-                  >
-                    Такси Excel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_PDF, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.pdf`)
-                    }
-                  >
-                    Такси PDF
-                  </Button>
-                </div>
+                {monthlyFeesEnabled ? (
+                  <>
+                    <Input type="month" value={expFeesFrom} onChange={(e) => setExpFeesFrom(e.target.value)} />
+                    <Input type="month" value={expFeesTo} onChange={(e) => setExpFeesTo(e.target.value)} />
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_XLSX, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.xlsx`)
+                        }
+                      >
+                        Такси Excel
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          downloadClubBlob(API_PATHS.CLUB_REPORT_FEES_PDF, { from_month: expFeesFrom, to_month: expFeesTo }, `klub_taksi_${expFeesFrom}_${expFeesTo}.pdf`)
+                        }
+                      >
+                        Такси PDF
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+                    Изключени — Профил на клуба → Такси
+                  </p>
+                )}
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 <strong style={{ fontSize: 13 }}>Присъствие</strong>

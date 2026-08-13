@@ -21,6 +21,25 @@ DEFAULT_FEE_CURRENCY = "€"
 # Клубно заявление: валидно 1 година, после родителят попълва отново.
 CONSENT_VALIDITY_DAYS = 365
 
+
+def club_monthly_fees_enabled(club: Club | None) -> bool:
+    """True = клубът събира месечна такса (default). False = скриваме таксите навсякъде."""
+    if club is None:
+        return True
+    val = getattr(club, "monthly_fees_enabled", None)
+    if val is None:
+        return True
+    return bool(val)
+
+
+def resolve_club_fee_settings(club: Club) -> dict[str, Any]:
+    return {
+        "enabled": club_monthly_fees_enabled(club),
+        "fee_amount": int(club.membership_consent_fee_amount or DEFAULT_FEE_AMOUNT),
+        "fee_due_day": int(club.membership_consent_fee_due_day or DEFAULT_FEE_DUE_DAY),
+        "fee_currency": DEFAULT_FEE_CURRENCY,
+    }
+
 DEFAULT_BODY_TEMPLATE = (
     "Желая синът/дъщерята ми да бъде приет/а като състезател във {club_name} "
     "и да участва в тренировъчния процес, организиран от клуба.\n\n"

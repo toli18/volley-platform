@@ -296,7 +296,8 @@ export default function CoachToday() {
 
   const greeting = user?.name || user?.email || "Треньор";
   const todayBadge = dash.activityItems.length || null;
-  const statsBadge = dash.feesSummary.unpaid || null;
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
+  const statsBadge = monthlyFeesEnabled ? dash.feesSummary.unpaid || null : null;
   const programTc = programWeek?.team_id ? teamColorsForId(programWeek.team_id) : null;
   const trainingsHref = "/coach/trainings";
   const absenceNotices = dash.absenceNotices || [];
@@ -657,6 +658,8 @@ export default function CoachToday() {
             </p>
           </SectionCard>
 
+          {monthlyFeesEnabled ? (
+            <>
           <SectionCard
             title={`Дължими такси (${dash.monthKey})`}
             actions={
@@ -716,6 +719,8 @@ export default function CoachToday() {
               {isHeadCoach ? (headTeamScope === "mine" ? " · моите отбори" : " · всички отбори") : ""}.
             </p>
           </SectionCard>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

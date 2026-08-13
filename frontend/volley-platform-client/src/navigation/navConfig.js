@@ -3,7 +3,7 @@
  * Filter children with `roles` / `headCoachOnly` at runtime via useNavItems.
  */
 
-/** @typedef {{ id: string, label: string, to: string, icon?: string, hint?: string, roles?: string[], headCoachOnly?: boolean, assignedCardIndexOnly?: boolean, accent?: boolean }} NavLinkItem */
+/** @typedef {{ id: string, label: string, to: string, icon?: string, hint?: string, roles?: string[], headCoachOnly?: boolean, assignedCardIndexOnly?: boolean, monthlyFeesOnly?: boolean, accent?: boolean }} NavLinkItem */
 /** @typedef {{ id: string, label: string, icon?: string, children: NavLinkItem[] }} NavGroupItem */
 /** @typedef {{ type: "link", id: string, label: string, to: string, icon?: string, accent?: boolean, badge?: string }} NavPrimaryLink */
 /** @typedef {{ type: "group", id: string, label: string, icon?: string, children: NavLinkItem[] }} NavPrimaryGroup */
@@ -26,7 +26,14 @@ export const COACH_PRIMARY_NAV = [
     children: [
       { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams", hint: "Тренировъчни групи и състав" },
       { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК · записвания онлайн" },
-      { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
+      {
+        id: "fees",
+        label: "Такси",
+        to: "/coach/fees",
+        icon: "euro",
+        hint: "Плащания и напомняния",
+        monthlyFeesOnly: true,
+      },
       { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове, тимов лист, филтри" },
       { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar", hint: "Месечен календар на тренировки" },
       {
@@ -137,7 +144,14 @@ export const COACH_MOBILE_TABS = [
 export const COACH_CLUB_HUB_LINKS = [
   { id: "teams", label: "Групи", to: "/coach/teams", icon: "teams", hint: "Тренировъчни групи и състав" },
   { id: "athletes", label: "Състезатели", to: "/coach/athletes", icon: "clipboardCheck", hint: "Профили, СЕК · записвания онлайн" },
-  { id: "fees", label: "Такси", to: "/coach/fees", icon: "euro", hint: "Плащания и напомняния" },
+  {
+    id: "fees",
+    label: "Такси",
+    to: "/coach/fees",
+    icon: "euro",
+    hint: "Плащания и напомняния",
+    monthlyFeesOnly: true,
+  },
   { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове, тимов лист, филтри" },
   { id: "schedule", label: "График", to: "/coach/schedule", icon: "calendar", hint: "Месечен календар на тренировки" },
   {

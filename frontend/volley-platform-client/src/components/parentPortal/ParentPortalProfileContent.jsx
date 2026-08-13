@@ -202,13 +202,20 @@ export default function ParentPortalProfileContent({
   setProfileSection,
   onProfileRefresh,
 }) {
+  const feesEnabled = profile.monthly_fees_enabled !== false;
   const currentFee = profile.current_month_fee;
   const feeCoach = profile.fee_coach || {};
   const attendanceSummary = profile.attendance_summary || {};
   const feeDueDay = currentFee?.due_day ?? profile.fee_due_day ?? 10;
   const scheduleMonthKey = profile.schedule_month_key || new Date().toISOString().slice(0, 7);
   const competitionsMonthLabel = formatCompetitionsMonthLabel(profile.competitions_this_month ?? 0, scheduleMonthKey);
-  const section = PROFILE_SECTIONS.some((s) => s.id === profileSection) ? profileSection : "fees";
+  const visibleSections = feesEnabled
+    ? PROFILE_SECTIONS
+    : PROFILE_SECTIONS.filter((s) => s.id !== "fees");
+  const fallbackSection = feesEnabled ? "fees" : "attendance";
+  const section = visibleSections.some((s) => s.id === profileSection)
+    ? profileSection
+    : fallbackSection;
 
   const allAttendance = profile.last_attendance ?? [];
   const allPayments = profile.monthly_payments ?? [];
@@ -222,6 +229,7 @@ export default function ParentPortalProfileContent({
   if (attendanceSummary.absent) attendanceHomeParts.push(`${attendanceSummary.absent} отсъства`);
 
   const openFees = () => {
+    if (!feesEnabled) return;
     if (profile.fee_change_highlight) onAckFeeHighlight?.();
     onSwitchTab?.("profile", "fees");
   };
@@ -440,8 +448,12 @@ export default function ParentPortalProfileContent({
       <ParentPortalTabPanel tabId="home" activeTab={activeTab}>
         <ParentPushPrompt isSession={isSession} legacyToken={isSession ? null : token} />
 
-        <div className="parentPortalHighlightDesktopOnly parentPortalFeeDesktopTop">{feeBlock}</div>
-        <div className="parentPortalHighlightFold parentPortalFeeFoldTop">{feeStatusBar}</div>
+        {feesEnabled ? (
+          <>
+            <div className="parentPortalHighlightDesktopOnly parentPortalFeeDesktopTop">{feeBlock}</div>
+            <div className="parentPortalHighlightFold parentPortalFeeFoldTop">{feeStatusBar}</div>
+          </>
+        ) : null}
 
         <Card title="Предварително извинение" className="parentPortalAbsenceHomeCard">
           <ParentAbsenceNoticeSection
@@ -537,9 +549,11 @@ export default function ParentPortalProfileContent({
             {profile.birth_year ? <span className="uiBadge">Роден/а: {profile.birth_year}</span> : null}
             {profile.parent_name ? <span className="uiBadge">Родител: {profile.parent_name}</span> : null}
             {profile.parent_phone ? <span className="uiBadge">Телефон: {profile.parent_phone}</span> : null}
-            <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
-              Такса {formatMonthKey(currentFee?.month_key)}: {currentFee?.paid ? "платена" : "неплатена"}
-            </span>
+            {feesEnabled ? (
+              <span className={`uiBadge ${currentFee?.paid ? "uiBadge--success" : "uiBadge--danger"}`}>
+                Такса {formatMonthKey(currentFee?.month_key)}: {currentFee?.paid ? "платена" : "неплатена"}
+              </span>
+            ) : null}
             {attendanceSummary.total ? (
               <span className="uiBadge uiBadge--info">Присъствие: {attendanceSummary.attendance_rate_percent}%</span>
             ) : null}
@@ -562,7 +576,7 @@ export default function ParentPortalProfileContent({
         </Card>
 
         <div className="parentPortalProfileSectionTabs" role="tablist" aria-label="Раздели в профила">
-          {PROFILE_SECTIONS.map((s) => (
+          {visibleSections.map((s) => (
             <button
               key={s.id}
               type="button"
@@ -576,7 +590,7 @@ export default function ParentPortalProfileContent({
           ))}
         </div>
 
-        {section === "fees" ? feesCard : null}
+        {feesEnabled && section === "fees" ? feesCard : null}
         {section === "attendance" ? attendanceCard : null}
         {section === "development" ? (
           <ParentDevelopmentSection

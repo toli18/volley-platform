@@ -4,9 +4,10 @@ import { COACH_CLUB_HUB_LINKS } from "../../navigation/navConfig";
 import { CoachHubPage, MenuGroup, MenuLink } from "../../components/coachMobile/CoachMenuParts";
 import { useAuth } from "../../auth/AuthContext";
 
-function filterLink(item, { isHeadCoachUser, showCardIndexesNav }) {
+function filterLink(item, { isHeadCoachUser, showCardIndexesNav, monthlyFeesEnabled }) {
   if (item.headCoachOnly && !isHeadCoachUser) return false;
   if (item.assignedCardIndexOnly && !showCardIndexesNav) return false;
+  if (item.monthlyFeesOnly && !monthlyFeesEnabled) return false;
   return true;
 }
 
@@ -14,8 +15,9 @@ export default function CoachClubHub() {
   const { isHeadCoachUser, user } = useNavRoles();
   const { refreshMe } = useAuth();
   const showCardIndexesNav = Boolean(user?.show_card_indexes_nav);
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const links = COACH_CLUB_HUB_LINKS.filter((item) =>
-    filterLink(item, { isHeadCoachUser, showCardIndexesNav })
+    filterLink(item, { isHeadCoachUser, showCardIndexesNav, monthlyFeesEnabled })
   );
 
   useEffect(() => {

@@ -1,9 +1,11 @@
 from datetime import datetime
 from io import BytesIO
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from openpyxl import Workbook
+from pydantic import BaseModel, Field
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
@@ -11,7 +13,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, AttendanceRecord, Team, TeamSession, Training, User, UserRole
+from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club as _ensure_head_admin
 from app.routers.fees import _ensure_pdf_font, _iter_months
+from app.services.club_membership_consent import (
+    DEFAULT_FEE_AMOUNT,
+    DEFAULT_FEE_CURRENCY,
+    DEFAULT_FEE_DUE_DAY,
+    resolve_club_fee_settings,
+)
 
 router = APIRouter()
 
@@ -21,6 +30,89 @@ def _ensure_head_with_club(user: User):
         raise HTTPException(status_code=403, detail="Only club head coach can access this module")
     if not user.club_id:
         raise HTTPException(status_code=422, detail="Head coach is not assigned to a club")
+
+
+class ClubFeesSettingsOut(BaseModel):
+    club_id: int
+    club_name: str
+    enabled: bool = True
+    fee_amount: int
+    fee_due_day: int
+    fee_currency: str = "€"
+    defaults: dict = Field(default_factory=dict)
+
+
+class ClubFeesSettingsUpdate(BaseModel):
+    club_id: Optional[int] = None
+    enabled: Optional[bool] = None
+    fee_amount: Optional[int] = Field(None, ge=0, le=10000)
+    fee_due_day: Optional[int] = Field(None, ge=1, le=28)
+
+
+def _fees_settings_payload(club) -> ClubFeesSettingsOut:
+    resolved = resolve_club_fee_settings(club)
+    return ClubFeesSettingsOut(
+        club_id=club.id,
+        club_name=club.name,
+        enabled=resolved["enabled"],
+        fee_amount=resolved["fee_amount"],
+        fee_due_day=resolved["fee_due_day"],
+        fee_currency=resolved["fee_currency"],
+        defaults={
+            "fee_amount": DEFAULT_FEE_AMOUNT,
+            "fee_due_day": DEFAULT_FEE_DUE_DAY,
+            "fee_currency": DEFAULT_FEE_CURRENCY,
+        },
+    )
+
+
+@router.get("/club/fees-settings", response_model=ClubFeesSettingsOut)
+def get_club_fees_settings(
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Настройки: събира ли клубът месечна такса (+ сума и падеж)."""
+    _ensure_head_admin(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    return _fees_settings_payload(club)
+
+
+@router.put("/club/fees-settings", response_model=ClubFeesSettingsOut)
+def update_club_fees_settings(
+    payload: ClubFeesSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """
+    Вкл./изкл. месечни такси за клуба.
+    Не → скрива таксите при родител и треньор.
+    Да → сума + падеж (default 15 € / 10-о число).
+    """
+    _ensure_head_admin(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+
+    if payload.enabled is not None:
+        club.monthly_fees_enabled = bool(payload.enabled)
+    if payload.fee_amount is not None:
+        club.membership_consent_fee_amount = int(payload.fee_amount)
+    if payload.fee_due_day is not None:
+        club.membership_consent_fee_due_day = int(payload.fee_due_day)
+
+    # При включване без записани сума/падеж — записваме defaults.
+    if club.monthly_fees_enabled:
+        if club.membership_consent_fee_amount is None:
+            club.membership_consent_fee_amount = DEFAULT_FEE_AMOUNT
+        if club.membership_consent_fee_due_day is None:
+            club.membership_consent_fee_due_day = DEFAULT_FEE_DUE_DAY
+
+    db.commit()
+    db.refresh(club)
+    return _fees_settings_payload(club)
 
 
 @router.get("/club/athletes")

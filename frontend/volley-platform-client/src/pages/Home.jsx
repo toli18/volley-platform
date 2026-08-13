@@ -38,6 +38,7 @@ const dashboardScheduleAttendanceTo = (it) => {
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [feesSummary, setFeesSummary] = useState({ total: 0, paid: 0, unpaid: 0 });
@@ -213,7 +214,7 @@ export default function Home() {
         {[
           { id: "today", label: "Днес", badge: activityItems.length || null },
           { id: "content", label: "Съдържание", badge: null },
-          { id: "stats", label: "Статистика", badge: feesSummary.unpaid || null },
+          { id: "stats", label: "Статистика", badge: monthlyFeesEnabled ? feesSummary.unpaid || null : null },
         ].map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -565,6 +566,8 @@ export default function Home() {
         </p>
       </Card>
 
+      {monthlyFeesEnabled ? (
+        <>
       <Card
         title={`Дължими такси (${monthKey})`}
         actions={
@@ -639,6 +642,8 @@ export default function Home() {
           {isHeadCoach ? (headTeamScope === "mine" ? " · моите отбори" : " · всички отбори") : ""}.
         </p>
       </Card>
+        </>
+      ) : null}
 
       </>
       )}

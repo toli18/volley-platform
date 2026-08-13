@@ -344,12 +344,14 @@ export default function TeamRoomPortal() {
                   )}
                 </section>
               </div>
-              <TeamRoomFeeStatus
-                fee={data.current_month_fee}
-                formatMonthKey={formatMonthKey}
-                feeChangeHighlight={data.fee_change_highlight}
-                onAckFeeHighlight={handleAckFeeHighlight}
-              />
+              {data.monthly_fees_enabled !== false ? (
+                <TeamRoomFeeStatus
+                  fee={data.current_month_fee}
+                  formatMonthKey={formatMonthKey}
+                  feeChangeHighlight={data.fee_change_highlight}
+                  onAckFeeHighlight={handleAckFeeHighlight}
+                />
+              ) : null}
               <h2 className="teamRoomSectionTitle">Новини</h2>
               <TeamRoomFeed items={data.items} />
             </TabPanel>
@@ -385,12 +387,14 @@ export default function TeamRoomPortal() {
             </TabPanel>
 
             <TabPanel id="profile" activeTab={activeTab}>
-              <TeamRoomFeeStatus
-                fee={data.current_month_fee}
-                formatMonthKey={formatMonthKey}
-                feeChangeHighlight={data.fee_change_highlight}
-                onAckFeeHighlight={handleAckFeeHighlight}
-              />
+              {data.monthly_fees_enabled !== false ? (
+                <TeamRoomFeeStatus
+                  fee={data.current_month_fee}
+                  formatMonthKey={formatMonthKey}
+                  feeChangeHighlight={data.fee_change_highlight}
+                  onAckFeeHighlight={handleAckFeeHighlight}
+                />
+              ) : null}
               <section className="teamRoomCard">
                 <h2 className="teamRoomCardTitle">Моят профил</h2>
                 <dl className="teamRoomProfileDl">

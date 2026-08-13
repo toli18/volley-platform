@@ -108,6 +108,8 @@ class Club(Base):
     membership_consent_gdpr = Column(Text, nullable=True)
     membership_consent_fee_amount = Column(Integer, nullable=True)
     membership_consent_fee_due_day = Column(Integer, nullable=True)
+    # Месечни такси в платформата (родител + меню на треньор). Default: включени.
+    monthly_fees_enabled = Column(Boolean, nullable=False, default=True)
 
     # Публична клубна страница (/c/:slug)
     public_slug = Column(String(80), nullable=True, unique=True, index=True)

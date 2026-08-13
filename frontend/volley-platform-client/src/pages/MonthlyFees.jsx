@@ -51,6 +51,7 @@ export default function MonthlyFees() {
   const toast = useToast();
   const isCoachShell = location.pathname.startsWith("/coach/fees");
   const feesPath = isCoachShell ? "/coach/fees" : "/monthly-fees";
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -632,6 +633,23 @@ export default function MonthlyFees() {
       </Modal>
     </>
   );
+
+  if (!monthlyFeesEnabled) {
+    return (
+      <div className="uiPage">
+        <PageHero title="Месечни такси" subtitle="Изключени за този клуб" />
+        <EmptyState
+          title="Клубът не събира месечна такса"
+          description="Главният треньор може да включи таксите от Профил на клуба → Такси."
+        />
+        <div style={{ marginTop: 12 }}>
+          <Button as={Link} to="/coach/club-profile?tab=fees" variant="secondary">
+            Към настройките
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isCoachShell) {
     return (

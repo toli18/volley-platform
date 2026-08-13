@@ -7,9 +7,10 @@ import {
 } from "./navConfig";
 import useNavRoles from "./useNavRoles";
 
-function filterChild(item, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav }) {
+function filterChild(item, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav, monthlyFeesEnabled }) {
   if (item.headCoachOnly && !isHeadCoachUser) return false;
   if (item.assignedCardIndexOnly && !showCardIndexesNav) return false;
+  if (item.monthlyFeesOnly && !monthlyFeesEnabled) return false;
   if (item.roles?.length && !item.roles.includes(isPlatformAdmin ? "platform_admin" : "")) return false;
   return true;
 }
@@ -21,6 +22,7 @@ function filterGroupChildren(children, ctx) {
 export default function useNavItems() {
   const { user, isCoachUser, isHeadCoachUser, isPlatformAdmin, isAdminUser } = useNavRoles();
   const showCardIndexesNav = Boolean(user?.show_card_indexes_nav);
+  const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
 
   const primaryNav = useMemo(() => {
     if (!user) return GUEST_PRIMARY_NAV;
@@ -34,6 +36,7 @@ export default function useNavItems() {
             isHeadCoachUser,
             isPlatformAdmin,
             showCardIndexesNav,
+            monthlyFeesEnabled,
           }),
         };
       });
@@ -47,7 +50,7 @@ export default function useNavItems() {
         : [{ type: "link", id: "drills", label: "Упражнения", to: "/drills", icon: "drill" }]),
       { type: "link", id: "forum", label: "Форум", to: "/forum", icon: "chat", badge: "forumUnread" },
       ...MEMBER_EXTRA_NAV.filter((x) =>
-        filterChild(x, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav })
+        filterChild(x, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav, monthlyFeesEnabled })
       ).map((x) => ({
         type: "link",
         ...x,
@@ -58,17 +61,17 @@ export default function useNavItems() {
         : [{ type: "link", id: "generator", label: "Генератор", to: "/generator", icon: "sparkles" }]),
     ];
     return links;
-  }, [user, isCoachUser, isHeadCoachUser, isPlatformAdmin, isAdminUser, showCardIndexesNav]);
+  }, [user, isCoachUser, isHeadCoachUser, isPlatformAdmin, isAdminUser, showCardIndexesNav, monthlyFeesEnabled]);
 
   const adminNavSections = useMemo(() => {
     if (!isAdminUser) return [];
     return ADMIN_NAV_SECTIONS.map((section) => ({
       ...section,
       items: section.items.filter((item) =>
-        filterChild(item, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav })
+        filterChild(item, { isHeadCoachUser, isPlatformAdmin, showCardIndexesNav, monthlyFeesEnabled })
       ),
     })).filter((s) => s.items.length > 0);
-  }, [isAdminUser, isHeadCoachUser, isPlatformAdmin, showCardIndexesNav]);
+  }, [isAdminUser, isHeadCoachUser, isPlatformAdmin, showCardIndexesNav, monthlyFeesEnabled]);
 
   return { primaryNav, adminNavSections };
 }

@@ -238,6 +238,7 @@ export const API_PATHS = {
   CLUB_OVERVIEW: "/api/club/overview",
   CLUB_ATHLETES: "/api/club/athletes",
   CLUB_FEES_SUMMARY: "/api/club/fees/summary",
+  CLUB_FEES_SETTINGS: "/api/club/fees-settings",
   CLUB_ATTENDANCE_SUMMARY: "/api/club/attendance/summary",
   CLUB_TRAININGS: "/api/club/trainings",
   CLUB_REPORT_FEES_XLSX: "/api/club/reports/fees.xlsx",

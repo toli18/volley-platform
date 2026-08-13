@@ -19,12 +19,13 @@ function normalizeRole(user) {
 const PROFILE_TABS = [
   { id: "club", label: "Клуб" },
   { id: "halls", label: "Зали" },
+  { id: "fees", label: "Такси", headOnly: true },
   { id: "enroll", label: "Записване", headOnly: true },
   { id: "coaches", label: "Треньори" },
 ];
 
 export default function CoachClubProfile() {
-  const { user } = useAuth();
+  const { user, refreshMe } = useAuth();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const role = normalizeRole(user);
@@ -62,13 +63,22 @@ export default function CoachClubProfile() {
   const [clubTeams, setClubTeams] = useState([]);
   const [hallDrafts, setHallDrafts] = useState({});
   const [newHall, setNewHall] = useState({ name: "", address: "", google_maps_url: "" });
+  const [feesForm, setFeesForm] = useState({
+    enabled: true,
+    fee_amount: 15,
+    fee_due_day: 10,
+  });
+  const [feesDefaults, setFeesDefaults] = useState({ fee_amount: 15, fee_due_day: 10 });
 
   const load = useCallback(async () => {
     try {
       setBusy(true);
       const jobs = [axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_PROFILE)];
-      if (isHead) jobs.push(axiosInstance.get(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS));
-      const [res, pubRes] = await Promise.all(jobs);
+      if (isHead) {
+        jobs.push(axiosInstance.get(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS));
+        jobs.push(axiosInstance.get(API_PATHS.CLUB_FEES_SETTINGS));
+      }
+      const [res, pubRes, feesRes] = await Promise.all(jobs);
       setProfile(res.data);
       const drafts = {};
       for (const c of res.data?.coaches || []) {
@@ -100,6 +110,19 @@ export default function CoachClubProfile() {
         setEnrollmentTeamIds(
           teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
         );
+      }
+      if (feesRes?.data) {
+        setFeesForm({
+          enabled: feesRes.data.enabled !== false,
+          fee_amount: Number(feesRes.data.fee_amount ?? 15),
+          fee_due_day: Number(feesRes.data.fee_due_day ?? 10),
+        });
+        if (feesRes.data.defaults) {
+          setFeesDefaults({
+            fee_amount: Number(feesRes.data.defaults.fee_amount ?? 15),
+            fee_due_day: Number(feesRes.data.defaults.fee_due_day ?? 10),
+          });
+        }
       }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
@@ -248,6 +271,46 @@ export default function CoachClubProfile() {
       toast.success("Залата е премахната.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно премахване на зала."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveFeesSettings = async () => {
+    if (!isHead) return;
+    const amount = Number(feesForm.fee_amount);
+    const dueDay = Number(feesForm.fee_due_day);
+    if (feesForm.enabled) {
+      if (!Number.isFinite(amount) || amount < 0 || amount > 10000) {
+        toast.error("Сумата трябва да е между 0 и 10000.");
+        return;
+      }
+      if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 28) {
+        toast.error("Падежът трябва да е ден от 1 до 28.");
+        return;
+      }
+    }
+    try {
+      setBusy(true);
+      const body = { enabled: Boolean(feesForm.enabled) };
+      if (feesForm.enabled) {
+        body.fee_amount = Math.round(amount);
+        body.fee_due_day = Math.round(dueDay);
+      }
+      const res = await axiosInstance.put(API_PATHS.CLUB_FEES_SETTINGS, body);
+      setFeesForm({
+        enabled: res.data.enabled !== false,
+        fee_amount: Number(res.data.fee_amount ?? feesDefaults.fee_amount),
+        fee_due_day: Number(res.data.fee_due_day ?? feesDefaults.fee_due_day),
+      });
+      await refreshMe?.();
+      toast.success(
+        res.data.enabled
+          ? `Месечните такси са включени · ${res.data.fee_amount} € до ${res.data.fee_due_day}-о число.`
+          : "Месечните такси са изключени — скрити за родители и треньори.",
+      );
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен запис на настройките за такси."));
     } finally {
       setBusy(false);
     }
@@ -501,7 +564,7 @@ export default function CoachClubProfile() {
         />
         <nav className="coachMobileSubNav clubProfilePage__tabs" aria-label="Секции на клубния профил">
           {tabs
-            .filter((t) => t.id === "club" || t.id === "enroll")
+            .filter((t) => t.id === "club" || t.id === "enroll" || t.id === "fees")
             .map((t) => (
               <button
                 key={t.id}
@@ -515,6 +578,75 @@ export default function CoachClubProfile() {
         </nav>
         {activeTab === "enroll" && isHead ? (
           publicPageCard
+        ) : activeTab === "fees" && isHead ? (
+          <Card title="Месечни такси">
+            <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+              Ако клубът не събира месечна такса, изключи настройката — родителят няма да вижда
+              „неплатено“, а треньорите няма да имат меню „Такси“.
+            </p>
+            <div style={{ display: "grid", gap: 14, maxWidth: 420 }}>
+              <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+                <legend style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                  Събираме месечна такса
+                </legend>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <button
+                    type="button"
+                    className={`coachMobileSubNavBtn${feesForm.enabled ? " is-active" : ""}`}
+                    disabled={busy}
+                    onClick={() => setFeesForm((f) => ({ ...f, enabled: true }))}
+                  >
+                    Да
+                  </button>
+                  <button
+                    type="button"
+                    className={`coachMobileSubNavBtn${!feesForm.enabled ? " is-active" : ""}`}
+                    disabled={busy}
+                    onClick={() => setFeesForm((f) => ({ ...f, enabled: false }))}
+                  >
+                    Не
+                  </button>
+                </div>
+              </fieldset>
+              {feesForm.enabled ? (
+                <>
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>Сума (€)</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10000}
+                      step={1}
+                      value={feesForm.fee_amount}
+                      disabled={busy}
+                      onChange={(e) => setFeesForm((f) => ({ ...f, fee_amount: e.target.value }))}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>Падеж (ден от месеца)</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={28}
+                      step={1}
+                      value={feesForm.fee_due_day}
+                      disabled={busy}
+                      onChange={(e) => setFeesForm((f) => ({ ...f, fee_due_day: e.target.value }))}
+                    />
+                  </label>
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
+                  Клубът работи без месечна такса. Модулът за такси е скрит за родители и треньори.
+                </p>
+              )}
+              <div>
+                <Button type="button" disabled={busy} onClick={saveFeesSettings}>
+                  Запази настройката
+                </Button>
+              </div>
+            </div>
+          </Card>
         ) : (
           <Card title="Заключен">
             <p style={{ marginTop: 0, lineHeight: 1.45 }}>
@@ -791,6 +923,89 @@ export default function CoachClubProfile() {
           ) : null}
         </div>
       </Card>
+      ) : null}
+
+      {activeTab === "fees" && isHead ? (
+        <Card title="Месечни такси">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+            Ако клубът не събира месечна такса, изключи настройката — родителят няма да вижда
+            „неплатено“, а треньорите няма да имат меню „Такси“.
+          </p>
+          <div style={{ display: "grid", gap: 14, maxWidth: 420 }}>
+            <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+              <legend style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                Събираме месечна такса
+              </legend>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button
+                  type="button"
+                  className={`coachMobileSubNavBtn${feesForm.enabled ? " is-active" : ""}`}
+                  disabled={busy}
+                  onClick={() => setFeesForm((f) => ({ ...f, enabled: true }))}
+                >
+                  Да
+                </button>
+                <button
+                  type="button"
+                  className={`coachMobileSubNavBtn${!feesForm.enabled ? " is-active" : ""}`}
+                  disabled={busy}
+                  onClick={() => setFeesForm((f) => ({ ...f, enabled: false }))}
+                >
+                  Не
+                </button>
+              </div>
+            </fieldset>
+
+            {feesForm.enabled ? (
+              <>
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>Сума (€)</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={10000}
+                    step={1}
+                    value={feesForm.fee_amount}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setFeesForm((f) => ({ ...f, fee_amount: e.target.value }))
+                    }
+                  />
+                  <span className="uiMuted" style={{ fontSize: 12 }}>
+                    По подразбиране {feesDefaults.fee_amount} €
+                  </span>
+                </label>
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>Падеж (ден от месеца)</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={28}
+                    step={1}
+                    value={feesForm.fee_due_day}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setFeesForm((f) => ({ ...f, fee_due_day: e.target.value }))
+                    }
+                  />
+                  <span className="uiMuted" style={{ fontSize: 12 }}>
+                    По подразбиране до {feesDefaults.fee_due_day}-о число
+                  </span>
+                </label>
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
+                Клубът работи без месечна такса. Модулът за такси е скрит за родители и треньори.
+              </p>
+            )}
+
+            <div>
+              <Button type="button" disabled={busy} onClick={saveFeesSettings}>
+                Запази настройката
+              </Button>
+            </div>
+          </div>
+        </Card>
       ) : null}
 
       {activeTab === "enroll" ? publicPageCard : null}

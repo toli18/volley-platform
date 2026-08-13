@@ -445,6 +445,11 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_gdpr TEXT"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_fee_amount INTEGER"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS membership_consent_fee_due_day INTEGER"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS monthly_fees_enabled BOOLEAN NOT NULL DEFAULT true"
+                    )
+                )
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_id INTEGER"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_name VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_coach_id INTEGER"))
@@ -880,6 +885,13 @@ def _init_db_impl() -> None:
             if "membership_consent_fee_due_day" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN membership_consent_fee_due_day INTEGER"))
                 print("✅ Added clubs.membership_consent_fee_due_day column")
+            if "monthly_fees_enabled" not in club_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN monthly_fees_enabled BOOLEAN NOT NULL DEFAULT 1"
+                    )
+                )
+                print("✅ Added clubs.monthly_fees_enabled column")
             if "bvf_default_first_coach_id" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
                 print("✅ Added clubs.bvf_default_first_coach_id column")

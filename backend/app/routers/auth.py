@@ -43,6 +43,8 @@ class UserResponse(BaseModel):
     club_logo_url: Optional[str] = None
     # True when a group coach has assigned card indexes in an open season (nav gate).
     show_card_indexes_nav: bool = False
+    # Club collects monthly fees (nav + dashboards). Default True when no club.
+    monthly_fees_enabled: bool = True
 
     class Config:
         from_attributes = True
@@ -178,11 +180,15 @@ async def read_current_user(
 ):
     club_name = None
     club_logo_url = None
+    monthly_fees_enabled = True
     if current_user.club_id is not None:
         club = db.get(Club, current_user.club_id)
         if club is not None:
             club_name = club.name
             club_logo_url = club.logo_url
+            from app.services.club_membership_consent import club_monthly_fees_enabled
+
+            monthly_fees_enabled = club_monthly_fees_enabled(club)
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -192,4 +198,5 @@ async def read_current_user(
         club_name=club_name,
         club_logo_url=club_logo_url,
         show_card_indexes_nav=_coach_show_card_indexes_nav(db, current_user),
+        monthly_fees_enabled=monthly_fees_enabled,
     )

@@ -92,7 +92,7 @@ def _feed_items(db: Session, team_ids: list[int]) -> list:
     return [_item_to_response(i) for i in items]
 
 
-def _current_month_fee(db: Session, athlete: Athlete) -> ParentCurrentMonthFee:
+def _current_month_fee(db: Session, athlete: Athlete, *, due_day: int = PARENT_FEE_DUE_DAY) -> ParentCurrentMonthFee:
     mk = _month_key_now()
     pay_rows = (
         db.query(AthletePayment)
@@ -107,8 +107,8 @@ def _current_month_fee(db: Session, athlete: Athlete) -> ParentCurrentMonthFee:
         paid=mk in pay_map,
         amount=float(current_pay.amount or 0) if current_pay else 0.0,
         paid_at=current_pay.paid_at if current_pay else None,
-        due_day=PARENT_FEE_DUE_DAY,
-        due_date=_fee_due_date_iso(mk, PARENT_FEE_DUE_DAY),
+        due_day=due_day,
+        due_date=_fee_due_date_iso(mk, due_day),
         last_paid_at=last_pay_row.paid_at if last_pay_row else None,
         last_paid_month_key=last_pay_mk,
     )
@@ -116,6 +116,7 @@ def _current_month_fee(db: Session, athlete: Athlete) -> ParentCurrentMonthFee:
 
 def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> AthleteRoomMeResponse:
     from app.services.athlete_memberships import carded_team_badges_by_athlete
+    from app.services.club_membership_consent import club_monthly_fees_enabled, resolve_club_fee_settings
 
     teams = _team_names(db, athlete.id)
     carded_teams = carded_team_badges_by_athlete(db, [athlete.id]).get(athlete.id, [])
@@ -155,6 +156,21 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
     attendance_summary = _attendance_summary_from_rows([r for r in attendance_rows if r.date <= today_s])
 
     club_row = _club_for_athlete(db, athlete)
+    fees_on = club_monthly_fees_enabled(club_row)
+    due_day = PARENT_FEE_DUE_DAY
+    if fees_on and club_row:
+        due_day = int(resolve_club_fee_settings(club_row)["fee_due_day"])
+    if not fees_on:
+        fee_highlight = False
+        current_fee = ParentCurrentMonthFee(
+            month_key=_month_key_now(),
+            paid=True,
+            amount=0.0,
+            due_day=due_day,
+            due_date=None,
+        )
+    else:
+        current_fee = _current_month_fee(db, athlete, due_day=due_day)
 
     return AthleteRoomMeResponse(
         athlete_id=athlete.id,
@@ -171,9 +187,10 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         next_competition=next_competition,
         items=_feed_items(db, team_ids),
         attendance_summary=attendance_summary,
-        current_month_fee=_current_month_fee(db, athlete),
+        current_month_fee=current_fee,
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
+        monthly_fees_enabled=fees_on,
         avatar_url=None,
         chat_unread_count=total_unread_for_athlete(db, athlete.id),
         home_notifications=[

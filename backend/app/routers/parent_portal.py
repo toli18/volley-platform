@@ -72,11 +72,13 @@ from app.services.athlete_identity import (
 from app.services.club_membership_consent import (
     athlete_needs_membership_consent,
     club_consent_feature_enabled,
+    club_monthly_fees_enabled,
     deactivate_expired_or_prior_consents,
     get_active_consent,
     persist_consent_pdf,
     read_consent_pdf,
     resolve_club_consent_template,
+    resolve_club_fee_settings,
 )
 from app.services.carding_form import (
     FORM_KIND_03A,
@@ -842,24 +844,10 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     next_competition_item = _pick_next_by_kind(upcoming_pool, competition=True)
     next_event = _pick_next_event(upcoming_pool)
 
-    current_pay = pay_map.get(this_month)
-    last_pay_row, last_pay_mk = _last_payment(pay_map)
-    due_date_iso = _fee_due_date_iso(this_month, PARENT_FEE_DUE_DAY)
-    current_month_fee = ParentCurrentMonthFee(
-        month_key=this_month,
-        paid=this_month in pay_map,
-        amount=float(current_pay.amount or 0) if current_pay else 0.0,
-        paid_at=current_pay.paid_at if current_pay else None,
-        due_day=PARENT_FEE_DUE_DAY,
-        due_date=due_date_iso,
-        last_paid_at=last_pay_row.paid_at if last_pay_row else None,
-        last_paid_month_key=last_pay_mk,
-    )
-    competitions_this_month = _count_competitions_in_month(schedule_items, this_month)
-
     fee_coach = ParentFeeCoachContact()
     club_name = None
     club_logo_url = None
+    club_row = None
     coach_row = db.query(User).filter(User.id == athlete.coach_id).first()
     if coach_row:
         fee_coach.name = coach_row.name
@@ -874,11 +862,49 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             club_name = club_row.name
             club_logo_url = club_row.logo_url
 
+    fees_on = club_monthly_fees_enabled(club_row)
+    fee_cfg = resolve_club_fee_settings(club_row) if club_row else {
+        "fee_due_day": PARENT_FEE_DUE_DAY,
+        "fee_amount": 0,
+    }
+    due_day = int(fee_cfg["fee_due_day"]) if fees_on else PARENT_FEE_DUE_DAY
+
+    current_pay = pay_map.get(this_month) if fees_on else None
+    last_pay_row, last_pay_mk = _last_payment(pay_map) if fees_on else (None, None)
+    due_date_iso = _fee_due_date_iso(this_month, due_day) if fees_on else None
+    if fees_on:
+        current_month_fee = ParentCurrentMonthFee(
+            month_key=this_month,
+            paid=this_month in pay_map,
+            amount=float(current_pay.amount or 0) if current_pay else 0.0,
+            paid_at=current_pay.paid_at if current_pay else None,
+            due_day=due_day,
+            due_date=due_date_iso,
+            last_paid_at=last_pay_row.paid_at if last_pay_row else None,
+            last_paid_month_key=last_pay_mk,
+        )
+    else:
+        current_month_fee = ParentCurrentMonthFee(
+            month_key=this_month,
+            paid=True,
+            amount=0.0,
+            paid_at=None,
+            due_day=due_day,
+            due_date=None,
+            last_paid_at=None,
+            last_paid_month_key=None,
+        )
+        monthly_payments = []
+
+    competitions_this_month = _count_competitions_in_month(schedule_items, this_month)
+
     try:
         _, pending_dates, fee_highlight = get_pending_marker_state(db, athlete.id)
     except SQLAlchemyError as exc:
         logger.warning("Pending markers for parent profile athlete %s: %s", athlete.id, exc)
         pending_dates, fee_highlight = [], False
+    if not fees_on:
+        fee_highlight = False
 
     schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
 
@@ -886,7 +912,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         enabled=False, needs_consent=False, has_signed=False, club_name=club_name
     )
     if athlete.club_id:
-        club_row_for_consent = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+        club_row_for_consent = club_row or db.query(Club).filter(Club.id == int(athlete.club_id)).first()
         feature_on = club_consent_feature_enabled(club_row_for_consent)
         active_consent = get_active_consent(db, athlete.id, athlete.club_id) if feature_on else None
         if not feature_on:
@@ -966,7 +992,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         monthly_schedule=schedule_items,
         monthly_payments=monthly_payments,
         competitions_this_month=competitions_this_month,
-        fee_due_day=PARENT_FEE_DUE_DAY,
+        fee_due_day=due_day,
+        monthly_fees_enabled=fees_on,
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
         team_feed=_team_feed_for_parent(db, team_ids, limit=5),

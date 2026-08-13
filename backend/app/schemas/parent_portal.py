@@ -310,6 +310,7 @@ class ParentAthleteProfileResponse(BaseModel):
     monthly_payments: list[ParentPaymentRow] = Field(default_factory=list)
     competitions_this_month: int = 0
     fee_due_day: int = 10
+    monthly_fees_enabled: bool = True
     pending_schedule_dates: list[str] = Field(default_factory=list)
     fee_change_highlight: bool = False
     team_feed: list[ParentTeamFeedItem] = Field(default_factory=list)
