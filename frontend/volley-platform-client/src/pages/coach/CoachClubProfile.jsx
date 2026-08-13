@@ -69,19 +69,18 @@ export default function CoachClubProfile() {
     fee_due_day: 10,
   });
   const [feesDefaults, setFeesDefaults] = useState({ fee_amount: 15, fee_due_day: 10 });
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
     try {
       setBusy(true);
-      const jobs = [axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_PROFILE)];
-      if (isHead) {
-        jobs.push(axiosInstance.get(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS));
-        jobs.push(axiosInstance.get(API_PATHS.CLUB_FEES_SETTINGS));
-      }
-      const [res, pubRes, feesRes] = await Promise.all(jobs);
-      setProfile(res.data);
+      setLoadError(null);
+      // Профилът е задължителен; публична страница и такси са опционални
+      // (не чупим екрана ако бекендът още няма fees-settings).
+      const profileRes = await axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_PROFILE);
+      setProfile(profileRes.data);
       const drafts = {};
-      for (const c of res.data?.coaches || []) {
+      for (const c of profileRes.data?.coaches || []) {
         drafts[c.id] = {
           phone: c.phone || "",
           phone_visible_to_parents: Boolean(c.phone_visible_to_parents),
@@ -89,7 +88,7 @@ export default function CoachClubProfile() {
       }
       setCoachDrafts(drafts);
       const hDrafts = {};
-      for (const h of res.data?.halls || []) {
+      for (const h of profileRes.data?.halls || []) {
         hDrafts[h.id] = {
           name: h.name || "",
           address: h.address || "",
@@ -97,34 +96,44 @@ export default function CoachClubProfile() {
         };
       }
       setHallDrafts(hDrafts);
-      if (pubRes?.data) {
-        setPublicMeta(pubRes.data);
-        setPublicForm({
-          public_page_enabled: Boolean(pubRes.data.public_page_enabled),
-          public_slug: pubRes.data.public_slug || "",
-          public_tagline: pubRes.data.public_tagline || "",
-          public_about: pubRes.data.public_about || "",
-        });
-        const teams = Array.isArray(pubRes.data.teams) ? pubRes.data.teams : [];
-        setClubTeams(teams);
-        setEnrollmentTeamIds(
-          teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
-        );
-      }
-      if (feesRes?.data) {
-        setFeesForm({
-          enabled: feesRes.data.enabled !== false,
-          fee_amount: Number(feesRes.data.fee_amount ?? 15),
-          fee_due_day: Number(feesRes.data.fee_due_day ?? 10),
-        });
-        if (feesRes.data.defaults) {
-          setFeesDefaults({
-            fee_amount: Number(feesRes.data.defaults.fee_amount ?? 15),
-            fee_due_day: Number(feesRes.data.defaults.fee_due_day ?? 10),
+
+      if (isHead) {
+        const settled = await Promise.allSettled([
+          axiosInstance.get(API_PATHS.CLUB_PUBLIC_PAGE_SETTINGS),
+          axiosInstance.get(API_PATHS.CLUB_FEES_SETTINGS),
+        ]);
+        const pubRes = settled[0].status === "fulfilled" ? settled[0].value : null;
+        const feesRes = settled[1].status === "fulfilled" ? settled[1].value : null;
+        if (pubRes?.data) {
+          setPublicMeta(pubRes.data);
+          setPublicForm({
+            public_page_enabled: Boolean(pubRes.data.public_page_enabled),
+            public_slug: pubRes.data.public_slug || "",
+            public_tagline: pubRes.data.public_tagline || "",
+            public_about: pubRes.data.public_about || "",
           });
+          const teams = Array.isArray(pubRes.data.teams) ? pubRes.data.teams : [];
+          setClubTeams(teams);
+          setEnrollmentTeamIds(
+            teams.filter((t) => t.public_enrollment_open && t.is_active).map((t) => Number(t.id)),
+          );
+        }
+        if (feesRes?.data) {
+          setFeesForm({
+            enabled: feesRes.data.enabled !== false,
+            fee_amount: Number(feesRes.data.fee_amount ?? 15),
+            fee_due_day: Number(feesRes.data.fee_due_day ?? 10),
+          });
+          if (feesRes.data.defaults) {
+            setFeesDefaults({
+              fee_amount: Number(feesRes.data.defaults.fee_amount ?? 15),
+              fee_due_day: Number(feesRes.data.defaults.fee_due_day ?? 10),
+            });
+          }
         }
       }
     } catch (err) {
+      setLoadError(normalizeError(err, "Неуспешно зареждане на клубен профил."));
       toast.error(normalizeError(err, "Неуспешно зареждане на клубен профил."));
     } finally {
       setBusy(false);
@@ -543,7 +552,19 @@ export default function CoachClubProfile() {
   if (!profile) {
     return (
       <div className="uiPage">
-        <EmptyState title="Зареждане…" description="Профил на клуба" />
+        {loadError ? (
+          <EmptyState
+            title="Неуспешно зареждане"
+            description={loadError}
+            action={
+              <Button type="button" disabled={busy} onClick={load}>
+                Опитай отново
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState title="Зареждане…" description="Профил на клуба" />
+        )}
       </div>
     );
   }
