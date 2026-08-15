@@ -9,6 +9,7 @@ const PAY_FILTERS = [
   { id: "all", label: "Всички" },
   { id: "unpaid", label: "Неплатили" },
   { id: "paid", label: "Платили" },
+  { id: "exempt", label: "Освободени" },
 ];
 
 function formatGenderShort(v) {
@@ -200,6 +201,7 @@ export default function MonthlyFeesCoachView({
           <ul className="feesCoachAthleteList">
             {filteredAthletes.map((a) => {
               const paid = monthPaid(a, remindMonth);
+              const exempt = Boolean(a.fee_exempt);
               return (
                 <li key={a.id}>
                   <article
@@ -223,22 +225,28 @@ export default function MonthlyFeesCoachView({
                       </p>
                       <AthleteMembershipChips dense teamNames={a.team_names} cardedTeams={a.carded_teams} />
                       <span
-                        className={`feesAthleteCardCompactPay uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}
+                        className={`feesAthleteCardCompactPay uiBadge ${
+                          exempt ? "" : paid ? "uiBadge--success" : "uiBadge--danger"
+                        }`}
                       >
-                        {remindMonth}: {paid ? "платено" : "липсва"}
+                        {exempt
+                          ? "освободен"
+                          : `${remindMonth}: ${paid ? "платено" : "липсва"}`}
                       </span>
                     </div>
                     <div className="feesAthleteCardCompactActions">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPay(a);
-                        }}
-                      >
-                        Плати
-                      </Button>
+                      {!exempt ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPay(a);
+                          }}
+                        >
+                          Плати
+                        </Button>
+                      ) : null}
                       <button
                         type="button"
                         className="feesAthleteMenuBtn"

@@ -118,6 +118,11 @@ class AthleteRead(BaseModel):
     team_names: list[str] = Field(default_factory=list)
     carded_teams: list[CardedTeamBadge] = Field(default_factory=list)
     recent_payments: list[AthleteRecentPayment] = Field(default_factory=list)
+    fee_exempt: bool = False
+    fee_exempt_manual: bool = False
+    fee_exempt_note: Optional[str] = None
+    fee_exempt_reason: Optional[Literal["manual", "age"]] = None
+    fee_exempt_from_month: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -170,6 +175,12 @@ class MonthStatusRow(BaseModel):
     amount: Optional[float] = None
     payment_id: Optional[int] = None
     paid_at: Optional[datetime] = None
+    exempt: bool = False
+
+
+class AthleteFeeExemptUpdate(BaseModel):
+    fee_exempt_manual: bool
+    fee_exempt_note: Optional[str] = None
 
 
 class FeeReminderResponse(BaseModel):

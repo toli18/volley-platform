@@ -62,6 +62,7 @@ export default function TeamAthleteProfile() {
   const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const showFees = monthlyFeesEnabled && !profile?.fee_exempt;
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -192,7 +193,7 @@ export default function TeamAthleteProfile() {
       <PageHero
         title={`Профил: ${profile.athlete_name}`}
         subtitle={
-          monthlyFeesEnabled
+          showFees
             ? "Лични данни, БФВ, присъствие и такси на едно място."
             : "Лични данни, БФВ и присъствие на едно място."
         }
@@ -208,7 +209,7 @@ export default function TeamAthleteProfile() {
                     Създай в СЕК
                   </Button>
                 ) : null}
-                {monthlyFeesEnabled ? (
+                {showFees ? (
                   <Button as={Link} to={feesPayHref} variant="secondary">
                     Плащане
                   </Button>
@@ -416,7 +417,7 @@ export default function TeamAthleteProfile() {
         )}
       </Card>
 
-      {monthlyFeesEnabled ? (
+      {showFees ? (
       <Card
         title="Месечни такси (последни 12 месеца)"
         subtitle="Зелено: платено. Червено: липсва записано плащане за месеца."

@@ -168,6 +168,11 @@ class AthleteProfileResponse(BaseModel):
     attendance_summary: AthleteAttendanceSummary
     last_attendance: list[dict] = Field(default_factory=list)
     monthly_payments: list[AthletePaymentMini] = Field(default_factory=list)
+    fee_exempt: bool = False
+    fee_exempt_manual: bool = False
+    fee_exempt_note: Optional[str] = None
+    fee_exempt_reason: Optional[str] = None
+    fee_exempt_from_month: Optional[str] = None
     timeline: list[AthleteTimelineEvent] = Field(default_factory=list)
 
 

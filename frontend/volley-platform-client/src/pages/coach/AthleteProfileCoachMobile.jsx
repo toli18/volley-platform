@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -11,7 +11,7 @@ import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDo
 import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
 import { formatMoney } from "../../utils/currency";
-import { Button, EmptyState, Modal } from "../../components/ui";
+import { Button, EmptyState, Input, Modal } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
 const ALL_TABS = [
@@ -238,17 +238,22 @@ export default function AthleteProfileCoachMobile({
   canManageSek = false,
   onDelete,
   deleting = false,
+  onSaveFeeExempt,
+  savingFeeExempt = false,
 }) {
   const { user } = useAuth();
   const toast = useToast();
   const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
+  const showFees = monthlyFeesEnabled && !profile?.fee_exempt;
+  const role = String(user?.role || "").toLowerCase();
+  const isHeadCoach = role === "club_head_coach";
   const tabs = useMemo(
-    () => ALL_TABS.filter((t) => !t.monthlyFeesOnly || monthlyFeesEnabled),
-    [monthlyFeesEnabled],
+    () => ALL_TABS.filter((t) => !t.monthlyFeesOnly || showFees),
+    [showFees],
   );
   const historyFilters = useMemo(
-    () => HISTORY_FILTERS_ALL.filter((f) => !f.monthlyFeesOnly || monthlyFeesEnabled),
-    [monthlyFeesEnabled],
+    () => HISTORY_FILTERS_ALL.filter((f) => !f.monthlyFeesOnly || showFees),
+    [showFees],
   );
   const [moreOpen, setMoreOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -259,6 +264,11 @@ export default function AthleteProfileCoachMobile({
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historyLimit, setHistoryLimit] = useState(15);
   const [feesMonth, setFeesMonth] = useState(currentMonthKey);
+  const [feeExemptNote, setFeeExemptNote] = useState(profile?.fee_exempt_note || "");
+
+  useEffect(() => {
+    setFeeExemptNote(profile?.fee_exempt_note || "");
+  }, [profile?.athlete_id, profile?.fee_exempt_note]);
 
   const canFetchPhoto = Boolean(profile.bvf_player_id || profile.bvf_photo_id);
   const photoUrl = useAthletePhoto(profile.athlete_id, Boolean(profile.has_photo), {
@@ -284,14 +294,14 @@ export default function AthleteProfileCoachMobile({
 
   const filteredTimeline = useMemo(() => {
     let list = profile.timeline || [];
-    if (!monthlyFeesEnabled) {
+    if (!showFees) {
       list = list.filter((e) => e.kind !== "payment");
     }
     if (historyFilter === "all") return list;
     if (historyFilter === "attendance") return list.filter((e) => e.kind === "attendance");
     if (historyFilter === "payment") return list.filter((e) => e.kind === "payment");
     return list.filter((e) => SYSTEM_KINDS.has(e.kind));
-  }, [profile.timeline, historyFilter, monthlyFeesEnabled]);
+  }, [profile.timeline, historyFilter, showFees]);
 
   const visibleTimeline = filteredTimeline.slice(0, historyLimit);
 
@@ -356,7 +366,7 @@ export default function AthleteProfileCoachMobile({
         <div className="athleteProfileHeadActions">
           {!editing ? (
             <>
-              {monthlyFeesEnabled ? (
+              {showFees ? (
                 <Button as={Link} to={feesPayHref} size="sm">
                   Плати
                 </Button>
@@ -403,7 +413,7 @@ export default function AthleteProfileCoachMobile({
       <div className="athleteProfileSwipeArea" {...(editing ? {} : swipeHandlers)}>
         {tab === "overview" ? (
           <div className="athleteProfileTab">
-            {monthlyFeesEnabled ? (
+            {showFees ? (
             <section
               className={`athleteProfileCard athleteProfileFeeCard${
                 currentMonthPaid ? " athleteProfileFeeCard--paid" : " athleteProfileFeeCard--due"
@@ -580,6 +590,81 @@ export default function AthleteProfileCoachMobile({
                   Отказ
                 </Button>
               </div>
+            ) : null}
+
+            {monthlyFeesEnabled && (isHeadCoach || profile.fee_exempt || profile.fee_exempt_manual) ? (
+              <section className="athleteProfileCard" style={{ marginTop: 12 }}>
+                <h3 className="athleteProfileCardTitle">Такса</h3>
+                {profile.fee_exempt ? (
+                  <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.45 }}>
+                    Освободен от такса
+                    {profile.fee_exempt_reason === "age"
+                      ? " (по възраст)"
+                      : profile.fee_exempt_reason === "manual"
+                        ? " (ръчно)"
+                        : ""}
+                    {profile.fee_exempt_note ? ` · ${profile.fee_exempt_note}` : ""}.
+                  </p>
+                ) : profile.fee_exempt_manual && profile.fee_exempt_from_month ? (
+                  <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.4 }}>
+                    Ръчно освобождаване ще важи от {profile.fee_exempt_from_month}.
+                  </p>
+                ) : (
+                  <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.4 }}>
+                    Начислява се месечна такса.
+                  </p>
+                )}
+                {isHeadCoach && onSaveFeeExempt ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+                      <legend style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                        Ръчно освободен
+                      </legend>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <button
+                          type="button"
+                          className={`coachMobileSubNavBtn${profile.fee_exempt_manual ? " is-active" : ""}`}
+                          disabled={savingFeeExempt}
+                          onClick={() =>
+                            onSaveFeeExempt({
+                              fee_exempt_manual: true,
+                              fee_exempt_note: feeExemptNote,
+                            })
+                          }
+                        >
+                          Да
+                        </button>
+                        <button
+                          type="button"
+                          className={`coachMobileSubNavBtn${!profile.fee_exempt_manual ? " is-active" : ""}`}
+                          disabled={savingFeeExempt}
+                          onClick={() =>
+                            onSaveFeeExempt({
+                              fee_exempt_manual: false,
+                              fee_exempt_note: feeExemptNote,
+                            })
+                          }
+                        >
+                          Не
+                        </button>
+                      </div>
+                    </fieldset>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>Бележка</span>
+                      <Input
+                        value={feeExemptNote}
+                        disabled={savingFeeExempt}
+                        placeholder="напр. дете на треньор"
+                        onChange={(e) => setFeeExemptNote(e.target.value)}
+                      />
+                    </label>
+                    <span className="uiMuted" style={{ fontSize: 12, lineHeight: 1.4 }}>
+                      Ръчното освобождаване важи от следващия месец. Възрастовото правило се задава в
+                      Клуб → Такси.
+                    </span>
+                  </div>
+                ) : null}
+              </section>
             ) : null}
           </div>
         ) : null}
@@ -822,7 +907,7 @@ export default function AthleteProfileCoachMobile({
           </div>
         ) : null}
 
-        {monthlyFeesEnabled && tab === "fees" ? (
+        {showFees && tab === "fees" ? (
           <div className="athleteProfileTab athleteProfileTab--fees">
             <div className="athleteProfileFeesSticky">
               <InputMonth value={feesMonth} onChange={setFeesMonth} />

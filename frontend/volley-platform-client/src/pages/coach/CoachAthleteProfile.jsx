@@ -39,16 +39,19 @@ export default function CoachAthleteProfile() {
     : "overview";
   const setTab = (id) => setSearchParams({ tab: id, from }, { replace: true });
 
-  useEffect(() => {
-    if (!monthlyFeesEnabled && tab === "fees") {
-      setSearchParams({ tab: "overview", from }, { replace: true });
-    }
-  }, [monthlyFeesEnabled, tab, from, setSearchParams]);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingFeeExempt, setSavingFeeExempt] = useState(false);
   const [profile, setProfile] = useState(null);
+  const showFees = monthlyFeesEnabled && !profile?.fee_exempt;
+
+  useEffect(() => {
+    if (!showFees && tab === "fees") {
+      setSearchParams({ tab: "overview", from }, { replace: true });
+    }
+  }, [showFees, tab, from, setSearchParams]);
+
   const [coachTeams, setCoachTeams] = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState(() => new Set());
   const [initialTeamIds, setInitialTeamIds] = useState(() => new Set());
@@ -310,6 +313,27 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const saveFeeExempt = async ({ fee_exempt_manual, fee_exempt_note }) => {
+    if (!profile?.athlete_id || !isHeadCoach) return;
+    try {
+      setSavingFeeExempt(true);
+      await axiosInstance.put(API_PATHS.FEES_ATHLETE_FEE_EXEMPT(profile.athlete_id), {
+        fee_exempt_manual: Boolean(fee_exempt_manual),
+        fee_exempt_note: fee_exempt_note || null,
+      });
+      await reloadProfile();
+      toast.success(
+        fee_exempt_manual
+          ? "Ръчното освобождаване е записано (от следващия месец)."
+          : "Ръчното освобождаване е махнато.",
+      );
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен запис на освобождаването."));
+    } finally {
+      setSavingFeeExempt(false);
+    }
+  };
+
   if (loading) {
     return <p className="coachMobileMuted">Зареждане...</p>;
   }
@@ -350,6 +374,8 @@ export default function CoachAthleteProfile() {
         canManageSek={isHeadCoach}
         onDelete={!profile.bvf_player_id ? deleteAthlete : undefined}
         deleting={deleting}
+        onSaveFeeExempt={isHeadCoach ? saveFeeExempt : undefined}
+        savingFeeExempt={savingFeeExempt}
       />
       {isHeadCoach ? (
         <>

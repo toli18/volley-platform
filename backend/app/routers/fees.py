@@ -31,6 +31,7 @@ from app.services.athlete_identity import (
 )
 from app.schemas.fees import (
     AthleteCreate,
+    AthleteFeeExemptUpdate,
     AthleteMonthlyReport,
     AthletePaymentCreate,
     AthletePaymentRead,
@@ -45,6 +46,11 @@ from app.schemas.fees import (
     FeeReminderResponse,
 )
 from app.services.parent_push import notify_athlete
+from app.services.fee_exemption import (
+    apply_manual_fee_exempt,
+    athlete_fee_exempt_for_month,
+    athlete_fee_exempt_now,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -128,18 +134,33 @@ def _athlete_reads_with_teams(db: Session, athletes: list[Athlete]) -> list[Athl
     team_map = _team_names_by_athlete(db, athlete_ids)
     carded_map = carded_team_badges_by_athlete(db, athlete_ids)
     cached_ids = cached_photo_athlete_ids(athlete_ids)
-    return [
-        AthleteRead.model_validate(athlete).model_copy(
-            update={
-                "team_names": team_map.get(athlete.id, []),
-                "carded_teams": [CardedTeamBadge(**row) for row in carded_map.get(athlete.id, [])],
-                "has_photo": athlete_display_has_photo(
-                    athlete, cached=athlete.id in cached_ids
-                ),
-            }
+    club_ids = {int(a.club_id) for a in athletes if a.club_id}
+    clubs = {
+        int(c.id): c
+        for c in (db.query(Club).filter(Club.id.in_(club_ids)).all() if club_ids else [])
+    }
+    out: list[AthleteRead] = []
+    for athlete in athletes:
+        club = clubs.get(int(athlete.club_id)) if athlete.club_id else None
+        exempt, reason = athlete_fee_exempt_now(athlete, club)
+        out.append(
+            AthleteRead.model_validate(athlete).model_copy(
+                update={
+                    "team_names": team_map.get(athlete.id, []),
+                    "carded_teams": [CardedTeamBadge(**row) for row in carded_map.get(athlete.id, [])],
+                    "has_photo": athlete_display_has_photo(
+                        athlete, cached=athlete.id in cached_ids
+                    ),
+                    "fee_exempt": exempt,
+                    "fee_exempt_manual": bool(getattr(athlete, "fee_exempt_manual", False)),
+                    "fee_exempt_note": getattr(athlete, "fee_exempt_note", None),
+                    "fee_exempt_reason": reason,
+                    "fee_exempt_from_month": getattr(athlete, "fee_exempt_from_month", None),
+                    "recent_payments": getattr(athlete, "recent_payments", []) or [],
+                }
+            )
         )
-        for athlete in athletes
-    ]
+    return out
 
 
 def _attach_athlete_to_team(db: Session, athlete: Athlete, team_id: int, user: User) -> None:
@@ -491,7 +512,19 @@ def fees_month_summary(
     else:
         q = q.filter(Athlete.coach_id == current_user.id)
     athletes = q.all()
-    athlete_ids = [a.id for a in athletes]
+    club_ids = {int(a.club_id) for a in athletes if a.club_id}
+    clubs = {
+        int(c.id): c
+        for c in (db.query(Club).filter(Club.id.in_(club_ids)).all() if club_ids else [])
+    }
+    billable = [
+        a
+        for a in athletes
+        if not athlete_fee_exempt_for_month(
+            a, clubs.get(int(a.club_id)) if a.club_id else None, month_key
+        )[0]
+    ]
+    athlete_ids = [a.id for a in billable]
     payments = []
     if athlete_ids:
         payments = (
@@ -502,11 +535,11 @@ def fees_month_summary(
     paid_by_athlete = {int(p.athlete_id): float(p.amount or 0) for p in payments}
     total_collected = round(sum(paid_by_athlete.values()), 2)
     paid_count = len(paid_by_athlete)
-    unpaid_count = max(0, len(athletes) - paid_count)
+    unpaid_count = max(0, len(billable) - paid_count)
 
     by_coach: list[FeesMonthCoachRow] = []
     if _is_head_coach(current_user) and not coach_id:
-        coach_ids = sorted({int(a.coach_id) for a in athletes if a.coach_id})
+        coach_ids = sorted({int(a.coach_id) for a in billable if a.coach_id})
         names = {}
         if coach_ids:
             names = {
@@ -514,7 +547,7 @@ def fees_month_summary(
                 for uid, name in db.query(User.id, User.name).filter(User.id.in_(coach_ids)).all()
             }
         for cid in coach_ids:
-            subset = [a for a in athletes if int(a.coach_id) == cid]
+            subset = [a for a in billable if int(a.coach_id) == cid]
             paid_amt = 0.0
             paid_n = 0
             for a in subset:
@@ -537,7 +570,7 @@ def fees_month_summary(
         total_collected=total_collected,
         paid_count=paid_count,
         unpaid_count=unpaid_count,
-        athlete_count=len(athletes),
+        athlete_count=len(billable),
         by_coach=by_coach,
     )
 
@@ -561,6 +594,21 @@ def remind_unpaid_fees(
         q = q.filter(Athlete.coach_id == current_user.id)
 
     athletes = q.order_by(Athlete.athlete_name.asc()).all()
+    if not athletes:
+        return FeeReminderResponse(month_key=month_key)
+
+    club_ids = {int(a.club_id) for a in athletes if a.club_id}
+    clubs = {
+        int(c.id): c
+        for c in (db.query(Club).filter(Club.id.in_(club_ids)).all() if club_ids else [])
+    }
+    athletes = [
+        a
+        for a in athletes
+        if not athlete_fee_exempt_for_month(
+            a, clubs.get(int(a.club_id)) if a.club_id else None, month_key
+        )[0]
+    ]
     if not athletes:
         return FeeReminderResponse(month_key=month_key)
 
@@ -1011,7 +1059,27 @@ def transfer_athlete_to_coach(
     athlete.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(athlete)
-    return athlete
+    return _athlete_reads_with_teams(db, [athlete])[0]
+
+
+@router.put("/fees/athletes/{athlete_id}/fee-exempt", response_model=AthleteRead)
+def update_athlete_fee_exempt(
+    athlete_id: int,
+    payload: AthleteFeeExemptUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    """Ръчно освобождаване от такса — само главен треньор. Важи от следващия месец."""
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    apply_manual_fee_exempt(
+        athlete,
+        exempt=bool(payload.fee_exempt_manual),
+        note=payload.fee_exempt_note,
+    )
+    athlete.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(athlete)
+    return _athlete_reads_with_teams(db, [athlete])[0]
 
 
 @router.post("/fees/athletes/{athlete_id}/payments", response_model=AthletePaymentRead, status_code=status.HTTP_201_CREATED)
@@ -1063,6 +1131,7 @@ def athlete_monthly_report(
 ):
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
     months = _iter_months(from_month, to_month)
+    club = db.query(Club).filter(Club.id == athlete.club_id).first() if athlete.club_id else None
     payments = (
         db.query(AthletePayment)
         .filter(
@@ -1077,7 +1146,11 @@ def athlete_monthly_report(
     rows: list[MonthStatusRow] = []
     total_paid = 0.0
     for month in months:
+        exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
         p = by_month.get(month)
+        if exempt and not p:
+            rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
+            continue
         if p:
             total_paid += float(p.amount or 0)
             rows.append(
@@ -1087,12 +1160,17 @@ def athlete_monthly_report(
                     amount=float(p.amount),
                     payment_id=p.id,
                     paid_at=p.paid_at,
+                    exempt=exempt,
                 )
             )
         else:
             rows.append(MonthStatusRow(month_key=month, paid=False))
 
-    return AthleteMonthlyReport(athlete=athlete, months=rows, total_paid=round(total_paid, 2))
+    return AthleteMonthlyReport(
+        athlete=_athlete_reads_with_teams(db, [athlete])[0],
+        months=rows,
+        total_paid=round(total_paid, 2),
+    )
 
 
 @router.get("/fees/reports/period", response_model=PeriodReportResponse)
@@ -1113,6 +1191,11 @@ def period_report(
         q = q.filter(Athlete.coach_id == current_user.id)
     athletes = q.order_by(Athlete.athlete_name.asc()).all()
     athlete_ids = [a.id for a in athletes]
+    club_ids = {int(a.club_id) for a in athletes if a.club_id}
+    clubs = {
+        int(c.id): c
+        for c in (db.query(Club).filter(Club.id.in_(club_ids)).all() if club_ids else [])
+    }
 
     payments = []
     if athlete_ids:
@@ -1129,12 +1212,17 @@ def period_report(
 
     rows: list[PeriodAthleteReportRow] = []
     for athlete in athletes:
+        club = clubs.get(int(athlete.club_id)) if athlete.club_id else None
         month_rows: list[MonthStatusRow] = []
         paid_count = 0
         unpaid_count = 0
         total_paid = 0.0
         for month in months:
+            exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
             p = by_pair.get((athlete.id, month))
+            if exempt and not p:
+                month_rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
+                continue
             if p:
                 paid_count += 1
                 total_paid += float(p.amount or 0)
@@ -1145,6 +1233,7 @@ def period_report(
                         amount=float(p.amount),
                         payment_id=p.id,
                         paid_at=p.paid_at,
+                        exempt=exempt,
                     )
                 )
             else:

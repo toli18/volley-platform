@@ -450,6 +450,28 @@ def _init_db_impl() -> None:
                         "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS monthly_fees_enabled BOOLEAN NOT NULL DEFAULT true"
                     )
                 )
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS fee_age_exempt_enabled BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS fee_age_exempt_min_age INTEGER NOT NULL DEFAULT 18"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS fee_age_exempt_from_month VARCHAR(7)")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athletes ADD COLUMN IF NOT EXISTS fee_exempt_manual BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS fee_exempt_note TEXT"))
+                conn.execute(
+                    text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS fee_exempt_from_month VARCHAR(7)")
+                )
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_id INTEGER"))
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS bvf_default_first_coach_name VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bvf_coach_id INTEGER"))
@@ -762,6 +784,17 @@ def _init_db_impl() -> None:
             if "sek_task_by_user_id" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN sek_task_by_user_id INTEGER"))
                 print("✅ Added athletes.sek_task_by_user_id column")
+            if "fee_exempt_manual" not in athlete_col_names:
+                conn.execute(
+                    text("ALTER TABLE athletes ADD COLUMN fee_exempt_manual BOOLEAN NOT NULL DEFAULT 0")
+                )
+                print("✅ Added athletes.fee_exempt_manual column")
+            if "fee_exempt_note" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN fee_exempt_note TEXT"))
+                print("✅ Added athletes.fee_exempt_note column")
+            if "fee_exempt_from_month" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN fee_exempt_from_month VARCHAR(7)"))
+                print("✅ Added athletes.fee_exempt_from_month column")
 
             try:
                 ci_cols = conn.execute(text("PRAGMA table_info(bvf_card_indexes)")).fetchall()
@@ -892,6 +925,21 @@ def _init_db_impl() -> None:
                     )
                 )
                 print("✅ Added clubs.monthly_fees_enabled column")
+            if "fee_age_exempt_enabled" not in club_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN fee_age_exempt_enabled BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
+                print("✅ Added clubs.fee_age_exempt_enabled column")
+            if "fee_age_exempt_min_age" not in club_col_names:
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN fee_age_exempt_min_age INTEGER NOT NULL DEFAULT 18")
+                )
+                print("✅ Added clubs.fee_age_exempt_min_age column")
+            if "fee_age_exempt_from_month" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN fee_age_exempt_from_month VARCHAR(7)"))
+                print("✅ Added clubs.fee_age_exempt_from_month column")
             if "bvf_default_first_coach_id" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
                 print("✅ Added clubs.bvf_default_first_coach_id column")

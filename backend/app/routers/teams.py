@@ -1081,6 +1081,7 @@ def athlete_profile(
 
     from app.services.athlete_memberships import athlete_display_has_photo, carded_team_badges_by_athlete
     from app.services.club_membership_consent import apply_athlete_identity_from_consent
+    from app.services.fee_exemption import athlete_fee_exempt_now
     from app.services.sek_athlete_readiness import refresh_open_sek_task
 
     healed = apply_athlete_identity_from_consent(db, athlete)
@@ -1090,6 +1091,10 @@ def athlete_profile(
         db.refresh(athlete)
 
     carded = carded_team_badges_by_athlete(db, [athlete.id]).get(athlete.id, [])
+    club_for_fees = club_for_photo
+    if club_for_fees is None and athlete.club_id:
+        club_for_fees = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    fee_exempt, fee_reason = athlete_fee_exempt_now(athlete, club_for_fees)
 
     return AthleteProfileResponse(
         athlete_id=athlete.id,
@@ -1131,7 +1136,12 @@ def athlete_profile(
             attendance_rate_percent=attendance_rate,
         ),
         last_attendance=last_attendance,
-        monthly_payments=payment_rows,
+        monthly_payments=[] if fee_exempt else payment_rows,
+        fee_exempt=bool(fee_exempt),
+        fee_exempt_manual=bool(getattr(athlete, "fee_exempt_manual", False)),
+        fee_exempt_note=getattr(athlete, "fee_exempt_note", None),
+        fee_exempt_reason=fee_reason,
+        fee_exempt_from_month=getattr(athlete, "fee_exempt_from_month", None),
         timeline=timeline,
     )
 

@@ -129,12 +129,16 @@ export default function MonthlyFees() {
     let list = filterFeesAthletes(athletes, query);
     if (remindMonth && payFilter === "unpaid") {
       list = list.filter(
-        (a) => !(a.recent_payments || []).some((p) => p.month_key === remindMonth),
+        (a) =>
+          !a.fee_exempt &&
+          !(a.recent_payments || []).some((p) => p.month_key === remindMonth),
       );
     } else if (remindMonth && payFilter === "paid") {
       list = list.filter((a) =>
         (a.recent_payments || []).some((p) => p.month_key === remindMonth),
       );
+    } else if (payFilter === "exempt") {
+      list = list.filter((a) => a.fee_exempt);
     }
     return list;
   }, [athletes, query, payFilter, remindMonth]);
@@ -739,6 +743,7 @@ export default function MonthlyFees() {
                 { id: "all", label: "Всички" },
                 { id: "unpaid", label: "Неплатили" },
                 { id: "paid", label: "Платили" },
+                { id: "exempt", label: "Освободени" },
               ].map((f) => (
                 <button
                   key={f.id}

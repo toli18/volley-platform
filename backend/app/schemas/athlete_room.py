@@ -37,6 +37,7 @@ class AthleteRoomMeResponse(BaseModel):
     pending_schedule_dates: list[str] = Field(default_factory=list)
     fee_change_highlight: bool = False
     monthly_fees_enabled: bool = True
+    fee_exempt: bool = False
     avatar_url: Optional[str] = None
     chat_unread_count: int = 0
     home_notifications: list[AthleteRoomHomeNotification] = Field(default_factory=list)

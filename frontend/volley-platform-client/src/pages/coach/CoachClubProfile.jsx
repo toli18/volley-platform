@@ -67,8 +67,15 @@ export default function CoachClubProfile() {
     enabled: true,
     fee_amount: 15,
     fee_due_day: 10,
+    age_exempt_enabled: false,
+    age_exempt_min_age: 18,
   });
-  const [feesDefaults, setFeesDefaults] = useState({ fee_amount: 15, fee_due_day: 10 });
+  const [feesDefaults, setFeesDefaults] = useState({
+    fee_amount: 15,
+    fee_due_day: 10,
+    age_exempt_min_age: 18,
+  });
+  const [feesMeta, setFeesMeta] = useState({ age_exempt_from_month: null });
   const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
@@ -123,11 +130,17 @@ export default function CoachClubProfile() {
             enabled: feesRes.data.enabled !== false,
             fee_amount: Number(feesRes.data.fee_amount ?? 15),
             fee_due_day: Number(feesRes.data.fee_due_day ?? 10),
+            age_exempt_enabled: Boolean(feesRes.data.age_exempt_enabled),
+            age_exempt_min_age: Number(feesRes.data.age_exempt_min_age ?? 18),
+          });
+          setFeesMeta({
+            age_exempt_from_month: feesRes.data.age_exempt_from_month || null,
           });
           if (feesRes.data.defaults) {
             setFeesDefaults({
               fee_amount: Number(feesRes.data.defaults.fee_amount ?? 15),
               fee_due_day: Number(feesRes.data.defaults.fee_due_day ?? 10),
+              age_exempt_min_age: Number(feesRes.data.defaults.age_exempt_min_age ?? 18),
             });
           }
         }
@@ -289,6 +302,7 @@ export default function CoachClubProfile() {
     if (!isHead) return;
     const amount = Number(feesForm.fee_amount);
     const dueDay = Number(feesForm.fee_due_day);
+    const minAge = Number(feesForm.age_exempt_min_age);
     if (feesForm.enabled) {
       if (!Number.isFinite(amount) || amount < 0 || amount > 10000) {
         toast.error("Сумата трябва да е между 0 и 10000.");
@@ -298,10 +312,20 @@ export default function CoachClubProfile() {
         toast.error("Падежът трябва да е ден от 1 до 28.");
         return;
       }
+      if (feesForm.age_exempt_enabled && (!Number.isFinite(minAge) || minAge < 1 || minAge > 80)) {
+        toast.error("Възрастта за освобождаване трябва да е между 1 и 80.");
+        return;
+      }
     }
     try {
       setBusy(true);
-      const body = { enabled: Boolean(feesForm.enabled) };
+      const body = {
+        enabled: Boolean(feesForm.enabled),
+        age_exempt_enabled: Boolean(feesForm.enabled && feesForm.age_exempt_enabled),
+        age_exempt_min_age: Math.round(
+          Number.isFinite(minAge) ? minAge : feesDefaults.age_exempt_min_age || 18,
+        ),
+      };
       if (feesForm.enabled) {
         body.fee_amount = Math.round(amount);
         body.fee_due_day = Math.round(dueDay);
@@ -311,6 +335,11 @@ export default function CoachClubProfile() {
         enabled: res.data.enabled !== false,
         fee_amount: Number(res.data.fee_amount ?? feesDefaults.fee_amount),
         fee_due_day: Number(res.data.fee_due_day ?? feesDefaults.fee_due_day),
+        age_exempt_enabled: Boolean(res.data.age_exempt_enabled),
+        age_exempt_min_age: Number(res.data.age_exempt_min_age ?? feesDefaults.age_exempt_min_age),
+      });
+      setFeesMeta({
+        age_exempt_from_month: res.data.age_exempt_from_month || null,
       });
       await refreshMe?.();
       toast.success(
@@ -655,6 +684,53 @@ export default function CoachClubProfile() {
                       onChange={(e) => setFeesForm((f) => ({ ...f, fee_due_day: e.target.value }))}
                     />
                   </label>
+                  <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+                    <legend style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                      Освободени над възраст
+                    </legend>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <button
+                        type="button"
+                        className={`coachMobileSubNavBtn${feesForm.age_exempt_enabled ? " is-active" : ""}`}
+                        disabled={busy}
+                        onClick={() => setFeesForm((f) => ({ ...f, age_exempt_enabled: true }))}
+                      >
+                        Да
+                      </button>
+                      <button
+                        type="button"
+                        className={`coachMobileSubNavBtn${!feesForm.age_exempt_enabled ? " is-active" : ""}`}
+                        disabled={busy}
+                        onClick={() => setFeesForm((f) => ({ ...f, age_exempt_enabled: false }))}
+                      >
+                        Не
+                      </button>
+                    </div>
+                  </fieldset>
+                  {feesForm.age_exempt_enabled ? (
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>От възраст (години)</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={80}
+                        step={1}
+                        value={feesForm.age_exempt_min_age}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setFeesForm((f) => ({ ...f, age_exempt_min_age: e.target.value }))
+                        }
+                      />
+                      <span className="uiMuted" style={{ fontSize: 12, lineHeight: 1.4 }}>
+                        Възраст към 1 януари. По подразбиране {feesDefaults.age_exempt_min_age}. Смяната
+                        важи от следващия месец
+                        {feesMeta.age_exempt_from_month
+                          ? ` (от ${feesMeta.age_exempt_from_month})`
+                          : ""}
+                        .
+                      </span>
+                    </label>
+                  ) : null}
                 </>
               ) : (
                 <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
@@ -1013,6 +1089,53 @@ export default function CoachClubProfile() {
                     По подразбиране до {feesDefaults.fee_due_day}-о число
                   </span>
                 </label>
+                <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+                  <legend style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                    Освободени над възраст
+                  </legend>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <button
+                      type="button"
+                      className={`coachMobileSubNavBtn${feesForm.age_exempt_enabled ? " is-active" : ""}`}
+                      disabled={busy}
+                      onClick={() => setFeesForm((f) => ({ ...f, age_exempt_enabled: true }))}
+                    >
+                      Да
+                    </button>
+                    <button
+                      type="button"
+                      className={`coachMobileSubNavBtn${!feesForm.age_exempt_enabled ? " is-active" : ""}`}
+                      disabled={busy}
+                      onClick={() => setFeesForm((f) => ({ ...f, age_exempt_enabled: false }))}
+                    >
+                      Не
+                    </button>
+                  </div>
+                </fieldset>
+                {feesForm.age_exempt_enabled ? (
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>От възраст (години)</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={80}
+                      step={1}
+                      value={feesForm.age_exempt_min_age}
+                      disabled={busy}
+                      onChange={(e) =>
+                        setFeesForm((f) => ({ ...f, age_exempt_min_age: e.target.value }))
+                      }
+                    />
+                    <span className="uiMuted" style={{ fontSize: 12, lineHeight: 1.4 }}>
+                      Възраст към 1 януари. По подразбиране {feesDefaults.age_exempt_min_age}. Смяната
+                      важи от следващия месец
+                      {feesMeta.age_exempt_from_month
+                        ? ` (от ${feesMeta.age_exempt_from_month})`
+                        : ""}
+                      .
+                    </span>
+                  </label>
+                ) : null}
               </>
             ) : (
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>

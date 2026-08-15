@@ -863,16 +863,20 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
             club_logo_url = club_row.logo_url
 
     fees_on = club_monthly_fees_enabled(club_row)
+    from app.services.fee_exemption import athlete_fee_exempt_for_month
+
+    fee_exempt, _ = athlete_fee_exempt_for_month(athlete, club_row, this_month) if fees_on else (False, None)
+    fees_visible = fees_on and not fee_exempt
     fee_cfg = resolve_club_fee_settings(club_row) if club_row else {
         "fee_due_day": PARENT_FEE_DUE_DAY,
         "fee_amount": 0,
     }
     due_day = int(fee_cfg["fee_due_day"]) if fees_on else PARENT_FEE_DUE_DAY
 
-    current_pay = pay_map.get(this_month) if fees_on else None
-    last_pay_row, last_pay_mk = _last_payment(pay_map) if fees_on else (None, None)
-    due_date_iso = _fee_due_date_iso(this_month, due_day) if fees_on else None
-    if fees_on:
+    current_pay = pay_map.get(this_month) if fees_visible else None
+    last_pay_row, last_pay_mk = _last_payment(pay_map) if fees_visible else (None, None)
+    due_date_iso = _fee_due_date_iso(this_month, due_day) if fees_visible else None
+    if fees_visible:
         current_month_fee = ParentCurrentMonthFee(
             month_key=this_month,
             paid=this_month in pay_map,
@@ -903,7 +907,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     except SQLAlchemyError as exc:
         logger.warning("Pending markers for parent profile athlete %s: %s", athlete.id, exc)
         pending_dates, fee_highlight = [], False
-    if not fees_on:
+    if not fees_visible:
         fee_highlight = False
 
     schedule_items = _apply_schedule_highlights(db, athlete.id, schedule_items)
@@ -993,7 +997,8 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         monthly_payments=monthly_payments,
         competitions_this_month=competitions_this_month,
         fee_due_day=due_day,
-        monthly_fees_enabled=fees_on,
+        monthly_fees_enabled=fees_visible,
+        fee_exempt=bool(fee_exempt),
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
         team_feed=_team_feed_for_parent(db, team_ids, limit=5),

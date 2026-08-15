@@ -110,6 +110,10 @@ class Club(Base):
     membership_consent_fee_due_day = Column(Integer, nullable=True)
     # Месечни такси в платформата (родител + меню на треньор). Default: включени.
     monthly_fees_enabled = Column(Boolean, nullable=False, default=True)
+    # Освобождаване над възраст (към 1 ян.); важи от fee_age_exempt_from_month нататък.
+    fee_age_exempt_enabled = Column(Boolean, nullable=False, default=False)
+    fee_age_exempt_min_age = Column(Integer, nullable=False, default=18)
+    fee_age_exempt_from_month = Column(String(7), nullable=True)  # YYYY-MM
 
     # Публична клубна страница (/c/:slug)
     public_slug = Column(String(80), nullable=True, unique=True, index=True)
@@ -545,6 +549,10 @@ class Athlete(Base):
     gender = Column(String(16), nullable=True)  # "male" | "female"
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    # Ръчно освобождаване от месечна такса (главен треньор); важи от fee_exempt_from_month.
+    fee_exempt_manual = Column(Boolean, nullable=False, default=False)
+    fee_exempt_note = Column(Text, nullable=True)
+    fee_exempt_from_month = Column(String(7), nullable=True)  # YYYY-MM
     # БФВ картотека (db.bvf.bg)
     egn = Column(String(16), nullable=True, index=True)
     bvf_player_id = Column(Integer, nullable=True, unique=True, index=True)

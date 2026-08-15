@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Athlete, AthletePayment, AttendanceRecord, Team, TeamSession, Training, User, UserRole
+from app.models import Athlete, AthletePayment, AttendanceRecord, Club, Team, TeamSession, Training, User, UserRole
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club as _ensure_head_admin
 from app.routers.fees import _ensure_pdf_font, _iter_months
 from app.services.club_membership_consent import (
@@ -20,6 +20,12 @@ from app.services.club_membership_consent import (
     DEFAULT_FEE_CURRENCY,
     DEFAULT_FEE_DUE_DAY,
     resolve_club_fee_settings,
+)
+from app.services.fee_exemption import (
+    DEFAULT_FEE_AGE_EXEMPT_MIN,
+    apply_club_age_exempt_settings,
+    athlete_fee_exempt_for_month,
+    resolve_fee_age_exempt_settings,
 )
 
 router = APIRouter()
@@ -39,6 +45,9 @@ class ClubFeesSettingsOut(BaseModel):
     fee_amount: int
     fee_due_day: int
     fee_currency: str = "€"
+    age_exempt_enabled: bool = False
+    age_exempt_min_age: int = DEFAULT_FEE_AGE_EXEMPT_MIN
+    age_exempt_from_month: Optional[str] = None
     defaults: dict = Field(default_factory=dict)
 
 
@@ -47,10 +56,13 @@ class ClubFeesSettingsUpdate(BaseModel):
     enabled: Optional[bool] = None
     fee_amount: Optional[int] = Field(None, ge=0, le=10000)
     fee_due_day: Optional[int] = Field(None, ge=1, le=28)
+    age_exempt_enabled: Optional[bool] = None
+    age_exempt_min_age: Optional[int] = Field(None, ge=1, le=80)
 
 
 def _fees_settings_payload(club) -> ClubFeesSettingsOut:
     resolved = resolve_club_fee_settings(club)
+    age = resolve_fee_age_exempt_settings(club)
     return ClubFeesSettingsOut(
         club_id=club.id,
         club_name=club.name,
@@ -58,10 +70,14 @@ def _fees_settings_payload(club) -> ClubFeesSettingsOut:
         fee_amount=resolved["fee_amount"],
         fee_due_day=resolved["fee_due_day"],
         fee_currency=resolved["fee_currency"],
+        age_exempt_enabled=age["enabled"],
+        age_exempt_min_age=age["min_age"],
+        age_exempt_from_month=age["from_month"],
         defaults={
             "fee_amount": DEFAULT_FEE_AMOUNT,
             "fee_due_day": DEFAULT_FEE_DUE_DAY,
             "fee_currency": DEFAULT_FEE_CURRENCY,
+            "age_exempt_min_age": DEFAULT_FEE_AGE_EXEMPT_MIN,
         },
     )
 
@@ -110,6 +126,13 @@ def update_club_fees_settings(
         if club.membership_consent_fee_due_day is None:
             club.membership_consent_fee_due_day = DEFAULT_FEE_DUE_DAY
 
+    if payload.age_exempt_enabled is not None or payload.age_exempt_min_age is not None:
+        apply_club_age_exempt_settings(
+            club,
+            enabled=payload.age_exempt_enabled,
+            min_age=payload.age_exempt_min_age,
+        )
+
     db.commit()
     db.refresh(club)
     return _fees_settings_payload(club)
@@ -137,7 +160,13 @@ def club_fees_summary(
 ):
     _ensure_head_with_club(current_user)
     athletes = db.query(Athlete).filter(Athlete.club_id == current_user.club_id).all()
-    athlete_ids = [a.id for a in athletes]
+    club = (
+        db.query(Club).filter(Club.id == current_user.club_id).first()
+        if current_user.club_id
+        else None
+    )
+    billable = [a for a in athletes if not athlete_fee_exempt_for_month(a, club, month_key)[0]]
+    athlete_ids = [a.id for a in billable]
     paid_ids = set()
     total_paid = 0.0
     if athlete_ids:
@@ -149,11 +178,13 @@ def club_fees_summary(
         for p in payments:
             paid_ids.add(p.athlete_id)
             total_paid += float(p.amount or 0)
+    exempt_count = max(0, len(athletes) - len(billable))
     return {
         "month_key": month_key,
-        "total_athletes": len(athletes),
+        "total_athletes": len(billable),
         "paid_athletes": len(paid_ids),
-        "unpaid_athletes": max(0, len(athletes) - len(paid_ids)),
+        "unpaid_athletes": max(0, len(billable) - len(paid_ids)),
+        "exempt_athletes": exempt_count,
         "total_paid_amount": round(total_paid, 2),
     }
 

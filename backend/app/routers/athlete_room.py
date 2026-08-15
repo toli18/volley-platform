@@ -157,10 +157,14 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
 
     club_row = _club_for_athlete(db, athlete)
     fees_on = club_monthly_fees_enabled(club_row)
+    from app.services.fee_exemption import athlete_fee_exempt_now
+
+    fee_exempt, _ = athlete_fee_exempt_now(athlete, club_row) if fees_on else (False, None)
+    fees_visible = fees_on and not fee_exempt
     due_day = PARENT_FEE_DUE_DAY
     if fees_on and club_row:
         due_day = int(resolve_club_fee_settings(club_row)["fee_due_day"])
-    if not fees_on:
+    if not fees_visible:
         fee_highlight = False
         current_fee = ParentCurrentMonthFee(
             month_key=_month_key_now(),
@@ -190,7 +194,8 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         current_month_fee=current_fee,
         pending_schedule_dates=pending_dates,
         fee_change_highlight=fee_highlight,
-        monthly_fees_enabled=fees_on,
+        monthly_fees_enabled=fees_visible,
+        fee_exempt=bool(fee_exempt),
         avatar_url=None,
         chat_unread_count=total_unread_for_athlete(db, athlete.id),
         home_notifications=[
