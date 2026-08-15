@@ -304,6 +304,8 @@ export const API_PATHS = {
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/revoke`,
   ATHLETE_DOCUMENT_CARDING_PREVIEW: (athleteId, formId) =>
     `/api/athletes/${athleteId}/documents/carding-form/${formId}/preview`,
+  ATHLETE_DOCUMENT_CARDING_DELETE: (athleteId, formId) =>
+    `/api/athletes/${athleteId}/documents/carding-form/${formId}`,
   ATHLETE_DOCUMENT_CARDING_REVOKE: (athleteId, formId) =>
     `/api/athletes/${athleteId}/documents/carding-form/${formId}/revoke`,
   ATHLETE_DOCUMENT_CARDING_03B_SIGN: (athleteId) =>

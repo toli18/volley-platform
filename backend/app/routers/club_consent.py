@@ -20,6 +20,7 @@ from app.services.carding_form import (
     form_kind_for_athlete,
     open_carding_season_year,
     prefill_carding_form,
+    purge_carding_form_files,
     read_carding_form_pdf,
     season_label,
 )
@@ -387,6 +388,51 @@ def create_carding_form_03b_invite_link(
     }
 
 
+def _delete_carding_form_impl(db: Session, athlete: Athlete, form_id: int) -> dict:
+    form = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.id == int(form_id),
+            AthleteCardingForm.athlete_id == athlete.id,
+        )
+        .first()
+    )
+    if not form:
+        raise HTTPException(status_code=404, detail="Форма 03 не е намерена")
+    season_year = form.season_year
+    purge_carding_form_files(form)
+    db.delete(form)
+    db.commit()
+    return {
+        "ok": True,
+        "deleted_id": int(form_id),
+        "needs_form": True,
+        "season_year": season_year,
+    }
+
+
+@docs_router.delete("/{athlete_id}/documents/carding-form/{form_id}")
+def delete_carding_form(
+    athlete_id: int,
+    form_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """
+    Изтрива Форма 03 / 03-А / 0-3 B напълно.
+    При следващо влизане родителят (или треньорът за 03 B) получава нова празна форма.
+    """
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    return _delete_carding_form_impl(db, athlete, form_id)
+
+
 @docs_router.post("/{athlete_id}/documents/carding-form/{form_id}/revoke")
 def revoke_carding_form(
     athlete_id: int,
@@ -402,28 +448,10 @@ def revoke_carding_form(
         )
     ),
 ):
-    """Връща Форма 03 — родителят трябва да я попълни и подпише отново."""
+    """Съвместимост: старото „върни“ вече изтрива формата (като DELETE)."""
+    _ = payload
     athlete = _athlete_for_coach(db, athlete_id, current_user)
-    form = (
-        db.query(AthleteCardingForm)
-        .filter(
-            AthleteCardingForm.id == int(form_id),
-            AthleteCardingForm.athlete_id == athlete.id,
-            AthleteCardingForm.is_active.is_(True),
-        )
-        .first()
-    )
-    if not form:
-        raise HTTPException(status_code=404, detail="Активна Форма 03 не е намерена")
-    form.is_active = False
-    form.revoked_at = datetime.utcnow()
-    db.commit()
-    return {
-        "ok": True,
-        "form_id": form.id,
-        "needs_form": True,
-        "season_year": form.season_year,
-    }
+    return _delete_carding_form_impl(db, athlete, form_id)
 
 
 @docs_router.post("/{athlete_id}/documents/membership-consent/{consent_id}/revoke")

@@ -14,7 +14,7 @@ function normalizeRole(user) {
 }
 
 /**
- * Локални документи на състезателя (заявление, Форма 03) с преглед и връщане.
+ * Локални документи на състезателя (заявление, Форма 03) с преглед и изтриване.
  * За пълнолетни: подпис на Форма 0-3 B пред треньора или линк за отдалечен подпис.
  */
 export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
@@ -22,12 +22,12 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   const role = normalizeRole(user);
   const canRevokeConsent =
     role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
-  const canReturnCarding =
+  const canDeleteCarding =
     role === "coach" ||
     role === "club_head_coach" ||
     role === "platform_admin" ||
     role === "federation_admin";
-  const canSign03b = canReturnCarding;
+  const canSign03b = canDeleteCarding;
 
   const [docs, setDocs] = useState([]);
   const [active, setActive] = useState(false);
@@ -107,26 +107,28 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     }
   };
 
-  const returnCarding = async (formId, formKind) => {
+  const deleteCarding = async (formId, formKind) => {
     const isAdult = formKind === "03b";
     if (
       !window.confirm(
         isAdult
-          ? "Връщане на Форма 0-3 B? Състезателят ще трябва да я подпише отново."
-          : "Връщане на Форма 03? Родителят ще трябва да я попълни и подпише отново в портала.",
+          ? "Изтриване на Форма 0-3 B? Състезателят ще трябва да я подпише отново (с рисунка)."
+          : "Изтриване на Форма 03? Родителят ще получи нова форма при влизане — с място за подпис с рисунка.",
       )
     ) {
       return;
     }
     try {
       setBusy(true);
-      await axiosInstance.post(API_PATHS.ATHLETE_DOCUMENT_CARDING_REVOKE(athleteId, formId), {
-        note: "Върната от треньор за повторно попълване",
-      });
-      toast?.success(isAdult ? "Форма 0-3 B е върната." : "Форма 03 е върната — родителят може да я попълни отново.");
+      await axiosInstance.delete(API_PATHS.ATHLETE_DOCUMENT_CARDING_DELETE(athleteId, formId));
+      toast?.success(
+        isAdult
+          ? "Форма 0-3 B е изтрита."
+          : "Форма 03 е изтрита — родителят ще я попълни отново.",
+      );
       await load();
     } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешно връщане на формата."));
+      toast?.error(normalizeError(err, "Неуспешно изтриване на формата."));
     } finally {
       setBusy(false);
     }
@@ -188,7 +190,7 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   const statusLabel = (doc) => {
     if (doc.status === "active") return "Активно";
     if (doc.status === "revoked") {
-      return doc.doc_type === "carding_form" ? "Върнато" : "Оттеглено";
+      return doc.doc_type === "carding_form" ? "Неактивно" : "Оттеглено";
     }
     return doc.status;
   };
@@ -260,15 +262,15 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
                     Оттегли
                   </Button>
                 ) : null}
-                {canReturnCarding && d.status === "active" && d.doc_type === "carding_form" ? (
+                {canDeleteCarding && d.doc_type === "carding_form" ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
                     disabled={busy}
-                    onClick={() => returnCarding(d.id, d.form_kind)}
+                    onClick={() => deleteCarding(d.id, d.form_kind)}
                   >
-                    Върни за попълване
+                    Изтрий
                   </Button>
                 ) : null}
               </div>

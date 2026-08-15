@@ -237,6 +237,37 @@ def resolve_carding_signature_path(rel: str | None) -> Path | None:
     return None
 
 
+def purge_carding_form_files(form: AthleteCardingForm) -> None:
+    """Изтрива PDF и PNG подписи от диска (best-effort)."""
+    for rel in (
+        getattr(form, "pdf_rel_path", None),
+        getattr(form, "signature_parent1_image_rel", None),
+        getattr(form, "signature_athlete_image_rel", None),
+    ):
+        if not rel:
+            continue
+        name = str(rel).replace("\\", "/").lstrip("/")
+        if name.startswith("carding_forms/"):
+            name = name[len("carding_forms/") :]
+        path = carding_form_pdf_dir() / name
+        try:
+            if path.is_file():
+                path.unlink()
+        except OSError:
+            pass
+    # Fallback имена по id (ако rel липсва, но файлът съществува).
+    for path in (
+        carding_form_pdf_dir() / f"{form.athlete_id}_{form.season_year}_{form.id}.pdf",
+        carding_signature_dir() / f"{form.id}_parent1.png",
+        carding_signature_dir() / f"{form.id}_athlete.png",
+    ):
+        try:
+            if path.is_file():
+                path.unlink()
+        except OSError:
+            pass
+
+
 def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -> bytes:
     """PDF близо до официалната бланка Форма 0-3 / 0-3 А (рамка, кутии, лога)."""
     from io import BytesIO
