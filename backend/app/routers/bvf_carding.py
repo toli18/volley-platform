@@ -572,9 +572,121 @@ def _doc_checklist(
     return [
         {"key": "photo", "label": "Снимка", "ok": has_photo},
         {"key": "egn", "label": "ЕГН", "ok": bool((athlete.egn or "").strip())},
-        {"key": "carding_form", "label": f"Форма 03 / 03-А ({season_year})", "ok": has_form},
+        {"key": "carding_form", "label": f"Форма 03 / 03-А / 03-B ({season_year})", "ok": has_form},
         {"key": "any_doc", "label": "Има поне документ в СЕК", "ok": len(docs) > 0},
     ]
+
+
+def _sek_docs_have_form_03(docs: list[dict], season_year: int) -> bool:
+    season_docs = [
+        d
+        for d in docs
+        if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
+    ]
+    pool = season_docs or docs
+    return any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in pool)
+
+
+def _carding_form_upload_title(form) -> str:
+    from app.services.carding_form import FORM_KIND_03A, FORM_KIND_03B, season_label
+
+    if form.form_kind == FORM_KIND_03B:
+        kind = "Форма 0-3 B"
+    elif form.form_kind == FORM_KIND_03A:
+        kind = "Форма 0-3 А"
+    else:
+        kind = "Форма 0-3"
+    return f"{kind} — сезон {form.season_label_snapshot or season_label(form.season_year)}"
+
+
+def _push_roster_carding_forms_to_sek(
+    db: Session, *, local: BvfCardIndex, club: Club, token: str
+) -> list[dict[str, Any]]:
+    """Качва локални PDF Форма 03/А/B в профилите в СЕК (пропуска вече качени)."""
+    from app.services.carding_form import get_signed_carding_form, read_carding_form_pdf
+
+    year = int(local.year or datetime.utcnow().year)
+    results: list[dict[str, Any]] = []
+    for mem in local.members or []:
+        athlete = mem.athlete
+        if not athlete:
+            continue
+        base: dict[str, Any] = {
+            "athlete_id": athlete.id,
+            "athlete_name": athlete.athlete_name,
+            "bvf_player_id": athlete.bvf_player_id,
+        }
+        if not athlete.bvf_player_id:
+            results.append({**base, "status": "error", "detail": "Няма връзка със СЕК"})
+            continue
+        try:
+            remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
+            if not isinstance(remote, list):
+                remote = []
+            docs = _upsert_doc_mirrors(db, athlete, remote)
+        except HTTPException as exc:
+            results.append({**base, "status": "error", "detail": str(exc.detail)})
+            continue
+        except Exception as exc:  # noqa: BLE001
+            results.append({**base, "status": "error", "detail": str(exc)[:200]})
+            continue
+
+        if _sek_docs_have_form_03(docs, year):
+            results.append({**base, "status": "already_in_sek"})
+            continue
+
+        form = get_signed_carding_form(db, athlete.id, year, club.id)
+        if not form:
+            results.append(
+                {
+                    **base,
+                    "status": "missing_local_form",
+                    "detail": "Няма локална подписана Форма 03",
+                }
+            )
+            continue
+
+        pdf = read_carding_form_pdf(form, club=club)
+        if not pdf:
+            results.append({**base, "status": "error", "detail": "Неуспешно генериране на PDF"})
+            continue
+
+        title = _carding_form_upload_title(form)
+        data = {
+            "Type": "2",
+            "Description": title,
+            "StartDate": f"{year}-01-01",
+            "EndDate": f"{year + 1}-06-30",
+        }
+        files = {"files": (f"forma03_{athlete.id}_{year}.pdf", pdf, "application/pdf")}
+        try:
+            _bvf_post_multipart(
+                f"/api/players/{int(athlete.bvf_player_id)}/documents",
+                token,
+                data,
+                files,
+            )
+            remote2 = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
+            if isinstance(remote2, list):
+                _upsert_doc_mirrors(db, athlete, remote2)
+            db.expire(athlete, ["bvf_documents"])
+            results.append({**base, "status": "uploaded", "detail": title})
+        except HTTPException as exc:
+            results.append({**base, "status": "error", "detail": str(exc.detail)})
+        except Exception as exc:  # noqa: BLE001
+            results.append({**base, "status": "error", "detail": str(exc)[:200]})
+    return results
+
+
+def _form_upload_summary(form_uploads: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "form_uploads": form_uploads,
+        "forms_uploaded": len([r for r in form_uploads if r.get("status") == "uploaded"]),
+        "forms_already_in_sek": len([r for r in form_uploads if r.get("status") == "already_in_sek"]),
+        "forms_failed": len(
+            [r for r in form_uploads if r.get("status") in ("error", "missing_local_form")]
+        ),
+    }
 
 
 @router.post("/players/documents/sync")
@@ -952,19 +1064,28 @@ def submit_card_index_to_federation(
     if not members:
         raise HTTPException(status_code=422, detail="Няма състезатели в картотечния отбор")
 
+    # 1) Качи локалните Форма 03/А/B в профилите в СЕК (преди sign)
+    form_uploads = _push_roster_carding_forms_to_sek(db, local=local, club=club, token=token)
+    upload_errors = [r for r in form_uploads if r.get("status") in ("error", "missing_local_form")]
+    if upload_errors:
+        names = [
+            f"{r.get('athlete_name')}: {r.get('detail') or r.get('status')}" for r in upload_errors[:5]
+        ]
+        raise HTTPException(
+            status_code=422,
+            detail="Неуспешно качване на Форма 03 в СЕК: " + "; ".join(names),
+        )
+
     year = local.year or datetime.utcnow().year
     not_ready = []
     for mem in members:
         athlete = mem.athlete
         if not athlete:
             continue
-        docs = [
-            {"doc_type": d.doc_type, "description": d.description, "season_year": d.season_year}
-            for d in (athlete.bvf_documents or [])
-        ]
-        checklist = _doc_checklist(athlete, docs, year)
-        if not all(c["ok"] for c in checklist):
-            missing = [c["label"] for c in checklist if not c["ok"]]
+        docs = athlete_docs_as_dicts(athlete)
+        checklist = _doc_checklist(athlete, docs, year, db=db)
+        if not all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form")):
+            missing = [c["label"] for c in checklist if not c["ok"] and c["key"] != "any_doc"]
             not_ready.append(f"{athlete.athlete_name}: {', '.join(missing)}")
     if not_ready:
         raise HTTPException(
@@ -988,7 +1109,8 @@ def submit_card_index_to_federation(
             status_code=403,
             detail=(
                 "Недостатъчни права: няма право да подпише в БФВ API (трябва Administrator / API write). "
-                "Съставът е запазен локално; статус към БФВ е pending_bvf_sign."
+                "Съставът е запазен локално; статус към БФВ е pending_bvf_sign. "
+                f"Форми: качени {_form_upload_summary(form_uploads)['forms_uploaded']}."
             ),
         )
     if res.status_code == 400:
@@ -1007,6 +1129,7 @@ def submit_card_index_to_federation(
         "status": local.status,
         "is_signed": True,
         "signed_at": local.signed_at.isoformat() if local.signed_at else None,
+        **_form_upload_summary(form_uploads),
     }
 
 
@@ -1965,7 +2088,7 @@ def request_card_index_to_head(
     if not detail["all_ready"]:
         raise HTTPException(
             status_code=422,
-            detail="Не всички в състава са готови (снимка, ЕГН, Форма 03 / 03-А).",
+            detail="Не всички в състава са готови (снимка, ЕГН, Форма 03 / 03-А / 03-B).",
         )
     local.status = "ready_for_head"
     local.requested_at = datetime.utcnow()

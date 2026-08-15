@@ -76,14 +76,15 @@ def card_index_display_label(ci) -> str:
 
 def looks_like_form_03(doc_type: int | None, description: str | None) -> bool:
     desc = (description or "").lower()
-    compact = desc.replace(" ", "")
+    compact = desc.replace(" ", "").replace("-", "")
     return (
         doc_type == 2
         or "форм" in desc
-        or "03-а" in desc
-        or "03-a" in desc
-        or "форма 03" in desc
+        or "03а" in compact
+        or "03a" in compact
+        or "03b" in compact
         or "форма03" in compact
+        or "форма0" in compact
     )
 
 

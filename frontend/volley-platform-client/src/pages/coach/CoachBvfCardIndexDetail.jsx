@@ -166,13 +166,23 @@ export default function CoachBvfCardIndexDetail() {
   };
 
   const submitToBvf = async () => {
-    if (!window.confirm("Запис в СЕК / изпращане към БФВ. Продължаваш?")) return;
+    if (
+      !window.confirm(
+        "Запис в СЕК: качва Форма 03/А/B в профилите, създава/синхронизира отбора и изпраща към БФВ. Продължаваш?",
+      )
+    ) {
+      return;
+    }
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT(localId), {
         ...tokenBody(token),
       });
-      toast.success(`Статус: ${res.data?.status || "ok"}`);
+      const up = Number(res.data?.forms_uploaded || 0);
+      const already = Number(res.data?.forms_already_in_sek || 0);
+      toast.success(
+        `Статус: ${res.data?.status || "ok"}. Форми в СЕК: ${up} качени, ${already} вече имаше.`,
+      );
       await loadAll();
     } catch (err) {
       toast.error(normalizeError(err, "Записът в СЕК чака write token или връзка с БФВ."));
