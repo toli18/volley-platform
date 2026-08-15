@@ -20,7 +20,7 @@ from sqlalchemy import (
     Float,
     LargeBinary,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 
 from .database import Base
@@ -558,6 +558,8 @@ class Athlete(Base):
     bvf_player_id = Column(Integer, nullable=True, unique=True, index=True)
     bvf_player_number = Column(Integer, nullable=True, index=True)
     bvf_photo_id = Column(String(64), nullable=True)
+    # Локален портрет (JPEG) — траен кеш; дискът на контейнера често е ефимерен.
+    photo_jpeg = deferred(Column(LargeBinary, nullable=True))
     bvf_synced_at = Column(DateTime, nullable=True)
     # Задача към груповия треньор (снимка/данни) преди create/link в СЕК
     sek_task_code = Column(String(32), nullable=True)

@@ -301,7 +301,8 @@ export default function TeamRoomPortal() {
   const attendance = data?.attendance_summary;
   const teamLabel = (data?.teams || []).join(", ") || "—";
   const photoUrl = useAthletePhoto(data?.athlete_id, Boolean(data?.has_photo), {
-    canFetchFromBvf: Boolean(data?.has_photo),
+    // Винаги опитва /me/photo — has_photo от API може да е „оптимистично“ (СЕК id без локален кеш).
+    canFetchFromBvf: true,
     photoPath: data?.athlete_id ? API_PATHS.ATHLETE_ROOM_ME_PHOTO : null,
   });
   const feedItems = data?.items || [];

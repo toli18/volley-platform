@@ -40,6 +40,11 @@ axiosInstance.interceptors.request.use((config) => {
   const url = String(config.url || "");
   config.headers = config.headers || {};
 
+  // Blob/binary GET не трябва да носят Content-Type: application/json
+  if (config.responseType === "blob" || config.responseType === "arraybuffer") {
+    delete config.headers["Content-Type"];
+  }
+
   if (url.includes("/parent-portal/me")) {
     const parentToken = getParentSessionToken();
     if (parentToken) {

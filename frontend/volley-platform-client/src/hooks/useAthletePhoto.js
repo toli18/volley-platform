@@ -3,10 +3,19 @@ import { useEffect, useState } from "react";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 
+function blobLooksLikeImage(blob, contentTypeHeader) {
+  if (!blob || blob.size < 24) return false;
+  const ctype = String(contentTypeHeader || blob.type || "").toLowerCase();
+  if (ctype.includes("application/json") || ctype.includes("text/")) return false;
+  if (ctype.startsWith("image/")) return true;
+  // FastAPI jpeg + някои проксита връщат octet-stream / празен type
+  return !ctype || ctype.includes("octet-stream") || ctype === "binary/octet-stream";
+}
+
 /**
  * Loads athlete portrait as blob URL (auth via axios).
  * canFetchFromBvf — опитва GET photo дори без локален кеш (сървърът дърпва от БФВ).
- * photoPath — алтернативен endpoint (напр. athlete-room/me/photo).
+ * photoPath — алтернативен endpoint (напр. athlete-room/me/photo); винаги се опитва.
  */
 export default function useAthletePhoto(athleteId, hasPhoto, { canFetchFromBvf = false, photoPath = null } = {}) {
   const [url, setUrl] = useState(null);
@@ -16,7 +25,8 @@ export default function useAthletePhoto(athleteId, hasPhoto, { canFetchFromBvf =
     let cancelled = false;
     const id = Number(athleteId);
     const path = photoPath || (id ? API_PATHS.TEAM_ATHLETE_PHOTO(id) : null);
-    if (!path || (!hasPhoto && !canFetchFromBvf)) {
+    const shouldFetch = Boolean(photoPath) || Boolean(hasPhoto) || Boolean(canFetchFromBvf);
+    if (!path || !shouldFetch) {
       setUrl(null);
       return undefined;
     }
@@ -24,9 +34,16 @@ export default function useAthletePhoto(athleteId, hasPhoto, { canFetchFromBvf =
       try {
         const res = await axiosInstance.get(path, {
           responseType: "blob",
+          headers: { "Content-Type": undefined },
         });
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(res.data);
+        const blob = res.data;
+        const headerType = res.headers?.["content-type"] || res.headers?.["Content-Type"];
+        if (!blobLooksLikeImage(blob, headerType)) {
+          setUrl(null);
+          return;
+        }
+        objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       } catch {
         if (!cancelled) setUrl(null);

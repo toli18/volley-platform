@@ -19,7 +19,9 @@ def photo_path(athlete_id: int) -> Path:
 
 def has_cached_photo(athlete_id: int) -> bool:
     p = photo_path(athlete_id)
-    return p.is_file() and p.stat().st_size > 0
+    if p.is_file() and p.stat().st_size > 0:
+        return True
+    return _db_has_photo(athlete_id)
 
 
 def cached_photo_athlete_ids(athlete_ids: list[int] | set[int] | None = None) -> set[int]:
@@ -45,7 +47,82 @@ def cached_photo_athlete_ids(athlete_ids: list[int] | set[int] | None = None) ->
                 continue
     except OSError:
         return set()
+    # Допълни от DB (траен кеш след redeploy)
+    found |= _db_photo_ids(wanted)
     return found
+
+
+def _db_session():
+    from app.database import SessionLocal
+
+    return SessionLocal()
+
+
+def _db_has_photo(athlete_id: int) -> bool:
+    db = _db_session()
+    try:
+        from app.models import Athlete
+
+        row = (
+            db.query(Athlete.id)
+            .filter(Athlete.id == int(athlete_id), Athlete.photo_jpeg.isnot(None))
+            .first()
+        )
+        return row is not None
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+def _db_photo_ids(wanted: set[int] | None) -> set[int]:
+    db = _db_session()
+    try:
+        from app.models import Athlete
+
+        q = db.query(Athlete.id).filter(Athlete.photo_jpeg.isnot(None))
+        if wanted is not None:
+            if not wanted:
+                return set()
+            q = q.filter(Athlete.id.in_(wanted))
+        # Не зареждай blob-овете — само id
+        return {int(r[0]) for r in q.all()}
+    except Exception:
+        return set()
+    finally:
+        db.close()
+
+
+def _db_read_photo(athlete_id: int) -> bytes | None:
+    db = _db_session()
+    try:
+        from app.models import Athlete
+
+        row = db.query(Athlete.photo_jpeg).filter(Athlete.id == int(athlete_id)).first()
+        if not row or not row[0]:
+            return None
+        data = bytes(row[0])
+        return data or None
+    except Exception:
+        return None
+    finally:
+        db.close()
+
+
+def _db_write_photo(athlete_id: int, content: bytes) -> None:
+    db = _db_session()
+    try:
+        from app.models import Athlete
+
+        athlete = db.query(Athlete).filter(Athlete.id == int(athlete_id)).first()
+        if not athlete:
+            return
+        athlete.photo_jpeg = content
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
 
 def save_athlete_photo(athlete_id: int, content: bytes) -> Path:
@@ -53,15 +130,25 @@ def save_athlete_photo(athlete_id: int, content: bytes) -> Path:
         raise ValueError("empty photo")
     path = photo_path(athlete_id)
     path.write_bytes(content)
+    _db_write_photo(athlete_id, content)
     return path
 
 
 def read_athlete_photo(athlete_id: int) -> bytes | None:
     path = photo_path(athlete_id)
-    if not path.is_file():
-        return None
-    data = path.read_bytes()
-    return data or None
+    if path.is_file():
+        data = path.read_bytes()
+        if data:
+            return data
+    data = _db_read_photo(athlete_id)
+    if data:
+        # Възстанови ефимерния диск за следващи бързи четения
+        try:
+            path.write_bytes(data)
+        except OSError:
+            pass
+        return data
+    return None
 
 
 def _bvf_headers(token: str, *, for_file: bool = False) -> dict:
@@ -71,22 +158,8 @@ def _bvf_headers(token: str, *, for_file: bool = False) -> dict:
 
 
 def fetch_bvf_photo_bytes(token: str, photo_id: str) -> bytes | None:
-    pid = (photo_id or "").strip()
-    if not pid:
-        return None
-    url = f"{BVF_API_BASE}/api/files/{pid}"
-    try:
-        with httpx.Client(timeout=BVF_TIMEOUT, follow_redirects=True) as client:
-            res = client.get(url, headers=_bvf_headers(token, for_file=True))
-    except httpx.HTTPError:
-        return None
-    if res.status_code >= 400 or not res.content:
-        return None
-    # Отхвърли JSON грешки, маскирани като 200
-    ctype = (res.headers.get("content-type") or "").lower()
-    if "application/json" in ctype and res.content[:1] in (b"{", b"["):
-        return None
-    return res.content
+    content, _ = fetch_bvf_photo_bytes_detailed(token, photo_id)
+    return content
 
 
 def fetch_bvf_photo_bytes_detailed(token: str, photo_id: str) -> tuple[bytes | None, str]:
@@ -156,7 +229,14 @@ def ensure_athlete_photo_from_bvf(athlete, club) -> bytes | None:
     if not getattr(athlete, "bvf_player_id", None) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
         return None
 
-    from app.services.bvf_auth import club_has_bvf_auth, resolve_club_bvf_token
+    from app.services.bvf_auth import (
+        club_has_bvf_auth,
+        club_has_credentials,
+        decrypt_secret,
+        is_api_key,
+        resolve_club_bvf_token,
+        bvf_login,
+    )
 
     if not club_has_bvf_auth(club):
         return None
@@ -168,7 +248,15 @@ def ensure_athlete_photo_from_bvf(athlete, club) -> bytes | None:
     photo_id = resolve_bvf_photo_id(token, athlete)
     if not photo_id:
         return None
-    content = fetch_bvf_photo_bytes(token, photo_id)
+    content, reason = fetch_bvf_photo_bytes_detailed(token, photo_id)
+    # Ако ApiKey няма право за /files, опитай JWT от потребител/парола (ако има).
+    if not content and "няма право да чете файлове" in (reason or "") and club_has_credentials(club) and is_api_key(token):
+        try:
+            password = decrypt_secret(club.bvf_password_enc)
+            login = bvf_login(club.bvf_username, password)
+            content, _ = fetch_bvf_photo_bytes_detailed(login["_token"], photo_id)
+        except Exception:
+            content = None
     if not content:
         return None
     save_athlete_photo(athlete.id, content)
