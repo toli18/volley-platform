@@ -50,12 +50,22 @@ function formatDateBg(iso) {
   }
 }
 
+function relativeUntilLabel(item) {
+  if (!item?.date) return null;
+  const base = formatDaysUntil(item.date);
+  if (!base) return null;
+  if (base === "Днес" && item.start_time) {
+    return `Днес в ${item.start_time}`;
+  }
+  return base;
+}
+
 function NextEventChip({ item, label, onAckChange }) {
   if (!item) {
-    return <p className="teamRoomMuted">{label}</p>;
+    return <p className="teamRoomMuted teamRoomNextEventEmpty">{label}</p>;
   }
   const isComp = isCompetitionEvent(item);
-  const daysUntil = formatDaysUntil(item.date);
+  const daysUntil = relativeUntilLabel(item);
   const changeClass = item.highlight_change ? " teamRoomNextEvent--change" : "";
   const handleAck = () => {
     if (!item.highlight_change || !onAckChange) return;
@@ -76,17 +86,50 @@ function NextEventChip({ item, label, onAckChange }) {
             }
           : undefined
       }
-      className={`teamRoomNextEvent${changeClass}`}
+      className={`teamRoomNextEvent teamRoomNextEvent--hero${
+        isComp ? " teamRoomNextEvent--competition" : " teamRoomNextEvent--training"
+      }${changeClass}`}
     >
-      <span className={`teamRoomTypeChip teamRoomTypeChip--${isComp ? "competition" : "training"}`}>
-        {isComp ? competitionKindLabel(item) : "Тренировка"}
-      </span>
-      {daysUntil ? <span className="teamRoomDaysUntil">{daysUntil}</span> : null}
+      <div className="teamRoomNextEventTop">
+        <span className={`teamRoomTypeChip teamRoomTypeChip--${isComp ? "competition" : "training"}`}>
+          {isComp ? competitionKindLabel(item) : "Тренировка"}
+        </span>
+        {daysUntil ? <span className="teamRoomDaysUntil">{daysUntil}</span> : null}
+      </div>
       <p className="teamRoomNextEventDate">{formatDateBg(item.date)}</p>
-      <p className="teamRoomMuted">
+      <p className="teamRoomNextEventMeta">
         {item.start_time} – {item.end_time}
         {item.location ? ` · ${item.location}` : ""}
       </p>
+    </div>
+  );
+}
+
+function attendanceCheer(rate) {
+  const r = Number(rate) || 0;
+  if (r >= 90) return "Супер!";
+  if (r >= 75) return "Добра серия!";
+  if (r >= 50) return "Продължавай така!";
+  return null;
+}
+
+function AttendancePositiveBlock({ attendance }) {
+  if (!(attendance?.total > 0)) {
+    return <p className="teamRoomMuted">Още няма достатъчно записи.</p>;
+  }
+  const presentCount = Number(attendance.present || 0) + Number(attendance.late || 0);
+  const cheer = attendanceCheer(attendance.attendance_rate_percent);
+  return (
+    <div className="teamRoomAttendPositive">
+      <div className="teamRoomStatRow">
+        <span className="teamRoomStatPill teamRoomStatPill--ok">{attendance.attendance_rate_percent}%</span>
+        <span className="teamRoomAttendMain">
+          <strong>
+            {presentCount} {presentCount === 1 ? "тренировка" : "тренировки"}
+          </strong>
+          {cheer ? <span className="teamRoomAttendCheer"> · {cheer}</span> : null}
+        </span>
+      </div>
     </div>
   );
 }
@@ -313,8 +356,8 @@ export default function TeamRoomPortal() {
                 notifications={data.home_notifications}
                 onOpen={handleOpenHomeNotification}
               />
-              <div className="teamRoomHomeGrid">
-                <section className="teamRoomCard teamRoomCard--compact" aria-label="Следващи събития">
+              <div className="teamRoomHomeStack">
+                <section className="teamRoomCard teamRoomCard--upcoming" aria-label="Следващи събития">
                   <h2 className="teamRoomCardTitle">Предстои</h2>
                   <NextEventChip
                     item={data.next_training}
@@ -328,20 +371,9 @@ export default function TeamRoomPortal() {
                   />
                 </section>
 
-                <section className="teamRoomCard teamRoomCard--compact" aria-label="Присъствие">
+                <section className="teamRoomCard teamRoomCard--attendance" aria-label="Присъствие">
                   <h2 className="teamRoomCardTitle">Присъствие (90 дни)</h2>
-                  {(attendance?.total ?? 0) > 0 ? (
-                    <div className="teamRoomStatRow">
-                      <span className="teamRoomStatPill teamRoomStatPill--ok">{attendance.attendance_rate_percent}%</span>
-                      <span className="teamRoomMuted">
-                        Присъства: {attendance.present}
-                        {attendance.late ? ` · Закъснения: ${attendance.late}` : ""}
-                        {attendance.absent ? ` · Отсъствия: ${attendance.absent}` : ""}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="teamRoomMuted">Още няма достатъчно записи.</p>
-                  )}
+                  <AttendancePositiveBlock attendance={attendance} />
                 </section>
               </div>
               {data.monthly_fees_enabled !== false ? (
@@ -417,17 +449,7 @@ export default function TeamRoomPortal() {
 
               <section className="teamRoomCard">
                 <h2 className="teamRoomCardTitle">Присъствие (90 дни)</h2>
-                {(attendance?.total ?? 0) > 0 ? (
-                  <div className="teamRoomStatRow">
-                    <span className="teamRoomStatPill teamRoomStatPill--ok">{attendance.attendance_rate_percent}%</span>
-                    <span className="teamRoomMuted">
-                      Присъства: {attendance.present}
-                      {attendance.late ? ` · Закъснения: ${attendance.late}` : ""}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="teamRoomMuted">Още няма достатъчно записи.</p>
-                )}
+                <AttendancePositiveBlock attendance={attendance} />
               </section>
             </TabPanel>
           </>

@@ -5600,7 +5600,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  margin-right: 8px;
+  margin-right: 0;
 }
 
 .teamRoomTypeChip--training {
@@ -5609,29 +5609,115 @@
 }
 
 .teamRoomTypeChip--competition {
-  background: rgba(251, 146, 60, 0.2);
+  background: rgba(251, 146, 60, 0.25);
   color: #fdba74;
+}
+
+.teamRoomHomeStack {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.teamRoomCard--upcoming {
+  padding: 16px;
+  border-color: rgba(52, 211, 153, 0.28);
+  background: linear-gradient(165deg, rgba(16, 185, 129, 0.1) 0%, #111827 42%);
+}
+
+.teamRoomCard--upcoming .teamRoomCardTitle {
+  margin-bottom: 12px;
 }
 
 .teamRoomNextEvent {
   margin-bottom: 12px;
 }
 
+.teamRoomNextEvent:last-of-type {
+  margin-bottom: 0;
+}
+
+.teamRoomNextEvent--hero {
+  border-radius: 14px;
+  padding: 12px 12px 14px;
+  border: 1px solid #1e293b;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.teamRoomNextEvent--training {
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+.teamRoomNextEvent--competition {
+  border-color: rgba(251, 146, 60, 0.4);
+  background: rgba(154, 52, 18, 0.12);
+}
+
 .teamRoomNextEvent--change {
-  border-radius: 12px;
-  padding: 8px;
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.teamRoomNextEventTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .teamRoomNextEventDate {
-  margin: 6px 0 4px;
-  font-weight: 700;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.3;
+  text-transform: capitalize;
+}
+
+.teamRoomNextEventMeta {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.teamRoomNextEventEmpty {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.teamRoomNextEventEmpty:last-child {
+  margin-bottom: 0;
 }
 
 .teamRoomDaysUntil {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #064e3b;
+  background: #34d399;
+}
+
+.teamRoomAttendPositive {
+  display: grid;
+  gap: 6px;
+}
+
+.teamRoomAttendMain {
+  font-size: 15px;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+.teamRoomAttendCheer {
   color: #34d399;
+  font-weight: 700;
 }
 
 .teamRoomProfileDl {
