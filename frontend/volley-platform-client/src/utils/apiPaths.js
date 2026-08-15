@@ -305,6 +305,12 @@ export const API_PATHS = {
     `/api/athletes/${athleteId}/documents/carding-form/${formId}/preview`,
   ATHLETE_DOCUMENT_CARDING_REVOKE: (athleteId, formId) =>
     `/api/athletes/${athleteId}/documents/carding-form/${formId}/revoke`,
+  ATHLETE_DOCUMENT_CARDING_03B_SIGN: (athleteId) =>
+    `/api/athletes/${athleteId}/documents/carding-form-03b/sign`,
+  ATHLETE_DOCUMENT_CARDING_03B_INVITE: (athleteId) =>
+    `/api/athletes/${athleteId}/documents/carding-form-03b/invite-link`,
+  PUBLIC_CARDING_03B: (token) =>
+    `/api/public/carding-form-03b/${encodeURIComponent(token)}`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

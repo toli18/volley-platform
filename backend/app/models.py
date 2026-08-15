@@ -656,7 +656,7 @@ class AthleteCardingForm(Base):
     athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
     club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
     season_year = Column(Integer, nullable=False, index=True)
-    # "03" (<14) | "03a" (14+)
+    # "03" (<14) | "03a" (14–17) | "03b" (18+)
     form_kind = Column(String(8), nullable=False)
 
     parent1_full_name = Column(String(255), nullable=False)

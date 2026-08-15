@@ -38,6 +38,7 @@ const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamRoomLogin = React.lazy(() => import("./pages/TeamRoomLogin.jsx"));
 const TeamRoomPortal = React.lazy(() => import("./pages/TeamRoomPortal.jsx"));
 const PublicMatchWatch = React.lazy(() => import("./pages/PublicMatchWatch.jsx"));
+const PublicForm03bSign = React.lazy(() => import("./pages/PublicForm03bSign.jsx"));
 const ClubHeadDashboard = React.lazy(() => import("./pages/ClubHeadDashboard.jsx"));
 const CoachBoard = React.lazy(() => import("./pages/CoachBoard.jsx"));
 const CoachMobileLayout = React.lazy(() => import("./components/coachMobile/CoachMobileLayout.jsx"));
@@ -161,6 +162,7 @@ const router = createBrowserRouter([
       { path: "room/portal", element: <TeamRoomPortal /> },
       { path: "room", element: <Navigate to="/room/login" replace /> },
       { path: "watch/:token", element: <PublicMatchWatch /> },
+      { path: "sign/form-03b/:token", element: <PublicForm03bSign /> },
       { path: "c/:slug", element: <PublicClubPage /> },
       { path: "team/:token", element: <Navigate to="/room/login" replace /> },
       { path: "team", element: <Navigate to="/room/login" replace /> },

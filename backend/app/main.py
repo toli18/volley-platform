@@ -40,6 +40,7 @@ from app.routers.bvf_admin import router as bvf_admin_router
 from app.routers.bvf_carding import router as bvf_carding_router
 from app.routers.club_consent import docs_router as athlete_docs_router
 from app.routers.club_consent import router as club_consent_router
+from app.routers.public_carding_03b import router as public_carding_03b_router
 from app.routers import articles
 
 
@@ -109,6 +110,7 @@ app.include_router(bvf_admin_router)
 app.include_router(bvf_carding_router)
 app.include_router(club_consent_router)
 app.include_router(athlete_docs_router)
+app.include_router(public_carding_03b_router)
 app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])
 app.include_router(club_public_router)
 

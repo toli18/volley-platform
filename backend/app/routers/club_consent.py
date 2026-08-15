@@ -13,7 +13,16 @@ from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthleteCardingForm, AthleteClubConsent, Club, User, UserRole
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
-from app.services.carding_form import carding_form_to_document_dict, read_carding_form_pdf
+from app.services.carding_form import (
+    athlete_needs_adult_carding_form,
+    carding_form_to_document_dict,
+    create_signed_carding_form_03b,
+    form_kind_for_athlete,
+    open_carding_season_year,
+    prefill_carding_form,
+    read_carding_form_pdf,
+    season_label,
+)
 from app.services.club_membership_consent import (
     DEFAULT_BODY_TEMPLATE,
     DEFAULT_FEE_AMOUNT,
@@ -61,6 +70,14 @@ class MembershipConsentTemplateUpdate(BaseModel):
 
 class RevokeConsentIn(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
+
+
+class AdultCardingSignIn(BaseModel):
+    city: Optional[str] = Field(None, max_length=120)
+    rules_accepted: bool = False
+    signature_athlete_image: str = Field(..., min_length=32)
+    athlete_full_name: Optional[str] = Field(None, max_length=255)
+    athlete_egn: Optional[str] = Field(None, max_length=16)
 
 
 def _athlete_for_coach(db: Session, athlete_id: int, user: User) -> Athlete:
@@ -176,10 +193,30 @@ def list_athlete_documents(
         carding_form_to_document_dict(r) for r in carding_rows
     ]
     docs.sort(key=lambda d: d.get("signed_at") or "", reverse=True)
+
+    year = open_carding_season_year(db, int(athlete.club_id)) if athlete.club_id else None
+    adult = {
+        "needs_sign": False,
+        "form_kind": None,
+        "season_year": year,
+        "season_label": season_label(year) if year else None,
+        "club_name": None,
+        "prefill": None,
+    }
+    if year and athlete.club_id:
+        club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+        kind = form_kind_for_athlete(athlete, year)
+        adult["form_kind"] = kind
+        adult["club_name"] = (club.name if club else "") or ""
+        if athlete_needs_adult_carding_form(db, athlete):
+            adult["needs_sign"] = True
+            adult["prefill"] = prefill_carding_form(db, athlete, year)
+
     return {
         "athlete_id": athlete.id,
         "membership_consent_active": active is not None,
         "documents": docs,
+        "carding_03b": adult,
     }
 
 
@@ -240,6 +277,114 @@ def preview_carding_form(
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="forma03_{form.id}.pdf"'},
     )
+
+
+@docs_router.post("/{athlete_id}/documents/carding-form-03b/sign")
+def sign_carding_form_03b_in_person(
+    athlete_id: int,
+    payload: AdultCardingSignIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Подпис на Форма 0-3 B пред треньора (canvas на устройството)."""
+    if not payload.rules_accepted:
+        raise HTTPException(status_code=422, detail="Необходимо е приемане на правилата на БФВ")
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма клуб")
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    year = open_carding_season_year(db, club.id)
+    if not year:
+        raise HTTPException(status_code=409, detail="Няма отворена сезонна заявка с активна Форма 03")
+    if not athlete_needs_adult_carding_form(db, athlete):
+        raise HTTPException(
+            status_code=409,
+            detail="Няма нужда от Форма 0-3 B (вече е подписана или състезателят не е пълнолетен)",
+        )
+    pre = prefill_carding_form(db, athlete, year)
+    full = (payload.athlete_full_name or "").strip() or " ".join(
+        p for p in [pre.get("athlete_first_name"), pre.get("athlete_middle_name"), pre.get("athlete_last_name")] if p
+    ).strip()
+    egn = (payload.athlete_egn or "").strip() or pre.get("athlete_egn") or ""
+    try:
+        form = create_signed_carding_form_03b(
+            db,
+            athlete=athlete,
+            club=club,
+            season_year=year,
+            athlete_full_name=full,
+            athlete_egn=egn,
+            city=payload.city or pre.get("city"),
+            signature_image_data_url=payload.signature_athlete_image,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "form_id": form.id,
+        "form_kind": form.form_kind,
+        "signed_at": form.signed_at,
+        "season_year": form.season_year,
+    }
+
+
+@docs_router.post("/{athlete_id}/documents/carding-form-03b/invite-link")
+def create_carding_form_03b_invite_link(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Еднократен линк (72 ч) за подпис от разстояние — праща се по Viber/WhatsApp."""
+    from datetime import timedelta
+
+    from app.auth import create_access_token
+    from app.settings import settings
+
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма клуб")
+    year = open_carding_season_year(db, int(athlete.club_id))
+    if not year:
+        raise HTTPException(status_code=409, detail="Няма отворена сезонна заявка с активна Форма 03")
+    if not athlete_needs_adult_carding_form(db, athlete):
+        raise HTTPException(status_code=409, detail="Няма нужда от Форма 0-3 B в момента")
+    token = create_access_token(
+        {
+            "sub": f"carding_03b:{int(athlete.id)}",
+            "typ": "carding_03b",
+            "athlete_id": int(athlete.id),
+            "season_year": int(year),
+            "club_id": int(athlete.club_id),
+        },
+        expires_delta=timedelta(hours=72),
+    )
+    base = (settings.parent_portal_public_url or "").rstrip("/") or "https://volley-platform-bul.vercel.app"
+    path = f"/sign/form-03b/{token}"
+    return {
+        "ok": True,
+        "token": token,
+        "path": path,
+        "url": f"{base}{path}",
+        "expires_hours": 72,
+        "athlete_name": athlete.athlete_name,
+        "season_label": season_label(year),
+    }
 
 
 @docs_router.post("/{athlete_id}/documents/carding-form/{form_id}/revoke")

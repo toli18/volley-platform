@@ -13,6 +13,7 @@ from app.services.club_membership_consent import bvf_logo_path, get_active_conse
 
 FORM_KIND_03 = "03"
 FORM_KIND_03A = "03a"
+FORM_KIND_03B = "03b"  # пълнолетни — само състезател (Форма 0-3 B)
 
 
 def season_label(year: int) -> str:
@@ -36,7 +37,7 @@ def open_carding_season_year(db: Session, club_id: int) -> int | None:
 
 
 def athlete_needs_carding_form(db: Session, athlete: Athlete) -> bool:
-    """Gate: само „Активирай Форма 03“ пуска бланката; нужен е подпис за годината."""
+    """Gate за родителски портал: 03 / 03-А. Пълнолетни (03b) се подписват през треньора."""
     if not athlete.club_id or not getattr(athlete, "is_active", True):
         return False
     year = open_carding_season_year(db, int(athlete.club_id))
@@ -44,7 +45,21 @@ def athlete_needs_carding_form(db: Session, athlete: Athlete) -> bool:
         return False
     if get_signed_carding_form(db, athlete.id, year, athlete.club_id) is not None:
         return False
+    if form_kind_for_athlete(athlete, year) == FORM_KIND_03B:
+        return False
     return True
+
+
+def athlete_needs_adult_carding_form(db: Session, athlete: Athlete) -> bool:
+    """Пълнолетен без активна Форма 0-3 B за отворения сезон."""
+    if not athlete.club_id or not getattr(athlete, "is_active", True):
+        return False
+    year = open_carding_season_year(db, int(athlete.club_id))
+    if not year:
+        return False
+    if form_kind_for_athlete(athlete, year) != FORM_KIND_03B:
+        return False
+    return get_signed_carding_form(db, athlete.id, year, athlete.club_id) is None
 
 
 def athlete_age_in_season(athlete: Athlete, season_year: int) -> int | None:
@@ -73,6 +88,8 @@ def athlete_age_in_season(athlete: Athlete, season_year: int) -> int | None:
 
 def form_kind_for_athlete(athlete: Athlete, season_year: int) -> str:
     age = athlete_age_in_season(athlete, season_year)
+    if age is not None and age >= 18:
+        return FORM_KIND_03B
     if age is not None and age >= 14:
         return FORM_KIND_03A
     return FORM_KIND_03
@@ -277,7 +294,13 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
         except Exception:
             pass
 
-    title_kind = "Форма 0-3 А" if form.form_kind == FORM_KIND_03A else "Форма 0-3"
+    title_kind = (
+        "Форма 0-3 B"
+        if form.form_kind == FORM_KIND_03B
+        else "Форма 0-3 А"
+        if form.form_kind == FORM_KIND_03A
+        else "Форма 0-3"
+    )
     c.setFont(font_name, 11)
     c.drawCentredString(width / 2, top - 6 * mm, "Българска федерация по Волейбол")
     c.setFont(font_name, 10)
@@ -325,7 +348,11 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
         c.setFillColorRGB(0, 0, 0)
         y -= box_h + 4 * mm
 
-    if form.form_kind == FORM_KIND_03A:
+    if form.form_kind == FORM_KIND_03B:
+        text("Долуподписаният/ата:")
+        draw_name_egn_box(form.athlete_full_name, form.athlete_egn, "(три имена)")
+        text("с настоящото заявявам, че желая да бъда картотекиран/а в", gap=4 * mm)
+    elif form.form_kind == FORM_KIND_03A:
         text("Долуподписаният/ата:")
         draw_name_egn_box(form.athlete_full_name, form.athlete_egn, "(три имена — състезател)")
         text("със съгласието на родителите/попечителите си:")
@@ -367,7 +394,8 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
 
     legal = (
         "С подписване на настоящата форма /заявление декларирам, че съм запознат/а и се задължавам "
-        "да спазвам устава, правилниците и наредбите на БФВ и международните организации."
+        "да спазвам устава, правилниците и наредбите на БФВ, както и нормативните актове на "
+        "международните организации, администриращи спорта волейбол."
     )
     c.setFont(font_name, 8)
     # simple wrap
@@ -397,7 +425,29 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
     c.drawString(inner_l + half + 5 * mm, y - 4 * mm, f"Град: {city}")
     y -= meta_h + 8 * mm
 
-    if form.form_kind == FORM_KIND_03A:
+    if form.form_kind == FORM_KIND_03B:
+        text("Състезател:", gap=3 * mm)
+        ath_img = resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None))
+        if ath_img:
+            try:
+                c.drawImage(
+                    str(ath_img),
+                    inner_l,
+                    y - 16 * mm,
+                    width=content_w * 0.55,
+                    height=14 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                text(form.signature_athlete or "_______________")
+            y -= 18 * mm
+        else:
+            text(form.signature_athlete or "_______________", gap=6 * mm)
+        c.setFont(font_name, 7)
+        c.setFillColorRGB(0.45, 0.5, 0.55)
+        c.drawString(inner_l, y, "(подпис)")
+    elif form.form_kind == FORM_KIND_03A:
         text("Състезател:", gap=3 * mm)
         ath_img = resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None))
         if ath_img:
@@ -417,34 +467,58 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
         else:
             text(f"{form.signature_athlete or '_______________'}", gap=6 * mm)
         text("Родители/попечители:", gap=5 * mm)
+        c.setFont(font_name, 10)
+        p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
+        sig_box_h = 16 * mm
+        half_w = content_w / 2 - 2 * mm
+        if p1_img:
+            try:
+                c.drawImage(
+                    str(p1_img),
+                    inner_l,
+                    y - sig_box_h + 2 * mm,
+                    width=half_w,
+                    height=sig_box_h - 4 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
+        else:
+            c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
+        c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
+        y -= sig_box_h if p1_img else 4 * mm
+        c.setFont(font_name, 7)
+        c.setFillColorRGB(0.45, 0.5, 0.55)
+        c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
+        c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
     else:
         text("Родители/настойници:", gap=5 * mm)
-
-    c.setFont(font_name, 10)
-    p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
-    sig_box_h = 16 * mm
-    half_w = content_w / 2 - 2 * mm
-    if p1_img:
-        try:
-            c.drawImage(
-                str(p1_img),
-                inner_l,
-                y - sig_box_h + 2 * mm,
-                width=half_w,
-                height=sig_box_h - 4 * mm,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
-        except Exception:
+        c.setFont(font_name, 10)
+        p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
+        sig_box_h = 16 * mm
+        half_w = content_w / 2 - 2 * mm
+        if p1_img:
+            try:
+                c.drawImage(
+                    str(p1_img),
+                    inner_l,
+                    y - sig_box_h + 2 * mm,
+                    width=half_w,
+                    height=sig_box_h - 4 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
+        else:
             c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-    else:
-        c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-    c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
-    y -= sig_box_h if p1_img else 4 * mm
-    c.setFont(font_name, 7)
-    c.setFillColorRGB(0.45, 0.5, 0.55)
-    c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
-    c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
+        c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
+        y -= sig_box_h if p1_img else 4 * mm
+        c.setFont(font_name, 7)
+        c.setFillColorRGB(0.45, 0.5, 0.55)
+        c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
+        c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
 
     c.showPage()
     c.save()
@@ -470,7 +544,12 @@ def read_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) ->
 
 
 def carding_form_to_document_dict(form: AthleteCardingForm) -> dict[str, Any]:
-    kind_label = "Форма 0-3 А" if form.form_kind == FORM_KIND_03A else "Форма 0-3"
+    if form.form_kind == FORM_KIND_03B:
+        kind_label = "Форма 0-3 B"
+    elif form.form_kind == FORM_KIND_03A:
+        kind_label = "Форма 0-3 А"
+    else:
+        kind_label = "Форма 0-3"
     return {
         "id": form.id,
         "doc_type": "carding_form",
@@ -481,6 +560,66 @@ def carding_form_to_document_dict(form: AthleteCardingForm) -> dict[str, Any]:
         "form_kind": form.form_kind,
         "has_preview": True,
     }
+
+
+def create_signed_carding_form_03b(
+    db: Session,
+    *,
+    athlete: Athlete,
+    club: Club,
+    season_year: int,
+    athlete_full_name: str,
+    athlete_egn: str,
+    city: str | None,
+    signature_image_data_url: str,
+) -> AthleteCardingForm:
+    """Записва Форма 0-3 B (само състезател + canvas)."""
+    egn = "".join(ch for ch in str(athlete_egn or "") if ch.isdigit())
+    if len(egn) != 10:
+        raise ValueError("ЕГН трябва да е 10 цифри")
+    full = (athlete_full_name or "").strip()
+    if len(full.split()) < 2:
+        raise ValueError("Попълни трите имена на състезателя")
+    if form_kind_for_athlete(athlete, season_year) != FORM_KIND_03B:
+        raise ValueError("Състезателят не е в обхвата на Форма 0-3 B (пълнолетни)")
+    if get_signed_carding_form(db, athlete.id, season_year, club.id) is not None:
+        raise ValueError("За този сезон вече има активна Форма 03")
+
+    now = datetime.utcnow()
+    deactivate_prior_carding_forms(db, athlete.id, season_year)
+    form = AthleteCardingForm(
+        athlete_id=athlete.id,
+        club_id=club.id,
+        season_year=int(season_year),
+        form_kind=FORM_KIND_03B,
+        parent1_full_name="—",
+        parent1_egn="----------",
+        parent2_full_name=None,
+        parent2_egn=None,
+        athlete_full_name=full,
+        athlete_egn=egn,
+        city=(city or "").strip() or None,
+        rules_accepted=True,
+        signature_parent1="—",
+        signature_parent2=None,
+        signature_athlete=full,
+        signed_at=now,
+        club_name_snapshot=club.name,
+        season_label_snapshot=season_label(season_year),
+        is_active=True,
+    )
+    db.add(form)
+    db.flush()
+    form.signature_athlete_image_rel = save_carding_signature_png(
+        form.id, "athlete", signature_image_data_url
+    )
+    try:
+        form.pdf_rel_path = persist_carding_form_pdf(form, club=club)
+    except Exception:
+        pass
+    db.commit()
+    db.refresh(form)
+    return form
 
 
 # silence unused import warning for AthleteClubConsent type hints if needed
