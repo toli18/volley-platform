@@ -723,7 +723,7 @@ export default function CoachClubProfile() {
                       />
                       <span className="uiMuted" style={{ fontSize: 12, lineHeight: 1.4 }}>
                         Възраст към 1 януари. По подразбиране {feesDefaults.age_exempt_min_age}. Смяната
-                        важи от следващия месец
+                        важи веднага
                         {feesMeta.age_exempt_from_month
                           ? ` (от ${feesMeta.age_exempt_from_month})`
                           : ""}
@@ -1128,7 +1128,7 @@ export default function CoachClubProfile() {
                     />
                     <span className="uiMuted" style={{ fontSize: 12, lineHeight: 1.4 }}>
                       Възраст към 1 януари. По подразбиране {feesDefaults.age_exempt_min_age}. Смяната
-                      важи от следващия месец
+                      важи веднага
                       {feesMeta.age_exempt_from_month
                         ? ` (от ${feesMeta.age_exempt_from_month})`
                         : ""}

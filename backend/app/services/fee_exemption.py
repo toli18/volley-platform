@@ -138,24 +138,17 @@ def apply_club_age_exempt_settings(
     now: datetime | None = None,
 ) -> None:
     """
-    Обновява възрастовото правило. При включване или смяна на N —
-    from_month = следващият месец (само напред).
+    Обновява възрастовото правило. При включване важи от текущия месец
+    (от момента на промяната).
     """
-    prev_enabled = bool(getattr(club, "fee_age_exempt_enabled", False))
-    prev_min = int(getattr(club, "fee_age_exempt_min_age", None) or DEFAULT_FEE_AGE_EXEMPT_MIN)
-
     if enabled is not None:
         club.fee_age_exempt_enabled = bool(enabled)
     if min_age is not None:
         club.fee_age_exempt_min_age = int(min_age)
 
-    new_enabled = bool(getattr(club, "fee_age_exempt_enabled", False))
-    new_min = int(getattr(club, "fee_age_exempt_min_age", None) or DEFAULT_FEE_AGE_EXEMPT_MIN)
-
-    if not new_enabled:
+    if not bool(getattr(club, "fee_age_exempt_enabled", False)):
         club.fee_age_exempt_from_month = None
         return
 
-    rule_changed = (not prev_enabled and new_enabled) or (prev_min != new_min)
-    if rule_changed or not (getattr(club, "fee_age_exempt_from_month", None) or "").strip():
-        club.fee_age_exempt_from_month = next_month_key(now)
+    # Важи от момента на промяната — текущият месец.
+    club.fee_age_exempt_from_month = current_month_key(now)
