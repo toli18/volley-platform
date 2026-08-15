@@ -158,6 +158,8 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
     club_row = _club_for_athlete(db, athlete)
     fees_on = club_monthly_fees_enabled(club_row)
     from app.services.fee_exemption import athlete_fee_exempt_now
+    from app.services.athlete_memberships import athlete_display_has_photo
+    from app.services.athlete_photo import has_cached_photo
 
     fee_exempt, _ = athlete_fee_exempt_now(athlete, club_row) if fees_on else (False, None)
     fees_visible = fees_on and not fee_exempt
@@ -175,6 +177,8 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         )
     else:
         current_fee = _current_month_fee(db, athlete, due_day=due_day)
+
+    has_photo = athlete_display_has_photo(athlete, cached=has_cached_photo(athlete.id))
 
     return AthleteRoomMeResponse(
         athlete_id=athlete.id,
@@ -196,6 +200,7 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         fee_change_highlight=fee_highlight,
         monthly_fees_enabled=fees_visible,
         fee_exempt=bool(fee_exempt),
+        has_photo=has_photo,
         avatar_url=None,
         chat_unread_count=total_unread_for_athlete(db, athlete.id),
         home_notifications=[
@@ -217,6 +222,27 @@ def athlete_room_me(
             raise HTTPException(status_code=422, detail="month must be YYYY-MM")
         month_key = mk
     return _build_me(db, athlete, month_key)
+
+
+@router.get("/athlete-room/me/photo")
+def athlete_room_photo(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_athlete_room_athlete),
+):
+    """Портрет на влезлия състезател (локален кеш / при нужда от БФВ)."""
+    from fastapi.responses import Response
+
+    from app.services.athlete_photo import ensure_athlete_photo_from_bvf, read_athlete_photo
+
+    data = read_athlete_photo(athlete.id)
+    if not data:
+        club = db.query(Club).filter(Club.id == int(athlete.club_id)).first() if athlete.club_id else None
+        data = ensure_athlete_photo_from_bvf(athlete, club)
+        if data and getattr(athlete, "bvf_photo_id", None):
+            db.commit()
+    if not data:
+        raise HTTPException(status_code=404, detail="Няма снимка")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/athlete-room/me/development", response_model=ParentDevelopmentOut)

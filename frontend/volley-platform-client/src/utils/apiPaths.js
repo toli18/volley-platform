@@ -185,6 +185,7 @@ export const API_PATHS = {
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",
   ATHLETE_ROOM_AUTH_LOGIN: "/api/athlete-room-auth/login",
   ATHLETE_ROOM_ME: "/api/athlete-room/me",
+  ATHLETE_ROOM_ME_PHOTO: "/api/athlete-room/me/photo",
   ATHLETE_ROOM_ME_SCHEDULE: "/api/athlete-room/me/schedule",
   ATHLETE_ROOM_DEVELOPMENT_ME: "/api/athlete-room/me/development",
   ATHLETE_ROOM_ACK_CHANGE_ME: "/api/athlete-room/me/ack-change",

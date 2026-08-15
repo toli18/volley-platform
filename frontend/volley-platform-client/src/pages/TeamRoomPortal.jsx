@@ -12,6 +12,7 @@ import TeamRoomFeed from "../components/teamRoom/TeamRoomFeed";
 import TeamRoomLayout from "../components/teamRoom/TeamRoomLayout";
 import TeamRoomPushPrompt from "../components/teamRoom/TeamRoomPushPrompt";
 import LoginIntro from "../components/auth/LoginIntro";
+import useAthletePhoto from "../hooks/useAthletePhoto";
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
@@ -299,13 +300,19 @@ export default function TeamRoomPortal() {
 
   const attendance = data?.attendance_summary;
   const teamLabel = (data?.teams || []).join(", ") || "—";
+  const photoUrl = useAthletePhoto(data?.athlete_id, Boolean(data?.has_photo), {
+    canFetchFromBvf: Boolean(data?.has_photo),
+    photoPath: data?.athlete_id ? API_PATHS.ATHLETE_ROOM_ME_PHOTO : null,
+  });
+  const feedItems = data?.items || [];
+  const hasFeed = feedItems.length > 0;
 
   const bottomNav = data ? (
     <TeamRoomBottomNav
       activeTab={activeTab}
       onChange={setActiveTab}
       badges={badges}
-      avatarUrl={data.avatar_url || null}
+      avatarUrl={photoUrl || data.avatar_url || null}
     />
   ) : null;
 
@@ -341,13 +348,26 @@ export default function TeamRoomPortal() {
         {!loading && !error && data ? (
           <>
             <header className="teamRoomAthleteHero">
-              <h1 className="teamRoomTopTitle">{data.athlete_name}</h1>
-              <p className="teamRoomTopSub">{data.club_name || ""}</p>
-              <AthleteMembershipChips
-                teamNames={data.teams}
-                cardedTeams={data.carded_teams}
-                showEmpty
-              />
+              <div className="teamRoomAthleteHeroRow">
+                <div className="teamRoomAthletePhotoWrap" aria-hidden={!photoUrl}>
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="" className="teamRoomAthletePhoto" />
+                  ) : (
+                    <span className="teamRoomAthletePhotoPlaceholder">
+                      {(data.athlete_name || "?").trim().charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="teamRoomAthleteHeroText">
+                  <h1 className="teamRoomTopTitle">{data.athlete_name}</h1>
+                  <p className="teamRoomTopSub">{data.club_name || ""}</p>
+                  <AthleteMembershipChips
+                    teamNames={data.teams}
+                    cardedTeams={data.carded_teams}
+                    showEmpty
+                  />
+                </div>
+              </div>
             </header>
 
             <TabPanel id="home" activeTab={activeTab}>
@@ -384,8 +404,12 @@ export default function TeamRoomPortal() {
                   onAckFeeHighlight={handleAckFeeHighlight}
                 />
               ) : null}
-              <h2 className="teamRoomSectionTitle">Новини</h2>
-              <TeamRoomFeed items={data.items} />
+              {hasFeed ? (
+                <>
+                  <h2 className="teamRoomSectionTitle">Новини</h2>
+                  <TeamRoomFeed items={feedItems} />
+                </>
+              ) : null}
             </TabPanel>
 
             <TabPanel id="schedule" activeTab={activeTab}>
