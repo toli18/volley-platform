@@ -50,6 +50,8 @@ class CompetitionEventRead(CompetitionEventBase):
     roster_selected_count: int = 0
     roster_candidate_count: int = 0
     needs_roster: bool = False
+    roster_action: Optional[str] = None  # generate | review
+    days_until: Optional[int] = None
     can_edit_event: bool = False
     can_edit_roster: bool = False
     created_at: Optional[datetime] = None
@@ -74,5 +76,7 @@ class CompetitionRosterRead(BaseModel):
     selected_count: int
     needs_roster: bool
     auto_eligible: bool
+    days_until: Optional[int] = None
+    roster_action: Optional[str] = None
     athlete_ids: list[int] = Field(default_factory=list)
     candidates: list[dict] = Field(default_factory=list)

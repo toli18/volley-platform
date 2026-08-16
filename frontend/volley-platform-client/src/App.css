@@ -6973,6 +6973,53 @@
   color: #0f4d3a;
 }
 
+.coachMobileChip--danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.coachMobileChip--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.coachMobileRosterHint {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coachMobileRosterHint--danger {
+  color: #991b1b;
+}
+
+.coachMobileRosterHint--warn {
+  color: #92400e;
+}
+
+.coachMobileRosterBox {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.coachMobileRosterItem--danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.coachMobileRosterItem--warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.coachMobileEventCard--danger {
+  background: #fffafa;
+}
+
+.coachMobileEventCard--warn {
+  background: #fffdf7;
+}
+
 .coachMobileQuickGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

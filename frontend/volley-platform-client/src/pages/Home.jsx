@@ -3,6 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, EmptyState, PageHero } from "../components/ui";
 import { competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
+import {
+  competitionRosterAction,
+  competitionRosterPath,
+} from "../utils/competitionRosterPriority";
 import CoachMethodAssignments from "../components/coach/CoachMethodAssignments";
 import Drills from "./Drills";
 import {
@@ -51,6 +55,7 @@ export default function Home() {
   const [activityItems, setActivityItems] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
   const [scheduleItems, setScheduleItems] = useState([]);
+  const [rosterAlerts, setRosterAlerts] = useState([]);
   const [attendanceRank, setAttendanceRank] = useState({ top: [], bottom: [], sessionLimit: 10 });
   const [feeOverdue, setFeeOverdue] = useState({ late10: [], overTwo: [] });
   const [error, setError] = useState("");
@@ -78,6 +83,7 @@ export default function Home() {
     });
     setMonthlyStats((prev) => partial.monthlyStats ?? prev);
     setScheduleItems((prev) => partial.scheduleItems ?? prev);
+    setRosterAlerts((prev) => partial.rosterAlerts ?? prev);
     setAttendanceRank((prev) => partial.attendanceRank ?? prev);
   };
 
@@ -270,6 +276,31 @@ export default function Home() {
       ) : null}
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      {activeTab === "today" && rosterAlerts.length > 0 ? (
+        <Card title={`Състезания — действие (${rosterAlerts.length})`}>
+          <div style={{ display: "grid", gap: 8 }}>
+            {rosterAlerts.map((alert) => (
+              <Link
+                key={alert.id}
+                to={alert.to}
+                style={{
+                  ...cardLinkStyle,
+                  display: "block",
+                  background: alert.tone === "danger" ? "#fef2f2" : "#fffbeb",
+                  borderColor: alert.tone === "danger" ? "#fecaca" : "#fcd34d",
+                }}
+              >
+                <div style={{ fontWeight: 700, color: alert.tone === "danger" ? "#991b1b" : "#92400e" }}>
+                  {alert.text}
+                </div>
+                {alert.meta ? (
+                  <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>{alert.meta}</div>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       {activeTab === "today" && (
       <Card
         title="График за следващите 7 дни"
@@ -292,9 +323,17 @@ export default function Home() {
           />
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {scheduleItems.slice(0, 6).map((it, idx) => {
+            {scheduleItems
+              .filter((it) => {
+                const horizon = new Date();
+                horizon.setDate(horizon.getDate() + 6);
+                return String(it.date) <= horizon.toISOString().slice(0, 10);
+              })
+              .slice(0, 8)
+              .map((it, idx) => {
               const isComp = isCompetitionEvent(it);
               const tc = teamColorsForId(it.team_id);
+              const rosterAction = isComp ? competitionRosterAction(it) : null;
               const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
               const row = (
                 <>
@@ -304,8 +343,8 @@ export default function Home() {
                       style={{
                         fontWeight: 800,
                         fontSize: 16,
-                        color: isComp ? "#9a3412" : tc.text,
-                        borderLeft: `3px solid ${isComp ? "#f59e0b" : tc.border}`,
+                        color: isComp ? (rosterAction === "generate" ? "#991b1b" : "#9a3412") : tc.text,
+                        borderLeft: `3px solid ${isComp ? (rosterAction === "generate" ? "#dc2626" : "#f59e0b") : tc.border}`,
                         paddingLeft: 8,
                       }}
                     >
@@ -316,6 +355,16 @@ export default function Home() {
                       {it.location ? `· ${it.location}` : ""}
                     </span>
                   </div>
+                  {rosterAction === "generate" ? (
+                    <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#991b1b" }}>
+                      Генерирай тимов лист →
+                    </div>
+                  ) : null}
+                  {rosterAction === "review" ? (
+                    <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#92400e" }}>
+                      Провери тимовия лист →
+                    </div>
+                  ) : null}
                 </>
               );
               const key = isComp
@@ -323,9 +372,18 @@ export default function Home() {
                 : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
               if (isComp) {
                 return (
-                  <div key={key} style={{ ...cardLinkStyle, background: "#fffbeb", borderColor: "#fcd34d" }}>
+                  <Link
+                    key={key}
+                    to={competitionRosterPath(it.competition_id)}
+                    style={{
+                      ...cardLinkStyle,
+                      display: "block",
+                      background: rosterAction === "generate" ? "#fef2f2" : "#fffbeb",
+                      borderColor: rosterAction === "generate" ? "#fecaca" : "#fcd34d",
+                    }}
+                  >
                     {row}
-                  </div>
+                  </Link>
                 );
               }
               return (
@@ -334,9 +392,9 @@ export default function Home() {
                 </Link>
               );
             })}
-            {scheduleItems.length > 6 && (
+            {scheduleItems.length > 8 && (
               <Link to="/coach/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                + още {scheduleItems.length - 6} в пълния график →
+                + още в пълния график →
               </Link>
             )}
           </div>

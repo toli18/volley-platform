@@ -720,6 +720,8 @@ def _competition_to_read(
         roster_selected_count=int(summary.get("selected_count") or 0),
         roster_candidate_count=int(summary.get("candidate_count") or 0),
         needs_roster=bool(summary.get("needs_roster")),
+        roster_action=summary.get("roster_action"),
+        days_until=summary.get("days_until"),
         can_edit_event=can_event,
         can_edit_roster=can_roster and not roster_is_locked(event),
         created_at=event.created_at,

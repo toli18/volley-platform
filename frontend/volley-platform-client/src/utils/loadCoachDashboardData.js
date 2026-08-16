@@ -6,6 +6,7 @@ import {
   feesLookbackFromMonth,
   loadCoachAttendanceRegularity,
 } from "./coachDashboardStats";
+import { buildCompetitionRosterAlerts } from "./competitionRosterPriority";
 import { normalizePlan } from "./trainingPlanNormalize";
 
 export const currentMonthKey = (now = new Date()) => {
@@ -62,6 +63,7 @@ export const EMPTY_DASHBOARD = {
   scheduleItems: [],
   attendanceRank: { top: [], bottom: [], sessionLimit: 10 },
   absenceNotices: [],
+  rosterAlerts: [],
   monthKey: currentMonthKey(),
 };
 
@@ -87,9 +89,10 @@ export function mergeDashboardData(prev, partial) {
 }
 
 function scheduleParams({ isHeadCoach, myCoachId, scopeMine }) {
+  // +10 дни: за да хванем „генерирай тимов лист“ преди мача (правилото е ≤10 дни)
   return {
     from: new Date().toISOString().slice(0, 10),
-    to: new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10),
+    to: new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10),
     ...(!isHeadCoach && myCoachId ? { coach_id: myCoachId } : {}),
     ...(scopeMine && myCoachId ? { coach_id: myCoachId } : {}),
   };
@@ -131,12 +134,22 @@ async function loadTodaySection({ isHeadCoach, myCoachId, scopeMine }) {
       ? scheduleRes.value.data.items
       : [];
 
+  const rosterAlertRows = buildCompetitionRosterAlerts(scheduleList);
+  const rosterAlerts = rosterAlertRows.map((a) => ({
+    id: a.id,
+    kind: a.kind,
+    text: a.text,
+    at: a.date,
+    to: a.to,
+  }));
+
   return {
     absenceNotices: absenceList,
-    scheduleItems: scheduleList.slice(0, isHeadCoach ? 48 : 24),
-    activityItems: [...absenceAlerts, ...forumNotifications]
+    scheduleItems: scheduleList.slice(0, isHeadCoach ? 64 : 32),
+    rosterAlerts: rosterAlertRows,
+    activityItems: [...absenceAlerts, ...rosterAlerts, ...forumNotifications]
       .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
-      .slice(0, 12),
+      .slice(0, 16),
   };
 }
 

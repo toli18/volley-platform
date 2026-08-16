@@ -97,6 +97,13 @@ class ScheduleOccurrence(BaseModel):
     team_id: int
     team_name: Optional[str] = None
 
+    # Тимов лист (само за competition)
+    roster_status: Optional[str] = None
+    needs_roster: bool = False
+    roster_count: Optional[int] = None
+    roster_action: Optional[str] = None  # generate | review
+    days_until: Optional[int] = None
+
 
 class ScheduleOccurrencesResponse(BaseModel):
     items: list[ScheduleOccurrence] = Field(default_factory=list)

@@ -5,6 +5,10 @@ import { useAuth } from "../../auth/AuthContext";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
+import {
+  competitionRosterAction,
+  competitionRosterPath,
+} from "../../utils/competitionRosterPriority";
 import { formatDaysUntil } from "../../utils/parentPortalDates";
 import {
   EMPTY_DASHBOARD,
@@ -62,12 +66,14 @@ function TeamNameLabel({ teamId, teamName, isComp }) {
 function EventCard({ item, onAttendance, programTheme }) {
   const isComp = isCompetitionEvent(item);
   const tc = teamColorsForId(item.team_id);
+  const rosterAction = isComp ? competitionRosterAction(item) : null;
+  const priority = rosterAction === "generate" ? "danger" : rosterAction === "review" ? "warn" : null;
   return (
     <article
-      className="coachMobileCard coachMobileEventCard"
-      style={{ borderLeft: `4px solid ${isComp ? "#f59e0b" : tc.border}` }}
+      className={`coachMobileCard coachMobileEventCard${priority ? ` coachMobileEventCard--${priority}` : ""}`}
+      style={{ borderLeft: `4px solid ${isComp ? (priority === "danger" ? "#dc2626" : "#f59e0b") : tc.border}` }}
     >
-      <EventCardHeader item={item} isComp={isComp} />
+      <EventCardHeader item={item} isComp={isComp} rosterAction={rosterAction} />
       <p className="coachMobileEventDate">{formatDateBg(item.date)}</p>
       <p className="coachMobileMuted">
         {item.start_time} – {item.end_time}
@@ -81,16 +87,39 @@ function EventCard({ item, onAttendance, programTheme }) {
           ) : null}
         </p>
       ) : null}
+      {isComp && rosterAction === "generate" ? (
+        <p className="coachMobileRosterHint coachMobileRosterHint--danger">Няма тимов лист — генерирай до мача.</p>
+      ) : null}
+      {isComp && rosterAction === "review" ? (
+        <p className="coachMobileRosterHint coachMobileRosterHint--warn">
+          Провери тимовия лист
+          {item.roster_count != null ? ` (${item.roster_count})` : ""}.
+        </p>
+      ) : null}
       {!isComp && item.team_id ? (
         <Button type="button" size="sm" onClick={() => onAttendance(item)}>
           Присъствие
+        </Button>
+      ) : null}
+      {isComp && item.competition_id ? (
+        <Button
+          type="button"
+          size="sm"
+          variant={rosterAction === "generate" ? undefined : "secondary"}
+          onClick={() => onAttendance(item)}
+        >
+          {rosterAction === "generate"
+            ? "Генерирай тимов лист"
+            : rosterAction === "review"
+              ? "Провери тимовия лист"
+              : "Тимов лист"}
         </Button>
       ) : null}
     </article>
   );
 }
 
-function EventCardHeader({ item, isComp }) {
+function EventCardHeader({ item, isComp, rosterAction }) {
   const daysUntil = formatDaysUntil(item.date);
   return (
     <div className="coachMobileEventHead">
@@ -98,6 +127,12 @@ function EventCardHeader({ item, isComp }) {
         {isComp ? competitionKindLabel(item) : "Тренировка"}
       </span>
       {daysUntil ? <span className="coachMobileChip coachMobileChip--soon">{daysUntil}</span> : null}
+      {rosterAction === "generate" ? (
+        <span className="coachMobileChip coachMobileChip--danger">Тимов лист</span>
+      ) : null}
+      {rosterAction === "review" ? (
+        <span className="coachMobileChip coachMobileChip--warn">Провери състава</span>
+      ) : null}
       {item.team_name ? (
         <TeamNameLabel teamId={item.team_id} teamName={item.team_name} isComp={isComp} />
       ) : null}
@@ -283,25 +318,43 @@ export default function CoachToday() {
   }, []);
 
   const { todayItems, upcomingItems } = useMemo(() => {
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + 6);
+    const horizonKey = horizon.toISOString().slice(0, 10);
     const sorted = [...(dash.scheduleItems || [])].sort((a, b) => {
+      const aPri = competitionRosterAction(a) === "generate" ? 0 : competitionRosterAction(a) === "review" ? 1 : 2;
+      const bPri = competitionRosterAction(b) === "generate" ? 0 : competitionRosterAction(b) === "review" ? 1 : 2;
+      if (aPri !== bPri && a.date === b.date) return aPri - bPri;
       const d = String(a.date).localeCompare(String(b.date));
       if (d !== 0) return d;
+      if (aPri !== bPri) return aPri - bPri;
       return String(a.start_time || "").localeCompare(String(b.start_time || ""));
     });
     return {
       todayItems: sorted.filter((i) => i.date === today),
-      upcomingItems: sorted.filter((i) => i.date > today).slice(0, 5),
+      upcomingItems: sorted.filter((i) => i.date > today && i.date <= horizonKey).slice(0, 8),
     };
   }, [dash.scheduleItems, today]);
 
+  const rosterAlerts = dash.rosterAlerts || [];
   const greeting = user?.name || user?.email || "Треньор";
-  const todayBadge = dash.activityItems.length || null;
+  const todayBadge = (dash.activityItems.length || 0) || null;
   const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
   const statsBadge = monthlyFeesEnabled ? dash.feesSummary.unpaid || null : null;
   const programTc = programWeek?.team_id ? teamColorsForId(programWeek.team_id) : null;
   const trainingsHref = "/coach/trainings";
   const absenceNotices = dash.absenceNotices || [];
-  const nonAbsenceActivity = (dash.activityItems || []).filter((item) => item.kind !== "absence");
+  const nonAbsenceActivity = (dash.activityItems || []).filter(
+    (item) => item.kind !== "absence" && item.kind !== "roster_generate" && item.kind !== "roster_review",
+  );
+
+  const openScheduleItem = (item) => {
+    if (isCompetitionEvent(item) && item.competition_id) {
+      navigate(competitionRosterPath(item.competition_id));
+      return;
+    }
+    navigate(attendancePath(item));
+  };
 
   return (
     <div className="coachMobilePage">
@@ -342,6 +395,28 @@ export default function CoachToday() {
                 </li>
               );
             })}
+          </ul>
+        </section>
+      ) : null}
+
+      {!loading && rosterAlerts.length > 0 ? (
+        <section className="coachMobileAbsenceBox coachMobileRosterBox" aria-label="Тимов лист за състезания">
+          <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush coachMobileAbsenceTitle">
+            Състезания — действие
+            <span className="coachMobileAbsenceCount">{rosterAlerts.length}</span>
+          </h2>
+          <ul className="coachMobileAbsenceList">
+            {rosterAlerts.map((alert) => (
+              <li
+                key={alert.id}
+                className={`coachMobileAbsenceItem${alert.tone === "danger" ? " coachMobileRosterItem--danger" : " coachMobileRosterItem--warn"}`}
+              >
+                <Link to={alert.to} className="coachMobileAbsenceLink">
+                  <strong>{alert.text}</strong>
+                  {alert.meta ? <span className="coachMobileMuted"> · {alert.meta}</span> : null}
+                </Link>
+              </li>
+            ))}
           </ul>
         </section>
       ) : null}
@@ -422,15 +497,15 @@ export default function CoachToday() {
                   key={`${item.team_id}-${item.date}-${item.start_time}-${item.rule_id || item.competition_id}`}
                   item={item}
                   programTheme={programThemes[item.date]}
-                  onAttendance={() => navigate(attendancePath(item))}
+                  onAttendance={() => openScheduleItem(item)}
                 />
               ))}
               {upcomingItems.map((item) => (
                 <EventCard
-                  key={`up-${item.team_id}-${item.date}-${item.start_time}`}
+                  key={`up-${item.team_id}-${item.date}-${item.start_time}-${item.competition_id || item.rule_id}`}
                   item={item}
                   programTheme={programThemes[item.date]}
-                  onAttendance={() => navigate(attendancePath(item))}
+                  onAttendance={() => openScheduleItem(item)}
                 />
               ))}
             </>

@@ -172,11 +172,45 @@ def notify_roster_parents(event: ClubCompetitionEvent, meta: dict[str, Any]) -> 
         )
 
 
+def days_until_match(event: ClubCompetitionEvent, *, today: date | None = None) -> int | None:
+    today = today or date.today()
+    try:
+        match_day = date.fromisoformat(str(event.date))
+    except ValueError:
+        return None
+    return (match_day - today).days
+
+
+# Постоянни напомняния към треньора (Днес / календар)
+ROSTER_GENERATE_WITHIN_DAYS = 10  # няма тимов лист → генерирай
+ROSTER_REVIEW_WITHIN_DAYS = 5  # има лист → провери преди мача
+
+
+def roster_action_for_event(event: ClubCompetitionEvent, *, today: date | None = None) -> str | None:
+    """
+    generate — липсва тимов лист и мачът е в рамките на 10 дни
+    review — листът е записан и мачът е в рамките на 5 дни (провери състава)
+    """
+    if getattr(event, "is_cancelled", False):
+        return None
+    days = days_until_match(event, today=today)
+    if days is None or days < 0:
+        return None
+    status = (event.roster_status or "pending").strip().lower()
+    if status == "pending" and days <= ROSTER_GENERATE_WITHIN_DAYS:
+        return "generate"
+    if status in {"confirmed", "locked"} and days <= ROSTER_REVIEW_WITHIN_DAYS:
+        return "review"
+    return None
+
+
 def roster_summary(db: Session, event: ClubCompetitionEvent) -> dict[str, Any]:
     ids = roster_athlete_ids(db, event.id)
     cands = candidate_athletes(db, event)
     locked = roster_is_locked(event)
     status = (event.roster_status or "pending").strip().lower()
+    today = date.today()
+    action = roster_action_for_event(event, today=today)
     return {
         "status": status,
         "locked": locked,
@@ -188,6 +222,8 @@ def roster_summary(db: Session, event: ClubCompetitionEvent) -> dict[str, Any]:
         "needs_roster": status == "pending" or (len(cands) > ROSTER_MAX and status == "pending"),
         "auto_eligible": 0 < len(cands) <= ROSTER_MAX,
         "athlete_ids": sorted(ids),
+        "days_until": days_until_match(event, today=today),
+        "roster_action": action,
         "candidates": [
             {"id": int(a.id), "name": a.athlete_name, "selected": int(a.id) in ids}
             for a in cands

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.competition_kinds import competition_kind_label, is_valid_competition_kind
-from app.models import ClubCompetitionEvent, Team, User
+from app.models import ClubCompetitionEvent, CompetitionRosterAthlete, Team, User
 from app.schemas.schedule import ScheduleOccurrence
+from app.services.competition_roster import days_until_match, roster_action_for_event
 
 
 def _normalize_location(value: str) -> str:
@@ -49,9 +51,15 @@ def competition_to_occurrence(
     team_name: str | None,
     coach_name: str | None,
     carded_team_label: str | None = None,
+    roster_count: int = 0,
+    today: date | None = None,
 ) -> ScheduleOccurrence:
     d = date.fromisoformat(event.date)
     kind = str(event.competition_kind)
+    status = str(getattr(event, "roster_status", None) or "pending").strip().lower()
+    today = today or date.today()
+    days = days_until_match(event, today=today)
+    action = roster_action_for_event(event, today=today)
     return ScheduleOccurrence(
         date=event.date,
         weekday=d.weekday(),
@@ -71,6 +79,11 @@ def competition_to_occurrence(
         coach_name=coach_name,
         team_id=int(event.team_id),
         team_name=team_name,
+        roster_status=status,
+        needs_roster=status == "pending",
+        roster_count=int(roster_count or 0),
+        roster_action=action,
+        days_until=days,
     )
 
 
@@ -127,12 +140,26 @@ def load_competition_occurrences(
         for ci in db.query(BvfCardIndex).filter(BvfCardIndex.id.in_(list(ci_ids))).all():
             carded_labels[int(ci.id)] = card_index_display_label(ci)
 
+    event_ids = [int(e.id) for e in events]
+    roster_counts: dict[int, int] = {}
+    if event_ids:
+        for cid, cnt in (
+            db.query(CompetitionRosterAthlete.competition_id, func.count())
+            .filter(CompetitionRosterAthlete.competition_id.in_(event_ids))
+            .group_by(CompetitionRosterAthlete.competition_id)
+            .all()
+        ):
+            roster_counts[int(cid)] = int(cnt)
+
+    today = date.today()
     items = [
         competition_to_occurrence(
             e,
             team_name=team_names.get(int(e.team_id)),
             coach_name=coach_names.get(int(e.coach_id)),
             carded_team_label=carded_labels.get(int(e.card_index_id)) if getattr(e, "card_index_id", None) else None,
+            roster_count=roster_counts.get(int(e.id), 0),
+            today=today,
         )
         for e in events
     ]

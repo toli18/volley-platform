@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -9,6 +9,7 @@ import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
+import { competitionRosterAction } from "../../utils/competitionRosterPriority";
 import { Button, Input } from "../../components/ui";
 
 function todayKey() {
@@ -66,6 +67,9 @@ function defaultCompetitionForm(date, coachId = "") {
 }
 
 function statusLabel(row) {
+  const action = competitionRosterAction(row);
+  if (action === "generate") return "Генерирай тимов лист (≤10 дни)";
+  if (action === "review") return "Провери тимовия лист (≤5 дни)";
   if (row.roster_locked || row.roster_status === "locked") return "Заключен състав";
   if (row.roster_status === "confirmed") return "Състав готов";
   if (row.needs_roster || row.roster_status === "pending") return "Чака тимов лист";
@@ -74,6 +78,7 @@ function statusLabel(row) {
 
 export default function CoachCompetitions() {
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isHeadCoachUser } = useNavRoles();
   const currentUserId = user?.id;
   const defaultRange = useMemo(() => forwardMonthsRange(2), []);
@@ -97,6 +102,7 @@ export default function CoachCompetitions() {
   const [sheetCtx, setSheetCtx] = useState(null);
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
+  const deepRosterId = searchParams.get("roster");
 
   const applyPreset = (presetId) => {
     setPeriodPreset(presetId);
@@ -214,6 +220,20 @@ export default function CoachCompetitions() {
       setRosterEvent(null);
     }
   };
+
+  useEffect(() => {
+    if (!deepRosterId || busy || !rows.length) return undefined;
+    const id = Number(deepRosterId);
+    if (!Number.isFinite(id)) return undefined;
+    const row = rows.find((r) => Number(r.id) === id);
+    if (!row) return undefined;
+    openRoster(row);
+    const next = new URLSearchParams(searchParams);
+    next.delete("roster");
+    setSearchParams(next, { replace: true });
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when rows arrive
+  }, [deepRosterId, rows, busy]);
 
   const toggleAthlete = (id) => {
     setSelectedIds((prev) => {
