@@ -58,11 +58,15 @@ export default function AthleteIdentityFields({
         </label>
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>Пол *</span>
-          <Input as="select" value={form.gender} onChange={(e) => patch("gender", e.target.value)}>
+          <select
+            className="uiControl"
+            value={form.gender}
+            onChange={(e) => patch("gender", e.target.value)}
+          >
             <option value="">Избери</option>
             <option value="male">Мъж</option>
             <option value="female">Жена</option>
-          </Input>
+          </select>
         </label>
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>Телефон на родител *</span>

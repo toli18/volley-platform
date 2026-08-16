@@ -203,11 +203,18 @@ export default function CoachAthletes() {
     const payload = { ...buildAthletePayload(athleteForm, { mode: "minimal" }), team_id: tid };
     try {
       setBusy(true);
+      // iOS Safari: blur before unmounting focused inputs — avoids removeChild NotFoundError
+      // when the form tree is replaced (and when the browser has translated the page).
+      try {
+        document.activeElement?.blur?.();
+      } catch {
+        /* ignore */
+      }
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetForm();
       await loadAthletes();
       toast.success("Състезателят е създаден. Родителят да попълни заявлението за прием.");
-      setTab("list");
+      window.setTimeout(() => setTab("list"), 0);
     } catch (err2) {
       toast.error(normalizeError(err2));
     } finally {

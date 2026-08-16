@@ -5,6 +5,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import "./index.css";
 
 import App from "./App.jsx";
+import RouteErrorPage from "./pages/RouteErrorPage.jsx";
 import Login from "./pages/Login.jsx";
 import Drills from "./pages/Drills.jsx";
 import DrillDetails from "./pages/DrillDetails.jsx";
@@ -152,6 +153,7 @@ const router = createBrowserRouter([
         </ToastProvider>
       </AuthProvider>
     ),
+    errorElement: <RouteErrorPage />,
     children: [
       { path: "login", element: <Login /> },
       { path: "parent/login", element: <ParentLogin /> },
