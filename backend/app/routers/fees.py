@@ -714,7 +714,18 @@ def create_athlete(
         egn=(payload.egn or "").strip() or None,
         bvf_player_id=payload.bvf_player_id,
         bvf_player_number=payload.bvf_player_number,
+        jersey_number=None,
     )
+    from app.services.athlete_jersey import assert_jersey_unique_in_club, normalize_jersey_number
+
+    jersey = normalize_jersey_number(getattr(payload, "jersey_number", None))
+    assert_jersey_unique_in_club(
+        db,
+        club_id=current_user.club_id,
+        gender=payload.gender,
+        jersey_number=jersey,
+    )
+    athlete.jersey_number = jersey
     db.add(athlete)
     db.flush()
     _attach_athlete_to_team(db, athlete, int(payload.team_id), current_user)
@@ -1005,6 +1016,18 @@ def update_athlete(
         athlete.notes = (data.get("notes") or "").strip() or None
     if "is_active" in data:
         athlete.is_active = bool(data.get("is_active"))
+    if "jersey_number" in data:
+        from app.services.athlete_jersey import assert_jersey_unique_in_club, normalize_jersey_number
+
+        jersey = normalize_jersey_number(data.get("jersey_number"))
+        assert_jersey_unique_in_club(
+            db,
+            club_id=athlete.club_id,
+            gender=athlete.gender,
+            jersey_number=jersey,
+            exclude_athlete_id=athlete.id,
+        )
+        athlete.jersey_number = jersey
 
     from app.services.sek_athlete_readiness import refresh_open_sek_task
 

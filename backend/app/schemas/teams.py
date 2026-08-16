@@ -54,6 +54,7 @@ class TeamMemberAthleteRead(BaseModel):
     parent_phone: Optional[str] = None
     athlete_phone: Optional[str] = None
     gender: Optional[str] = None
+    jersey_number: Optional[int] = None
     is_active: bool = True
 
 
@@ -153,6 +154,7 @@ class AthleteProfileResponse(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    jersey_number: Optional[int] = None
     bvf_photo_id: Optional[str] = None
     has_photo: bool = False
     bvf_identity_locked: bool = False

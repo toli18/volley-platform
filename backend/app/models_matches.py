@@ -62,6 +62,12 @@ class Match(Base):
     id = Column(Integer, primary_key=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    competition_id = Column(
+        Integer,
+        ForeignKey("club_competition_events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     opponent_name = Column(String(255), nullable=True)
     match_date = Column(Date, nullable=True)

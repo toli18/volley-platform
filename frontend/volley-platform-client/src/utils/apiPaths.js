@@ -338,6 +338,7 @@ export const API_PATHS = {
   SCHEDULE_COMPETITION_UPDATE: (eventId) => `/api/schedule/competitions/${eventId}`,
   SCHEDULE_COMPETITION_DELETE: (eventId) => `/api/schedule/competitions/${eventId}`,
   SCHEDULE_COMPETITION_ROSTER: (eventId) => `/api/schedule/competitions/${eventId}/roster`,
+  SCHEDULE_COMPETITION_OPEN_MATCH: (eventId) => `/api/schedule/competitions/${eventId}/open-match`,
 
   // Public club page + enrollment
   PUBLIC_CLUB_PAGE: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}`,

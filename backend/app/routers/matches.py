@@ -115,6 +115,7 @@ def _to_match_read(db: Session, match: Match) -> MatchRead:
     return MatchRead(
         id=match.id,
         team_id=match.team_id,
+        competition_id=getattr(match, "competition_id", None),
         opponent_name=match.opponent_name,
         match_date=match.match_date,
         venue=match.venue,

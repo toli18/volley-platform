@@ -339,6 +339,7 @@ export default function AthleteProfileCoachMobile({
               {profile.birth_year || "—"} · {genderShort(profile.gender)} ·{" "}
               {profile.is_active ? "Активен" : "Неактивен"}
               {profile.bvf_player_number ? ` · СЕК №${profile.bvf_player_number}` : ""}
+              {profile.jersey_number != null ? ` · №${profile.jersey_number}` : ""}
             </p>
             <AthleteMembershipChips
               dense

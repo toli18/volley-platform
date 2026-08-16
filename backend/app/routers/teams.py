@@ -363,6 +363,7 @@ def get_team_members(
             parent_phone=a.parent_phone,
             athlete_phone=a.athlete_phone,
             gender=getattr(a, "gender", None),
+            jersey_number=getattr(a, "jersey_number", None),
             is_active=bool(a.is_active),
         )
         for _, a in members
@@ -1115,6 +1116,7 @@ def athlete_profile(
         egn=getattr(athlete, "egn", None),
         bvf_player_id=getattr(athlete, "bvf_player_id", None),
         bvf_player_number=getattr(athlete, "bvf_player_number", None),
+        jersey_number=getattr(athlete, "jersey_number", None),
         bvf_photo_id=getattr(athlete, "bvf_photo_id", None),
         has_photo=athlete_display_has_photo(athlete, cached=has_cached_photo(athlete.id)),
         bvf_identity_locked=bool(getattr(athlete, "bvf_player_id", None)),
@@ -1264,14 +1266,14 @@ def generate_team_sheet_pdf(
         reach = measures.get("ANTH_REACH")
         players.append(
             TeamSheetPlayerRow(
-                jersey="",
+                jersey="" if getattr(athlete, "jersey_number", None) is None else str(int(athlete.jersey_number)),
                 last_name=last_name,
                 first_name=first_name,
                 birth_year=birth_year,
                 place_of_birth=place,
                 height="" if height is None else str(int(height) if float(height).is_integer() else height),
                 reach="" if reach is None else str(int(reach) if float(reach).is_integer() else reach),
-                sek="",
+                sek="" if getattr(athlete, "bvf_player_number", None) is None else str(athlete.bvf_player_number),
             )
         )
 

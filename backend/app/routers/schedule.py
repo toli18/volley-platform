@@ -9,8 +9,10 @@ from app.database import get_db
 from app.dependencies.roles import require_role
 from app.competition_kinds import competition_kind_label, is_valid_competition_kind
 from app.models import (
+    Athlete,
     ClubCompetitionEvent,
     Team,
+    TeamMember,
     TrainingScheduleException,
     TrainingScheduleRule,
     User,
@@ -999,6 +1001,118 @@ def save_competition_roster(
     notify_roster_parents(event, meta)
     summary = roster_summary(db, event)
     return CompetitionRosterRead(competition_id=int(event.id), **summary)
+
+
+@router.post("/schedule/competitions/{event_id}/open-match")
+def open_match_for_competition(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    """Намира или създава live-мач за състезанието и зарежда състава от тимовия лист + № екип."""
+    from datetime import date as date_cls
+
+    from app.models_matches import Match, MatchPosition, MatchRosterPlayer, MatchStatus, MatchSystem, MatchFormat
+    from app.services.athlete_jersey import allocate_jerseys_for_athletes
+    from app.services.competition_roster import roster_athlete_ids
+    from app.services.schedule_competitions import can_edit_roster
+
+    club_id = _ensure_club(current_user)
+    event = db.query(ClubCompetitionEvent).filter(
+        ClubCompetitionEvent.id == int(event_id), ClubCompetitionEvent.club_id == club_id
+    ).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Състезанието не е намерено")
+    if not can_edit_roster(db, current_user, event, _is_head_coach(current_user)):
+        raise HTTPException(status_code=403, detail="Нямате право за статистика на този отбор")
+
+    team_id = int(event.team_id)
+    try:
+        match_day = date_cls.fromisoformat(str(event.date))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Невалидна дата на състезанието") from exc
+
+    match = (
+        db.query(Match)
+        .filter(Match.competition_id == int(event.id))
+        .order_by(Match.id.desc())
+        .first()
+    )
+    created = False
+    if not match:
+        match = (
+            db.query(Match)
+            .filter(
+                Match.team_id == team_id,
+                Match.match_date == match_day,
+                Match.status != MatchStatus.cancelled,
+            )
+            .order_by(Match.id.desc())
+            .first()
+        )
+    if not match:
+        match = Match(
+            team_id=team_id,
+            created_by_user_id=current_user.id,
+            competition_id=int(event.id),
+            opponent_name=None,
+            match_date=match_day,
+            venue=(event.location or "").strip() or None,
+            system=MatchSystem.five_one,
+            format=MatchFormat.bo5,
+            status=MatchStatus.draft,
+            notes=f"От състезание #{event.id}",
+        )
+        db.add(match)
+        db.flush()
+        created = True
+    elif not getattr(match, "competition_id", None):
+        match.competition_id = int(event.id)
+
+    seeded = False
+    existing_roster = db.query(MatchRosterPlayer).filter(MatchRosterPlayer.match_id == match.id).count()
+    if existing_roster == 0 and match.status in (MatchStatus.draft, MatchStatus.ready):
+        roster_ids = sorted(roster_athlete_ids(db, event.id))
+        if roster_ids:
+            allowed = {
+                int(r[0])
+                for r in db.query(TeamMember.athlete_id)
+                .filter(
+                    TeamMember.team_id == team_id,
+                    TeamMember.is_active.is_(True),
+                    TeamMember.athlete_id.in_(roster_ids),
+                )
+                .all()
+            }
+            athletes = (
+                db.query(Athlete)
+                .filter(Athlete.id.in_([aid for aid in roster_ids if aid in allowed]))
+                .order_by(Athlete.athlete_name.asc())
+                .all()
+            )
+            if athletes:
+                paired = allocate_jerseys_for_athletes(athletes)
+                for idx, (athlete, jersey) in enumerate(paired):
+                    db.add(
+                        MatchRosterPlayer(
+                            match_id=match.id,
+                            athlete_id=int(athlete.id),
+                            jersey_number=int(jersey),
+                            position=MatchPosition.OH,
+                            sort_order=idx,
+                        )
+                    )
+                seeded = True
+
+    db.commit()
+    db.refresh(match)
+    return {
+        "team_id": team_id,
+        "match_id": int(match.id),
+        "created": created,
+        "seeded": seeded,
+        "status": match.status.value if hasattr(match.status, "value") else str(match.status),
+    }
 
 
 @router.delete("/schedule/competitions/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

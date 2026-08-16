@@ -165,6 +165,22 @@ export default function AthleteIdentityFields({
         </Input>
       </label>
 
+      <label style={{ display: "grid", gap: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Състезателен номер (№ екип)</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={99}
+          value={form.jersey_number ?? ""}
+          onChange={(e) => patch("jersey_number", e.target.value)}
+          placeholder="0–99 · уникален по пол в клуба"
+        />
+        <span className="uiMuted" style={{ fontSize: 11 }}>
+          Попълва се в тимов лист и статистика. За конкретен мач може да се смени.
+        </span>
+      </label>
+
       {showEgn ? (
         <label style={{ display: "grid", gap: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700 }}>ЕГН (за БФВ)</span>

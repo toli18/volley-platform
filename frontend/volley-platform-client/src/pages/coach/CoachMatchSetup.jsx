@@ -175,8 +175,15 @@ export default function CoachMatchSetup() {
           .map((r) => Number(r.jersey_number))
           .filter((n) => Number.isFinite(n) && n >= 0)
       );
-      let jersey = 1;
-      while (used.has(jersey) && jersey < 100) jersey += 1;
+      const member = members.find((m) => Number(m.athlete_id) === id);
+      let jersey =
+        member?.jersey_number === 0 || member?.jersey_number
+          ? Number(member.jersey_number)
+          : null;
+      if (jersey == null || !Number.isFinite(jersey) || jersey < 0 || jersey > 99 || used.has(jersey)) {
+        jersey = 1;
+        while (used.has(jersey) && jersey < 100) jersey += 1;
+      }
       return {
         ...prev,
         [id]: { jersey_number: String(jersey), position: "OH" },

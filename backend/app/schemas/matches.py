@@ -131,6 +131,7 @@ class MatchRotationRead(BaseModel):
 class MatchRead(BaseModel):
     id: int
     team_id: int
+    competition_id: Optional[int] = None
     opponent_name: Optional[str] = None
     match_date: Optional[date] = None
     venue: Optional[str] = None

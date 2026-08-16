@@ -558,6 +558,8 @@ class Athlete(Base):
     bvf_player_id = Column(Integer, nullable=True, unique=True, index=True)
     bvf_player_number = Column(Integer, nullable=True, index=True)
     bvf_photo_id = Column(String(64), nullable=True)
+    # Клубен № екип (0–99); уникален по клуб+пол при активни състезатели. Не е СЕК номер.
+    jersey_number = Column(Integer, nullable=True, index=True)
     # Локален портрет (JPEG) — траен кеш; дискът на контейнера често е ефимерен.
     photo_jpeg = deferred(Column(LargeBinary, nullable=True))
     bvf_synced_at = Column(DateTime, nullable=True)

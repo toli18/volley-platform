@@ -28,6 +28,7 @@ class AthleteCreate(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    jersey_number: Optional[int] = Field(default=None, ge=0, le=99)
     # Тренировъчна група при създаване (TeamMember) — задължителна
     team_id: int
 
@@ -72,6 +73,7 @@ class AthleteUpdate(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    jersey_number: Optional[int] = Field(default=None, ge=0, le=99)
 
 
 class AthleteRecentPayment(BaseModel):
@@ -111,6 +113,7 @@ class AthleteRead(BaseModel):
     egn: Optional[str] = None
     bvf_player_id: Optional[int] = None
     bvf_player_number: Optional[int] = None
+    jersey_number: Optional[int] = None
     bvf_photo_id: Optional[str] = None
     bvf_synced_at: Optional[datetime] = None
     bvf_identity_locked: bool = False

@@ -216,6 +216,9 @@ export default function CoachAthleteProfile() {
           parent_phone: (editForm.parent_phone || "").trim() || null,
           notes: (editForm.notes || "").trim() || null,
           is_active: Boolean(editForm.is_active),
+          jersey_number: String(editForm.jersey_number ?? "").trim() === ""
+            ? null
+            : Number(editForm.jersey_number),
         }
       : buildAthletePayload(editForm);
     try {

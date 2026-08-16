@@ -355,6 +355,7 @@ def _init_db_impl() -> None:
                 conn.execute(
                     text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_court_positions JSON")
                 )
+                conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS competition_id INTEGER"))
                 conn.execute(
                     text(
                         "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "
@@ -498,6 +499,7 @@ def _init_db_impl() -> None:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS last_name VARCHAR(25)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS nationality VARCHAR(25)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS bvf_photo_id VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS jersey_number INTEGER"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS photo_jpeg BYTEA"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_code VARCHAR(32)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS sek_task_detail TEXT"))

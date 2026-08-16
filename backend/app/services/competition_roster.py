@@ -225,7 +225,12 @@ def roster_summary(db: Session, event: ClubCompetitionEvent) -> dict[str, Any]:
         "days_until": days_until_match(event, today=today),
         "roster_action": action,
         "candidates": [
-            {"id": int(a.id), "name": a.athlete_name, "selected": int(a.id) in ids}
+            {
+                "id": int(a.id),
+                "name": a.athlete_name,
+                "jersey_number": getattr(a, "jersey_number", None),
+                "selected": int(a.id) in ids,
+            }
             for a in cands
         ],
     }

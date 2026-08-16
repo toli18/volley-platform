@@ -20,6 +20,7 @@ export function emptyAthleteIdentityForm(overrides = {}) {
     place_of_birth: "",
     nationality: DEFAULT_NATIONALITY,
     gender: "",
+    jersey_number: "",
     notes: "",
     is_active: true,
     egn: "",
@@ -42,6 +43,10 @@ export function athleteToIdentityForm(athlete) {
     place_of_birth: athlete.place_of_birth || "",
     nationality: athlete.nationality || DEFAULT_NATIONALITY,
     gender: athlete.gender || "",
+    jersey_number:
+      athlete.jersey_number === 0 || athlete.jersey_number
+        ? String(athlete.jersey_number)
+        : "",
     notes: athlete.notes || "",
     is_active: athlete.is_active !== false,
     egn: athlete.egn || "",
@@ -133,6 +138,14 @@ export function buildAthletePayload(form, { includeEgn = true, mode = "full" } =
 
   if (includeEgn) {
     payload.egn = (form.egn || "").trim() || null;
+  }
+
+  const rawJersey = String(form.jersey_number ?? "").trim();
+  if (rawJersey === "") {
+    payload.jersey_number = null;
+  } else {
+    const n = Number(rawJersey);
+    payload.jersey_number = Number.isInteger(n) ? n : null;
   }
 
   return payload;

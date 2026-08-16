@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -78,6 +78,7 @@ function statusLabel(row) {
 
 export default function CoachCompetitions() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isHeadCoachUser } = useNavRoles();
   const currentUserId = user?.id;
@@ -88,6 +89,7 @@ export default function CoachCompetitions() {
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [openingMatchId, setOpeningMatchId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [compForm, setCompForm] = useState(() => defaultCompetitionForm(todayKey(), ""));
   const [saving, setSaving] = useState(false);
@@ -264,6 +266,32 @@ export default function CoachCompetitions() {
     }
   };
 
+  const openMatchStats = async (event) => {
+    setOpeningMatchId(event.id);
+    try {
+      const res = await axiosInstance.post(API_PATHS.SCHEDULE_COMPETITION_OPEN_MATCH(event.id));
+      const teamId = res.data?.team_id || event.team_id;
+      const matchId = res.data?.match_id;
+      if (!matchId) {
+        toast.error("Няма мач за статистика.");
+        return;
+      }
+      if (res.data?.seeded) {
+        toast.success("Зареден е съставът от тимовия лист с номерата.");
+      }
+      const status = String(res.data?.status || "");
+      if (status === "live") {
+        navigate(`/coach/teams/${teamId}/matches/${matchId}/live`);
+      } else {
+        navigate(`/coach/teams/${teamId}/matches/${matchId}`);
+      }
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно отваряне на статистиката."));
+    } finally {
+      setOpeningMatchId(null);
+    }
+  };
+
   const openOfficialSheet = async (event, rosterData = null) => {
     try {
       let data = rosterData;
@@ -406,6 +434,16 @@ export default function CoachCompetitions() {
               <Button size="sm" variant="secondary" onClick={() => openOfficialSheet(row)}>
                 Генерирай тимов лист
               </Button>
+              {row.date === todayKey() ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={openingMatchId === row.id}
+                  onClick={() => openMatchStats(row)}
+                >
+                  {openingMatchId === row.id ? "Отваряне…" : "Статистика на мача"}
+                </Button>
+              ) : null}
               <Link to="/coach/schedule" className="uiMuted" style={{ fontSize: 12, textAlign: "center" }}>
                 В календара
               </Link>
@@ -451,6 +489,7 @@ export default function CoachCompetitions() {
                   disabled={roster.locked || !rosterEvent.can_edit_roster}
                   onClick={() => toggleAthlete(c.id)}
                 >
+                  {c.jersey_number != null ? `#${c.jersey_number} ` : ""}
                   {c.name}
                 </button>
               ))}
@@ -469,6 +508,16 @@ export default function CoachCompetitions() {
               >
                 Генерирай тимов лист
               </button>
+              {rosterEvent.date === todayKey() ? (
+                <button
+                  type="button"
+                  className="matchLiveUndo"
+                  disabled={openingMatchId === rosterEvent.id}
+                  onClick={() => openMatchStats(rosterEvent)}
+                >
+                  {openingMatchId === rosterEvent.id ? "Отваряне…" : "Статистика"}
+                </button>
+              ) : null}
               {rosterEvent.can_edit_roster && !roster.locked ? (
                 <button type="button" className="matchLiveNext" disabled={savingRoster} onClick={saveRoster}>
                   {savingRoster ? "Запис…" : "Запиши състава"}
