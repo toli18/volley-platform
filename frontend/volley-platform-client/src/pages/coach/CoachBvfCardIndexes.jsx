@@ -294,6 +294,16 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
             ? "Сезон → назначение → клик на отбор за състав."
             : "Отваряш назначения отбор, попълваш състава и пращаш заявка към главния."}
         </p>
+        {isHead ? (
+          <section className="cardIndexesMobileSection">
+            <Button type="button" block onClick={() => navigate("/coach/bvf-card-indexes/universal")}>
+              Универсални състезатели
+            </Button>
+            <p className="coachMobileMuted" style={{ marginBottom: 0, fontSize: 12 }}>
+              По 1 момиче и 1 момче за сезон — за 3 и повече картотеки.
+            </p>
+          </section>
+        ) : null}
 
         <section className="cardIndexesMobileSection">
           <h3 className="coachMobileSectionTitle">Сезон</h3>
@@ -491,13 +501,30 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
           }
           actions={
             isHead ? (
-              <Link to="/coach/bvf-admin">
-                <Button variant="secondary">Администрация БФВ</Button>
-              </Link>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <Link to="/coach/bvf-card-indexes/universal">
+                  <Button>Универсални състезатели</Button>
+                </Link>
+                <Link to="/coach/bvf-admin">
+                  <Button variant="secondary">Администрация БФВ</Button>
+                </Link>
+              </div>
             ) : null
           }
         />
       )}
+
+      {isHead ? (
+        <Card title="Универсални състезатели">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            По 1 момиче и 1 момче за сезон. Нужно е само ако някой трябва да е в 3 или повече картотеки
+            (Под 14 + Под 16 е позволено и без този статус).
+          </p>
+          <Link to="/coach/bvf-card-indexes/universal">
+            <Button>Отвори универсални</Button>
+          </Link>
+        </Card>
+      ) : null}
 
       {isHead || canManage ? (
         <Card title="Сезон">

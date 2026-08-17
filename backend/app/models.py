@@ -819,6 +819,28 @@ class BvfCardIndexMember(Base):
     athlete = relationship("Athlete")
 
 
+class BvfUniversalPlayer(Base):
+    """Един универсален състезател на пол за сезон (СЕК: >2 картотеки)."""
+
+    __tablename__ = "bvf_universal_players"
+    __table_args__ = (
+        UniqueConstraint("club_id", "season_year", "sex", name="uq_bvf_universal_club_season_sex"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    season_year = Column(Integer, nullable=False, index=True)
+    sex = Column(Integer, nullable=False)  # 0 male, 1 female
+    bvf_player_id = Column(Integer, nullable=True, index=True)
+    bvf_universal_id = Column(Integer, nullable=True, index=True)
+    declared_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    club = relationship("Club")
+    athlete = relationship("Athlete")
+
+
 class ParentPortalChangeMarker(Base):
     __tablename__ = "parent_portal_change_markers"
 

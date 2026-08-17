@@ -65,6 +65,7 @@ function teamLabelsForMember(m, detail) {
     const ib = order.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
   });
+  if (m?.is_universal) labels.push("универсален");
   return labels;
 }
 

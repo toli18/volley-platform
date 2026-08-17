@@ -19,6 +19,7 @@ from app.models import (
     BvfCardIndex,
     BvfCardIndexMember,
     BvfSeasonApplication,
+    BvfUniversalPlayer,
     Club,
     User,
     UserRole,
@@ -239,6 +240,15 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
     teams_map = (
         _season_carded_teams(db, member_ids, int(year), club_id=int(local.club_id)) if member_ids else {}
     )
+    universal_ids = {
+        int(r[0])
+        for r in db.query(BvfUniversalPlayer.athlete_id)
+        .filter(
+            BvfUniversalPlayer.club_id == int(local.club_id),
+            BvfUniversalPlayer.season_year == int(year),
+        )
+        .all()
+    }
     for mem in local.members or []:
         athlete = mem.athlete
         if not athlete:
@@ -279,6 +289,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "birth_year": by if by is not None else athlete.birth_year,
                 "teams_count": len(labels),
                 "team_labels": labels,
+                "is_universal": int(athlete.id) in universal_ids,
                 "checklist": checklist,
             }
         )
@@ -2553,3 +2564,296 @@ def club_send_physical_from_tests(
         "errors": errors,
         "results": results,
     }
+
+
+class UniversalPlayerIn(BaseModel):
+    athlete_id: int
+    season_year: int | None = None
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+class UniversalSyncIn(BaseModel):
+    season_year: int | None = None
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+def _optional_bvf_token(club: Club, token: str | None) -> str | None:
+    try:
+        return _token_matches_club(token, club)
+    except HTTPException:
+        return None
+
+
+def _serialize_universal(db: Session, row: BvfUniversalPlayer, season_year: int) -> dict[str, Any]:
+    athlete = row.athlete
+    teams = _season_carded_teams(db, [row.athlete_id], season_year, club_id=int(row.club_id)).get(int(row.athlete_id), [])
+    labels = [t.get("label") for t in teams if t.get("label")]
+    return {
+        "id": row.id,
+        "athlete_id": row.athlete_id,
+        "athlete_name": athlete.athlete_name if athlete else None,
+        "bvf_player_id": row.bvf_player_id or (athlete.bvf_player_id if athlete else None),
+        "bvf_player_number": athlete.bvf_player_number if athlete else None,
+        "birth_year": athlete_birth_year(athlete) if athlete else None,
+        "sex": int(row.sex),
+        "season_year": int(row.season_year),
+        "team_labels": labels,
+        "teams_count": len(labels),
+        "synced": bool(row.bvf_universal_id),
+        "bvf_universal_id": row.bvf_universal_id,
+    }
+
+
+def _sek_post_universal(club: Club, token: str, player_id: int, season: int) -> tuple[int | None, str | None]:
+    url = f"{BVF_API_BASE}/api/clubs/{int(club.bvf_club_id)}/universal-players"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.post(
+                url,
+                headers={**_bvf_headers(token), "Content-Type": "application/json"},
+                json={"playerId": int(player_id), "season": int(season)},
+            )
+    except httpx.HTTPError as exc:
+        return None, str(exc)[:200]
+    if res.status_code < 400:
+        try:
+            body = res.json()
+            uid = body.get("id") if isinstance(body, dict) else None
+            return (int(uid) if uid is not None else None), None
+        except Exception:
+            return None, None
+    return None, (res.text or f"БФВ {res.status_code}")[:220]
+
+
+def _sek_delete_universal(club: Club, token: str, cup_id: int) -> str | None:
+    url = f"{BVF_API_BASE}/api/clubs/{int(club.bvf_club_id)}/universal-players/{int(cup_id)}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.delete(url, headers=_bvf_headers(token))
+    except httpx.HTTPError as exc:
+        return str(exc)[:200]
+    if res.status_code < 400:
+        return None
+    return (res.text or f"БФВ {res.status_code}")[:220]
+
+
+@router.get("/universal-players")
+def list_universal_players(
+    season_year: int | None = None,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """По един универсален на пол за сезона. Само главен треньор."""
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    year = int(season_year or datetime.utcnow().year)
+    rows = (
+        db.query(BvfUniversalPlayer)
+        .filter(BvfUniversalPlayer.club_id == club.id, BvfUniversalPlayer.season_year == year)
+        .all()
+    )
+    by_sex = {int(r.sex): _serialize_universal(db, r, year) for r in rows}
+
+    candidates = (
+        db.query(Athlete)
+        .filter(Athlete.club_id == club.id, Athlete.is_active.is_(True), Athlete.bvf_player_id.isnot(None))
+        .order_by(Athlete.athlete_name.asc())
+        .all()
+    )
+    taken = {int(r.athlete_id) for r in rows}
+    teams_map = _season_carded_teams(db, [a.id for a in candidates], year, club_id=int(club.id)) if candidates else {}
+    cand_out = []
+    for a in candidates:
+        sex = athlete_sex_code(a)
+        if sex is None:
+            continue
+        teams = teams_map.get(int(a.id), [])
+        labels = [t.get("label") for t in teams if t.get("label")]
+        cand_out.append(
+            {
+                "id": a.id,
+                "athlete_name": a.athlete_name,
+                "bvf_player_id": a.bvf_player_id,
+                "bvf_player_number": a.bvf_player_number,
+                "birth_year": athlete_birth_year(a),
+                "gender": a.gender,
+                "sex": sex,
+                "team_labels": labels,
+                "teams_count": len(labels),
+                "taken": a.id in taken,
+            }
+        )
+
+    return {
+        "season_year": year,
+        "rule": "Обикновен състезател: най-много 2 картотеки. Универсален: 3 и повече. По 1 момиче и 1 момче за сезон.",
+        "girls": by_sex.get(1),
+        "boys": by_sex.get(0),
+        "candidates": cand_out,
+    }
+
+
+@router.post("/universal-players")
+def declare_universal_player(
+    payload: UniversalPlayerIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    year = int(payload.season_year or datetime.utcnow().year)
+    athlete = _athlete_for_bvf_action(db, current_user, int(payload.athlete_id))
+    if athlete.club_id != club.id:
+        raise HTTPException(status_code=403, detail="Състезателят не е от този клуб")
+    if not athlete.bvf_player_id:
+        raise HTTPException(status_code=422, detail="Няма връзка със СЕК (липсва БФВ id)")
+    sex = athlete_sex_code(athlete)
+    if sex is None:
+        raise HTTPException(status_code=422, detail="Липсва пол на състезателя")
+
+    existing = (
+        db.query(BvfUniversalPlayer)
+        .filter(
+            BvfUniversalPlayer.club_id == club.id,
+            BvfUniversalPlayer.season_year == year,
+            BvfUniversalPlayer.sex == int(sex),
+        )
+        .first()
+    )
+    if existing and int(existing.athlete_id) != int(athlete.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Вече има универсален състезател за този пол през сезона. Първо го премахни.",
+        )
+
+    row = existing
+    if not row:
+        row = BvfUniversalPlayer(
+            club_id=club.id,
+            athlete_id=athlete.id,
+            season_year=year,
+            sex=int(sex),
+        )
+        db.add(row)
+    row.athlete_id = athlete.id
+    row.bvf_player_id = athlete.bvf_player_id
+    row.declared_by_user_id = current_user.id
+
+    sek_error = None
+    token = _optional_bvf_token(club, payload.bvf_token)
+    if token and club.bvf_club_id:
+        uid, sek_error = _sek_post_universal(club, token, int(athlete.bvf_player_id), year)
+        if uid:
+            row.bvf_universal_id = uid
+    db.commit()
+    db.refresh(row)
+    return {
+        "item": _serialize_universal(db, row, year),
+        "sek_error": sek_error,
+        "message": (
+            "Записан в СЕК."
+            if row.bvf_universal_id
+            else "Записан при нас. Запис в СЕК — когато има write ключ."
+        ),
+    }
+
+
+@router.post("/universal-players/sync")
+def sync_universal_players_from_sek(
+    payload: UniversalSyncIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    year = int(payload.season_year or datetime.utcnow().year)
+    token = _token_matches_club(payload.bvf_token, club)
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
+    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/universal-players", token)
+    if not isinstance(remote, list):
+        raise HTTPException(status_code=502, detail="СЕК универсални не е списък")
+    synced = 0
+    for item in remote:
+        if not isinstance(item, dict):
+            continue
+        if int(item.get("season") or 0) != year:
+            continue
+        pid = item.get("playerId")
+        if not pid:
+            continue
+        athlete = (
+            db.query(Athlete)
+            .filter(Athlete.club_id == club.id, Athlete.bvf_player_id == int(pid))
+            .first()
+        )
+        if not athlete:
+            continue
+        sex = athlete_sex_code(athlete)
+        if sex is None:
+            continue
+        row = (
+            db.query(BvfUniversalPlayer)
+            .filter(
+                BvfUniversalPlayer.club_id == club.id,
+                BvfUniversalPlayer.season_year == year,
+                BvfUniversalPlayer.sex == int(sex),
+            )
+            .first()
+        )
+        if not row:
+            row = BvfUniversalPlayer(club_id=club.id, season_year=year, sex=int(sex))
+            db.add(row)
+        row.athlete_id = athlete.id
+        row.bvf_player_id = int(pid)
+        row.bvf_universal_id = item.get("id")
+        synced += 1
+    db.commit()
+    return {"ok": True, "synced": synced, "season_year": year}
+
+
+@router.delete("/universal-players/{local_id}")
+def withdraw_universal_player(
+    local_id: int,
+    club_id: int | None = None,
+    bvf_token: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, club_id)
+    row = (
+        db.query(BvfUniversalPlayer)
+        .filter(BvfUniversalPlayer.id == int(local_id), BvfUniversalPlayer.club_id == club.id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Няма такъв универсален състезател")
+    teams = _season_carded_teams(db, [row.athlete_id], int(row.season_year), club_id=int(club.id)).get(
+        int(row.athlete_id), []
+    )
+    if len(teams) > 2:
+        raise HTTPException(
+            status_code=409,
+            detail="Първо го махни от излишните картотеки (да остане в най-много 2), после свали статуса.",
+        )
+    sek_error = None
+    token = _optional_bvf_token(club, bvf_token)
+    if token and club.bvf_club_id and row.bvf_universal_id:
+        sek_error = _sek_delete_universal(club, token, int(row.bvf_universal_id))
+        if sek_error:
+            raise HTTPException(status_code=502, detail=sek_error)
+    db.delete(row)
+    db.commit()
+    return {"ok": True, "sek_error": sek_error}
