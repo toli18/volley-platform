@@ -283,6 +283,7 @@ export const API_PATHS = {
   BVF_ADMIN_CARD_INDEXES_LOCAL: "/api/bvf-admin/card-indexes/local",
   BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL: (id) => `/api/bvf-admin/card-indexes/local/${id}`,
   BVF_ADMIN_CARD_INDEX_LOCAL_ADD: (id) => `/api/bvf-admin/card-indexes/local/${id}/add-players`,
+  BVF_ADMIN_CARD_INDEX_LOCAL_REMOVE: (id) => `/api/bvf-admin/card-indexes/local/${id}/remove-players`,
   BVF_ADMIN_CARD_INDEX_LOCAL_REQUEST: (id) => `/api/bvf-admin/card-indexes/local/${id}/request-head`,
   BVF_ADMIN_CARD_INDEX_LOCAL_REOPEN: (id) => `/api/bvf-admin/card-indexes/local/${id}/reopen`,
   BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT: (id) => `/api/bvf-admin/card-indexes/local/${id}/submit`,

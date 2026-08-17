@@ -131,6 +131,22 @@ export default function CoachBvfCardIndexDetail() {
     }
   };
 
+  const removeAthlete = async (athleteId, name) => {
+    if (!window.confirm(`Премахни ${name || "състезателя"} от локалния състав?`)) return;
+    try {
+      setBusy(true);
+      await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REMOVE(localId), {
+        athlete_ids: [athleteId],
+      });
+      toast.success("Премахнат от локалния състав.");
+      await loadAll();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно премахване."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const requestHead = async () => {
     if (!window.confirm("Изпращаш заявка към главния треньор за запис в СЕК?")) return;
     try {
@@ -232,6 +248,7 @@ export default function CoachBvfCardIndexDetail() {
                       <th>Форма 03</th>
                       <th>Готов</th>
                       <th>Липси</th>
+                      {detail.can_edit ? <th></th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -242,11 +259,26 @@ export default function CoachBvfCardIndexDetail() {
                         <td>{m.has_form_03 ? "✓" : "○"}</td>
                         <td>{m.ready ? "✓" : "○"}</td>
                         <td style={{ fontSize: 12, color: "#92400e" }}>
-                          {(m.checklist || [])
-                            .filter((c) => !c.ok && c.key !== "any_doc")
-                            .map((c) => c.label)
-                            .join(", ") || "—"}
+                          {[
+                            ...(m.fits_age === false && m.age_reason ? [m.age_reason] : []),
+                            ...(m.checklist || [])
+                              .filter((c) => !c.ok && c.key !== "any_doc")
+                              .map((c) => c.label),
+                          ].join(", ") || "—"}
                         </td>
+                        {detail.can_edit ? (
+                          <td>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => removeAthlete(m.athlete_id, m.athlete_name)}
+                            >
+                              Премахни
+                            </Button>
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -263,8 +295,11 @@ export default function CoachBvfCardIndexDetail() {
           {detail.can_edit ? (
             <Card title="Нов състав">
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                Търси и кликни върху име — добавя се само локално. Към СЕК се праща по-късно от главния
-                треньор. Нужни са пол/възраст на отбора и подписана Форма 03 / 03-А / 03-B за {year}.
+                {detail.age_rule_hint ||
+                  "Търси и кликни върху име — добавя се само локално. СЕК: своята възраст или една нагоре."}
+              </p>
+              <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+                Към СЕК се праща по-късно от главния треньор. Нужна е и подписана Форма 03 / 03-А / 03-B за {year}.
               </p>
 
               <div style={{ position: "relative", maxWidth: 560 }}>
@@ -324,6 +359,7 @@ export default function CoachBvfCardIndexDetail() {
                             <div className="uiMuted" style={{ fontSize: 12, marginTop: 2 }}>
                               СЕК: {a.bvf_player_number || a.bvf_player_id}
                               {a.birth_year != null ? ` · ${a.birth_year}` : ""}
+                              {a.natural_age_label ? ` · ${a.natural_age_label}` : ""}
                             </div>
                           </span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: "#166534", flexShrink: 0 }}>

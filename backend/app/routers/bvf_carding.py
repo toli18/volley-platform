@@ -43,6 +43,7 @@ from app.services.bvf_season_carding import (
     athlete_docs_as_dicts,
     athlete_fits_card_index_rules,
     athlete_has_form_03,
+    card_index_age_rule_hint,
     eligible_athlete_payload,
     list_ready_for_head,
     looks_like_form_03,
@@ -176,10 +177,18 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         checklist = _doc_checklist(athlete, docs, year, db=db)
         ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
         has_form = athlete_has_form_03(athlete, year, db=db)
+        fits_age, age_reason = athlete_fits_card_index_rules(
+            athlete,
+            season_year=int(year),
+            age=int(local.age),
+            sex=int(local.sex),
+        )
         if not ready:
             all_ready = False
         if not has_form:
             form_ok = False
+        if not fits_age:
+            all_ready = False
         members_out.append(
             {
                 "athlete_id": athlete.id,
@@ -187,8 +196,10 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "bvf_player_id": athlete.bvf_player_id,
                 "bvf_player_number": athlete.bvf_player_number,
                 "synced": bool(mem.synced),
-                "ready": ready,
+                "ready": ready and fits_age,
                 "has_form_03": has_form,
+                "fits_age": fits_age,
+                "age_reason": age_reason,
                 "checklist": checklist,
             }
         )
@@ -198,6 +209,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "members": members_out,
         "members_count": len(members_out),
         "all_ready": all_ready and len(members_out) > 0 and form_ok,
+        "age_rule_hint": card_index_age_rule_hint(year, int(local.age)),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
         "can_request_head": (
@@ -2065,6 +2077,39 @@ def add_players_to_local_card_index(
         local.status = "building"
     db.commit()
     return {"added": added, "errors": errors, "id": local.id, "status": local.status}
+
+
+@router.post("/card-indexes/local/{local_id}/remove-players")
+def remove_players_from_local_card_index(
+    local_id: int,
+    payload: LocalAddPlayersIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Маха състезатели от локалния състав (преди запис в СЕК)."""
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    local = _local_card_index(db, club, local_id)
+    _require_card_index_access(db, current_user, local)
+    if not _can_edit_card_index(current_user, local):
+        raise HTTPException(status_code=409, detail="Съставът е заключен")
+    if local.status == "ready_for_head" and not _can_submit_card_index(current_user):
+        raise HTTPException(status_code=409, detail="Съставът чака главния треньор и е заключен за промени")
+
+    ids = [int(x) for x in (payload.athlete_ids or [])]
+    removed = 0
+    if ids:
+        rows = (
+            db.query(BvfCardIndexMember)
+            .filter(BvfCardIndexMember.card_index_id == local.id, BvfCardIndexMember.athlete_id.in_(ids))
+            .all()
+        )
+        for row in rows:
+            db.delete(row)
+            removed += 1
+    db.commit()
+    return {"removed": removed, "id": local.id, "status": local.status}
 
 
 @router.post("/card-indexes/local/{local_id}/request-head")

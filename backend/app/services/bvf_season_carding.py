@@ -136,16 +136,20 @@ def eligible_athlete_payload(athlete: Athlete, season_year: int, db: Session | N
     has_form = athlete_has_form_03(athlete, season_year, db=db)
     has_egn = bool((athlete.egn or "").strip())
     has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
+    by = athlete_birth_year(athlete)
+    nat = natural_age_code(by, int(season_year)) if by else None
     return {
         "id": athlete.id,
         "athlete_name": athlete.athlete_name,
         "bvf_player_id": athlete.bvf_player_id,
         "bvf_player_number": athlete.bvf_player_number,
-        "birth_year": athlete.birth_year,
+        "birth_year": by if by is not None else athlete.birth_year,
         "gender": athlete.gender,
         "has_egn": has_egn,
         "has_photo": has_photo,
         "has_form_03": has_form,
+        "natural_age": nat,
+        "natural_age_label": age_group_label(nat) if nat is not None else None,
         "eligible_for_roster": bool(athlete.bvf_player_id) and has_form,
     }
 
@@ -159,6 +163,97 @@ def athlete_sex_code(athlete: Athlete) -> int | None:
     return None
 
 
+# Най-млада → най-възрастна. СЕК: естествена група или една нагоре, без надолу и без прескачане.
+AGE_LADDER: tuple[int, ...] = (12, 13, 14, 16, 18, 20, 99)
+
+
+def athlete_birth_year(athlete: Athlete) -> int | None:
+    by = getattr(athlete, "birth_year", None)
+    if by:
+        try:
+            return int(by)
+        except (TypeError, ValueError):
+            pass
+    bd = getattr(athlete, "birth_date", None)
+    if bd is not None and getattr(bd, "year", None):
+        return int(bd.year)
+    egn = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
+    if len(egn) != 10:
+        return None
+    yy = int(egn[0:2])
+    mm = int(egn[2:4])
+    if mm > 40:
+        return 2000 + yy
+    if mm > 20:
+        return 1800 + yy
+    by = 1900 + yy
+    if by < 1950 and yy < 30:
+        return 2000 + yy
+    return by
+
+
+def natural_age_code(birth_year: int, season_year: int) -> int:
+    """Естествена възрастова група по година на раждане за сезон YEAR (напр. 2026 = 2026/27).
+
+    Кохортите следват БФВ (сезон 2022/23: Детски=2012, Мини=2011, Под 14=2010,
+    Под 16=2008/09, Под 18=2006/07) — изместени с (season_year − 2022).
+    """
+    y = int(season_year)
+    by = int(birth_year)
+    if by >= y - 10:
+        return 12
+    if by == y - 11:
+        return 13
+    if by == y - 12:
+        return 14
+    if by in (y - 14, y - 13):
+        return 16
+    if by in (y - 16, y - 15):
+        return 18
+    if by in (y - 18, y - 17):
+        return 20
+    return 99
+
+
+def allowed_age_codes(birth_year: int, season_year: int) -> set[int]:
+    nat = natural_age_code(birth_year, season_year)
+    idx = AGE_LADDER.index(nat)
+    allowed = {nat}
+    if idx + 1 < len(AGE_LADDER):
+        allowed.add(AGE_LADDER[idx + 1])
+    return allowed
+
+
+def birth_years_for_age_code(season_year: int, age_code: int) -> list[int]:
+    """Рождени години, които СЕК допуска в тази група (естествени + една по-млада група)."""
+    y = int(season_year)
+    code = int(age_code)
+    years: list[int] = []
+    # Широк, но краен диапазон — филтрираме през allowed_age_codes.
+    for by in range(y - 50, y + 1):
+        if code in allowed_age_codes(by, y):
+            years.append(by)
+    return years
+
+
+def card_index_age_rule_hint(season_year: int, age_code: int) -> str:
+    years = birth_years_for_age_code(season_year, age_code)
+    label = age_group_label(age_code)
+    if int(age_code) >= 99:
+        return f"{label}: възрастни + Под 20 (една група нагоре)."
+    if not years:
+        return f"{label}: няма допустими години на раждане."
+    lo, hi = min(years), max(years)
+    if lo == hi:
+        band = f"родени {lo}"
+    else:
+        band = f"родени {lo}–{hi}"
+    return (
+        f"{label} сезон {season_year}: {band}. "
+        "СЕК: своята група или една нагоре — без по-големи в по-малка група."
+    )
+
+
 def athlete_fits_card_index_rules(
     athlete: Athlete,
     *,
@@ -166,11 +261,7 @@ def athlete_fits_card_index_rules(
     age: int,
     sex: int,
 ) -> tuple[bool, str | None]:
-    """Локални правила близо до СЕК: пол + „достатъчно млад“ за възрастовата група.
-
-    СЕК също изисква „без прескачане на възраст“ и лимит 2 картотеки/сезон — това се
-    валидира окончателно при запис в СЕК; тук филтрираме очевидните несъответствия.
-    """
+    """Локално като СЕК: пол + кохорта по година на раждане (без игра надолу / прескачане)."""
     want_sex = int(sex)
     got_sex = athlete_sex_code(athlete)
     if got_sex is None:
@@ -179,18 +270,17 @@ def athlete_fits_card_index_rules(
         return False, "полът не съвпада с отбора"
 
     age_code = int(age)
-    # 99 = мъже/жени (възрастни) — без горна граница по рождена година
-    if age_code >= 99:
-        return True, None
-
-    from app.services.carding_form import athlete_age_in_season
-
-    age_in_season = athlete_age_in_season(athlete, int(season_year))
-    if age_in_season is None:
+    by = athlete_birth_year(athlete)
+    if by is None:
         return False, "липсва година на раждане"
-    # „Под N“: възрастта в сезонната година не надвишава N (young enough).
-    if age_in_season > age_code:
-        return False, f"твърде възрастен за {age_group_label(age_code)} (възраст {age_in_season})"
+
+    allowed = allowed_age_codes(by, int(season_year))
+    if age_code not in allowed:
+        nat = natural_age_code(by, int(season_year))
+        return False, (
+            f"родени {by} са за {age_group_label(nat)}, не за {age_group_label(age_code)} "
+            f"(разрешена е само една група нагоре)"
+        )
     return True, None
 
 
