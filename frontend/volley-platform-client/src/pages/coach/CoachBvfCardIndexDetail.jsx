@@ -9,7 +9,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import { normalizeError } from "../../utils/normalizeError";
-import { ageRuleHint, athleteFitsAgeGroup } from "../../utils/sekAgeRules";
+import { AGE_LADDER, ageGroupLabel, ageRuleHint, athleteFitsAgeGroup, resolveAgeCode } from "../../utils/sekAgeRules";
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -48,21 +48,30 @@ function memberMissing(m, year, detail) {
   );
 }
 
-function teamsCell(m) {
-  const n = Number(m.teams_count || 0);
-  const labels = (m.team_labels || []).filter(Boolean);
-  if (!n) return "—";
-  return (
-    <span title={labels.join(" · ") || undefined}>
-      {n}
-      {labels.length > 1 ? (
-        <span className="uiMuted" style={{ fontWeight: 500 }}>
-          {" "}
-          · {labels.join(", ")}
-        </span>
-      ) : null}
-    </span>
-  );
+function teamLabelsForMember(m, detail) {
+  const seen = new Set();
+  const labels = [];
+  const add = (value) => {
+    const s = String(value || "").trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    labels.push(s);
+  };
+  for (const x of m?.team_labels || []) add(x);
+  add(ageGroupLabel(resolveAgeCode(detail?.age, detail?.age_group)));
+  const order = AGE_LADDER.map((code) => ageGroupLabel(code));
+  labels.sort((a, b) => {
+    const ia = order.indexOf(a);
+    const ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return labels;
+}
+
+function teamsCell(m, detail) {
+  const labels = teamLabelsForMember(m, detail);
+  if (!labels.length) return "—";
+  return labels.join(", ");
 }
 
 export default function CoachBvfCardIndexDetail() {
@@ -377,7 +386,7 @@ export default function CoachBvfCardIndexDetail() {
                           {m.athlete_name}
                         </td>
                         <td data-label="Година">{m.birth_year || "—"}</td>
-                        <td data-label="Отбори">{teamsCell(m)}</td>
+                        <td data-label="Отбори">{teamsCell(m, detail)}</td>
                         <td data-label="БФВ №">{m.bvf_player_number || m.bvf_player_id}</td>
                         <td data-label="Форма 03">{m.has_form_03 ? "✓" : "○"}</td>
                         <td data-label="Готов">{m.ready ? "✓" : "○"}</td>
@@ -478,7 +487,11 @@ export default function CoachBvfCardIndexDetail() {
                               СЕК: {a.bvf_player_number || a.bvf_player_id}
                               {a.birth_year != null ? ` · ${a.birth_year}` : ""}
                               {a.natural_age_label ? ` · ${a.natural_age_label}` : ""}
-                              {Number(a.teams_count) > 0 ? ` · ${a.teams_count} отб.` : ""}
+                              {(a.team_labels || []).length
+                                ? ` · ${(a.team_labels || []).join(", ")}`
+                                : Number(a.teams_count) > 0
+                                  ? ` · ${a.teams_count} отб.`
+                                  : ""}
                             </div>
                           </span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: "#166534", flexShrink: 0 }}>

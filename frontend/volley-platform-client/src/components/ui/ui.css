@@ -618,10 +618,6 @@
   min-width: 920px;
 }
 
-.cardIndexRoster td[data-label="Отбори"] .uiMuted {
-  display: none;
-}
-
 @media (max-width: 900px) {
   .cardIndexRoster {
     overflow: visible;
@@ -702,10 +698,6 @@
 
   .cardIndexRoster td[data-label="Отбори"] {
     grid-column: 1 / -1;
-  }
-
-  .cardIndexRoster td[data-label="Отбори"] .uiMuted {
-    display: inline;
   }
 
   .cardIndexRoster td[data-label=" "] {
