@@ -112,6 +112,26 @@ def get_signed_carding_form(
     return q.first()
 
 
+def signed_carding_form_athlete_ids(
+    db: Session,
+    club_id: int,
+    season_year: int,
+    athlete_ids: set[int] | list[int] | None = None,
+) -> set[int]:
+    """Една заявка вместо N× get_signed_carding_form."""
+    q = db.query(AthleteCardingForm.athlete_id).filter(
+        AthleteCardingForm.club_id == int(club_id),
+        AthleteCardingForm.season_year == int(season_year),
+        AthleteCardingForm.is_active.is_(True),
+    )
+    if athlete_ids is not None:
+        wanted = {int(x) for x in athlete_ids}
+        if not wanted:
+            return set()
+        q = q.filter(AthleteCardingForm.athlete_id.in_(wanted))
+    return {int(r[0]) for r in q.distinct().all()}
+
+
 def athlete_has_signed_carding_form(db: Session, athlete: Athlete, season_year: int) -> bool:
     return get_signed_carding_form(db, athlete.id, int(season_year), athlete.club_id) is not None
 

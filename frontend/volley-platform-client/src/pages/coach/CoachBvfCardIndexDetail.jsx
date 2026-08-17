@@ -52,6 +52,7 @@ export default function CoachBvfCardIndexDetail() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
   const [eligible, setEligible] = useState([]);
+  const [eligibleLoading, setEligibleLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [requestNote, setRequestNote] = useState("");
@@ -80,43 +81,60 @@ export default function CoachBvfCardIndexDetail() {
 
   const showSearchDropdown = searchOpen && detail?.can_edit && availableAthletes.length > 0;
 
-  const loadAll = useCallback(async () => {
+  const loadDetail = useCallback(async () => {
+    if (!localId) return null;
+    const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL(localId));
+    setDetail(res.data);
+    return res.data;
+  }, [localId]);
+
+  const loadEligible = useCallback(async () => {
     if (!localId) return;
-    setLoading(true);
+    setEligibleLoading(true);
     try {
-      const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL(localId));
-      setDetail(res.data);
-      try {
-        const elig = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
-          params: {
-            season_year: Number(res.data?.year || new Date().getFullYear()),
-            require_form_03: true,
-            local_id: Number(localId),
-          },
-        });
-        setEligible(elig.data?.athletes || []);
-      } catch {
-        setEligible([]);
-      }
-    } catch (err) {
-      setDetail(null);
+      const elig = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
+        params: {
+          require_form_03: true,
+          local_id: Number(localId),
+        },
+      });
+      setEligible(elig.data?.athletes || []);
+    } catch {
       setEligible([]);
-      const status = err?.response?.status;
-      toast.error(
-        normalizeError(
-          err,
-          status === 403
-            ? "Нямаш достъп до този картотечен отбор."
-            : "Неуспешно зареждане на отбора.",
-        ),
-      );
-      if (status === 403 || status === 404) {
-        navigate("/coach/bvf-card-indexes", { replace: true });
-      }
     } finally {
-      setLoading(false);
+      setEligibleLoading(false);
     }
-  }, [localId, navigate, toast]);
+  }, [localId]);
+
+  const loadAll = useCallback(
+    async ({ blockPage } = { blockPage: true }) => {
+      if (!localId) return;
+      if (blockPage) setLoading(true);
+      const eligP = loadEligible();
+      try {
+        await loadDetail();
+      } catch (err) {
+        setDetail(null);
+        setEligible([]);
+        const status = err?.response?.status;
+        toast.error(
+          normalizeError(
+            err,
+            status === 403
+              ? "Нямаш достъп до този картотечен отбор."
+              : "Неуспешно зареждане на отбора.",
+          ),
+        );
+        if (status === 403 || status === 404) {
+          navigate("/coach/bvf-card-indexes", { replace: true });
+        }
+      } finally {
+        if (blockPage) setLoading(false);
+      }
+      await eligP;
+    },
+    [localId, loadDetail, loadEligible, navigate, toast],
+  );
 
   useEffect(() => {
     loadAll();
@@ -138,6 +156,34 @@ export default function CoachBvfCardIndexDetail() {
       const added = Number(res.data?.added || 0);
       if (added) {
         toast.success("Добавен в локалния състав.");
+        setEligible((prev) => prev.filter((a) => a.id !== athleteId));
+        if (row) {
+          setDetail((d) =>
+            d
+              ? {
+                  ...d,
+                  members: [
+                    ...(d.members || []).filter((m) => m.athlete_id !== athleteId),
+                    {
+                      athlete_id: row.id,
+                      athlete_name: row.athlete_name,
+                      bvf_player_id: row.bvf_player_id,
+                      bvf_player_number: row.bvf_player_number,
+                      synced: false,
+                      ready: true,
+                      has_form_03: true,
+                      fits_age: true,
+                      birth_year: row.birth_year,
+                      checklist: [],
+                    },
+                  ],
+                }
+              : d,
+          );
+        }
+        setSearch("");
+        setSearchOpen(false);
+        loadDetail().catch(() => {});
       } else if (res.data?.errors?.length) {
         toast.error(res.data.errors.slice(0, 3).join("; "));
       } else {
@@ -145,7 +191,6 @@ export default function CoachBvfCardIndexDetail() {
       }
       setSearch("");
       setSearchOpen(false);
-      await loadAll();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно добавяне."));
     } finally {
@@ -155,13 +200,31 @@ export default function CoachBvfCardIndexDetail() {
 
   const removeAthlete = async (athleteId, name) => {
     if (!window.confirm(`Премахни ${name || "състезателя"} от локалния състав?`)) return;
+    const row = (detail?.members || []).find((m) => m.athlete_id === athleteId);
     try {
       setBusy(true);
       await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REMOVE(localId), {
         athlete_ids: [athleteId],
       });
       toast.success("Премахнат от локалния състав.");
-      await loadAll();
+      setDetail((d) =>
+        d ? { ...d, members: (d.members || []).filter((m) => m.athlete_id !== athleteId) } : d,
+      );
+      setEligible((prev) => {
+        if (prev.some((a) => a.id === athleteId) || !row) return prev;
+        return [
+          {
+            id: row.athlete_id,
+            athlete_name: row.athlete_name,
+            bvf_player_id: row.bvf_player_id,
+            bvf_player_number: row.bvf_player_number,
+            birth_year: row.birth_year,
+            has_form_03: row.has_form_03,
+          },
+          ...prev,
+        ];
+      });
+      loadDetail().catch(() => {});
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно премахване."));
     } finally {
@@ -178,7 +241,7 @@ export default function CoachBvfCardIndexDetail() {
       });
       toast.success(res.data?.message || "Заявката е изпратена.");
       setRequestNote("");
-      await loadAll();
+      await loadAll({ blockPage: false });
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешна заявка."));
     } finally {
@@ -193,7 +256,7 @@ export default function CoachBvfCardIndexDetail() {
         note: "Върнат за корекции",
       });
       toast.success("Отборът е върнат на треньора.");
-      await loadAll();
+      await loadAll({ blockPage: false });
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно връщане."));
     } finally {
@@ -219,10 +282,10 @@ export default function CoachBvfCardIndexDetail() {
       toast.success(
         `Статус: ${res.data?.status || "ok"}. Форми в СЕК: ${up} качени, ${already} вече имаше.`,
       );
-      await loadAll();
+      await loadAll({ blockPage: false });
     } catch (err) {
       toast.error(normalizeError(err, "Записът в СЕК чака write token или връзка с БФВ."));
-      await loadAll();
+      await loadAll({ blockPage: false });
     } finally {
       setBusy(false);
     }
@@ -394,7 +457,11 @@ export default function CoachBvfCardIndexDetail() {
                 ) : null}
               </div>
 
-              {availableAthletes.length === 0 ? (
+              {eligibleLoading ? (
+                <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
+                  Зареждане на допустими състезатели…
+                </p>
+              ) : availableAthletes.length === 0 ? (
                 <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
                   Няма свободни състезатели за този отбор (пол/възраст + подписана Форма 03).
                 </p>

@@ -8,7 +8,7 @@ from typing import Any, Optional
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.database import get_db
 from app.dependencies.roles import require_role
@@ -37,14 +37,16 @@ from app.routers.bvf_admin import (
     _normalize_bearer,
 )
 from app.services.athlete_identity import apply_birth_date_from_egn, compose_athlete_name
-from app.services.athlete_photo import has_cached_photo, save_athlete_photo
+from app.services.athlete_photo import cached_photo_athlete_ids, has_cached_photo, save_athlete_photo
 from app.services.bvf_season_carding import (
     age_group_label,
     athlete_docs_as_dicts,
     athlete_fits_card_index_rules,
     athlete_has_form_03,
+    athlete_sex_code,
     card_index_age_rule_hint,
     eligible_athlete_payload,
+    form_03_athlete_ids,
     list_ready_for_head,
     looks_like_form_03,
     map_sek_season_age_group,
@@ -141,12 +143,19 @@ def _coach_card_index_filter(query, user: User):
     )
 
 
-def _local_card_index(db: Session, club: Club, local_id: int) -> BvfCardIndex:
-    local = (
-        db.query(BvfCardIndex)
-        .filter(BvfCardIndex.id == int(local_id), BvfCardIndex.club_id == club.id)
-        .first()
+def _card_index_roster_options():
+    return (
+        selectinload(BvfCardIndex.members)
+        .joinedload(BvfCardIndexMember.athlete)
+        .selectinload(Athlete.bvf_documents)
     )
+
+
+def _local_card_index(db: Session, club: Club, local_id: int, *, with_roster: bool = False) -> BvfCardIndex:
+    q = db.query(BvfCardIndex)
+    if with_roster:
+        q = q.options(_card_index_roster_options())
+    local = q.filter(BvfCardIndex.id == int(local_id), BvfCardIndex.club_id == club.id).first()
     if not local:
         raise HTTPException(status_code=404, detail="Картотечният отбор не е намерен")
     return local
@@ -169,14 +178,25 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
     members_out = []
     all_ready = True
     form_ok = True
+    member_athletes = [mem.athlete for mem in (local.members or []) if mem.athlete]
+    member_ids = [a.id for a in member_athletes]
+    photo_ids = cached_photo_athlete_ids(member_ids) if member_ids else set()
+    form_ids = (
+        form_03_athlete_ids(db, club_id=int(local.club_id), season_year=int(year), athlete_ids=member_ids)
+        if member_ids
+        else set()
+    )
     for mem in local.members or []:
         athlete = mem.athlete
         if not athlete:
             continue
         docs = athlete_docs_as_dicts(athlete)
-        checklist = _doc_checklist(athlete, docs, year, db=db)
+        has_photo = athlete.id in photo_ids or bool(athlete.bvf_photo_id)
+        has_form = athlete.id in form_ids
+        checklist = _doc_checklist(
+            athlete, docs, year, db=db, has_photo=has_photo, has_form=has_form
+        )
         ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
-        has_form = athlete_has_form_03(athlete, year, db=db)
         fits_age, age_reason = athlete_fits_card_index_rules(
             athlete,
             season_year=int(year),
@@ -569,9 +589,16 @@ def _upsert_doc_mirrors(db: Session, athlete: Athlete, docs: list) -> list[dict]
 
 
 def _doc_checklist(
-    athlete: Athlete, docs: list[dict], season_year: int, db: Session | None = None
+    athlete: Athlete,
+    docs: list[dict],
+    season_year: int,
+    db: Session | None = None,
+    *,
+    has_photo: bool | None = None,
+    has_form: bool | None = None,
 ) -> list[dict]:
-    has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
+    if has_photo is None:
+        has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
     season_docs = [
         d
         for d in docs
@@ -580,9 +607,10 @@ def _doc_checklist(
     has_form_docs = any(
         looks_like_form_03(d.get("doc_type"), d.get("description")) for d in (season_docs or docs)
     )
-    has_form = (
-        athlete_has_form_03(athlete, int(season_year), db=db) if db is not None else has_form_docs
-    )
+    if has_form is None:
+        has_form = (
+            athlete_has_form_03(athlete, int(season_year), db=db) if db is not None else has_form_docs
+        )
     return [
         {"key": "photo", "label": "Снимка", "ok": has_photo},
         {"key": "egn", "label": "ЕГН", "ok": bool((athlete.egn or "").strip())},
@@ -1001,30 +1029,42 @@ def list_eligible_card_index_athletes(
 
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
     rows = q.order_by(Athlete.athlete_name.asc()).all()
-    athletes = [eligible_athlete_payload(a, year, db=db) for a in rows]
-    roster = [a for a in athletes if a["eligible_for_roster"]] if require_form_03 else athletes
-
+    if filter_sex is not None:
+        rows = [a for a in rows if athlete_sex_code(a) == int(filter_sex)]
     if filter_age is not None and filter_sex is not None:
-        by_id = {a.id: a for a in rows}
-        filtered = []
-        for row in roster:
-            ath = by_id.get(row["id"])
-            if not ath:
-                continue
-            ok, _reason = athlete_fits_card_index_rules(
-                ath,
+        rows = [
+            a
+            for a in rows
+            if athlete_fits_card_index_rules(
+                a,
                 season_year=year,
                 age=int(filter_age),
                 sex=int(filter_sex),
                 age_group=filter_age_group,
-            )
-            if ok:
-                filtered.append(row)
-        roster = filtered
+            )[0]
+        ]
+
+    form_ids = form_03_athlete_ids(
+        db,
+        club_id=int(club.id),
+        season_year=year,
+        athlete_ids=[a.id for a in rows],
+    )
+    if require_form_03:
+        rows = [a for a in rows if a.id in form_ids]
+
+    athletes = [
+        eligible_athlete_payload(
+            a,
+            year,
+            has_form=a.id in form_ids,
+            has_photo=False,
+        )
+        for a in rows
+    ]
 
     return {
-        "athletes": roster,
-        "all_linked": athletes,
+        "athletes": athletes,
         "season_year": year,
         "require_form_03": require_form_03,
         "filter_age": filter_age,
@@ -1045,6 +1085,7 @@ def get_card_index_detail(
     club = _club_for_any_coach(db, current_user, club_id)
     local = (
         db.query(BvfCardIndex)
+        .options(_card_index_roster_options())
         .filter(BvfCardIndex.bvf_card_index_id == int(bvf_card_index_id), BvfCardIndex.club_id == club.id)
         .first()
     )
@@ -2026,7 +2067,7 @@ def get_local_card_index_detail(
     ),
 ):
     club = _club_for_any_coach(db, current_user, club_id)
-    local = _local_card_index(db, club, local_id)
+    local = _local_card_index(db, club, local_id, with_roster=True)
     _require_card_index_access(db, current_user, local)
     return _detail_payload(db, local, current_user)
 

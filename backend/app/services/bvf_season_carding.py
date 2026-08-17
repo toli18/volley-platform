@@ -109,33 +109,94 @@ def athlete_has_form_03(athlete: Athlete, season_year: int, db: Session | None =
         if athlete_has_signed_carding_form(db, athlete, int(season_year)):
             return True
 
-    docs = athlete_docs_as_dicts(athlete)
-    # Include local metadata rows but exclude local-form03-* markers
+    return _docs_count_as_form_03(athlete.bvf_documents or [], int(season_year))
+
+
+def _doc_fields(d: Any) -> tuple[Any, str, Any, str]:
+    if isinstance(d, dict):
+        return d.get("doc_type"), d.get("description") or "", d.get("season_year"), str(d.get("bvf_document_id") or "")
+    if isinstance(d, (tuple, list)) and len(d) >= 3:
+        bid = str(d[3] if len(d) > 3 else "")
+        return d[0], d[1] or "", d[2], bid
+    return (
+        getattr(d, "doc_type", None),
+        getattr(d, "description", None) or "",
+        getattr(d, "season_year", None),
+        str(getattr(d, "bvf_document_id", None) or ""),
+    )
+
+
+def _docs_count_as_form_03(docs: list, season_year: int) -> bool:
     real_docs = []
-    for d in athlete.bvf_documents or []:
-        bid = str(getattr(d, "bvf_document_id", None) or "")
+    for d in docs:
+        doc_type, description, sy, bid = _doc_fields(d)
         if bid.startswith("local-form03-") or bid.startswith("local-"):
             continue
-        real_docs.append(
-            {
-                "doc_type": d.doc_type,
-                "description": d.description,
-                "season_year": d.season_year,
-            }
-        )
-    season_docs = [
-        d
-        for d in real_docs
-        if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
-    ]
+        real_docs.append((doc_type, description, sy))
+    year_s = str(int(season_year))
+    season_docs = [d for d in real_docs if d[2] == int(season_year) or year_s in d[1]]
     pool = season_docs or real_docs
-    return any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in pool)
+    return any(looks_like_form_03(d[0], d[1]) for d in pool)
 
 
-def eligible_athlete_payload(athlete: Athlete, season_year: int, db: Session | None = None) -> dict[str, Any]:
-    has_form = athlete_has_form_03(athlete, season_year, db=db)
-    has_egn = bool((athlete.egn or "").strip())
-    has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
+def form_03_athlete_ids(
+    db: Session,
+    *,
+    club_id: int,
+    season_year: int,
+    athlete_ids: set[int] | list[int] | None = None,
+) -> set[int]:
+    """Подписана локална форма или огледален СЕК документ — без N+1."""
+    from app.services.carding_form import signed_carding_form_athlete_ids
+
+    found = signed_carding_form_athlete_ids(db, int(club_id), int(season_year), athlete_ids)
+    remaining: set[int] | None
+    if athlete_ids is not None:
+        remaining = {int(x) for x in athlete_ids} - found
+        if not remaining:
+            return found
+    else:
+        remaining = None
+
+    q = db.query(
+        AthleteBvfDocument.athlete_id,
+        AthleteBvfDocument.doc_type,
+        AthleteBvfDocument.description,
+        AthleteBvfDocument.season_year,
+        AthleteBvfDocument.bvf_document_id,
+    )
+    if remaining is not None:
+        q = q.filter(AthleteBvfDocument.athlete_id.in_(remaining))
+    else:
+        q = q.join(Athlete, Athlete.id == AthleteBvfDocument.athlete_id).filter(
+            Athlete.club_id == int(club_id)
+        )
+
+    by_ath: dict[int, list[tuple]] = {}
+    for aid, doc_type, description, sy, bid in q.all():
+        by_ath.setdefault(int(aid), []).append((doc_type, description, sy, bid))
+
+    year = int(season_year)
+    for aid, docs in by_ath.items():
+        if aid in found:
+            continue
+        if _docs_count_as_form_03(docs, year):
+            found.add(aid)
+    return found
+
+
+def eligible_athlete_payload(
+    athlete: Athlete,
+    season_year: int,
+    db: Session | None = None,
+    *,
+    has_form: bool | None = None,
+    has_photo: bool | None = None,
+) -> dict[str, Any]:
+    if has_form is None:
+        has_form = athlete_has_form_03(athlete, season_year, db=db)
+    if has_photo is None:
+        has_photo = has_cached_photo(athlete.id) or bool(athlete.bvf_photo_id)
     by = athlete_birth_year(athlete)
     nat = natural_age_code(by, int(season_year)) if by else None
     return {
@@ -145,12 +206,12 @@ def eligible_athlete_payload(athlete: Athlete, season_year: int, db: Session | N
         "bvf_player_number": athlete.bvf_player_number,
         "birth_year": by if by is not None else athlete.birth_year,
         "gender": athlete.gender,
-        "has_egn": has_egn,
-        "has_photo": has_photo,
-        "has_form_03": has_form,
+        "has_egn": bool((athlete.egn or "").strip()),
+        "has_photo": bool(has_photo),
+        "has_form_03": bool(has_form),
         "natural_age": nat,
         "natural_age_label": age_group_label(nat) if nat is not None else None,
-        "eligible_for_roster": bool(athlete.bvf_player_id) and has_form,
+        "eligible_for_roster": bool(athlete.bvf_player_id) and bool(has_form),
     }
 
 
