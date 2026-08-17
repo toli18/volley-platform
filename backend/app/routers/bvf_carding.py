@@ -37,9 +37,11 @@ from app.routers.bvf_admin import (
     _normalize_bearer,
 )
 from app.services.athlete_identity import apply_birth_date_from_egn, compose_athlete_name
+from app.services.athlete_memberships import carded_team_badges_by_athlete
 from app.services.athlete_photo import cached_photo_athlete_ids, has_cached_photo, save_athlete_photo
 from app.services.bvf_season_carding import (
     age_group_label,
+    athlete_birth_year,
     athlete_docs_as_dicts,
     athlete_fits_card_index_rules,
     athlete_has_form_03,
@@ -173,6 +175,15 @@ def _club_coaches(db: Session, club: Club) -> list[User]:
     )
 
 
+def _season_carded_teams(db: Session, athlete_ids: list[int], season_year: int) -> dict[int, list[dict]]:
+    raw = carded_team_badges_by_athlete(db, athlete_ids)
+    year = int(season_year)
+    out: dict[int, list[dict]] = {}
+    for aid, items in raw.items():
+        out[int(aid)] = [x for x in items if x.get("year") is None or int(x["year"]) == year]
+    return out
+
+
 def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dict:
     year = local.year or datetime.utcnow().year
     members_out = []
@@ -186,6 +197,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         if member_ids
         else set()
     )
+    teams_map = _season_carded_teams(db, member_ids, int(year)) if member_ids else {}
     for mem in local.members or []:
         athlete = mem.athlete
         if not athlete:
@@ -210,6 +222,8 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             form_ok = False
         if not fits_age:
             all_ready = False
+        by = athlete_birth_year(athlete)
+        teams = teams_map.get(athlete.id, [])
         members_out.append(
             {
                 "athlete_id": athlete.id,
@@ -221,7 +235,9 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "has_form_03": has_form,
                 "fits_age": fits_age,
                 "age_reason": age_reason,
-                "birth_year": athlete.birth_year,
+                "birth_year": by if by is not None else athlete.birth_year,
+                "teams_count": len(teams),
+                "team_labels": [t.get("label") for t in teams if t.get("label")],
                 "checklist": checklist,
             }
         )
@@ -1062,6 +1078,11 @@ def list_eligible_card_index_athletes(
         )
         for a in rows
     ]
+    teams_map = _season_carded_teams(db, [a.id for a in rows], year) if rows else {}
+    for row in athletes:
+        teams = teams_map.get(int(row["id"]), [])
+        row["teams_count"] = len(teams)
+        row["team_labels"] = [t.get("label") for t in teams if t.get("label")]
 
     return {
         "athletes": athletes,

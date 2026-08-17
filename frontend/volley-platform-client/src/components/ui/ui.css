@@ -608,6 +608,121 @@
   }
 }
 
+.cardIndexRoster {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cardIndexRoster .uiTable {
+  min-width: 920px;
+}
+
+.cardIndexRoster td[data-label="Отбори"] .uiMuted {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .cardIndexRoster {
+    overflow: visible;
+  }
+
+  .cardIndexRoster .uiTable {
+    min-width: 0;
+    width: 100%;
+    display: block;
+  }
+
+  .cardIndexRoster thead {
+    display: none;
+  }
+
+  .cardIndexRoster tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .cardIndexRoster tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .cardIndexRoster tbody tr:hover {
+    background: #fff;
+  }
+
+  .cardIndexRoster th,
+  .cardIndexRoster td,
+  .cardIndexRoster th:first-child,
+  .cardIndexRoster td:first-child,
+  .cardIndexRoster th:last-child,
+  .cardIndexRoster td:last-child {
+    border: none;
+  }
+
+  .cardIndexRoster td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .cardIndexRoster td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #415472;
+  }
+
+  .cardIndexRoster td[data-label="Име"] {
+    grid-column: 1 / -1;
+    font-size: 15px;
+    padding-top: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .cardIndexRoster td[data-label="Име"]::before {
+    display: none;
+  }
+
+  .cardIndexRoster td[data-label="Липси"] {
+    grid-column: 1 / -1;
+  }
+
+  .cardIndexRoster td[data-label="Отбори"] {
+    grid-column: 1 / -1;
+  }
+
+  .cardIndexRoster td[data-label="Отбори"] .uiMuted {
+    display: inline;
+  }
+
+  .cardIndexRoster td[data-label=" "] {
+    grid-column: 1 / -1;
+    padding-bottom: 12px;
+    justify-content: stretch;
+  }
+
+  .cardIndexRoster td[data-label=" "]::before {
+    display: none;
+  }
+
+  .cardIndexRoster td[data-label=" "] .uiButton {
+    width: 100%;
+  }
+}
+
 /* Toast stack: позицията е само тук — без inline top/right, за да няма конфликт
    (иначе при max-width 720px остават top + bottom и fixed блокът се разтяга на цял екран). */
 .uiToastStack {

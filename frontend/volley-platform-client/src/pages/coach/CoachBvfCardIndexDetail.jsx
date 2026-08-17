@@ -37,6 +37,34 @@ function memberAgeNote(m, year, detail) {
   return fit.ok ? null : fit.reason;
 }
 
+function memberMissing(m, year, detail) {
+  return (
+    [
+      ...(memberAgeNote(m, year, detail) ? [memberAgeNote(m, year, detail)] : []),
+      ...(m.checklist || [])
+        .filter((c) => !c.ok && c.key !== "any_doc")
+        .map((c) => c.label),
+    ].join(", ") || "—"
+  );
+}
+
+function teamsCell(m) {
+  const n = Number(m.teams_count || 0);
+  const labels = (m.team_labels || []).filter(Boolean);
+  if (!n) return "—";
+  return (
+    <span title={labels.join(" · ") || undefined}>
+      {n}
+      {labels.length > 1 ? (
+        <span className="uiMuted" style={{ fontWeight: 500 }}>
+          {" "}
+          · {labels.join(", ")}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export default function CoachBvfCardIndexDetail() {
   const { localId } = useParams();
   const navigate = useNavigate();
@@ -174,6 +202,8 @@ export default function CoachBvfCardIndexDetail() {
                       has_form_03: true,
                       fits_age: true,
                       birth_year: row.birth_year,
+                      teams_count: Number(row.teams_count || 0) + 1,
+                      team_labels: row.team_labels || [],
                       checklist: [],
                     },
                   ],
@@ -220,6 +250,8 @@ export default function CoachBvfCardIndexDetail() {
             bvf_player_number: row.bvf_player_number,
             birth_year: row.birth_year,
             has_form_03: row.has_form_03,
+            teams_count: Math.max(0, Number(row.teams_count || 1) - 1),
+            team_labels: row.team_labels || [],
           },
           ...prev,
         ];
@@ -324,11 +356,13 @@ export default function CoachBvfCardIndexDetail() {
         <>
           <Card title="Състезатели в отбора">
             {(detail.members || []).length ? (
-              <div style={{ overflowX: "auto" }}>
+              <div className="cardIndexRoster">
                 <table className="uiTable">
                   <thead>
                     <tr>
                       <th>Име</th>
+                      <th>Година</th>
+                      <th>Отбори</th>
                       <th>БФВ №</th>
                       <th>Форма 03</th>
                       <th>Готов</th>
@@ -339,20 +373,19 @@ export default function CoachBvfCardIndexDetail() {
                   <tbody>
                     {detail.members.map((m) => (
                       <tr key={m.athlete_id}>
-                        <td style={{ fontWeight: 600 }}>{m.athlete_name}</td>
-                        <td>{m.bvf_player_number || m.bvf_player_id}</td>
-                        <td>{m.has_form_03 ? "✓" : "○"}</td>
-                        <td>{m.ready ? "✓" : "○"}</td>
-                        <td style={{ fontSize: 12, color: "#92400e" }}>
-                          {[
-                            ...(memberAgeNote(m, year, detail) ? [memberAgeNote(m, year, detail)] : []),
-                            ...(m.checklist || [])
-                              .filter((c) => !c.ok && c.key !== "any_doc")
-                              .map((c) => c.label),
-                          ].join(", ") || "—"}
+                        <td data-label="Име" style={{ fontWeight: 600 }}>
+                          {m.athlete_name}
+                        </td>
+                        <td data-label="Година">{m.birth_year || "—"}</td>
+                        <td data-label="Отбори">{teamsCell(m)}</td>
+                        <td data-label="БФВ №">{m.bvf_player_number || m.bvf_player_id}</td>
+                        <td data-label="Форма 03">{m.has_form_03 ? "✓" : "○"}</td>
+                        <td data-label="Готов">{m.ready ? "✓" : "○"}</td>
+                        <td data-label="Липси" style={{ fontSize: 12, color: "#92400e" }}>
+                          {memberMissing(m, year, detail)}
                         </td>
                         {detail.can_edit ? (
-                          <td>
+                          <td data-label=" ">
                             <Button
                               type="button"
                               size="sm"
@@ -445,6 +478,7 @@ export default function CoachBvfCardIndexDetail() {
                               СЕК: {a.bvf_player_number || a.bvf_player_id}
                               {a.birth_year != null ? ` · ${a.birth_year}` : ""}
                               {a.natural_age_label ? ` · ${a.natural_age_label}` : ""}
+                              {Number(a.teams_count) > 0 ? ` · ${a.teams_count} отб.` : ""}
                             </div>
                           </span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: "#166534", flexShrink: 0 }}>
