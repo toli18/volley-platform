@@ -182,6 +182,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             season_year=int(year),
             age=int(local.age),
             sex=int(local.sex),
+            age_group=local.age_group,
         )
         if not ready:
             all_ready = False
@@ -200,6 +201,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "has_form_03": has_form,
                 "fits_age": fits_age,
                 "age_reason": age_reason,
+                "birth_year": athlete.birth_year,
                 "checklist": checklist,
             }
         )
@@ -209,7 +211,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "members": members_out,
         "members_count": len(members_out),
         "all_ready": all_ready and len(members_out) > 0 and form_ok,
-        "age_rule_hint": card_index_age_rule_hint(year, int(local.age)),
+        "age_rule_hint": card_index_age_rule_hint(year, int(local.age), local.age_group),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
         "can_request_head": (
@@ -982,6 +984,7 @@ def list_eligible_card_index_athletes(
     year = int(season_year or datetime.utcnow().year)
     filter_age = age
     filter_sex = sex
+    filter_age_group = None
     # Треньорът вижда допустими само в контекста на назначен отбор.
     if local_id is None and current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
         raise HTTPException(
@@ -994,6 +997,7 @@ def list_eligible_card_index_athletes(
         year = int(local.year or year)
         filter_age = int(local.age)
         filter_sex = int(local.sex)
+        filter_age_group = local.age_group
 
     q = db.query(Athlete).filter(Athlete.club_id == club.id, Athlete.bvf_player_id.isnot(None), Athlete.is_active.is_(True))
     rows = q.order_by(Athlete.athlete_name.asc()).all()
@@ -1008,7 +1012,11 @@ def list_eligible_card_index_athletes(
             if not ath:
                 continue
             ok, _reason = athlete_fits_card_index_rules(
-                ath, season_year=year, age=int(filter_age), sex=int(filter_sex)
+                ath,
+                season_year=year,
+                age=int(filter_age),
+                sex=int(filter_sex),
+                age_group=filter_age_group,
             )
             if ok:
                 filtered.append(row)
@@ -2057,6 +2065,7 @@ def add_players_to_local_card_index(
             season_year=int(season_year),
             age=int(local.age),
             sex=int(local.sex),
+            age_group=local.age_group,
         )
         if not ok_fit:
             errors.append(f"{athlete.athlete_name}: {reason or 'не съвпада с отбора'}")

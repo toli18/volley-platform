@@ -37,7 +37,13 @@ class BvfAgeCohortTests(unittest.TestCase):
         self.assertEqual(allowed_age_codes(2014, 2026), {14, 16})  # Под 14 → Под 16
         self.assertNotIn(16, allowed_age_codes(2016, 2026))  # без прескачане
 
-    def test_fits_uses_cohorts_not_max_age(self):
+    def test_detski_label_rejects_2014(self):
+        older = SimpleNamespace(gender="male", birth_year=2014, birth_date=None, egn=None)
+        ok, reason = athlete_fits_card_index_rules(
+            older, season_year=2026, age=99, sex=0, age_group="Детски - локално"
+        )
+        self.assertFalse(ok)
+        self.assertIn("Под 14", reason or "")
         older = SimpleNamespace(gender="male", birth_year=2014, birth_date=None, egn=None)
         ok, reason = athlete_fits_card_index_rules(older, season_year=2026, age=12, sex=0)
         self.assertFalse(ok)

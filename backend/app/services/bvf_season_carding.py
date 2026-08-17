@@ -215,6 +215,35 @@ def natural_age_code(birth_year: int, season_year: int) -> int:
     return 99
 
 
+def resolve_age_code(age: int | None, age_group: str | None = None) -> int:
+    """Код на групата по етикет (Детски/Мини/…) — по-надеждно от суровото число."""
+    raw = (age_group or "").lower().replace(" ", "").replace("-", "")
+    if "детск" in raw:
+        return 12
+    if "мини" in raw:
+        return 13
+    if "под14" in raw:
+        return 14
+    if "под16" in raw:
+        return 16
+    if "под18" in raw:
+        return 18
+    if "под20" in raw:
+        return 20
+    if "мъже" in raw or "жени" in raw or "висша" in raw:
+        return 99
+    try:
+        code = int(age)
+    except (TypeError, ValueError):
+        return 12
+    if code in AGE_LADDER:
+        return code
+    mapped = SEK_SEASON_AGE_GROUP_MAP.get(code)
+    if mapped:
+        return int(mapped[0])
+    return code
+
+
 def allowed_age_codes(birth_year: int, season_year: int) -> set[int]:
     nat = natural_age_code(birth_year, season_year)
     idx = AGE_LADDER.index(nat)
@@ -236,10 +265,11 @@ def birth_years_for_age_code(season_year: int, age_code: int) -> list[int]:
     return years
 
 
-def card_index_age_rule_hint(season_year: int, age_code: int) -> str:
-    years = birth_years_for_age_code(season_year, age_code)
-    label = age_group_label(age_code)
-    if int(age_code) >= 99:
+def card_index_age_rule_hint(season_year: int, age_code: int, age_group: str | None = None) -> str:
+    code = resolve_age_code(age_code, age_group)
+    years = birth_years_for_age_code(season_year, code)
+    label = age_group_label(code)
+    if int(code) >= 99:
         return f"{label}: възрастни + Под 20 (една група нагоре)."
     if not years:
         return f"{label}: няма допустими години на раждане."
@@ -260,6 +290,7 @@ def athlete_fits_card_index_rules(
     season_year: int,
     age: int,
     sex: int,
+    age_group: str | None = None,
 ) -> tuple[bool, str | None]:
     """Локално като СЕК: пол + кохорта по година на раждане (без игра надолу / прескачане)."""
     want_sex = int(sex)
@@ -269,7 +300,7 @@ def athlete_fits_card_index_rules(
     if got_sex != want_sex:
         return False, "полът не съвпада с отбора"
 
-    age_code = int(age)
+    age_code = resolve_age_code(age, age_group)
     by = athlete_birth_year(athlete)
     if by is None:
         return False, "липсва година на раждане"

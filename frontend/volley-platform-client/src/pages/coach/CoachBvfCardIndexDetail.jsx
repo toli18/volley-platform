@@ -9,6 +9,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import { normalizeError } from "../../utils/normalizeError";
+import { ageRuleHint, athleteFitsAgeGroup } from "../../utils/sekAgeRules";
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -28,6 +29,12 @@ function statusLabel(it) {
 
 function sexLabel(sex) {
   return Number(sex) === 1 ? "Женски" : "Мъжки";
+}
+
+function memberAgeNote(m, year, detail) {
+  if (m.fits_age === false && m.age_reason) return m.age_reason;
+  const fit = athleteFitsAgeGroup(m.birth_year, year, detail?.age, detail?.age_group);
+  return fit.ok ? null : fit.reason;
 }
 
 export default function CoachBvfCardIndexDetail() {
@@ -57,8 +64,13 @@ export default function CoachBvfCardIndexDetail() {
   );
 
   const availableAthletes = useMemo(
-    () => eligible.filter((a) => !memberIds.has(a.id)),
-    [eligible, memberIds],
+    () =>
+      eligible.filter((a) => {
+        if (memberIds.has(a.id)) return false;
+        const fit = athleteFitsAgeGroup(a.birth_year, year, detail?.age, detail?.age_group);
+        return fit.ok;
+      }),
+    [eligible, memberIds, year, detail],
   );
 
   const filteredAthletes = useMemo(
@@ -74,14 +86,18 @@ export default function CoachBvfCardIndexDetail() {
     try {
       const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DETAIL(localId));
       setDetail(res.data);
-      const elig = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
-        params: {
-          season_year: Number(res.data?.year || new Date().getFullYear()),
-          require_form_03: true,
-          local_id: Number(localId),
-        },
-      });
-      setEligible(elig.data?.athletes || []);
+      try {
+        const elig = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
+          params: {
+            season_year: Number(res.data?.year || new Date().getFullYear()),
+            require_form_03: true,
+            local_id: Number(localId),
+          },
+        });
+        setEligible(elig.data?.athletes || []);
+      } catch {
+        setEligible([]);
+      }
     } catch (err) {
       setDetail(null);
       setEligible([]);
@@ -108,6 +124,12 @@ export default function CoachBvfCardIndexDetail() {
 
   const addAthlete = async (athleteId) => {
     if (!athleteId) return;
+    const row = eligible.find((a) => a.id === athleteId);
+    const fit = athleteFitsAgeGroup(row?.birth_year, year, detail?.age, detail?.age_group);
+    if (!fit.ok) {
+      toast.error(fit.reason || "Не отговаря на възрастта на отбора.");
+      return;
+    }
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_ADD(localId), {
@@ -260,7 +282,7 @@ export default function CoachBvfCardIndexDetail() {
                         <td>{m.ready ? "✓" : "○"}</td>
                         <td style={{ fontSize: 12, color: "#92400e" }}>
                           {[
-                            ...(m.fits_age === false && m.age_reason ? [m.age_reason] : []),
+                            ...(memberAgeNote(m, year, detail) ? [memberAgeNote(m, year, detail)] : []),
                             ...(m.checklist || [])
                               .filter((c) => !c.ok && c.key !== "any_doc")
                               .map((c) => c.label),
@@ -296,7 +318,7 @@ export default function CoachBvfCardIndexDetail() {
             <Card title="Нов състав">
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
                 {detail.age_rule_hint ||
-                  "Търси и кликни върху име — добавя се само локално. СЕК: своята възраст или една нагоре."}
+                  ageRuleHint(year, detail.age, detail.age_group)}
               </p>
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
                 Към СЕК се праща по-късно от главния треньор. Нужна е и подписана Форма 03 / 03-А / 03-B за {year}.
