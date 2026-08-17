@@ -47,7 +47,6 @@ export default function CoachBvfCardIndexDetail() {
   const [eligible, setEligible] = useState([]);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [pickedId, setPickedId] = useState(null);
   const [requestNote, setRequestNote] = useState("");
 
   const year = detail?.year || new Date().getFullYear();
@@ -107,24 +106,23 @@ export default function CoachBvfCardIndexDetail() {
     loadAll();
   }, [loadAll]);
 
-  useEffect(() => {
-    setPickedId(null);
-  }, [search]);
-
-  const addPicked = async () => {
-    if (!pickedId) {
-      toast.error("Избери състезател от резултатите.");
-      return;
-    }
+  const addAthlete = async (athleteId) => {
+    if (!athleteId) return;
     try {
       setBusy(true);
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_ADD(localId), {
-        athlete_ids: [pickedId],
+        athlete_ids: [athleteId],
       });
-      toast.success(`Добавени: ${res.data?.added || 0}`);
-      if (res.data?.errors?.length) toast.error(res.data.errors.slice(0, 3).join("; "));
+      const added = Number(res.data?.added || 0);
+      if (added) {
+        toast.success("Добавен в локалния състав.");
+      } else if (res.data?.errors?.length) {
+        toast.error(res.data.errors.slice(0, 3).join("; "));
+      } else {
+        toast.error("Състезателят не беше добавен.");
+      }
       setSearch("");
-      setPickedId(null);
+      setSearchOpen(false);
       await loadAll();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно добавяне."));
@@ -256,8 +254,8 @@ export default function CoachBvfCardIndexDetail() {
               </div>
             ) : (
               <EmptyState
-                title="Няма намерени резултати"
-                description="Добави състезатели през търсачката по-долу — само с пол/възраст и Форма 03."
+                title="Съставът е празен"
+                description="Добави състезатели през търсачката по-долу. Записът към СЕК е следваща стъпка за главния треньор."
               />
             )}
           </Card>
@@ -265,34 +263,21 @@ export default function CoachBvfCardIndexDetail() {
           {detail.can_edit ? (
             <Card title="Нов състав">
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                Търси състезатели, които отговарят на критериите по наредба (пол/възраст на отбора +
-                подписана Форма 03 / 03-А за {year}).
+                Търси и кликни върху име — добавя се само локално. Към СЕК се праща по-късно от главния
+                треньор. Нужни са пол/възраст на отбора и подписана Форма 03 / 03-А / 03-B за {year}.
               </p>
 
-              <div style={{ position: "relative", maxWidth: 520 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>Търси състезател</span>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
-                    <Input
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setSearchOpen(true);
-                      }}
-                      onFocus={() => setSearchOpen(true)}
-                      onBlur={() => {
-                        // Delay so option click registers before list closes.
-                        window.setTimeout(() => setSearchOpen(false), 150);
-                      }}
-                      placeholder="Търси състезател…"
-                      style={{ flex: "1 1 240px" }}
-                      autoComplete="off"
-                    />
-                    <Button type="button" disabled={busy || !pickedId} onClick={addPicked}>
-                      Добави
-                    </Button>
-                  </div>
-                </label>
+              <div style={{ position: "relative", maxWidth: 560 }}>
+                <Input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  placeholder="Търси състезател…"
+                  autoComplete="off"
+                />
 
                 {showSearchDropdown ? (
                   <div
@@ -302,7 +287,7 @@ export default function CoachBvfCardIndexDetail() {
                       border: "1px solid #e2e8f0",
                       borderRadius: 10,
                       background: "#fff",
-                      maxHeight: 280,
+                      maxHeight: 320,
                       overflow: "auto",
                       boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
                     }}
@@ -312,39 +297,40 @@ export default function CoachBvfCardIndexDetail() {
                         Няма съвпадение при текущото търсене.
                       </p>
                     ) : (
-                      filteredAthletes.map((a) => {
-                        const active = pickedId === a.id;
-                        return (
-                          <button
-                            key={a.id}
-                            type="button"
-                            role="option"
-                            aria-selected={active}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setPickedId(a.id);
-                              setSearch(a.athlete_name || "");
-                              setSearchOpen(false);
-                            }}
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              textAlign: "left",
-                              border: "none",
-                              borderBottom: "1px solid #f1f5f9",
-                              background: active ? "#ecfdf5" : "transparent",
-                              padding: "10px 12px",
-                              cursor: "pointer",
-                            }}
-                          >
+                      filteredAthletes.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          role="option"
+                          disabled={busy}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => addAthlete(a.id)}
+                          style={{
+                            display: "flex",
+                            width: "100%",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            textAlign: "left",
+                            border: "none",
+                            borderBottom: "1px solid #f1f5f9",
+                            background: "transparent",
+                            padding: "10px 12px",
+                            cursor: busy ? "wait" : "pointer",
+                          }}
+                        >
+                          <span>
                             <div style={{ fontWeight: 650, fontSize: 14 }}>{a.athlete_name}</div>
                             <div className="uiMuted" style={{ fontSize: 12, marginTop: 2 }}>
                               СЕК: {a.bvf_player_number || a.bvf_player_id}
                               {a.birth_year != null ? ` · ${a.birth_year}` : ""}
                             </div>
-                          </button>
-                        );
-                      })
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "#166534", flexShrink: 0 }}>
+                            Добави
+                          </span>
+                        </button>
+                      ))
                     )}
                   </div>
                 ) : null}
