@@ -19,6 +19,7 @@ from app.services.club_office_docs import (
     build_invoice_pdf,
     build_service_note_pdf,
     club_address_line,
+    club_city,
     club_display_name,
     invoice_to_dict,
     next_invoice_number,
@@ -98,21 +99,30 @@ def document_defaults(
         .order_by(Athlete.athlete_name.asc())
         .all()
     )
+    city = club_city(club)
+    representative = (club.contact_name or current_user.name or "").strip() or None
     return {
         "club_id": club.id,
         "club_name": club.name,
         "club_full_name": club_display_name(club),
-        "city": club.city,
+        "city": city,
         "address": club_address_line(club),
         "bulstat": club.bulstat,
         "contact_name": club.contact_name,
+        "representative_name": representative,
         "logo_url": club.logo_url,
         "representative_title": DEFAULT_REP_TITLE,
         "today": today.isoformat(),
         "next_note_number": next_note_number(db, club.id, today.year),
         "next_invoice_number": next_invoice_number(db, club.id, today.year),
         "athletes": [
-            {"id": a.id, "athlete_name": a.athlete_name, "egn": a.egn, "parent_name": a.parent_name}
+            {
+                "id": a.id,
+                "athlete_name": a.athlete_name,
+                "egn": a.egn,
+                "parent_name": a.parent_name,
+                "birth_year": a.birth_year,
+            }
             for a in athletes
         ],
     }
@@ -154,10 +164,12 @@ def create_note(
         kind=(body.kind or NOTE_KIND_NO_CLAIMS).strip() or NOTE_KIND_NO_CLAIMS,
         number=next_note_number(db, club.id, issued.year),
         issued_at=issued,
-        city=(body.city or club.city or "").strip() or None,
+        city=(body.city or club_city(club) or "").strip() or None,
         recipient_name=body.recipient_name.strip(),
         recipient_egn=egn,
-        representative_name=(body.representative_name or club.contact_name or current_user.name or "").strip(),
+        representative_name=(
+            body.representative_name or club.contact_name or current_user.name or ""
+        ).strip(),
         representative_title=(body.representative_title or DEFAULT_REP_TITLE).strip() or DEFAULT_REP_TITLE,
         club_name_snapshot=club_display_name(club),
         club_address_snapshot=club_address_line(club) or None,
@@ -261,7 +273,7 @@ def create_invoice(
         created_by_user_id=current_user.id,
         number=next_invoice_number(db, club.id, issued.year),
         issued_at=issued,
-        place_of_issue=(body.place_of_issue or club.city or "").strip() or None,
+        place_of_issue=(body.place_of_issue or club_city(club) or "").strip() or None,
         status="issued",
         supplier_name=(body.supplier_name or club_display_name(club)).strip(),
         supplier_address=(body.supplier_address or club_address_line(club) or None),

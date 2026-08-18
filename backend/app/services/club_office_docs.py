@@ -39,6 +39,24 @@ def club_address_line(club: Club | None) -> str:
     return ", ".join(parts)
 
 
+def club_city(club: Club | None) -> str:
+    if not club:
+        return ""
+    city = (club.city or "").strip()
+    if city:
+        return city.replace("град ", "").replace("гр. ", "").strip()
+    addr = (club.address or "")
+    for prefix in ("град ", "гр. ", "гр "):
+        low = addr.lower()
+        idx = low.find(prefix)
+        if idx >= 0:
+            rest = addr[idx + len(prefix) :]
+            token = rest.replace(",", " ").split()
+            if token:
+                return token[0].strip(" .,")
+    return ""
+
+
 def compose_note_body(note: ClubServiceNote) -> str:
     if (note.custom_body or "").strip():
         return note.custom_body.strip()

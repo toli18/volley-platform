@@ -1,4 +1,149 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { useToast } from "../../components/ToastProvider";
+import { Button, Input } from "../../components/ui";
+import axiosInstance from "../../utils/apiClient";
+import { API_PATHS } from "../../utils/apiPaths";
+import { normalizeError } from "../../utils/normalizeError";
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function fmtDate(value) {
+  if (!value) return "—";
+  const [y, m, d] = String(value).split("-");
+  if (!d) return value;
+  return `${d}.${m}.${y}`;
+}
+
+async function openPdf(path) {
+  const res = await axiosInstance.get(path, { responseType: "blob" });
+  const url = URL.createObjectURL(res.data);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function emptyInvoiceItems() {
+  return [{ description: "Месечна такса", qty: "1", unit: "бр.", unit_price: "" }];
+}
+
+function athleteMatches(a, query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return true;
+  const hay = `${a.athlete_name || ""} ${a.egn || ""} ${a.parent_name || ""} ${a.birth_year || ""}`.toLowerCase();
+  return hay.includes(q);
+}
+
+function AthleteSearch({ athletes, value, onPick, placeholder = "Търси по име или ЕГН…" }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = athletes.find((a) => String(a.id) === String(value));
+  const filtered = useMemo(
+    () => athletes.filter((a) => athleteMatches(a, query)).slice(0, 12),
+    [athletes, query],
+  );
+
+  return (
+    <div className="uiField" style={{ marginBottom: 8, position: "relative" }}>
+      <span className="uiFieldLabel">Състезател</span>
+      {selected ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 8,
+            alignItems: "center",
+            border: "1px solid #cbd5e1",
+            borderRadius: 10,
+            padding: "8px 10px",
+            background: "#f8fafc",
+          }}
+        >
+          <span>
+            <strong>{selected.athlete_name}</strong>
+            {selected.egn ? <span className="coachMobileMuted"> · ЕГН {selected.egn}</span> : null}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              onPick("");
+              setQuery("");
+              setOpen(true);
+            }}
+          >
+            Смени
+          </Button>
+        </div>
+      ) : (
+        <>
+          <input
+            className="uiControl"
+            value={query}
+            placeholder={placeholder}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+          />
+          {open ? (
+            <ul
+              style={{
+                listStyle: "none",
+                margin: "4px 0 0",
+                padding: 0,
+                border: "1px solid #e2e8f0",
+                borderRadius: 10,
+                background: "#fff",
+                maxHeight: 220,
+                overflow: "auto",
+                position: "absolute",
+                zIndex: 5,
+                left: 0,
+                right: 0,
+              }}
+            >
+              {filtered.length === 0 ? (
+                <li className="coachMobileMuted" style={{ padding: "8px 10px" }}>
+                  Няма съвпадение. Попълни името ръчно по-долу.
+                </li>
+              ) : (
+                filtered.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPick(String(a.id));
+                        setQuery("");
+                        setOpen(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        border: 0,
+                        background: "transparent",
+                        padding: "8px 10px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {a.athlete_name}
+                      {a.birth_year ? ` · ${a.birth_year}` : ""}
+                      {a.egn ? ` · ${a.egn}` : ""}
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
 
 import { useToast } from "../../components/ToastProvider";
 import { Button, Input } from "../../components/ui";
@@ -79,14 +224,14 @@ export default function CoachClubDocuments() {
       setNoteForm((prev) => ({
         ...prev,
         city: prev.city || d.data?.city || "",
-        representative_name: prev.representative_name || d.data?.contact_name || "",
+        representative_name: prev.representative_name || d.data?.representative_name || d.data?.contact_name || "",
         representative_title: prev.representative_title || d.data?.representative_title || "Председател на УС",
-        issued_at: prev.issued_at || d.data?.today || todayIso(),
+        issued_at: d.data?.today || prev.issued_at || todayIso(),
       }));
       setInvoiceForm((prev) => ({
         ...prev,
         place_of_issue: prev.place_of_issue || d.data?.city || "",
-        issued_at: prev.issued_at || d.data?.today || todayIso(),
+        issued_at: d.data?.today || prev.issued_at || todayIso(),
       }));
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на документите."));
@@ -100,23 +245,45 @@ export default function CoachClubDocuments() {
   }, [load]);
 
   const pickAthleteForNote = (id) => {
+    if (!id) {
+      setNoteForm((p) => ({ ...p, athlete_id: "", recipient_name: "", recipient_egn: "" }));
+      return;
+    }
     const a = athletes.find((x) => String(x.id) === String(id));
     setNoteForm((p) => ({
       ...p,
       athlete_id: id,
-      recipient_name: a?.athlete_name || p.recipient_name,
-      recipient_egn: a?.egn || p.recipient_egn,
+      recipient_name: a?.athlete_name || "",
+      recipient_egn: a?.egn || "",
+      city: p.city || defaults?.city || "",
+      representative_name: p.representative_name || defaults?.representative_name || "",
     }));
   };
 
   const pickAthleteForInvoice = (id) => {
+    if (!id) {
+      setInvoiceForm((p) => ({ ...p, athlete_id: "", buyer_name: "", buyer_id_number: "" }));
+      return;
+    }
     const a = athletes.find((x) => String(x.id) === String(id));
     setInvoiceForm((p) => ({
       ...p,
       athlete_id: id,
-      buyer_name: a?.parent_name || a?.athlete_name || p.buyer_name,
-      buyer_id_number: a?.egn || p.buyer_id_number,
+      buyer_name: a?.parent_name || a?.athlete_name || "",
+      buyer_id_number: a?.egn || "",
+      place_of_issue: p.place_of_issue || defaults?.city || "",
     }));
+  };
+
+  const openNoteForm = () => {
+    setNoteForm((p) => ({
+      ...p,
+      issued_at: defaults?.today || todayIso(),
+      city: p.city || defaults?.city || "",
+      representative_name: p.representative_name || defaults?.representative_name || "",
+      representative_title: p.representative_title || defaults?.representative_title || "Председател на УС",
+    }));
+    setShowNoteForm(true);
   };
 
   const saveNote = async (e) => {
@@ -238,7 +405,7 @@ export default function CoachClubDocuments() {
       {tab === "notes" ? (
         <>
           <div style={{ marginBottom: 12 }}>
-            <Button type="button" onClick={() => setShowNoteForm((v) => !v)}>
+            <Button type="button" onClick={() => (showNoteForm ? setShowNoteForm(false) : openNoteForm())}>
               {showNoteForm ? "Скрий формата" : "Нова служебна бележка"}
             </Button>
           </div>
@@ -248,21 +415,16 @@ export default function CoachClubDocuments() {
               style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, background: "#fff", marginBottom: 14 }}
             >
               <p style={{ marginTop: 0, fontWeight: 700 }}>Без финансови претенции към състезателя</p>
-              <label className="uiField" style={{ display: "block", marginBottom: 8 }}>
-                <span className="uiFieldLabel">Състезател (попълва име и ЕГН)</span>
-                <select
-                  className="uiControl"
-                  value={noteForm.athlete_id}
-                  onChange={(e) => pickAthleteForNote(e.target.value)}
-                >
-                  <option value="">— ръчно —</option>
-                  {athletes.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.athlete_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <p className="coachMobileMuted" style={{ fontSize: 13, marginTop: 0 }}>
+                Търси състезател — името и ЕГН се попълват. Град и председател идват от{" "}
+                <Link to="/coach/club-profile">профила на клуба</Link>.
+              </p>
+              <AthleteSearch athletes={athletes} value={noteForm.athlete_id} onPick={pickAthleteForNote} />
+              {noteForm.athlete_id && !noteForm.recipient_egn ? (
+                <p className="coachMobileMuted" style={{ fontSize: 13, color: "#b45309" }}>
+                  На този състезател липсва ЕГН в профила — допълни го ръчно или го запиши в картата на състезателя.
+                </p>
+              ) : null}
               <Input
                 label="Три имена"
                 value={noteForm.recipient_name}
@@ -284,15 +446,21 @@ export default function CoachClubDocuments() {
                 required
               />
               <Input
-                label="Град / място"
+                label="Град / място (от клуба)"
                 value={noteForm.city}
                 onChange={(e) => setNoteForm((p) => ({ ...p, city: e.target.value }))}
+                hint={!defaults?.city ? "Попълни града в Профил на клуба, за да се слага сам." : undefined}
               />
               <Input
-                label="Председател / представляващ"
+                label="Председател / представляващ (от клуба)"
                 value={noteForm.representative_name}
                 onChange={(e) => setNoteForm((p) => ({ ...p, representative_name: e.target.value }))}
                 required
+                hint={
+                  !defaults?.representative_name
+                    ? "Сложи името на председателя в Профил на клуба."
+                    : undefined
+                }
               />
               <Input
                 label="Длъжност"
@@ -300,8 +468,7 @@ export default function CoachClubDocuments() {
                 onChange={(e) => setNoteForm((p) => ({ ...p, representative_title: e.target.value }))}
               />
               <p className="coachMobileMuted" style={{ fontSize: 13 }}>
-                Текстът следва бланката: клубът няма финансови претенции и състезателят може да се картотекира
-                другаде. Печат и подпис се слагат върху разпечатката.
+                Текстът на бланката се сглобява автоматично. Печат и подпис се слагат върху разпечатката.
               </p>
               <Button type="submit" disabled={busy}>
                 Запиши бележката
@@ -370,21 +537,12 @@ export default function CoachClubDocuments() {
               <p style={{ marginTop: 0, fontWeight: 700 }}>
                 Следващ номер: {defaults?.next_invoice_number || "—"}
               </p>
-              <label className="uiField" style={{ display: "block", marginBottom: 8 }}>
-                <span className="uiFieldLabel">Свържи със състезател (по желание)</span>
-                <select
-                  className="uiControl"
-                  value={invoiceForm.athlete_id}
-                  onChange={(e) => pickAthleteForInvoice(e.target.value)}
-                >
-                  <option value="">— без връзка —</option>
-                  {athletes.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.athlete_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <AthleteSearch
+                athletes={athletes}
+                value={invoiceForm.athlete_id}
+                onPick={pickAthleteForInvoice}
+                placeholder="Търси състезател — попълва получател…"
+              />
               <Input
                 label="Получател"
                 value={invoiceForm.buyer_name}
