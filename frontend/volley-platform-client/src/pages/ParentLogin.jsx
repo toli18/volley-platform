@@ -5,6 +5,11 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { parentPortalPath, setParentToken } from "../utils/parentAuth";
 import { teamRoomLoginPath } from "../utils/teamRoomAuth";
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  saveRememberedLogin,
+} from "../utils/portalLoginRemember";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
 import BrandTriLine from "../components/shared/BrandTriLine";
@@ -35,8 +40,10 @@ function ParentLoginShell({ children }) {
 
 export default function ParentLogin() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState("");
-  const [birthYear, setBirthYear] = useState("");
+  const remembered = loadRememberedLogin("parent");
+  const [phone, setPhone] = useState(remembered.phone);
+  const [birthYear, setBirthYear] = useState(remembered.birthYear);
+  const [remember, setRemember] = useState(remembered.remember);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [candidates, setCandidates] = useState(null);
@@ -63,6 +70,8 @@ export default function ParentLogin() {
         setError("Входът не успя. Проверете данните или се свържете с треньора.");
         return;
       }
+      if (remember) saveRememberedLogin("parent", { phone: parent_phone, birthYear: String(year) });
+      else clearRememberedLogin("parent");
       setParentToken(data.access_token);
       navigate(parentPortalPath(), { replace: true });
     } catch (err) {
@@ -120,6 +129,19 @@ export default function ParentLogin() {
               <p className="uiHint parentLoginHint">
                 Използвайте телефона и годината на раждане, записани при клуба. Телефонът трябва да съвпада с данните при състезателя.
               </p>
+
+              <label className="parentLoginRemember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setRemember(on);
+                    if (!on) clearRememberedLogin("parent");
+                  }}
+                />
+                <span>Запомни профила на това устройство</span>
+              </label>
 
               {error ? <p className="uiErrorText">{error}</p> : null}
 

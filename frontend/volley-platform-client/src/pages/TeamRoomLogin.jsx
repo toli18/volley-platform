@@ -5,6 +5,11 @@ import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { parentLoginPath } from "../utils/parentAuth";
 import { setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  saveRememberedLogin,
+} from "../utils/portalLoginRemember";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
 import BrandTriLine from "../components/shared/BrandTriLine";
@@ -30,8 +35,10 @@ function TeamRoomLoginShell({ children }) {
 
 export default function TeamRoomLogin() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState("");
-  const [birthYear, setBirthYear] = useState("");
+  const remembered = loadRememberedLogin("room");
+  const [phone, setPhone] = useState(remembered.phone);
+  const [birthYear, setBirthYear] = useState(remembered.birthYear);
+  const [remember, setRemember] = useState(remembered.remember);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [candidates, setCandidates] = useState(null);
@@ -58,6 +65,8 @@ export default function TeamRoomLogin() {
         setError("Входът не успя. Проверете данните или се свържете с треньора.");
         return;
       }
+      if (remember) saveRememberedLogin("room", { phone: parent_phone, birthYear: String(year) });
+      else clearRememberedLogin("room");
       setTeamRoomToken(data.access_token);
       navigate(teamRoomPortalPath(), { replace: true });
     } catch (err) {
@@ -112,6 +121,19 @@ export default function TeamRoomLogin() {
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
               />
+
+              <label className="parentLoginRemember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setRemember(on);
+                    if (!on) clearRememberedLogin("room");
+                  }}
+                />
+                <span>Запомни профила на това устройство</span>
+              </label>
 
               {error ? <p className="uiErrorText">{error}</p> : null}
 

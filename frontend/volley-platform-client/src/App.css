@@ -4486,6 +4486,26 @@
   margin-top: 8px;
 }
 
+.parentLoginRemember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.parentLoginRemember input {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  accent-color: #0f4d3a;
+  cursor: pointer;
+}
+
 .parentLoginCandidateList {
   display: grid;
   gap: 8px;
