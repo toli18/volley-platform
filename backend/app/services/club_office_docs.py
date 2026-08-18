@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Athlete, Club, ClubInvoice, ClubServiceNote
+from app.models import Athlete, AthleteCardingForm, AthleteClubConsent, Club, ClubInvoice, ClubServiceNote
 
 NOTE_KIND_NO_CLAIMS = "no_claims"
 DEFAULT_REP_TITLE = "Председател на УС"
@@ -55,6 +55,64 @@ def club_city(club: Club | None) -> str:
             if token:
                 return token[0].strip(" .,")
     return ""
+
+
+def clean_egn(raw) -> str | None:
+    digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
+    return digits if len(digits) == 10 else None
+
+
+def athlete_egn_map(db: Session, club_id: int, athletes: list[Athlete]) -> dict[int, str]:
+    """ЕГН от профила, иначе от Форма 03 / заявление за прием."""
+    out: dict[int, str] = {}
+    missing: list[int] = []
+    for athlete in athletes:
+        found = clean_egn(athlete.egn)
+        if found:
+            out[int(athlete.id)] = found
+        else:
+            missing.append(int(athlete.id))
+    if not missing:
+        return out
+
+    forms = (
+        db.query(AthleteCardingForm.athlete_id, AthleteCardingForm.athlete_egn)
+        .filter(
+            AthleteCardingForm.club_id == int(club_id),
+            AthleteCardingForm.athlete_id.in_(missing),
+            AthleteCardingForm.is_active.is_(True),
+        )
+        .order_by(AthleteCardingForm.signed_at.desc())
+        .all()
+    )
+    for athlete_id, egn in forms:
+        aid = int(athlete_id)
+        if aid in out:
+            continue
+        found = clean_egn(egn)
+        if found:
+            out[aid] = found
+
+    still = [i for i in missing if i not in out]
+    if still:
+        consents = (
+            db.query(AthleteClubConsent.athlete_id, AthleteClubConsent.child_egn)
+            .filter(
+                AthleteClubConsent.club_id == int(club_id),
+                AthleteClubConsent.athlete_id.in_(still),
+                AthleteClubConsent.is_active.is_(True),
+            )
+            .order_by(AthleteClubConsent.signed_at.desc())
+            .all()
+        )
+        for athlete_id, egn in consents:
+            aid = int(athlete_id)
+            if aid in out:
+                continue
+            found = clean_egn(egn)
+            if found:
+                out[aid] = found
+    return out
 
 
 def compose_note_body(note: ClubServiceNote) -> str:

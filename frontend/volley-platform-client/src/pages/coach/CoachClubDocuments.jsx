@@ -145,34 +145,6 @@ function AthleteSearch({ athletes, value, onPick, placeholder = "Търси по
   );
 }
 
-import { useToast } from "../../components/ToastProvider";
-import { Button, Input } from "../../components/ui";
-import axiosInstance from "../../utils/apiClient";
-import { API_PATHS } from "../../utils/apiPaths";
-import { normalizeError } from "../../utils/normalizeError";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function fmtDate(value) {
-  if (!value) return "—";
-  const [y, m, d] = String(value).split("-");
-  if (!d) return value;
-  return `${d}.${m}.${y}`;
-}
-
-async function openPdf(path) {
-  const res = await axiosInstance.get(path, { responseType: "blob" });
-  const url = URL.createObjectURL(res.data);
-  window.open(url, "_blank", "noopener,noreferrer");
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-function emptyInvoiceItems() {
-  return [{ description: "Месечна такса", qty: "1", unit: "бр.", unit_price: "" }];
-}
-
 export default function CoachClubDocuments() {
   const toast = useToast();
   const [tab, setTab] = useState("notes");
@@ -434,9 +406,11 @@ export default function CoachClubDocuments() {
               <Input
                 label="ЕГН"
                 value={noteForm.recipient_egn}
-                onChange={(e) => setNoteForm((p) => ({ ...p, recipient_egn: e.target.value }))}
+                onChange={(e) => setNoteForm((p) => ({ ...p, recipient_egn: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
                 required
                 inputMode="numeric"
+                maxLength={10}
+                autoComplete="off"
               />
               <Input
                 label="Дата"

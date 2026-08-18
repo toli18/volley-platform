@@ -16,8 +16,10 @@ from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
 from app.services.club_office_docs import (
     DEFAULT_REP_TITLE,
     NOTE_KIND_NO_CLAIMS,
+    athlete_egn_map,
     build_invoice_pdf,
     build_service_note_pdf,
+    clean_egn,
     club_address_line,
     club_city,
     club_display_name,
@@ -101,6 +103,7 @@ def document_defaults(
     )
     city = club_city(club)
     representative = (club.contact_name or current_user.name or "").strip() or None
+    egn_by_id = athlete_egn_map(db, club.id, athletes)
     return {
         "club_id": club.id,
         "club_name": club.name,
@@ -119,7 +122,7 @@ def document_defaults(
             {
                 "id": a.id,
                 "athlete_name": a.athlete_name,
-                "egn": a.egn,
+                "egn": egn_by_id.get(int(a.id)) or a.egn,
                 "parent_name": a.parent_name,
                 "birth_year": a.birth_year,
             }
@@ -154,9 +157,13 @@ def create_note(
     club = _club_for_user(db, current_user)
     athlete = _athlete_for_club(db, club.id, body.athlete_id)
     issued = body.issued_at or date.today()
-    egn = "".join(ch for ch in (body.recipient_egn or "") if ch.isdigit())
+    egn = clean_egn(body.recipient_egn) or ""
+    if len(egn) != 10 and athlete:
+        egn = athlete_egn_map(db, club.id, [athlete]).get(int(athlete.id)) or ""
     if len(egn) != 10:
         raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри")
+    if athlete and not clean_egn(athlete.egn):
+        athlete.egn = egn
     note = ClubServiceNote(
         club_id=club.id,
         athlete_id=athlete.id if athlete else None,
