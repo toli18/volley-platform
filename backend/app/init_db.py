@@ -231,6 +231,69 @@ def _init_db_impl() -> None:
                 )
                 conn.execute(
                     text(
+                        """
+                        CREATE TABLE IF NOT EXISTS club_service_notes (
+                            id SERIAL PRIMARY KEY,
+                            club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+                            athlete_id INTEGER REFERENCES athletes(id) ON DELETE SET NULL,
+                            created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            kind VARCHAR(32) NOT NULL DEFAULT 'no_claims',
+                            number VARCHAR(32),
+                            issued_at DATE NOT NULL,
+                            city VARCHAR(120),
+                            recipient_name VARCHAR(255) NOT NULL,
+                            recipient_egn VARCHAR(16) NOT NULL,
+                            representative_name VARCHAR(255) NOT NULL,
+                            representative_title VARCHAR(120) NOT NULL DEFAULT 'Председател на УС',
+                            club_name_snapshot VARCHAR(255),
+                            club_address_snapshot VARCHAR(500),
+                            custom_body TEXT,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                        """
+                    )
+                )
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_club_service_notes_club_id ON club_service_notes (club_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_club_service_notes_athlete_id ON club_service_notes (athlete_id)"))
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS club_invoices (
+                            id SERIAL PRIMARY KEY,
+                            club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+                            athlete_id INTEGER REFERENCES athletes(id) ON DELETE SET NULL,
+                            created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            number VARCHAR(32) NOT NULL,
+                            issued_at DATE NOT NULL,
+                            place_of_issue VARCHAR(120),
+                            status VARCHAR(16) NOT NULL DEFAULT 'issued',
+                            supplier_name VARCHAR(255) NOT NULL,
+                            supplier_address VARCHAR(500),
+                            supplier_bulstat VARCHAR(32),
+                            supplier_vat_id VARCHAR(32),
+                            buyer_name VARCHAR(255) NOT NULL,
+                            buyer_id_number VARCHAR(32),
+                            buyer_address VARCHAR(500),
+                            vat_registered BOOLEAN NOT NULL DEFAULT FALSE,
+                            vat_rate INTEGER NOT NULL DEFAULT 20,
+                            currency VARCHAR(8) NOT NULL DEFAULT 'BGN',
+                            payment_method VARCHAR(32) NOT NULL DEFAULT 'cash',
+                            bank_iban VARCHAR(34),
+                            bank_name VARCHAR(120),
+                            notes TEXT,
+                            items JSONB NOT NULL DEFAULT '[]'::jsonb,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW(),
+                            CONSTRAINT uq_club_invoices_club_number UNIQUE (club_id, number)
+                        )
+                        """
+                    )
+                )
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_club_invoices_club_id ON club_invoices (club_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_club_invoices_athlete_id ON club_invoices (athlete_id)"))
+                conn.execute(
+                    text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS uq_club_halls_club_bvf "
                         "ON club_halls (club_id, bvf_hall_id) "
                         "WHERE bvf_hall_id IS NOT NULL"

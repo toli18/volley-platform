@@ -5,7 +5,7 @@ export default function CoachClubAdminHub() {
   return (
     <CoachHubPage
       title="Клуб"
-      subtitle="Профил, администрация БФВ, клубен преглед и картотека"
+      subtitle="Профил, документи, администрация БФВ, клубен преглед и картотека"
     >
       <MenuGroup title="Управление">
         {COACH_CLUB_ADMIN_HUB_LINKS.map((item) => (

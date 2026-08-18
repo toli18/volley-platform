@@ -387,4 +387,13 @@ export const API_PATHS = {
   CLUB_METHOD_ASSIGNMENTS: "/api/national-method/club/method-assignments",
   MY_METHOD_ASSIGNMENTS: "/api/national-method/method-assignments/my",
   METHOD_ASSIGNMENT_UPDATE: (id) => `/api/national-method/method-assignments/${id}`,
+
+  CLUB_DOCUMENTS_DEFAULTS: "/api/club-documents/defaults",
+  CLUB_DOCUMENTS_NOTES: "/api/club-documents/notes",
+  CLUB_DOCUMENTS_NOTE: (id) => `/api/club-documents/notes/${id}`,
+  CLUB_DOCUMENTS_NOTE_PDF: (id) => `/api/club-documents/notes/${id}/pdf`,
+  CLUB_DOCUMENTS_INVOICES: "/api/club-documents/invoices",
+  CLUB_DOCUMENTS_INVOICE: (id) => `/api/club-documents/invoices/${id}`,
+  CLUB_DOCUMENTS_INVOICE_PDF: (id) => `/api/club-documents/invoices/${id}/pdf`,
+  CLUB_DOCUMENTS_INVOICE_CANCEL: (id) => `/api/club-documents/invoices/${id}/cancel`,
 };

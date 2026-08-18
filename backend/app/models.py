@@ -1494,6 +1494,84 @@ class ClubEnrollmentRequest(Base):
 
 
 # =========================
+# Club office documents (служебни бележки, фактури)
+# =========================
+class ClubServiceNote(Base):
+    """Служебна бележка — напр. липса на финансови претенции към състезател."""
+
+    __tablename__ = "club_service_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    kind = Column(String(32), nullable=False, default="no_claims")
+    number = Column(String(32), nullable=True)
+    issued_at = Column(Date, nullable=False)
+    city = Column(String(120), nullable=True)
+
+    recipient_name = Column(String(255), nullable=False)
+    recipient_egn = Column(String(16), nullable=False)
+    representative_name = Column(String(255), nullable=False)
+    representative_title = Column(String(120), nullable=False, default="Председател на УС")
+
+    club_name_snapshot = Column(String(255), nullable=True)
+    club_address_snapshot = Column(String(500), nullable=True)
+    custom_body = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    athlete = relationship("Athlete")
+
+
+class ClubInvoice(Base):
+    """Клубна фактура (записва се и се печата като PDF)."""
+
+    __tablename__ = "club_invoices"
+    __table_args__ = (
+        UniqueConstraint("club_id", "number", name="uq_club_invoices_club_number"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    number = Column(String(32), nullable=False)
+    issued_at = Column(Date, nullable=False)
+    place_of_issue = Column(String(120), nullable=True)
+    status = Column(String(16), nullable=False, default="issued")  # issued | cancelled
+
+    supplier_name = Column(String(255), nullable=False)
+    supplier_address = Column(String(500), nullable=True)
+    supplier_bulstat = Column(String(32), nullable=True)
+    supplier_vat_id = Column(String(32), nullable=True)
+
+    buyer_name = Column(String(255), nullable=False)
+    buyer_id_number = Column(String(32), nullable=True)  # ЕГН / ЕИК
+    buyer_address = Column(String(500), nullable=True)
+
+    vat_registered = Column(Boolean, nullable=False, default=False)
+    vat_rate = Column(Integer, nullable=False, default=20)
+    currency = Column(String(8), nullable=False, default="BGN")
+    payment_method = Column(String(32), nullable=False, default="cash")  # cash | bank | card
+    bank_iban = Column(String(34), nullable=True)
+    bank_name = Column(String(120), nullable=True)
+    notes = Column(Text, nullable=True)
+
+    items = Column(JSON, nullable=False, default=list)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    athlete = relationship("Athlete")
+
+
+# =========================
 # Methodical Assessment Layer v1
 # Дефинирани в отделен модул за по-малък diff; импортирани тук, за да се
 # регистрират към общия Base/metadata и да са достъпни през `app.models`.

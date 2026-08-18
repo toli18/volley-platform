@@ -6,7 +6,8 @@ export function coachMobileActiveTab(pathname) {
     pathname.startsWith("/coach/bvf-admin") ||
     pathname.startsWith("/coach/bvf-card-indexes") ||
     pathname.startsWith("/coach/club-admin") ||
-    pathname.startsWith("/coach/club-profile")
+    pathname.startsWith("/coach/club-profile") ||
+    pathname.startsWith("/coach/documents")
   ) {
     return "club";
   }

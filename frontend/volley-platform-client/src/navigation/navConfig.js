@@ -209,6 +209,13 @@ export const COACH_CLUB_ADMIN_HUB_LINKS = [
     icon: "shield",
     hint: "Сезон × възраст · Форма 03 · състав",
   },
+  {
+    id: "club-documents",
+    label: "Документи",
+    to: "/coach/documents",
+    icon: "article",
+    hint: "Служебни бележки и фактури",
+  },
 ];
 
 /** @type {NavLinkItem[]} */

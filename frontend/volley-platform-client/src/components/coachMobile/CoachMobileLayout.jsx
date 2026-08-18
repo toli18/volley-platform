@@ -22,6 +22,7 @@ export default function CoachMobileLayout() {
   const isAssessment = pathname.startsWith("/coach/assessment");
   const isEnrollments = pathname.startsWith("/coach/enrollments");
   const isClubProfile = pathname.startsWith("/coach/club-profile");
+  const isClubDocuments = pathname.startsWith("/coach/documents");
   const isClubAdmin = pathname === "/coach/club-admin";
   const isCardIndexes = pathname.startsWith("/coach/bvf-card-indexes");
   const isBvfAdmin = pathname.startsWith("/coach/bvf-admin");
@@ -37,6 +38,7 @@ export default function CoachMobileLayout() {
     isAssessment ||
     isEnrollments ||
     isClubProfile ||
+    isClubDocuments ||
     isClubAdmin ||
     isCardIndexes ||
     isBvfAdmin ||
@@ -52,7 +54,7 @@ export default function CoachMobileLayout() {
       navigate("/coach/bvf-card-indexes");
       return;
     }
-    if (isClubProfile || isCardIndexes || isBvfAdmin) {
+    if (isClubProfile || isClubDocuments || isCardIndexes || isBvfAdmin) {
       navigate(role === "club_head_coach" ? "/coach/club-admin" : "/coach/club");
       return;
     }
