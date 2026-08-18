@@ -32,8 +32,12 @@ def club_address_line(club: Club | None) -> str:
     parts = []
     city = (club.city or "").strip()
     addr = (club.address or "").strip()
-    if city and city.lower() not in addr.lower():
-        parts.append(f"град {city}" if not city.lower().startswith("град") else city)
+    city_low = city.lower()
+    if city and city_low not in addr.lower():
+        if city_low.startswith("град") or city_low.startswith("гр.") or city_low.startswith("гр "):
+            parts.append(city)
+        else:
+            parts.append(f"град {city}")
     if addr:
         parts.append(addr)
     return ", ".join(parts)
@@ -127,7 +131,7 @@ def compose_note_body(note: ClubServiceNote) -> str:
         f"служебна бележка на {note.recipient_name}, ЕГН {note.recipient_egn}, "
         "в уверение на това, че клубът няма финансови и други претенции и задължения "
         "към състезателя и той може да бъде свободно картотекиран в други клубове "
-        "в страна и извън нея."
+        "в страната и извън нея."
     )
 
 
@@ -373,6 +377,60 @@ def invoice_to_dict(inv: ClubInvoice) -> dict[str, Any]:
     }
 
 
+def _wrap_styled_runs(runs: list[tuple[str, str]], max_w: float, font: str, size: int) -> list[list[tuple[str, str]]]:
+    """Wrap styled text without dropping spaces between runs (наСава / ЕГН123…)."""
+    import re
+
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    def width_of(style: str, text: str) -> float:
+        return stringWidth(text, font, size + (1 if style == "bold" else 0))
+
+    lines: list[list[tuple[str, str]]] = [[]]
+    line_w = 0.0
+    for style, text in runs:
+        if not text:
+            continue
+        parts = re.findall(r"\S+|\s+", text)
+        for part in parts:
+            space = bool(part.isspace())
+            w = width_of(style, part)
+            if space:
+                if line_w == 0:
+                    continue
+                if line_w + w > max_w:
+                    lines.append([])
+                    line_w = 0.0
+                    continue
+                lines[-1].append((style, part))
+                line_w += w
+                continue
+            if line_w + w > max_w and lines[-1]:
+                lines.append([])
+                line_w = 0.0
+            lines[-1].append((style, part))
+            line_w += w
+    return [ln for ln in lines if ln]
+
+
+def _draw_styled_lines(c, lines, *, x0: float, y: float, leading: float, font: str, size: int) -> float:
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    for chunks in lines:
+        x = x0
+        for style, text in chunks:
+            use_size = size + (1 if style == "bold" else 0)
+            c.setFont(font, use_size)
+            c.drawString(x, y, text)
+            tw = stringWidth(text, font, use_size)
+            if style in ("bold", "underline"):
+                c.setLineWidth(0.55 if style == "underline" else 0.7)
+                c.line(x, y - 1.6, x + tw, y - 1.6)
+            x += tw
+        y -= leading
+    return y
+
+
 def _draw_logo(c, path, x, y, size) -> None:
     if not path:
         return
@@ -404,6 +462,8 @@ def build_service_note_pdf(note: ClubServiceNote, club: Club | None = None) -> b
     y = height - margin - 8 * mm
     club_name = (note.club_name_snapshot or club_display_name(club)).strip()
     address = (note.club_address_snapshot or club_address_line(club)).strip()
+    if address.lower().startswith("град гр"):
+        address = address.split(" ", 1)[-1]
     c.setFont(font, 11)
     c.drawCentredString(width / 2, y, "ВОЛЕЙБОЛЕН КЛУБ")
     y -= 6 * mm
@@ -417,73 +477,85 @@ def build_service_note_pdf(note: ClubServiceNote, club: Club | None = None) -> b
         c.setFont(font, 9)
         c.drawCentredString(width / 2, y, address)
 
-    y = height - margin - logo_size - 16 * mm
+    y = height - margin - logo_size - 14 * mm
     c.setFont(font, 18)
     c.drawCentredString(width / 2, y, "СЛУЖЕБНА БЕЛЕЖКА")
-    y -= 16 * mm
+    y -= 7 * mm
+    if note.number:
+        c.setFont(font, 11)
+        c.drawCentredString(width / 2, y, f"№ {note.number}")
+        y -= 12 * mm
+    else:
+        y -= 8 * mm
 
-    body_left = margin + 4 * mm
-    max_w = width - 2 * margin - 8 * mm
+    body_left = margin + 6 * mm
+    max_w = width - 2 * margin - 12 * mm
     size = 12
-    leading = 7 * mm
+    leading = 6.4 * mm
     recipient = (note.recipient_name or "").strip()
     egn = (note.recipient_egn or "").strip()
-    prefix_end = f"служебна бележка на "
-    # Build styled runs from generated or custom body.
+
     if (note.custom_body or "").strip():
-        runs = [("normal", note.custom_body.strip())]
+        intro_runs = [("normal", note.custom_body.strip())]
+        rest_runs = []
+        show_identity = False
     else:
         club_name_plain = (note.club_name_snapshot or "").strip() or "клуба"
-        city = (note.city or "").strip()
-        city_bit = f" – {city}" if city else ""
-        runs = [
-            ("normal", f"Волейболен клуб „{club_name_plain}“{city_bit}, представляван от "),
-            ("normal", f"{note.representative_name} – {note.representative_title}, издава настоящата {prefix_end}"),
-            ("bold", recipient),
-            ("normal", ", ЕГН "),
-            ("bold", egn),
-            ("normal", ", в уверение на това, че клубът "),
+        city_hdr = (note.city or "").strip()
+        city_bit = f" – {city_hdr}" if city_hdr else ""
+        intro_runs = [
+            (
+                "normal",
+                f"Волейболен клуб „{club_name_plain}“{city_bit}, представляван от "
+                f"{note.representative_name} – {note.representative_title}, "
+                "издава настоящата служебна бележка на:",
+            )
+        ]
+        rest_runs = [
+            ("normal", "в уверение на това, че клубът "),
             ("underline", "няма"),
             (
                 "normal",
                 " финансови и други претенции и задължения към състезателя и той може да бъде "
-                "свободно картотекиран в други клубове в страна и извън нея.",
+                "свободно картотекиран в други клубове в страната и извън нея.",
             ),
         ]
+        show_identity = True
 
-    def run_width(style: str, text: str) -> float:
-        return stringWidth(text, font, size + (1 if style == "bold" else 0))
+    y = _draw_styled_lines(
+        c,
+        _wrap_styled_runs(intro_runs, max_w, font, size),
+        x0=body_left,
+        y=y,
+        leading=leading,
+        font=font,
+        size=size,
+    )
 
-    # Wrap runs into lines of (style, text) chunks
-    lines: list[list[tuple[str, str]]] = [[]]
-    line_w = 0.0
-    for style, text in runs:
-        words = text.split(" ")
-        for i, word in enumerate(words):
-            piece = word if i == 0 or word == "" else f" {word}"
-            w = run_width(style, piece)
-            if line_w + w > max_w and lines[-1]:
-                lines.append([])
-                line_w = 0.0
-                piece = word
-                w = run_width(style, piece)
-            lines[-1].append((style, piece))
-            line_w += w
+    if show_identity:
+        y -= 3 * mm
+        c.setFont(font, 13)
+        c.drawCentredString(width / 2, y, recipient)
+        tw = stringWidth(recipient, font, 13)
+        c.setLineWidth(0.7)
+        c.line(width / 2 - tw / 2, y - 1.6, width / 2 + tw / 2, y - 1.6)
+        y -= 7 * mm
+        c.setFont(font, 12)
+        c.drawCentredString(width / 2, y, f"ЕГН {egn}")
+        y -= 10 * mm
 
-    for chunks in lines:
-        x = body_left
-        for style, text in chunks:
-            use_size = size + (1 if style == "bold" else 0)
-            c.setFont(font, use_size)
-            c.drawString(x, y, text)
-            tw = stringWidth(text, font, use_size)
-            if style in ("bold", "underline"):
-                c.setLineWidth(0.6 if style == "underline" else 0.8)
-                c.line(x, y - 1.4, x + tw, y - 1.4)
-            x += tw
-        y -= leading
+    if rest_runs:
+        y = _draw_styled_lines(
+            c,
+            _wrap_styled_runs(rest_runs, max_w, font, size),
+            x0=body_left,
+            y=y,
+            leading=leading,
+            font=font,
+            size=size,
+        )
 
-    y = max(y - 18 * mm, 38 * mm)
+    y = max(y - 20 * mm, 38 * mm)
     city = (note.city or "").strip()
     issued = format_bg_date(note.issued_at)
     c.setFont(font, 11)
