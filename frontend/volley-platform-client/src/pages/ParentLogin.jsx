@@ -12,6 +12,7 @@ import {
 } from "../utils/portalLoginRemember";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
+import PortalLoginRememberRow from "../components/auth/PortalLoginRememberRow";
 import BrandTriLine from "../components/shared/BrandTriLine";
 import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
 
@@ -130,18 +131,13 @@ export default function ParentLogin() {
                 Използвайте телефона и годината на раждане, записани при клуба. Телефонът трябва да съвпада с данните при състезателя.
               </p>
 
-              <label className="parentLoginRemember">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setRemember(on);
-                    if (!on) clearRememberedLogin("parent");
-                  }}
-                />
-                <span>Запомни профила на това устройство</span>
-              </label>
+              <PortalLoginRememberRow
+                kind="parent"
+                remember={remember}
+                onRememberChange={setRemember}
+                phone={phone}
+                birthYear={birthYear}
+              />
 
               {error ? <p className="uiErrorText">{error}</p> : null}
 

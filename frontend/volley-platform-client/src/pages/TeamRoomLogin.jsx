@@ -12,6 +12,7 @@ import {
 } from "../utils/portalLoginRemember";
 import { Button, Card, Input } from "../components/ui";
 import LoginIntro from "../components/auth/LoginIntro";
+import PortalLoginRememberRow from "../components/auth/PortalLoginRememberRow";
 import BrandTriLine from "../components/shared/BrandTriLine";
 import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
 
@@ -122,18 +123,13 @@ export default function TeamRoomLogin() {
                 onChange={(e) => setBirthYear(e.target.value)}
               />
 
-              <label className="parentLoginRemember">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setRemember(on);
-                    if (!on) clearRememberedLogin("room");
-                  }}
-                />
-                <span>Запомни профила на това устройство</span>
-              </label>
+              <PortalLoginRememberRow
+                kind="room"
+                remember={remember}
+                onRememberChange={setRemember}
+                phone={phone}
+                birthYear={birthYear}
+              />
 
               {error ? <p className="uiErrorText">{error}</p> : null}
 
