@@ -163,8 +163,11 @@ export default function CoachCompetitions() {
       }
       if (isHeadCoachUser) {
         try {
-          const cRes = await axiosInstance.get(API_PATHS.CLUB_HEAD_COACHES || "/api/club-head/coaches");
-          setCoaches(Array.isArray(cRes.data) ? cRes.data : cRes.data?.coaches || []);
+          const cRes = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
+          const list = Array.isArray(cRes.data) ? cRes.data : cRes.data?.coaches || [];
+          setCoaches(
+            list.length ? list : user ? [{ id: user.id, name: user.name || user.email }] : [],
+          );
         } catch {
           setCoaches(user ? [{ id: user.id, name: user.name || user.email }] : []);
         }
