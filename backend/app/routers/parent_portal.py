@@ -97,9 +97,11 @@ from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
     clear_marker_for_athlete,
     clear_markers_for_athlete,
+    clear_schedule_markers_for_athlete,
     clear_schedule_markers_for_date,
     get_pending_highlights,
     get_pending_marker_state,
+    SCHEDULE_DIGEST_MARKER,
 )
 from app.services.parent_push import (
     PORTAL_PARENT,
@@ -785,7 +787,13 @@ def _apply_ack_body(db: Session, athlete_id: int, body: ParentPortalAckBody) -> 
     if scope == "fee":
         clear_fee_markers_for_athlete(db, athlete_id)
         return
+    if scope == "schedule":
+        clear_schedule_markers_for_athlete(db, athlete_id)
+        return
     marker_key = (body.marker_key or "").strip()
+    if marker_key == SCHEDULE_DIGEST_MARKER:
+        clear_schedule_markers_for_athlete(db, athlete_id)
+        return
     if marker_key:
         clear_marker_for_athlete(db, athlete_id, marker_key)
         return
@@ -793,7 +801,7 @@ def _apply_ack_body(db: Session, athlete_id: int, body: ParentPortalAckBody) -> 
     if date_iso:
         clear_schedule_markers_for_date(db, athlete_id, date_iso)
         return
-    raise HTTPException(status_code=422, detail="Provide marker_key, date, or scope (fee|all).")
+    raise HTTPException(status_code=422, detail="Provide marker_key, date, or scope (fee|schedule|all).")
 
 
 def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthleteProfileResponse:

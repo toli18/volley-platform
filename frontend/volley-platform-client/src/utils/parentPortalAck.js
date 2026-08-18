@@ -15,8 +15,9 @@ export async function ackParentPortalChange({ isSession, token, markerKey, date,
   await axiosInstance.post(path, body);
 }
 
-function shouldClearItem(item, { markerKey, date }) {
+function shouldClearItem(item, { markerKey, date, scope }) {
   if (!item?.highlight_change) return false;
+  if (scope === "schedule" || markerKey === "schedule_digest") return true;
   if (markerKey) return item.change_marker_key === markerKey;
   if (date) return item.date === date;
   return false;
@@ -35,11 +36,11 @@ export function recomputePendingScheduleDates(items, pendingDates) {
 
 export function patchProfileAfterScheduleAck(profile, payload) {
   if (!profile) return profile;
+  const clearAllSchedule = payload?.scope === "schedule" || payload?.markerKey === "schedule_digest";
   const monthly_schedule = applyAckToScheduleItems(profile.monthly_schedule, payload);
-  const pending_schedule_dates = recomputePendingScheduleDates(
-    monthly_schedule,
-    profile.pending_schedule_dates,
-  );
+  const pending_schedule_dates = clearAllSchedule
+    ? []
+    : recomputePendingScheduleDates(monthly_schedule, profile.pending_schedule_dates);
   const patchEvent = (item) =>
     item && shouldClearItem(item, payload) ? { ...item, highlight_change: false } : item;
   return {

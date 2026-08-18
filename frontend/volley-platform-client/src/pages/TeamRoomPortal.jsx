@@ -206,9 +206,12 @@ export default function TeamRoomPortal() {
   const handleOpenHomeNotification = useCallback(
     async (notification) => {
       if (!notification) return;
+      const isScheduleDigest = notification.change_type === "schedule_digest";
       try {
         if (notification.change_type === "fee_paid") {
           await ackAthleteRoomChange({ scope: "fee" });
+        } else if (isScheduleDigest) {
+          await ackAthleteRoomChange({ scope: "schedule" });
         } else {
           await ackAthleteRoomChange({ markerKey: notification.marker_key });
         }
@@ -220,18 +223,24 @@ export default function TeamRoomPortal() {
         if (!prev) return prev;
         let next = {
           ...prev,
-          home_notifications: (prev.home_notifications || []).filter(
-            (n) => n.marker_key !== notification.marker_key,
-          ),
+          home_notifications: (prev.home_notifications || []).filter((n) => {
+            if (isScheduleDigest) {
+              const t = String(n.change_type || "");
+              return !t.includes("training") && !t.includes("competition") && t !== "schedule_digest";
+            }
+            return n.marker_key !== notification.marker_key;
+          }),
         };
         if (notification.change_type === "fee_paid") {
           next = { ...next, fee_change_highlight: false };
         }
         if (notification.target_tab === "schedule") {
-          next = patchProfileAfterScheduleAck(next, {
-            markerKey: notification.marker_key,
-            date: notification.date_iso,
-          });
+          next = patchProfileAfterScheduleAck(next, isScheduleDigest
+            ? { scope: "schedule" }
+            : {
+                markerKey: notification.marker_key,
+                date: notification.date_iso,
+              });
         }
         return next;
       });

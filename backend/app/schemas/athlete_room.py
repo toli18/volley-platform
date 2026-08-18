@@ -15,6 +15,7 @@ class AthleteRoomHomeNotification(BaseModel):
     target_tab: str
     date_iso: Optional[str] = None
     team_id: Optional[int] = None
+    count: Optional[int] = None
 
 
 

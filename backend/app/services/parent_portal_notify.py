@@ -45,6 +45,8 @@ CHANGE_COMPETITION_REMOVED = "competition_removed"
 CHANGE_FEE_PAID = "fee_paid"
 CHANGE_FEED_POST = "feed_post"
 CHANGE_CHAT_MESSAGE = "chat_message"
+CHANGE_SCHEDULE_DIGEST = "schedule_digest"
+SCHEDULE_DIGEST_MARKER = "schedule_digest"
 
 _SCHEDULE_CHANGE_TYPES = {
     CHANGE_TRAINING_CANCELLED,
@@ -143,6 +145,14 @@ def clear_fee_markers_for_athlete(db: Session, athlete_id: int) -> None:
     db.query(ParentPortalChangeMarker).filter(
         ParentPortalChangeMarker.athlete_id == int(athlete_id),
         ParentPortalChangeMarker.change_type == CHANGE_FEE_PAID,
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+def clear_schedule_markers_for_athlete(db: Session, athlete_id: int) -> None:
+    db.query(ParentPortalChangeMarker).filter(
+        ParentPortalChangeMarker.athlete_id == int(athlete_id),
+        ParentPortalChangeMarker.change_type.in_(_SCHEDULE_CHANGE_TYPES),
     ).delete(synchronize_session=False)
     db.commit()
 
@@ -288,9 +298,74 @@ def _target_tab_for_change(change_type: str) -> str:
         return "home"
     if change_type == CHANGE_CHAT_MESSAGE:
         return "messages"
-    if change_type in _SCHEDULE_CHANGE_TYPES:
+    if change_type in _SCHEDULE_CHANGE_TYPES or change_type == CHANGE_SCHEDULE_DIGEST:
         return "schedule"
     return "schedule"
+
+
+_SCHEDULE_DIGEST_LABELS = (
+    (CHANGE_TRAINING_ADDED, "нова тренировка", "нови тренировки"),
+    (CHANGE_TRAINING_CHANGED, "променена тренировка", "променени тренировки"),
+    (CHANGE_TRAINING_CANCELLED, "отменена тренировка", "отменени тренировки"),
+    (CHANGE_TRAINING_RESTORED, "възстановена тренировка", "възстановени тренировки"),
+    (CHANGE_COMPETITION_ADDED, "ново състезание", "нови състезания"),
+    (CHANGE_COMPETITION_CHANGED, "променено състезание", "променени състезания"),
+    (CHANGE_COMPETITION_CANCELLED, "отменено състезание", "отменени състезания"),
+    (CHANGE_COMPETITION_REMOVED, "премахнато състезание", "премахнати състезания"),
+)
+
+
+def _bg_count_phrase(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def _schedule_digest_notification(rows: list) -> dict:
+    from collections import Counter
+
+    counts = Counter(str(r.change_type) for r in rows)
+    bits = []
+    for ctype, one, many in _SCHEDULE_DIGEST_LABELS:
+        n = counts.get(ctype, 0)
+        if n:
+            bits.append(_bg_count_phrase(n, one, many))
+    dates = sorted({r.date_iso for r in rows if r.date_iso})
+    date_hint = ""
+    if dates:
+        start = format_date_bg(dates[0])
+        end = format_date_bg(dates[-1])
+        date_hint = f" ({start}" + (f" – {end}" if start != end else "") + ")"
+    summary = " · ".join(bits) if bits else _bg_count_phrase(len(rows), "промяна", "промени")
+    return {
+        "marker_key": SCHEDULE_DIGEST_MARKER,
+        "change_type": CHANGE_SCHEDULE_DIGEST,
+        "title": "Графикът е обновен",
+        "body": f"{summary}{date_hint}. Отвори графика.",
+        "target_tab": "schedule",
+        "date_iso": dates[0] if dates else None,
+        "team_id": None,
+        "count": len(rows),
+    }
+
+
+def _row_to_home_notification(db: Session, row, team_names: dict[int, str]) -> dict:
+    team_id = _team_id_from_marker(row.marker_key)
+    team_label = ""
+    if team_id is not None:
+        if team_id not in team_names:
+            team_names[team_id] = db.query(Team.name).filter(Team.id == team_id).scalar() or "отбор"
+        team_label = team_names[team_id]
+    extra = team_label if team_label else None
+    title, body = _message_for(row.change_type, team_label or "отбор", row.date_iso, extra)
+    return {
+        "marker_key": row.marker_key,
+        "change_type": row.change_type,
+        "title": title,
+        "body": body,
+        "target_tab": _target_tab_for_change(row.change_type),
+        "date_iso": row.date_iso,
+        "team_id": team_id,
+        "count": None,
+    }
 
 
 def build_home_notifications(db: Session, athlete_id: int) -> list[dict]:
@@ -300,28 +375,17 @@ def build_home_notifications(db: Session, athlete_id: int) -> list[dict]:
         .order_by(ParentPortalChangeMarker.created_at.desc())
         .all()
     )
+    schedule_rows = [r for r in rows if r.change_type in _SCHEDULE_CHANGE_TYPES]
+    other_rows = [r for r in rows if r.change_type not in _SCHEDULE_CHANGE_TYPES]
     team_names: dict[int, str] = {}
     out: list[dict] = []
-    for row in rows:
-        team_id = _team_id_from_marker(row.marker_key)
-        team_label = ""
-        if team_id is not None:
-            if team_id not in team_names:
-                team_names[team_id] = db.query(Team.name).filter(Team.id == team_id).scalar() or "отбор"
-            team_label = team_names[team_id]
-        extra = team_label if team_label else None
-        title, body = _message_for(row.change_type, team_label or "отбор", row.date_iso, extra)
-        out.append(
-            {
-                "marker_key": row.marker_key,
-                "change_type": row.change_type,
-                "title": title,
-                "body": body,
-                "target_tab": _target_tab_for_change(row.change_type),
-                "date_iso": row.date_iso,
-                "team_id": team_id,
-            }
-        )
+    if len(schedule_rows) >= 2:
+        out.append(_schedule_digest_notification(schedule_rows))
+    else:
+        for row in schedule_rows:
+            out.append(_row_to_home_notification(db, row, team_names))
+    for row in other_rows:
+        out.append(_row_to_home_notification(db, row, team_names))
     return out
 
 

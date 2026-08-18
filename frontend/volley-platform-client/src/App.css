@@ -5837,6 +5837,29 @@
   background: #422006;
 }
 
+.teamRoomHomeAlertBtn--digest {
+  border-color: #34d399;
+  background: linear-gradient(135deg, #064e3b 0%, #1e293b 100%);
+  color: #d1fae5;
+}
+
+.teamRoomHomeAlertBtn--digest .teamRoomHomeAlertIcon {
+  background: #34d399;
+  font-size: 12px;
+}
+
+.teamRoomHomeAlertBtn--digest .teamRoomHomeAlertTitle {
+  color: #a7f3d0;
+}
+
+.teamRoomHomeAlertBtn--digest .teamRoomHomeAlertBody {
+  color: #6ee7b7;
+}
+
+.teamRoomHomeAlertBtn--digest .teamRoomHomeAlertChevron {
+  color: #34d399;
+}
+
 .teamRoomHomeAlertIcon {
   flex-shrink: 0;
   width: 28px;

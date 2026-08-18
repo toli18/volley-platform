@@ -85,7 +85,7 @@ class ParentScheduleItem(BaseModel):
 class ParentPortalAckBody(BaseModel):
     marker_key: Optional[str] = None
     date: Optional[str] = None
-    scope: Optional[str] = None  # fee | all
+    scope: Optional[str] = None  # fee | schedule | all
 
 
 class ParentPaymentRow(BaseModel):
