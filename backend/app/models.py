@@ -1237,6 +1237,7 @@ class ClubCompetitionEvent(Base):
     location = Column(String(255), nullable=False)
     # championship | tournament | control | friendly
     competition_kind = Column(String(32), nullable=False, index=True)
+    opponent_name = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, nullable=False, default=False, index=True)
     # pending | confirmed | locked — пътуващ състав (тимов лист)

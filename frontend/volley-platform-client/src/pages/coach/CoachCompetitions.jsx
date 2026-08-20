@@ -10,6 +10,7 @@ import CompetitionEventModal from "../../components/schedule/CompetitionEventMod
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { competitionRosterAction } from "../../utils/competitionRosterPriority";
+import { normalizeCardIndexes } from "../../utils/competitionFormHelpers";
 import { Button, Input } from "../../components/ui";
 
 function todayKey() {
@@ -62,6 +63,7 @@ function defaultCompetitionForm(date, coachId = "") {
     location: "",
     start_time: "10:00",
     end_time: "12:00",
+    opponent_name: "",
     notes: "",
   };
 }
@@ -150,14 +152,7 @@ export default function CoachCompetitions() {
       }
       try {
         const ciRes = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL);
-        const ci = ciRes.data;
-        const list = Array.isArray(ci) ? ci : ci?.items || ci?.card_indexes || [];
-        setCardIndexes(
-          list.map((c) => ({
-            id: c.id,
-            label: c.label || c.age_group || `Картотека #${c.id}`,
-          })),
-        );
+        setCardIndexes(normalizeCardIndexes(ciRes.data));
       } catch {
         setCardIndexes([]);
       }
@@ -182,7 +177,7 @@ export default function CoachCompetitions() {
 
   const saveCompetition = async () => {
     if (!compForm.team_id || !compForm.location.trim()) {
-      toast.error("Избери група и място.");
+      toast.error("Избери тренировъчна група и място.");
       return;
     }
     const coachId = isHeadCoachUser ? Number(compForm.coach_id || 0) : currentUserId;
@@ -200,6 +195,7 @@ export default function CoachCompetitions() {
         start_time: compForm.start_time,
         end_time: compForm.end_time,
         competition_kind: compForm.competition_kind,
+        opponent_name: (compForm.opponent_name || "").trim() || null,
         notes: compForm.notes.trim() || null,
         card_index_id: compForm.card_index_id ? Number(compForm.card_index_id) : null,
       });
@@ -418,6 +414,7 @@ export default function CoachCompetitions() {
               </strong>
               <div className="coachMobileMuted">
                 {row.competition_kind_label || row.competition_kind} · {row.location}
+                {row.opponent_name ? ` · vs ${row.opponent_name}` : ""}
               </div>
               <div>
                 {row.team_name || `Група #${row.team_id}`}
@@ -472,7 +469,10 @@ export default function CoachCompetitions() {
       {rosterEvent && roster ? (
         <div className="matchLiveSubOverlay" role="dialog" aria-modal="true">
           <button type="button" className="matchLiveSubBackdrop" aria-label="Затвори" onClick={() => setRosterEvent(null)} />
-          <div className="matchLiveSubDrawer" style={{ maxHeight: "85vh", overflow: "auto" }}>
+          <div
+            className="matchLiveSubDrawer"
+            style={{ maxHeight: "min(85dvh, 640px)", overflow: "auto" }}
+          >
             <div className="matchLiveSubHead">
               <strong>Тимов лист · {rosterEvent.date}</strong>
               <button type="button" className="matchLiveStatsClose" onClick={() => setRosterEvent(null)}>

@@ -714,6 +714,7 @@ def _competition_to_read(
         location=event.location,
         competition_kind=kind,
         competition_kind_label=competition_kind_label(kind),
+        opponent_name=(getattr(event, "opponent_name", None) or None),
         notes=event.notes,
         is_cancelled=bool(event.is_cancelled),
         roster_status=str(getattr(event, "roster_status", None) or "pending"),
@@ -838,6 +839,7 @@ def create_competition_event(
         end_time=payload.end_time,
         location=location,
         competition_kind=str(payload.competition_kind).strip(),
+        opponent_name=(payload.opponent_name or "").strip() or None,
         notes=(payload.notes or "").strip() or None,
         is_cancelled=False,
         roster_status="pending",
@@ -901,6 +903,8 @@ def update_competition_event(
         event.location = loc
     if payload.notes is not None:
         event.notes = (payload.notes or "").strip() or None
+    if payload.opponent_name is not None:
+        event.opponent_name = (payload.opponent_name or "").strip() or None
     if payload.is_cancelled is not None:
         event.is_cancelled = bool(payload.is_cancelled)
 
@@ -1055,7 +1059,7 @@ def open_match_for_competition(
             team_id=team_id,
             created_by_user_id=current_user.id,
             competition_id=int(event.id),
-            opponent_name=None,
+            opponent_name=(getattr(event, "opponent_name", None) or "").strip() or None,
             match_date=match_day,
             venue=(event.location or "").strip() or None,
             system=MatchSystem.five_one,
@@ -1066,8 +1070,18 @@ def open_match_for_competition(
         db.add(match)
         db.flush()
         created = True
-    elif not getattr(match, "competition_id", None):
-        match.competition_id = int(event.id)
+    else:
+        if not getattr(match, "competition_id", None):
+            match.competition_id = int(event.id)
+        # Попълни противник/зала от състезанието, ако мачът още няма
+        opp = (getattr(event, "opponent_name", None) or "").strip() or None
+        if opp and not (match.opponent_name or "").strip():
+            match.opponent_name = opp
+        loc = (event.location or "").strip() or None
+        if loc and not (match.venue or "").strip():
+            match.venue = loc
+        if match.match_date is None:
+            match.match_date = match_day
 
     seeded = False
     existing_roster = db.query(MatchRosterPlayer).filter(MatchRosterPlayer.match_id == match.id).count()

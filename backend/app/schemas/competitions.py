@@ -16,6 +16,7 @@ class CompetitionEventBase(BaseModel):
     end_time: str  # HH:MM
     location: str
     competition_kind: CompetitionKind
+    opponent_name: Optional[str] = None
     notes: Optional[str] = None
     card_index_id: Optional[int] = None
 
@@ -32,6 +33,7 @@ class CompetitionEventUpdate(BaseModel):
     end_time: Optional[str] = None
     location: Optional[str] = None
     competition_kind: Optional[CompetitionKind] = None
+    opponent_name: Optional[str] = None
     notes: Optional[str] = None
     is_cancelled: Optional[bool] = None
     card_index_id: Optional[int] = None

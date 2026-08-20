@@ -1,5 +1,6 @@
 import { Button, Input, Modal } from "../ui";
 import { COMPETITION_KIND_OPTIONS } from "../../utils/competitionKinds";
+import { applyCardIndexSelection } from "../../utils/competitionFormHelpers";
 
 export default function CompetitionEventModal({
   open,
@@ -15,6 +16,15 @@ export default function CompetitionEventModal({
   onSave,
   onDelete,
 }) {
+  const hasCardIndexes = Array.isArray(cardIndexes) && cardIndexes.length > 0;
+  const selectedCard = hasCardIndexes
+    ? cardIndexes.find((c) => String(c.id) === String(form.card_index_id || ""))
+    : null;
+
+  const onCardIndexChange = (value) => {
+    setForm((p) => applyCardIndexSelection(p, value, cardIndexes, teams));
+  };
+
   return (
     <Modal
       open={open}
@@ -22,67 +32,79 @@ export default function CompetitionEventModal({
       dismissable={!busy}
       title={editId ? "Редакция на състезание" : "Ново състезание"}
     >
-        <div style={{ display: "grid", gap: 8 }}>
-          <Input as="select" value={form.team_id} onChange={(e) => setForm((p) => ({ ...p, team_id: e.target.value }))}>
-            <option value="">Избери тренировъчна група</option>
-            {teams.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.name}
-              </option>
-            ))}
-          </Input>
-          {cardIndexes.length ? (
-            <Input
-              as="select"
-              value={form.card_index_id || ""}
-              onChange={(e) => setForm((p) => ({ ...p, card_index_id: e.target.value }))}
-            >
-              <option value="">Картотечен отбор (СЕК) — по избор</option>
+      <div style={{ display: "grid", gap: 8 }}>
+        {hasCardIndexes ? (
+          <>
+            <Input as="select" value={form.card_index_id || ""} onChange={(e) => onCardIndexChange(e.target.value)}>
+              <option value="">Без картотека — само тренировъчна група</option>
               {cardIndexes.map((c) => (
                 <option key={c.id} value={String(c.id)}>
                   {c.label}
+                  {c.assigned_coach_name ? ` · ${c.assigned_coach_name}` : ""}
                 </option>
               ))}
             </Input>
-          ) : null}
-          {isHeadCoach ? (
-            <Input as="select" value={form.coach_id} onChange={(e) => setForm((p) => ({ ...p, coach_id: e.target.value }))}>
-              <option value="">Избери треньор</option>
-              {coaches.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}
-                </option>
-              ))}
-            </Input>
-          ) : null}
-          <Input as="select" value={form.competition_kind} onChange={(e) => setForm((p) => ({ ...p, competition_kind: e.target.value }))}>
-            {COMPETITION_KIND_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            <p className="uiHint" style={{ margin: 0 }}>
+              {selectedCard
+                ? "Попълнихме треньор и група според картотеката. Дата, място и противник остават за теб (скоро и от календара на СЕК)."
+                : "Избери картотечен отбор за СЕК — после попълваме треньор и група. Или остави „без картотека“ и избери само група."}
+            </p>
+          </>
+        ) : null}
+
+        <Input as="select" value={form.team_id} onChange={(e) => setForm((p) => ({ ...p, team_id: e.target.value }))}>
+          <option value="">Избери тренировъчна група</option>
+          {teams.map((t) => (
+            <option key={t.id} value={String(t.id)}>
+              {t.name}
+            </option>
+          ))}
+        </Input>
+
+        {isHeadCoach ? (
+          <Input as="select" value={form.coach_id} onChange={(e) => setForm((p) => ({ ...p, coach_id: e.target.value }))}>
+            <option value="">Избери треньор</option>
+            {coaches.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
               </option>
             ))}
           </Input>
-          <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
-          <Input placeholder="Място / зала" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
-          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-            <Input type="time" value={form.start_time} onChange={(e) => setForm((p) => ({ ...p, start_time: e.target.value }))} />
-            <Input type="time" value={form.end_time} onChange={(e) => setForm((p) => ({ ...p, end_time: e.target.value }))} />
-          </div>
-          <Input placeholder="Бележки (по избор)" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
+        ) : null}
+
+        <Input as="select" value={form.competition_kind} onChange={(e) => setForm((p) => ({ ...p, competition_kind: e.target.value }))}>
+          {COMPETITION_KIND_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Input>
+        <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+        <Input placeholder="Място / зала" value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+        <Input
+          placeholder="Противник"
+          value={form.opponent_name || ""}
+          onChange={(e) => setForm((p) => ({ ...p, opponent_name: e.target.value }))}
+        />
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+          <Input type="time" value={form.start_time} onChange={(e) => setForm((p) => ({ ...p, start_time: e.target.value }))} />
+          <Input type="time" value={form.end_time} onChange={(e) => setForm((p) => ({ ...p, end_time: e.target.value }))} />
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, justifyContent: "flex-end" }}>
-          {editId ? (
-            <Button variant="danger" disabled={busy} onClick={onDelete}>
-              Изтрий
-            </Button>
-          ) : null}
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Отказ
+        <Input placeholder="Бележки (по избор)" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, justifyContent: "flex-end" }}>
+        {editId ? (
+          <Button variant="danger" disabled={busy} onClick={onDelete}>
+            Изтрий
           </Button>
-          <Button disabled={busy} onClick={onSave}>
-            {editId ? "Запази" : "Създай"}
-          </Button>
-        </div>
+        ) : null}
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Отказ
+        </Button>
+        <Button disabled={busy} onClick={onSave}>
+          {editId ? "Запази" : "Създай"}
+        </Button>
+      </div>
     </Modal>
   );
 }

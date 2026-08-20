@@ -94,7 +94,7 @@ export default function CoachMatchSetup() {
     };
   }, [liberoId, rosterPlayers]);
 
-  const applyMatchState = (m) => {
+  const applyMatchState = (m, { advanceTo } = {}) => {
     setMatch(m);
     setMeta({
       opponent_name: m.opponent_name || "",
@@ -120,9 +120,14 @@ export default function CoachMatchSetup() {
     setZones(nextZones);
     setLiberoId(m.lineup?.libero?.athlete_id ? String(m.lineup.libero.athlete_id) : "");
 
-    if (m.lineup?.complete) setStep("rotations");
-    else if ((m.roster || []).length > 0) setStep("lineup");
-    else setStep("roster");
+    if (advanceTo) {
+      setStep(advanceTo);
+    } else if (m.lineup?.complete) {
+      setStep("rotations");
+    } else {
+      // Дори при зареден състав от тимов лист — първо схема/формат/позиции, после игрище.
+      setStep("roster");
+    }
   };
 
   const load = async () => {
@@ -211,6 +216,14 @@ export default function CoachMatchSetup() {
   };
 
   const saveRoster = async () => {
+    if (!(meta.opponent_name || "").trim()) {
+      toast.error("Въведи противника преди подреждане на игрището.");
+      return;
+    }
+    if (!(meta.system || "").trim() || !(meta.format || "").trim()) {
+      toast.error("Избери схема и формат на мача.");
+      return;
+    }
     const players = selectedIds.map((athleteId, idx) => {
       const row = selected[athleteId];
       return {
@@ -233,6 +246,10 @@ export default function CoachMatchSetup() {
         toast.error("Всеки състезател трябва да има валиден № екип (0–99).");
         return;
       }
+      if (!p.position) {
+        toast.error("Задай позиция на всеки избран състезател.");
+        return;
+      }
     }
     const jerseys = players.map((p) => p.jersey_number);
     if (new Set(jerseys).size !== jerseys.length) {
@@ -244,9 +261,8 @@ export default function CoachMatchSetup() {
       setBusy(true);
       await saveMeta();
       const res = await axiosInstance.put(API_PATHS.TEAM_MATCH_ROSTER(teamIdNum, matchIdNum), { players });
-      applyMatchState(res.data);
-      setStep("lineup");
-      toast.success("Съставът е записан. Подредете стартовата шестица.");
+      applyMatchState(res.data, { advanceTo: "lineup" });
+      toast.success("Съставът е записан. Подредете стартовата шестица на игрището.");
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен запис на състава."));
     } finally {
@@ -338,8 +354,7 @@ export default function CoachMatchSetup() {
         slots,
         libero_athlete_id: liberoId ? Number(liberoId) : null,
       });
-      applyMatchState(res.data);
-      setStep("rotations");
+      applyMatchState(res.data, { advanceTo: "rotations" });
       setRotationView(1);
       toast.success("Стартовата шестица е записана. Ротациите R1–R6 са готови.");
     } catch (err) {
@@ -394,7 +409,7 @@ export default function CoachMatchSetup() {
           className={`matchStepTab${step === "roster" ? " matchStepTab--active" : ""}`}
           onClick={() => setStep("roster")}
         >
-          1. Състав
+          1. Схема и състав
         </button>
         <button
           type="button"
@@ -402,7 +417,7 @@ export default function CoachMatchSetup() {
           onClick={() => setStep("lineup")}
           disabled={selectedIds.length < 6}
         >
-          2. Шестица
+          2. Игрище
         </button>
         <button
           type="button"
@@ -416,12 +431,18 @@ export default function CoachMatchSetup() {
 
       {step === "roster" ? (
         <>
+          <p className="coachMobileMuted" style={{ margin: "0 0 8px", fontSize: 13 }}>
+            Преди игрището: противник, схема (5-1…), формат (2 от 3 / 3 от 5) и позиции на състезателите.
+          </p>
           <div className="matchSetupMeta">
-            <Input
-              placeholder="Противник"
-              value={meta.opponent_name}
-              onChange={(e) => setMeta((p) => ({ ...p, opponent_name: e.target.value }))}
-            />
+            <label className="matchSetupMetaField matchSetupMetaField--wide">
+              <span>Противник</span>
+              <Input
+                placeholder="Име на отбора-противник"
+                value={meta.opponent_name}
+                onChange={(e) => setMeta((p) => ({ ...p, opponent_name: e.target.value }))}
+              />
+            </label>
             <label className="matchSetupMetaField">
               <span>Дата</span>
               <Input
@@ -430,11 +451,14 @@ export default function CoachMatchSetup() {
                 onChange={(e) => setMeta((p) => ({ ...p, match_date: e.target.value }))}
               />
             </label>
-            <Input
-              placeholder="Място"
-              value={meta.venue}
-              onChange={(e) => setMeta((p) => ({ ...p, venue: e.target.value }))}
-            />
+            <label className="matchSetupMetaField">
+              <span>Място</span>
+              <Input
+                placeholder="Зала / град"
+                value={meta.venue}
+                onChange={(e) => setMeta((p) => ({ ...p, venue: e.target.value }))}
+              />
+            </label>
             <label className="matchSetupMetaField">
               <span>Схема</span>
               <select
@@ -469,7 +493,7 @@ export default function CoachMatchSetup() {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <strong style={{ fontSize: 14 }}>
-              Състезатели ({selectedIds.length}/{MATCH_MAX_ROSTER})
+              Състав и позиции ({selectedIds.length}/{MATCH_MAX_ROSTER})
             </strong>
           </div>
 
@@ -531,8 +555,13 @@ export default function CoachMatchSetup() {
           )}
 
           <Button disabled={busy || selectedIds.length < 6} onClick={saveRoster}>
-            {busy ? "Запис..." : "Запази и към шестицата"}
+            {busy ? "Запис..." : "Запази и към игрището"}
           </Button>
+          {SYSTEM_LINEUP_HINT[meta.system] ? (
+            <p className="coachMobileMuted" style={{ marginTop: 8, fontSize: 12 }}>
+              {SYSTEM_LINEUP_HINT[meta.system]}
+            </p>
+          ) : null}
         </>
       ) : null}
 

@@ -18,6 +18,7 @@ import {
   competitionKindLabel,
   isCompetitionEvent,
 } from "../utils/competitionKinds";
+import { normalizeCardIndexes } from "../utils/competitionFormHelpers";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const monthKeyNow = () => todayKey().slice(0, 7);
@@ -278,20 +279,14 @@ export default function TeamScheduleCalendar() {
   );
 
   const loadMeta = async () => {
-    const [teamsRes, coachesRes, seasonRes] = await Promise.all([
+    const [teamsRes, coachesRes, cardRes] = await Promise.all([
       axiosInstance.get(API_PATHS.TEAMS_LIST),
       axiosInstance.get(API_PATHS.FEES_COACHES_LIST),
-      axiosInstance.get(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS).catch(() => ({ data: null })),
+      axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL).catch(() => ({ data: null })),
     ]);
     setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
     setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
-    const slots = Array.isArray(seasonRes?.data?.slots) ? seasonRes.data.slots : [];
-    setCardIndexes(
-      slots.map((s) => ({
-        id: s.id,
-        label: `${s.age_group || `Под ${s.age}`} · ${Number(s.sex) === 1 ? "Жени" : "Мъже"} · ${s.year}`,
-      })),
-    );
+    setCardIndexes(normalizeCardIndexes(cardRes?.data));
     setMetaLoaded(true);
   };
 

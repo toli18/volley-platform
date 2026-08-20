@@ -419,6 +419,15 @@ def _init_db_impl() -> None:
                     text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_court_positions JSON")
                 )
                 conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS competition_id INTEGER"))
+                try:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS opponent_name VARCHAR(255)"
+                        )
+                    )
+                except Exception:
+                    pass
                 conn.execute(
                     text(
                         "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "
