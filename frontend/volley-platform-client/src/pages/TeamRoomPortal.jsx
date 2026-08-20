@@ -183,8 +183,10 @@ export default function TeamRoomPortal() {
     navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
   }, [location.search, location.pathname, load, navigate]);
 
-  const fetchScheduleMonth = useCallback(async (monthKey) => {
-    const res = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_ME_SCHEDULE, { params: { month: monthKey } });
+  const fetchScheduleMonth = useCallback(async (monthKey, scope = "child") => {
+    const res = await axiosInstance.get(API_PATHS.ATHLETE_ROOM_ME_SCHEDULE, {
+      params: { month: monthKey, scope: scope || "child" },
+    });
     return Array.isArray(res.data) ? res.data : [];
   }, []);
 

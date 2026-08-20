@@ -133,7 +133,9 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
         schedule = _apply_schedule_highlights(
             db,
             athlete.id,
-            _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk)),
+            _build_schedule_for_teams(
+                db, team_ids, f"{mk}-01", _month_last_day(mk), athlete=athlete, scope="child"
+            ),
         )
         today = date.today()
         upcoming = _apply_schedule_highlights(
@@ -144,6 +146,8 @@ def _build_me(db: Session, athlete: Athlete, month_key: str | None = None) -> At
                 team_ids,
                 today.isoformat(),
                 (today + timedelta(days=_UPCOMING_HORIZON_DAYS)).isoformat(),
+                athlete=athlete,
+                scope="child",
             ),
         )
         next_training = _pick_next_by_kind(upcoming, competition=False)
@@ -258,16 +262,24 @@ def athlete_room_development(
 @router.get("/athlete-room/me/schedule", response_model=list[ParentScheduleItem])
 def athlete_room_schedule(
     month: str = Query(..., description="YYYY-MM"),
+    scope: str = Query("child", description="child | club_matches"),
     db: Session = Depends(get_db),
     athlete: Athlete = Depends(get_current_athlete_room_athlete),
 ):
     if not _MONTH_KEY_RE.match((month or "").strip()):
         raise HTTPException(status_code=422, detail="month must be YYYY-MM")
     team_ids = _team_ids_for_athlete(db, athlete.id)
-    if not team_ids:
+    if not team_ids and (scope or "").strip().lower() != "club_matches":
         return []
     mk = month.strip()
-    items = _build_schedule_for_teams(db, team_ids, f"{mk}-01", _month_last_day(mk))
+    items = _build_schedule_for_teams(
+        db,
+        team_ids,
+        f"{mk}-01",
+        _month_last_day(mk),
+        athlete=athlete,
+        scope=scope,
+    )
     return _apply_schedule_highlights(db, athlete.id, items)
 
 
