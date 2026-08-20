@@ -10,7 +10,9 @@ export function cardIndexLabel(c) {
 }
 
 export function normalizeCardIndexes(raw) {
-  const list = Array.isArray(raw) ? raw : raw?.items || raw?.card_indexes || [];
+  const list = Array.isArray(raw)
+    ? raw
+    : raw?.items || raw?.slots || raw?.card_indexes || [];
   return list
     .map((c) => ({
       id: c.id,

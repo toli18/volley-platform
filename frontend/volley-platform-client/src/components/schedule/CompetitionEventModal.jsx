@@ -16,13 +16,11 @@ export default function CompetitionEventModal({
   onSave,
   onDelete,
 }) {
-  const hasCardIndexes = Array.isArray(cardIndexes) && cardIndexes.length > 0;
-  const selectedCard = hasCardIndexes
-    ? cardIndexes.find((c) => String(c.id) === String(form.card_index_id || ""))
-    : null;
+  const list = Array.isArray(cardIndexes) ? cardIndexes : [];
+  const selectedCard = list.find((c) => String(c.id) === String(form.card_index_id || "")) || null;
 
   const onCardIndexChange = (value) => {
-    setForm((p) => applyCardIndexSelection(p, value, cardIndexes, teams));
+    setForm((p) => applyCardIndexSelection(p, value, list, teams));
   };
 
   return (
@@ -33,24 +31,24 @@ export default function CompetitionEventModal({
       title={editId ? "Редакция на състезание" : "Ново състезание"}
     >
       <div style={{ display: "grid", gap: 8 }}>
-        {hasCardIndexes ? (
-          <>
-            <Input as="select" value={form.card_index_id || ""} onChange={(e) => onCardIndexChange(e.target.value)}>
-              <option value="">Без картотека — само тренировъчна група</option>
-              {cardIndexes.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.label}
-                  {c.assigned_coach_name ? ` · ${c.assigned_coach_name}` : ""}
-                </option>
-              ))}
-            </Input>
-            <p className="uiHint" style={{ margin: 0 }}>
-              {selectedCard
-                ? "Попълнихме треньор и група според картотеката. Дата, място и противник остават за теб (скоро и от календара на СЕК)."
-                : "Избери картотечен отбор за СЕК — после попълваме треньор и група. Или остави „без картотека“ и избери само група."}
-            </p>
-          </>
-        ) : null}
+        <Input as="select" value={form.card_index_id || ""} onChange={(e) => onCardIndexChange(e.target.value)}>
+          <option value="">
+            {list.length ? "Без картотека — само тренировъчна група" : "Няма заредени картотечни отбори"}
+          </option>
+          {list.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.label}
+              {c.assigned_coach_name ? ` · ${c.assigned_coach_name}` : ""}
+            </option>
+          ))}
+        </Input>
+        <p className="uiHint" style={{ margin: 0 }}>
+          {selectedCard
+            ? "Попълнихме треньор и група според картотеката. Съставът за мача е от картотекираните състезатели."
+            : list.length
+              ? "Избери картотечен отбор (СЕК) — после попълваме треньор/група. Или само тренировъчна група по-долу."
+              : "Картотечните отбори идват от сезона в „Картотеки“. Ако тук е празно, провери сезона или опресни страницата."}
+        </p>
 
         <Input as="select" value={form.team_id} onChange={(e) => setForm((p) => ({ ...p, team_id: e.target.value }))}>
           <option value="">Избери тренировъчна група</option>

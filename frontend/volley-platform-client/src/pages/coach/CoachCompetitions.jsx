@@ -151,8 +151,21 @@ export default function CoachCompetitions() {
         setTeams([]);
       }
       try {
-        const ciRes = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL);
-        setCardIndexes(normalizeCardIndexes(ciRes.data));
+        const year = new Date().getFullYear();
+        const [seasonRes, localRes] = await Promise.all([
+          axiosInstance
+            .get(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS, { params: { year } })
+            .catch(() => ({ data: null })),
+          axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL).catch(() => ({ data: null })),
+        ]);
+        const fromSeason = normalizeCardIndexes(seasonRes?.data?.slots || seasonRes?.data);
+        const fromLocal = normalizeCardIndexes(localRes?.data);
+        // Prefer season slots (same list as Картотеки); merge any extras from local.
+        const byId = new Map();
+        for (const row of [...fromSeason, ...fromLocal]) {
+          byId.set(String(row.id), row);
+        }
+        setCardIndexes([...byId.values()]);
       } catch {
         setCardIndexes([]);
       }

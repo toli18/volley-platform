@@ -279,14 +279,24 @@ export default function TeamScheduleCalendar() {
   );
 
   const loadMeta = async () => {
-    const [teamsRes, coachesRes, cardRes] = await Promise.all([
+    const year = new Date().getFullYear();
+    const [teamsRes, coachesRes, seasonRes, cardRes] = await Promise.all([
       axiosInstance.get(API_PATHS.TEAMS_LIST),
       axiosInstance.get(API_PATHS.FEES_COACHES_LIST),
+      axiosInstance
+        .get(API_PATHS.BVF_ADMIN_SEASON_APPLICATIONS, { params: { year } })
+        .catch(() => ({ data: null })),
       axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL).catch(() => ({ data: null })),
     ]);
     setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
     setCoaches(Array.isArray(coachesRes?.data) ? coachesRes.data : []);
-    setCardIndexes(normalizeCardIndexes(cardRes?.data));
+    const fromSeason = normalizeCardIndexes(seasonRes?.data?.slots || seasonRes?.data);
+    const fromLocal = normalizeCardIndexes(cardRes?.data);
+    const byId = new Map();
+    for (const row of [...fromSeason, ...fromLocal]) {
+      byId.set(String(row.id), row);
+    }
+    setCardIndexes([...byId.values()]);
     setMetaLoaded(true);
   };
 
