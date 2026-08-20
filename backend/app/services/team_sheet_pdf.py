@@ -58,12 +58,44 @@ def _branding_dir() -> Path:
 
 
 def _split_name(full_name: str) -> tuple[str, str]:
+    """Връща (фамилия, собствено[+бащино]). Последната дума е фамилия."""
     parts = [p for p in str(full_name or "").strip().split() if p]
     if not parts:
         return "", ""
     if len(parts) == 1:
-        return "", parts[0]
+        return parts[0], ""
     return parts[-1], " ".join(parts[:-1])
+
+
+def _strip_trailing_surname(given: str, surname: str) -> str:
+    g = (given or "").strip()
+    s = (surname or "").strip()
+    if not g or not s:
+        return g
+    # „Александър Захариев“ + фамилия „Захариев“ → „Александър“
+    parts = g.split()
+    if len(parts) >= 2 and parts[-1].casefold() == s.casefold():
+        return " ".join(parts[:-1]).strip()
+    if g.casefold() == s.casefold():
+        return ""
+    return g
+
+
+def athlete_sheet_name_parts(athlete) -> tuple[str, str]:
+    """(фамилия, собствено име) за бланка О-2 — без дублирана фамилия в собственото."""
+    last = (getattr(athlete, "last_name", None) or "").strip()
+    first = (getattr(athlete, "first_name", None) or "").strip()
+    middle = (getattr(athlete, "middle_name", None) or "").strip()
+    if last and (first or middle):
+        given = " ".join(p for p in (_strip_trailing_surname(first, last), middle) if p)
+        if given:
+            return last, given
+    split_last, split_first = _split_name(getattr(athlete, "athlete_name", None) or "")
+    if last and not split_last:
+        split_last = last
+    if first and not split_first:
+        split_first = _strip_trailing_surname(first, split_last or last)
+    return split_last, _strip_trailing_surname(split_first, split_last)
 
 
 def _round_box(
@@ -128,10 +160,10 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
     right = width - margin
     content_w = right - left
 
-    # Outer page frame
+    # Outer page frame — leave room under the form for the caption
     c.setStrokeColor(colors.Color(0.78, 0.84, 0.90))
     c.setLineWidth(1.3)
-    c.roundRect(4.5 * mm, 4.5 * mm, width - 9 * mm, height - 9 * mm, 8, stroke=1, fill=0)
+    c.roundRect(4.5 * mm, 9.5 * mm, width - 9 * mm, height - 14 * mm, 8, stroke=1, fill=0)
 
     top = height - 9 * mm
     branding = _branding_dir()
@@ -215,7 +247,7 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
                 p.place_of_birth,
                 p.height,
                 p.reach,
-                "",
+                p.sek or "",
             ]
         )
 
@@ -238,7 +270,7 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 ("ALIGN", (0, 1), (0, -1), "CENTER"),
                 ("ALIGN", (3, 1), (3, -1), "CENTER"),
-                ("ALIGN", (5, 1), (6, -1), "CENTER"),
+                ("ALIGN", (5, 1), (7, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 4),
@@ -282,9 +314,13 @@ def build_team_sheet_pdf(payload: TeamSheetPayload) -> bytes:
     sig_w = right - 2.5 * mm - sig_x
     _labeled_box(c, font, "Президент / оторизиран представител", "", sig_x, staff_y3, sig_w, h=staff_box_h)
 
-    c.setFillColor(colors.Color(0.45, 0.52, 0.60))
-    c.setFont(font, 7.5)
-    c.drawCentredString(width / 2, 6.5 * mm, "Volley Coach Platform · Българска федерация по волейбол · макс. 14 състезатели")
+    c.setFillColor(colors.Color(0.35, 0.42, 0.50))
+    c.setFont(font, 9.5)
+    c.drawCentredString(
+        width / 2,
+        3.2 * mm,
+        "Volley Coach Platform · Българска федерация по волейбол · макс. 14 състезатели",
+    )
 
     c.showPage()
     c.save()

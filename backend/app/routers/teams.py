@@ -68,9 +68,9 @@ from app.services.team_sheet_pdf import (
     MAX_PLAYERS,
     TeamSheetPayload,
     TeamSheetPlayerRow,
+    athlete_sheet_name_parts,
     build_team_sheet_pdf,
     format_sheet_date,
-    split_athlete_name,
 )
 
 router = APIRouter()
@@ -1254,7 +1254,7 @@ def generate_team_sheet_pdf(
     players: list[TeamSheetPlayerRow] = []
     for athlete_id in selected_ids:
         athlete = members_by_id[athlete_id]
-        last_name, first_name = split_athlete_name(athlete.athlete_name)
+        last_name, first_name = athlete_sheet_name_parts(athlete)
         birth_year = ""
         if getattr(athlete, "birth_date", None):
             birth_year = str(athlete.birth_date.year)
