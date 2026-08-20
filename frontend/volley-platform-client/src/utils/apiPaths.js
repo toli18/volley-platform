@@ -259,6 +259,7 @@ export const API_PATHS = {
   BVF_ADMIN_CREATE_FROM_ATHLETE: "/api/bvf-admin/players/create-from-athlete",
   BVF_ADMIN_RESOLVE_FIRST_COACH: "/api/bvf-admin/players/resolve-first-coach",
   BVF_ADMIN_SYNC_PHOTO: "/api/bvf-admin/players/sync-photo",
+  BVF_ADMIN_SYNC_IDENTITY: "/api/bvf-admin/players/sync-identity",
   BVF_ADMIN_LINK_BY_EGN: "/api/bvf-admin/players/link-by-egn",
   BVF_ADMIN_DOCS_SYNC: "/api/bvf-admin/players/documents/sync",
   BVF_ADMIN_DOCS_UPLOAD: "/api/bvf-admin/players/documents/upload",

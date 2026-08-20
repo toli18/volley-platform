@@ -61,6 +61,7 @@ export default function CoachAthleteProfile() {
   const [bvfOpen, setBvfOpen] = useState(false);
   const [bvfLinkOpen, setBvfLinkOpen] = useState(false);
   const [syncingPhoto, setSyncingPhoto] = useState(false);
+  const [syncingIdentity, setSyncingIdentity] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const feesAllHref = useMemo(() => {
@@ -266,6 +267,22 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const syncIdentityFromBvf = async () => {
+    if (!profile?.athlete_id) return;
+    try {
+      setSyncingIdentity(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_SYNC_IDENTITY, {
+        athlete_id: profile.athlete_id,
+      });
+      toast.success(res.data?.message || "Данните са обновени от СЕК.");
+      await reloadProfile();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно обновяване на данните от СЕК."));
+    } finally {
+      setSyncingIdentity(false);
+    }
+  };
+
   const uploadLocalPhoto = async (file) => {
     if (!profile?.athlete_id || !file) return;
     const form = new FormData();
@@ -372,8 +389,10 @@ export default function CoachAthleteProfile() {
         onOpenBvfCreate={isHeadCoach ? () => setBvfOpen(true) : undefined}
         onOpenBvfLink={isHeadCoach ? () => setBvfLinkOpen(true) : undefined}
         onSyncPhoto={isHeadCoach ? syncPhotoFromBvf : undefined}
+        onSyncIdentity={isHeadCoach ? syncIdentityFromBvf : undefined}
         onUploadPhoto={uploadLocalPhoto}
         syncingPhoto={syncingPhoto}
+        syncingIdentity={syncingIdentity}
         canManageSek={isHeadCoach}
         onDelete={!profile.bvf_player_id ? deleteAthlete : undefined}
         deleting={deleting}

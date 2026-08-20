@@ -494,6 +494,91 @@ def sync_athlete_photo(
     return {"athlete_id": athlete.id, "bvf_photo_id": photo_id, "has_photo": True}
 
 
+@router.post("/players/sync-identity")
+def sync_athlete_identity_from_sek(
+    payload: TokenAthleteIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Дърпа име / № / националност от СЕК за вече свързан състезател (заключена идентичност)."""
+    _require_submit_role(current_user)
+    athlete = _athlete_for_bvf_action(db, current_user, payload.athlete_id)
+    if not athlete.bvf_player_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма БФВ id")
+    club = _club_for_any_coach(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+    remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}", token)
+    if not isinstance(remote, dict):
+        raise HTTPException(status_code=502, detail="Невалиден отговор от СЕК за състезателя")
+
+    first_n = str(remote.get("firstName") or "").strip() or None
+    middle_n = str(remote.get("middleName") or "").strip() or None
+    last_n = str(remote.get("lastName") or "").strip() or None
+    if not (first_n or middle_n or last_n):
+        raise HTTPException(status_code=502, detail="СЕК не върна имена за този състезател")
+
+    changed: list[str] = []
+    if first_n and first_n != (athlete.first_name or "").strip():
+        athlete.first_name = first_n
+        changed.append("собствено")
+    if middle_n is not None and middle_n != (athlete.middle_name or "").strip():
+        athlete.middle_name = middle_n or None
+        changed.append("бащино")
+    if last_n and last_n != (athlete.last_name or "").strip():
+        athlete.last_name = last_n
+        changed.append("фамилия")
+
+    new_full = compose_athlete_name(
+        athlete.first_name, athlete.middle_name, athlete.last_name, athlete.athlete_name
+    )
+    if new_full and new_full != (athlete.athlete_name or "").strip():
+        athlete.athlete_name = new_full
+        if "име" not in changed:
+            changed.append("име")
+
+    number = remote.get("number")
+    try:
+        number_i = int(number) if number is not None and str(number).strip() != "" else None
+    except Exception:
+        number_i = None
+    if number_i is not None and number_i != athlete.bvf_player_number:
+        athlete.bvf_player_number = number_i
+        changed.append("№ СЕК")
+
+    nat = str(remote.get("nationality") or "").strip()
+    if nat and nat != (athlete.nationality or "").strip():
+        athlete.nationality = nat
+        changed.append("националност")
+
+    photo_id = str(remote.get("photoId") or "").strip() or None
+    if photo_id and photo_id != (athlete.bvf_photo_id or "").strip():
+        athlete.bvf_photo_id = photo_id
+
+    athlete.bvf_synced_at = datetime.utcnow()
+    from app.services.sek_athlete_readiness import clear_sek_task
+
+    clear_sek_task(athlete)
+    db.commit()
+    db.refresh(athlete)
+
+    return {
+        "athlete_id": athlete.id,
+        "athlete_name": athlete.athlete_name,
+        "first_name": athlete.first_name,
+        "middle_name": athlete.middle_name,
+        "last_name": athlete.last_name,
+        "bvf_player_number": athlete.bvf_player_number,
+        "changed": changed,
+        "message": (
+            f"Обновено от СЕК: {', '.join(changed)}."
+            if changed
+            else "Данните вече съвпадат със СЕК — няма промяна."
+        ),
+    }
+
+
 @router.post("/players/link-by-egn")
 def link_player_by_egn(
     payload: LinkByEgnIn,

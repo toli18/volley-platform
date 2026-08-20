@@ -232,8 +232,10 @@ export default function AthleteProfileCoachMobile({
   onOpenBvfCreate,
   onOpenBvfLink,
   onSyncPhoto,
+  onSyncIdentity,
   onUploadPhoto,
   syncingPhoto = false,
+  syncingIdentity = false,
   /** Само главен треньор / админ: създаване, свързване и синхрон със СЕК. */
   canManageSek = false,
   onDelete,
@@ -812,17 +814,25 @@ export default function AthleteProfileCoachMobile({
                           <Button
                             type="button"
                             size="sm"
+                            disabled={syncingIdentity || syncingPhoto}
+                            onClick={onSyncIdentity}
+                          >
+                            {syncingIdentity ? "Обновяване…" : "Обнови данни от СЕК"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="secondary"
-                            disabled={syncingPhoto}
+                            disabled={syncingPhoto || syncingIdentity}
                             onClick={onSyncPhoto}
                           >
-                            {syncingPhoto ? "Зареждане…" : hasLocalPhoto ? "Обнови от СЕК" : "Зареди снимка от СЕК"}
+                            {syncingPhoto ? "Зареждане…" : hasLocalPhoto ? "Обнови снимка от СЕК" : "Зареди снимка от СЕК"}
                           </Button>
                           {photoInput}
                         </div>
                         <p className="muted" style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.35 }}>
-                          Ако СЕК връща грешка за файлове — клубният ApiKey няма право да чете /api/files.
-                          Дотогава ползвай <strong>Добави снимка</strong> / смяна локално и изпращане.
+                          Заключената идентичност се коригира само от СЕК. След поправка там ползвай{" "}
+                          <strong>Обнови данни от СЕК</strong>. Снимката е отделно; ако /api/files гърми — качи локално.
                         </p>
                       </div>
                     ) : null}
