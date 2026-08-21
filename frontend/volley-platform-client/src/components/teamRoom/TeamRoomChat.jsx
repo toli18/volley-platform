@@ -6,46 +6,39 @@ import { chatPreview, gifBodyFromUrl, parseChatBody } from "../../utils/chatCont
 import ChatLinkedText from "../chat/ChatLinkedText";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, EmptyState } from "../ui";
+import { parseServerUtcDate } from "../../utils/serverTime";
 
 function formatChatTime(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    const now = new Date();
-    const sameDay =
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate();
-    if (sameDay) {
-      return d.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
-    }
-    return d.toLocaleString("bg-BG", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
+  const d = parseServerUtcDate(iso);
+  if (!d) return "";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
   }
+  return d.toLocaleString("bg-BG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatChannelTime(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffDays = Math.floor((now - d) / (24 * 60 * 60 * 1000));
-    if (diffDays === 0) {
-      return d.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
-    }
-    if (diffDays < 7) {
-      return d.toLocaleDateString("bg-BG", { weekday: "short" });
-    }
-    return d.toLocaleDateString("bg-BG", { day: "numeric", month: "short" });
-  } catch {
-    return "";
+  const d = parseServerUtcDate(iso);
+  if (!d) return "";
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) {
+    return d.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
   }
+  if (diffDays < 7) {
+    return d.toLocaleDateString("bg-BG", { weekday: "short" });
+  }
+  return d.toLocaleDateString("bg-BG", { day: "numeric", month: "short" });
 }
 
 function ChannelListBody({ channels, retentionDays, onPick }) {

@@ -6,35 +6,30 @@ import { gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
 import ChatLinkedText from "../chat/ChatLinkedText";
 import ChatComposerTools from "../chat/ChatComposerTools";
 import { Button, Card, Input, Modal } from "../ui";
+import { parseServerUtcDate } from "../../utils/serverTime";
 
 const RETENTION_DAYS = 15;
 
 function formatTime(iso) {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleString("bg-BG", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  const d = parseServerUtcDate(iso);
+  if (!d) return "";
+  return d.toLocaleString("bg-BG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatReadTime(iso) {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleString("bg-BG", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  const d = parseServerUtcDate(iso);
+  if (!d) return "";
+  return d.toLocaleString("bg-BG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function ChatReadSheet({ teamId, message, onClose }) {
