@@ -245,28 +245,6 @@ export default function CoachAthleteProfile() {
     }
   };
 
-  const syncPhotoFromBvf = async () => {
-    if (!profile?.athlete_id) return;
-    try {
-      setSyncingPhoto(true);
-      await axiosInstance.post(API_PATHS.BVF_ADMIN_SYNC_PHOTO, {
-        athlete_id: profile.athlete_id,
-      });
-      toast.success("Снимката е заредена от БФВ.");
-      await reloadProfile();
-    } catch (err) {
-      const msg = normalizeError(err, "Неуспешно зареждане на снимка.");
-      toast.error(
-        /няма право да чете файлове|\/api\/files/i.test(msg)
-          ? `${msg} Ползвай „Качи снимка“ докато ApiKey-ът няма Files read.`
-          : msg,
-        { duration: 8000 }
-      );
-    } finally {
-      setSyncingPhoto(false);
-    }
-  };
-
   const syncIdentityFromBvf = async () => {
     if (!profile?.athlete_id) return;
     try {
@@ -388,7 +366,6 @@ export default function CoachAthleteProfile() {
         onSaveEdit={saveProfile}
         onOpenBvfCreate={isHeadCoach ? () => setBvfOpen(true) : undefined}
         onOpenBvfLink={isHeadCoach ? () => setBvfLinkOpen(true) : undefined}
-        onSyncPhoto={isHeadCoach ? syncPhotoFromBvf : undefined}
         onSyncIdentity={isHeadCoach ? syncIdentityFromBvf : undefined}
         onUploadPhoto={uploadLocalPhoto}
         syncingPhoto={syncingPhoto}

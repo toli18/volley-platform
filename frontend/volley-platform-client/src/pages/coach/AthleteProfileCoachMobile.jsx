@@ -231,7 +231,6 @@ export default function AthleteProfileCoachMobile({
   onSaveEdit,
   onOpenBvfCreate,
   onOpenBvfLink,
-  onSyncPhoto,
   onSyncIdentity,
   onUploadPhoto,
   syncingPhoto = false,
@@ -814,25 +813,16 @@ export default function AthleteProfileCoachMobile({
                           <Button
                             type="button"
                             size="sm"
-                            disabled={syncingIdentity || syncingPhoto}
+                            disabled={syncingIdentity}
                             onClick={onSyncIdentity}
                           >
                             {syncingIdentity ? "Обновяване…" : "Обнови данни от СЕК"}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={syncingPhoto || syncingIdentity}
-                            onClick={onSyncPhoto}
-                          >
-                            {syncingPhoto ? "Зареждане…" : hasLocalPhoto ? "Обнови снимка от СЕК" : "Зареди снимка от СЕК"}
                           </Button>
                           {photoInput}
                         </div>
                         <p className="muted" style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.35 }}>
                           Заключената идентичност се коригира само от СЕК. След поправка там ползвай{" "}
-                          <strong>Обнови данни от СЕК</strong>. Снимката е отделно; ако /api/files гърми — качи локално.
+                          <strong>Обнови данни от СЕК</strong>. Снимка качвай локално (синхронът от СЕК за файлове още не е наличен).
                         </p>
                       </div>
                     ) : null}
