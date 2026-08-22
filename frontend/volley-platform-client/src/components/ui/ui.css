@@ -1377,6 +1377,16 @@
   color: #4d7c5a;
 }
 
+.feesMonthSummaryMeta--hint {
+  color: #4d7c5a;
+  font-style: normal;
+}
+
+.feesMonthSummaryCoachRatio {
+  cursor: help;
+  border-bottom: 1px dotted #86efac;
+}
+
 .feesMonthSummaryCoachesLine {
   margin: 0;
   font-size: 12px;

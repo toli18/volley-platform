@@ -19,7 +19,9 @@ import {
   writeHeadStatsScope,
 } from "../../utils/loadCoachDashboardData";
 import { teamColorsForId } from "../../utils/teamColors";
-import { Button, EmptyState } from "../../components/ui";
+import { Button, EmptyState, Modal } from "../../components/ui";
+
+const ABSENCE_PREVIEW_LIMIT = 4;
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -155,6 +157,27 @@ function formatShortDateBg(iso) {
   return `${d}.${m}.${y}`;
 }
 
+function renderAbsenceNoticeItem(notice) {
+  const to = notice.team_id
+    ? `/teams/${notice.team_id}/attendance?date=${encodeURIComponent(notice.notice_date)}`
+    : "/coach/teams";
+  return (
+    <li key={notice.id} className="coachMobileAbsenceItem">
+      <Link to={to} className="coachMobileAbsenceLink">
+        <strong>{notice.athlete_name}</strong>
+        <span className="coachMobileAbsenceMissing"> липсва</span>
+        <span className="coachMobileAbsenceDate">
+          {notice.end_date && notice.end_date !== notice.notice_date
+            ? ` ${formatShortDateBg(notice.notice_date)} – ${formatShortDateBg(notice.end_date)}`
+            : ` на ${formatShortDateBg(notice.notice_date)}`}
+        </span>
+        {notice.team_name ? <span className="coachMobileMuted"> · {notice.team_name}</span> : null}
+        {notice.note ? <span className="coachMobileAbsenceNoteInline"> ({notice.note})</span> : null}
+      </Link>
+    </li>
+  );
+}
+
 function SectionCard({ title, actions, children }) {
   return (
     <section className="coachMobileCard" style={{ marginBottom: 10 }}>
@@ -200,6 +223,7 @@ export default function CoachToday() {
   const [programThemes, setProgramThemes] = useState({});
   const [loadedSections, setLoadedSections] = useState({});
   const [dash, setDash] = useState(() => ({ ...EMPTY_DASHBOARD, monthKey: currentMonthKey() }));
+  const [absencesModalOpen, setAbsencesModalOpen] = useState(false);
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -370,34 +394,35 @@ export default function CoachToday() {
             <span className="coachMobileAbsenceCount">{absenceNotices.length}</span>
           </h2>
           <ul className="coachMobileAbsenceList">
-            {absenceNotices.map((notice) => {
-              const to = notice.team_id
-                ? `/teams/${notice.team_id}/attendance?date=${encodeURIComponent(notice.notice_date)}`
-                : "/coach/teams";
-              return (
-                <li key={notice.id} className="coachMobileAbsenceItem">
-                  <Link to={to} className="coachMobileAbsenceLink">
-                    <strong>{notice.athlete_name}</strong>
-                    <span className="coachMobileAbsenceDate">
-                      {" "}
-                      липсва{" "}
-                      {notice.end_date && notice.end_date !== notice.notice_date
-                        ? `${formatShortDateBg(notice.notice_date)} – ${formatShortDateBg(notice.end_date)}`
-                        : `на ${formatShortDateBg(notice.notice_date)}`}
-                    </span>
-                    {notice.team_name ? (
-                      <span className="coachMobileMuted"> · {notice.team_name}</span>
-                    ) : null}
-                    {notice.note ? (
-                      <span className="coachMobileAbsenceNoteInline"> ({notice.note})</span>
-                    ) : null}
-                  </Link>
-                </li>
-              );
-            })}
+            {absenceNotices.slice(0, ABSENCE_PREVIEW_LIMIT).map((notice) => renderAbsenceNoticeItem(notice))}
           </ul>
+          {absenceNotices.length > ABSENCE_PREVIEW_LIMIT ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="coachMobileAbsenceMoreBtn"
+              onClick={() => setAbsencesModalOpen(true)}
+            >
+              Виж всички ({absenceNotices.length})
+            </Button>
+          ) : null}
         </section>
       ) : null}
+
+      <Modal
+        open={absencesModalOpen}
+        onClose={() => setAbsencesModalOpen(false)}
+        title={`Извинения (${absenceNotices.length})`}
+        size="compact"
+      >
+        <ul className="coachMobileAbsenceList coachMobileAbsenceList--modal">
+          {absenceNotices.map((notice) => renderAbsenceNoticeItem(notice))}
+        </ul>
+        <Button type="button" variant="ghost" block onClick={() => setAbsencesModalOpen(false)}>
+          Затвори
+        </Button>
+      </Modal>
 
       {!loading && rosterAlerts.length > 0 ? (
         <section className="coachMobileAbsenceBox coachMobileRosterBox" aria-label="Тимов лист за състезания">

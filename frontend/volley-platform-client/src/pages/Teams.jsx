@@ -10,7 +10,7 @@ import useIsCoachMobileShell from "../hooks/useIsCoachMobileShell";
 import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
 import { CoachHubPage, MenuGroup } from "../components/coachMobile/CoachMenuParts";
 import { NavIcon } from "../navigation/navIcons";
-import { Button, EmptyState, Input, Modal } from "../components/ui";
+import { Button, EmptyState, Input, Modal, OverflowActionSheet } from "../components/ui";
 
 const teamGenderLabel = (gender) => {
   if (gender === "male") return "Мъжки";
@@ -292,17 +292,29 @@ export default function Teams() {
                     {team.public_enrollment_open ? "Затвори набиране" : "Отвори за набиране"}
                   </Button>
                 ) : null}
-                <Button size="sm" variant="secondary" onClick={() => openEditTeam(team)}>
-                  Редактирай
-                </Button>
-                {isHeadCoach ? (
-                  <Button size="sm" variant="secondary" onClick={() => openAssignCoach(team)}>
-                    Назначи треньор
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="danger" onClick={() => deleteTeam(team)}>
-                  Изтрий
-                </Button>
+                <OverflowActionSheet
+                  label={`Действия за ${team.name}`}
+                  actions={[
+                    {
+                      key: "edit",
+                      label: "Редактирай",
+                      onClick: () => openEditTeam(team),
+                    },
+                    isHeadCoach
+                      ? {
+                          key: "assign",
+                          label: "Назначи треньор",
+                          onClick: () => openAssignCoach(team),
+                        }
+                      : null,
+                    {
+                      key: "delete",
+                      label: "Изтрий",
+                      variant: "danger",
+                      onClick: () => deleteTeam(team),
+                    },
+                  ].filter(Boolean)}
+                />
               </div>
             </li>
           ))

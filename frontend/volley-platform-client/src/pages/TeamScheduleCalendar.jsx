@@ -9,7 +9,7 @@ import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import MobileDrawer from "../components/shell/MobileDrawer";
 import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
-import { Button, Card, EmptyState, Input, Modal, PageHero } from "../components/ui";
+import { Button, Card, EmptyState, Input, Modal, OverflowActionSheet, PageHero } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
 import useMediaQuery from "../utils/useMediaQuery";
 import {
@@ -540,35 +540,76 @@ export default function TeamScheduleCalendar() {
     }
   };
 
-  const renderTrainingOccurrenceActions = (it) => {
-    if (!canEditOccurrence(it)) return null;
+  const getTrainingOverflowActions = (it) => {
+    if (!canEditOccurrence(it)) return [];
     const cancelled = Boolean(it.is_cancelled);
+    const actions = [];
+    if (!cancelled) {
+      actions.push({
+        key: "edit",
+        label: "Коригирай",
+        disabled: busy,
+        onClick: () => openEdit(it),
+      });
+      actions.push({
+        key: "cancel",
+        label: "Отмени",
+        disabled: busy,
+        onClick: () => cancelOccurrence(it),
+      });
+      if (it.exception_id) {
+        actions.push({
+          key: "restore-original",
+          label: "Възстанови оригинала",
+          disabled: busy,
+          onClick: () => restoreOccurrence(it),
+        });
+      }
+    } else {
+      actions.push({
+        key: "restore",
+        label: "Възстанови",
+        disabled: busy,
+        onClick: () => restoreOccurrence(it),
+      });
+    }
+    actions.push({
+      key: "delete",
+      label: "Изтрий",
+      variant: "danger",
+      disabled: busy,
+      onClick: () => deleteScheduleRule(it),
+    });
+    return actions;
+  };
+
+  const renderEventActionRow = (it) => {
+    const cancelled = Boolean(it.is_cancelled);
+    const overflowActions = [];
+    if (isCompetitionEvent(it) && canEditItem(it)) {
+      overflowActions.push({
+        key: "comp-edit",
+        label: "Редакция",
+        onClick: () => openCompetitionEdit(it),
+      });
+    }
+    overflowActions.push(...getTrainingOverflowActions(it));
+
     return (
       <>
-        {!cancelled ? (
-          <Button size="sm" variant="secondary" disabled={busy} onClick={() => openEdit(it)}>
-            Коригирай
+        {!isCompetitionEvent(it) && !cancelled ? (
+          <Link to={occurrenceAttendanceTo(it)}>
+            <Button size="sm">Присъствие</Button>
+          </Link>
+        ) : null}
+        {!isCompetitionEvent(it) && cancelled ? (
+          <Button size="sm" variant="secondary" disabled title="Тренировката е отменена">
+            Отменена
           </Button>
         ) : null}
-        {cancelled ? (
-          <Button size="sm" variant="secondary" disabled={busy} onClick={() => restoreOccurrence(it)}>
-            Възстанови
-          </Button>
-        ) : (
-          <>
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => cancelOccurrence(it)}>
-              Отмени
-            </Button>
-            {it.exception_id ? (
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => restoreOccurrence(it)}>
-                Възстанови оригинала
-              </Button>
-            ) : null}
-          </>
-        )}
-        <Button size="sm" variant="danger" disabled={busy} onClick={() => deleteScheduleRule(it)}>
-          Изтрий
-        </Button>
+        {overflowActions.length ? (
+          <OverflowActionSheet label="Действия за събитие" actions={overflowActions} />
+        ) : null}
       </>
     );
   };
@@ -743,17 +784,7 @@ export default function TeamScheduleCalendar() {
           {it.coach_name ? ` · ${it.coach_name}` : ""}
         </div>
         <div className="calendarShellEventActions">
-          {!isCompetitionEvent(it) ? (
-            <Link to={occurrenceAttendanceTo(it)}>
-              <Button size="sm">Присъствие</Button>
-            </Link>
-          ) : null}
-          {isCompetitionEvent(it) && canEditItem(it) ? (
-            <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>
-              Редакция
-            </Button>
-          ) : null}
-          {renderTrainingOccurrenceActions(it)}
+          {renderEventActionRow(it)}
         </div>
       </article>
     );
@@ -1060,15 +1091,7 @@ export default function TeamScheduleCalendar() {
                     {it.coach_name ? ` · ${it.coach_name}` : ""}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                    {!isCompetitionEvent(it) ? (
-                      <Link to={occurrenceAttendanceTo(it)}>
-                        <Button size="sm">Присъствие</Button>
-                      </Link>
-                    ) : null}
-                    {isCompetitionEvent(it) && canEditItem(it) ? (
-                      <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
-                    ) : null}
-                    {renderTrainingOccurrenceActions(it)}
+                    {renderEventActionRow(it)}
                   </div>
                 </article>
                 );
@@ -1222,15 +1245,7 @@ export default function TeamScheduleCalendar() {
                                   {it.location}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                                  {!isCompetitionEvent(it) ? (
-                                    <Link to={occurrenceAttendanceTo(it)}>
-                                      <Button size="sm">Присъствие</Button>
-                                    </Link>
-                                  ) : null}
-                                  {isCompetitionEvent(it) && canEditItem(it) ? (
-                                    <Button size="sm" variant="secondary" onClick={() => openCompetitionEdit(it)}>Редакция</Button>
-                                  ) : null}
-                                  {renderTrainingOccurrenceActions(it)}
+                                  {renderEventActionRow(it)}
                                 </div>
                               </article>
                               );

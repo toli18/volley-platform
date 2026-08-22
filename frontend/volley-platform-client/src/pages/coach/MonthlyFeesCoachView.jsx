@@ -138,7 +138,7 @@ export default function MonthlyFeesCoachView({
   const [actionAthlete, setActionAthlete] = useState(null);
 
   const countLabel =
-    query.trim() || payFilter !== "all" ? `${filteredCount} от ${athletesCount}` : `Общо ${athletesCount}`;
+    query.trim() || payFilter !== "all" ? `${filteredCount} от ${athletesCount}` : `Общо ${athletesCount} в клуба`;
 
   return (
     <div className="coachMobilePage feesCoachPage">
@@ -167,7 +167,7 @@ export default function MonthlyFeesCoachView({
               Още
             </Button>
           </div>
-          <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
+          <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} totalClubAthletes={athletesCount} />
           <Button type="button" className="feesRemindVisibleBtn" disabled={busy} onClick={onRemind}>
             Напомни неплатилите за {remindMonth}
           </Button>

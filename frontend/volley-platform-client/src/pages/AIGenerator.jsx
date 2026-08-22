@@ -1006,17 +1006,19 @@ export default function AIGenerator() {
             {loading ? "Генериране..." : "Генерирай"}
           </button>
         )}
-        <button
-          type="button"
-          className="aiGenBtn aiGenBtn--save"
-          onClick={() => {
-            if (!form.trainingTitle?.trim()) setActiveTab("save");
-            onGenerateAndSave();
-          }}
-          disabled={loading || saving || metaLoading}
-        >
-          {saving ? "Запис..." : "Запази"}
-        </button>
+        {(activeTab === "plan" || activeTab === "save") && (
+          <button
+            type="button"
+            className="aiGenBtn aiGenBtn--save"
+            onClick={() => {
+              if (!form.trainingTitle?.trim()) setActiveTab("save");
+              onGenerateAndSave();
+            }}
+            disabled={loading || saving || metaLoading}
+          >
+            {saving ? "Запис..." : "Запази"}
+          </button>
+        )}
       </div>
 
       {previewDrill ? <DrillMediaPreviewModal drill={previewDrill} onClose={() => setPreviewDrill(null)} /> : null}

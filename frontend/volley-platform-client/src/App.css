@@ -6972,6 +6972,24 @@
 
 .coachMobileAbsenceBox--compact .coachMobileAbsenceDate {
   font-size: 12px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.coachMobileAbsenceMissing {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.coachMobileAbsenceMoreBtn {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.coachMobileAbsenceList--modal {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
 
 .coachMobileAbsenceNoteInline {
@@ -7017,8 +7035,8 @@
 
 .coachMobileAbsenceDate {
   font-size: 14px;
-  color: #b45309;
-  font-weight: 600;
+  color: #334155;
+  font-weight: 500;
 }
 
 .coachMobileAbsenceNote {
@@ -10533,6 +10551,19 @@ body:has(.publicWatchPage--fs) {
   flex-wrap: wrap;
   gap: 8px;
   padding: 0 14px 12px;
+  align-items: center;
+}
+
+.overflowActionTrigger {
+  min-width: 36px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.overflowActionSheetList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .teamsHubCreate {

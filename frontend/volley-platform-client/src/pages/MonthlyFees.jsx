@@ -770,7 +770,7 @@ export default function MonthlyFees() {
         </div>
         {monthSummary ? (
           <div style={{ marginTop: 10 }}>
-            <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} />
+            <FeesMonthSummaryBar summary={monthSummary} isHeadCoach={isHeadCoach} totalClubAthletes={athletes.length} />
           </div>
         ) : null}
         {loading && <p>Зареждане...</p>}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { formatMoney } from "../../utils/currency";
 
 /** Collapsible month collected summary (head coaches see per-coach inline). */
-export default function FeesMonthSummaryBar({ summary, isHeadCoach = false }) {
+export default function FeesMonthSummaryBar({ summary, isHeadCoach = false, totalClubAthletes = null }) {
   const [open, setOpen] = useState(() => {
     try {
       return sessionStorage.getItem("feesMonthSummaryOpen") !== "0";
@@ -26,6 +26,10 @@ export default function FeesMonthSummaryBar({ summary, isHeadCoach = false }) {
   };
 
   const coaches = isHeadCoach && Array.isArray(summary.by_coach) ? summary.by_coach : [];
+  const billableCount = Number(summary.athlete_count) || 0;
+  const clubTotal = Number(totalClubAthletes) || 0;
+  const outsideBillable =
+    clubTotal > billableCount ? clubTotal - billableCount : 0;
 
   return (
     <button
@@ -44,15 +48,26 @@ export default function FeesMonthSummaryBar({ summary, isHeadCoach = false }) {
       {open ? (
         <>
           <span className="feesMonthSummaryMeta">
-            Платили {summary.paid_count} · неплатили {summary.unpaid_count} · общо {summary.athlete_count}
+            Платили {summary.paid_count} · неплатили {summary.unpaid_count} · за месеца {billableCount}
           </span>
+          {outsideBillable > 0 ? (
+            <span className="feesMonthSummaryMeta feesMonthSummaryMeta--hint">
+              + {outsideBillable} освободени или извън такса за месеца
+              {clubTotal ? ` (от ${clubTotal} в клуба)` : ""}
+            </span>
+          ) : null}
           {coaches.length ? (
             <span className="feesMonthSummaryCoachesLine">
               {coaches.map((row, i) => (
                 <span key={row.coach_id}>
                   {i > 0 ? <span className="feesMonthSummaryCoachSep"> · </span> : null}
-                  <strong>{row.coach_name}</strong> {formatMoney(row.total_collected)} ({row.paid_count}/
-                  {row.unpaid_count})
+                  <strong>{row.coach_name}</strong> {formatMoney(row.total_collected)}{" "}
+                  <span
+                    className="feesMonthSummaryCoachRatio"
+                    title="Платили / неплатили за месеца"
+                  >
+                    ({row.paid_count}/{row.unpaid_count})
+                  </span>
                 </span>
               ))}
             </span>
