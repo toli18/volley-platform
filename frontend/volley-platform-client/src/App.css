@@ -6628,7 +6628,7 @@
 }
 
 .coachMobileTopBar--root {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .coachMobileBellBtn {
@@ -6693,7 +6693,7 @@
 
 .coachMobileTopBar {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
@@ -6726,6 +6726,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .coachMobileMenuBtn {
@@ -6779,7 +6780,21 @@
 }
 
 .coachMobileTopBar .platformBrand.coachMobileTopBrand {
-  justify-content: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.coachMobileTopBar .platformBrandText {
+  min-width: 0;
+}
+
+/* Compact title: "Volley Coach" only — avoids overlap with bell + club logo */
+.coachMobileTopBar .platformBrandName > span:nth-child(n + 3) {
+  display: none;
+}
+
+.coachMobileTopBar .brandTriLine {
+  display: none;
 }
 
 .coachMobileProfileCard {
