@@ -6631,6 +6631,11 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.coachMobileTopBar--root .coachMobileHeaderBrand {
+  grid-column: 1;
+  width: 100%;
+}
+
 .coachMobileBellBtn {
   position: relative;
   flex-shrink: 0;
@@ -6722,7 +6727,7 @@
   grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 12px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px));
   padding-top: max(12px, env(safe-area-inset-top, 0px));
   background: linear-gradient(135deg, #0f4d3a, #1a6b52);
   color: #fff;
@@ -6767,12 +6772,13 @@
   gap: 8px;
   min-width: 0;
   overflow: hidden;
+  flex: 1 1 auto;
 }
 
 .coachMobileHeaderBrandLogo {
   width: 34px;
   height: 34px;
-  flex-shrink: 0;
+  flex: 0 0 34px;
   object-fit: contain;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 8px;
@@ -6784,10 +6790,13 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
   line-height: 1.15;
 }
 
 .coachMobileHeaderBrandTitle {
+  display: block;
   font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
@@ -6795,12 +6804,31 @@
   text-overflow: ellipsis;
 }
 
+.coachMobileHeaderBrandTitle .triGreen {
+  color: #86efac;
+}
+
 .coachMobileHeaderBrandSub {
+  display: block;
   font-size: 11px;
   opacity: 0.88;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 380px) {
+  .coachMobileTopBar .portalHeaderClubLogo {
+    display: none;
+  }
+
+  .coachMobileHeaderBrandTitle {
+    font-size: 13px;
+  }
+
+  .coachMobileHeaderBrandSub {
+    font-size: 10px;
+  }
 }
 
 .coachMobileMenuBtn {

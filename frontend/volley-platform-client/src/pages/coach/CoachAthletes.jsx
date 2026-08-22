@@ -6,7 +6,6 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { useToast } from "../../components/ToastProvider";
 import { useAuth } from "../../auth/AuthContext";
 import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
-import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import CoachSpeedFab from "../../components/coachMobile/CoachSpeedFab";
@@ -85,8 +84,6 @@ export default function CoachAthletes() {
   const [cardIndexes, setCardIndexes] = useState([]);
   const [clubCoaches, setClubCoaches] = useState([]);
   const importInputRef = useRef(null);
-
-  const swipeHandlers = useHorizontalSwipeTabs(tab, setTab, TABS.map((t) => t.id));
 
   const loadAthletes = async () => {
     const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST);
@@ -516,7 +513,7 @@ export default function CoachAthletes() {
             </button>
           ))}
         </nav>
-        <div className="feesCoachSwipeArea" {...swipeHandlers}>
+        <div className="feesCoachSwipeArea">
           {tab === "list" ? listBody : addBody}
         </div>
         <CoachSpeedFab
