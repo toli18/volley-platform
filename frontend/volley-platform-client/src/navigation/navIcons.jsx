@@ -235,6 +235,32 @@ export function NavIconBoard(props) {
   );
 }
 
+export function NavIconBuilding(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M5 20V9l7-5 7 5v11" />
+      <path {...stroke} d="M9 20v-5h6v5M9 12h1M14 12h1M9 16h1M14 16h1" />
+    </Svg>
+  );
+}
+
+export function NavIconFolder(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+    </Svg>
+  );
+}
+
+export function NavIconLink(props) {
+  return (
+    <Svg {...props}>
+      <path {...stroke} d="M10 13a4 4 0 0 0 5.7.3l2-2a4 4 0 0 0-5.7-5.7l-1.2 1.2" />
+      <path {...stroke} d="M14 11a4 4 0 0 0-5.7-.3l-2 2a4 4 0 0 0 5.7 5.7l1.2-1.2" />
+    </Svg>
+  );
+}
+
 const ICON_MAP = {
   home: NavIconHome,
   teams: NavIconTeams,
@@ -260,6 +286,9 @@ const ICON_MAP = {
   layers: NavIconLayers,
   forum: NavIconForum,
   board: NavIconBoard,
+  building: NavIconBuilding,
+  folder: NavIconFolder,
+  link: NavIconLink,
 };
 
 export function NavIcon({ name, className, size }) {

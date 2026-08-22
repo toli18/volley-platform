@@ -599,7 +599,7 @@ export default function TeamScheduleCalendar() {
       <>
         {!isCompetitionEvent(it) && !cancelled ? (
           <Link to={occurrenceAttendanceTo(it)}>
-            <Button size="sm">Присъствие</Button>
+            <Button size="sm">Провери присъствие</Button>
           </Link>
         ) : null}
         {!isCompetitionEvent(it) && cancelled ? (

@@ -27,7 +27,7 @@ export default function CoachClubHub() {
   }, []);
 
   return (
-    <CoachHubPage title="Клуб & групи" subtitle="Групи, състезатели, такси, състезания и работа с групата">
+    <CoachHubPage title="Клуб & групи" subtitle="Групи, състезатели, такси, състезания и работа с групата" hubIcon="building">
       <MenuGroup title="Работа">
         {links.map((item) => (
           <MenuLink key={item.id} to={item.to} label={item.label} hint={item.hint} accent={item.accent} icon={item.icon} />

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import FeesMonthSummaryBar from "../../components/fees/FeesMonthSummaryBar";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
+import SearchField from "../../components/ui/SearchField";
 
 const PAY_FILTERS = [
   { id: "all", label: "Всички" },
@@ -149,7 +150,7 @@ export default function MonthlyFeesCoachView({
 
       <div className="feesCoachSwipeArea">
         <div className="feesCoachStickyBar">
-          <Input
+          <SearchField
             placeholder="Търсене: име, отбор, година..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}

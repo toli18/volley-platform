@@ -1052,6 +1052,46 @@
   white-space: nowrap;
 }
 
+.feesCoachHeadActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.uiSearchField {
+  position: relative;
+}
+
+.uiSearchFieldIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.uiSearchField .uiControl {
+  padding-left: 36px;
+}
+
+.feesAthleteCardCompact--clickable {
+  cursor: pointer;
+}
+
+.feesAthleteCardCompact--clickable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.coachMobileProfileAvatar--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .feesCoachSwipeArea {
   touch-action: pan-y;
 }
@@ -1457,7 +1497,12 @@
   overflow-x: auto;
   flex-wrap: nowrap;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.athletesHubStickyBar .athletesHubFilters::-webkit-scrollbar {
+  display: none;
 }
 
 .athletesHubStickyBar .athletesHubFilterBtn {

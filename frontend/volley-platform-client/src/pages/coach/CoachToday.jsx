@@ -65,14 +65,14 @@ function TeamNameLabel({ teamId, teamName, isComp }) {
   );
 }
 
-function EventCard({ item, onAttendance, programTheme }) {
+function EventCard({ item, onAttendance, programTheme, isToday = false }) {
   const isComp = isCompetitionEvent(item);
   const tc = teamColorsForId(item.team_id);
   const rosterAction = isComp ? competitionRosterAction(item) : null;
   const priority = rosterAction === "generate" ? "danger" : rosterAction === "review" ? "warn" : null;
   return (
     <article
-      className={`coachMobileCard coachMobileEventCard${priority ? ` coachMobileEventCard--${priority}` : ""}`}
+      className={`coachMobileCard coachMobileEventCard${isToday ? " coachMobileEventCard--today" : " coachMobileEventCard--upcoming"}${priority ? ` coachMobileEventCard--${priority}` : ""}`}
       style={{ borderLeft: `4px solid ${isComp ? (priority === "danger" ? "#dc2626" : "#f59e0b") : tc.border}` }}
     >
       <EventCardHeader item={item} isComp={isComp} rosterAction={rosterAction} />
@@ -99,8 +99,8 @@ function EventCard({ item, onAttendance, programTheme }) {
         </p>
       ) : null}
       {!isComp && item.team_id ? (
-        <Button type="button" size="sm" onClick={() => onAttendance(item)}>
-          Присъствие
+        <Button type="button" size="sm" className="coachMobileEventActionBtn" onClick={() => onAttendance(item)}>
+          Провери присъствие
         </Button>
       ) : null}
       {isComp && item.competition_id ? (
@@ -507,9 +507,9 @@ export default function CoachToday() {
             </Link>
           ) : null}
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <h2 className="coachMobileSectionTitle" style={{ margin: 0 }}>График за следващите 7 дни</h2>
-            <Link to="/coach/schedule" className="coachMobileQuickBtn" style={{ padding: "4px 10px", fontSize: 12 }}>
+          <div className="coachMobileSectionHead">
+            <h2 className="coachMobileSectionTitle">График за следващите 7 дни</h2>
+            <Link to="/coach/schedule" className="coachMobileSectionLink">
               Пълен график
             </Link>
           </div>
@@ -523,6 +523,7 @@ export default function CoachToday() {
                   item={item}
                   programTheme={programThemes[item.date]}
                   onAttendance={() => openScheduleItem(item)}
+                  isToday
                 />
               ))}
               {upcomingItems.map((item) => (

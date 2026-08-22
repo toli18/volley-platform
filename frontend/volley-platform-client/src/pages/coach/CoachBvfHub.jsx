@@ -16,7 +16,7 @@ export default function CoachBvfHub() {
   );
 
   return (
-    <CoachHubPage title="Обучение & Ресурси" subtitle="Обучение, моето съдържание, БФВ и AI">
+    <CoachHubPage title="Обучение & Ресурси" subtitle="Обучение, моето съдържание, БФВ и AI" hubIcon="book">
       <MenuGroup>
         {links.map((item) => (
           <MenuLink key={item.id} to={item.to} label={item.label} hint={item.hint} accent={item.accent} icon={item.icon} />

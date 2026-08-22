@@ -158,14 +158,14 @@ export const COACH_CLUB_HUB_LINKS = [
     id: "group-work",
     label: "Работа с групата",
     to: "/coach/group-work",
-    icon: "clipboardCheck",
+    icon: "training",
     hint: "Програмна седмица, присъствие, тестирания",
   },
   {
     id: "club-admin",
     label: "Клуб",
     to: "/coach/club-admin",
-    icon: "shield",
+    icon: "building",
     headCoachOnly: true,
     hint: "Профил, администрация БФВ и картотека",
   },
@@ -185,21 +185,21 @@ export const COACH_CLUB_ADMIN_HUB_LINKS = [
     id: "club-profile",
     label: "Профил на клуба",
     to: "/coach/club-profile",
-    icon: "shield",
+    icon: "building",
     hint: "Контакти, зали, записване, треньори",
   },
   {
     id: "bvf-admin",
     label: "Администрация БФВ",
     to: "/coach/bvf-admin",
-    icon: "shield",
+    icon: "link",
     hint: "Връзка със СЕК, импорт и заявление",
   },
   {
     id: "club-head",
     label: "Клубен преглед",
     to: "/club-head",
-    icon: "shield",
+    icon: "chart",
     hint: "Обзор, присъствие и методика",
   },
   {
@@ -292,12 +292,12 @@ export const COACH_MY_CONTENT_HUB_LINKS = [
 /** @type {NavLinkItem[]} */
 export const COACH_BVF_HUB_LINKS = [
   { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book", hint: "Учебник, програма, упражнения" },
-  { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill", hint: "Моите упражнения и статии" },
+  { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "folder", hint: "Моите упражнения и статии" },
   {
     id: "bvf-admin",
     label: "Администрация БФВ",
     to: "/coach/bvf-admin",
-    icon: "shield",
+    icon: "link",
     headCoachOnly: true,
     hint: "Свързване на клуб и селективен импорт на състезатели",
   },
@@ -305,7 +305,7 @@ export const COACH_BVF_HUB_LINKS = [
     id: "club-head",
     label: "Клубен преглед",
     to: "/club-head",
-    icon: "shield",
+    icon: "chart",
     headCoachOnly: true,
     hint: "Обзор, присъствие и методика на клуба",
   },
@@ -317,7 +317,7 @@ export const COACH_BVF_HUB_LINKS = [
     hint: "Сезон × възраст · Форма 03 · заявка към главния",
     assignedCardIndexOnly: true,
   },
-  { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки", accent: true },
+  { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки" },
 ];
 
 /** @type {NavLinkItem[]} */

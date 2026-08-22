@@ -10,7 +10,7 @@ import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
 import CoachSpeedFab from "../../components/coachMobile/CoachSpeedFab";
-import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
+import { Button, Card, EmptyState, Input, OverflowActionSheet, PageHero, SearchField } from "../../components/ui";
 import { normalizeError } from "../../utils/normalizeError";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import {
@@ -26,12 +26,12 @@ const TABS = [
 
 const FILTERS = [
   { id: "all", label: "Всички" },
-  { id: "no_sek", label: "без СЕК" },
-  { id: "with_sek", label: "в СЕК" },
-  { id: "no_photo", label: "без снимка" },
-  { id: "with_photo", label: "със снимка" },
-  { id: "no_team", label: "без група" },
-  { id: "with_team", label: "с група" },
+  { id: "no_sek", label: "Без СЕК" },
+  { id: "with_sek", label: "В СЕК" },
+  { id: "no_photo", label: "Без снимка" },
+  { id: "with_photo", label: "Със снимка" },
+  { id: "no_team", label: "Без група" },
+  { id: "with_team", label: "С група" },
   { id: "ready", label: "СЕК + снимка" },
 ];
 
@@ -322,7 +322,7 @@ export default function CoachAthletes() {
       ) : null}
 
       <div className="athletesHubStickyBar">
-        <Input
+        <SearchField
           placeholder="Търсене: име, група, година…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -340,20 +340,22 @@ export default function CoachAthletes() {
             </button>
           ))}
         </div>
-        <div className="athletesHubToolbarRow">
-          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => importInputRef.current?.click()}>
-            Импорт
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={downloadTemplate}>
-            Шаблон
-          </Button>
-          <Button type="button" size="sm" onClick={() => setTab("add")}>
-            Нов състезател
-          </Button>
-          <Button as={Link} to="/coach/enrollments" size="sm" variant="secondary">
-            Записвания онлайн
-          </Button>
-        </div>
+        {!isMobile ? (
+          <div className="athletesHubToolbarRow">
+            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => importInputRef.current?.click()}>
+              Импорт
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={downloadTemplate}>
+              Шаблон
+            </Button>
+            <Button type="button" size="sm" onClick={() => setTab("add")}>
+              Нов състезател
+            </Button>
+            <Button as={Link} to="/coach/enrollments" size="sm" variant="secondary">
+              Записвания онлайн
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <input
@@ -384,10 +386,19 @@ export default function CoachAthletes() {
           {filteredAthletes.map((a) => (
             <li key={a.id}>
               <article
-                className={`feesAthleteCardCompact${a.gender === "male" ? " feesAthleteCardCompact--male" : ""}${
+                className={`feesAthleteCardCompact feesAthleteCardCompact--clickable${a.gender === "male" ? " feesAthleteCardCompact--male" : ""}${
                   a.gender === "female" ? " feesAthleteCardCompact--female" : ""
                 }`}
                 onClick={() => openProfile(a.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openProfile(a.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Профил на ${a.athlete_name}`}
               >
                 <div className="feesAthleteCardCompactBody">
                   <h3 className="feesAthleteCardCompactName">{a.athlete_name}</h3>
@@ -415,19 +426,6 @@ export default function CoachAthletes() {
                     cardedTeams={a.carded_teams}
                     showEmpty={!a.team_names?.length && !a.carded_teams?.length}
                   />
-                </div>
-                <div className="feesAthleteCardCompactActions">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openProfile(a.id);
-                    }}
-                  >
-                    Профил
-                  </Button>
                 </div>
               </article>
             </li>
@@ -487,7 +485,24 @@ export default function CoachAthletes() {
       <div className="coachMobilePage feesCoachPage athletesHubPage">
         <header className="feesCoachHead">
           <h2 className="feesCoachHeadTitle">Състезатели</h2>
-          <span className="feesCoachHeadBadge">{countLabel}</span>
+          <div className="feesCoachHeadActions">
+            <span className="feesCoachHeadBadge">{countLabel}</span>
+            {tab === "list" ? (
+              <OverflowActionSheet
+                label="Други действия"
+                actions={[
+                  {
+                    key: "import",
+                    label: "Импорт",
+                    disabled: busy,
+                    onClick: () => importInputRef.current?.click(),
+                  },
+                  { key: "template", label: "Шаблон", onClick: downloadTemplate },
+                  { key: "enroll", label: "Записвания онлайн", onClick: () => navigate("/coach/enrollments") },
+                ]}
+              />
+            ) : null}
+          </div>
         </header>
         <nav className="coachMobileSubNav" aria-label="Състезатели секции">
           {TABS.map((t) => (

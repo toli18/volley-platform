@@ -7056,6 +7056,67 @@
   margin-top: 8px;
 }
 
+.coachMobileEventCard--today {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.coachMobileEventCard--upcoming {
+  background: #fff;
+}
+
+.coachMobileSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.coachMobileSectionHead .coachMobileSectionTitle {
+  margin: 0;
+}
+
+.coachMobileSectionLink {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #166534;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.coachMobileEventActionBtn.uiButton--sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 34px;
+}
+
+.coachMobileQuickBtn--withIcon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+}
+
+.coachMobileQuickBtnIcon {
+  color: #166534;
+}
+
+.coachMobileHubStatHint--link {
+  color: #166534;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .coachMobileEventDate {
   margin: 4px 0 0;
   font-weight: 700;

@@ -43,7 +43,7 @@ export function MenuQuickTile({ to, label, icon, accent = false }) {
   );
 }
 
-export function CoachHubPage({ title, subtitle, roleLabel, children }) {
+export function CoachHubPage({ title, subtitle, roleLabel, hubIcon, children }) {
   const initial = String(title || "?")
     .replace(/^Здравей,\s*/i, "")
     .trim()
@@ -55,8 +55,11 @@ export function CoachHubPage({ title, subtitle, roleLabel, children }) {
       {title ? (
         <section className="coachMobileProfileCard coachMobileProfileCard--rich" aria-label={title}>
           <div className="coachMobileProfileHead">
-            <span className="coachMobileProfileAvatar" aria-hidden>
-              {initial}
+            <span
+              className={`coachMobileProfileAvatar${hubIcon ? " coachMobileProfileAvatar--icon" : ""}`}
+              aria-hidden
+            >
+              {hubIcon ? <NavIcon name={hubIcon} size={20} /> : initial}
             </span>
             <div>
               <p className="coachMobileProfileGreeting">

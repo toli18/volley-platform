@@ -6,6 +6,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { isCompetitionEvent } from "../../utils/competitionKinds";
 import { monthBounds } from "../../utils/teamAttendanceMatrix";
 import { teamRoomLoginPath } from "../../utils/teamRoomAuth";
+import { NavIcon } from "../../navigation/navIcons";
 import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -41,12 +42,12 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function StatCard({ label, value, hint, onClick, disabled }) {
+function StatCard({ label, value, hint, hintClassName = "", onClick, disabled }) {
   return (
     <button type="button" className="coachMobileHubStatCard" onClick={onClick} disabled={disabled}>
       <span className="coachMobileHubStatValue">{value}</span>
       <span className="coachMobileHubStatLabel">{label}</span>
-      {hint ? <span className="coachMobileHubStatHint">{hint}</span> : null}
+      {hint ? <span className={`coachMobileHubStatHint${hintClassName ? ` ${hintClassName}` : ""}`}>{hint}</span> : null}
     </button>
   );
 }
@@ -158,31 +159,37 @@ export default function CoachTeamHubOverview({
     {
       id: "attendance",
       label: "Присъствие (месец)",
+      icon: "clipboardCheck",
       onClick: () => navigate(`/coach/teams/${teamIdNum}/attendance-month`),
     },
     {
       id: "schedule",
       label: "График на отбора",
+      icon: "calendar",
       onClick: () => navigate(`/coach/schedule?team_id=${teamIdNum}`),
     },
     {
       id: "program-week",
       label: "Програмна седмица",
+      icon: "target",
       onClick: () => navigate(`/coach/program-week?team_id=${teamIdNum}`),
     },
     {
       id: "team-sheet",
       label: "Генерирай тимов лист",
+      icon: "article",
       onClick: openTeamSheet,
     },
     {
       id: "matches",
       label: "Мач / Ротации",
+      icon: "board",
       onClick: () => navigate(`/coach/teams/${teamIdNum}/matches`),
     },
     {
       id: "room",
       label: "Стая на отбора",
+      icon: "chat",
       href: teamRoomLoginPath(),
       external: true,
     },
@@ -196,27 +203,28 @@ export default function CoachTeamHubOverview({
         <StatCard
           label="Състав"
           value={memberCount}
-          hint={memberCount === 1 ? "състезател" : "състезатели"}
+          hint={memberCount === 1 ? "Състезател" : "Състезатели"}
           onClick={() => onTab("roster")}
         />
         <StatCard
           label="Тренировки"
           value={statsBusy ? "…" : trainingCount ?? "—"}
-          hint="този месец"
+          hint="Този месец"
           onClick={() => navigate(`/coach/schedule?team_id=${teamIdNum}`)}
           disabled={statsBusy}
         />
         <StatCard
           label="Присъствие"
           value={statsBusy ? "…" : attendanceLabel}
-          hint={statsBusy ? "" : attendanceHint || "този месец"}
+          hint={statsBusy ? "" : attendanceHint || "Този месец"}
           onClick={() => navigate(`/coach/teams/${teamIdNum}/attendance-month`)}
           disabled={statsBusy}
         />
         <StatCard
           label="Последна новина"
           value={statsBusy && canManage ? "…" : formatNewsPreview(lastNews)}
-          hint={lastNews ? formatNewsDate(lastNews) : canManage ? "публикувай в Новини" : ""}
+          hint={lastNews ? formatNewsDate(lastNews) : canManage ? "Публикувай в Новини →" : ""}
+          hintClassName={!lastNews && canManage && !statsBusy ? "coachMobileHubStatHint--link" : ""}
           onClick={() => (canManage ? onTab("news") : onTab("roster"))}
           disabled={statsBusy && canManage}
         />
@@ -228,15 +236,17 @@ export default function CoachTeamHubOverview({
             <Link
               key={action.id}
               to={action.href}
-              className="coachMobileQuickBtn"
+              className="coachMobileQuickBtn coachMobileQuickBtn--withIcon"
               target={action.external ? "_blank" : undefined}
               rel={action.external ? "noreferrer" : undefined}
             >
-              {action.label}
+              <NavIcon name={action.icon} size={16} className="coachMobileQuickBtnIcon" />
+              <span>{action.label}</span>
             </Link>
           ) : (
-            <button key={action.id} type="button" className="coachMobileQuickBtn" onClick={action.onClick}>
-              {action.label}
+            <button key={action.id} type="button" className="coachMobileQuickBtn coachMobileQuickBtn--withIcon" onClick={action.onClick}>
+              <NavIcon name={action.icon} size={16} className="coachMobileQuickBtnIcon" />
+              <span>{action.label}</span>
             </button>
           ),
         )}
