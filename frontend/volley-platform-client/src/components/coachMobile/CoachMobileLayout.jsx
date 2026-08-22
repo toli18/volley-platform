@@ -5,14 +5,13 @@ import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import PlatformBrandBlock from "../shared/PlatformBrandBlock";
 import ClubLogo from "../shared/ClubLogo";
 import CoachBottomNav from "./CoachBottomNav";
-import CoachMobileNavMenu from "./CoachMobileNavMenu";
-import { Button } from "../ui";
+import CoachMobileNotificationBell from "./CoachMobileNotificationBell";
 
 export default function CoachMobileLayout() {
   const isMobileShell = useIsCoachMobileShell();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const role = String(user?.role || "").toLowerCase();
   const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
   const isAttendanceHub = pathname === "/coach/attendance";
@@ -77,11 +76,6 @@ export default function CoachMobileLayout() {
     navigate("/coach/teams");
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
   if (!isMobileShell) {
     return <Outlet />;
   }
@@ -89,7 +83,9 @@ export default function CoachMobileLayout() {
   return (
     <div className={`coachMobileShell${isMatchLive ? " coachMobileShell--matchLive" : ""}`}>
       {!isMatchLive ? (
-      <header className="coachMobileTopBar portalShellHeader">
+      <header
+        className={`coachMobileTopBar portalShellHeader${showBack ? "" : " coachMobileTopBar--root"}`}
+      >
         {showBack ? (
           <button
             type="button"
@@ -99,11 +95,10 @@ export default function CoachMobileLayout() {
           >
             ←
           </button>
-        ) : (
-          <CoachMobileNavMenu />
-        )}
+        ) : null}
         <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
         <div className="coachMobileTopActions">
+          <CoachMobileNotificationBell />
           {user?.club_logo_url ? (
             <ClubLogo
               logoUrl={user.club_logo_url}
@@ -113,10 +108,6 @@ export default function CoachMobileLayout() {
               title="Профил на клуба"
             />
           ) : null}
-          {showBack ? <CoachMobileNavMenu className="coachMobileMenuBtn coachMobileMenuBtn--compact" /> : null}
-          <Button type="button" variant="secondary" size="sm" onClick={handleLogout}>
-            Изход
-          </Button>
         </div>
       </header>
       ) : null}

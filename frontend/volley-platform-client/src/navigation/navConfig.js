@@ -323,35 +323,25 @@ export const COACH_BVF_HUB_LINKS = [
 /** @type {NavLinkItem[]} */
 export const COACH_MORE_QUICK_LINKS = [
   { id: "forum", label: "Форум", to: "/forum", icon: "forum" },
-  { id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles", accent: true },
+  { id: "ai", label: "AI", to: "/ai-generator", icon: "sparkles" },
   { id: "coach-board", label: "Дъска", to: "/coach-board", icon: "board" },
 ];
 
-/** @type {{ title: string, links: NavLinkItem[] }[]} */
-export const COACH_MORE_MENU_SECTIONS = [
+/** @type {NavLinkItem[]} */
+export const COACH_MORE_ACCOUNT_LINKS = [
   {
-    title: "Клуб",
-    links: [
-      { id: "competitions", label: "Състезания", to: "/coach/competitions", icon: "target", hint: "Мачове и тимов лист" },
-      { id: "group-work", label: "Работа с групата", to: "/coach/group-work", icon: "clipboardCheck", hint: "Програма, присъствие, тестове" },
-      { id: "schedule-more", label: "График", to: "/coach/schedule", icon: "calendar" },
-    ],
+    id: "tasks",
+    label: "Задачи",
+    to: "/my-trainings",
+    icon: "tasks",
+    hint: "Назначени тренировки и конспекти",
   },
   {
-    title: "Съдържание",
-    links: [
-      { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book" },
-      { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill" },
-      { id: "articles", label: "Статии", to: "/articles", icon: "article" },
-      { id: "forum", label: "Форум", to: "/forum", icon: "forum" },
-    ],
-  },
-  {
-    title: "Инструменти",
-    links: [{ id: "coach-board", label: "Тактическа дъска", to: "/coach-board", icon: "board", accent: true }],
-  },
-  {
-    title: "Друго",
-    links: [{ id: "desktop-home", label: "Пълен dashboard", to: "/", icon: "home", hint: "Класическо начало (десктоп)" }],
+    id: "club-admin",
+    label: "Администрация клуб",
+    to: "/coach/club-admin",
+    icon: "building",
+    headCoachOnly: true,
+    hint: "Профил, БФВ и картотека",
   },
 ];

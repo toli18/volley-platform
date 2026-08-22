@@ -11,7 +11,7 @@ export function MenuGroup({ title, children }) {
   );
 }
 
-export function MenuLink({ to, label, hint, accent = false, icon }) {
+export function MenuLink({ to, label, hint, accent = false, icon, badge = null }) {
   return (
     <li>
       <Link to={to} className={`coachMobileMenuRow${accent ? " coachMobileMenuRow--accent" : ""}`}>
@@ -24,6 +24,7 @@ export function MenuLink({ to, label, hint, accent = false, icon }) {
           <span className="coachMobileMenuLabel">{label}</span>
           {hint ? <span className="coachMobileMuted coachMobileMenuHint">{hint}</span> : null}
         </span>
+        {badge ? <span className="coachMobileMenuBadge">{badge > 99 ? "99+" : badge}</span> : null}
         <span className="coachMobileTeamChevron" aria-hidden>
           ›
         </span>
