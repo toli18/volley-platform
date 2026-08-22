@@ -6,15 +6,12 @@ export default function CoachMobileHeaderBrand({ subtitle }) {
         alt="БФВ"
         className="coachMobileHeaderBrandLogo"
         onError={(e) => {
-          e.currentTarget.style.display = "none";
+          e.currentTarget.src = "/presentation/logo.png";
         }}
       />
       <div className="coachMobileHeaderBrandText">
-        <span className="coachMobileHeaderBrandTitle">
-          <span className="triWhite">Volley</span>
-          <span className="triGreen"> Coach</span>
-        </span>
-        {subtitle ? <span className="coachMobileHeaderBrandSub">{subtitle}</span> : null}
+        <p className="coachMobileHeaderBrandTitle">Volley Coach</p>
+        {subtitle ? <p className="coachMobileHeaderBrandSub">{subtitle}</p> : null}
       </div>
     </div>
   );
