@@ -2,9 +2,9 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
-import PlatformBrandBlock from "../shared/PlatformBrandBlock";
 import ClubLogo from "../shared/ClubLogo";
 import CoachBottomNav from "./CoachBottomNav";
+import CoachMobileHeaderBrand from "./CoachMobileHeaderBrand";
 import CoachMobileNotificationBell from "./CoachMobileNotificationBell";
 
 export default function CoachMobileLayout() {
@@ -96,7 +96,7 @@ export default function CoachMobileLayout() {
             ←
           </button>
         ) : null}
-        <PlatformBrandBlock subtitle={brandSubtitle} className="coachMobileTopBrand" />
+        <CoachMobileHeaderBrand subtitle={brandSubtitle} />
         <div className="coachMobileTopActions">
           <CoachMobileNotificationBell />
           {user?.club_logo_url ? (

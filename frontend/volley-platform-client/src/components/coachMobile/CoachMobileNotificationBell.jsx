@@ -40,6 +40,7 @@ export default function CoachMobileNotificationBell({ className = "coachMobileBe
         className="coachMobileNotifModal"
       >
         <NotificationPanel
+          embedded
           unifiedFeedItems={feed.unifiedFeedItems}
           isHeadCoachUser={feed.isHeadCoachUser}
           isPlatformAdmin={feed.isPlatformAdmin}

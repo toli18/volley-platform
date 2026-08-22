@@ -412,6 +412,20 @@
   width: min(92vw, 420px);
 }
 
+.navShellPanel--embedded {
+  position: static;
+  width: 100%;
+  max-height: none;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.navShellPanel--embedded .navShellPanel__head {
+  justify-content: flex-start;
+}
+
 .navShellPanel__head {
   display: flex;
   justify-content: space-between;

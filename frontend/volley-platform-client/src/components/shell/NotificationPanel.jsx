@@ -4,6 +4,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { formatMoney } from "../../utils/currency";
 
 export default function NotificationPanel({
+  embedded = false,
   isHeadCoachUser,
   isPlatformAdmin,
   unifiedFeedItems,
@@ -19,9 +20,14 @@ export default function NotificationPanel({
   markAllPilotSeen,
 }) {
   return (
-    <div id="nav-notifications-panel" className="navShellPanel navShellPanel--wide" role="region" aria-label="Известия">
+    <div
+      id="nav-notifications-panel"
+      className={`navShellPanel navShellPanel--wide${embedded ? " navShellPanel--embedded" : ""}`}
+      role="region"
+      aria-label="Известия"
+    >
       <div className="navShellPanel__head">
-        <strong>Известия</strong>
+        {embedded ? null : <strong>Известия</strong>}
         <div className="navShellPanel__headActions">
           <button type="button" className="navShellPanel__linkBtn" onClick={markAllForumRead}>
             Форум: всички

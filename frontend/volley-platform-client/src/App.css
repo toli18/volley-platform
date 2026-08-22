@@ -6633,17 +6633,23 @@
 
 .coachMobileBellBtn {
   position: relative;
-  width: 44px;
-  height: 44px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
   color: #fff;
   cursor: pointer;
   padding: 0;
+}
+
+.coachMobileBellBtn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .coachMobileBellBadge {
@@ -6662,9 +6668,29 @@
   text-align: center;
 }
 
-.coachMobileNotifModal .navShellPanel {
-  max-height: min(60vh, 420px);
-  overflow: auto;
+.coachMobileNotifModal.uiModal--compact {
+  width: min(560px, 96vw);
+  max-height: min(82vh, 640px);
+  overflow: hidden;
+}
+
+.coachMobileNotifModal .navShellPanel,
+.coachMobileNotifModal .navShellPanel--embedded {
+  position: static;
+  right: auto;
+  top: auto;
+  width: 100%;
+  max-height: min(58vh, 420px);
+  overflow-y: auto;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+  z-index: auto;
+}
+
+.coachMobileNotifModal .navShellPanel__head {
+  margin-bottom: 4px;
 }
 
 .coachMobileMenuBadge {
@@ -6727,6 +6753,54 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.coachMobileTopBar .portalHeaderClubLogo .clubLogoImg {
+  width: 36px;
+  height: 36px;
+}
+
+.coachMobileHeaderBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.coachMobileHeaderBrandLogo {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.coachMobileHeaderBrandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.coachMobileHeaderBrandTitle {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coachMobileHeaderBrandSub {
+  font-size: 11px;
+  opacity: 0.88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .coachMobileMenuBtn {
@@ -6777,24 +6851,6 @@
   font-size: 17px;
   font-weight: 800;
   text-align: center;
-}
-
-.coachMobileTopBar .platformBrand.coachMobileTopBrand {
-  justify-content: flex-start;
-  min-width: 0;
-}
-
-.coachMobileTopBar .platformBrandText {
-  min-width: 0;
-}
-
-/* Compact title: "Volley Coach" only — avoids overlap with bell + club logo */
-.coachMobileTopBar .platformBrandName > span:nth-child(n + 3) {
-  display: none;
-}
-
-.coachMobileTopBar .brandTriLine {
-  display: none;
 }
 
 .coachMobileProfileCard {
