@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Център — темпо — Volley Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root { --deep:#0a3d4a; --teal:#0d8a8a; --sand:#fff6e8; --pop:#e85d04; --ink:#1a2a2e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Nunito",system-ui,sans-serif; background:linear-gradient(180deg,#e8f7f5 0%,var(--sand) 100%); color:var(--ink); min-height:100vh; padding:16px; }
+  .wrap { max-width:480px; margin:0 auto; }
+  .back { display:inline-block; margin-bottom:12px; color:var(--teal); font-weight:800; text-decoration:none; }
+  h1 { font-size:clamp(1.4rem,5vw,1.8rem); font-weight:800; color:var(--deep); }
+  .sub { margin-top:8px; font-weight:600; color:#355; font-size:.95rem; }
+  .video-box { margin-top:18px; border-radius:16px; overflow:hidden; border:3px solid var(--deep); background:#000; }
+  video { display:block; width:100%; max-height:78vh; }
+  .links { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
+  .links a { padding:10px 14px; border-radius:999px; border:2px solid var(--deep); font-weight:800; font-size:.85rem; text-decoration:none; color:var(--deep); background:#fff; }
+  .links a.main { background:var(--pop); color:#fff; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/uchebnik/videos.html">← Всички видеа</a>
+    <h1>Център — темпо</h1>
+    <p class="sub">Темпо и комбинации на центъра</p>
+    <div class="video-box">
+      <video controls playsinline preload="metadata">
+        <source src="/uchebnik/centar-tempo.mp4" type="video/mp4" />
+      </video>
+    </div>
+    <div class="links">
+      <a class="main" href="/uchebnik/">Волей Герои</a>
+      <a href="/uchebnik/videos.html">Всички видеа</a>
+    </div>
+  </div>
+</body>
+</html>
