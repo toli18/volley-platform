@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useHorizontalSwipeTabs } from "../../hooks/useHorizontalSwipeTabs";
 import AthleteIdentityFields from "../../components/athletes/AthleteIdentityFields";
 import AthleteMembershipChips from "../../components/athletes/AthleteMembershipChips";
+import AthletePortraitPhotoButton from "../../components/athletes/AthletePortraitPhotoButton";
 import AthleteTestsPanel from "../../components/athletes/AthleteTestsPanel";
 import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
 import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDocumentsPanel";
@@ -681,31 +682,11 @@ export default function AthleteProfileCoachMobile({
               const showPrepPhotoCard = unlinked && !sekTask;
               const photoLabel = hasLocalPhoto ? "Смени снимката" : "Добави снимка";
               const photoInput = (
-                <label style={{ margin: 0 }}>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/bmp,.jpg,.jpeg,.png"
-                    capture="environment"
-                    style={{ display: "none" }}
-                    disabled={syncingPhoto}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (f) onUploadPhoto?.(f);
-                    }}
-                  />
-                  <span
-                    className="uiButton"
-                    style={{
-                      display: "inline-flex",
-                      opacity: syncingPhoto ? 0.6 : 1,
-                      pointerEvents: syncingPhoto ? "none" : "auto",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {syncingPhoto ? "Запис…" : photoLabel}
-                  </span>
-                </label>
+                <AthletePortraitPhotoButton
+                  label={photoLabel}
+                  busy={syncingPhoto}
+                  onFileSelected={onUploadPhoto}
+                />
               );
 
               return (
@@ -725,7 +706,8 @@ export default function AthleteProfileCoachMobile({
                       </p>
                       <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
                         Снимай състезателя и запиши снимката тук — пази се локално, докато главният
-                        треньор свърже или създаде профила в СЕК.
+                        треньор свърже или създаде профила в СЕК. На iPhone: „Направи снимка“ или
+                        галерия.
                       </p>
                       {photoInput}
                     </section>
@@ -736,7 +718,8 @@ export default function AthleteProfileCoachMobile({
                       <h3 className="athleteProfileCardTitle">Портретна снимка</h3>
                       <p className="uiMuted" style={{ margin: "0 0 10px", fontSize: 12 }}>
                         Снимай състезателя и запиши снимката в профила. Пази се локално, докато
-                        главният треньор създаде профила в СЕК.
+                        главният треньор създаде профила в СЕК. На iPhone избери „Направи снимка“
+                        или снимка от галерията.
                       </p>
                       {photoInput}
                       {hasLocalPhoto ? (
