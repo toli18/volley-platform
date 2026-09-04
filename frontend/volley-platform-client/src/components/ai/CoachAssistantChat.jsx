@@ -101,7 +101,7 @@ export default function CoachAssistantChat({
         {messages.map((m, idx) => (
           <div
             key={`${m.role}-${idx}`}
-            className={`coachAssistBubble coachAssistBubble--${m.role ===assistant"}`}
+            className={`coachAssistBubble coachAssistBubble--${m.role || "assistant"}`}
           >
             <div className="coachAssistBubbleText">{m.content}</div>
             {m.meta?.wantsGenerate ? (
