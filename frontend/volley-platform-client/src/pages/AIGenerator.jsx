@@ -9,6 +9,7 @@ import {
   AIGeneratorSavePanel,
   AIGeneratorSettingsPanel,
 } from "../components/ai/AIGeneratorPanels";
+import CoachAssistantChat from "../components/ai/CoachAssistantChat";
 import { Button, PageHero } from "../components/ui";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -120,7 +121,7 @@ export default function AIGenerator() {
   const [searchParams] = useSearchParams();
   const isHeadCoachUser = String(user?.role || "").toLowerCase() === "club_head_coach";
   const planRef = useRef(null);
-  const [activeTab, setActiveTab] = useState("settings");
+  const [activeTab, setActiveTab] = useState("assistant");
   const [drills, setDrills] = useState([]);
   const [metaLoading, setMetaLoading] = useState(true);
   const [previewDrill, setPreviewDrill] = useState(null);
@@ -728,18 +729,19 @@ export default function AIGenerator() {
     );
   };
 
-  const onGenerate = async () => {
+  const onGenerate = async (overrides = null) => {
     setLoading(true);
     setErr("");
     setSavedTraining(null);
     try {
+      const patch = overrides && typeof overrides === "object" ? overrides : {};
       const effectiveSeed =
-        form.variability === "varied"
+        (patch.variability || form.variability) === "varied"
           ? Math.floor(Date.now() % 1000000)
-          : Number(form.randomSeed);
+          : Number(patch.randomSeed ?? form.randomSeed);
       const data = await apiClient(API_PATHS.AI_TRAINING_GENERATE, {
         method: "POST",
-        data: { ...payload, randomSeed: effectiveSeed },
+        data: { ...payload, ...patch, randomSeed: effectiveSeed },
       });
       setResult(data || null);
       const blocks = cloneBlocks(data?.session?.blocks || data?.blocks || []);
@@ -806,6 +808,7 @@ export default function AIGenerator() {
   };
 
   const tabs = [
+    { id: "assistant", label: "Помощник" },
     { id: "settings", label: "Настройки" },
     { id: "library", label: "База упражнения" },
     { id: "plan", label: "План", badge: planBlocks.length || null },
@@ -826,15 +829,15 @@ export default function AIGenerator() {
   return (
     <div className="aiGenPage">
       <PageHero
-        title="AI генератор на тренировки"
+        title="AI помощник на треньора"
         subtitle={
           bvfMethodHint?.textbook?.title
             ? `Конспект: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""} · ${cycleParams.ageBand || bvfMethodHint.age_band || "БФВ"}`
             : bvfMethodHint?.week?.theme
-              ? `Методика БФВ · ${cycleParams.ageBand || bvfMethodHint.age_band} · седмица: ${bvfMethodHint.week.theme} — план + упражнения от базата.`
+              ? `Методика БФВ · ${cycleParams.ageBand || bvfMethodHint.age_band} · седмица: ${bvfMethodHint.week.theme} — питай и генерирай тренировки.`
               : cycleParams.ageBand
-                ? `Методика БФВ за ${cycleParams.ageBand} — структуриран план и предложения от одобрената база.`
-                : "Структуриран текстов план по методика БФВ + упражнения от одобрената база (не статии за четене)."
+                ? `Методика БФВ за ${cycleParams.ageBand} — отговори + генериране на тренировки.`
+                : "Питай за мач, техника и програма — или генерирай тренировка по методика БФВ."
         }
         actions={
           <Button as={Link} to="/my-trainings" size="sm" variant="secondary">
@@ -843,7 +846,7 @@ export default function AIGenerator() {
         }
       />
 
-      <nav className="aiGenTabs" aria-label="Секции на генератора">
+      <nav className="aiGenTabs" aria-label="Секции на помощника">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -915,6 +918,32 @@ export default function AIGenerator() {
           Записано като тренировка #{savedTraining.id}: {savedTraining.title}
           {isHeadCoachUser && assignCoaches.length > 0 ? " • Възложена като задача." : ""}
         </div>
+      ) : null}
+
+      {activeTab === "assistant" ? (
+        <CoachAssistantChat
+          ageBand={cycleParams.ageBand || undefined}
+          context={{
+            date: programLink.sessionDate || undefined,
+            programTheme: programLink.dayTheme || undefined,
+          }}
+          onRequestGenerate={(hintText) => {
+            const low = String(hintText || "").toLowerCase();
+            let mainFocus = form.mainFocus || "Посрещане";
+            if (low.includes("отскок") || low.includes("скач")) mainFocus = "Координация";
+            else if (low.includes("зон") || low.includes("посрещ") || low.includes("прием")) mainFocus = "Посрещане";
+            else if (low.includes("атак")) mainFocus = "Атака";
+            else if (low.includes("блок")) mainFocus = "Блок";
+            else if (low.includes("сервис") || low.includes("начален")) mainFocus = "Сервис";
+            const patch = { mainFocus };
+            if (low.includes("мач") || low.includes("утре")) {
+              patch.periodPhase = "taper";
+              patch.intensityTarget = "low";
+            }
+            setForm((prev) => ({ ...prev, ...patch }));
+            onGenerate(patch);
+          }}
+        />
       ) : null}
 
       {activeTab === "settings" ? (

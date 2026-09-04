@@ -71,7 +71,7 @@ export const COACH_PRIMARY_NAV = [
     children: [
       { id: "learning-hub", label: "Обучение", to: "/coach/learning", icon: "book", hint: "Учебник, програма, упражнения" },
       { id: "my-content", label: "Моето съдържание", to: "/coach/my-content", icon: "drill", hint: "Моите упражнения и статии" },
-      { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true, hint: "Генериране на тренировки" },
+      { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", accent: true, hint: "Питай и генерирай тренировки" },
       { id: "articles", label: "Статии", to: "/articles", icon: "article", hint: "Библиотека със статии" },
     ],
   },
@@ -317,7 +317,7 @@ export const COACH_BVF_HUB_LINKS = [
     hint: "Сезон × възраст · Форма 03 · заявка към главния",
     assignedCardIndexOnly: true,
   },
-  { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Генериране на тренировки" },
+  { id: "ai", label: "AI Помощник", to: "/ai-generator", icon: "sparkles", hint: "Питай и генерирай тренировки" },
 ];
 
 /** @type {NavLinkItem[]} */
