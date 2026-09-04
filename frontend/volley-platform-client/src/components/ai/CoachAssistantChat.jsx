@@ -32,7 +32,7 @@ export default function CoachAssistantChat({
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await apiClient.get(API_PATHS.AI_COACH_ASSISTANT_STATUS);
+        const data = await apiClient(API_PATHS.AI_COACH_ASSISTANT_STATUS);
         if (!cancelled) setStatus(data);
       } catch {
         if (!cancelled) setStatus({ geminiAvailable: false, mode: "local_only" });
@@ -61,11 +61,14 @@ export default function CoachAssistantChat({
         .slice(0, -1)
         .slice(-6)
         .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
-      const { data } = await apiClient.post(API_PATHS.AI_COACH_ASSISTANT_CHAT, {
-        message,
-        ageBand: ageBand || undefined,
-        context: context || {},
-        history,
+      const data = await apiClient(API_PATHS.AI_COACH_ASSISTANT_CHAT, {
+        method: "POST",
+        data: {
+          message,
+          ageBand: ageBand || undefined,
+          context: context || {},
+          history,
+        },
       });
       setMessages((prev) => [
         ...prev,

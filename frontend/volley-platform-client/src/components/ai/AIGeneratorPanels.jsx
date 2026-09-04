@@ -455,7 +455,7 @@ export function AIGeneratorPlanPanel({
     return (
       <section className="aiGenPanel aiGenPanel--empty" ref={planRef}>
         <p>Няма генериран план. Задай настройките и натисни „Генерирай“.</p>
-        <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={onGenerate} disabled={loading || metaLoading}>
+        <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => onGenerate()} disabled={loading || metaLoading}>
           {loading ? "Генериране..." : "Генерирай план"}
         </button>
       </section>

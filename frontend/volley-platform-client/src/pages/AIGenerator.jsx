@@ -734,7 +734,14 @@ export default function AIGenerator() {
     setErr("");
     setSavedTraining(null);
     try {
-      const patch = overrides && typeof overrides === "object" ? overrides : {};
+      // Ignore click/submit events accidentally passed as the first arg (onClick={onGenerate}).
+      const patch =
+        overrides &&
+        typeof overrides === "object" &&
+        typeof overrides.preventDefault !== "function" &&
+        !overrides.nativeEvent
+          ? overrides
+          : {};
       const effectiveSeed =
         (patch.variability || form.variability) === "varied"
           ? Math.floor(Date.now() % 1000000)
@@ -1031,7 +1038,7 @@ export default function AIGenerator() {
 
       <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
         {(activeTab === "settings" || activeTab === "plan") && (
-          <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={onGenerate} disabled={loading || saving || metaLoading}>
+          <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => onGenerate()} disabled={loading || saving || metaLoading}>
             {loading ? "Генериране..." : "Генерирай"}
           </button>
         )}
