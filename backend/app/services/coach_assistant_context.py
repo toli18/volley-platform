@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from typing import Any, Optional
 
@@ -66,7 +67,10 @@ def list_coach_teams(db: Session, user: User) -> list[Team]:
 
 def _find_annual_macro_cycle(db: Session, age_group: str | None) -> Optional[MethodCycle]:
     ensure_annual_program_seeded(db)
-    band = resolve_annual_program_band(age_group or "U14")
+    # Без възраст → U16 (не U14); adult/мъже/жени → без youth годишна програма
+    if _looks_adult_age_label(age_group):
+        return None
+    band = resolve_annual_program_band(age_group or "U16")
     cycles = (
         db.query(MethodCycle)
         .filter(MethodCycle.status == "published", MethodCycle.cycle_type == "macro")
@@ -94,6 +98,53 @@ def _find_annual_macro_cycle(db: Session, age_group: str | None) -> Optional[Met
     return None
 
 
+def _looks_adult_age_label(raw: str | None) -> bool:
+    s = (raw or "").strip().lower()
+    if not s:
+        return False
+    if any(x in s for x in ("мъж", "жен", "мъже", "жени", "men", "women", "adult", "senior", "мъжки", "женски")):
+        # Ако има ясно U-band в същия низ — не е adult-only етикет
+        if re.search(r"\bu\s*1[3-8]\b", s) or re.search(r"\b1[3-8]\s*г", s):
+            return False
+        return True
+    if s in {"99", "20+", "21+", "мъже", "жени"}:
+        return True
+    return False
+
+
+def is_adult_training_team(team: Team) -> bool:
+    """Мъже/жени без юношески U-band — не са U14 програма."""
+    if _looks_adult_age_label(team.age_group):
+        return True
+    name = str(team.name or "").strip().lower()
+    if name in {"мъже", "жени", "мъже А", "жени А", "мъже б", "жени б"}:
+        return True
+    if any(x in name for x in ("мъже", "жени")) and not re.search(r"\bu?\s*1[3-8]\b", name):
+        # „МЪЖЕ“ / „ЖЕНИ“ без U14 в името
+        if not re.search(r"\d{2}", name):
+            return True
+    return False
+
+
+def resolve_team_display_age_band(team: Team, week_age_band: str | None = None) -> str:
+    """Възрастов етикет за UI/AI — без да лепим U14 върху мъже/жени."""
+    if is_adult_training_team(team):
+        g = _team_sex_code(team)
+        if g == 1:
+            return "жени"
+        if g == 0:
+            return "мъже"
+        return str(team.age_group or team.name or "възрастни")
+    if team.age_group and not _looks_adult_age_label(team.age_group):
+        # Ако age_group вече е U-band — ползвай го
+        raw = str(team.age_group).strip()
+        if re.match(r"(?i)^u?\s*1[3-8]$", raw) or raw.lower() == "mini":
+            return resolve_annual_program_band(raw)
+    if week_age_band and not is_adult_training_team(team):
+        return str(week_age_band)
+    return resolve_annual_program_band(team.age_group or "U16")
+
+
 def ensure_team_annual_program(
     db: Session,
     team: Team,
@@ -110,6 +161,9 @@ def ensure_team_annual_program(
     )
     if existing:
         return existing
+    if is_adult_training_team(team):
+        # Мъже/жени: не закачай автоматично юношеска U14/U16 програма
+        return None
     if not team.club_id:
         return None
     cycle = _find_annual_macro_cycle(db, team.age_group)
@@ -572,6 +626,19 @@ def build_coach_assistant_context(
 
     week_offset = _week_offset_for(today, target)
     week = build_program_week(db, active, week_offset=week_offset, today=today)
+    # Ако на „МЪЖЕ/ЖЕНИ“ е закачена юношеска програма по грешка — не я показвай като техен U14 план
+    if is_adult_training_team(active):
+        wb = str(week.get("age_band") or "")
+        if wb.lower() == "mini" or re.match(r"(?i)^u?\s*1[3-8]$", wb):
+            week = {
+                **week,
+                "has_program": False,
+                "age_band": None,
+                "week_theme": None,
+                "week_focus": [],
+                "meso_theme": None,
+                "message": "Групата е мъже/жени — юношеската годишна програма не се прилага автоматично.",
+            }
     day = _program_day_on(week, target) if week.get("has_program") else None
     soft_day = _soft_program_day(week, target) if week.get("has_program") else None
     theme_day = day or soft_day
@@ -581,7 +648,11 @@ def build_coach_assistant_context(
     )
     assessment = _assessment_hint(db, int(active.id))
 
-    age_band = week.get("age_band") or resolve_annual_program_band(active.age_group)
+    age_band = resolve_team_display_age_band(team=active, week_age_band=week.get("age_band"))
+    # За генериране: юношески U-band; за мъже/жени не форсирай U14 от грешно закачена програма
+    generate_age_band = age_band
+    if is_adult_training_team(active):
+        generate_age_band = "U18"  # най-близък youth band само ако генераторът иска U-код
     focus_tokens = list((theme_day or {}).get("focus") or week.get("week_focus") or [])
     main_focus, secondary_focus = _focus_to_skill(focus_tokens)
 
@@ -602,8 +673,15 @@ def build_coach_assistant_context(
     # sessionDate винаги е целевият ден (URL/календар), не fallback понеделник
     generate_defaults: dict[str, Any] = {
         "teamId": active.id,
-        "ageBand": age_band,
-        "age": _BAND_YEARS.get(str(age_band), 15),
+        "ageBand": generate_age_band if generate_age_band in _BAND_YEARS or generate_age_band == "mini" else "U18",
+        "age": _BAND_YEARS.get(
+            str(
+                generate_age_band
+                if generate_age_band in _BAND_YEARS
+                else "U18"
+            ),
+            18,
+        ),
         "sessionDate": target.isoformat(),
         "mainFocus": main_focus,
         "secondaryFocus": secondary_focus,
@@ -626,6 +704,7 @@ def build_coach_assistant_context(
         "ageBand": age_band,
         "season": active.season,
         "gender": active.gender,
+        "isAdult": is_adult_training_team(active),
     }
     out["program"] = {
         "hasProgram": bool(week.get("has_program")),

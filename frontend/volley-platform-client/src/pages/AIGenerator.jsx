@@ -1081,7 +1081,24 @@ export default function AIGenerator() {
               generateIntent?.teamName || assistPlatCtx?.activeTeam?.name
                 ? `група ${generateIntent?.teamName || assistPlatCtx?.activeTeam?.name}`
                 : null,
-              generateIntent?.ageBand || cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand,
+              (() => {
+                const band =
+                  generateIntent?.ageBand ||
+                  cycleParams.ageBand ||
+                  assistPlatCtx?.activeTeam?.ageBand;
+                const name = String(
+                  generateIntent?.teamName || assistPlatCtx?.activeTeam?.name || ""
+                ).toLowerCase();
+                if (!band) return null;
+                // Не повтаряй „МЪЖЕ · мъже“
+                if (name && String(band).toLowerCase() && name.includes(String(band).toLowerCase())) {
+                  return null;
+                }
+                if (assistPlatCtx?.activeTeam?.isAdult && /мъж|жен/i.test(String(band))) {
+                  return null;
+                }
+                return band;
+              })(),
               generateIntent?.mainFocus || form.mainFocus,
               generateIntent?.secondaryFocus || form.secondaryFocus
                 ? `+ ${generateIntent?.secondaryFocus || form.secondaryFocus}`
