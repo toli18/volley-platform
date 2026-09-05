@@ -545,6 +545,24 @@ def build_reply(
         reply = _fallback_answer(message, effective_age)
 
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
+    session_live = (
+        str(ctx.get("mode") or "") == "session_live" or bool(plat.get("sessionTraining"))
+    )
+    if session_live:
+        # Live на терена: само изрична молба за нов план
+        low = message.lower()
+        explicit_new = any(
+            x in low
+            for x in (
+                "нова тренировка",
+                "генерирай нова",
+                "друг план",
+                "изцяло нова",
+            )
+        )
+        if not explicit_new:
+            wants = False
+
     from_model = _parse_params_from_reply(reply)
     local_params = extract_generate_params(message, age_band=effective_age)
     proposed = _parse_exercises_from_reply(reply)

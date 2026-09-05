@@ -988,11 +988,14 @@ export default function AIGenerator() {
 
   const tabs = [
     { id: "assistant", label: "Помощник" },
-    { id: "settings", label: "Настройки" },
-    { id: "library", label: "База упражнения" },
     { id: "plan", label: "План", badge: planBlocks.length || null },
     { id: "save", label: "Запис" },
   ];
+  const advancedTabs = [
+    { id: "settings", label: "Настройки" },
+    { id: "library", label: "База упражнения" },
+  ];
+  const showAdvanced = activeTab === "settings" || activeTab === "library";
 
   const openDrillPreview = (drillOrId) => {
     if (!drillOrId) return;
@@ -1037,7 +1040,31 @@ export default function AIGenerator() {
             {t.badge ? <span className="aiGenTabBadge">{t.badge}</span> : null}
           </button>
         ))}
+        <button
+          type="button"
+          className={`aiGenTab aiGenTab--more${showAdvanced ? " aiGenTab--active" : ""}`}
+          onClick={() => setActiveTab(showAdvanced ? "assistant" : "settings")}
+          title="Ръчни параметри и база упражнения"
+        >
+          Още…
+        </button>
       </nav>
+
+      {showAdvanced ? (
+        <div className="aiGenAdvancedBar" role="tablist" aria-label="Разширени">
+          {advancedTabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`aiGenTab aiGenTab--sub${activeTab === t.id ? " aiGenTab--active" : ""}`}
+              onClick={() => setActiveTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+          <span className="aiGenAdvancedHint">Рядко нужни — основният поток е Помощник → План → Запис.</span>
+        </div>
+      ) : null}
 
       {assignmentId ? (
         <div className="aiGenBvfBanner" role="note">

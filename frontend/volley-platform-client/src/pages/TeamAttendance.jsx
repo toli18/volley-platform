@@ -383,6 +383,9 @@ export default function TeamAttendance() {
                 <Link to={`/trainings/${dayTraining.id}`}>
                   <Button>Продължи с тренировката →</Button>
                 </Link>
+                <Link to={`/trainings/${dayTraining.id}#session-coach`}>
+                  <Button variant="secondary">Питай AI за тренировката</Button>
+                </Link>
               </>
             ) : (
               <>

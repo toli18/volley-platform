@@ -14,6 +14,7 @@ from app.models import User, UserRole
 from app.services.coach_assistant import build_reply
 from app.services.coach_assistant_context import build_coach_assistant_context
 from app.services.gemini_client import gemini_available, gemini_config
+from app.services.session_coach_context import load_training_session_pack
 
 router = APIRouter(prefix="/api/ai/coach-assistant", tags=["Coach Assistant"])
 
@@ -36,6 +37,8 @@ class ChatContext(BaseModel):
     date: Optional[str] = None
     daysUntilMatch: Optional[int] = None
     programTheme: Optional[str] = None
+    trainingId: Optional[int] = None
+    mode: Optional[str] = None  # session_live | default
 
 
 class ChatRequest(BaseModel):
@@ -95,15 +98,40 @@ def assistant_chat(
             parsed = _date.fromisoformat(raw_date[:10])
         except ValueError:
             parsed = None
+
+    session_pack = None
+    if payload.context.trainingId:
+        session_pack = load_training_session_pack(db, user, int(payload.context.trainingId))
+        if session_pack.get("teamId") and not team_id:
+            team_id = int(session_pack["teamId"])
+        if session_pack.get("sessionDate") and not parsed:
+            try:
+                from datetime import date as _date
+
+                parsed = _date.fromisoformat(str(session_pack["sessionDate"])[:10])
+            except ValueError:
+                parsed = None
+
     platform_ctx = build_coach_assistant_context(
         db, user, team_id=team_id, for_date=parsed
     )
+    if session_pack:
+        platform_ctx["sessionTraining"] = session_pack
+        platform_ctx["promptText"] = (
+            (platform_ctx.get("promptText") or "")
+            + ("\n\n" if platform_ctx.get("promptText") else "")
+            + str(session_pack.get("promptText") or "")
+        )
+
     history = [{"role": t.role, "content": t.content} for t in payload.history]
     age_band = payload.ageBand or (platform_ctx.get("activeTeam") or {}).get("ageBand")
+    ctx = payload.context.model_dump()
+    if session_pack:
+        ctx["mode"] = "session_live"
     result = build_reply(
         payload.message,
         age_band=age_band,
-        context=payload.context.model_dump(),
+        context=ctx,
         history=history,
         platform_context=platform_ctx,
     )

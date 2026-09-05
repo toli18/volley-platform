@@ -7,6 +7,7 @@ import DrillMediaPreviewModal, { getDrillPrimaryMedia } from "../components/Dril
 import DrillPickerSheet from "../components/drills/DrillPickerSheet";
 import { SessionReviewCard } from "../components/ai/SessionReviewCard";
 import { SectionBvfContext } from "../components/ai/SectionBvfContext";
+import SessionCoachChat from "../components/ai/SessionCoachChat";
 import { Button, EmptyState, PageHero } from "../components/ui";
 import { PLAN_SECTION_DEFS, sectionGuide, buildBvfFieldSteps, buildBvfPhaseMeta, replaceStepDrill } from "../utils/trainingPlanSections";
 import { normalizePlan, resolveDrillId } from "../utils/trainingPlanNormalize";
@@ -492,6 +493,14 @@ export default function TrainingDetails() {
           </div>
         </div>
 
+        <SessionCoachChat
+          compact
+          trainingId={data.id}
+          trainingTitle={data.title}
+          teamId={data.team_id}
+          sessionDate={data.session_date || ""}
+        />
+
         {!step ? (
           <EmptyState title="Няма упражнения в плана" description="Добави упражнения в тренировката и опитай отново." />
         ) : (
@@ -845,6 +854,13 @@ export default function TrainingDetails() {
             ) : null}
           </>
         }
+      />
+
+      <SessionCoachChat
+        trainingId={data.id}
+        trainingTitle={data.title}
+        teamId={data.team_id}
+        sessionDate={data.session_date || ""}
       />
 
       <div className="trainingPrintArea">
