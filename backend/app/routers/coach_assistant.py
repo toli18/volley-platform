@@ -61,11 +61,22 @@ def assistant_status(
 @router.get("/context")
 def assistant_context(
     team_id: Optional[int] = Query(None),
+    for_date: Optional[str] = Query(
+        None, description="YYYY-MM-DD — закачен ден от URL/календар (води за sessionDate)"
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*_COACH_ROLES)),
 ) -> Dict[str, Any]:
     """Отбори + програмна седмица + следващ мач за UI и Gemini."""
-    return build_coach_assistant_context(db, user, team_id=team_id)
+    parsed = None
+    if for_date:
+        try:
+            from datetime import date as _date
+
+            parsed = _date.fromisoformat(str(for_date).strip()[:10])
+        except ValueError:
+            parsed = None
+    return build_coach_assistant_context(db, user, team_id=team_id, for_date=parsed)
 
 
 @router.post("/chat")
@@ -75,7 +86,18 @@ def assistant_chat(
     user: User = Depends(require_role(*_COACH_ROLES)),
 ) -> Dict[str, Any]:
     team_id = payload.context.teamId
-    platform_ctx = build_coach_assistant_context(db, user, team_id=team_id)
+    parsed = None
+    raw_date = (payload.context.date or "").strip()
+    if raw_date:
+        try:
+            from datetime import date as _date
+
+            parsed = _date.fromisoformat(raw_date[:10])
+        except ValueError:
+            parsed = None
+    platform_ctx = build_coach_assistant_context(
+        db, user, team_id=team_id, for_date=parsed
+    )
     history = [{"role": t.role, "content": t.content} for t in payload.history]
     age_band = payload.ageBand or (platform_ctx.get("activeTeam") or {}).get("ageBand")
     result = build_reply(

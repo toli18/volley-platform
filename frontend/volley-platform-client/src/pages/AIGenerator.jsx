@@ -870,15 +870,16 @@ export default function AIGenerator() {
   };
 
   const resolveDayTarget = () => {
+    // Приоритет: URL (отворен ден) > programLink > soft defaults от асистента
     const urlTeam = Number(searchParams.get("team_id") || "") || null;
     const urlDate = (searchParams.get("date") || "").trim() || null;
-    const teamId = programLink.teamId || assistPlatCtx?.activeTeam?.id || urlTeam || null;
+    const teamId = urlTeam || programLink.teamId || assistPlatCtx?.activeTeam?.id || null;
     const sessionDate =
+      urlDate ||
       programLink.sessionDate ||
       assistPlatCtx?.generateDefaults?.sessionDate ||
-      urlDate ||
       null;
-    return { teamId, sessionDate };
+    return { teamId, sessionDate, pinnedFromUrl: Boolean(urlDate || urlTeam) };
   };
 
   const onGenerateAndSave = async (overrides = null) => {
@@ -1030,7 +1031,7 @@ export default function AIGenerator() {
         </div>
       ) : null}
 
-      {generateIntent || programLink.sessionDate || form.mainFocus ? (
+      {generateIntent || programLink.sessionDate || form.mainFocus || searchParams.get("date") ? (
         <div className="aiGenIntentBanner" role="status">
           <strong>Генерирам за:</strong>
           <span>
@@ -1041,9 +1042,13 @@ export default function AIGenerator() {
               generateIntent?.secondaryFocus || form.secondaryFocus
                 ? `+ ${generateIntent?.secondaryFocus || form.secondaryFocus}`
                 : null,
-              generateIntent?.sessionDate || programLink.sessionDate
-                ? `дата ${(generateIntent?.sessionDate || programLink.sessionDate)}`
-                : null,
+              (() => {
+                const d =
+                  generateIntent?.sessionDate ||
+                  searchParams.get("date") ||
+                  programLink.sessionDate;
+                return d ? `дата ${d}` : null;
+              })(),
               (generateIntent?.proposedCount || 0) > 0
                 ? `${generateIntent.proposedCount} предложени упр.`
                 : null,
@@ -1054,7 +1059,7 @@ export default function AIGenerator() {
         </div>
       ) : null}
 
-      {programLink.sessionDate ? (
+      {programLink.sessionDate || searchParams.get("date") ? (
         <div className="aiGenBvfBanner" role="note">
           <strong>Тема за деня (от програмната седмица)</strong>
           <span>
@@ -1070,7 +1075,8 @@ export default function AIGenerator() {
                 <br />
               </>
             ) : null}
-            След запис тренировката се закача към отбора за {programLink.sessionDate} и ще се появи в
+            След запис тренировката се закача към отбора за{" "}
+            {searchParams.get("date") || programLink.sessionDate} и ще се появи в
             „Моята програмна седмица" с бутон „Продължи с тренировката".
           </span>
         </div>
@@ -1126,27 +1132,48 @@ export default function AIGenerator() {
         <CoachAssistantChat
           ageBand={cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand || undefined}
           context={{
-            date: programLink.sessionDate || assistPlatCtx?.program?.today?.date || undefined,
+            date:
+              programLink.sessionDate ||
+              searchParams.get("date") ||
+              assistPlatCtx?.program?.today?.date ||
+              undefined,
             programTheme:
               programLink.dayTheme ||
               assistPlatCtx?.program?.today?.theme ||
               assistPlatCtx?.program?.weekTheme ||
               undefined,
-            teamId: programLink.teamId || assistPlatCtx?.activeTeam?.id || undefined,
+            teamId:
+              Number(searchParams.get("team_id") || "") ||
+              programLink.teamId ||
+              assistPlatCtx?.activeTeam?.id ||
+              undefined,
             teamName: assistPlatCtx?.activeTeam?.name || undefined,
             daysUntilMatch: assistPlatCtx?.calendar?.nextMatch?.daysUntilMatch,
           }}
+          forDate={
+            (searchParams.get("date") || "").trim() || programLink.sessionDate || ""
+          }
           onPlatformContext={(ctx) => {
             setAssistPlatCtx(ctx || null);
             const active = ctx?.activeTeam;
             const defaults = ctx?.generateDefaults || {};
-            if (active?.id) {
+            const urlTeam = Number(searchParams.get("team_id") || "") || null;
+            const urlDate = (searchParams.get("date") || "").trim() || "";
+            const urlTitle = (searchParams.get("title") || "").trim() || "";
+            const urlHasFocus = Boolean((searchParams.get("focus") || "").trim());
+            if (active?.id || urlTeam || urlDate) {
               setProgramLink((prev) => ({
                 ...prev,
-                teamId: Number(active.id),
-                sessionDate: defaults.sessionDate || prev.sessionDate || "",
-                dayTheme: defaults.programTheme || prev.dayTheme || "",
-                dayFocus: ctx?.program?.today?.focus || prev.dayFocus || [],
+                teamId: urlTeam || prev.teamId || (active?.id ? Number(active.id) : null),
+                // URL date always wins — assistant must not clobber with Mon fallback
+                sessionDate: urlDate || prev.sessionDate || defaults.sessionDate || "",
+                dayTheme: urlTitle || prev.dayTheme || defaults.programTheme || "",
+                dayFocus:
+                  urlHasFocus && (prev.dayFocus || []).length
+                    ? prev.dayFocus
+                    : prev.dayFocus?.length
+                      ? prev.dayFocus
+                      : ctx?.program?.today?.focus || [],
               }));
             }
             if (defaults.ageBand) {
@@ -1156,16 +1183,30 @@ export default function AIGenerator() {
                 textbookSlug: defaults.textbookSlug || prev.textbookSlug || "",
               }));
             }
-            if (defaults.mainFocus || defaults.age) {
+            // Soft defaults only when URL didn't pin focus/title for the day
+            if ((defaults.mainFocus || defaults.age) && !urlHasFocus) {
               setForm((prev) => ({
                 ...prev,
-                ...(defaults.mainFocus ? { mainFocus: defaults.mainFocus } : {}),
-                ...(defaults.secondaryFocus ? { secondaryFocus: defaults.secondaryFocus } : {}),
+                ...(defaults.mainFocus && !programDayFocusRef.current?.length
+                  ? { mainFocus: defaults.mainFocus }
+                  : {}),
+                ...(defaults.secondaryFocus && !programDayFocusRef.current?.length
+                  ? { secondaryFocus: defaults.secondaryFocus }
+                  : {}),
                 ...(defaults.periodPhase ? { periodPhase: defaults.periodPhase } : {}),
                 ...(defaults.intensityTarget ? { intensityTarget: defaults.intensityTarget } : {}),
                 ...(defaults.orientation ? { orientation: defaults.orientation } : {}),
                 ...(defaults.age ? { age: Number(defaults.age) } : {}),
-                ...(defaults.trainingTitle ? { trainingTitle: defaults.trainingTitle } : {}),
+                ...(defaults.trainingTitle && !urlTitle
+                  ? { trainingTitle: defaults.trainingTitle }
+                  : {}),
+              }));
+            } else if (defaults.age || defaults.periodPhase) {
+              setForm((prev) => ({
+                ...prev,
+                ...(defaults.periodPhase ? { periodPhase: defaults.periodPhase } : {}),
+                ...(defaults.intensityTarget ? { intensityTarget: defaults.intensityTarget } : {}),
+                ...(defaults.age ? { age: Number(defaults.age) } : {}),
               }));
             }
           }}
@@ -1344,17 +1385,17 @@ export default function AIGenerator() {
             }
           }}
           canSaveForDay={Boolean(
-            (programLink.teamId ||
-              assistPlatCtx?.activeTeam?.id ||
-              searchParams.get("team_id")) &&
-              (programLink.sessionDate ||
-                assistPlatCtx?.generateDefaults?.sessionDate ||
-                searchParams.get("date"))
+            (searchParams.get("team_id") ||
+              programLink.teamId ||
+              assistPlatCtx?.activeTeam?.id) &&
+              (searchParams.get("date") ||
+                programLink.sessionDate ||
+                assistPlatCtx?.generateDefaults?.sessionDate)
           )}
           saveForDayLabel={
+            searchParams.get("date") ||
             programLink.sessionDate ||
             assistPlatCtx?.generateDefaults?.sessionDate ||
-            searchParams.get("date") ||
             ""
           }
         />

@@ -20,6 +20,7 @@ export default function CoachAssistantChat({
   context = {},
   canSaveForDay = false,
   saveForDayLabel = "",
+  forDate = "",
 }) {
   const [messages, setMessages] = useState([
     {
@@ -60,11 +61,28 @@ export default function CoachAssistantChat({
     };
   }, []);
 
+  // URL/program day team wins over localStorage
+  useEffect(() => {
+    const fromCtx = Number(context?.teamId || 0) || null;
+    if (fromCtx && fromCtx !== teamId) {
+      setTeamId(fromCtx);
+      try {
+        localStorage.setItem(TEAM_STORAGE_KEY, String(fromCtx));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [context?.teamId]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const qs = teamId ? `?team_id=${encodeURIComponent(teamId)}` : "";
+        const params = new URLSearchParams();
+        if (teamId) params.set("team_id", String(teamId));
+        const pinned = String(forDate || context?.date || "").trim();
+        if (pinned) params.set("for_date", pinned);
+        const qs = params.toString() ? `?${params.toString()}` : "";
         const data = await apiClient(`${API_PATHS.AI_COACH_ASSISTANT_CONTEXT}${qs}`);
         if (cancelled) return;
         setPlatCtx(data);
@@ -85,7 +103,7 @@ export default function CoachAssistantChat({
     return () => {
       cancelled = true;
     };
-  }, [teamId]);
+  }, [teamId, forDate, context?.date]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -117,6 +135,7 @@ export default function CoachAssistantChat({
         .slice(-6)
         .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
       const active = platCtx?.activeTeam;
+      const pinnedDate = String(forDate || context?.date || "").trim() || undefined;
       const data = await apiClient(API_PATHS.AI_COACH_ASSISTANT_CHAT, {
         method: "POST",
         data: {
@@ -129,10 +148,10 @@ export default function CoachAssistantChat({
             daysUntilMatch:
               platCtx?.calendar?.nextMatch?.daysUntilMatch ?? context?.daysUntilMatch,
             programTheme:
+              context?.programTheme ||
               platCtx?.program?.today?.theme ||
-              platCtx?.program?.weekTheme ||
-              context?.programTheme,
-            date: platCtx?.program?.today?.date || context?.date,
+              platCtx?.program?.weekTheme,
+            date: pinnedDate || platCtx?.program?.today?.date || undefined,
           },
           history,
         },

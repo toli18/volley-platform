@@ -21,6 +21,7 @@ from app.national_method.annual_program import (
     resolve_annual_program_band,
 )
 from app.national_method.content_policy import is_annual_program_cycle
+from app.national_method.program_position import monday_of
 from app.services.program_week_service import build_program_week
 
 _BAND_YEARS = {
@@ -160,16 +161,29 @@ def _next_competition(db: Session, team: Team, today: date) -> Optional[dict[str
     }
 
 
-def _today_program_day(week: dict[str, Any], today: date) -> Optional[dict[str, Any]]:
-    today_iso = today.isoformat()
+def _week_offset_for(today: date, target: date) -> int:
+    """Колко седмици (пон–нед) е target спрямо календарната седмица на today."""
+    return (monday_of(target) - monday_of(today)).days // 7
+
+
+def _program_day_on(week: dict[str, Any], target: date) -> Optional[dict[str, Any]]:
+    """Само точен ден по дата — без fallback към понеделник (това чупеше URL date)."""
+    target_iso = target.isoformat()
     for d in week.get("days") or []:
-        if d.get("date") == today_iso:
+        if d.get("date") == target_iso:
             return d
+    return None
+
+
+def _soft_program_day(week: dict[str, Any], target: date) -> Optional[dict[str, Any]]:
+    """Тема/фокус: точен ден, иначе следващ upcoming, иначе None (не days[0])."""
+    exact = _program_day_on(week, target)
+    if exact:
+        return exact
     for d in week.get("days") or []:
         if d.get("execution_status") == "upcoming" and d.get("has_program_day"):
             return d
-    days = week.get("days") or []
-    return days[0] if days else None
+    return None
 
 
 def _assessment_hint(db: Session, team_id: int) -> Optional[str]:
@@ -237,9 +251,15 @@ def build_coach_assistant_context(
     *,
     team_id: Optional[int] = None,
     today: Optional[date] = None,
+    for_date: Optional[date] = None,
 ) -> dict[str, Any]:
-    """Пълен контекст за чат/UI."""
+    """Пълен контекст за чат/UI.
+
+    for_date — закачен ден от URL/календар (води за sessionDate).
+    today — реалният календарен ден (за week_offset и „дни до мач“).
+    """
     today = today or date.today()
+    target = for_date or today
     teams = list_coach_teams(db, user)
     team_summaries = [
         {
@@ -276,13 +296,16 @@ def build_coach_assistant_context(
 
     ensure_team_annual_program(db, active, created_by=int(user.id), commit=True)
 
-    week = build_program_week(db, active, week_offset=0, today=today)
-    day = _today_program_day(week, today) if week.get("has_program") else None
+    week_offset = _week_offset_for(today, target)
+    week = build_program_week(db, active, week_offset=week_offset, today=today)
+    day = _program_day_on(week, target) if week.get("has_program") else None
+    soft_day = _soft_program_day(week, target) if week.get("has_program") else None
+    theme_day = day or soft_day
     next_match = _next_competition(db, active, today)
     assessment = _assessment_hint(db, int(active.id))
 
     age_band = week.get("age_band") or resolve_annual_program_band(active.age_group)
-    focus_tokens = list((day or {}).get("focus") or week.get("week_focus") or [])
+    focus_tokens = list((theme_day or {}).get("focus") or week.get("week_focus") or [])
     main_focus, secondary_focus = _focus_to_skill(focus_tokens)
 
     days_until = (next_match or {}).get("daysUntilMatch")
@@ -299,20 +322,22 @@ def build_coach_assistant_context(
         period_phase = "taper"
         intensity = "low"
 
+    # sessionDate винаги е целевият ден (URL/календар), не fallback понеделник
     generate_defaults: dict[str, Any] = {
         "teamId": active.id,
         "ageBand": age_band,
         "age": _BAND_YEARS.get(str(age_band), 15),
-        "sessionDate": (day or {}).get("date") or today.isoformat(),
+        "sessionDate": target.isoformat(),
         "mainFocus": main_focus,
         "secondaryFocus": secondary_focus,
         "periodPhase": period_phase,
         "intensityTarget": intensity,
         "orientation": orientation,
-        "programTheme": (day or {}).get("theme") or week.get("week_theme"),
-        "textbookSlug": (day or {}).get("textbook_slug") or "",
+        "programTheme": (theme_day or {}).get("theme") or week.get("week_theme"),
+        "textbookSlug": (theme_day or {}).get("textbook_slug") or "",
         "daysUntilMatch": days_until,
         "assistantOverride": False,
+        "datePinned": bool(for_date),
     }
     if days_until is not None and days_until <= 1:
         generate_defaults["trainingTitle"] = f"{age_band} · активиране преди мач"
@@ -336,17 +361,17 @@ def build_coach_assistant_context(
         "weekTheme": week.get("week_theme"),
         "weekFocus": week.get("week_focus") or [],
         "weekLoad": week.get("week_load"),
+        "targetDate": target.isoformat(),
         "today": {
-            "date": (day or {}).get("date"),
-            "weekday": (day or {}).get("weekday_label"),
-            "theme": (day or {}).get("theme"),
-            "focus": (day or {}).get("focus") or [],
-            "sessionGoal": (day or {}).get("session_goal"),
-            "intensity": (day or {}).get("intensity"),
-            "textbookSlug": (day or {}).get("textbook_slug"),
-        }
-        if day
-        else None,
+            "date": (theme_day or {}).get("date") or target.isoformat(),
+            "weekday": (theme_day or {}).get("weekday_label"),
+            "theme": (theme_day or {}).get("theme"),
+            "focus": (theme_day or {}).get("focus") or [],
+            "sessionGoal": (theme_day or {}).get("session_goal"),
+            "intensity": (theme_day or {}).get("intensity"),
+            "textbookSlug": (theme_day or {}).get("textbook_slug"),
+            "exactMatch": bool(day),
+        },
         "message": week.get("message"),
     }
     out["calendar"] = {
