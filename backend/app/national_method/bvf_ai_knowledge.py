@@ -691,8 +691,21 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
         total_minutes=total_min,
     )
     from_planner = bool(out.get("cycleId") or out.get("textbookSlug") or out.get("sessionCode"))
+    assistant_override = bool(out.get("assistantOverride") or out.get("lockFocusFromAssistant"))
     rec = session_review["recommended"]
-    if from_planner:
+    if assistant_override:
+        # Заявка от AI помощника — запази изричния фокус/натоварване.
+        if out.get("mainFocus"):
+            rec["mainFocus"] = out["mainFocus"]
+        if out.get("secondaryFocus"):
+            rec["secondaryFocus"] = out["secondaryFocus"]
+        if out.get("periodPhase"):
+            rec["periodPhase"] = out["periodPhase"]
+            rec["periodLabel"] = PERIOD_PHASE_LABELS.get(out["periodPhase"], out["periodPhase"])
+        if out.get("intensityTarget"):
+            rec["intensityTarget"] = out["intensityTarget"]
+            rec["intensityLabel"] = intensity_label_from_load(rec.get("load"), out["intensityTarget"])
+    elif from_planner:
         out["mainFocus"] = rec["mainFocus"]
         out["secondaryFocus"] = rec["secondaryFocus"]
         out["periodPhase"] = rec["periodPhase"]

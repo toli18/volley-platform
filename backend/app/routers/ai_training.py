@@ -43,6 +43,9 @@ class GenerateRequest(BaseModel):
     cycleDay: Optional[int] = None
     textbookSlug: Optional[str] = None
     sessionCode: Optional[str] = None
+    # От AI помощника: не презаписвай фокуса с дневния конспект на БФВ.
+    assistantOverride: bool = False
+    lockFocusFromAssistant: bool = False
 
 
 class GenerateAndSaveRequest(GenerateRequest):

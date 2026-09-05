@@ -934,21 +934,113 @@ export default function AIGenerator() {
             date: programLink.sessionDate || undefined,
             programTheme: programLink.dayTheme || undefined,
           }}
-          onRequestGenerate={(hintText) => {
-            const low = String(hintText || "").toLowerCase();
-            let mainFocus = form.mainFocus || "Посрещане";
-            if (low.includes("отскок") || low.includes("скач")) mainFocus = "Координация";
-            else if (low.includes("зон") || low.includes("посрещ") || low.includes("прием")) mainFocus = "Посрещане";
-            else if (low.includes("атак")) mainFocus = "Атака";
-            else if (low.includes("блок")) mainFocus = "Блок";
-            else if (low.includes("сервис") || low.includes("начален")) mainFocus = "Сервис";
-            const patch = { mainFocus };
-            if (low.includes("мач") || low.includes("утре")) {
-              patch.periodPhase = "taper";
-              patch.intensityTarget = "low";
+          onRequestGenerate={(req) => {
+            const fromChat =
+              req && typeof req === "object" && !Array.isArray(req) ? req.generateParams || {} : {};
+            const hint = String(
+              (typeof req === "string" ? req : req?.userMessage || req?.hintText) || ""
+            ).toLowerCase();
+
+            let mainFocus = fromChat.mainFocus || form.mainFocus || "Посрещане";
+            let secondaryFocus = fromChat.secondaryFocus || form.secondaryFocus || "";
+            let orientation = fromChat.orientation || form.orientation || "balanced";
+            let periodPhase = fromChat.periodPhase || form.periodPhase;
+            let intensityTarget = fromChat.intensityTarget || form.intensityTarget;
+
+            if (!fromChat.mainFocus) {
+              if (hint.includes("отскок") || hint.includes("скач") || hint.includes("сил")) {
+                mainFocus = "Координация";
+                orientation = "physical";
+                secondaryFocus = secondaryFocus || "Атака";
+              } else if (hint.includes("зон") || hint.includes("посрещ") || hint.includes("прием")) {
+                mainFocus = "Посрещане";
+                orientation = "serve_receive";
+              } else if (hint.includes("атак")) {
+                mainFocus = "Атака";
+                orientation = "attack_block";
+              } else if (hint.includes("блок")) {
+                mainFocus = "Блок";
+                orientation = "attack_block";
+              } else if (hint.includes("сервис") || hint.includes("начален")) {
+                mainFocus = "Сервис";
+                orientation = "serve_receive";
+              }
             }
-            setForm((prev) => ({ ...prev, ...patch }));
-            onGenerate(patch);
+            if (!fromChat.periodPhase && (hint.includes("мач") || hint.includes("утре"))) {
+              periodPhase = "taper";
+              intensityTarget = "low";
+            }
+
+            const ageBand = fromChat.ageBand || cycleParams.ageBand || undefined;
+            const age =
+              fromChat.age != null
+                ? Number(fromChat.age)
+                : ageBand && AGE_BAND_TO_YEARS[ageBand]
+                  ? AGE_BAND_TO_YEARS[ageBand]
+                  : Number(form.age);
+
+            const domainsFor = (ori) => {
+              if (ori === "serve_receive")
+                return chooseByKeywords(options.domains, ["прием", "посрещ", "service", "serve"], 3);
+              if (ori === "attack_block")
+                return chooseByKeywords(options.domains, ["атака", "attack", "блок", "block"], 3);
+              if (ori === "defense_transition")
+                return chooseByKeywords(options.domains, ["защ", "defense", "dig", "transition"], 3);
+              if (ori === "game_tactics")
+                return chooseByKeywords(options.domains, ["тактик", "system", "rotation", "игра"], 3);
+              if (ori === "physical")
+                return chooseByKeywords(options.domains, ["физ", "conditioning", "speed", "jump", "сил"], 3);
+              return options.domains.slice(0, Math.min(3, options.domains.length));
+            };
+            const phasesFor = (ori) => {
+              if (ori === "serve_receive") return chooseByKeywords(options.phases, ["k1", "sideout", "receive"], 2);
+              if (ori === "attack_block") return chooseByKeywords(options.phases, ["k2", "transition", "block"], 2);
+              if (ori === "defense_transition")
+                return chooseByKeywords(options.phases, ["k2", "transition", "counter"], 2);
+              if (ori === "game_tactics") return chooseByKeywords(options.phases, ["k1", "k2", "rally", "game"], 3);
+              if (ori === "physical") return chooseByKeywords(options.phases, ["transition", "rally"], 1);
+              return options.phases.slice(0, Math.min(2, options.phases.length));
+            };
+
+            const formPatch = {
+              mainFocus,
+              secondaryFocus,
+              orientation,
+              periodPhase,
+              intensityTarget,
+              age,
+              ...(fromChat.durationTotalMin
+                ? { durationTotalMin: Number(fromChat.durationTotalMin) }
+                : {}),
+              ...(fromChat.trainingTitle ? { trainingTitle: String(fromChat.trainingTitle) } : {}),
+            };
+
+            setForm((prev) => ({ ...prev, ...formPatch }));
+            setCycleParams((prev) => ({
+              ...prev,
+              ageBand: ageBand || prev.ageBand,
+              // махаме дневния конспект, иначе BVF презаписва фокуса
+              cycleId: null,
+              cycleWeek: null,
+              cycleDay: null,
+              textbookSlug: "",
+              sessionCode: "",
+            }));
+            setBvfMethodHint(null);
+
+            onGenerate({
+              ...formPatch,
+              focusSkills: [mainFocus, secondaryFocus].filter(Boolean),
+              focusDomains: domainsFor(orientation),
+              focusGamePhases: phasesFor(orientation),
+              ageBand: ageBand || undefined,
+              assistantOverride: true,
+              cycleId: null,
+              cycleWeek: null,
+              cycleDay: null,
+              textbookSlug: "",
+              sessionCode: "",
+            });
           }}
         />
       ) : null}

@@ -112,7 +112,13 @@ export default function CoachAssistantChat({
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => onRequestGenerate?.(m.content)}
+                  onClick={() =>
+                    onRequestGenerate?.({
+                      hintText: m.content,
+                      userMessage: m.meta?.generateParams?.sourceMessage || "",
+                      generateParams: m.meta?.generateParams || {},
+                    })
+                  }
                   disabled={busy}
                 >
                   Генерирай тренировка сега
