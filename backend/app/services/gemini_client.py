@@ -17,6 +17,14 @@ _ENV_CANDIDATES = (
     Path(__file__).resolve().parents[3] / ".env.gemini",  # repo root
 )
 
+# Ако GEMINI_MODEL е грешен/остарял — опитваме тези по ред
+_MODEL_FALLBACKS = (
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-flash-latest",
+    "gemini-1.5-flash",
+)
+
 
 def _load_env_file() -> dict[str, str]:
     out: dict[str, str] = {}
@@ -44,7 +52,7 @@ def gemini_config() -> tuple[Optional[str], str]:
     model = (
         os.getenv("GEMINI_MODEL")
         or file_env.get("GEMINI_MODEL")
-        or "gemini-3.6-flash"
+        or "gemini-2.5-flash"
     )
     return (key.strip() if key else None), model.strip()
 
@@ -52,6 +60,64 @@ def gemini_config() -> tuple[Optional[str], str]:
 def gemini_available() -> bool:
     key, _ = gemini_config()
     return bool(key)
+
+
+def _model_candidates(primary: str) -> list[str]:
+    out: list[str] = []
+    for m in (primary, *_MODEL_FALLBACKS):
+        if m and m not in out:
+            out.append(m)
+    return out
+
+
+def _call_gemini(
+    *,
+    key: str,
+    model: str,
+    prompt: str,
+    system: str | None,
+    temperature: float,
+    timeout_s: float,
+) -> dict[str, Any]:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    if system:
+        payload: dict[str, Any] = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": 900,
+            },
+        }
+    else:
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": 900,
+            },
+        }
+
+    with httpx.Client(timeout=timeout_s) as client:
+        resp = client.post(url, params={"key": key}, json=payload)
+    if resp.status_code >= 400:
+        logger.warning("gemini_http_%s model=%s: %s", resp.status_code, model, resp.text[:300])
+        return {
+            "ok": False,
+            "text": "",
+            "model": model,
+            "error": f"http_{resp.status_code}",
+            "detail": resp.text[:500],
+        }
+    data = resp.json()
+    parts = (
+        ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts")
+        or []
+    )
+    text = "".join(str(p.get("text") or "") for p in parts).strip()
+    if not text:
+        return {"ok": False, "text": "", "model": model, "error": "empty_response"}
+    return {"ok": True, "text": text, "model": model}
 
 
 def generate_text(
@@ -62,46 +128,39 @@ def generate_text(
     timeout_s: float = 60.0,
 ) -> dict[str, Any]:
     """Връща {ok, text, model, error?}."""
-    key, model = gemini_config()
+    key, primary = gemini_config()
     if not key:
-        return {"ok": False, "text": "", "model": model, "error": "missing_api_key"}
+        return {"ok": False, "text": "", "model": primary, "error": "missing_api_key"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    contents: list[dict[str, Any]] = []
-    if system:
-        # systemInstruction е поддържан от generateContent
-        payload: dict[str, Any] = {
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature},
-        }
-    else:
-        payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature},
-        }
-
-    try:
-        with httpx.Client(timeout=timeout_s) as client:
-            resp = client.post(url, params={"key": key}, json=payload)
-        if resp.status_code >= 400:
-            logger.warning("gemini_http_%s: %s", resp.status_code, resp.text[:300])
-            return {
-                "ok": False,
-                "text": "",
-                "model": model,
-                "error": f"http_{resp.status_code}",
-                "detail": resp.text[:500],
-            }
-        data = resp.json()
-        parts = (
-            ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts")
-            or []
-        )
-        text = "".join(str(p.get("text") or "") for p in parts).strip()
-        if not text:
-            return {"ok": False, "text": "", "model": model, "error": "empty_response"}
-        return {"ok": True, "text": text, "model": model}
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("gemini_call_failed")
-        return {"ok": False, "text": "", "model": model, "error": str(exc)}
+    last: dict[str, Any] = {
+        "ok": False,
+        "text": "",
+        "model": primary,
+        "error": "no_attempt",
+    }
+    for model in _model_candidates(primary):
+        try:
+            last = _call_gemini(
+                key=key,
+                model=model,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                timeout_s=timeout_s,
+            )
+            if last.get("ok"):
+                if model != primary:
+                    logger.info("gemini_fallback_ok primary=%s used=%s", primary, model)
+                return last
+            # 404/400 model not found → try next; other errors also try next once
+            err = str(last.get("error") or "")
+            if err.startswith("http_404") or err.startswith("http_400") or err == "empty_response":
+                continue
+            # rate limit / auth — don't spin forever
+            if err.startswith("http_429") or err.startswith("http_403"):
+                return last
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("gemini_call_failed model=%s", model)
+            last = {"ok": False, "text": "", "model": model, "error": str(exc)}
+            continue
+    return last
