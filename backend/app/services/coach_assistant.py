@@ -392,6 +392,26 @@ def _strip_service_markers(reply: str) -> str:
     return clean.strip()
 
 
+def _repair_truncated_reply(reply: str) -> str:
+    """Почиства очевидно срязан край (markdown / полудума)."""
+    text = (reply or "").rstrip()
+    if not text:
+        return text
+    # Срязан bold/list край: "* **К" / "**Крач" и т.н.
+    text = re.sub(r"(?:\n|^)\s*[\*\-]\s*\*\*[^*\n]{0,40}$", "", text).rstrip()
+    text = re.sub(r"\*\*[^*\n]{0,24}$", "", text).rstrip()
+    # Отворен markdown bold без затваряне
+    if text.count("**") % 2 == 1:
+        text = text.rsplit("**", 1)[0].rstrip()
+    # Ако завършва с двоеточие/„ето какво“ без съдържание — махни последния ред
+    lines = text.splitlines()
+    if lines:
+        last = lines[-1].strip()
+        if last.endswith(":") or re.search(r"кажи(ш)? на корта:?\s*$", last, re.I):
+            text = "\n".join(lines[:-1]).rstrip()
+    return text.strip()
+
+
 def _session_live_drill_cues(card: dict[str, Any]) -> str:
     title = str(card.get("title") or "упражнението")
     desc = str(card.get("description") or "").strip()
@@ -701,6 +721,7 @@ def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bo
 Стил:
 - 4–8 изречения. Можеш кратък списък, но не задължително 1) 2) 3) всеки път.
 - Дай конкретно КАКВО да каже на играчите (1–2 cues) и КАКВО да гледа.
+- Винаги ЗАВЪРШВАЙ отговора — без срязан край и без празен „Ето какво да кажеш:“.
 - Без генериране на цяла нова тренировка, освен при изрична молба.
 Не казвай „тапер“. Ползвай: посрещане, разпределител, сервиращи, облекчена.
 
@@ -814,18 +835,27 @@ def build_reply(
             prompt,
             system=_system_prompt(effective_age, extra_context, session_live=session_live),
             temperature=0.55 if session_live else 0.35,
+            max_output_tokens=4096 if session_live else 2048,
         )
         if result.get("ok") and result.get("text"):
             reply = str(result["text"]).strip()
             provider = f"gemini:{result.get('model')}"
+            if result.get("continued"):
+                provider += "+cont"
         elif session_live:
             # Втори опит с по-кратък system — често спасява при странен model/prompt
             short_system = (
                 "Български волейболен треньор на терена. Отговори директно и човешки на въпроса. "
-                "Ползвай контекста по-долу само като фон. Не питай кое упражнение, ако въпросът е ясен.\n\n"
+                "Ползвай контекста по-долу само като фон. Не питай кое упражнение, ако въпросът е ясен. "
+                "Държи отговора завършен — без срязан край.\n\n"
                 f"{extra_context[:3500]}"
             )
-            retry = generate_text(prompt, system=short_system, temperature=0.6)
+            retry = generate_text(
+                prompt,
+                system=short_system,
+                temperature=0.6,
+                max_output_tokens=4096,
+            )
             if retry.get("ok") and retry.get("text"):
                 reply = str(retry["text"]).strip()
                 provider = f"gemini_retry:{retry.get('model')}"
@@ -938,6 +968,8 @@ def build_reply(
         generate_params["cycleId"] = None
 
     clean = _strip_service_markers(reply)
+    if session_live:
+        clean = _repair_truncated_reply(clean)
 
     return {
         "reply": clean or reply,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -78,24 +79,23 @@ def _call_gemini(
     system: str | None,
     temperature: float,
     timeout_s: float,
+    max_output_tokens: int,
 ) -> dict[str, Any]:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    gen_cfg: dict[str, Any] = {
+        "temperature": temperature,
+        "maxOutputTokens": max_output_tokens,
+    }
     if system:
         payload: dict[str, Any] = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": 900,
-            },
+            "generationConfig": gen_cfg,
         }
     else:
         payload = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": 900,
-            },
+            "generationConfig": gen_cfg,
         }
 
     with httpx.Client(timeout=timeout_s) as client:
@@ -110,14 +110,48 @@ def _call_gemini(
             "detail": resp.text[:500],
         }
     data = resp.json()
-    parts = (
-        ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts")
-        or []
-    )
-    text = "".join(str(p.get("text") or "") for p in parts).strip()
+    cand = (data.get("candidates") or [{}])[0]
+    parts = ((cand.get("content") or {}).get("parts") or [])
+    # Thinking models may return thought parts — keep only visible text
+    texts: list[str] = []
+    for p in parts:
+        if not isinstance(p, dict):
+            continue
+        if p.get("thought"):
+            continue
+        t = str(p.get("text") or "").strip()
+        if t:
+            texts.append(t)
+    text = "\n".join(texts).strip()
+    finish = str(cand.get("finishReason") or "")
     if not text:
-        return {"ok": False, "text": "", "model": model, "error": "empty_response"}
-    return {"ok": True, "text": text, "model": model}
+        return {
+            "ok": False,
+            "text": "",
+            "model": model,
+            "error": "empty_response",
+            "finishReason": finish,
+        }
+    return {
+        "ok": True,
+        "text": text,
+        "model": model,
+        "finishReason": finish,
+        "truncated": finish.upper() in {"MAX_TOKENS", "LENGTH"},
+    }
+
+
+def looks_truncated(text: str) -> bool:
+    t = (text or "").rstrip()
+    if not t:
+        return False
+    if re.search(r"\*\*[^*\n]{0,30}$", t):
+        return True
+    if re.search(r"(?i)(кажи(ш)? на корта|ето какво|cue\s*:)\s*$", t):
+        return True
+    if t.endswith(("—", "-", "–", ":", "*", "„", '"')):
+        return True
+    return False
 
 
 def generate_text(
@@ -126,8 +160,10 @@ def generate_text(
     system: str | None = None,
     temperature: float = 0.4,
     timeout_s: float = 60.0,
+    max_output_tokens: int = 2048,
+    continue_if_truncated: bool = True,
 ) -> dict[str, Any]:
-    """Връща {ok, text, model, error?}."""
+    """Връща {ok, text, model, error?, truncated?}."""
     key, primary = gemini_config()
     if not key:
         return {"ok": False, "text": "", "model": primary, "error": "missing_api_key"}
@@ -147,16 +183,41 @@ def generate_text(
                 system=system,
                 temperature=temperature,
                 timeout_s=timeout_s,
+                max_output_tokens=max_output_tokens,
             )
             if last.get("ok"):
                 if model != primary:
                     logger.info("gemini_fallback_ok primary=%s used=%s", primary, model)
+                truncated = bool(last.get("truncated")) or looks_truncated(str(last.get("text") or ""))
+                if continue_if_truncated and truncated and last.get("text"):
+                    cont_prompt = (
+                        "Продължи СЪЩИЯ отговор откъдето спря, без да повтаряш написаното. "
+                        "Завърши cues/стъпките на български, максимум 6 изречения.\n\n"
+                        f"Досега:\n{last['text'][-1200:]}"
+                    )
+                    cont = _call_gemini(
+                        key=key,
+                        model=model,
+                        prompt=cont_prompt,
+                        system=system,
+                        temperature=min(temperature, 0.4),
+                        timeout_s=timeout_s,
+                        max_output_tokens=max(1024, max_output_tokens // 2),
+                    )
+                    if cont.get("ok") and cont.get("text"):
+                        last["text"] = (
+                            str(last["text"]).rstrip()
+                            + "\n"
+                            + str(cont["text"]).strip()
+                        )
+                        last["truncated"] = bool(cont.get("truncated")) or looks_truncated(
+                            str(last["text"])
+                        )
+                        last["continued"] = True
                 return last
-            # 404/400 model not found → try next; other errors also try next once
             err = str(last.get("error") or "")
             if err.startswith("http_404") or err.startswith("http_400") or err == "empty_response":
                 continue
-            # rate limit / auth — don't spin forever
             if err.startswith("http_429") or err.startswith("http_403"):
                 return last
         except Exception as exc:  # noqa: BLE001
