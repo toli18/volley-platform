@@ -870,16 +870,31 @@ export default function AIGenerator() {
   };
 
   const resolveDayTarget = () => {
-    // Приоритет: URL (отворен ден) > programLink > soft defaults от асистента
+    // Датата за ЗАПИС е само изрично избрана (URL или ръчен picker), не „днес“ от асистента.
+    // Контекстът (програма/мачове) идва от избраната тренировъчна група.
     const urlTeam = Number(searchParams.get("team_id") || "") || null;
     const urlDate = (searchParams.get("date") || "").trim() || null;
     const teamId = urlTeam || programLink.teamId || assistPlatCtx?.activeTeam?.id || null;
-    const sessionDate =
-      urlDate ||
-      programLink.sessionDate ||
-      assistPlatCtx?.generateDefaults?.sessionDate ||
-      null;
+    const sessionDate = urlDate || programLink.sessionDate || null;
     return { teamId, sessionDate, pinnedFromUrl: Boolean(urlDate || urlTeam) };
+  };
+
+  const setSaveDate = (iso) => {
+    const next = String(iso || "").trim();
+    setProgramLink((prev) => ({ ...prev, sessionDate: next }));
+    setSavedTraining(null);
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next) p.set("date", next);
+        else p.delete("date");
+        const team =
+          programLink.teamId || assistPlatCtx?.activeTeam?.id || searchParams.get("team_id");
+        if (team) p.set("team_id", String(team));
+        return p;
+      },
+      { replace: true }
+    );
   };
 
   const onGenerateAndSave = async (overrides = null) => {
@@ -1031,23 +1046,22 @@ export default function AIGenerator() {
         </div>
       ) : null}
 
-      {generateIntent || programLink.sessionDate || form.mainFocus || searchParams.get("date") ? (
+      {generateIntent || programLink.teamId || form.mainFocus || searchParams.get("date") ? (
         <div className="aiGenIntentBanner" role="status">
-          <strong>Генерирам за:</strong>
+          <strong>Контекст:</strong>
           <span>
             {[
-              generateIntent?.teamName || assistPlatCtx?.activeTeam?.name,
+              generateIntent?.teamName || assistPlatCtx?.activeTeam?.name
+                ? `група ${generateIntent?.teamName || assistPlatCtx?.activeTeam?.name}`
+                : null,
               generateIntent?.ageBand || cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand,
               generateIntent?.mainFocus || form.mainFocus,
               generateIntent?.secondaryFocus || form.secondaryFocus
                 ? `+ ${generateIntent?.secondaryFocus || form.secondaryFocus}`
                 : null,
               (() => {
-                const d =
-                  generateIntent?.sessionDate ||
-                  searchParams.get("date") ||
-                  programLink.sessionDate;
-                return d ? `дата ${d}` : null;
+                const d = searchParams.get("date") || programLink.sessionDate;
+                return d ? `запис за ${d}` : "датата се избира при запазване";
               })(),
               (generateIntent?.proposedCount || 0) > 0
                 ? `${generateIntent.proposedCount} предложени упр.`
@@ -1061,7 +1075,7 @@ export default function AIGenerator() {
 
       {programLink.sessionDate || searchParams.get("date") ? (
         <div className="aiGenBvfBanner" role="note">
-          <strong>Тема за деня (от програмната седмица)</strong>
+          <strong>Избрана дата за запис</strong>
           <span>
             {programLink.dayTheme ? (
               <>
@@ -1075,9 +1089,8 @@ export default function AIGenerator() {
                 <br />
               </>
             ) : null}
-            След запис тренировката се закача към отбора за{" "}
-            {searchParams.get("date") || programLink.sessionDate} и ще се появи в
-            „Моята програмна седмица" с бутон „Продължи с тренировката".
+            След „Запази“ тренировката се закача към групата за{" "}
+            {searchParams.get("date") || programLink.sessionDate} (присъствие / програмна седмица).
           </span>
         </div>
       ) : null}
@@ -1132,11 +1145,7 @@ export default function AIGenerator() {
         <CoachAssistantChat
           ageBand={cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand || undefined}
           context={{
-            date:
-              programLink.sessionDate ||
-              searchParams.get("date") ||
-              assistPlatCtx?.program?.today?.date ||
-              undefined,
+            date: (searchParams.get("date") || "").trim() || programLink.sessionDate || undefined,
             programTheme:
               programLink.dayTheme ||
               assistPlatCtx?.program?.today?.theme ||
@@ -1150,31 +1159,6 @@ export default function AIGenerator() {
             teamName: assistPlatCtx?.activeTeam?.name || undefined,
             daysUntilMatch: assistPlatCtx?.calendar?.nextMatch?.daysUntilMatch,
           }}
-          sessionDate={
-            (searchParams.get("date") || "").trim() ||
-            programLink.sessionDate ||
-            assistPlatCtx?.generateDefaults?.sessionDate ||
-            ""
-          }
-          onSessionDateChange={(iso) => {
-            const next = String(iso || "").trim();
-            setProgramLink((prev) => ({ ...prev, sessionDate: next }));
-            setSavedTraining(null);
-            setSearchParams(
-              (prev) => {
-                const p = new URLSearchParams(prev);
-                if (next) p.set("date", next);
-                else p.delete("date");
-                const team =
-                  programLink.teamId ||
-                  assistPlatCtx?.activeTeam?.id ||
-                  searchParams.get("team_id");
-                if (team) p.set("team_id", String(team));
-                return p;
-              },
-              { replace: true }
-            );
-          }}
           onPlatformContext={(ctx) => {
             setAssistPlatCtx(ctx || null);
             const active = ctx?.activeTeam;
@@ -1183,12 +1167,12 @@ export default function AIGenerator() {
             const urlDate = (searchParams.get("date") || "").trim() || "";
             const urlTitle = (searchParams.get("title") || "").trim() || "";
             const urlHasFocus = Boolean((searchParams.get("focus") || "").trim());
-            if (active?.id || urlTeam || urlDate) {
+            if (active?.id || urlTeam) {
               setProgramLink((prev) => ({
                 ...prev,
                 teamId: urlTeam || prev.teamId || (active?.id ? Number(active.id) : null),
-                // URL date always wins — assistant must not clobber with Mon fallback
-                sessionDate: urlDate || prev.sessionDate || defaults.sessionDate || "",
+                // Не пълни sessionDate от „днес“ на асистента — датата е само при запис / URL
+                sessionDate: urlDate || prev.sessionDate || "",
                 dayTheme: urlTitle || prev.dayTheme || defaults.programTheme || "",
                 dayFocus:
                   urlHasFocus && (prev.dayFocus || []).length
@@ -1359,11 +1343,8 @@ export default function AIGenerator() {
             const patchTeamId =
               Number(fromChat.teamId || dayTarget.teamId || assistPlatCtx?.activeTeam?.id || 0) ||
               undefined;
-            const patchDate =
-              fromChat.sessionDate ||
-              dayTarget.sessionDate ||
-              assistPlatCtx?.generateDefaults?.sessionDate ||
-              undefined;
+            // Дата само ако потребителят вече я е избрал (URL/picker) — не от generateDefaults
+            const patchDate = fromChat.sessionDate || dayTarget.sessionDate || undefined;
             const proposed = Array.isArray(fromChat.proposedExercises)
               ? fromChat.proposedExercises
               : [];
@@ -1385,7 +1366,7 @@ export default function AIGenerator() {
               sessionDate: patchDate,
               trainingTitle:
                 fromChat.trainingTitle ||
-                [ageBand, mainFocus, patchDate].filter(Boolean).join(" · "),
+                [ageBand, mainFocus].filter(Boolean).join(" · "),
             };
 
             setGenerateIntent({
@@ -1508,7 +1489,7 @@ export default function AIGenerator() {
             </>
           ) : (
             <>
-              <span>Планът е готов — прегледай и коригирай, после запази.</span>
+              <span>Планът е готов — прегледай, избери дата и запази към групата.</span>
               <div className="coachAssistPlanReadyActions">
                 <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => setActiveTab("plan")}>
                   Към плана
@@ -1530,25 +1511,11 @@ export default function AIGenerator() {
           <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
             {showSave ? (
               <label className="aiGenStickyDate">
-                <span>Дата</span>
+                <span>Дата за запис</span>
                 <input
                   type="date"
                   value={day.sessionDate || ""}
-                  onChange={(e) => {
-                    const next = e.target.value || "";
-                    setProgramLink((prev) => ({ ...prev, sessionDate: next }));
-                    setSavedTraining(null);
-                    setSearchParams(
-                      (prev) => {
-                        const p = new URLSearchParams(prev);
-                        if (next) p.set("date", next);
-                        else p.delete("date");
-                        if (day.teamId) p.set("team_id", String(day.teamId));
-                        return p;
-                      },
-                      { replace: true }
-                    );
-                  }}
+                  onChange={(e) => setSaveDate(e.target.value || "")}
                 />
               </label>
             ) : null}
@@ -1570,6 +1537,10 @@ export default function AIGenerator() {
                 type="button"
                 className="aiGenBtn aiGenBtn--save"
                 onClick={() => {
+                  if (!day.sessionDate) {
+                    setErr("Избери дата за запис (към тренировъчната група), после запази.");
+                    return;
+                  }
                   if (!form.trainingTitle?.trim() && !(day.teamId && day.sessionDate)) {
                     setActiveTab("save");
                     setErr("Моля, въведете име на тренировката преди запис.");
@@ -1581,9 +1552,9 @@ export default function AIGenerator() {
               >
                 {saving
                   ? "Запис..."
-                  : day.teamId && day.sessionDate
+                  : day.sessionDate
                     ? `Запази за ${day.sessionDate}`
-                    : "Запази тренировката"}
+                    : "Избери дата и запази"}
               </button>
             ) : null}
           </div>

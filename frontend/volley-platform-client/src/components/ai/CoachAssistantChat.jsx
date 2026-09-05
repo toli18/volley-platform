@@ -18,14 +18,12 @@ export default function CoachAssistantChat({
   onRequestGenerate,
   onPlatformContext,
   context = {},
-  sessionDate = "",
-  onSessionDateChange,
 }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
       content:
-        "Здравей! Аз съм треньорският помощник. Избери отбор и дата, питай за мач/техника — после генерирай план, прегледай го и чак тогава го запази.",
+        "Здравей! Избери тренировъчна група — ползвам нейната програма и календар (мачове). Генерирай преглед, коригирай, и чак тогава избери дата за запис.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -79,8 +77,7 @@ export default function CoachAssistantChat({
       try {
         const params = new URLSearchParams();
         if (teamId) params.set("team_id", String(teamId));
-        const pinned = String(sessionDate || context?.date || "").trim();
-        if (pinned) params.set("for_date", pinned);
+        // Без for_date — контекстът е за групата „днес“ (програма + мачове), не за предварителен запис
         const qs = params.toString() ? `?${params.toString()}` : "";
         const data = await apiClient(`${API_PATHS.AI_COACH_ASSISTANT_CONTEXT}${qs}`);
         if (cancelled) return;
@@ -102,7 +99,7 @@ export default function CoachAssistantChat({
     return () => {
       cancelled = true;
     };
-  }, [teamId, sessionDate, context?.date]);
+  }, [teamId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -134,7 +131,6 @@ export default function CoachAssistantChat({
         .slice(-6)
         .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
       const active = platCtx?.activeTeam;
-      const pinnedDate = String(sessionDate || context?.date || "").trim() || undefined;
       const data = await apiClient(API_PATHS.AI_COACH_ASSISTANT_CHAT, {
         method: "POST",
         data: {
@@ -150,7 +146,8 @@ export default function CoachAssistantChat({
               context?.programTheme ||
               platCtx?.program?.today?.theme ||
               platCtx?.program?.weekTheme,
-            date: pinnedDate || platCtx?.program?.today?.date || undefined,
+            // дата за чат контекст = днес/програма, не задължителен ден за запис
+            date: platCtx?.program?.today?.date || context?.date || undefined,
           },
           history,
         },
@@ -180,6 +177,7 @@ export default function CoachAssistantChat({
 
   const facts = platCtx?.knownFacts || [];
   const teams = platCtx?.teams || [];
+  const nextMatch = platCtx?.calendar?.nextMatch;
 
   return (
     <div className="aiGenPanel coachAssistChat">
@@ -191,13 +189,13 @@ export default function CoachAssistantChat({
 
       <div className="coachAssistTeamBar">
         <label className="coachAssistTeamLabel">
-          Отбор:
+          Тренировъчна група:
           <select
             value={teamId || ""}
             onChange={(e) => onTeamChange(e.target.value)}
             disabled={busy || teams.length === 0}
           >
-            {teams.length === 0 ? <option value="">Няма активни отбори</option> : null}
+            {teams.length === 0 ? <option value="">Няма активни групи</option> : null}
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -205,16 +203,6 @@ export default function CoachAssistantChat({
               </option>
             ))}
           </select>
-        </label>
-        <label className="coachAssistTeamLabel">
-          Дата:
-          <input
-            type="date"
-            className="coachAssistDateInput"
-            value={sessionDate || ""}
-            onChange={(e) => onSessionDateChange?.(e.target.value || "")}
-            disabled={busy}
-          />
         </label>
         {facts.length ? (
           <div className="coachAssistFacts" title={facts.join(" · ")}>
@@ -226,6 +214,40 @@ export default function CoachAssistantChat({
           </div>
         ) : null}
       </div>
+
+      <p className="coachAssistScopeNote">
+        Картотеките се разпознават по <strong>общи спортисти</strong> в групата — техните мачове
+        влизат в контекста. Дата за запис избираш след преглед на плана.
+      </p>
+
+      {nextMatch?.date ? (
+        <div className="coachAssistMatchHint" role="note">
+          Следващ мач
+          {nextMatch.source === "card_index"
+            ? ` (картотека${nextMatch.cardIndexLabel ? `: ${nextMatch.cardIndexLabel}` : ""}${
+                nextMatch.overlapAthletes ? `, ${nextMatch.overlapAthletes} общи` : ""
+              })`
+            : " (група)"}
+          : <strong>{nextMatch.date}</strong>
+          {nextMatch.opponent ? ` vs ${nextMatch.opponent}` : ""}
+          {nextMatch.daysUntilMatch != null ? ` · след ${nextMatch.daysUntilMatch} дн.` : ""}
+        </div>
+      ) : null}
+
+      {(platCtx?.calendar?.relatedCardIndexes || []).length > 0 ? (
+        <div className="coachAssistCardLinks" role="note">
+          В тази група има спортисти от:{" "}
+          {(platCtx.calendar.relatedCardIndexes || [])
+            .slice(0, 4)
+            .map((c) => {
+              const ov = c.overlapAthletes;
+              const base = c.label || `#${c.id}`;
+              if (c.linkKind === "roster_overlap" && ov) return `${base} (${ov} общи)`;
+              return `${base} (резерва)`;
+            })
+            .join(" · ")}
+        </div>
+      ) : null}
 
       <div className="coachAssistSuggestions" aria-label="Бързи въпроси">
         {SUGGESTIONS.map((s) => (
@@ -254,8 +276,9 @@ export default function CoachAssistantChat({
                       generateParams: {
                         ...(platCtx?.generateDefaults || {}),
                         ...(m.meta?.generateParams || {}),
-                        ...(sessionDate ? { sessionDate } : {}),
                         ...(teamId ? { teamId } : {}),
+                        // не подавай sessionDate от defaults — датата е при запис
+                        sessionDate: undefined,
                       },
                     })
                   }
@@ -267,8 +290,7 @@ export default function CoachAssistantChat({
                     : "Генерирай преглед"}
                 </Button>
                 <div className="coachAssistGenHint">
-                  Само преглед — после коригирай в „План“ и натисни „Запази“
-                  {sessionDate ? ` за ${sessionDate}` : ""}.
+                  Само преглед. Датата за запис към групата избираш след корекции в „План“.
                 </div>
               </div>
             ) : null}

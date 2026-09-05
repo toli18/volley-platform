@@ -5,14 +5,18 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
+    BvfCardIndex,
+    BvfCardIndexMember,
     ClubCompetitionEvent,
     ClubCycleInstance,
     MethodCycle,
     MethodicalIndexSnapshot,
     Team,
+    TeamMember,
     User,
     UserRole,
 )
@@ -129,36 +133,306 @@ def ensure_team_annual_program(
     return row
 
 
+def _team_sex_code(team: Team) -> Optional[int]:
+    g = str(team.gender or "").strip().lower()
+    if g in {"female", "f", "w", "women", "1"}:
+        return 1
+    if g in {"male", "m", "men", "0"}:
+        return 0
+    name = str(team.name or "").lower()
+    if any(x in name for x in ("девой", "момич", "жен", "момичета")):
+        return 1
+    if any(x in name for x in ("момч", "мъж", "юнош", "момчета")):
+        return 0
+    return None
+
+
+def _team_age_numbers(team: Team) -> set[int]:
+    """Извлечи възрастови кодове (12/13/14/16/18…) от age_group и име."""
+    import re
+
+    found: set[int] = set()
+    blob = f"{team.age_group or ''} {team.name or ''}"
+    for m in re.finditer(r"(?:u|под|до)?\s*(\d{2})", blob, flags=re.IGNORECASE):
+        n = int(m.group(1))
+        if 10 <= n <= 21:
+            found.add(n)
+    band = resolve_annual_program_band(team.age_group)
+    if band in _BAND_YEARS:
+        found.add(int(_BAND_YEARS[band]))
+    return found
+
+
+def _season_years_for(today: date) -> set[int]:
+    start = default_season_start(today)
+    return {start.year, today.year, today.year - 1}
+
+
+def _card_index_label(ci: BvfCardIndex) -> str:
+    label = ci.age_group or f"Под {ci.age}"
+    sex_label = "жени" if int(ci.sex) == 1 else "мъже"
+    return f"{label} · {sex_label} · {ci.year}"
+
+
+def related_card_indexes_for_team(
+    db: Session, team: Team, *, today: Optional[date] = None, limit: int = 6
+) -> list[dict[str, Any]]:
+    """Връзка група ↔ картотеки: първо общи спортисти, после резервна евристика.
+
+    Основно правило: спортисти от тренировъчната група, които са и в картотека C →
+    групата „познава“ мачовете на C.
+    """
+    today = today or date.today()
+    if not team.club_id:
+        return []
+
+    years = _season_years_for(today)
+    member_ids = {
+        int(r[0])
+        for r in db.query(TeamMember.athlete_id)
+        .filter(TeamMember.team_id == int(team.id), TeamMember.is_active.is_(True))
+        .all()
+        if r[0]
+    }
+
+    out: list[dict[str, Any]] = []
+    seen_ids: set[int] = set()
+
+    # --- 1) Основен сигнал: застъпване на състав ---
+    if member_ids:
+        overlap_rows = (
+            db.query(
+                BvfCardIndexMember.card_index_id,
+                func.count(BvfCardIndexMember.athlete_id).label("overlap"),
+            )
+            .join(BvfCardIndex, BvfCardIndex.id == BvfCardIndexMember.card_index_id)
+            .filter(
+                BvfCardIndexMember.athlete_id.in_(list(member_ids)),
+                BvfCardIndex.club_id == int(team.club_id),
+                BvfCardIndex.year.in_(list(years)),
+            )
+            .group_by(BvfCardIndexMember.card_index_id)
+            .all()
+        )
+        # Праг: ≥1 общ спортист; сортирай по overlap
+        overlap_rows = sorted(overlap_rows, key=lambda r: (-int(r.overlap), int(r.card_index_id)))
+        ci_ids = [int(r.card_index_id) for r in overlap_rows if int(r.overlap) >= 1]
+        if ci_ids:
+            cis = {
+                int(c.id): c
+                for c in db.query(BvfCardIndex).filter(BvfCardIndex.id.in_(ci_ids)).all()
+            }
+            roster_sizes = {
+                int(r[0]): int(r[1])
+                for r in (
+                    db.query(BvfCardIndexMember.card_index_id, func.count(BvfCardIndexMember.id))
+                    .filter(BvfCardIndexMember.card_index_id.in_(ci_ids))
+                    .group_by(BvfCardIndexMember.card_index_id)
+                    .all()
+                )
+            }
+            team_size = max(len(member_ids), 1)
+            for row in overlap_rows:
+                cid = int(row.card_index_id)
+                ci = cis.get(cid)
+                if not ci:
+                    continue
+                overlap = int(row.overlap)
+                card_size = max(roster_sizes.get(cid, overlap), 1)
+                pct_card = round(100.0 * overlap / card_size)
+                pct_team = round(100.0 * overlap / team_size)
+                # слаби единични връзки: пак ги показваме, но с по-нисък score
+                score = 20 + overlap * 10 + min(pct_card, 40)
+                out.append(
+                    {
+                        "id": ci.id,
+                        "label": _card_index_label(ci),
+                        "age": ci.age,
+                        "ageGroup": ci.age_group,
+                        "sex": ci.sex,
+                        "year": ci.year,
+                        "score": score,
+                        "overlapAthletes": overlap,
+                        "cardRosterSize": card_size,
+                        "teamRosterSize": team_size,
+                        "overlapPctOfCard": pct_card,
+                        "overlapPctOfTeam": pct_team,
+                        "reasons": [f"{overlap} общи спортисти"],
+                        "linkKind": "roster_overlap",
+                    }
+                )
+                seen_ids.add(cid)
+
+    # --- 2) Резерва: възраст/пол/треньор само ако няма нито едно overlap ---
+    if not out:
+        rows = (
+            db.query(BvfCardIndex)
+            .filter(BvfCardIndex.club_id == int(team.club_id), BvfCardIndex.year.in_(list(years)))
+            .order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc())
+            .limit(40)
+            .all()
+        )
+        team_sex = _team_sex_code(team)
+        team_ages = _team_age_numbers(team)
+        team_coach = int(team.coach_id) if team.coach_id else None
+        scored: list[tuple[int, BvfCardIndex, list[str]]] = []
+        for ci in rows:
+            if int(ci.id) in seen_ids:
+                continue
+            score = 0
+            reasons: list[str] = []
+            if team_sex is not None and int(ci.sex) == team_sex:
+                score += 3
+                reasons.append("пол")
+            if team_ages and int(ci.age) in team_ages:
+                score += 6
+                reasons.append(f"възраст {ci.age}")
+            elif team_ages and any(abs(int(ci.age) - a) <= 1 for a in team_ages):
+                score += 3
+                reasons.append(f"близка възраст {ci.age}")
+            if team_coach and (
+                ci.assigned_coach_user_id == team_coach or ci.second_coach_user_id == team_coach
+            ):
+                score += 4
+                reasons.append("същият треньор")
+            if score >= 8:  # по-строг праг — само ясни съвпадения
+                scored.append((score, ci, reasons))
+        scored.sort(key=lambda x: (-x[0], -x[1].year, x[1].age))
+        for score, ci, reasons in scored[:limit]:
+            out.append(
+                {
+                    "id": ci.id,
+                    "label": _card_index_label(ci),
+                    "age": ci.age,
+                    "ageGroup": ci.age_group,
+                    "sex": ci.sex,
+                    "year": ci.year,
+                    "score": score,
+                    "overlapAthletes": 0,
+                    "cardRosterSize": 0,
+                    "teamRosterSize": len(member_ids),
+                    "overlapPctOfCard": 0,
+                    "overlapPctOfTeam": 0,
+                    "reasons": reasons,
+                    "linkKind": "heuristic_fallback",
+                }
+            )
+
+    out.sort(
+        key=lambda x: (
+            0 if x.get("linkKind") == "roster_overlap" else 1,
+            -int(x.get("overlapAthletes") or 0),
+            -int(x.get("score") or 0),
+        )
+    )
+    return out[:limit]
+
+
 def _next_competition(db: Session, team: Team, today: date) -> Optional[dict[str, Any]]:
+    """Следващ мач: група ИЛИ свързана картотека (предпочитай по-голям overlap)."""
+    related = related_card_indexes_for_team(db, team, today=today)
+    related_by_id = {int(r["id"]): r for r in related if r.get("id")}
+    related_ids = list(related_by_id.keys())
+
     q = (
         db.query(ClubCompetitionEvent)
         .filter(
             ClubCompetitionEvent.is_cancelled.is_(False),
             ClubCompetitionEvent.date >= today.isoformat(),
-            ClubCompetitionEvent.date <= (today + timedelta(days=21)).isoformat(),
+            ClubCompetitionEvent.date <= (today + timedelta(days=28)).isoformat(),
         )
         .order_by(ClubCompetitionEvent.date.asc(), ClubCompetitionEvent.start_time.asc())
     )
     if team.club_id:
         q = q.filter(ClubCompetitionEvent.club_id == int(team.club_id))
-    rows = q.limit(30).all()
-    team_rows = [e for e in rows if e.team_id == team.id]
-    pick = team_rows[0] if team_rows else (rows[0] if rows else None)
+    rows = q.limit(50).all()
+
+    team_event_ids = {int(e.id) for e in rows if e.team_id == team.id}
+    team_rows = [e for e in rows if int(e.id) in team_event_ids]
+    card_rows = [
+        e
+        for e in rows
+        if e.card_index_id
+        and int(e.card_index_id) in related_ids
+        and int(e.id) not in team_event_ids
+    ]
+
+    def _card_overlap(ev: ClubCompetitionEvent) -> int:
+        if not ev.card_index_id:
+            return 0
+        return int((related_by_id.get(int(ev.card_index_id)) or {}).get("overlapAthletes") or 0)
+
+    card_rows.sort(key=lambda e: (str(e.date), -_card_overlap(e), str(e.start_time or "")))
+
+    upcoming = _upcoming_matches_payload(
+        team_rows, card_rows, related_by_id, team_event_ids=team_event_ids, today=today, limit=5
+    )
+    pick = team_rows[0] if team_rows else (card_rows[0] if card_rows else None)
     if not pick:
         return None
+
+    source = "training_group" if int(pick.id) in team_event_ids else "card_index"
     try:
-        match_day = date.fromisoformat(str(pick.date))
-        days = (match_day - today).days
+        days = (date.fromisoformat(str(pick.date)) - today).days
     except ValueError:
         days = None
-    kind = getattr(pick, "competition_kind", None) or ""
+    related_meta = related_by_id.get(int(pick.card_index_id)) if pick.card_index_id else None
     return {
         "date": pick.date,
         "opponent": getattr(pick, "opponent_name", None) or "",
-        "kind": kind,
+        "kind": getattr(pick, "competition_kind", None) or "",
         "daysUntilMatch": days,
         "location": getattr(pick, "location", None) or "",
+        "teamId": getattr(pick, "team_id", None),
+        "cardIndexId": getattr(pick, "card_index_id", None),
+        "cardIndexLabel": (related_meta or {}).get("label"),
+        "linkedToTrainingGroup": int(pick.id) in team_event_ids,
+        "source": source,
+        "overlapAthletes": int((related_meta or {}).get("overlapAthletes") or 0),
+        "relatedCardIndexes": related,
+        "upcomingMatches": upcoming,
     }
+
+
+def _upcoming_matches_payload(
+    team_rows: list,
+    card_rows: list,
+    related_by_id: dict[int, dict[str, Any]],
+    *,
+    team_event_ids: set[int],
+    today: date,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Обединен списък предстоящи мачове (група + свързани картотеки)."""
+    by_id: dict[int, Any] = {}
+    for e in team_rows + card_rows:
+        by_id[int(e.id)] = e
+    ordered = sorted(by_id.values(), key=lambda e: (str(e.date), str(e.start_time or "")))
+    out: list[dict[str, Any]] = []
+    for e in ordered[:limit]:
+        meta = related_by_id.get(int(e.card_index_id)) if e.card_index_id else None
+        try:
+            days = (date.fromisoformat(str(e.date)) - today).days
+        except ValueError:
+            days = None
+        is_group = int(e.id) in team_event_ids
+        out.append(
+            {
+                "id": e.id,
+                "date": e.date,
+                "startTime": e.start_time,
+                "opponent": getattr(e, "opponent_name", None) or "",
+                "kind": getattr(e, "competition_kind", None) or "",
+                "location": getattr(e, "location", None) or "",
+                "daysUntilMatch": days,
+                "teamId": e.team_id,
+                "cardIndexId": e.card_index_id,
+                "cardIndexLabel": (meta or {}).get("label"),
+                "overlapAthletes": int((meta or {}).get("overlapAthletes") or 0),
+                "source": "training_group" if is_group else "card_index",
+            }
+        )
+    return out
 
 
 def _week_offset_for(today: date, target: date) -> int:
@@ -302,6 +576,9 @@ def build_coach_assistant_context(
     soft_day = _soft_program_day(week, target) if week.get("has_program") else None
     theme_day = day or soft_day
     next_match = _next_competition(db, active, today)
+    related_cards = (next_match or {}).get("relatedCardIndexes") or related_card_indexes_for_team(
+        db, active, today=today
+    )
     assessment = _assessment_hint(db, int(active.id))
 
     age_band = week.get("age_band") or resolve_annual_program_band(active.age_group)
@@ -385,6 +662,8 @@ def build_coach_assistant_context(
             for d in (week.get("days") or [])[:7]
         ],
         "nextMatch": next_match,
+        "relatedCardIndexes": related_cards,
+        "upcomingMatches": (next_match or {}).get("upcomingMatches") or [],
     }
     out["assessmentHint"] = assessment
     out["generateDefaults"] = generate_defaults
@@ -392,7 +671,7 @@ def build_coach_assistant_context(
 
     facts = [
         f"треньор: {out['coachName'] or '—'}",
-        f"активен отбор: {active.name} ({age_band})",
+        f"тренировъчна група: {active.name} ({age_band})",
     ]
     if week.get("has_program"):
         facts.append(
@@ -403,9 +682,30 @@ def build_coach_assistant_context(
             facts.append(f"дневен фокус: {day.get('theme')}")
     else:
         facts.append("няма активна годишна програма (опит за auto-attach направен)")
+    if related_cards:
+        bits = []
+        for c in related_cards[:3]:
+            lab = str(c.get("label") or c.get("id"))
+            ov = int(c.get("overlapAthletes") or 0)
+            if c.get("linkKind") == "roster_overlap" and ov:
+                bits.append(f"{lab} ({ov} общи)")
+            else:
+                bits.append(f"{lab} (резервна връзка)")
+        facts.append("картотеки в групата: " + ", ".join(bits))
     if next_match and next_match.get("daysUntilMatch") is not None:
+        if next_match.get("source") == "card_index":
+            ov = next_match.get("overlapAthletes") or 0
+            scope = (
+                f"от картотека ({next_match.get('cardIndexLabel') or 'СЕК'}"
+                + (f", {ov} общи" if ov else "")
+                + ")"
+            )
+        elif next_match.get("linkedToTrainingGroup"):
+            scope = "за тази група"
+        else:
+            scope = "в календара"
         facts.append(
-            f"следващ мач след {next_match['daysUntilMatch']} дн. "
+            f"следващ мач {scope} след {next_match['daysUntilMatch']} дн. "
             f"({next_match.get('date')} vs {next_match.get('opponent') or '—'})"
         )
     if assessment:
@@ -414,12 +714,15 @@ def build_coach_assistant_context(
 
     lines = [
         f"Треньор: {out['coachName'] or 'неизвестен'}",
-        f"Активен отбор: {active.name} | възрастова група: {active.age_group or age_band} | band: {age_band}",
-        f"Пол на групата: {active.gender or '—'} | сезон: {active.season or '—'}",
+        f"Тренировъчна група: {active.name} | възраст: {active.age_group or age_band} | band: {age_band}",
+        f"Пол: {active.gender or '—'} | сезон: {active.season or '—'}",
+        "Забележка: тренировките се записват към тренировъчна група. "
+        "Картотечните отбори се разпознават автоматично по общи спортисти в състава; "
+        "мачовете им в календара влизат в контекста (taper / подготовка).",
     ]
     if len(teams) > 1:
         lines.append(
-            "Отбори на треньора: "
+            "Групи на треньора: "
             + "; ".join(f"{t.name} ({t.age_group or '—'})" for t in teams)
         )
         if out["needsTeamPick"]:
@@ -451,12 +754,38 @@ def build_coach_assistant_context(
             lines.append("Календар тази седмица: " + " | ".join(cal_bits))
     else:
         lines.append("Годишна програма: все още няма / не е стартирала за отбора.")
+    if related_cards:
+        lines.append(
+            "Картотечни отбори с общи спортисти в тази група: "
+            + "; ".join(
+                f"{c.get('label')} ({c.get('overlapAthletes') or 0} общи, {c.get('linkKind')})"
+                for c in related_cards[:4]
+            )
+        )
     if next_match:
+        src = next_match.get("source") or ""
+        card_bit = ""
+        if next_match.get("cardIndexLabel"):
+            card_bit = f" | картотека: {next_match.get('cardIndexLabel')}"
+            if next_match.get("overlapAthletes"):
+                card_bit += f" ({next_match.get('overlapAthletes')} общи спортисти)"
         lines.append(
             f"Състезателен календар: следващ мач след {next_match.get('daysUntilMatch')} дни "
             f"на {next_match.get('date')} срещу {next_match.get('opponent') or '—'} "
-            f"({next_match.get('kind') or 'мач'})."
+            f"({next_match.get('kind') or 'мач'}; източник={src or '—'}{card_bit})."
         )
+        upcoming = next_match.get("upcomingMatches") or []
+        if len(upcoming) > 1:
+            lines.append(
+                "Предстоящи мачове: "
+                + " | ".join(
+                    f"{m.get('date')} vs {m.get('opponent') or '—'} "
+                    f"[{m.get('source')}"
+                    + (f"/{m.get('cardIndexLabel')}" if m.get("cardIndexLabel") else "")
+                    + "]"
+                    for m in upcoming[:4]
+                )
+            )
         if next_match.get("daysUntilMatch") is not None and int(next_match["daysUntilMatch"]) <= 1:
             lines.append(
                 "Препоръка: днес облекчена тренировка / активиране преди мач — "

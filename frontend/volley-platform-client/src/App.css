@@ -838,6 +838,30 @@
   min-width: 10.5rem;
 }
 
+.coachAssistScopeNote {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.coachAssistMatchHint {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.coachAssistCardLinks {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
 .coachAssistFacts {
   display: flex;
   flex-wrap: wrap;
