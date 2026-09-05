@@ -409,10 +409,13 @@ def _system_prompt(age_band: str | None, extra_context: str) -> str:
     gloss_lines = "\n".join(f"- {k}: {v}" for k, v in list(glossary.items())[:16])
     principles = "\n".join(f"- {p}" for p in (ctx.get("principles") or [])[:18])
     age_lines = "\n".join(f"- {p}" for p in (ctx.get("age_emphasis") or [])[:6])
-    return f"""Ти си треньорски помощник в българска волейболна платформа.
+    return f"""Ти си треньорски помощник в българска волейболна платформа (Volley Coach).
 Говориш само на ясен български. Кратки, практически отговори (до 8–12 изречения).
-Годишната програма БФВ е водеща. Не измисляй медицински диагнози.
+Годишната програма БФВ е водеща. Не измисляй медицински диагнози и не предписвай лекарства.
 Използвай термините: посрещане, сервиращи, начален удар, разпределител, облекчена тренировка (не казвай „тапер“).
+
+Можеш да съветваш по: техника, тактика, физика (юношески подходяща), психика
+(фокус, комуникация, роли, справяне с грешки, напрежение преди мач), организация на седмицата.
 
 Речник:
 {gloss_lines}
@@ -423,8 +426,9 @@ def _system_prompt(age_band: str | None, extra_context: str) -> str:
 Акцент за възрастта:
 {age_lines}
 
-Контекст от платформата:
+=== КОНТЕКСТ ЗА ТОЗИ ТРЕНЬОР / ОТБОР (използвай го; не питай отново ако е дадено) ===
 {extra_context or "няма допълнителен контекст"}
+=== КРАЙ НА КОНТЕКСТА ===
 
 Ако треньорът иска тренировка или упражнения:
 1) Обясни накратко какво предлагаш (може да изброиш упражненията на човешки език).
@@ -437,7 +441,9 @@ blockType е едно от: Активиране, Изграждане, Инте
 Допустими mainFocus: Посрещане, Разпределение, Сервис, Атака, Блок, Защита, Преход, Координация, Игра.
 Допустими orientation: balanced, serve_receive, attack_block, defense_transition, game_tactics, physical.
 Допустими ageBand: mini, U13, U14, U15, U16, U17, U18.
-За отскок/сила при юноши: mainFocus=Координация, orientation=physical, без тежести, акцент върху техника на отскок и кор.
+За отскок/сила при юноши: mainFocus=Координация, orientation=physical, без тежести.
+Ако в контекста има тема/фокус от годишната програма — ползвай ги по подразбиране, освен ако треньорът иска друго.
+Ако daysUntilMatch <= 1 — предлагай облекчена / активиране преди мач.
 Не разчитай само на техническата база — за физика винаги попълвай УПРАЖНЕНИЯ.
 """
 
@@ -448,6 +454,7 @@ def build_reply(
     age_band: str | None = None,
     context: Optional[dict[str, Any]] = None,
     history: Optional[list[dict[str, str]]] = None,
+    platform_context: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     message = (message or "").strip()
     if not message:
@@ -459,18 +466,30 @@ def build_reply(
         }
 
     ctx = context or {}
-    extra = []
-    if age_band:
-        extra.append(f"Възрастова група: {age_band}")
-    if ctx.get("teamName"):
-        extra.append(f"Отбор: {ctx['teamName']}")
+    plat = platform_context or {}
+    defaults = plat.get("generateDefaults") or {}
+
+    # age band: платформа > payload > defaults
+    effective_age = (
+        age_band
+        or (plat.get("activeTeam") or {}).get("ageBand")
+        or defaults.get("ageBand")
+        or None
+    )
+
+    extra_parts = []
+    if plat.get("promptText"):
+        extra_parts.append(str(plat["promptText"]))
+    # thin client hints (legacy)
+    if ctx.get("teamName") and not plat.get("activeTeam"):
+        extra_parts.append(f"Отбор (от клиента): {ctx['teamName']}")
     if ctx.get("date"):
-        extra.append(f"Дата: {ctx['date']}")
-    if ctx.get("daysUntilMatch") is not None:
-        extra.append(f"Дни до мач: {ctx['daysUntilMatch']}")
-    if ctx.get("programTheme"):
-        extra.append(f"Тема по програма: {ctx['programTheme']}")
-    extra_context = "\n".join(extra)
+        extra_parts.append(f"Дата (от клиента): {ctx['date']}")
+    if ctx.get("daysUntilMatch") is not None and defaults.get("daysUntilMatch") is None:
+        extra_parts.append(f"Дни до мач: {ctx['daysUntilMatch']}")
+    if ctx.get("programTheme") and not defaults.get("programTheme"):
+        extra_parts.append(f"Тема по програма: {ctx['programTheme']}")
+    extra_context = "\n".join(extra_parts)
 
     history_txt = ""
     for turn in (history or [])[-6:]:
@@ -484,38 +503,68 @@ def build_reply(
     if gemini_available():
         result = generate_text(
             prompt,
-            system=_system_prompt(age_band, extra_context),
+            system=_system_prompt(effective_age, extra_context),
             temperature=0.35,
         )
         if result.get("ok") and result.get("text"):
             reply = str(result["text"]).strip()
             provider = f"gemini:{result.get('model')}"
         else:
-            reply = _fallback_answer(message, age_band)
+            reply = _fallback_answer(message, effective_age)
             provider = f"local_fallback:{result.get('error')}"
     else:
-        reply = _fallback_answer(message, age_band)
+        reply = _fallback_answer(message, effective_age)
 
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
     from_model = _parse_params_from_reply(reply)
-    local_params = extract_generate_params(message, age_band=age_band)
+    local_params = extract_generate_params(message, age_band=effective_age)
     proposed = _parse_exercises_from_reply(reply)
 
-    generate_params = {**local_params, **from_model} if wants else {}
+    # Ред: програмни defaults < локален парсер < модел (с sanitize)
+    generate_params: dict[str, Any] = {}
     if wants:
+        for key in (
+            "mainFocus",
+            "secondaryFocus",
+            "age",
+            "ageBand",
+            "orientation",
+            "intensityTarget",
+            "periodPhase",
+            "durationTotalMin",
+            "trainingTitle",
+            "textbookSlug",
+        ):
+            if defaults.get(key) not in (None, ""):
+                generate_params[key] = defaults[key]
+        generate_params.update(local_params)
+        generate_params.update(from_model)
         generate_params = _sanitize_generate_params(generate_params)
         generate_params["assistantOverride"] = True
         generate_params.setdefault("cycleId", None)
-        generate_params.setdefault("textbookSlug", "")
+        generate_params.setdefault("textbookSlug", generate_params.get("textbookSlug") or "")
         generate_params.setdefault("sessionCode", "")
         generate_params["sourceMessage"] = message
+        if defaults.get("teamId"):
+            generate_params["teamId"] = defaults["teamId"]
+        if defaults.get("sessionDate"):
+            generate_params["sessionDate"] = defaults["sessionDate"]
+        if defaults.get("daysUntilMatch") is not None:
+            generate_params["daysUntilMatch"] = defaults["daysUntilMatch"]
+            # match-day auto override unless user asked for heavy work
+            if int(defaults["daysUntilMatch"]) <= 1 and not any(
+                k in message.lower() for k in ("сил", "тежк", "отскок")
+            ):
+                generate_params["periodPhase"] = "taper"
+                generate_params["intensityTarget"] = "low"
+
         is_physical = (
             generate_params.get("orientation") == "physical"
             or generate_params.get("mainFocus") == "Координация"
             or any(k in message.lower() for k in ("силов", "отскок", "физическ", "скач"))
         )
         if not proposed and is_physical:
-            proposed = default_physical_exercises(generate_params.get("ageBand") or age_band)
+            proposed = default_physical_exercises(generate_params.get("ageBand") or effective_age)
         if proposed:
             generate_params["proposedExercises"] = proposed
 
@@ -527,4 +576,12 @@ def build_reply(
         "generateParams": generate_params,
         "provider": provider,
         "geminiAvailable": gemini_available(),
+        "platformContext": {
+            "activeTeam": plat.get("activeTeam"),
+            "needsTeamPick": plat.get("needsTeamPick"),
+            "knownFacts": plat.get("knownFacts") or [],
+            "generateDefaults": defaults,
+            "program": plat.get("program"),
+            "calendar": plat.get("calendar"),
+        },
     }

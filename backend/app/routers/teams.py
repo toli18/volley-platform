@@ -258,6 +258,12 @@ def create_team(
     db.add(team)
     db.commit()
     db.refresh(team)
+    try:
+        from app.services.coach_assistant_context import ensure_team_annual_program
+
+        ensure_team_annual_program(db, team, created_by=int(current_user.id), commit=True)
+    except Exception:
+        pass
     return _serialize_team_with_coach(db, team)
 
 

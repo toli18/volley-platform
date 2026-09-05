@@ -49,6 +49,7 @@ export const API_PATHS = {
   AI_TRAINING_FOR_DAY: "/api/ai/training/for-day",
   AI_COACH_ASSISTANT_CHAT: "/api/ai/coach-assistant/chat",
   AI_COACH_ASSISTANT_STATUS: "/api/ai/coach-assistant/status",
+  AI_COACH_ASSISTANT_CONTEXT: "/api/ai/coach-assistant/context",
 
   // Assessment (Национална диагностична карта)
   ASSESSMENT_BATTERY: "/api/assessments/battery",

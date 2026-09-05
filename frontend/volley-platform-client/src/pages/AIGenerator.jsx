@@ -223,6 +223,7 @@ export default function AIGenerator() {
   });
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
   const [programLink, setProgramLink] = useState({ teamId: null, sessionDate: "", dayTheme: "", dayFocus: [] });
+  const [assistPlatCtx, setAssistPlatCtx] = useState(null);
   const plannerPrefillRef = useRef(false);
   // Фокусът, подаден от програмния ден ("Моята програмна седмица"). Когато е
   // наличен, той е водещ — препоръката на конспекта не бива да го пренаписва.
@@ -980,10 +981,50 @@ export default function AIGenerator() {
 
       {activeTab === "assistant" ? (
         <CoachAssistantChat
-          ageBand={cycleParams.ageBand || undefined}
+          ageBand={cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand || undefined}
           context={{
-            date: programLink.sessionDate || undefined,
-            programTheme: programLink.dayTheme || undefined,
+            date: programLink.sessionDate || assistPlatCtx?.program?.today?.date || undefined,
+            programTheme:
+              programLink.dayTheme ||
+              assistPlatCtx?.program?.today?.theme ||
+              assistPlatCtx?.program?.weekTheme ||
+              undefined,
+            teamId: programLink.teamId || assistPlatCtx?.activeTeam?.id || undefined,
+            teamName: assistPlatCtx?.activeTeam?.name || undefined,
+            daysUntilMatch: assistPlatCtx?.calendar?.nextMatch?.daysUntilMatch,
+          }}
+          onPlatformContext={(ctx) => {
+            setAssistPlatCtx(ctx || null);
+            const active = ctx?.activeTeam;
+            const defaults = ctx?.generateDefaults || {};
+            if (active?.id) {
+              setProgramLink((prev) => ({
+                ...prev,
+                teamId: Number(active.id),
+                sessionDate: defaults.sessionDate || prev.sessionDate || "",
+                dayTheme: defaults.programTheme || prev.dayTheme || "",
+                dayFocus: ctx?.program?.today?.focus || prev.dayFocus || [],
+              }));
+            }
+            if (defaults.ageBand) {
+              setCycleParams((prev) => ({
+                ...prev,
+                ageBand: defaults.ageBand || prev.ageBand,
+                textbookSlug: defaults.textbookSlug || prev.textbookSlug || "",
+              }));
+            }
+            if (defaults.mainFocus || defaults.age) {
+              setForm((prev) => ({
+                ...prev,
+                ...(defaults.mainFocus ? { mainFocus: defaults.mainFocus } : {}),
+                ...(defaults.secondaryFocus ? { secondaryFocus: defaults.secondaryFocus } : {}),
+                ...(defaults.periodPhase ? { periodPhase: defaults.periodPhase } : {}),
+                ...(defaults.intensityTarget ? { intensityTarget: defaults.intensityTarget } : {}),
+                ...(defaults.orientation ? { orientation: defaults.orientation } : {}),
+                ...(defaults.age ? { age: Number(defaults.age) } : {}),
+                ...(defaults.trainingTitle ? { trainingTitle: defaults.trainingTitle } : {}),
+              }));
+            }
           }}
           onRequestGenerate={(req) => {
             const fromChat =
@@ -1022,7 +1063,11 @@ export default function AIGenerator() {
               intensityTarget = "low";
             }
 
-            const ageBand = fromChat.ageBand || cycleParams.ageBand || undefined;
+            const ageBand =
+              fromChat.ageBand ||
+              cycleParams.ageBand ||
+              assistPlatCtx?.activeTeam?.ageBand ||
+              undefined;
             const age =
               fromChat.age != null
                 ? Number(fromChat.age)
@@ -1070,14 +1115,28 @@ export default function AIGenerator() {
             setCycleParams((prev) => ({
               ...prev,
               ageBand: ageBand || prev.ageBand,
-              // махаме дневния конспект, иначе BVF презаписва фокуса
               cycleId: null,
               cycleWeek: null,
               cycleDay: null,
-              textbookSlug: "",
+              // запази textbook от програмата ако няма override
+              textbookSlug: fromChat.textbookSlug || prev.textbookSlug || "",
               sessionCode: "",
             }));
-            setBvfMethodHint(null);
+            if (fromChat.teamId || assistPlatCtx?.activeTeam?.id) {
+              setProgramLink((prev) => ({
+                ...prev,
+                teamId: Number(fromChat.teamId || assistPlatCtx.activeTeam.id),
+                sessionDate: fromChat.sessionDate || prev.sessionDate || "",
+                dayTheme: fromChat.programTheme || prev.dayTheme || "",
+              }));
+            }
+
+            const userOverride = Boolean(
+              hint.includes("отскок") ||
+                hint.includes("сил") ||
+                hint.includes("физическ") ||
+                fromChat.assistantOverride
+            );
 
             onGenerate({
               ...formPatch,
@@ -1085,11 +1144,11 @@ export default function AIGenerator() {
               focusDomains: domainsFor(orientation),
               focusGamePhases: phasesFor(orientation),
               ageBand: ageBand || undefined,
-              assistantOverride: true,
+              assistantOverride: userOverride,
               cycleId: null,
               cycleWeek: null,
               cycleDay: null,
-              textbookSlug: "",
+              textbookSlug: userOverride ? "" : fromChat.textbookSlug || cycleParams.textbookSlug || "",
               sessionCode: "",
               proposedExercises: Array.isArray(fromChat.proposedExercises)
                 ? fromChat.proposedExercises

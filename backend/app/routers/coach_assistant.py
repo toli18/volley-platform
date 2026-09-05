@@ -1,18 +1,28 @@
-"""API за треньорския AI помощник (чат + статус на Gemini)."""
+"""API за треньорския AI помощник (чат + статус + контекст)."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import User, UserRole
 from app.services.coach_assistant import build_reply
+from app.services.coach_assistant_context import build_coach_assistant_context
 from app.services.gemini_client import gemini_available, gemini_config
 
 router = APIRouter(prefix="/api/ai/coach-assistant", tags=["Coach Assistant"])
+
+_COACH_ROLES = (
+    UserRole.coach,
+    UserRole.club_head_coach,
+    UserRole.platform_admin,
+    UserRole.federation_admin,
+)
 
 
 class ChatTurn(BaseModel):
@@ -37,14 +47,7 @@ class ChatRequest(BaseModel):
 
 @router.get("/status")
 def assistant_status(
-    user: User = Depends(
-        require_role(
-            UserRole.coach,
-            UserRole.club_head_coach,
-            UserRole.platform_admin,
-            UserRole.federation_admin,
-        )
-    ),
+    user: User = Depends(require_role(*_COACH_ROLES)),
 ):
     _ = user
     _key, model = gemini_config()
@@ -55,24 +58,31 @@ def assistant_status(
     }
 
 
+@router.get("/context")
+def assistant_context(
+    team_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*_COACH_ROLES)),
+) -> Dict[str, Any]:
+    """Отбори + програмна седмица + следващ мач за UI и Gemini."""
+    return build_coach_assistant_context(db, user, team_id=team_id)
+
+
 @router.post("/chat")
 def assistant_chat(
     payload: ChatRequest,
-    user: User = Depends(
-        require_role(
-            UserRole.coach,
-            UserRole.club_head_coach,
-            UserRole.platform_admin,
-            UserRole.federation_admin,
-        )
-    ),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*_COACH_ROLES)),
 ) -> Dict[str, Any]:
-    _ = user
+    team_id = payload.context.teamId
+    platform_ctx = build_coach_assistant_context(db, user, team_id=team_id)
     history = [{"role": t.role, "content": t.content} for t in payload.history]
+    age_band = payload.ageBand or (platform_ctx.get("activeTeam") or {}).get("ageBand")
     result = build_reply(
         payload.message,
-        age_band=payload.ageBand,
+        age_band=age_band,
         context=payload.context.model_dump(),
         history=history,
+        platform_context=platform_ctx,
     )
     return result

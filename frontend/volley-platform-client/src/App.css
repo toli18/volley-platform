@@ -805,6 +805,51 @@
   color: #64748b;
 }
 
+.coachAssistTeamBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.coachAssistTeamLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.coachAssistTeamLabel select {
+  min-width: 12rem;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #dbe4f0;
+  background: #fff;
+}
+
+.coachAssistFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.coachAssistFact {
+  font-size: 11px;
+  background: #eef6f1;
+  color: #1f4d36;
+  border-radius: 999px;
+  padding: 4px 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .coachAssistSuggestions {
   display: flex;
   flex-wrap: wrap;
