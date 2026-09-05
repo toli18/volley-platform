@@ -392,9 +392,53 @@ def _strip_service_markers(reply: str) -> str:
     return clean.strip()
 
 
-def _fallback_answer(message: str, age_band: str | None) -> str:
-    bundle = load_coach_assistant_method()
+def _fallback_answer(message: str, age_band: str | None, *, session_live: bool = False) -> str:
     low = (message or "").lower()
+
+    if session_live:
+        if any(k in low for k in ("обратн", "стъпк", "разбег", "approach", "стъпка")):
+            return (
+                "За разбега/обратната стъпка сега:\n"
+                "1) Спри — покажи само последните 2–3 стъпки без топка.\n"
+                "2) Cue: „лява–дясна–скок“ (или обратната за страната), последната стъпка по-дълга и спираща.\n"
+                "3) 6 повторения: 3 без топка, 3 с леко подаване. Гледай кацане на две крака.\n"
+                "Ако още се бъркат: маркирай с конус къде е последната стъпка."
+            )
+        if "зон" in low:
+            return (
+                "За зоните на терена:\n"
+                "1) Покажи с ръка „твоята зона / границата“.\n"
+                "2) Cue: „ако е между двама — казваш МОЯ“.\n"
+                "3) 4 топки само на границата; после продължете упражнението."
+            )
+        if any(k in low for k in ("разпредел", "сетър", "подава", "setter")):
+            return (
+                "За разпределителя:\n"
+                "1) Спри ритъма — 3 подавания само към центъра с висок дъга.\n"
+                "2) Cue: „топката над челото, после тласък“.\n"
+                "3) След 5 чисти — върнете към упражнението от плана."
+            )
+        if any(k in low for k in ("малко", "нямаме", "8 души", "по-малко", "играч")):
+            return (
+                "При по-малко играчи:\n"
+                "1) Намали полето / махни една зона.\n"
+                "2) Един треньор подава вместо липсващия.\n"
+                "3) Дръж целта на блока (напр. синхрон), не пълния 6v6."
+            )
+        if any(k in low for k in ("не се получ", "не върви", "трудност", "обърк")):
+            return (
+                "Сега на терена:\n"
+                "1) Назови кое упражнение и кое движение не върви.\n"
+                "2) Опрости: без топка → бавно с топка → нормално темпо.\n"
+                "3) Дай един cue (1 изречение) и 5 чисти повторения преди да продължите."
+            )
+        return (
+            "Кажи конкретно: кое упражнение от плана и какво не се получава "
+            "(разбег, ръце, тайминг, зони, брой играчи). Ще ти дам 2–3 cues за терена."
+        )
+
+    bundle = load_coach_assistant_method()
+    _ = bundle
     for card in qa_cards():
         q = str(card.get("q") or "").lower()
         keys = [w for w in re.split(r"\W+", q) if len(w) > 3]
@@ -432,12 +476,33 @@ def _fallback_answer(message: str, age_band: str | None) -> str:
     return base
 
 
-def _system_prompt(age_band: str | None, extra_context: str) -> str:
+def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bool = False) -> str:
     ctx = assistant_system_context(age_band)
     glossary = ctx.get("glossary") or {}
     gloss_lines = "\n".join(f"- {k}: {v}" for k, v in list(glossary.items())[:16])
     principles = "\n".join(f"- {p}" for p in (ctx.get("principles") or [])[:18])
     age_lines = "\n".join(f"- {p}" for p in (ctx.get("age_emphasis") or [])[:6])
+
+    if session_live:
+        return f"""Ти си помощник НА ТЕРЕНА за български волейболен треньор.
+Говори само на български. Отговаряй ДИРЕКТНО на проблема — без представяне и без „мога да помогна с…“.
+
+Формат на отговор (задължителен):
+1) Какво да спре/опрости сега (1 ред)
+2) Какво да каже на играчите — 1–2 кратки cues
+3) 3–6 повторения / адаптация, после обратно към плана
+
+Максимум 6–8 изречения. Без генериране на цяла нова тренировка.
+Не казвай „тапер“. Използвай: посрещане, разпределител, сервиращи, облекчена.
+
+Акцент за възрастта:
+{age_lines}
+
+=== ПЛАН / КОНТЕКСТ НА ТРЕНИРОВКАТА ===
+{extra_context or "няма"}
+=== КРАЙ ===
+"""
+
     return f"""Ти си треньорски помощник в българска волейболна платформа (Volley Coach).
 Говориш само на ясен български. Кратки, практически отговори (до 8–12 изречения).
 Годишната програма БФВ е водеща. Не измисляй медицински диагнози и не предписвай лекарства.
@@ -528,26 +593,26 @@ def build_reply(
     prompt = f"{history_txt}\nТреньор: {message}\nПомощник:"
     provider = "local"
     reply = ""
+    session_live = (
+        str(ctx.get("mode") or "") == "session_live" or bool(plat.get("sessionTraining"))
+    )
 
     if gemini_available():
         result = generate_text(
             prompt,
-            system=_system_prompt(effective_age, extra_context),
-            temperature=0.35,
+            system=_system_prompt(effective_age, extra_context, session_live=session_live),
+            temperature=0.25 if session_live else 0.35,
         )
         if result.get("ok") and result.get("text"):
             reply = str(result["text"]).strip()
             provider = f"gemini:{result.get('model')}"
         else:
-            reply = _fallback_answer(message, effective_age)
+            reply = _fallback_answer(message, effective_age, session_live=session_live)
             provider = f"local_fallback:{result.get('error')}"
     else:
-        reply = _fallback_answer(message, effective_age)
+        reply = _fallback_answer(message, effective_age, session_live=session_live)
 
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
-    session_live = (
-        str(ctx.get("mode") or "") == "session_live" or bool(plat.get("sessionTraining"))
-    )
     if session_live:
         # Live на терена: само изрична молба за нов план
         low = message.lower()

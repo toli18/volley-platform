@@ -56,6 +56,7 @@ export default function TrainingDetails() {
     note: "",
   });
   const [savingPayment, setSavingPayment] = useState(false);
+  const [methodOpen, setMethodOpen] = useState(false);
   const [livePlan, setLivePlan] = useState(null);
   const [swapOpen, setSwapOpen] = useState(false);
   const [savingSwap, setSavingSwap] = useState(false);
@@ -220,6 +221,9 @@ export default function TrainingDetails() {
     return n;
   }, [plan]);
   const isTextOnlyPlan = Boolean(trainingPlanText) && planDrillCount === 0;
+  useEffect(() => {
+    if (isTextOnlyPlan) setMethodOpen(true);
+  }, [isTextOnlyPlan]);
   const fieldSteps = useMemo(() => {
     const raw = buildBvfFieldSteps(plan, sessionReview);
     return raw.map((s) => ({
@@ -873,36 +877,68 @@ export default function TrainingDetails() {
           </span>
         </div>
       ) : null}
-      <SessionReviewCard sessionReview={data.sessionReview} />
-
-      {trainingPlanText ? (
-        <div className="sectionBox" style={{ background: "#fff" }}>
-          <div className="sectionName">
-            {isTextOnlyPlan ? "Домашен / текстов план" : "Текстов план (методика БФВ)"}
+      {(data.sessionReview || data.team_id || data.session_date) ? (
+        <div className="trainingContextBar" role="status">
+          <div className="trainingContextBarMain">
+            {[
+              data.session_date ? `дата ${data.session_date}` : null,
+              data.team_id ? `група #${data.team_id}` : null,
+              data.sessionReview?.recommended?.mainFocus
+                ? `фокус ${data.sessionReview.recommended.mainFocus}`
+                : null,
+              data.sessionReview?.recommended?.secondaryFocus
+                ? `+ ${data.sessionReview.recommended.secondaryFocus}`
+                : null,
+              data.sessionReview?.recommended?.periodLabel || null,
+              data.sessionReview?.textbook?.session_code || data.sessionReview?.day?.theme || null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
-          <pre className="trainingPlanTextPre" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
-            {trainingPlanText}
-          </pre>
+          {(data.sessionReview || trainingPlanText || (data.savedTextDrills || []).length > 0) ? (
+            <button
+              type="button"
+              className="trainingContextBarBtn"
+              onClick={() => setMethodOpen((v) => !v)}
+            >
+              {methodOpen ? "Скрий методика" : "Методика / пълен текст"}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {Array.isArray(data?.savedTextDrills) && data.savedTextDrills.length > 0 ? (
-        <div className="sectionBox" style={{ background: "#fff" }}>
-          <div className="sectionName">Упражнения от помощника / методика</div>
-          <ul style={{ marginTop: 10, paddingLeft: 18 }}>
-            {data.savedTextDrills.map((td, idx) => (
-              <li key={`${td.title}-${idx}`} style={{ marginBottom: 8 }}>
-                <strong>{td.title}</strong>
-                {td.blockType ? ` · ${td.blockType}` : ""}
-                {td.minutes ? ` · ${td.minutes} мин` : ""}
-                {td.instructions ? (
-                  <div className="uiMuted" style={{ marginTop: 4 }}>
-                    {td.instructions}
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+      {methodOpen ? (
+        <div className="trainingMethodPanel">
+          <SessionReviewCard sessionReview={data.sessionReview} />
+          {trainingPlanText ? (
+            <div className="sectionBox" style={{ background: "#fff" }}>
+              <div className="sectionName">
+                {isTextOnlyPlan ? "Домашен /текст план" : "Текстов план (методика БФВ)"}
+              </div>
+              <pre className="trainingPlanTextPre" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
+                {trainingPlanText}
+              </pre>
+            </div>
+          ) : null}
+          {Array.isArray(data?.savedTextDrills) && data.savedTextDrills.length > 0 ? (
+            <div className="sectionBox" style={{ background: "#fff" }}>
+              <div className="sectionName">Упражнения от помощника / методика</div>
+              <ul style={{ marginTop: 10, paddingLeft: 18 }}>
+                {data.savedTextDrills.map((td, idx) => (
+                  <li key={`${td.title}-${idx}`} style={{ marginBottom: 8 }}>
+                    <strong>{td.title}</strong>
+                    {td.blockType ? ` · ${td.blockType}` : ""}
+                    {td.minutes ? ` · ${td.minutes} мин` : ""}
+                    {td.instructions ? (
+                      <div className="uiMuted" style={{ marginTop: 4 }}>
+                        {td.instructions}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -919,18 +955,16 @@ export default function TrainingDetails() {
         ? SECTIONS.map((s) => {
         const items = plan[s.key] || [];
         const guide = sectionGuide(data.sessionReview, s.key);
+        if (!items.length) return null;
         return (
           <div key={s.key} className="sectionBox">
             <div className="sectionHead">
               <div className="sectionName">{s.label}</div>
               <div className="count">{items.length} упражнения</div>
             </div>
-            <SectionBvfContext guide={guide} bvfBlock={s.bvfBlock} />
+            <SectionBvfContext guide={guide} bvfBlock={s.bvfBlock} compact />
 
-            {items.length === 0 ? (
-              <div className="muted" style={{ marginTop: 10 }}>Няма упражнения.</div>
-            ) : (
-              <div className="cards">
+            <div className="cards">
                 {items.map((item, idx) => {
                   const drillId = resolveDrillId(item);
                   const d = drillId
@@ -969,7 +1003,6 @@ export default function TrainingDetails() {
                   );
                 })}
               </div>
-            )}
           </div>
         );
       })
