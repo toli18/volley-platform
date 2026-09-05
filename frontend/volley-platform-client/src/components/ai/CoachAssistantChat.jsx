@@ -18,15 +18,14 @@ export default function CoachAssistantChat({
   onRequestGenerate,
   onPlatformContext,
   context = {},
-  canSaveForDay = false,
-  saveForDayLabel = "",
-  forDate = "",
+  sessionDate = "",
+  onSessionDateChange,
 }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
       content:
-        "Здравей! Аз съм треньорският помощник. Избери отбор (ако водиш няколко) и питай за мач, техника, физика или психика — или кажи да генерирам тренировка.",
+        "Здравей! Аз съм треньорският помощник. Избери отбор и дата, питай за мач/техника — после генерирай план, прегледай го и чак тогава го запази.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -80,7 +79,7 @@ export default function CoachAssistantChat({
       try {
         const params = new URLSearchParams();
         if (teamId) params.set("team_id", String(teamId));
-        const pinned = String(forDate || context?.date || "").trim();
+        const pinned = String(sessionDate || context?.date || "").trim();
         if (pinned) params.set("for_date", pinned);
         const qs = params.toString() ? `?${params.toString()}` : "";
         const data = await apiClient(`${API_PATHS.AI_COACH_ASSISTANT_CONTEXT}${qs}`);
@@ -103,7 +102,7 @@ export default function CoachAssistantChat({
     return () => {
       cancelled = true;
     };
-  }, [teamId, forDate, context?.date]);
+  }, [teamId, sessionDate, context?.date]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -135,7 +134,7 @@ export default function CoachAssistantChat({
         .slice(-6)
         .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
       const active = platCtx?.activeTeam;
-      const pinnedDate = String(forDate || context?.date || "").trim() || undefined;
+      const pinnedDate = String(sessionDate || context?.date || "").trim() || undefined;
       const data = await apiClient(API_PATHS.AI_COACH_ASSISTANT_CHAT, {
         method: "POST",
         data: {
@@ -207,6 +206,16 @@ export default function CoachAssistantChat({
             ))}
           </select>
         </label>
+        <label className="coachAssistTeamLabel">
+          Дата:
+          <input
+            type="date"
+            className="coachAssistDateInput"
+            value={sessionDate || ""}
+            onChange={(e) => onSessionDateChange?.(e.target.value || "")}
+            disabled={busy}
+          />
+        </label>
         {facts.length ? (
           <div className="coachAssistFacts" title={facts.join(" · ")}>
             {facts.slice(0, 3).map((f) => (
@@ -245,26 +254,22 @@ export default function CoachAssistantChat({
                       generateParams: {
                         ...(platCtx?.generateDefaults || {}),
                         ...(m.meta?.generateParams || {}),
+                        ...(sessionDate ? { sessionDate } : {}),
+                        ...(teamId ? { teamId } : {}),
                       },
                     })
                   }
                   disabled={busy}
                 >
-                  {canSaveForDay && saveForDayLabel
-                    ? Array.isArray(m.meta?.generateParams?.proposedExercises) &&
-                      m.meta.generateParams.proposedExercises.length
-                      ? `Направи и запиши за ${saveForDayLabel} (${m.meta.generateParams.proposedExercises.length} упр.)`
-                      : `Направи и запиши за ${saveForDayLabel}`
-                    : Array.isArray(m.meta?.generateParams?.proposedExercises) &&
-                        m.meta.generateParams.proposedExercises.length
-                      ? `Генерирай с ${m.meta.generateParams.proposedExercises.length} предложени упражнения`
-                      : "Генерирай тренировка сега"}
+                  {Array.isArray(m.meta?.generateParams?.proposedExercises) &&
+                  m.meta.generateParams.proposedExercises.length
+                    ? `Генерирай преглед (${m.meta.generateParams.proposedExercises.length} упр.)`
+                    : "Генерирай преглед"}
                 </Button>
-                {canSaveForDay ? (
-                  <div className="coachAssistGenHint">Ще се запише към отбора за този ден и ще се появи в присъствието.</div>
-                ) : (
-                  <div className="coachAssistGenHint">Няма дата/отбор — ще се направи само преглед. Отвори ден от календара или програмата за запис.</div>
-                )}
+                <div className="coachAssistGenHint">
+                  Само преглед — после коригирай в „План“ и натисни „Запази“
+                  {sessionDate ? ` за ${sessionDate}` : ""}.
+                </div>
               </div>
             ) : null}
           </div>
