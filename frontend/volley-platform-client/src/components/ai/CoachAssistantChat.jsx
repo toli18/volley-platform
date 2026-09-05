@@ -121,7 +121,10 @@ export default function CoachAssistantChat({
                   }
                   disabled={busy}
                 >
-                  Генерирай тренировка сега
+                  {Array.isArray(m.meta?.generateParams?.proposedExercises) &&
+                  m.meta.generateParams.proposedExercises.length
+                    ? `Генерирай с ${m.meta.generateParams.proposedExercises.length} предложени упражнения`
+                    : "Генерирай тренировка сега"}
                 </Button>
               </div>
             ) : null}

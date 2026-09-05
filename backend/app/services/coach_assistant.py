@@ -22,6 +22,41 @@ _GENERATE_HINTS = (
     "тренировка за",
     "какво да тренираме",
     "какво да тренираме днес",
+    "упражнен",
+    "силов",
+    "дай ми няколко",
+    "предложи упражнен",
+)
+
+_YOUTH_PHYSICAL_PACK: tuple[dict[str, Any], ...] = (
+    {
+        "title": "Клекове с отскок и контрол на кацане",
+        "blockType": "Изграждане",
+        "minutes": 8,
+        "skill": "Координация",
+        "instructions": "3×6–8 повторения. Меко кацане, колене над пръстите. Пауза 45–60 сек. Без тежести за U14.",
+    },
+    {
+        "title": "Планк с докосване на рамо",
+        "blockType": "Изграждане",
+        "minutes": 6,
+        "skill": "Координация",
+        "instructions": "3×20–30 сек. Таз стабилен, без въртене. Дишане равномерно.",
+    },
+    {
+        "title": "Медицинска топка — подавания от гърди",
+        "blockType": "Изграждане",
+        "minutes": 8,
+        "skill": "Координация",
+        "instructions": "3×8–10 подавания в двойка. Лека топка. Експлозивно избутване, мек прием.",
+    },
+    {
+        "title": "Напади на място (контролирани)",
+        "blockType": "Активиране",
+        "minutes": 6,
+        "skill": "Координация",
+        "instructions": "2×8 на крак. Коляното на предния крак стабилно. Подготовка за отскок, не максимална сила.",
+    },
 )
 
 _AGE_BAND_PATTERNS: tuple[tuple[str, str, int], ...] = (
@@ -147,6 +182,56 @@ def _parse_params_from_reply(reply: str) -> dict[str, Any]:
     return out
 
 
+def _normalize_exercise(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    title = str(raw.get("title") or raw.get("name") or "").strip()
+    if not title:
+        return None
+    block = str(raw.get("blockType") or raw.get("block") or "Изграждане").strip()
+    if block not in ("Активиране", "Изграждане", "Интеграция", "Състезателност"):
+        block = "Изграждане"
+    try:
+        minutes = int(raw.get("minutes") or 8)
+    except (TypeError, ValueError):
+        minutes = 8
+    minutes = max(4, min(20, minutes))
+    return {
+        "title": title[:120],
+        "blockType": block,
+        "minutes": minutes,
+        "skill": str(raw.get("skill") or "Координация")[:60],
+        "instructions": str(raw.get("instructions") or raw.get("desc") or "").strip()[:600],
+        "source": str(raw.get("source") or "assistant"),
+    }
+
+
+def _parse_exercises_from_reply(reply: str) -> list[dict[str, Any]]:
+    if not reply:
+        return []
+    m = re.search(r"УПРАЖНЕНИЯ\s*:\s*(\[.*?\])", reply, flags=re.IGNORECASE | re.DOTALL)
+    if not m:
+        return []
+    try:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in data[:8]:
+        norm = _normalize_exercise(item)
+        if norm:
+            out.append(norm)
+    return out
+
+
+def default_physical_exercises(age_band: str | None = None) -> list[dict[str, Any]]:
+    """Локален пакет силови/отскок упражнения (без тежести за юноши)."""
+    _ = age_band
+    return [dict(x) for x in _YOUTH_PHYSICAL_PACK]
+
+
 def _strip_service_markers(reply: str) -> str:
     clean = re.sub(
         r"(?im)^\s*Действие:\s*генерирай_тренировка\s*$",
@@ -154,13 +239,15 @@ def _strip_service_markers(reply: str) -> str:
         reply or "",
     )
     clean = re.sub(
-        r"(?im)^\s*ПАРАМЕТРИ\s*:\s*\{.*?\}\s*$",
-        "",
+        r"(?is)\s*ПАРАМЕТРИ\s*:\s*\{.*?\}\s*",
+        "\n",
         clean,
-        flags=re.DOTALL,
     )
-    # ако JSON е на същия ред след текста
-    clean = re.sub(r"(?im)\s*ПАРАМЕТРИ\s*:\s*\{.*?\}\s*", "\n", clean)
+    clean = re.sub(
+        r"(?is)\s*УПРАЖНЕНИЯ\s*:\s*\[.*?\]\s*",
+        "\n",
+        clean,
+    )
     return clean.strip()
 
 
@@ -227,17 +314,19 @@ def _system_prompt(age_band: str | None, extra_context: str) -> str:
 Контекст от платформата:
 {extra_context or "няма допълнителен контекст"}
 
-Ако треньорът иска тренировка:
-1) Обясни накратко какво предлагаш.
+Ако треньорът иска тренировка или упражнения:
+1) Обясни накратко какво предлагаш (може да изброиш упражненията на човешки език).
 2) На отделен ред напиши точно: Действие: генерирай_тренировка
-3) На следващ ред напиши точно JSON (без markdown), с възможни ключове
+3) На следващ ред: ПАРАМЕТРИ: {{...}} с ключове
 mainFocus, secondaryFocus, age, ageBand, orientation, intensityTarget, periodPhase, durationTotalMin, trainingTitle.
-Пример:
-ПАРАМЕТРИ: {{"mainFocus":"Координация","secondaryFocus":"Атака","age":14,"ageBand":"U14","orientation":"physical","intensityTarget":"medium","periodPhase":"inseason","trainingTitle":"U14 · отскок и сила"}}
+4) На следващ ред JSON масив с конкретните упражнения (задължително при сила/отскок/физика):
+УПРАЖНЕНИЯ: [{{"title":"...","blockType":"Изграждане","minutes":8,"instructions":"...","skill":"Координация"}}]
+blockType е едно от: Активиране, Изграждане, Интеграция, Състезателност.
 Допустими mainFocus: Посрещане, Разпределение, Сервис, Атака, Блок, Защита, Преход, Координация, Игра.
 Допустими orientation: balanced, serve_receive, attack_block, defense_transition, game_tactics, physical.
 Допустими ageBand: mini, U13, U14, U15, U16, U17, U18.
-За отскок/сила при юноши ползвай mainFocus=Координация и orientation=physical.
+За отскок/сила при юноши: mainFocus=Координация, orientation=physical, без тежести, акцент върху техника на отскок и кор.
+Не разчитай само на техническата база — за физика винаги попълвай УПРАЖНЕНИЯ.
 """
 
 
@@ -298,7 +387,8 @@ def build_reply(
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
     from_model = _parse_params_from_reply(reply)
     local_params = extract_generate_params(message, age_band=age_band)
-    # Локалният парсер е база; моделът допълва/уточнява без да трие ключове.
+    proposed = _parse_exercises_from_reply(reply)
+
     generate_params = {**local_params, **from_model} if wants else {}
     if wants:
         generate_params["assistantOverride"] = True
@@ -306,6 +396,15 @@ def build_reply(
         generate_params.setdefault("textbookSlug", "")
         generate_params.setdefault("sessionCode", "")
         generate_params["sourceMessage"] = message
+        is_physical = (
+            generate_params.get("orientation") == "physical"
+            or generate_params.get("mainFocus") == "Координация"
+            or any(k in message.lower() for k in ("силов", "отскок", "физическ", "скач"))
+        )
+        if not proposed and is_physical:
+            proposed = default_physical_exercises(generate_params.get("ageBand") or age_band)
+        if proposed:
+            generate_params["proposedExercises"] = proposed
 
     clean = _strip_service_markers(reply)
 

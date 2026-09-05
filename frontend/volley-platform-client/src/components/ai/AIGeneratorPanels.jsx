@@ -551,7 +551,10 @@ export function AIGeneratorPlanPanel({
               <div key={`${b.blockType}-text-${tidx}`} className="aiGenPlanRow aiGenPlanRow--text">
                 <div className="aiGenPlanRowHead">
                   <strong>{td.title}</strong>
-                  <span>{td.minutes} мин · текстово (методика)</span>
+                  <span>
+                    {td.minutes} мин ·{" "}
+                    {td.source === "assistant" ? "от помощника (сила/методика)" : "текстово (методика)"}
+                  </span>
                 </div>
                 <p className="aiGenTextDrillInstr">{td.instructions}</p>
               </div>

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Training, User
 from ..national_method.bvf_ai_knowledge import (
+    attach_assistant_exercises,
     attach_text_drills,
     build_training_plan_text,
     enrich_request,
@@ -57,7 +58,14 @@ def run_generation(payload: Dict[str, Any], user: User, db: Session) -> Dict[str
     drills = query_drills_for_ai(db)
     result = generate_training_session(drills, request_data)
     session = result.get("session") or {}
+    # Ако чатът е поискал сила/отскок, но няма списък — ползвай локалния пакет.
+    if not (request_data.get("proposedExercises") or []) and request_data.get("assistantOverride"):
+        if request_data.get("orientation") == "physical" or str(request_data.get("mainFocus") or "") == "Координация":
+            from app.services.coach_assistant import default_physical_exercises
+
+            request_data["proposedExercises"] = default_physical_exercises(request_data.get("ageBand"))
     attach_text_drills(session, request_data)
+    attach_assistant_exercises(session, request_data)
     result["trainingPlanText"] = build_training_plan_text(session, request_data)
     result["bvfMethod"] = request_data.get("bvfKnowledge")
     result["sessionReview"] = (request_data.get("bvfKnowledge") or {}).get("sessionReview")

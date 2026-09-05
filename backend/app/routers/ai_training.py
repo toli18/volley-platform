@@ -46,6 +46,7 @@ class GenerateRequest(BaseModel):
     # От AI помощника: не презаписвай фокуса с дневния конспект на БФВ.
     assistantOverride: bool = False
     lockFocusFromAssistant: bool = False
+    proposedExercises: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class GenerateAndSaveRequest(GenerateRequest):

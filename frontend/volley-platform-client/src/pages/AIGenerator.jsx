@@ -1040,6 +1040,9 @@ export default function AIGenerator() {
               cycleDay: null,
               textbookSlug: "",
               sessionCode: "",
+              proposedExercises: Array.isArray(fromChat.proposedExercises)
+                ? fromChat.proposedExercises
+                : [],
             });
           }}
         />

@@ -863,6 +863,71 @@ def attach_text_drills(session: dict[str, Any], request_data: dict[str, Any], mi
             block["textDrills"] = text_drills
 
 
+def attach_assistant_exercises(session: dict[str, Any], request_data: dict[str, Any]) -> None:
+    """Вмъква упражнения от AI помощника (сила/отскок и др.) като textDrills в плана."""
+    proposed = request_data.get("proposedExercises") or []
+    if not isinstance(proposed, list) or not proposed:
+        return
+
+    by_block: dict[str, list[dict[str, Any]]] = {}
+    for raw in proposed:
+        if not isinstance(raw, dict):
+            continue
+        title = str(raw.get("title") or "").strip()
+        if not title:
+            continue
+        bt = str(raw.get("blockType") or "Изграждане").strip()
+        if bt not in ("Активиране", "Изграждане", "Интеграция", "Състезателност"):
+            bt = "Изграждане"
+        try:
+            minutes = int(raw.get("minutes") or 8)
+        except (TypeError, ValueError):
+            minutes = 8
+        by_block.setdefault(bt, []).append(
+            {
+                "title": title[:120],
+                "instructions": str(raw.get("instructions") or "").strip()[:600],
+                "minutes": max(4, min(20, minutes)),
+                "skill": str(raw.get("skill") or "Координация")[:60],
+                "source": str(raw.get("source") or "assistant"),
+            }
+        )
+
+    if not by_block:
+        return
+
+    physicalish = bool(
+        request_data.get("assistantOverride")
+        and (
+            request_data.get("orientation") == "physical"
+            or str(request_data.get("mainFocus") or "") == "Координация"
+        )
+    )
+
+    for block in session.get("blocks") or []:
+        bt = block.get("blockType") or "Изграждане"
+        extras = by_block.get(bt) or []
+        if not extras:
+            continue
+        # При физически фокус: остави 1 техническо упражнение, останалото — от помощника
+        if physicalish and bt in ("Активиране", "Изграждане"):
+            drills = list(block.get("drills") or [])
+            if len(drills) > 1:
+                keep = drills[:1]
+                freed = sum(int(d.get("minutes") or 0) for d in drills[1:])
+                keep_mins = int(keep[0].get("minutes") or 0)
+                # преразпредели освободените минути към text drills пропорционално
+                if freed > 0 and extras:
+                    add_each = max(0, freed // len(extras))
+                    rem = freed - add_each * len(extras)
+                    for i, td in enumerate(extras):
+                        td["minutes"] = int(td.get("minutes") or 8) + add_each + (1 if i < rem else 0)
+                block["drills"] = keep
+                _ = keep_mins
+        existing = [td for td in (block.get("textDrills") or []) if td.get("source") != "assistant"]
+        block["textDrills"] = extras + existing
+
+
 def method_context_from_stored_request(
     gen_req: dict[str, Any] | None,
     db=None,
