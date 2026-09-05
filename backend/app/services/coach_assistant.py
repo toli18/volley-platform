@@ -59,6 +59,30 @@ _YOUTH_PHYSICAL_PACK: tuple[dict[str, Any], ...] = (
     },
 )
 
+_SETTER_PACK: tuple[dict[str, Any], ...] = (
+    {
+        "title": "Придвижване към топката + висока точка на контакт",
+        "blockType": "Изграждане",
+        "minutes": 10,
+        "skill": "Разпределение",
+        "instructions": "Серии: старт от зона 1/6 → спринт под топката → стоп → пас към зона 4/2. Краката спират преди контакт.",
+    },
+    {
+        "title": "Пас към 4 и 2 без „телеграфиране“",
+        "blockType": "Изграждане",
+        "minutes": 10,
+        "skill": "Разпределение",
+        "instructions": "Еднаква подготовка на тялото; посоката се решава късно с ръцете. 3×8 паса във всяка посока.",
+    },
+    {
+        "title": "Разпределение след посрещане (синтетично)",
+        "blockType": "Интеграция",
+        "minutes": 12,
+        "skill": "Разпределение",
+        "instructions": "Прием → разпределител → атака зона 4/2. Без темпо 1, ако групата още не е стабилна на високо подаване.",
+    },
+)
+
 _AGE_BAND_PATTERNS: tuple[tuple[str, str, int], ...] = (
     (r"\bu18\b|до\s*18|под\s*18|18\s*г", "U18", 18),
     (r"\bu17\b|17\s*г", "U17", 17),
@@ -73,7 +97,7 @@ _FOCUS_RULES: tuple[tuple[tuple[str, ...], str, str | None, str | None], ...] = 
     (("отскок", "скач", "плиометр", "взривн", "скок"), "Координация", "Атака", "physical"),
     (("сил", "физическ", "кондиц", "кор ", "стабилиз"), "Координация", "Защита", "physical"),
     (("посрещ", "прием", "зон"), "Посрещане", "Разпределение", "serve_receive"),
-    (("разпредел", "пас ", "подав"), "Разпределение", "Посрещане", "serve_receive"),
+        (("разпредел", "пас ", "подав", "разпределител", "сетър", "setter"), "Разпределение", "Посрещане", "serve_receive"),
     (("атак", "напад", "шпиц"), "Атака", "Блок", "attack_block"),
     (("блок",), "Блок", "Защита", "attack_block"),
     (("сервис", "начален удар", "сервир"), "Сервис", "Посрещане", "serve_receive"),
@@ -344,6 +368,11 @@ def default_physical_exercises(age_band: str | None = None) -> list[dict[str, An
     return [dict(x) for x in _YOUTH_PHYSICAL_PACK]
 
 
+def default_setter_exercises(age_band: str | None = None) -> list[dict[str, Any]]:
+    _ = age_band
+    return [dict(x) for x in _SETTER_PACK]
+
+
 def _strip_service_markers(reply: str) -> str:
     clean = re.sub(
         r"(?im)^\s*Действие:\s*генерирай_тренировка\s*$",
@@ -563,10 +592,20 @@ def build_reply(
             or generate_params.get("mainFocus") == "Координация"
             or any(k in message.lower() for k in ("силов", "отскок", "физическ", "скач"))
         )
+        is_setter = generate_params.get("mainFocus") == "Разпределение" or any(
+            k in message.lower() for k in ("разпределител", "сетър", "setter")
+        )
         if not proposed and is_physical:
             proposed = default_physical_exercises(generate_params.get("ageBand") or effective_age)
+        elif not proposed and is_setter:
+            proposed = default_setter_exercises(generate_params.get("ageBand") or effective_age)
         if proposed:
             generate_params["proposedExercises"] = proposed
+        # Чатът е водещ — не позволявай учебник да върне „темпо 1“ вместо исканото умение
+        generate_params["assistantOverride"] = True
+        generate_params["textbookSlug"] = ""
+        generate_params["sessionCode"] = ""
+        generate_params["cycleId"] = None
 
     clean = _strip_service_markers(reply)
 

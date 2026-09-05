@@ -83,7 +83,15 @@ def training_for_day(
     if not row:
         return {"training": None}
     status_val = row.status.value if hasattr(row.status, "value") else row.status
-    return {"training": {"id": row.id, "title": row.title, "status": status_val}}
+    return {
+        "training": {
+            "id": row.id,
+            "title": row.title,
+            "status": status_val,
+            "team_id": row.team_id,
+            "session_date": row.session_date,
+        }
+    }
 
 
 @router.post("/generate")

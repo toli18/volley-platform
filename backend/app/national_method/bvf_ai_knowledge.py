@@ -693,6 +693,8 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
     from_planner = bool(out.get("cycleId") or out.get("textbookSlug") or out.get("sessionCode"))
     assistant_override = bool(out.get("assistantOverride") or out.get("lockFocusFromAssistant"))
     rec = session_review["recommended"]
+    request_has_focus = bool(str(out.get("mainFocus") or "").strip())
+
     if assistant_override:
         # Заявка от AI помощника — запази изричния фокус/натоварване.
         if out.get("mainFocus"):
@@ -705,11 +707,21 @@ def enrich_request(request_data: dict[str, Any], db=None) -> dict[str, Any]:
         if out.get("intensityTarget"):
             rec["intensityTarget"] = out["intensityTarget"]
             rec["intensityLabel"] = intensity_label_from_load(rec.get("load"), out["intensityTarget"])
-    elif from_planner:
+    elif from_planner and not request_has_focus:
+        # Конспектът пълни само когато треньорът НЕ е задал фокус.
         out["mainFocus"] = rec["mainFocus"]
         out["secondaryFocus"] = rec["secondaryFocus"]
         out["periodPhase"] = rec["periodPhase"]
         out["intensityTarget"] = rec["intensityTarget"]
+    elif from_planner and request_has_focus:
+        # Има учебник, но фокусът от чат/URL печели — синхронизирай прегледа.
+        rec["mainFocus"] = out["mainFocus"]
+        if out.get("secondaryFocus"):
+            rec["secondaryFocus"] = out["secondaryFocus"]
+        if not out.get("periodPhase"):
+            out["periodPhase"] = rec["periodPhase"]
+        if not out.get("intensityTarget"):
+            out["intensityTarget"] = rec["intensityTarget"]
     elif not out.get("mainFocus"):
         out["mainFocus"] = rec["mainFocus"]
         out["secondaryFocus"] = rec["secondaryFocus"]

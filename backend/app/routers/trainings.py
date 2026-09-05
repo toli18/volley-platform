@@ -128,6 +128,7 @@ def get_training_details(
             drills_map[int(d.id)] = d
 
     method_ctx = method_context_from_stored_request(training.generation_request, db)
+    gen_req = training.generation_request if isinstance(training.generation_request, dict) else {}
 
     return {
         "id": training.id,
@@ -143,6 +144,9 @@ def get_training_details(
         "drills": drills_map,
         "sessionReview": method_ctx.get("sessionReview"),
         "trainingPlanText": method_ctx.get("trainingPlanText"),
+        "savedTextDrills": gen_req.get("savedTextDrills") or [],
+        "team_id": training.team_id,
+        "session_date": training.session_date,
     }
 
 

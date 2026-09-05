@@ -63,6 +63,47 @@ function parseList(raw) {
     .filter(Boolean);
 }
 
+function mapProgramFocusToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return null;
+  const low = raw.toLowerCase();
+  // Игнорирай методически етикети, които не са умения (темпо, тапер, контрол…)
+  if (
+    low.includes("темпо") ||
+    low.includes("тапер") ||
+    low.includes("контрол") ||
+    low.includes("акцент") ||
+    low.includes("специалн") ||
+    low.includes("подготов") ||
+    low.includes("интеграц")
+  ) {
+    return null;
+  }
+  if (low.includes("посрещ") || low.includes("прием") || low.includes("reception")) return "Посрещане";
+  if (low.includes("разпредел") || low.includes("setter") || low.includes("сетър") || low.includes("подав"))
+    return "Разпределение";
+  if (low.includes("сервис") || low.includes("начален") || low.includes("serve")) return "Сервис";
+  if (low.includes("атак") || low.includes("напад") || low.includes("attack")) return "Атака";
+  if (low.includes("блок") || low.includes("block")) return "Блок";
+  if (low.includes("защит") || low.includes("defense") || low.includes("диг")) return "Защита";
+  if (low.includes("преход") || low.includes("контра")) return "Преход";
+  if (low.includes("коорд") || low.includes("отскок") || low.includes("физи") || low.includes("сил"))
+    return "Координация";
+  if (low.includes("игра") || low.includes("rally")) return "Игра";
+  const canon = ["Посрещане", "Разпределение", "Сервис", "Атака", "Блок", "Защита", "Преход", "Координация", "Игра"];
+  if (canon.includes(raw)) return raw;
+  return null;
+}
+
+function mapProgramFocusList(tokens) {
+  const mapped = [];
+  for (const t of tokens || []) {
+    const m = mapProgramFocusToken(t);
+    if (m && !mapped.includes(m)) mapped.push(m);
+  }
+  return mapped;
+}
+
 const PERIOD_OK = new Set(["prep", "inseason", "taper", "offseason"]);
 const INTENSITY_OK = new Set(["low", "medium", "high"]);
 
@@ -430,10 +471,12 @@ export default function AIGenerator() {
     const focus = (searchParams.get("focus") || "").trim();
     if (!teamIdRaw && !date && !title && !focus) return;
     const teamId = teamIdRaw ? Number(teamIdRaw) : null;
-    const focusTokens = focus
-      ? focus.split(",").map((s) => s.trim()).filter(Boolean)
-      : [];
-    // Фокусът на програмния ден е водещ за генератора.
+    const focusTokens = mapProgramFocusList(
+      focus
+        ? focus.split(",").map((s) => s.trim()).filter(Boolean)
+        : []
+    );
+    // Фокусът на програмния ден е водещ за генератора (само канонични умения).
     programDayFocusRef.current = focusTokens;
     if (teamIdRaw || date) {
       setProgramLink({
@@ -822,6 +865,7 @@ export default function AIGenerator() {
     if (!customTitle) {
       setErr("Моля, въведете име на тренировката преди запис.");
       setSaving(false);
+      setActiveTab("save");
       return;
     }
     try {
@@ -829,16 +873,20 @@ export default function AIGenerator() {
         form.variability === "varied"
           ? Math.floor(Date.now() % 1000000)
           : Number(form.randomSeed);
+      const urlTeam = Number(searchParams.get("team_id") || "") || null;
+      const urlDate = (searchParams.get("date") || "").trim() || null;
+      const teamId = programLink.teamId || assistPlatCtx?.activeTeam?.id || urlTeam || null;
+      const sessionDate = programLink.sessionDate || urlDate || null;
       const data = await apiClient(API_PATHS.AI_TRAINING_GENERATE_AND_SAVE, {
         method: "POST",
         data: sanitizeGenerateBody({
           ...payload,
           randomSeed: effectiveSeed,
           trainingTitle: customTitle,
-          trainingStatus: "чернова",
+          trainingStatus: "запазена",
           editedBlocks: editableBlocks.length ? editableBlocks : undefined,
-          teamId: programLink.teamId || undefined,
-          sessionDate: programLink.sessionDate || undefined,
+          teamId: teamId || undefined,
+          sessionDate: sessionDate || undefined,
         }),
       });
       setResult(data || null);
@@ -975,7 +1023,22 @@ export default function AIGenerator() {
       {savedTraining?.id ? (
         <div className="aiGenSuccess">
           Записано като тренировка #{savedTraining.id}: {savedTraining.title}
+          {savedTraining.team_id && savedTraining.session_date
+            ? ` · закачена към отбор #${savedTraining.team_id} за ${savedTraining.session_date}`
+            : ""}
           {isHeadCoachUser && assignCoaches.length > 0 ? " • Възложена като задача." : ""}
+          {" "}
+          <Link to={`/trainings/${savedTraining.id}`}>Отвори тренировката →</Link>
+          {savedTraining.team_id && savedTraining.session_date ? (
+            <>
+              {" · "}
+              <Link
+                to={`/teams/${savedTraining.team_id}/attendance?date=${encodeURIComponent(savedTraining.session_date)}`}
+              >
+                Към присъствието за деня →
+              </Link>
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -1044,6 +1107,15 @@ export default function AIGenerator() {
                 mainFocus = "Координация";
                 orientation = "physical";
                 secondaryFocus = secondaryFocus || "Атака";
+              } else if (
+                hint.includes("разпредел") ||
+                hint.includes("сетър") ||
+                hint.includes("setter") ||
+                hint.includes("подава")
+              ) {
+                mainFocus = "Разпределение";
+                orientation = "serve_receive";
+                secondaryFocus = secondaryFocus || "Посрещане";
               } else if (hint.includes("зон") || hint.includes("посрещ") || hint.includes("прием")) {
                 mainFocus = "Посрещане";
                 orientation = "serve_receive";
@@ -1244,20 +1316,28 @@ export default function AIGenerator() {
       <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
         {(activeTab === "settings" || activeTab === "plan") && (
           <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => onGenerate()} disabled={loading || saving || metaLoading}>
-            {loading ? "Генериране..." : "Генерирай"}
+            {loading ? "Генериране..." : "Генерирай преглед"}
           </button>
         )}
-        {(activeTab === "plan" || activeTab === "save") && (
+        {(activeTab === "settings" || activeTab === "plan" || activeTab === "save") && (
           <button
             type="button"
             className="aiGenBtn aiGenBtn--save"
             onClick={() => {
-              if (!form.trainingTitle?.trim()) setActiveTab("save");
+              if (!form.trainingTitle?.trim()) {
+                setActiveTab("save");
+                setErr("Моля, въведете име на тренировката преди запис.");
+                return;
+              }
               onGenerateAndSave();
             }}
             disabled={loading || saving || metaLoading}
           >
-            {saving ? "Запис..." : "Запази"}
+            {saving
+              ? "Запис..."
+              : programLink.teamId && programLink.sessionDate
+                ? `Запиши за ${programLink.sessionDate}`
+                : "Запази"}
           </button>
         )}
       </div>

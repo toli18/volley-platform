@@ -130,6 +130,25 @@ def persist_generated_training(
 
     request_data["sessionReview"] = generated.get("sessionReview")
     request_data["trainingPlanText"] = generated.get("trainingPlanText")
+    # Запази текстовите упражнения от помощника, за да се виждат при отваряне по-късно.
+    saved_text: list[dict] = []
+    for block in blocks:
+        for td in block.get("textDrills") or []:
+            if not isinstance(td, dict):
+                continue
+            saved_text.append(
+                {
+                    "blockType": block.get("blockType"),
+                    "title": td.get("title"),
+                    "instructions": td.get("instructions"),
+                    "minutes": td.get("minutes"),
+                    "skill": td.get("skill"),
+                    "source": td.get("source") or "assistant",
+                }
+            )
+    if saved_text:
+        request_data["savedTextDrills"] = saved_text
+        request_data["sessionBlocks"] = blocks
 
     training = Training(
         title=resolved_title,

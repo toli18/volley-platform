@@ -154,3 +154,9 @@ class TrainingReadDetailed(TrainingRead):
     drills: Dict[int, DrillMini] = {}
     sessionReview: Optional[Dict[str, Any]] = None
     trainingPlanText: Optional[str] = None
+    savedTextDrills: List[Dict[str, Any]] = []
+    team_id: Optional[int] = None
+    session_date: Optional[str] = None
+    assignment_id: Optional[int] = None
+    assignment_status: Optional[str] = None
+    assignment_due_date: Optional[str] = None
