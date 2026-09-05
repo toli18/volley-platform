@@ -160,6 +160,97 @@ def _summarize_plan(
     return lines
 
 
+# Tokens that must never drive drill title search alone
+_DRILL_MATCH_STOP = {
+    "какво",
+    "какъв",
+    "направе",
+    "направи",
+    "подобр",
+    "силата",
+    "сила",
+    "дадам",
+    "кажи",
+    "трябва",
+    "могат",
+    "играчи",
+    "терен",
+    "сега",
+    "това",
+    "упражнение",
+    "упражнения",
+    "разбират",
+    "разбирам",
+    "стъпка",
+    "стъпки",
+    "заход",
+    "разбег",
+    "атака",
+    "удар",
+    "удара",
+    "четири",
+    "три",
+    "две",
+    "една",
+    "колко",
+    "откъде",
+    "трябва",
+    "може",
+    "взема",
+    "детето",
+    "кажа",
+    "точно",
+    "подаване",
+    "поле",
+    "полето",
+    "смяна",
+    "степен",
+    "блок",
+    "зони",
+    "зона",
+}
+
+
+def _normalize_chat_blob(text: str) -> str:
+    blob = str(text or "").lower()
+    return re.sub(r"[^\wа-яА-ЯёЁ\s\-]+", " ", blob, flags=re.UNICODE)
+
+
+def is_technique_priority_message(message: str) -> bool:
+    """Технически въпрос — не го замествай с произволно упражнение от базата."""
+    low = _normalize_chat_blob(message)
+    if any(
+        k in low
+        for k in (
+            "заход",
+            "разбег",
+            "стъпк",
+            "approach",
+            "обратн",
+            "от къде",
+            "откъде",
+            "взема сила",
+            "сила на удар",
+            "силата на удар",
+            "сила удара",
+            "мощност",
+            "как да кажа",
+            "какво да кажа",
+            "какво точно да кажа",
+            "на детето",
+            "cue",
+            "кацане",
+            "ротац",
+            "тайминг",
+        )
+    ):
+        return True
+    # „сила“ без ясно име на упражнение
+    if "сил" in low and not any(k in low for k in ("пеперуд", "тръбн", "pipe", "упражнен")):
+        return True
+    return False
+
+
 def match_drills_for_message(
     db: Session,
     message: str,
@@ -168,94 +259,111 @@ def match_drills_for_message(
     prefer_ids: Optional[list[int]] = None,
     limit: int = 3,
 ) -> list[dict[str, Any]]:
-    """Намира упражнения по име в съобщението (+ скорошна история)."""
-    parts = [str(message or "")]
-    for turn in (history or [])[-6:]:
-        if str(turn.get("role") or "") == "user":
-            parts.append(str(turn.get("content") or ""))
-    blob = " ".join(parts).lower()
-    blob = re.sub(r"[^\wа-яА-ЯёЁ\s\-]+", " ", blob, flags=re.UNICODE)
-    tokens = [t for t in re.split(r"\s+", blob) if len(t) >= 4]
-    if not tokens and len(blob.strip()) < 3:
+    """Намира упражнения само при СИЛНО съвпадение с име (не по общи думи)."""
+    current = _normalize_chat_blob(message)
+    if not current.strip():
+        return []
+
+    # Технически въпрос без ясно име → без drill hijack
+    if is_technique_priority_message(message):
+        # Разреши match само ако цяло заглавие е в текущото съобщение
+        prefer = [int(x) for x in (prefer_ids or []) if x is not None]
+        pool: list[Drill] = []
+        if prefer:
+            pool = db.query(Drill).filter(Drill.id.in_(prefer)).all()
+        strong = []
+        for d in pool:
+            title = str(d.title or "").lower().strip()
+            if title and len(title) >= 6 and title in current:
+                strong.append(_drill_card(d))
+        if strong:
+            return strong[:limit]
+        # Глобално: само пълно заглавие в съобщението (редки случаи)
+        rows = db.query(Drill).filter(Drill.title.ilike(f"%{current.strip()[:40]}%")).limit(5).all()
+        out = []
+        for d in rows:
+            title = str(d.title or "").lower().strip()
+            if title and title in current:
+                out.append(_drill_card(d))
+        return out[:limit]
+
+    # История: само ако текущото е follow-up („не разбират“, „опрости“)
+    followup = any(
+        k in current
+        for k in ("разбира", "опрости", "не върви", "не се получ", "това упражнен", "него")
+    )
+    hist_parts = []
+    if followup:
+        for turn in (history or [])[-4:]:
+            if str(turn.get("role") or "") == "user":
+                hist_parts.append(str(turn.get("content") or ""))
+    search_blob = _normalize_chat_blob(" ".join([message] + hist_parts))
+    tokens = [
+        t
+        for t in re.split(r"\s+", search_blob)
+        if len(t) >= 5 and t not in _DRILL_MATCH_STOP
+    ]
+    if not tokens and len(current.strip()) < 5:
         return []
 
     prefer = set(int(x) for x in (prefer_ids or []) if x is not None)
-    # Prefer session drills first
     pool: list[Drill] = []
     if prefer:
         pool = db.query(Drill).filter(Drill.id.in_(list(prefer))).all()
 
     scored: list[tuple[int, Drill]] = []
-    for d in pool:
-        title = str(d.title or "").lower()
+
+    def score_drill(d: Drill, blob: str) -> int:
+        title = str(d.title or "").lower().strip()
         if not title:
-            continue
+            return 0
         score = 0
         if title in blob:
             score += 100
-        title_tokens = [t for t in re.split(r"\s+", title) if len(t) >= 4]
+        title_tokens = [
+            t
+            for t in re.split(r"\s+", title)
+            if len(t) >= 5 and t not in _DRILL_MATCH_STOP
+        ]
+        if not title_tokens and title in blob:
+            return score
         hits = sum(1 for t in title_tokens if t in blob)
-        if hits:
-            score += hits * 25
-        # partial: "пеперуда" in "тръбна пеперуда"
-        if any(t in title for t in tokens if len(t) >= 5):
-            score += 15
-        if score:
-            scored.append((score, d))
+        if hits and title_tokens and hits == len(title_tokens):
+            score += 80
+        elif hits >= 2:
+            score += 50
+        elif hits == 1 and len(title_tokens) == 1 and len(title_tokens[0]) >= 6:
+            score += 45
+        return score
 
-    # Broader search if message looks like a drill name / confusion about a named drill
-    need_global = not scored or any(
-        k in blob
-        for k in (
-            "пеперуд",
-            "тръбн",
-            "pipe",
-            "упражнен",
-            "разбира",
-            "опрости",
-            "как се",
-            "какво е",
-        )
+    for d in pool:
+        sc = score_drill(d, search_blob)
+        if sc >= 45:
+            scored.append((sc, d))
+
+    # Глобално търсене само с отличителни токени (≥6) и висок праг
+    distinctive = [t for t in tokens if len(t) >= 6][:3]
+    looks_like_name = (
+        len(current.split()) <= 5
+        or any(k in current for k in ("упражнен", "разбира", "опрости", "какво е", "как се прави"))
     )
-    if need_global:
-        # Search by significant tokens (avoid stopwords)
-        stop = {
-            "какво",
-            "какъв",
-            "направе",
-            "направи",
-            "подобр",
-            "силата",
-            "сила",
-            "дадам",
-            "кажи",
-            "трябва",
-            "могат",
-            "играчи",
-            "терен",
-            "сега",
-            "това",
-            "упражнение",
-            "упражнения",
-            "разбират",
-            "разбирам",
-        }
-        q_tokens = [t for t in tokens if t not in stop and len(t) >= 4][:4]
-        for tok in q_tokens:
+    if distinctive and looks_like_name:
+        for tok in distinctive:
             rows = (
                 db.query(Drill)
                 .filter(Drill.title.ilike(f"%{tok}%"))
-                .limit(8)
+                .limit(6)
                 .all()
             )
             for d in rows:
+                sc = score_drill(d, search_blob)
+                # single-token global needs the token to be a major part of title
                 title = str(d.title or "").lower()
-                score = 40 if tok in title else 20
-                if title in blob:
-                    score += 80
-                scored.append((score, d))
+                if tok in title and sc < 45:
+                    sc = 45 if len(tok) >= 7 else 0
+                if sc >= 45:
+                    scored.append((sc, d))
 
-    # Deduplicate by id, keep best score
     best: dict[int, tuple[int, Drill]] = {}
     for score, d in scored:
         prev = best.get(d.id)
@@ -263,7 +371,7 @@ def match_drills_for_message(
             best[d.id] = (score, d)
 
     ranked = sorted(best.values(), key=lambda x: (-x[0], x[1].id))
-    return [_drill_card(d) for score, d in ranked[:limit] if score >= 20]
+    return [_drill_card(d) for score, d in ranked[:limit] if score >= 45]
 
 
 def load_training_session_pack(

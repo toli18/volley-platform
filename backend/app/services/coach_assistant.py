@@ -422,6 +422,102 @@ def _session_live_drill_cues(card: dict[str, Any]) -> str:
     )
 
 
+def _session_live_technique_answer(
+    message: str,
+    *,
+    session_pack: Optional[dict[str, Any]] = None,
+) -> Optional[str]:
+    """Технически cues — преди drill-match, за да не се hijack-ва въпросът."""
+    low = (message or "").lower()
+
+    if any(k in low for k in ("как да кажа", "какво да кажа", "какво точно да кажа", "на детето")):
+        if any(k in low for k in ("сил", "удар")):
+            return (
+                "Кажи на детето точно така (късо):\n"
+                "1) „Силата идва от краката и корема, не само от ръката.“\n"
+                "2) „Бързи последни две стъпки → скачай → удряй пред тялото.“\n"
+                "3) 4 чисти удара; ако удря зад главата — спри и повтори без топка маха."
+            )
+        return (
+            "Кажи на детето 1 cue, не цяла лекция:\n"
+            "1) Спри упражнението за 20 сек.\n"
+            "2) Една фраза: „гледай топката / бързи последни стъпки / кажи МОЯ“ "
+            "(избери според грешката).\n"
+            "3) 5 повторения само с този cue, после продължете."
+        )
+
+    # Сила на удара / откъде идва силата (биомеханика), не плио блок
+    hit_power = any(
+        k in low
+        for k in (
+            "сила на удар",
+            "силата на удар",
+            "сила удара",
+            "силата удара",
+            "взема сила",
+            "от къде",
+            "откъде",
+            "мощност",
+        )
+    ) or (
+        "сил" in low
+        and any(k in low for k in ("удар", "атак", "маха", "ръка", "рамо"))
+    )
+    if hit_power or (
+        "сил" in low and not any(k in low for k in ("плио", "отскок", "скач", "физик", "серия"))
+    ):
+        # Plain "сила" in session live often means spike power when attack focus
+        focus = str((session_pack or {}).get("mainFocus") or "")
+        secondary = str((session_pack or {}).get("secondaryFocus") or "")
+        attackish = any(
+            k in (focus + " " + secondary).lower() for k in ("атак", "нападен", "удар")
+        )
+        if hit_power or attackish or "удар" in low:
+            return (
+                "Откъде идва силата на удара — кажи на терена:\n"
+                "1) Спри чистите „само с рамо“ удари.\n"
+                "2) Cue: „бързи последни 2 стъпки → скачай → завърти тялото → удари пред себе си“.\n"
+                "3) 4–6 повторения: първо без топка (маха), после с леко подаване. "
+                "Гледай: кацане на две, топката пред тялото (не зад главата).\n"
+                "Силата е крака + корем + махане — ръката е последният бич."
+            )
+
+    if any(k in low for k in ("заход", "разбег", "стъпк", "approach", "обратн")):
+        four = any(k in low for k in ("четири", "4 ", "4-ст", "4 ст"))
+        if four or "заход" in low:
+            return (
+                "За 4-стъпков заход при атака сега:\n"
+                "1) Спри — само крака, без топка.\n"
+                "2) Cue за дясна ръка: „дясна – лява – дясна – лява+скок“; "
+                "последните 2 по-бързи, последната по-дълга и спираща.\n"
+                "3) 6 без топка, после 6 с леко подаване. Гледай: ритъм, не дължина на първите стъпки; "
+                "кацане на две крака.\n"
+                "Ако се бъркат: маркирай с конуси 4 отпечатъка на пода."
+            )
+        return (
+            "За разбега/обратната стъпка сега:\n"
+            "1) Спри — покажи само последните 2–3 стъпки без топка.\n"
+            "2) Cue: „лява–дясна–скок“ (или огледално), последната стъпка по-дълга и спираща.\n"
+            "3) 6 повторения: 3 без топка, 3 с леко подаване. Гледай кацане на две крака.\n"
+            "Ако още се бъркат: маркирай с конус къде е последната стъпка."
+        )
+
+    if any(k in low for k in ("плио", "отскок", "скач", "мощност на скок")) or (
+        "сил" in low and any(k in low for k in ("плио", "физик", "серия", "скок"))
+    ):
+        focus = (session_pack or {}).get("mainFocus") or "координация/сила"
+        title = (session_pack or {}).get("title") or "този блок"
+        return (
+            f"За сила/плио в „{title}“ (фокус {focus}) сега на терена:\n"
+            "1) Дръж качеството: 3–4 серии × 4–6 чисти скока/усилия, не до отказ.\n"
+            "2) Cue: „меко кацане, колене над пръстите, пълен размах на ръцете“.\n"
+            "3) Между сериите 40–60 сек походка; после върнете към техническото упражнение от плана.\n"
+            "Ако формата се счупи — намали височината/разстоянието, не добавяй повторения."
+        )
+
+    return None
+
+
 def _fallback_answer(
     message: str,
     age_band: str | None,
@@ -432,21 +528,12 @@ def _fallback_answer(
     history: Optional[list[dict[str, str]]] = None,
 ) -> str:
     low = (message or "").lower()
-    hist_blob = " ".join(
-        str(t.get("content") or "")
-        for t in (history or [])[-4:]
-        if str(t.get("role") or "") == "user"
-    ).lower()
-    blob = f"{hist_blob} {low}".strip()
 
     if session_live:
-        drills = list(matched_drills or [])
-        if not drills and session_pack:
-            # match against plan drill titles without DB
-            for card in session_pack.get("drills") or []:
-                title = str(card.get("title") or "").lower()
-                if title and (title in blob or any(tok in blob for tok in title.split() if len(tok) >= 5)):
-                    drills.append(card)
+        # 1) Техника първо — не замествай с грешен drill
+        tech = _session_live_technique_answer(message, session_pack=session_pack)
+        if tech:
+            return tech
 
         confused = any(
             k in low
@@ -465,38 +552,20 @@ def _fallback_answer(
             )
         )
 
-        if drills:
+        drills = list(matched_drills or [])
+        if not drills and session_pack:
+            # Само пълно име на упражнение от плана
+            for card in session_pack.get("drills") or []:
+                title = str(card.get("title") or "").lower().strip()
+                if title and len(title) >= 6 and title in low:
+                    drills.append(card)
+
+        # Drill cues само при ясно име ИЛИ объркване + силен match
+        if drills and (confused or any(
+            str(d.get("title") or "").lower() in low for d in drills
+        )):
             return _session_live_drill_cues(drills[0])
 
-        # Само име на упражнение / кратък рефър — пак дай cues ако има в плана
-        plan_drills = list((session_pack or {}).get("drills") or [])
-        if plan_drills and len(low.split()) <= 6 and not any(
-            k in low for k in ("сила", "сил", "зони", "мач", "генерирай")
-        ):
-            # няма match — но съобщението е кратко: помогни с първото главно упражнение? Better ask with options
-            names = [str(d.get("title")) for d in plan_drills[:4] if d.get("title")]
-            if names and any(n.lower() in blob for n in names):
-                hit = next(d for d in plan_drills if str(d.get("title") or "").lower() in blob)
-                return _session_live_drill_cues(hit)
-
-        if any(k in low for k in ("обратн", "стъпк", "разбег", "approach", "стъпка")):
-            return (
-                "За разбега/обратната стъпка сега:\n"
-                "1) Спри — покажи само последните 2–3 стъпки без топка.\n"
-                "2) Cue: „лява–дясна–скок“ (или обратната за страната), последната стъпка по-дълга и спираща.\n"
-                "3) 6 повторения: 3 без топка, 3 с леко подаване. Гледай кацане на две крака.\n"
-                "Ако още се бъркат: маркирай с конус къде е последната стъпка."
-            )
-        if any(k in low for k in ("сил", "плио", "отскок", "скач", "мощност", "физик")):
-            focus = (session_pack or {}).get("mainFocus") or "координация/сила"
-            title = (session_pack or {}).get("title") or "този блок"
-            return (
-                f"За сила в „{title}“ (фокус {focus}) сега на терена:\n"
-                "1) Дръж качеството: 3–4 серии × 4–6 чисти скока/усилия, не до отказ.\n"
-                "2) Cue: „меко кацане, колене над пръстите, пълен размах на ръцете“.\n"
-                "3) Между сериите 40–60 сек походка; после върнете към техническото упражнение от плана.\n"
-                "Ако формата се счупи — намали височината/разстоянието, не добавяй повторения."
-            )
         if "зон" in low:
             return (
                 "За зоните на терена:\n"
@@ -504,14 +573,16 @@ def _fallback_answer(
                 "2) Cue: „ако е между двама — казваш МОЯ“.\n"
                 "3) 4 топки само на границата; после продължете упражнението."
             )
-        if any(k in low for k in ("разпредел", "сетър", "подава", "setter")):
+        if any(k in low for k in ("разпредел", "сетър", "setter")) or (
+            "подава" in low and "удар" not in low
+        ):
             return (
                 "За разпределителя:\n"
                 "1) Спри ритъма — 3 подавания само към центъра с висок дъга.\n"
                 "2) Cue: „топката над челото, после тласък“.\n"
                 "3) След 5 чисти — върнете към упражнението от плана."
             )
-        if any(k in low for k in ("малко", "нямаме", "8 души", "по-малко", "играч")):
+        if any(k in low for k in ("малко", "нямаме", "8 души", "по-малко")) and "играч" in low:
             return (
                 "При по-малко играчи:\n"
                 "1) Намали полето / махни една зона.\n"
@@ -527,12 +598,11 @@ def _fallback_answer(
             hint = f" Напр. от плана: {', '.join(names)}." if names else ""
             return (
                 "Сега на терена:\n"
-                "1) Назови упражнението с име (или номер от плана)."
+                "1) Назови упражнението с име (или кажи техниката: разбег, сила на удара, зони)."
                 f"{hint}\n"
                 "2) Опрости: без топка → бавно с топка → нормално темпо.\n"
                 "3) Дай един cue (1 изречение) и 5 чисти повторения преди да продължите."
             )
-        # Default: still useful — offer plan anchors, don't dead-end
         names = [
             str(d.get("title"))
             for d in ((session_pack or {}).get("drills") or [])[:5]
@@ -541,12 +611,12 @@ def _fallback_answer(
         if names:
             return (
                 f"От плана виждам: {', '.join(names)}.\n"
-                "Кажи кое от тях работите сега (или какво не се получава: разбег, ръце, тайминг, зони) "
-                "и ще ти дам 2–3 cues за терена."
+                "Кажи кое работите сега, или питай директно за техника "
+                "(разбег, сила на удара, зони) — ще ти дам 2–3 cues."
             )
         return (
-            "Кажи името на упражнението от плана и какво не се получава "
-            "(разбег, ръце, тайминг, зони, брой играчи). Ще ти дам 2–3 cues за терена."
+            "Кажи името на упражнението или техниката "
+            "(разбег, сила на удара, зони, брой играчи). Ще ти дам 2–3 cues за терена."
         )
 
     bundle = load_coach_assistant_method()
@@ -604,7 +674,11 @@ def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bo
 2) Какво да каже на играчите — 1–2 кратки cues
 3) 3–6 повторения / адаптация, после обратно към плана
 
-Максимум 6–8 изречения. Без генериране на цяла нова тренировка.
+Приоритет:
+- Ако пита за ТЕХНИКА (заход/разбег/стъпки, сила на удара, откъде идва силата, какво да каже на детето) —
+  отговори на ТЕХНИКАТА. Не закачай случайно упражнение от плана само заради една дума.
+- Упражнение от плана споменавай САМО ако треньорът го е назовал ясно или пита как да го опрости.
+- Максимум 6–8 изречения. Без генериране на цяла нова тренировка.
 Не казвай „тапер“. Използвай: посрещане, разпределител, сервиращи, облекчена.
 
 Акцент за възрастта:
