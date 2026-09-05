@@ -19,6 +19,7 @@ import {
   resolveToSelectableSkill,
 } from "../utils/skillCanonical";
 import { AGE_BAND_TO_YEARS, FORM_AGE_YEAR_OPTIONS } from "../utils/ageBands";
+import { normalizeError } from "../utils/normalizeError";
 
 const PERIODS = [
   { value: "prep", label: "Подготовителен период" },
@@ -60,6 +61,56 @@ function parseList(raw) {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+const PERIOD_OK = new Set(["prep", "inseason", "taper", "offseason"]);
+const INTENSITY_OK = new Set(["low", "medium", "high"]);
+
+function sanitizeGenerateBody(raw) {
+  const body = { ...(raw || {}) };
+  // UI-only fields — не са в GenerateRequest / GenerateAndSaveRequest schema
+  delete body.orientation;
+  delete body.variability;
+  delete body.ageRange;
+
+  if (body.periodPhase != null && !PERIOD_OK.has(String(body.periodPhase))) {
+    const low = String(body.periodPhase).toLowerCase();
+    if (low.includes("подготов")) body.periodPhase = "prep";
+    else if (low.includes("преход")) body.periodPhase = "offseason";
+    else if (low.includes("пик") || low.includes("облекч") || low.includes("taper")) body.periodPhase = "taper";
+    else body.periodPhase = "inseason";
+  }
+  if (body.intensityTarget != null && !INTENSITY_OK.has(String(body.intensityTarget))) {
+    const low = String(body.intensityTarget).toLowerCase();
+    if (low.includes("нис") || low.includes("лек") || low.includes("low")) body.intensityTarget = "low";
+    else if (low.includes("вис") || low.includes("теж") || low.includes("high")) body.intensityTarget = "high";
+    else body.intensityTarget = "medium";
+  }
+
+  if (body.level == null || String(body.level).trim() === "") body.level = "all";
+  if (body.age == null || Number.isNaN(Number(body.age))) body.age = 15;
+
+  // null cycle ids → omit (по-чисто за pydantic)
+  for (const key of ["cycleId", "cycleWeek", "cycleDay"]) {
+    if (body[key] == null) delete body[key];
+  }
+  if (!body.textbookSlug) delete body.textbookSlug;
+  if (!body.sessionCode) delete body.sessionCode;
+  if (!body.ageBand) delete body.ageBand;
+
+  if (!Array.isArray(body.proposedExercises)) body.proposedExercises = [];
+  body.proposedExercises = body.proposedExercises
+    .filter((x) => x && typeof x === "object" && (x.title || x.name))
+    .map((x) => ({
+      title: String(x.title || x.name || "").slice(0, 120),
+      blockType: String(x.blockType || "Изграждане"),
+      minutes: Math.max(4, Math.min(20, Number(x.minutes) || 8)),
+      instructions: String(x.instructions || "").slice(0, 600),
+      skill: String(x.skill || "Координация").slice(0, 60),
+      source: String(x.source || "assistant"),
+    }));
+
+  return body;
 }
 
 function toggleInArray(arr, value) {
@@ -748,7 +799,7 @@ export default function AIGenerator() {
           : Number(patch.randomSeed ?? form.randomSeed);
       const data = await apiClient(API_PATHS.AI_TRAINING_GENERATE, {
         method: "POST",
-        data: { ...payload, ...patch, randomSeed: effectiveSeed },
+        data: sanitizeGenerateBody({ ...payload, ...patch, randomSeed: effectiveSeed }),
       });
       setResult(data || null);
       const blocks = cloneBlocks(data?.session?.blocks || data?.blocks || []);
@@ -757,7 +808,7 @@ export default function AIGenerator() {
       setCardTargetByDrill({});
       goToPlan();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Грешка при генериране.");
+      setErr(normalizeError(e, "Грешка при генериране."));
     } finally {
       setLoading(false);
     }
@@ -779,7 +830,7 @@ export default function AIGenerator() {
           : Number(form.randomSeed);
       const data = await apiClient(API_PATHS.AI_TRAINING_GENERATE_AND_SAVE, {
         method: "POST",
-        data: {
+        data: sanitizeGenerateBody({
           ...payload,
           randomSeed: effectiveSeed,
           trainingTitle: customTitle,
@@ -787,7 +838,7 @@ export default function AIGenerator() {
           editedBlocks: editableBlocks.length ? editableBlocks : undefined,
           teamId: programLink.teamId || undefined,
           sessionDate: programLink.sessionDate || undefined,
-        },
+        }),
       });
       setResult(data || null);
       const blocks = cloneBlocks(data?.session?.blocks || data?.blocks || []);
@@ -808,7 +859,7 @@ export default function AIGenerator() {
         });
       }
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Грешка при запис (generate-and-save).");
+      setErr(normalizeError(e, "Грешка при запис (generate-and-save)."));
     } finally {
       setSaving(false);
     }

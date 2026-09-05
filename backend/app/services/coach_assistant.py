@@ -179,6 +179,118 @@ def _parse_params_from_reply(reply: str) -> dict[str, Any]:
     for key, val in data.items():
         if key in allowed and val not in (None, ""):
             out[key] = val
+    return _sanitize_generate_params(out)
+
+
+_PERIOD_ALIASES = {
+    "prep": "prep",
+    "подготов": "prep",
+    "подготвителен": "prep",
+    "inseason": "inseason",
+    "състезател": "inseason",
+    "състезателен": "inseason",
+    "taper": "taper",
+    "пик": "taper",
+    "облекчен": "taper",
+    "offseason": "offseason",
+    "преход": "offseason",
+    "преходен": "offseason",
+}
+_INTENSITY_ALIASES = {
+    "low": "low",
+    "нис": "low",
+    "лек": "low",
+    "medium": "medium",
+    "сред": "medium",
+    "high": "high",
+    "вис": "high",
+    "теж": "high",
+}
+_ORIENTATION_OK = {
+    "balanced",
+    "serve_receive",
+    "attack_block",
+    "defense_transition",
+    "game_tactics",
+    "physical",
+}
+_FOCUS_OK = {
+    "Посрещане",
+    "Разпределение",
+    "Сервис",
+    "Атака",
+    "Блок",
+    "Защита",
+    "Преход",
+    "Координация",
+    "Игра",
+}
+
+
+def _sanitize_generate_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Нормализира стойности от Gemini към API enum-ите."""
+    out = dict(params or {})
+
+    period = str(out.get("periodPhase") or "").strip().lower()
+    if period:
+        mapped = None
+        for key, val in _PERIOD_ALIASES.items():
+            if key in period:
+                mapped = val
+                break
+        if mapped:
+            out["periodPhase"] = mapped
+        else:
+            out.pop("periodPhase", None)
+
+    intensity = str(out.get("intensityTarget") or "").strip().lower()
+    if intensity:
+        mapped = None
+        for key, val in _INTENSITY_ALIASES.items():
+            if key in intensity:
+                mapped = val
+                break
+        if mapped:
+            out["intensityTarget"] = mapped
+        else:
+            out.pop("intensityTarget", None)
+
+    orientation = str(out.get("orientation") or "").strip()
+    if orientation and orientation not in _ORIENTATION_OK:
+        low = orientation.lower()
+        if "phys" in low or "сил" in low or "отскок" in low:
+            out["orientation"] = "physical"
+        else:
+            out.pop("orientation", None)
+
+    for key in ("mainFocus", "secondaryFocus"):
+        focus = out.get(key)
+        if focus and focus not in _FOCUS_OK:
+            # опитай case-insensitive match
+            match = next((f for f in _FOCUS_OK if f.lower() == str(focus).lower()), None)
+            if match:
+                out[key] = match
+            else:
+                out.pop(key, None)
+
+    if "age" in out:
+        try:
+            out["age"] = int(out["age"])
+        except (TypeError, ValueError):
+            out.pop("age", None)
+
+    if "durationTotalMin" in out:
+        try:
+            out["durationTotalMin"] = int(out["durationTotalMin"])
+        except (TypeError, ValueError):
+            out.pop("durationTotalMin", None)
+
+    if "playersCount" in out:
+        try:
+            out["playersCount"] = int(out["playersCount"])
+        except (TypeError, ValueError):
+            out.pop("playersCount", None)
+
     return out
 
 
@@ -391,6 +503,7 @@ def build_reply(
 
     generate_params = {**local_params, **from_model} if wants else {}
     if wants:
+        generate_params = _sanitize_generate_params(generate_params)
         generate_params["assistantOverride"] = True
         generate_params.setdefault("cycleId", None)
         generate_params.setdefault("textbookSlug", "")
