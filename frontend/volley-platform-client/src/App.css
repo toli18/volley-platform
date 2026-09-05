@@ -905,6 +905,34 @@
 
 .coachAssistGenAction {
   margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.coachAssistGenHint {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.aiGenIntentBanner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin: 8px 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #eef6f1;
+  border: 1px solid #c5e3d2;
+  color: #1f4d36;
+  font-size: 13px;
+}
+
+.aiGenIntentBanner strong {
+  font-weight: 700;
 }
 
 .coachAssistComposer {
@@ -1563,6 +1591,21 @@
 .aiGenPlanRow--text {
   border-left: 3px solid #7c9fd4;
   background: #f4f8ff;
+}
+
+.aiGenPlanRow--assistant {
+  border-left: 4px solid #2563eb;
+  background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.aiGenPlanRow--assistant .aiGenPlanRowHead strong {
+  color: #1e3a8a;
+}
+
+.aiGenPlanRow--assistant .aiGenPlanRowHead span {
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .aiGenTextDrillInstr {

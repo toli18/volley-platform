@@ -265,6 +265,7 @@ export default function AIGenerator() {
   const [bvfMethodHint, setBvfMethodHint] = useState(null);
   const [programLink, setProgramLink] = useState({ teamId: null, sessionDate: "", dayTheme: "", dayFocus: [] });
   const [assistPlatCtx, setAssistPlatCtx] = useState(null);
+  const [generateIntent, setGenerateIntent] = useState(null);
   const plannerPrefillRef = useRef(false);
   // Фокусът, подаден от програмния ден ("Моята програмна седмица"). Когато е
   // наличен, той е водещ — препоръката на конспекта не бива да го пренаписва.
@@ -829,7 +830,6 @@ export default function AIGenerator() {
     setErr("");
     setSavedTraining(null);
     try {
-      // Ignore click/submit events accidentally passed as the first arg (onClick={onGenerate}).
       const patch =
         overrides &&
         typeof overrides === "object" &&
@@ -837,6 +837,17 @@ export default function AIGenerator() {
         !overrides.nativeEvent
           ? overrides
           : {};
+      if (patch.mainFocus || patch.ageBand || patch.sessionDate) {
+        setGenerateIntent({
+          mainFocus: patch.mainFocus || form.mainFocus,
+          secondaryFocus: patch.secondaryFocus || form.secondaryFocus,
+          ageBand: patch.ageBand || cycleParams.ageBand,
+          teamName: assistPlatCtx?.activeTeam?.name || null,
+          sessionDate: patch.sessionDate || programLink.sessionDate || null,
+          proposedCount: Array.isArray(patch.proposedExercises) ? patch.proposedExercises.length : 0,
+          source: patch.fromChat ? "chat" : "settings",
+        });
+      }
       const effectiveSeed =
         (patch.variability || form.variability) === "varied"
           ? Math.floor(Date.now() % 1000000)
@@ -858,35 +869,78 @@ export default function AIGenerator() {
     }
   };
 
-  const onGenerateAndSave = async () => {
+  const resolveDayTarget = () => {
+    const urlTeam = Number(searchParams.get("team_id") || "") || null;
+    const urlDate = (searchParams.get("date") || "").trim() || null;
+    const teamId = programLink.teamId || assistPlatCtx?.activeTeam?.id || urlTeam || null;
+    const sessionDate =
+      programLink.sessionDate ||
+      assistPlatCtx?.generateDefaults?.sessionDate ||
+      urlDate ||
+      null;
+    return { teamId, sessionDate };
+  };
+
+  const onGenerateAndSave = async (overrides = null) => {
     setSaving(true);
     setErr("");
-    const customTitle = form.trainingTitle?.trim();
+    const patch =
+      overrides &&
+      typeof overrides === "object" &&
+      typeof overrides.preventDefault !== "function" &&
+      !overrides.nativeEvent
+        ? overrides
+        : {};
+    const { teamId, sessionDate } = resolveDayTarget();
+    const dayTeamId = patch.teamId || teamId;
+    const dayDate = patch.sessionDate || sessionDate;
+
+    let customTitle = String(patch.trainingTitle || form.trainingTitle || "").trim();
+    if (!customTitle) {
+      customTitle = [
+        patch.ageBand || cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand,
+        patch.mainFocus || form.mainFocus,
+        dayDate || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
     if (!customTitle) {
       setErr("Моля, въведете име на тренировката преди запис.");
       setSaving(false);
       setActiveTab("save");
       return;
     }
+
+    setGenerateIntent({
+      mainFocus: patch.mainFocus || form.mainFocus,
+      secondaryFocus: patch.secondaryFocus || form.secondaryFocus,
+      ageBand: patch.ageBand || cycleParams.ageBand,
+      teamName: assistPlatCtx?.activeTeam?.name || null,
+      sessionDate: dayDate,
+      proposedCount: Array.isArray(patch.proposedExercises) ? patch.proposedExercises.length : 0,
+      source: patch.fromChat ? "chat" : "save",
+      saveForDay: Boolean(dayTeamId && dayDate),
+    });
+
     try {
       const effectiveSeed =
-        form.variability === "varied"
+        (patch.variability || form.variability) === "varied"
           ? Math.floor(Date.now() % 1000000)
-          : Number(form.randomSeed);
-      const urlTeam = Number(searchParams.get("team_id") || "") || null;
-      const urlDate = (searchParams.get("date") || "").trim() || null;
-      const teamId = programLink.teamId || assistPlatCtx?.activeTeam?.id || urlTeam || null;
-      const sessionDate = programLink.sessionDate || urlDate || null;
+          : Number(patch.randomSeed ?? form.randomSeed);
+      // От чат — нов план; не преизползвай стари editedBlocks
+      const useEdited = !patch.fromChat && editableBlocks.length > 0;
       const data = await apiClient(API_PATHS.AI_TRAINING_GENERATE_AND_SAVE, {
         method: "POST",
         data: sanitizeGenerateBody({
           ...payload,
+          ...patch,
           randomSeed: effectiveSeed,
           trainingTitle: customTitle,
           trainingStatus: "запазена",
-          editedBlocks: editableBlocks.length ? editableBlocks : undefined,
-          teamId: teamId || undefined,
-          sessionDate: sessionDate || undefined,
+          editedBlocks: useEdited ? editableBlocks : undefined,
+          teamId: dayTeamId || undefined,
+          sessionDate: dayDate || undefined,
         }),
       });
       setResult(data || null);
@@ -895,7 +949,9 @@ export default function AIGenerator() {
       if (blocks.length) setTargetBlockType(blocks[0].blockType);
       setCardTargetByDrill({});
       setSavedTraining(data?.training || null);
+      setForm((prev) => ({ ...prev, trainingTitle: customTitle }));
       setActiveTab("save");
+      goToPlan();
       if (isHeadCoachUser && (assignCoaches || []).length > 0 && data?.training?.id) {
         await apiClient(API_PATHS.CLUB_TRAINING_ASSIGNMENTS_CREATE, {
           method: "POST",
@@ -971,6 +1027,30 @@ export default function AIGenerator() {
         <div className="aiGenBvfBanner" role="note">
           <strong>Задача от главния треньор</strong>
           <span>Генерирайте план по зададените цикъл и седмица, после запазете тренировката.</span>
+        </div>
+      ) : null}
+
+      {generateIntent || programLink.sessionDate || form.mainFocus ? (
+        <div className="aiGenIntentBanner" role="status">
+          <strong>Генерирам за:</strong>
+          <span>
+            {[
+              generateIntent?.teamName || assistPlatCtx?.activeTeam?.name,
+              generateIntent?.ageBand || cycleParams.ageBand || assistPlatCtx?.activeTeam?.ageBand,
+              generateIntent?.mainFocus || form.mainFocus,
+              generateIntent?.secondaryFocus || form.secondaryFocus
+                ? `+ ${generateIntent?.secondaryFocus || form.secondaryFocus}`
+                : null,
+              generateIntent?.sessionDate || programLink.sessionDate
+                ? `дата ${(generateIntent?.sessionDate || programLink.sessionDate)}`
+                : null,
+              (generateIntent?.proposedCount || 0) > 0
+                ? `${generateIntent.proposedCount} предложени упр.`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
         </div>
       ) : null}
 
@@ -1207,26 +1287,76 @@ export default function AIGenerator() {
               hint.includes("отскок") ||
                 hint.includes("сил") ||
                 hint.includes("физическ") ||
+                hint.includes("разпредел") ||
+                hint.includes("сетър") ||
                 fromChat.assistantOverride
             );
 
-            onGenerate({
+            const dayTarget = resolveDayTarget();
+            const patchTeamId =
+              Number(fromChat.teamId || dayTarget.teamId || assistPlatCtx?.activeTeam?.id || 0) ||
+              undefined;
+            const patchDate =
+              fromChat.sessionDate ||
+              dayTarget.sessionDate ||
+              assistPlatCtx?.generateDefaults?.sessionDate ||
+              undefined;
+            const proposed = Array.isArray(fromChat.proposedExercises)
+              ? fromChat.proposedExercises
+              : [];
+            const patch = {
               ...formPatch,
+              fromChat: true,
               focusSkills: [mainFocus, secondaryFocus].filter(Boolean),
               focusDomains: domainsFor(orientation),
               focusGamePhases: phasesFor(orientation),
               ageBand: ageBand || undefined,
-              assistantOverride: userOverride,
+              assistantOverride: true,
               cycleId: null,
               cycleWeek: null,
               cycleDay: null,
               textbookSlug: userOverride ? "" : fromChat.textbookSlug || cycleParams.textbookSlug || "",
               sessionCode: "",
-              proposedExercises: Array.isArray(fromChat.proposedExercises)
-                ? fromChat.proposedExercises
-                : [],
+              proposedExercises: proposed,
+              teamId: patchTeamId,
+              sessionDate: patchDate,
+              trainingTitle:
+                fromChat.trainingTitle ||
+                [ageBand, mainFocus, patchDate].filter(Boolean).join(" · "),
+            };
+
+            setGenerateIntent({
+              mainFocus,
+              secondaryFocus,
+              ageBand: ageBand || null,
+              teamName: assistPlatCtx?.activeTeam?.name || null,
+              sessionDate: patchDate || null,
+              proposedCount: proposed.length,
+              source: "chat",
+              saveForDay: Boolean(patchTeamId && patchDate),
             });
+
+            // Ако има отбор+дата → едно действие: генерирай и запиши за деня
+            if (patchTeamId && patchDate) {
+              onGenerateAndSave(patch);
+            } else {
+              onGenerate(patch);
+            }
           }}
+          canSaveForDay={Boolean(
+            (programLink.teamId ||
+              assistPlatCtx?.activeTeam?.id ||
+              searchParams.get("team_id")) &&
+              (programLink.sessionDate ||
+                assistPlatCtx?.generateDefaults?.sessionDate ||
+                searchParams.get("date"))
+          )}
+          saveForDayLabel={
+            programLink.sessionDate ||
+            assistPlatCtx?.generateDefaults?.sessionDate ||
+            searchParams.get("date") ||
+            ""
+          }
         />
       ) : null}
 
@@ -1314,17 +1444,18 @@ export default function AIGenerator() {
       ) : null}
 
       <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
-        {(activeTab === "settings" || activeTab === "plan") && (
+        {(activeTab === "settings" || activeTab === "plan") && !(programLink.teamId && programLink.sessionDate) ? (
           <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => onGenerate()} disabled={loading || saving || metaLoading}>
             {loading ? "Генериране..." : "Генерирай преглед"}
           </button>
-        )}
-        {(activeTab === "settings" || activeTab === "plan" || activeTab === "save") && (
+        ) : null}
+        {(activeTab === "settings" || activeTab === "plan" || activeTab === "save" || activeTab === "assistant") && (
           <button
             type="button"
             className="aiGenBtn aiGenBtn--save"
             onClick={() => {
-              if (!form.trainingTitle?.trim()) {
+              const { teamId, sessionDate } = resolveDayTarget();
+              if (!form.trainingTitle?.trim() && !(teamId && sessionDate)) {
                 setActiveTab("save");
                 setErr("Моля, въведете име на тренировката преди запис.");
                 return;
@@ -1335,9 +1466,12 @@ export default function AIGenerator() {
           >
             {saving
               ? "Запис..."
-              : programLink.teamId && programLink.sessionDate
-                ? `Запиши за ${programLink.sessionDate}`
-                : "Запази"}
+              : (() => {
+                  const { teamId, sessionDate } = resolveDayTarget();
+                  return teamId && sessionDate
+                    ? `Направи и запиши за ${sessionDate}`
+                    : "Запази тренировката";
+                })()}
           </button>
         )}
       </div>

@@ -18,6 +18,8 @@ export default function CoachAssistantChat({
   onRequestGenerate,
   onPlatformContext,
   context = {},
+  canSaveForDay = false,
+  saveForDayLabel = "",
 }) {
   const [messages, setMessages] = useState([
     {
@@ -229,11 +231,21 @@ export default function CoachAssistantChat({
                   }
                   disabled={busy}
                 >
-                  {Array.isArray(m.meta?.generateParams?.proposedExercises) &&
-                  m.meta.generateParams.proposedExercises.length
-                    ? `Генерирай с ${m.meta.generateParams.proposedExercises.length} предложени упражнения`
-                    : "Генерирай тренировка сега"}
+                  {canSaveForDay && saveForDayLabel
+                    ? Array.isArray(m.meta?.generateParams?.proposedExercises) &&
+                      m.meta.generateParams.proposedExercises.length
+                      ? `Направи и запиши за ${saveForDayLabel} (${m.meta.generateParams.proposedExercises.length} упр.)`
+                      : `Направи и запиши за ${saveForDayLabel}`
+                    : Array.isArray(m.meta?.generateParams?.proposedExercises) &&
+                        m.meta.generateParams.proposedExercises.length
+                      ? `Генерирай с ${m.meta.generateParams.proposedExercises.length} предложени упражнения`
+                      : "Генерирай тренировка сега"}
                 </Button>
+                {canSaveForDay ? (
+                  <div className="coachAssistGenHint">Ще се запише към отбора за този ден и ще се появи в присъствието.</div>
+                ) : (
+                  <div className="coachAssistGenHint">Няма дата/отбор — ще се направи само преглед. Отвори ден от календара или програмата за запис.</div>
+                )}
               </div>
             ) : null}
           </div>

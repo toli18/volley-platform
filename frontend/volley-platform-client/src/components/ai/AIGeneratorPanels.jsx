@@ -501,6 +501,18 @@ export function AIGeneratorPlanPanel({
           </h3>
           <BlockMethodContext block={b} blockGuide={sessionReview?.blockGuide} />
           <div className="aiGenBlockDrills">
+            {(b.textDrills || []).map((td, tidx) => (
+              <div key={`${b.blockType}-text-${tidx}`} className="aiGenPlanRow aiGenPlanRow--text aiGenPlanRow--assistant">
+                <div className="aiGenPlanRowHead">
+                  <strong>{td.title}</strong>
+                  <span>
+                    {td.minutes} мин ·{" "}
+                    {td.source === "assistant" ? "от помощника" : "текстово (методика)"}
+                  </span>
+                </div>
+                <p className="aiGenTextDrillInstr">{td.instructions}</p>
+              </div>
+            ))}
             {b.drills?.map((d, idx) => (
               <div key={`${b.blockType}-${d.drillId}`} className="aiGenPlanRow">
                 <div className="aiGenPlanRowHead">
@@ -545,18 +557,6 @@ export function AIGeneratorPlanPanel({
                     ))}
                   </ul>
                 ) : null}
-              </div>
-            ))}
-            {(b.textDrills || []).map((td, tidx) => (
-              <div key={`${b.blockType}-text-${tidx}`} className="aiGenPlanRow aiGenPlanRow--text">
-                <div className="aiGenPlanRowHead">
-                  <strong>{td.title}</strong>
-                  <span>
-                    {td.minutes} мин ·{" "}
-                    {td.source === "assistant" ? "от помощника (сила/методика)" : "текстово (методика)"}
-                  </span>
-                </div>
-                <p className="aiGenTextDrillInstr">{td.instructions}</p>
               </div>
             ))}
           </div>
