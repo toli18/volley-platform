@@ -1484,38 +1484,104 @@ export default function AIGenerator() {
         />
       ) : null}
 
-      <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
-        {(activeTab === "settings" || activeTab === "plan") && !(programLink.teamId && programLink.sessionDate) ? (
-          <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => onGenerate()} disabled={loading || saving || metaLoading}>
-            {loading ? "Генериране..." : "Генерирай преглед"}
-          </button>
-        ) : null}
-        {(activeTab === "settings" || activeTab === "plan" || activeTab === "save" || activeTab === "assistant") && (
-          <button
-            type="button"
-            className="aiGenBtn aiGenBtn--save"
-            onClick={() => {
-              const { teamId, sessionDate } = resolveDayTarget();
-              if (!form.trainingTitle?.trim() && !(teamId && sessionDate)) {
-                setActiveTab("save");
-                setErr("Моля, въведете име на тренировката преди запис.");
-                return;
-              }
-              onGenerateAndSave();
-            }}
-            disabled={loading || saving || metaLoading}
-          >
-            {saving
-              ? "Запис..."
-              : (() => {
-                  const { teamId, sessionDate } = resolveDayTarget();
-                  return teamId && sessionDate
-                    ? `Направи и запиши за ${sessionDate}`
-                    : "Запази тренировката";
-                })()}
-          </button>
-        )}
-      </div>
+      {activeTab === "assistant" && planBlocks.length > 0 ? (
+        <div className="coachAssistPlanReady" role="status">
+          {savedTraining?.id ? (
+            <>
+              <span>
+                Записана тренировка #{savedTraining.id}
+                {savedTraining.session_date ? ` · ${savedTraining.session_date}` : ""}.
+              </span>
+              <div className="coachAssistPlanReadyActions">
+                <button type="button" className="aiGenBtn aiGenBtn--ghost" onClick={() => setActiveTab("plan")}>
+                  Виж плана
+                </button>
+                <Link className="aiGenBtn aiGenBtn--primary" to={`/trainings/${savedTraining.id}`}>
+                  Отвори
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <span>Има готов план — прегледай или запиши, когато си готов.</span>
+              <div className="coachAssistPlanReadyActions">
+                <button type="button" className="aiGenBtn aiGenBtn--ghost" onClick={() => setActiveTab("plan")}>
+                  Виж плана
+                </button>
+                <button
+                  type="button"
+                  className="aiGenBtn aiGenBtn--save"
+                  disabled={loading || saving || metaLoading}
+                  onClick={() => {
+                    const { teamId, sessionDate } = resolveDayTarget();
+                    if (!form.trainingTitle?.trim() && !(teamId && sessionDate)) {
+                      setActiveTab("save");
+                      setErr("Моля, въведете име на тренировката преди запис.");
+                      return;
+                    }
+                    onGenerateAndSave();
+                  }}
+                >
+                  {saving
+                    ? "Запис..."
+                    : (() => {
+                        const { teamId, sessionDate } = resolveDayTarget();
+                        return teamId && sessionDate
+                          ? `Запиши за ${sessionDate}`
+                          : "Запази тренировката";
+                      })()}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {(() => {
+        const day = resolveDayTarget();
+        const showPreview =
+          (activeTab === "settings" || activeTab === "plan") && !(day.teamId && day.sessionDate);
+        const showSave =
+          (activeTab === "settings" || activeTab === "plan" || activeTab === "save") &&
+          planBlocks.length > 0 &&
+          !savedTraining?.id;
+        if (!showPreview && !showSave) return null;
+        return (
+          <div className="aiGenStickyBar" role="toolbar" aria-label="Действия">
+            {showPreview ? (
+              <button
+                type="button"
+                className="aiGenBtn aiGenBtn--primary"
+                onClick={() => onGenerate()}
+                disabled={loading || saving || metaLoading}
+              >
+                {loading ? "Генериране..." : "Генерирай преглед"}
+              </button>
+            ) : null}
+            {showSave ? (
+              <button
+                type="button"
+                className="aiGenBtn aiGenBtn--save"
+                onClick={() => {
+                  if (!form.trainingTitle?.trim() && !(day.teamId && day.sessionDate)) {
+                    setActiveTab("save");
+                    setErr("Моля, въведете име на тренировката преди запис.");
+                    return;
+                  }
+                  onGenerateAndSave();
+                }}
+                disabled={loading || saving || metaLoading}
+              >
+                {saving
+                  ? "Запис..."
+                  : day.teamId && day.sessionDate
+                    ? `Запиши за ${day.sessionDate}`
+                    : "Запази тренировката"}
+              </button>
+            ) : null}
+          </div>
+        );
+      })()}
 
       {previewDrill ? <DrillMediaPreviewModal drill={previewDrill} onClose={() => setPreviewDrill(null)} /> : null}
     </div>

@@ -917,6 +917,35 @@
   line-height: 1.35;
 }
 
+.coachAssistPlanReady {
+  margin: 12px 0 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: #166534;
+}
+
+.coachAssistPlanReadyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coachAssistPlanReadyActions .aiGenBtn {
+  min-height: 36px;
+  padding: 6px 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .aiGenIntentBanner {
   display: flex;
   flex-wrap: wrap;
