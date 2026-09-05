@@ -14,7 +14,10 @@ from app.models import User, UserRole
 from app.services.coach_assistant import build_reply
 from app.services.coach_assistant_context import build_coach_assistant_context
 from app.services.gemini_client import gemini_available, gemini_config
-from app.services.session_coach_context import load_training_session_pack
+from app.services.session_coach_context import (
+    load_training_session_pack,
+    match_drills_for_message,
+)
 
 router = APIRouter(prefix="/api/ai/coach-assistant", tags=["Coach Assistant"])
 
@@ -124,6 +127,35 @@ def assistant_chat(
         )
 
     history = [{"role": t.role, "content": t.content} for t in payload.history]
+
+    # Live: закачи упражнения по име (от плана + глобално търсене), за cues без Gemini
+    prefer_ids = list((session_pack or {}).get("drillIds") or [])
+    matched = match_drills_for_message(
+        db,
+        payload.message,
+        history=history,
+        prefer_ids=prefer_ids,
+    )
+    if matched:
+        platform_ctx["matchedDrills"] = matched
+        lines = ["=== УПРАЖНЕНИЕ, ЗА КОЕТО ПИТА ТРЕНЬОРЪТ ==="]
+        for card in matched:
+            lines.append(
+                f"- {card.get('title')}: {card.get('description') or ''}"
+            )
+            if card.get("coachingPoints"):
+                lines.append(f"  Cues: {card['coachingPoints']}")
+            if card.get("commonMistakes"):
+                lines.append(f"  Чести грешки: {card['commonMistakes']}")
+            if card.get("progressions"):
+                lines.append(f"  Прогресия: {card['progressions']}")
+        lines.append("=== КРАЙ ===")
+        platform_ctx["promptText"] = (
+            (platform_ctx.get("promptText") or "")
+            + ("\n\n" if platform_ctx.get("promptText") else "")
+            + "\n".join(lines)
+        )
+
     age_band = payload.ageBand or (platform_ctx.get("activeTeam") or {}).get("ageBand")
     ctx = payload.context.model_dump()
     if session_pack:

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import Training, User, UserRole
+from app.models import Drill, Training, User, UserRole
 
 
 def _role_value(user: User) -> str:
@@ -27,7 +28,72 @@ def _can_access_training(user: User, training: Training) -> bool:
     return False
 
 
-def _summarize_plan(plan: dict[str, Any] | None, gen_req: dict[str, Any] | None) -> list[str]:
+def _clip(text: Any, n: int = 280) -> str:
+    s = re.sub(r"\s+", " ", str(text or "")).strip()
+    if len(s) <= n:
+        return s
+    return s[: n - 1].rstrip() + "…"
+
+
+def _collect_plan_drill_ids(
+    plan: dict[str, Any] | None, gen_req: dict[str, Any] | None
+) -> list[int]:
+    ids: list[int] = []
+    seen: set[int] = set()
+
+    def add(raw: Any) -> None:
+        try:
+            did = int(raw)
+        except (TypeError, ValueError):
+            return
+        if did in seen:
+            return
+        seen.add(did)
+        ids.append(did)
+
+    gen_req = gen_req or {}
+    blocks = gen_req.get("sessionBlocks") or []
+    if isinstance(blocks, list):
+        for b in blocks:
+            if not isinstance(b, dict):
+                continue
+            for d in b.get("drills") or []:
+                if isinstance(d, dict):
+                    add(d.get("drillId") or d.get("id"))
+                else:
+                    add(d)
+
+    plan = plan or {}
+    for items in plan.values():
+        if not isinstance(items, list):
+            continue
+        for it in items:
+            if isinstance(it, dict):
+                add(it.get("drillId") or it.get("id"))
+            else:
+                add(it)
+    return ids[:40]
+
+
+def _drill_card(d: Drill) -> dict[str, Any]:
+    return {
+        "id": d.id,
+        "title": d.title,
+        "description": _clip(d.description, 320),
+        "instructions": _clip(d.instructions or d.setup, 240),
+        "coachingPoints": _clip(d.coaching_points, 240),
+        "commonMistakes": _clip(d.common_mistakes, 200),
+        "progressions": _clip(d.progressions, 200),
+        "category": d.category,
+        "skillFocus": d.skill_focus or d.goal,
+    }
+
+
+def _summarize_plan(
+    plan: dict[str, Any] | None,
+    gen_req: dict[str, Any] | None,
+    drill_by_id: dict[int, dict[str, Any]],
+) -> list[str]:
     lines: list[str] = []
     gen_req = gen_req or {}
     blocks = gen_req.get("sessionBlocks") or []
@@ -39,9 +105,21 @@ def _summarize_plan(plan: dict[str, Any] | None, gen_req: dict[str, Any] | None)
             drills = b.get("drills") or []
             texts = b.get("textDrills") or []
             names = []
-            for d in drills[:4]:
+            for d in drills[:6]:
                 if isinstance(d, dict):
-                    names.append(str(d.get("name") or d.get("title") or f"#{d.get('drillId')}"))
+                    did = d.get("drillId") or d.get("id")
+                    try:
+                        card = drill_by_id.get(int(did)) if did is not None else None
+                    except (TypeError, ValueError):
+                        card = None
+                    names.append(
+                        str(
+                            d.get("name")
+                            or d.get("title")
+                            or (card or {}).get("title")
+                            or f"#{did}"
+                        )
+                    )
             for td in texts[:3]:
                 if isinstance(td, dict):
                     names.append(str(td.get("title") or "текстово упр."))
@@ -56,12 +134,136 @@ def _summarize_plan(plan: dict[str, Any] | None, gen_req: dict[str, Any] | None)
         if not isinstance(items, list) or not items:
             continue
         bits = []
-        for it in items[:4]:
+        for it in items[:6]:
             if isinstance(it, dict):
-                bits.append(str(it.get("name") or it.get("title") or f"drill#{it.get('drillId')}"))
+                did = it.get("drillId") or it.get("id")
+                try:
+                    card = drill_by_id.get(int(did)) if did is not None else None
+                except (TypeError, ValueError):
+                    card = None
+                bits.append(
+                    str(
+                        it.get("name")
+                        or it.get("title")
+                        or (card or {}).get("title")
+                        or f"drill#{did}"
+                    )
+                )
+            else:
+                try:
+                    card = drill_by_id.get(int(it))
+                    bits.append(str((card or {}).get("title") or f"drill#{it}"))
+                except (TypeError, ValueError):
+                    bits.append(str(it))
         if bits:
             lines.append(f"{key}: " + "; ".join(bits))
     return lines
+
+
+def match_drills_for_message(
+    db: Session,
+    message: str,
+    *,
+    history: Optional[list[dict[str, str]]] = None,
+    prefer_ids: Optional[list[int]] = None,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Намира упражнения по име в съобщението (+ скорошна история)."""
+    parts = [str(message or "")]
+    for turn in (history or [])[-6:]:
+        if str(turn.get("role") or "") == "user":
+            parts.append(str(turn.get("content") or ""))
+    blob = " ".join(parts).lower()
+    blob = re.sub(r"[^\wа-яА-ЯёЁ\s\-]+", " ", blob, flags=re.UNICODE)
+    tokens = [t for t in re.split(r"\s+", blob) if len(t) >= 4]
+    if not tokens and len(blob.strip()) < 3:
+        return []
+
+    prefer = set(int(x) for x in (prefer_ids or []) if x is not None)
+    # Prefer session drills first
+    pool: list[Drill] = []
+    if prefer:
+        pool = db.query(Drill).filter(Drill.id.in_(list(prefer))).all()
+
+    scored: list[tuple[int, Drill]] = []
+    for d in pool:
+        title = str(d.title or "").lower()
+        if not title:
+            continue
+        score = 0
+        if title in blob:
+            score += 100
+        title_tokens = [t for t in re.split(r"\s+", title) if len(t) >= 4]
+        hits = sum(1 for t in title_tokens if t in blob)
+        if hits:
+            score += hits * 25
+        # partial: "пеперуда" in "тръбна пеперуда"
+        if any(t in title for t in tokens if len(t) >= 5):
+            score += 15
+        if score:
+            scored.append((score, d))
+
+    # Broader search if message looks like a drill name / confusion about a named drill
+    need_global = not scored or any(
+        k in blob
+        for k in (
+            "пеперуд",
+            "тръбн",
+            "pipe",
+            "упражнен",
+            "разбира",
+            "опрости",
+            "как се",
+            "какво е",
+        )
+    )
+    if need_global:
+        # Search by significant tokens (avoid stopwords)
+        stop = {
+            "какво",
+            "какъв",
+            "направе",
+            "направи",
+            "подобр",
+            "силата",
+            "сила",
+            "дадам",
+            "кажи",
+            "трябва",
+            "могат",
+            "играчи",
+            "терен",
+            "сега",
+            "това",
+            "упражнение",
+            "упражнения",
+            "разбират",
+            "разбирам",
+        }
+        q_tokens = [t for t in tokens if t not in stop and len(t) >= 4][:4]
+        for tok in q_tokens:
+            rows = (
+                db.query(Drill)
+                .filter(Drill.title.ilike(f"%{tok}%"))
+                .limit(8)
+                .all()
+            )
+            for d in rows:
+                title = str(d.title or "").lower()
+                score = 40 if tok in title else 20
+                if title in blob:
+                    score += 80
+                scored.append((score, d))
+
+    # Deduplicate by id, keep best score
+    best: dict[int, tuple[int, Drill]] = {}
+    for score, d in scored:
+        prev = best.get(d.id)
+        if not prev or score > prev[0]:
+            best[d.id] = (score, d)
+
+    ranked = sorted(best.values(), key=lambda x: (-x[0], x[1].id))
+    return [_drill_card(d) for score, d in ranked[:limit] if score >= 20]
 
 
 def load_training_session_pack(
@@ -76,10 +278,17 @@ def load_training_session_pack(
 
     gen_req = training.generation_request if isinstance(training.generation_request, dict) else {}
     plan = training.plan if isinstance(training.plan, dict) else {}
-    summary_lines = _summarize_plan(plan, gen_req)
+    drill_ids = _collect_plan_drill_ids(plan, gen_req)
+    drill_by_id: dict[int, dict[str, Any]] = {}
+    if drill_ids:
+        for d in db.query(Drill).filter(Drill.id.in_(drill_ids)).all():
+            drill_by_id[int(d.id)] = _drill_card(d)
+
+    summary_lines = _summarize_plan(plan, gen_req, drill_by_id)
     focus = gen_req.get("mainFocus") or (gen_req.get("focusSkills") or [None])[0]
     secondary = gen_req.get("secondaryFocus")
     text_drills = gen_req.get("savedTextDrills") or []
+    drills_list = list(drill_by_id.values())
 
     prompt_lines = [
         "=== LIVE РЕЖИМ: ТРЕНЬОРЪТ Е НА ТРЕНИРОВКА / ПРЕГЛЕЖДА КОНКРЕТЕН ПЛАН ===",
@@ -89,6 +298,17 @@ def load_training_session_pack(
         "План (кратко):",
     ]
     prompt_lines.extend(f"- {ln}" for ln in (summary_lines or ["(празен план)"]))
+    if drills_list:
+        prompt_lines.append("Упражнения в плана (за cues):")
+        for card in drills_list[:12]:
+            bits = [f"#{card['id']} {card['title']}"]
+            if card.get("description"):
+                bits.append(card["description"])
+            if card.get("coachingPoints"):
+                bits.append(f"Cues: {card['coachingPoints']}")
+            if card.get("commonMistakes"):
+                bits.append(f"Грешки: {card['commonMistakes']}")
+            prompt_lines.append("- " + " | ".join(bits))
     if text_drills:
         prompt_lines.append("Текстови/помощник упражнения:")
         for td in text_drills[:8]:
@@ -101,6 +321,7 @@ def load_training_session_pack(
         [
             "ПРАВИЛА ЗА ТОЗИ РЕЖИМ:",
             "- Отговаряй конкретно за ТОЗИ план (упражнения, cues, адаптации, организация).",
+            "- Ако треньорът каже име на упражнение — дай cues/опростяване за НЕГО веднага.",
             "- При трудност: опростяване, прогресия, алтернатива, какво да каже треньорът на терена.",
             "- НЕ генерирай цяла нова тренировка, освен ако изрично поиска „нова тренировка“.",
             "- Не пиши „Действие: генерирай_тренировка“, освен при изрична молба за нов план.",
@@ -116,6 +337,8 @@ def load_training_session_pack(
         "mainFocus": focus,
         "secondaryFocus": secondary,
         "planSummary": summary_lines,
+        "drills": drills_list,
+        "drillIds": drill_ids,
         "promptText": "\n".join(prompt_lines),
         "mode": "session_live",
     }

@@ -392,10 +392,93 @@ def _strip_service_markers(reply: str) -> str:
     return clean.strip()
 
 
-def _fallback_answer(message: str, age_band: str | None, *, session_live: bool = False) -> str:
+def _session_live_drill_cues(card: dict[str, Any]) -> str:
+    title = str(card.get("title") or "упражнението")
+    desc = str(card.get("description") or "").strip()
+    mistakes = str(card.get("commonMistakes") or "").strip()
+    points = str(card.get("coachingPoints") or "").strip()
+    progressions = str(card.get("progressions") or "").strip()
+
+    cue = points
+    if not cue and "отзад" in desc.lower():
+        cue = "„хвърли → сет → атака от зона 6; гледай топката, не мрежата“"
+    if not cue and any(k in title.lower() for k in ("пеперуд", "pipe", "тръбн")):
+        cue = "„сет към центъра/зад, разбег от дълбочина, удар над рамото“"
+    if not cue:
+        cue = "„едно движение наведнъж — бавно, после темпо“"
+
+    simplify = progressions or (
+        "Без защита първо: само хвърляне → подаване → удар. "
+        "После добави 1 защитник; накрая пълната схема."
+    )
+    watch = mistakes or "бързане, лош тайминг на разбега, топка твърде ниско/далеч"
+
+    return (
+        f"За „{title}“ сега на терена:\n"
+        f"1) Спри — пусни опростена версия: {simplify}\n"
+        f"2) Cue към играчите: {cue}\n"
+        f"3) 5–6 чисти повторения; гледай: {watch}.\n"
+        f"Ако още не разбират: нарисувай схемата на пода с конуси (кой къде стои) и пусни 2 бавни демонстрации."
+    )
+
+
+def _fallback_answer(
+    message: str,
+    age_band: str | None,
+    *,
+    session_live: bool = False,
+    session_pack: Optional[dict[str, Any]] = None,
+    matched_drills: Optional[list[dict[str, Any]]] = None,
+    history: Optional[list[dict[str, str]]] = None,
+) -> str:
     low = (message or "").lower()
+    hist_blob = " ".join(
+        str(t.get("content") or "")
+        for t in (history or [])[-4:]
+        if str(t.get("role") or "") == "user"
+    ).lower()
+    blob = f"{hist_blob} {low}".strip()
 
     if session_live:
+        drills = list(matched_drills or [])
+        if not drills and session_pack:
+            # match against plan drill titles without DB
+            for card in session_pack.get("drills") or []:
+                title = str(card.get("title") or "").lower()
+                if title and (title in blob or any(tok in blob for tok in title.split() if len(tok) >= 5)):
+                    drills.append(card)
+
+        confused = any(
+            k in low
+            for k in (
+                "не се получ",
+                "не върви",
+                "трудност",
+                "обърк",
+                "разбира",
+                "опрости",
+                "не им се",
+                "какво е",
+                "как се",
+                "не знаят",
+                "не зная",
+            )
+        )
+
+        if drills:
+            return _session_live_drill_cues(drills[0])
+
+        # Само име на упражнение / кратък рефър — пак дай cues ако има в плана
+        plan_drills = list((session_pack or {}).get("drills") or [])
+        if plan_drills and len(low.split()) <= 6 and not any(
+            k in low for k in ("сила", "сил", "зони", "мач", "генерирай")
+        ):
+            # няма match — но съобщението е кратко: помогни с първото главно упражнение? Better ask with options
+            names = [str(d.get("title")) for d in plan_drills[:4] if d.get("title")]
+            if names and any(n.lower() in blob for n in names):
+                hit = next(d for d in plan_drills if str(d.get("title") or "").lower() in blob)
+                return _session_live_drill_cues(hit)
+
         if any(k in low for k in ("обратн", "стъпк", "разбег", "approach", "стъпка")):
             return (
                 "За разбега/обратната стъпка сега:\n"
@@ -403,6 +486,16 @@ def _fallback_answer(message: str, age_band: str | None, *, session_live: bool =
                 "2) Cue: „лява–дясна–скок“ (или обратната за страната), последната стъпка по-дълга и спираща.\n"
                 "3) 6 повторения: 3 без топка, 3 с леко подаване. Гледай кацане на две крака.\n"
                 "Ако още се бъркат: маркирай с конус къде е последната стъпка."
+            )
+        if any(k in low for k in ("сил", "плио", "отскок", "скач", "мощност", "физик")):
+            focus = (session_pack or {}).get("mainFocus") or "координация/сила"
+            title = (session_pack or {}).get("title") or "този блок"
+            return (
+                f"За сила в „{title}“ (фокус {focus}) сега на терена:\n"
+                "1) Дръж качеството: 3–4 серии × 4–6 чисти скока/усилия, не до отказ.\n"
+                "2) Cue: „меко кацане, колене над пръстите, пълен размах на ръцете“.\n"
+                "3) Между сериите 40–60 сек походка; после върнете към техническото упражнение от плана.\n"
+                "Ако формата се счупи — намали височината/разстоянието, не добавяй повторения."
             )
         if "зон" in low:
             return (
@@ -425,15 +518,34 @@ def _fallback_answer(message: str, age_band: str | None, *, session_live: bool =
                 "2) Един треньор подава вместо липсващия.\n"
                 "3) Дръж целта на блока (напр. синхрон), не пълния 6v6."
             )
-        if any(k in low for k in ("не се получ", "не върви", "трудност", "обърк")):
+        if confused:
+            names = [
+                str(d.get("title"))
+                for d in ((session_pack or {}).get("drills") or [])[:5]
+                if d.get("title")
+            ]
+            hint = f" Напр. от плана: {', '.join(names)}." if names else ""
             return (
                 "Сега на терена:\n"
-                "1) Назови кое упражнение и кое движение не върви.\n"
+                "1) Назови упражнението с име (или номер от плана)."
+                f"{hint}\n"
                 "2) Опрости: без топка → бавно с топка → нормално темпо.\n"
                 "3) Дай един cue (1 изречение) и 5 чисти повторения преди да продължите."
             )
+        # Default: still useful — offer plan anchors, don't dead-end
+        names = [
+            str(d.get("title"))
+            for d in ((session_pack or {}).get("drills") or [])[:5]
+            if d.get("title")
+        ]
+        if names:
+            return (
+                f"От плана виждам: {', '.join(names)}.\n"
+                "Кажи кое от тях работите сега (или какво не се получава: разбег, ръце, тайминг, зони) "
+                "и ще ти дам 2–3 cues за терена."
+            )
         return (
-            "Кажи конкретно: кое упражнение от плана и какво не се получава "
+            "Кажи името на упражнението от плана и какво не се получава "
             "(разбег, ръце, тайминг, зони, брой играчи). Ще ти дам 2–3 cues за терена."
         )
 
@@ -596,6 +708,8 @@ def build_reply(
     session_live = (
         str(ctx.get("mode") or "") == "session_live" or bool(plat.get("sessionTraining"))
     )
+    session_pack = plat.get("sessionTraining") if isinstance(plat.get("sessionTraining"), dict) else None
+    matched_drills = plat.get("matchedDrills") if isinstance(plat.get("matchedDrills"), list) else None
 
     if gemini_available():
         result = generate_text(
@@ -607,10 +721,24 @@ def build_reply(
             reply = str(result["text"]).strip()
             provider = f"gemini:{result.get('model')}"
         else:
-            reply = _fallback_answer(message, effective_age, session_live=session_live)
+            reply = _fallback_answer(
+                message,
+                effective_age,
+                session_live=session_live,
+                session_pack=session_pack,
+                matched_drills=matched_drills,
+                history=history,
+            )
             provider = f"local_fallback:{result.get('error')}"
     else:
-        reply = _fallback_answer(message, effective_age, session_live=session_live)
+        reply = _fallback_answer(
+            message,
+            effective_age,
+            session_live=session_live,
+            session_pack=session_pack,
+            matched_drills=matched_drills,
+            history=history,
+        )
 
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
     if session_live:
