@@ -826,17 +826,14 @@ def _system_prompt(
 
     if assessment_review:
         return f"""Ти си методически съветник по тестове и развитие за български волейболен треньор.
-Говори само на български — като умен колега (в стил задълбочен анализ, не меню).
+Говори само на български — задълбочено, като колега (не кратко меню).
 
-Задача: анализирай данните от тестовете в контекста (нормализирани стойности, връстници, история по прозорци).
-Дай:
-1) Легенда накратко (red/yellow/green) и отборни приоритети
-2) Типове деца (архетипи) + кои имена влизат + формула „какво да работи“
-3) 2–4 ярки индивидуални примера (потенциал vs дефицит) — напр. силен скок + слаба бързина
-4) Схема за следващите 6–12 месеца (U9–U10 vs U11–U13) и какво да следи след 3 месеца
-5) Ако поиска тренировка — добави Действие: генерирай_тренировка + ПАРАМЕТРИ
-
-Не рецитирай целия списък като таблица. Извади закономерности. Не измисляй липсващи измервания.
+В контекста има ГОТОВ НАРАТИВЕН ДОКЛАД с всеки състезател и упражнения.
+ЗАДЪЛЖИТЕЛНО:
+- Запази структурата: легенда → схема 6–12м → ВСЕКИ състезател (профил + 🔴 цел + списък упражнения/плио) → групови типове.
+- Не съкращавай до резюме. Ако трябва — уточни cues, но остави всички имена и блоковете.
+- За юноши: без тежести; плиометрия с качество (landing, broad jump, approach).
+- Отбелязвай ⚪ липсващи тестове.
 Акцент възраст:
 {age_lines}
 
@@ -893,11 +890,14 @@ def _assessment_local_summary(plat: dict[str, Any]) -> Optional[str]:
     analysis = plat.get("assessmentAnalysis") if isinstance(plat, dict) else None
     if not isinstance(analysis, dict) or analysis.get("empty"):
         return None
+    narrative = str(analysis.get("narrativeReport") or "").strip()
+    if len(narrative) > 400:
+        return narrative
     lines = [
         f"Анализ на тестовете за групата ({analysis.get('athleteCount') or 0} състезатели с данни).",
         f"Отборен приоритет: {analysis.get('mainFocus') or '—'} "
         f"(вторичен: {analysis.get('secondaryFocus') or '—'}).",
-        "Светофар: red <40 · yellow 40–60 · green ≥60.",
+        "Светофар: red <40 · yellow 40-60 · green >=60.",
     ]
     for d in (analysis.get("teamDomains") or [])[:5]:
         lines.append(
@@ -991,18 +991,59 @@ def build_reply(
         merged.update({k: v for k, v in defaults.items() if v not in (None, "")})
         defaults = merged
 
-    if gemini_available():
-        # Live / assessment: по-свободен тон; повече токени за анализ
+    # Анализ на тестове: пълният наратив (всеки играч + плио) е източникът на истина —
+    # Gemini често реже при 15–20 деца; не разчитаме на него за дължината.
+    if assessment_review:
+        narrative = _assessment_local_summary(plat) or ""
+        if len(narrative) > 400:
+            reply = narrative
+            provider = "assessment_narrative"
+        elif gemini_available():
+            result = generate_text(
+                prompt,
+                system=_system_prompt(
+                    effective_age,
+                    extra_context,
+                    session_live=False,
+                    assessment_review=True,
+                ),
+                temperature=0.45,
+                max_output_tokens=8192,
+            )
+            if result.get("ok") and result.get("text"):
+                reply = str(result["text"]).strip()
+                provider = f"gemini:{result.get('model')}"
+            else:
+                reply = _fallback_answer(
+                    message,
+                    effective_age,
+                    session_live=False,
+                    session_pack=session_pack,
+                    matched_drills=matched_drills,
+                    history=history,
+                )
+                provider = f"local_fallback:{result.get('error')}"
+        else:
+            reply = _fallback_answer(
+                message,
+                effective_age,
+                session_live=False,
+                session_pack=session_pack,
+                matched_drills=matched_drills,
+                history=history,
+            )
+            provider = "local_fallback:no_gemini"
+    elif gemini_available():
         result = generate_text(
             prompt,
             system=_system_prompt(
                 effective_age,
                 extra_context,
                 session_live=session_live,
-                assessment_review=assessment_review,
+                assessment_review=False,
             ),
-            temperature=0.55 if (session_live or assessment_review) else 0.35,
-            max_output_tokens=4096 if (session_live or assessment_review) else 2048,
+            temperature=0.55 if session_live else 0.35,
+            max_output_tokens=4096 if session_live else 2048,
         )
         if result.get("ok") and result.get("text"):
             reply = str(result["text"]).strip()

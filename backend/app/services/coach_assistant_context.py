@@ -559,6 +559,7 @@ def _attach_assessment_analysis(db: Session, team: Team, out: dict[str, Any]) ->
         "secondaryFocus": pack.get("secondaryFocus"),
         "archetypeGroups": pack.get("archetypeGroups") or [],
         "teamDomains": pack.get("teamDomains") or [],
+        "narrativeReport": pack.get("narrativeReport") or "",
         "empty": bool(pack.get("empty")),
     }
     prompt = str(pack.get("promptText") or "").strip()
