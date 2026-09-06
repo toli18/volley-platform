@@ -12,6 +12,7 @@ import { EmptyState } from "../../components/ui";
 import AthleteProfileCoachMobile from "./AthleteProfileCoachMobile";
 import { normalizeError } from "../../utils/normalizeError";
 import {
+  athleteGenderMissing,
   athleteToIdentityForm,
   buildAthletePayload,
   validateAthleteIdentityForm,
@@ -200,6 +201,7 @@ export default function CoachAthleteProfile() {
   const saveProfile = async () => {
     if (!profile || !editForm) return;
     const locked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
+    const canPatchGender = Boolean(isHeadCoach && locked && athleteGenderMissing(profile.gender));
     if (!locked) {
       const err = validateAthleteIdentityForm(editForm, {
         requireSplitNames:
@@ -209,6 +211,9 @@ export default function CoachAthleteProfile() {
         toast.error(err);
         return;
       }
+    } else if (canPatchGender && athleteGenderMissing(editForm.gender)) {
+      toast.error("Избери пол.");
+      return;
     }
     const payload = locked
       ? {
@@ -220,6 +225,7 @@ export default function CoachAthleteProfile() {
           jersey_number: String(editForm.jersey_number ?? "").trim() === ""
             ? null
             : Number(editForm.jersey_number),
+          ...(canPatchGender && !athleteGenderMissing(editForm.gender) ? { gender: editForm.gender } : {}),
         }
       : buildAthletePayload(editForm);
     try {

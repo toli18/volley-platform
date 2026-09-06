@@ -1,5 +1,10 @@
 export const DEFAULT_NATIONALITY = "България";
 
+export function athleteGenderMissing(gender) {
+  const g = String(gender || "").trim().toLowerCase();
+  return g !== "male" && g !== "female";
+}
+
 export function composeAthleteName(first, middle, last, fallback = "") {
   const parts = [first, middle, last].map((s) => String(s || "").trim()).filter(Boolean);
   if (parts.length) return parts.join(" ");

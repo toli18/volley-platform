@@ -24,6 +24,7 @@ from app.models import Athlete, AthletePayment, Club, Team, TeamMember, User, Us
 from app.services.parent_portal_notify import queue_fee_paid
 from app.services.athlete_birth import resolve_birth_date, resolve_place_of_birth
 from app.services.athlete_identity import (
+    athlete_gender_missing,
     bvf_identity_locked,
     compose_athlete_name,
     default_nationality_from_city,
@@ -920,7 +921,9 @@ def update_athlete(
     athlete_id: int,
     payload: AthleteUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
 ):
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
     data = payload.model_dump(exclude_unset=True)
@@ -939,10 +942,20 @@ def update_athlete(
         "egn",
     }
     if locked and identity_keys.intersection(data.keys()):
-        raise HTTPException(
-            status_code=409,
-            detail="След връзка с БФВ идентичността (имена, ЕГН, дата, град, националност, пол) не се редактира тук.",
+        blocked = identity_keys.intersection(data.keys())
+        can_patch_gender = (
+            _is_head_coach(current_user)
+            and athlete_gender_missing(athlete)
+            and "gender" in data
+            and data.get("gender") in {"male", "female"}
         )
+        if can_patch_gender:
+            blocked = blocked - {"gender"}
+        if blocked:
+            raise HTTPException(
+                status_code=409,
+                detail="След връзка с БФВ идентичността (имена, ЕГН, дата, град, националност, пол) не се редактира тук.",
+            )
 
     name_touched = any(k in data for k in ("first_name", "middle_name", "last_name"))
     if name_touched:

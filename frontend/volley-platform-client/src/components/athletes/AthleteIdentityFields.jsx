@@ -4,12 +4,14 @@ import { DEFAULT_NATIONALITY } from "../../utils/athleteIdentity";
 /**
  * Shared identity fields for create/edit athlete forms.
  * mode="minimal" — само полета за бързо създаване от треньор.
- * When identityLocked (linked to BVF), name/birth/city/nationality/gender/egn are read-only.
+ * When identityLocked (linked to BVF), name/birth/city/nationality/gender/egn are read-only,
+ * except gender when genderEditableWhenLocked (head coach, missing gender).
  */
 export default function AthleteIdentityFields({
   form,
   setForm,
   identityLocked = false,
+  genderEditableWhenLocked = false,
   showEgn = true,
   showLegacyNameHint = false,
   mode = "full",
@@ -85,7 +87,8 @@ export default function AthleteIdentityFields({
     <div style={{ display: "grid", gap: 8 }}>
       {identityLocked ? (
         <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-          Идентичността е заключена след връзка с БФВ. Редактират се само контакти и бележки.
+          Идентичността е заключена след връзка с БФВ. Редактират се само контакти и бележки
+          {genderEditableWhenLocked ? " · полът може да се попълни веднъж, ако липсва" : ""}.
         </p>
       ) : null}
 
@@ -160,7 +163,7 @@ export default function AthleteIdentityFields({
         <Input
           as="select"
           value={form.gender}
-          disabled={identityLocked}
+          disabled={identityLocked && !genderEditableWhenLocked}
           onChange={(e) => patch("gender", e.target.value)}
         >
           <option value="">Избери</option>

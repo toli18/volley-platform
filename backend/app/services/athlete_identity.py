@@ -136,3 +136,8 @@ def default_nationality_from_city(
 
 def bvf_identity_locked(athlete) -> bool:
     return bool(getattr(athlete, "bvf_player_id", None))
+
+
+def athlete_gender_missing(athlete) -> bool:
+    g = (getattr(athlete, "gender", None) or "").strip().lower()
+    return g not in {"male", "female"}

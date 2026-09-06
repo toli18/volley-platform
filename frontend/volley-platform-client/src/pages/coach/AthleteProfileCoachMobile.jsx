@@ -11,6 +11,7 @@ import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
 import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDocumentsPanel";
 import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
+import { athleteGenderMissing } from "../../utils/athleteIdentity";
 import { formatMoney } from "../../utils/currency";
 import { Button, EmptyState, Input, Modal } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
@@ -282,6 +283,7 @@ export default function AthleteProfileCoachMobile({
   const summary = profile.attendance_summary || {};
   const teamsShort = (profile.teams || []).map(shortenTeamName).join(", ") || "—";
   const identityLocked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
+  const genderEditableWhenLocked = Boolean(canManageSek && identityLocked && athleteGenderMissing(profile.gender));
   const canDelete = Boolean(onDelete) && !profile.bvf_player_id;
 
   const currentPayment = useMemo(() => {
@@ -543,6 +545,7 @@ export default function AthleteProfileCoachMobile({
                   form={editForm}
                   setForm={setEditForm}
                   identityLocked={identityLocked}
+                  genderEditableWhenLocked={genderEditableWhenLocked}
                   showLegacyNameHint
                   showEgn
                 />
