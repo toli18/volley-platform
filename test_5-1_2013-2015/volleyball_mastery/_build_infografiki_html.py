@@ -1,4 +1,4 @@
-"""Generate infografiki/index.html — BG text overlays on original images (CSS layers)."""
+"""Generate infografiki/index.html — precise BG text overlays on original images."""
 from __future__ import annotations
 
 import re
@@ -71,8 +71,7 @@ def render_layer(layer: dict) -> str:
     if items:
         lis = "".join(f"<li>{escape(it)}</li>" for it in items)
         head = escape(layer["text"])
-        inner = f'<strong class="foot-head">{head}</strong><ul class="foot-list">{lis}</ul>'
-        return f'      <div class="layer {cls}" style="{style}">{inner}</div>'
+        return f'      <div class="layer {cls}" style="{style}"><strong>{head}</strong><ul>{lis}</ul></div>'
     text = escape(layer.get("text", ""))
     if not text:
         return ""
@@ -86,12 +85,10 @@ def render_card(fn: str, title: str, body: str) -> str:
     layer_html = "\n".join(render_layer(L) for L in layers if L.get("text") or L.get("items"))
     src = f"img/{escape(fn)}"
     return f"""    <article class="card" id="{escape(fn)}">
-      <a class="frame-link" href="{src}" target="_blank" rel="noopener" title="Отвори оригинал + превод">
-        <div class="frame">
-          <img src="{src}" alt="{escape(title)}" loading="lazy" width="{w}" height="{h}" />
+      <div class="frame" style="--iw:{w}">
+        <img src="{src}" alt="{escape(title)}" loading="lazy" width="{w}" height="{h}" decoding="async" />
 {layer_html}
-        </div>
-      </a>
+      </div>
     </article>"""
 
 
@@ -125,7 +122,7 @@ def main() -> None:
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Инфографики — Волей Герои</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@500;700&family=Nunito:wght@700;800&display=swap" rel="stylesheet" />
 <style>
   :root {{ --deep:#0a3d4a; --teal:#0d8a8a; --sand:#fff6e8; --pop:#e85d04; }}
   * {{ box-sizing:border-box; margin:0; padding:0; }}
@@ -141,29 +138,47 @@ def main() -> None:
   .sec h2 {{ font-size:1.35rem; font-weight:800; color:var(--pop); margin-bottom:12px; }}
   .grid {{ display:grid; gap:20px; }}
   .card {{ background:#fff; border:3px solid var(--deep); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 rgba(10,61,74,.1); }}
-  .frame-link {{ display:block; text-decoration:none; color:inherit; }}
-  .frame {{ position:relative; width:100%; line-height:0; }}
+  .frame {{ position:relative; width:100%; container-type:inline-size; line-height:0; }}
   .frame img {{ width:100%; height:auto; display:block; }}
-  .layer {{ position:absolute; display:flex; align-items:center; justify-content:center; text-align:center; padding:3px 5px; overflow:hidden; line-height:1.15; }}
-  .layer span {{ display:block; width:100%; }}
-  .layer.title {{ background:rgba(10,35,55,.96); color:#fff; font-weight:800; font-size:clamp(11px,3.2vw,20px); letter-spacing:.02em; }}
-  .layer.sub {{ background:rgba(8,28,45,.94); color:#7dffb0; font-weight:800; font-size:clamp(9px,2.6vw,16px); }}
-  .layer.tag {{ background:rgba(8,28,45,.9); color:#dce8f0; font-weight:700; font-size:clamp(7px,2vw,12px); }}
-  .layer.head-l {{ background:rgba(22,110,55,.94); color:#fff; font-weight:800; font-size:clamp(8px,2.3vw,14px); }}
-  .layer.head-r {{ background:rgba(165,35,35,.94); color:#fff; font-weight:800; font-size:clamp(8px,2.3vw,14px); }}
-  .layer.label-l {{ background:rgba(255,255,255,.96); color:#145a32; font-weight:700; font-size:clamp(7px,1.85vw,12px); justify-content:flex-start; text-align:left; border-left:3px solid #2ecc71; }}
-  .layer.label-r {{ background:rgba(255,255,255,.96); color:#8b1a1a; font-weight:700; font-size:clamp(7px,1.85vw,12px); justify-content:flex-start; text-align:left; border-left:3px solid #e74c3c; }}
-  .layer.foot-title-l, .layer.foot-title-r {{ flex-direction:column; align-items:flex-start; justify-content:flex-start; padding:6px 8px; text-align:left; }}
-  .layer.foot-title-l {{ background:rgba(18,85,45,.97); color:#eaffea; }}
-  .layer.foot-title-r {{ background:rgba(120,28,28,.97); color:#ffeaea; }}
-  .foot-head {{ display:block; font-weight:800; font-size:clamp(8px,2.2vw,13px); margin-bottom:4px; }}
-  .foot-list {{ list-style:none; padding:0; margin:0; font-size:clamp(6px,1.65vw,11px); font-weight:700; line-height:1.25; }}
-  .foot-list li {{ padding:1px 0; }}
-  .foot-list li::before {{ content:"✓ "; color:#9f9; }}
-  .layer.foot-title-r .foot-list li::before {{ content:"✗ "; color:#faa; }}
-  .layer.banner {{ background:rgba(235,185,45,.97); color:#1a2030; font-weight:800; font-size:clamp(8px,2.4vw,14px); }}
-  .layer.step-h {{ background:rgba(14,58,90,.95); color:#fff; font-weight:800; font-size:clamp(8px,2.2vw,13px); justify-content:flex-start; text-align:left; padding-left:10px; }}
-  .layer.step-b {{ background:rgba(255,255,255,.95); color:#234; font-weight:700; font-size:clamp(7px,1.9vw,12px); justify-content:flex-start; text-align:left; padding:6px 10px; align-items:flex-start; }}
+  /* Font scales with image width (cqw = % of frame width) */
+  .layer {{
+    position:absolute; display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:1px 3px; overflow:hidden; line-height:1.12;
+    font-family:'Roboto Condensed',Nunito,sans-serif;
+  }}
+  .layer span, .layer strong {{ display:block; width:100%; }}
+  .layer.title {{ background:#0c2338; color:#fff; font-weight:700; font-size:4.2cqw; }}
+  .layer.sub {{ background:#0a1e30; color:#6dff9a; font-weight:700; font-size:3.1cqw; }}
+  .layer.tag {{ background:#0a1e30; color:#e0ecf4; font-weight:600; font-size:2.2cqw; }}
+  .layer.head-l {{ background:#1a7a3a; color:#fff; font-weight:700; font-size:2.6cqw; }}
+  .layer.head-r {{ background:#b52a2a; color:#fff; font-weight:700; font-size:2.6cqw; }}
+  .layer.label-l {{
+    background:#fff; color:#145a32; font-weight:700; font-size:2.15cqw;
+    justify-content:flex-start; text-align:left; padding:2px 4px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.08);
+  }}
+  .layer.label-r {{
+    background:#fff; color:#8b1a1a; font-weight:700; font-size:2.15cqw;
+    justify-content:flex-start; text-align:left; padding:2px 4px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.08);
+  }}
+  .layer.foot-l, .layer.foot-r {{
+    flex-direction:column; align-items:flex-start; justify-content:flex-start;
+    padding:4px 6px; text-align:left;
+  }}
+  .layer.foot-l {{ background:#145a32; color:#f0fff0; }}
+  .layer.foot-r {{ background:#8b2222; color:#fff5f5; }}
+  .layer.foot-l strong, .layer.foot-r strong {{ font-size:2.4cqw; font-weight:700; margin-bottom:2px; }}
+  .layer.foot-l ul, .layer.foot-r ul {{ list-style:none; font-size:1.85cqw; font-weight:600; line-height:1.2; }}
+  .layer.foot-l li::before {{ content:"✓ "; }}
+  .layer.foot-r li::before {{ content:"✗ "; }}
+  .layer.banner {{ background:#ebbc2e; color:#1a2030; font-weight:700; font-size:2.5cqw; }}
+  .layer.step-h {{ background:#0e3a5a; color:#fff; font-weight:700; font-size:2.8cqw; justify-content:flex-start; text-align:left; padding-left:6px; }}
+  .layer.step-b {{
+    background:#fff; color:#1a3040; font-weight:600; font-size:2.35cqw;
+    justify-content:flex-start; text-align:left; padding:3px 6px; align-items:flex-start;
+    box-shadow:0 0 0 1px rgba(0,0,0,.06);
+  }}
 </style>
 </head>
 <body>
@@ -171,7 +186,7 @@ def main() -> None:
   <a class="back" href="/uchebnik/">← Волей Герои</a>
   <h1>ИНФОГРАФИКИ</h1>
   <p class="sub">На български · {len(rows)} карти</p>
-  <p class="note">Преводът е върху оригиналната картинка — скриваме чуждия текст и слагаме български на същото място. Оригиналът под слоевете се пази.</p>
+  <p class="note">Оригиналната картинка се пази — българският текст покрива само чуждите надписи, на същото място. Илюстрациите остават видими.</p>
   <nav class="cat" aria-label="Категории">
 {nav}
   </nav>
@@ -180,7 +195,7 @@ def main() -> None:
 </body>
 </html>"""
     (PUBLIC / "index.html").write_text(html, encoding="utf-8")
-    print(f"Wrote index.html ({len(rows)} overlay cards, original img/)")
+    print(f"Wrote index.html ({len(rows)} precise overlay cards)")
 
 
 if __name__ == "__main__":
