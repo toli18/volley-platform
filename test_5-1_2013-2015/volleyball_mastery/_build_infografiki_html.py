@@ -1,4 +1,4 @@
-"""Generate infografiki/index.html — Bulgarian HTML cards (no low-res foreign images)."""
+"""Generate infografiki/index.html — gallery with Bulgarian overlay images."""
 from __future__ import annotations
 
 import re
@@ -12,6 +12,7 @@ from _infografiki_content import STEPS  # noqa: E402
 
 PUBLIC = ROOT.parents[1] / "frontend" / "volley-platform-client" / "public" / "uchebnik" / "infografiki"
 CATALOG = PUBLIC / "_catalog.txt"
+IMG_BG = PUBLIC / "img_bg"
 
 CAT_LABEL = {
     "posreshtane": "Посрещане",
@@ -38,26 +39,17 @@ def load_rows() -> list[tuple[str, str, str, str]]:
     return rows
 
 
-def steps_for(fn: str, body: str) -> list[str]:
-    if fn in STEPS:
-        return STEPS[fn]
-    parts = re.split(r"(?<=[.;])\s+", body)
-    out = [p.strip().rstrip(".") for p in parts if len(p.strip()) > 6]
-    if len(out) <= 1:
-        out = [s.strip() for s in re.split(r",\s+", body) if len(s.strip()) > 6]
-    return out if out else [body]
+def bg_image_name(fn: str) -> str:
+    return f"{Path(fn).stem}_bg.jpg"
 
 
-def render_card(fn: str, title: str, body: str) -> str:
-    steps = steps_for(fn, body)
-    lis = "\n".join(f"        <li>{escape(s)}</li>" for s in steps)
+def render_card(fn: str, title: str) -> str:
+    src = f"img_bg/{bg_image_name(fn)}"
     return f"""    <article class="card" id="{escape(fn)}">
-      <div class="card-body">
-        <h3>{escape(title)}</h3>
-        <ol class="steps">
-{lis}
-        </ol>
-      </div>
+      <a href="{src}" target="_blank" rel="noopener">
+        <img src="{src}" alt="{escape(title)}" loading="lazy" width="1080" />
+      </a>
+      <p class="cap">{escape(title)}</p>
     </article>"""
 
 
@@ -75,7 +67,7 @@ def main() -> None:
         items = by_cat.get(cat, [])
         if not items:
             continue
-        cards = [render_card(fn, title, body) for fn, _c, title, body in items]
+        cards = [render_card(fn, title) for fn, _c, title, _body in items]
         sections.append(
             f"""  <section class="sec" id="{cat}">
     <h2>{CAT_LABEL.get(cat, cat)}</h2>
@@ -105,22 +97,19 @@ def main() -> None:
   nav.cat a {{ padding:8px 12px; border-radius:999px; background:#fff; border:2px solid var(--deep); font-size:.8rem; font-weight:800; text-decoration:none; color:var(--deep); }}
   .sec {{ margin-top:36px; scroll-margin-top:56px; }}
   .sec h2 {{ font-family:Bangers,cursive; font-size:1.5rem; color:var(--pop); margin-bottom:12px; }}
-  .grid {{ display:grid; gap:14px; }}
-  .card {{ background:#fff; border:3px solid var(--deep); border-radius:14px; box-shadow:4px 4px 0 rgba(10,61,74,.12); }}
-  .card-body {{ padding:14px 16px 16px; }}
-  .card h3 {{ font-size:1.05rem; color:var(--deep); margin-bottom:10px; line-height:1.25; }}
-  ol.steps {{ margin:0; padding:0; list-style:none; counter-reset:st; }}
-  ol.steps li {{ counter-increment:st; position:relative; padding:8px 0 8px 36px; font-size:.92rem; line-height:1.4; font-weight:600; color:#334; border-bottom:1px dashed rgba(10,61,74,.12); }}
-  ol.steps li:last-child {{ border-bottom:0; }}
-  ol.steps li::before {{ content:counter(st); position:absolute; left:0; top:8px; width:26px; height:26px; border-radius:50%; background:var(--pop); color:#fff; font-family:Bangers,cursive; font-size:1rem; display:grid; place-items:center; }}
+  .grid {{ display:grid; gap:18px; }}
+  .card {{ background:#fff; border:3px solid var(--deep); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 rgba(10,61,74,.12); }}
+  .card a {{ display:block; line-height:0; }}
+  .card img {{ width:100%; height:auto; display:block; }}
+  .cap {{ padding:10px 14px 12px; font-size:.92rem; font-weight:800; color:var(--deep); }}
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="back" href="/uchebnik/">← Волей Герои</a>
   <h1>ИНФОГРАФИКИ</h1>
-  <p class="sub">На български · {len(rows)} карти · за тренировка и състезание</p>
-  <p class="note">Текстът е изцяло на български — с нашите термини (пас, флот сервис, зона, хълбоци, разбег). Оригиналните чужди снимки бяха с ниско качество, затова ги заменихме с четливи карти.</p>
+  <p class="sub">На български · {len(rows)} карти · натисни за по-голям размер</p>
+  <p class="note">Преводът е върху картинките. 16 от 47 са HD (1365 px); останалите са upscaled от Facebook миниатюри — ако имаш оригинали в по-висока резолюция, кажи.</p>
   <nav class="cat" aria-label="Категории">
 {nav}
   </nav>
@@ -129,7 +118,7 @@ def main() -> None:
 </body>
 </html>"""
     (PUBLIC / "index.html").write_text(html, encoding="utf-8")
-    print(f"Wrote index.html ({len(rows)} BG HTML cards)")
+    print(f"Wrote index.html ({len(rows)} image cards from img_bg/)")
 
 
 if __name__ == "__main__":
