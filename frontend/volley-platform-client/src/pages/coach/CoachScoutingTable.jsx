@@ -455,7 +455,7 @@ export default function CoachScoutingTable() {
               </tbody>
             </table>
             </div>
-            <p className="assessMuted rawLegend">
+            <p className="assessMuted rawLegend scoutNoPrint">
               Голямото число е реалната стойност. Цветната значка „· дума“ е спрямо националния стандарт
               2022 за възрастта на детето. „% връст.“ е процентил спрямо деца на същата възраст и пол;
               „*“ = малка извадка. Сравнението „Талант / нац. 2022“ е спрямо националното тестване 2022:

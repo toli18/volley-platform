@@ -8909,11 +8909,17 @@ button.matchChipSlot:not(:disabled) {
   #match-lineup-print-sheet,
   #match-lineup-print-sheet *,
   #competition-roster-print-sheet,
-  #competition-roster-print-sheet * {
+  #competition-roster-print-sheet *,
+  .scoutPrintArea,
+  .scoutPrintArea *,
+  .trainingPrintArea,
+  .trainingPrintArea * {
     visibility: visible !important;
   }
   #match-lineup-print-sheet,
-  #competition-roster-print-sheet {
+  #competition-roster-print-sheet,
+  .scoutPrintArea,
+  .trainingPrintArea {
     position: absolute;
     left: 0;
     top: 0;
