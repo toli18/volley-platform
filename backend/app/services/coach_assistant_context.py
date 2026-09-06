@@ -541,6 +541,45 @@ def _assessment_hint(db: Session, team_id: int) -> Optional[str]:
     return "; ".join(parts) if parts else None
 
 
+def _attach_assessment_analysis(db: Session, team: Team, out: dict[str, Any]) -> None:
+    """Обогатява контекста с пълен пакет тестове за AI анализ."""
+    try:
+        from app.services.assessment_analysis_pack import build_assessment_analysis_pack
+
+        pack = build_assessment_analysis_pack(db, team)
+    except Exception:
+        pack = None
+    if not pack:
+        return
+    out["assessmentAnalysis"] = {
+        "teamId": pack.get("teamId"),
+        "sessionId": pack.get("sessionId"),
+        "athleteCount": pack.get("athleteCount"),
+        "mainFocus": pack.get("mainFocus"),
+        "secondaryFocus": pack.get("secondaryFocus"),
+        "archetypeGroups": pack.get("archetypeGroups") or [],
+        "teamDomains": pack.get("teamDomains") or [],
+        "empty": bool(pack.get("empty")),
+    }
+    prompt = str(pack.get("promptText") or "").strip()
+    if prompt:
+        out["promptText"] = (
+            (out.get("promptText") or "")
+            + ("\n\n" if out.get("promptText") else "")
+            + prompt
+        )
+        facts = list(out.get("knownFacts") or [])
+        facts.append(
+            f"тестове: анализ върху {pack.get('athleteCount') or 0} състезател(и); "
+            f"приоритет {pack.get('mainFocus') or '—'}"
+        )
+        out["knownFacts"] = facts
+    if pack.get("generateRequest"):
+        # Не презаписвай текущите focus defaults, ако вече са от програмата —
+        # сложи ги под ключ за чат „анализирай тестовете“.
+        out["assessmentGenerateDefaults"] = pack["generateRequest"]
+
+
 def _focus_to_skill(focus_tokens: list[str]) -> tuple[Optional[str], Optional[str]]:
     text = " ".join(str(x).lower() for x in focus_tokens)
     mapping = [
@@ -884,4 +923,5 @@ def build_coach_assistant_context(
         ]
     )
     out["promptText"] = "\n".join(lines)
+    _attach_assessment_analysis(db, active, out)
     return out

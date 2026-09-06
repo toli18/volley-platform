@@ -351,6 +351,18 @@ export default function CoachScoutingTable() {
             <Button variant="secondary" onClick={() => window.print()}>
               Печат / PDF
             </Button>
+            {teamId ? (
+              <Button
+                as={Link}
+                to={`/ai-generator?team_id=${Number(teamId)}&mode=assessment_review&ask=assessment`}
+              >
+                AI анализ на тестовете
+              </Button>
+            ) : (
+              <Button as={Link} to="/ai-generator?mode=assessment_review&ask=assessment">
+                AI анализ на тестовете
+              </Button>
+            )}
           </div>
 
           {!sortedRows.length ? (

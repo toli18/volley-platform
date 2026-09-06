@@ -41,7 +41,7 @@ class ChatContext(BaseModel):
     daysUntilMatch: Optional[int] = None
     programTheme: Optional[str] = None
     trainingId: Optional[int] = None
-    mode: Optional[str] = None  # session_live | default
+    mode: Optional[str] = None  # session_live | assessment_review | default
 
 
 class ChatRequest(BaseModel):

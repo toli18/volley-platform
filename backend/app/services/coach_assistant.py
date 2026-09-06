@@ -786,7 +786,13 @@ def _planner_technique_answer(low: str) -> Optional[str]:
     return None
 
 
-def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bool = False) -> str:
+def _system_prompt(
+    age_band: str | None,
+    extra_context: str,
+    *,
+    session_live: bool = False,
+    assessment_review: bool = False,
+) -> str:
     ctx = assistant_system_context(age_band)
     glossary = ctx.get("glossary") or {}
     gloss_lines = "\n".join(f"- {k}: {v}" for k, v in list(glossary.items())[:16])
@@ -818,6 +824,27 @@ def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bo
 === КРАЙ ===
 """
 
+    if assessment_review:
+        return f"""Ти си методически съветник по тестове и развитие за български волейболен треньор.
+Говори само на български — като умен колега (в стил задълбочен анализ, не меню).
+
+Задача: анализирай данните от тестовете в контекста (нормализирани стойности, връстници, история по прозорци).
+Дай:
+1) Легенда накратко (red/yellow/green) и отборни приоритети
+2) Типове деца (архетипи) + кои имена влизат + формула „какво да работи“
+3) 2–4 ярки индивидуални примера (потенциал vs дефицит) — напр. силен скок + слаба бързина
+4) Схема за следващите 6–12 месеца (U9–U10 vs U11–U13) и какво да следи след 3 месеца
+5) Ако поиска тренировка — добави Действие: генерирай_тренировка + ПАРАМЕТРИ
+
+Не рецитирай целия списък като таблица. Извади закономерности. Не измисляй липсващи измервания.
+Акцент възраст:
+{age_lines}
+
+=== ДАННИ ===
+{extra_context or "няма"}
+=== КРАЙ ===
+"""
+
     return f"""Ти си треньорски помощник в българска волейболна платформа (Volley Coach).
 Говориш само на ясен български. Практически, човешки отговори (до 8–12 изречения).
 Годишната програма БФВ е водеща за юноши; за мъже/жени ползвай контекста на групата без да ги третираш като U14.
@@ -825,10 +852,11 @@ def _system_prompt(age_band: str | None, extra_context: str, *, session_live: bo
 Използвай термините: посрещане, сервиращи, начален удар, разпределител, облекчена тренировка (не казвай „тапер“).
 
 Ако питат за ТЕХНИКА/ТАКТИКА (посрещане наляво, кой взима топката, зони, отскок) — отговори ДИРЕКТНО.
+Ако питат за тестове/диагностика/потенциал — ползвай блока „АНАЛИЗ НА ТЕСТОВЕ“ в контекста и дай архетипи + насоки 6–12 месеца.
 Не връщай общо „мога да помогна с…“ и не отговаряй за мач, ако не са питали за мач.
 
 Можеш да съветваш по: техника, тактика, физика (юношески подходяща), психика
-(фокус, комуникация, роли, справяне с грешки, напрежение преди мач), организация на седмицата.
+(фокус, комуникация, роли, справяне с грешки, напрежение преди мач), организация на седмицата, анализ на тестове.
 
 Речник:
 {gloss_lines}
@@ -859,6 +887,35 @@ blockType е едно от: Активиране, Изграждане, Инте
 Ако daysUntilMatch <= 1 — предлагай облекчена / активиране преди мач.
 Не разчитай само на техническата база — за физика винаги попълвай УПРАЖНЕНИЯ.
 """
+
+
+def _assessment_local_summary(plat: dict[str, Any]) -> Optional[str]:
+    analysis = plat.get("assessmentAnalysis") if isinstance(plat, dict) else None
+    if not isinstance(analysis, dict) or analysis.get("empty"):
+        return None
+    lines = [
+        f"Анализ на тестовете за групата ({analysis.get('athleteCount') or 0} състезатели с данни).",
+        f"Отборен приоритет: {analysis.get('mainFocus') or '—'} "
+        f"(вторичен: {analysis.get('secondaryFocus') or '—'}).",
+        "Светофар: red <40 · yellow 40–60 · green ≥60.",
+    ]
+    for d in (analysis.get("teamDomains") or [])[:5]:
+        lines.append(
+            f"• [{d.get('level')}] {d.get('domain')}: mean {d.get('meanNormalized')} "
+            f"(дефицит при {d.get('deficitCount')} души)"
+        )
+    lines.append("Типове в групата:")
+    for g in (analysis.get("archetypeGroups") or [])[:6]:
+        lines.append(
+            f"• Тип {g.get('code')} „{g.get('title')}“: {', '.join(g.get('athletes') or [])}. "
+            f"{g.get('formula') or ''}"
+        )
+    lines.append(
+        "Следващи 6–12 месеца: U9–U10 → 2×10–15 мин игри/координация; "
+        "U11–U13 → 2×15–25 мин блок на основния дефицит + волейболен трансфер. "
+        "Преизмерване на ~3 месеца. Кажи „генерирай тренировка по диагнозата“, ако искаш план."
+    )
+    return "\n".join(lines)
 
 
 def build_reply(
@@ -918,13 +975,34 @@ def build_reply(
     session_pack = plat.get("sessionTraining") if isinstance(plat.get("sessionTraining"), dict) else None
     matched_drills = plat.get("matchedDrills") if isinstance(plat.get("matchedDrills"), list) else None
 
+    from app.services.assessment_analysis_pack import wants_assessment_analysis
+
+    assessment_review = (not session_live) and (
+        str(ctx.get("mode") or "") == "assessment_review"
+        or wants_assessment_analysis(message)
+        or (
+            bool(plat.get("assessmentAnalysis"))
+            and any(k in message.lower() for k in ("анализ", "тест", "дефицит", "потенциал", "тип"))
+        )
+    )
+    # При анализ на тестове ползвай assessment generate defaults като база за generate
+    if assessment_review and isinstance(plat.get("assessmentGenerateDefaults"), dict):
+        merged = dict(plat["assessmentGenerateDefaults"])
+        merged.update({k: v for k, v in defaults.items() if v not in (None, "")})
+        defaults = merged
+
     if gemini_available():
-        # Live: по-свободен тон от Gemini; контекстът заземява, знанията отговарят
+        # Live / assessment: по-свободен тон; повече токени за анализ
         result = generate_text(
             prompt,
-            system=_system_prompt(effective_age, extra_context, session_live=session_live),
-            temperature=0.55 if session_live else 0.35,
-            max_output_tokens=4096 if session_live else 2048,
+            system=_system_prompt(
+                effective_age,
+                extra_context,
+                session_live=session_live,
+                assessment_review=assessment_review,
+            ),
+            temperature=0.55 if (session_live or assessment_review) else 0.35,
+            max_output_tokens=4096 if (session_live or assessment_review) else 2048,
         )
         if result.get("ok") and result.get("text"):
             reply = str(result["text"]).strip()
@@ -967,6 +1045,8 @@ def build_reply(
                 matched_drills=matched_drills,
                 history=history,
             )
+            if assessment_review:
+                reply = _assessment_local_summary(plat) or reply
             provider = f"local_fallback:{result.get('error')}"
     else:
         reply = _fallback_answer(
@@ -977,6 +1057,8 @@ def build_reply(
             matched_drills=matched_drills,
             history=history,
         )
+        if assessment_review:
+            reply = _assessment_local_summary(plat) or reply
 
     wants = _wants_generate(message) or ("генерирай_тренировка" in reply.lower())
     if session_live:

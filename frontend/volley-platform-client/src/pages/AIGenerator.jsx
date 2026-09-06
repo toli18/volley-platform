@@ -1202,6 +1202,8 @@ export default function AIGenerator() {
               undefined,
             teamName: assistPlatCtx?.activeTeam?.name || undefined,
             daysUntilMatch: assistPlatCtx?.calendar?.nextMatch?.daysUntilMatch,
+            mode: (searchParams.get("mode") || "").trim() || undefined,
+            autoAsk: (searchParams.get("ask") || "").trim() || undefined,
           }}
           onPlatformContext={(ctx) => {
             setAssistPlatCtx(ctx || null);

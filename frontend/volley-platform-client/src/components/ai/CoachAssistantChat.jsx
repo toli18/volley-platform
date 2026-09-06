@@ -11,6 +11,9 @@ const SUGGESTIONS = [
   "Генерирай тренировка за посрещане",
 ];
 
+const ASSESSMENT_ASK =
+  "Анализирай тестовете на групата: дефицити, потенциал, типове деца и какво да работя следващите 6–12 месеца.";
+
 const TEAM_STORAGE_KEY = "coachAssist.teamId";
 
 export default function CoachAssistantChat({
@@ -23,7 +26,7 @@ export default function CoachAssistantChat({
     {
       role: "assistant",
       content:
-        "Здравей! Избери тренировъчна група — ползвам нейната програма и календар (мачове). Генерирай преглед, коригирай, и чак тогава избери дата за запис.",
+        "Здравей! Избери тренировъчна група — ползвам нейната програма, календар и тестове. Можеш да поискаш анализ на тестовете, да генерираш преглед и чак тогава да избереш дата за запис.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -41,6 +44,7 @@ export default function CoachAssistantChat({
   const [err, setErr] = useState("");
   const endRef = useRef(null);
   const onPlatformContextRef = useRef(onPlatformContext);
+  const autoAskedRef = useRef(false);
   onPlatformContextRef.current = onPlatformContext;
 
   useEffect(() => {
@@ -148,6 +152,7 @@ export default function CoachAssistantChat({
               platCtx?.program?.weekTheme,
             // дата за чат контекст = днес/програма, не задължителен ден за запис
             date: platCtx?.program?.today?.date || context?.date || undefined,
+            mode: context?.mode || undefined,
           },
           history,
         },
@@ -178,6 +183,20 @@ export default function CoachAssistantChat({
   const facts = platCtx?.knownFacts || [];
   const teams = platCtx?.teams || [];
   const nextMatch = platCtx?.calendar?.nextMatch;
+  const hasAssessment = Boolean(platCtx?.assessmentAnalysis?.athleteCount);
+  const chips = [
+    ...(hasAssessment ? ["Анализирай тестовете на групата"] : []),
+    ...SUGGESTIONS,
+  ];
+
+  useEffect(() => {
+    if (autoAskedRef.current || busy) return;
+    if (context?.mode !== "assessment_review" && context?.autoAsk !== "assessment") return;
+    if (!platCtx?.activeTeam?.id && !teamId) return;
+    autoAskedRef.current = true;
+    send(ASSESSMENT_ASK);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platCtx?.activeTeam?.id, teamId, context?.mode, context?.autoAsk]);
 
   return (
     <div className="aiGenPanel coachAssistChat">
@@ -250,8 +269,14 @@ export default function CoachAssistantChat({
       ) : null}
 
       <div className="coachAssistSuggestions" aria-label="Бързи въпроси">
-        {SUGGESTIONS.map((s) => (
-          <button key={s} type="button" className="coachAssistChip" onClick={() => send(s)} disabled={busy}>
+        {chips.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className="coachAssistChip"
+            onClick={() => send(s === "Анализирай тестовете на групата" ? ASSESSMENT_ASK : s)}
+            disabled={busy}
+          >
             {s}
           </button>
         ))}
