@@ -4,33 +4,53 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Инфографики — Волей Герои</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Bangers&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
 <style>
-  :root { --deep:#0a3d4a; --teal:#0d8a8a; --sand:#fff6e8; --pop:#e85d04; --ink:#1a2a2e; }
+  :root { --deep:#0a3d4a; --teal:#0d8a8a; --sand:#fff6e8; --pop:#e85d04; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:Nunito,system-ui,sans-serif; background:linear-gradient(180deg,#e8f7f5,var(--sand)); color:var(--ink); padding:16px 16px 48px; }
+  body { font-family:Nunito,system-ui,sans-serif; background:linear-gradient(180deg,#e8f7f5,var(--sand)); padding:16px 16px 48px; }
   .wrap { max-width:720px; margin:0 auto; }
   .back { display:inline-block; margin-bottom:10px; color:var(--teal); font-weight:800; text-decoration:none; }
-  h1 { font-family:Bangers,cursive; font-size:2rem; color:var(--deep); letter-spacing:.04em; }
-  .sub { margin:8px 0 12px; font-weight:600; color:#355; line-height:1.45; }
-  .note { background:#fff; border:2px solid var(--teal); border-radius:12px; padding:12px 14px; font-size:.88rem; font-weight:700; color:#234; margin-bottom:18px; }
-  nav.cat { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; position:sticky; top:0; z-index:10; background:rgba(232,247,245,.95); padding:10px 0; backdrop-filter:blur(6px); }
-  nav.cat a { padding:8px 12px; border-radius:999px; background:#fff; border:2px solid var(--deep); font-size:.8rem; font-weight:800; text-decoration:none; color:var(--deep); }
-  .sec { margin-top:36px; scroll-margin-top:56px; }
-  .sec h2 { font-family:Bangers,cursive; font-size:1.5rem; color:var(--pop); margin-bottom:12px; }
-  .grid { display:grid; gap:18px; }
-  .card { background:#fff; border:3px solid var(--deep); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 rgba(10,61,74,.12); }
-  .card a { display:block; line-height:0; }
-  .card img { width:100%; height:auto; display:block; }
-  .cap { padding:10px 14px 12px; font-size:.92rem; font-weight:800; color:var(--deep); }
+  h1 { font-size:1.75rem; font-weight:800; color:var(--deep); }
+  .sub { margin:8px 0 12px; font-weight:600; color:#355; }
+  .note { background:#fff; border:2px solid var(--teal); border-radius:12px; padding:12px 14px; font-size:.85rem; font-weight:700; color:#234; margin-bottom:18px; line-height:1.45; }
+  nav.cat { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; position:sticky; top:0; z-index:20; background:rgba(232,247,245,.96); padding:10px 0; }
+  nav.cat a { padding:8px 12px; border-radius:999px; background:#fff; border:2px solid var(--deep); font-size:.78rem; font-weight:800; text-decoration:none; color:var(--deep); }
+  .sec { margin-top:32px; scroll-margin-top:56px; }
+  .sec h2 { font-size:1.35rem; font-weight:800; color:var(--pop); margin-bottom:12px; }
+  .grid { display:grid; gap:20px; }
+  .card { background:#fff; border:3px solid var(--deep); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 rgba(10,61,74,.1); }
+  .frame-link { display:block; text-decoration:none; color:inherit; }
+  .frame { position:relative; width:100%; line-height:0; }
+  .frame img { width:100%; height:auto; display:block; }
+  .layer { position:absolute; display:flex; align-items:center; justify-content:center; text-align:center; padding:3px 5px; overflow:hidden; line-height:1.15; }
+  .layer span { display:block; width:100%; }
+  .layer.title { background:rgba(10,35,55,.96); color:#fff; font-weight:800; font-size:clamp(11px,3.2vw,20px); letter-spacing:.02em; }
+  .layer.sub { background:rgba(8,28,45,.94); color:#7dffb0; font-weight:800; font-size:clamp(9px,2.6vw,16px); }
+  .layer.tag { background:rgba(8,28,45,.9); color:#dce8f0; font-weight:700; font-size:clamp(7px,2vw,12px); }
+  .layer.head-l { background:rgba(22,110,55,.94); color:#fff; font-weight:800; font-size:clamp(8px,2.3vw,14px); }
+  .layer.head-r { background:rgba(165,35,35,.94); color:#fff; font-weight:800; font-size:clamp(8px,2.3vw,14px); }
+  .layer.label-l { background:rgba(255,255,255,.96); color:#145a32; font-weight:700; font-size:clamp(7px,1.85vw,12px); justify-content:flex-start; text-align:left; border-left:3px solid #2ecc71; }
+  .layer.label-r { background:rgba(255,255,255,.96); color:#8b1a1a; font-weight:700; font-size:clamp(7px,1.85vw,12px); justify-content:flex-start; text-align:left; border-left:3px solid #e74c3c; }
+  .layer.foot-title-l, .layer.foot-title-r { flex-direction:column; align-items:flex-start; justify-content:flex-start; padding:6px 8px; text-align:left; }
+  .layer.foot-title-l { background:rgba(18,85,45,.97); color:#eaffea; }
+  .layer.foot-title-r { background:rgba(120,28,28,.97); color:#ffeaea; }
+  .foot-head { display:block; font-weight:800; font-size:clamp(8px,2.2vw,13px); margin-bottom:4px; }
+  .foot-list { list-style:none; padding:0; margin:0; font-size:clamp(6px,1.65vw,11px); font-weight:700; line-height:1.25; }
+  .foot-list li { padding:1px 0; }
+  .foot-list li::before { content:"✓ "; color:#9f9; }
+  .layer.foot-title-r .foot-list li::before { content:"✗ "; color:#faa; }
+  .layer.banner { background:rgba(235,185,45,.97); color:#1a2030; font-weight:800; font-size:clamp(8px,2.4vw,14px); }
+  .layer.step-h { background:rgba(14,58,90,.95); color:#fff; font-weight:800; font-size:clamp(8px,2.2vw,13px); justify-content:flex-start; text-align:left; padding-left:10px; }
+  .layer.step-b { background:rgba(255,255,255,.95); color:#234; font-weight:700; font-size:clamp(7px,1.9vw,12px); justify-content:flex-start; text-align:left; padding:6px 10px; align-items:flex-start; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="back" href="/uchebnik/">← Волей Герои</a>
   <h1>ИНФОГРАФИКИ</h1>
-  <p class="sub">На български · 47 карти · натисни за по-голям размер</p>
-  <p class="note">Преводът е върху картинките — английският текст е покрит. Натисни картинка за по-голям размер.</p>
+  <p class="sub">На български · 47 карти</p>
+  <p class="note">Преводът е върху оригиналната картинка — скриваме чуждия текст и слагаме български на същото място. Оригиналът под слоевете се пази.</p>
   <nav class="cat" aria-label="Категории">
     <a href="#posreshtane">Посрещане</a>
     <a href="#ataka">Атака</a>
@@ -45,22 +65,62 @@
     <h2>Посрещане</h2>
     <div class="grid">
     <article class="card" id="680645357_122289275780218003_8045781924088000086_n.jpg">
-      <a href="img_bg/680645357_122289275780218003_8045781924088000086_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/680645357_122289275780218003_8045781924088000086_n_bg.jpg" alt="5 стъпки за перфектен пас" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/680645357_122289275780218003_8045781924088000086_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/680645357_122289275780218003_8045781924088000086_n.jpg" alt="5 стъпки за перфектен пас" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>5 стъпки за перфектен пас</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Готовност</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Готовност — ниско, на пръсти, очите следят топката.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Позиция</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Позиция — застани зад траекторията, хълбоците към разпределителя.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Платформа</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Платформа — лактите заедно, широка повърхност, палците успоредни.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Контакт</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Контакт — на предмишниците, абсорбирай силата на сервиса.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Насочване</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Насочване — леко с рамене и тяло, пасът към разпределителя.</span></div>
+        </div>
       </a>
-      <p class="cap">5 стъпки за перфектен пас</p>
     </article>
     <article class="card" id="780909966_1459250999358419_1254220737219006819_n.jfif">
-      <a href="img_bg/780909966_1459250999358419_1254220737219006819_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/780909966_1459250999358419_1254220737219006819_n_bg.jpg" alt="Правилен vs грешен пас с предмишница" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/780909966_1459250999358419_1254220737219006819_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/780909966_1459250999358419_1254220737219006819_n.jfif" alt="Правилен vs грешен пас с предмишница" loading="lazy" width="1254" height="1254" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:9.5%;"><span>ПАС С ПРЕДМИШНИЦА</span></div>
+      <div class="layer sub" style="left:0%;top:9.5%;width:100%;height:3.2%;"><span>ПРАВИЛНО vs ГРЕШНО</span></div>
+      <div class="layer tag" style="left:0%;top:12.5%;width:100%;height:2.5%;"><span>Разликата е в детайлите!</span></div>
+      <div class="layer head-l" style="left:0%;top:15%;width:49.5%;height:3%;"><span>✓ ПРАВИЛЕН ПАС</span></div>
+      <div class="layer head-r" style="left:50.5%;top:15%;width:49.5%;height:3%;"><span>✗ ГРЕШЕН ПАС</span></div>
+      <div class="layer label-l" style="left:1%;top:19%;width:47%;height:7.5%;"><span>Очи на топката</span></div>
+      <div class="layer label-r" style="left:52%;top:19%;width:47%;height:7.5%;"><span>Не следиш топката</span></div>
+      <div class="layer label-l" style="left:1%;top:28.5%;width:47%;height:7.5%;"><span>Платформа — равни ръце</span></div>
+      <div class="layer label-r" style="left:52%;top:28.5%;width:47%;height:7.5%;"><span>Сгънати ръце — без платформа</span></div>
+      <div class="layer label-l" style="left:1%;top:38%;width:47%;height:7.5%;"><span>Ниска стабилна стойка</span></div>
+      <div class="layer label-r" style="left:52%;top:38%;width:47%;height:7.5%;"><span>Изправено тяло</span></div>
+      <div class="layer label-l" style="left:1%;top:47.5%;width:47%;height:7.5%;"><span>Колене — на пръстите</span></div>
+      <div class="layer label-r" style="left:52%;top:47.5%;width:47%;height:7.5%;"><span>Прави крака — без баланс</span></div>
+      <div class="layer label-l" style="left:1%;top:57%;width:47%;height:7.5%;"><span>Контакт пред тялото</span></div>
+      <div class="layer label-r" style="left:52%;top:57%;width:47%;height:7.5%;"><span>Контакт твърде близо</span></div>
+      <div class="layer label-l" style="left:1%;top:66.5%;width:47%;height:7.5%;"><span>Довършване към целта</span></div>
+      <div class="layer label-r" style="left:52%;top:66.5%;width:47%;height:7.5%;"><span>Без довършване</span></div>
+      <div class="layer foot-title-l" style="left:0%;top:71.5%;width:49.5%;height:19%;"><strong class="foot-head">Ключови точки</strong><ul class="foot-list"><li>Ниско и балансирано</li><li>Равни ръце, заедно</li><li>Удар с платформата</li><li>Контакт пред тялото</li><li>Довършване към разпределителя</li></ul></div>
+      <div class="layer foot-title-r" style="left:50.5%;top:71.5%;width:49.5%;height:19%;"><strong class="foot-head">Чести грешки</strong><ul class="foot-list"><li>Твърде изправен</li><li>Сгънати ръце</li><li>Топката близо или отстрани</li><li>Не гледаш топката</li><li>Без довършване</li></ul></div>
+      <div class="layer banner" style="left:0%;top:90.5%;width:100%;height:9.5%;"><span>Добър пас → добра настройка → силна атака!</span></div>
+        </div>
       </a>
-      <p class="cap">Правилен vs грешен пас с предмишница</p>
     </article>
     <article class="card" id="797783796_2812957325747204_6512071542459925549_n.jfif">
-      <a href="img_bg/797783796_2812957325747204_6512071542459925549_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/797783796_2812957325747204_6512071542459925549_n_bg.jpg" alt="5 упражнения за пас с предмишница" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/797783796_2812957325747204_6512071542459925549_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/797783796_2812957325747204_6512071542459925549_n.jfif" alt="5 упражнения за пас с предмишница" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>5 упражнения за пас с предмишница</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:6.3%;"><span>1. Стена — пасове към точка, платформа и хълбоци към целта.</span></div>
+      <div class="layer step-b" style="left:2%;top:72.8%;width:96%;height:6.3%;"><span>2. Двойки — един хвърля, друг пасва, после сменете.</span></div>
+      <div class="layer step-b" style="left:2%;top:79.6%;width:96%;height:6.3%;"><span>3. Движение — пас след крачка наляво/надясно.</span></div>
+      <div class="layer step-b" style="left:2%;top:86.4%;width:96%;height:6.3%;"><span>4. Посока — целете зоната на разпределителя.</span></div>
+      <div class="layer step-b" style="left:2%;top:93.2%;width:96%;height:6.3%;"><span>5. Кръгово — група, бързи пасове наоколо.</span></div>
+        </div>
       </a>
-      <p class="cap">5 упражнения за пас с предмишница</p>
     </article>
     </div>
   </section>
@@ -68,28 +128,66 @@
     <h2>Атака</h2>
     <div class="grid">
     <article class="card" id="577175168_122262421670218003_8306671429407838835_n.jpg">
-      <a href="img_bg/577175168_122262421670218003_8306671429407838835_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/577175168_122262421670218003_8306671429407838835_n_bg.jpg" alt="Основен разбег и удар" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/577175168_122262421670218003_8306671429407838835_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/577175168_122262421670218003_8306671429407838835_n.jpg" alt="Основен разбег и удар" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Основен разбег и удар</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Разбег</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Разбег — ускорение към мрежата (3–4 крачки).</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Отскок</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Отскок — последна крачка, ръцете назад, изправяне нагоре.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Замах</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Замах — контакт над мрежата, от другата страна на топката.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Приземяване</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Приземяване — балансирано, готов за следващо действие.</span></div>
+        </div>
       </a>
-      <p class="cap">Основен разбег и удар</p>
     </article>
     <article class="card" id="784222766_1635874575213724_8431838287699404311_n.jpg">
-      <a href="img_bg/784222766_1635874575213724_8431838287699404311_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/784222766_1635874575213724_8431838287699404311_n_bg.jpg" alt="Анатомия на атаката" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/784222766_1635874575213724_8431838287699404311_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/784222766_1635874575213724_8431838287699404311_n.jpg" alt="Анатомия на атаката" loading="lazy" width="1365" height="2048" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Анатомия на атаката</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:6.3%;"><span>1. Мозък и зрение — чети блока и топката.</span></div>
+      <div class="layer step-b" style="left:2%;top:72.8%;width:96%;height:6.3%;"><span>2. Дишане и рамене — стабилност преди удара.</span></div>
+      <div class="layer step-b" style="left:2%;top:79.6%;width:96%;height:6.3%;"><span>3. Корем и крака — силата идва от разбега.</span></div>
+      <div class="layer step-b" style="left:2%;top:86.4%;width:96%;height:6.3%;"><span>4. Стъпки — 3–4 крачки, последна за отскок.</span></div>
+      <div class="layer step-b" style="left:2%;top:93.2%;width:96%;height:6.3%;"><span>5. Техника + координация + скок + момент + мощ.</span></div>
+        </div>
       </a>
-      <p class="cap">Анатомия на атаката</p>
     </article>
     <article class="card" id="791453803_1388623539375585_7247170292642326071_n.jfif">
-      <a href="img_bg/791453803_1388623539375585_7247170292642326071_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/791453803_1388623539375585_7247170292642326071_n_bg.jpg" alt="12 тактически трика" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/791453803_1388623539375585_7247170292642326071_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/791453803_1388623539375585_7247170292642326071_n.jfif" alt="12 тактически трика" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>12 тактически трика</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:2.3333333333333335%;"><span>1. Tip — леко докосване над блока.</span></div>
+      <div class="layer step-b" style="left:2%;top:68.83333333333333%;width:96%;height:2.3333333333333335%;"><span>2. Pipe — атака от зона 6 зад 3-метровата линия.</span></div>
+      <div class="layer step-b" style="left:2%;top:71.66666666666667%;width:96%;height:2.3333333333333335%;"><span>3. Бърза топка в центъра — темпо 1.</span></div>
+      <div class="layer step-b" style="left:2%;top:74.5%;width:96%;height:2.3333333333333335%;"><span>4. Флот сервис под натиск — трудно посрещане.</span></div>
+      <div class="layer step-b" style="left:2%;top:77.33333333333333%;width:96%;height:2.3333333333333335%;"><span>5. Slide — атака от центъра със страничен разбег.</span></div>
+      <div class="layer step-b" style="left:2%;top:80.16666666666667%;width:96%;height:2.3333333333333335%;"><span>6. Кръстосана атака — обърни посоката в последния момент.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:2.3333333333333335%;"><span>7. Фалшив разбег — заблуди блока.</span></div>
+      <div class="layer step-b" style="left:2%;top:85.83333333333334%;width:96%;height:2.3333333333333335%;"><span>8. Двоен блок — пас към свободна зона.</span></div>
+      <div class="layer step-b" style="left:2%;top:88.66666666666667%;width:96%;height:2.3333333333333335%;"><span>9. Сервис в зона 1 — слаба точка на много отбори.</span></div>
+      <div class="layer step-b" style="left:2%;top:91.5%;width:96%;height:2.3333333333333335%;"><span>10. Блок-аут — удар извън ръцете на блока.</span></div>
+      <div class="layer step-b" style="left:2%;top:94.33333333333334%;width:96%;height:2.3333333333333335%;"><span>11. Tool — удар по ръцете на блока, топката излиза.</span></div>
+      <div class="layer step-b" style="left:2%;top:97.16666666666667%;width:96%;height:2.3333333333333335%;"><span>12. Покритие след блок — винаги 2–3 играча зад блока.</span></div>
+        </div>
       </a>
-      <p class="cap">12 тактически трика</p>
     </article>
     <article class="card" id="791465547_1036787439119497_8388286747682031175_n.jfif">
-      <a href="img_bg/791465547_1036787439119497_8388286747682031175_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/791465547_1036787439119497_8388286747682031175_n_bg.jpg" alt="Разбег и атака: 5 фази" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/791465547_1036787439119497_8388286747682031175_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/791465547_1036787439119497_8388286747682031175_n.jfif" alt="Разбег и атака: 5 фази" loading="lazy" width="1152" height="2048" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Разбег и атака: 5 фази</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:6.3%;"><span>1. Разбег 1 — старт, ускорение.</span></div>
+      <div class="layer step-b" style="left:2%;top:72.8%;width:96%;height:6.3%;"><span>2. Разбег 2 — подготовка за скок.</span></div>
+      <div class="layer step-b" style="left:2%;top:79.6%;width:96%;height:6.3%;"><span>3. Отскок — изправяне, ръцете назад.</span></div>
+      <div class="layer step-b" style="left:2%;top:86.4%;width:96%;height:6.3%;"><span>4. Удар — контакт в най-високата точка.</span></div>
+      <div class="layer step-b" style="left:2%;top:93.2%;width:96%;height:6.3%;"><span>5. Приземяване — контролирано.</span></div>
+        </div>
       </a>
-      <p class="cap">Разбег и атака: 5 фази</p>
     </article>
     </div>
   </section>
@@ -97,10 +195,22 @@
     <h2>Блок</h2>
     <div class="grid">
     <article class="card" id="766979893_1367477648136031_326711474087212867_n.jfif">
-      <a href="img_bg/766979893_1367477648136031_326711474087212867_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/766979893_1367477648136031_326711474087212867_n_bg.jpg" alt="Как да подобрите блока" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/766979893_1367477648136031_326711474087212867_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/766979893_1367477648136031_326711474087212867_n.jfif" alt="Как да подобрите блока" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Как да подобрите блока</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Позиция</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Позиция — преди скока, между топката и мрежата.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Четене</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Четене — следи разпределителя и атакуващия.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Крачки</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Крачки — синхрон с партньора при двоен блок.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Момент</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Момент — скок в момента на удара.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Проникване</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Проникване — ръцете над мрежата, пръсти разтворени.</span></div>
+        </div>
       </a>
-      <p class="cap">Как да подобрите блока</p>
     </article>
     </div>
   </section>
@@ -108,46 +218,119 @@
     <h2>Защита</h2>
     <div class="grid">
     <article class="card" id="756724725_2064933891113550_8330062387850072715_n.jfif">
-      <a href="img_bg/756724725_2064933891113550_8330062387850072715_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/756724725_2064933891113550_8330062387850072715_n_bg.jpg" alt="Защитни позиции (официална схема)" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/756724725_2064933891113550_8330062387850072715_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/756724725_2064933891113550_8330062387850072715_n.jfif" alt="Защитни позиции (официална схема)" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Защитни позиции (официална схема)</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:5.166666666666667%;"><span>1. Зона 4 — блок на външен нападател, покрива леки топки.</span></div>
+      <div class="layer step-b" style="left:2%;top:71.66666666666667%;width:96%;height:5.166666666666667%;"><span>2. Зона 3 — основен блок, чете разпределителя.</span></div>
+      <div class="layer step-b" style="left:2%;top:77.33333333333333%;width:96%;height:5.166666666666667%;"><span>3. Зона 2 — блок на диагонала.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:5.166666666666667%;"><span>4. Зона 5 — покрива остра диагонала.</span></div>
+      <div class="layer step-b" style="left:2%;top:88.66666666666667%;width:96%;height:5.166666666666667%;"><span>5. Зона 6 — основен dig в центъра.</span></div>
+      <div class="layer step-b" style="left:2%;top:94.33333333333334%;width:96%;height:5.166666666666667%;"><span>6. Зона 1 — покрива правата и дълбочина.</span></div>
+        </div>
       </a>
-      <p class="cap">Защитни позиции (официална схема)</p>
     </article>
     <article class="card" id="757147059_1024486353525310_1001590773115787321_n.jfif">
-      <a href="img_bg/757147059_1024486353525310_1001590773115787321_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/757147059_1024486353525310_1001590773115787321_n_bg.jpg" alt="Защита при посрещане" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/757147059_1024486353525310_1001590773115787321_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/757147059_1024486353525310_1001590773115787321_n.jfif" alt="Защита при посрещане" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Защита при посрещане</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Зона 1</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Зона 1 — дясно задно, сервис и защита.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Зона 6</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Зона 6 — център задно, либерото често тук.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Зона 5</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Зона 5 — ляво задно, покрива диагонала.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Зони 4, 3, 2</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Зони 4, 3, 2 — предна линия при посрещане.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Всички ниско, готови за пас или dig.</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Всички ниско, готови за пас или dig.</span></div>
+        </div>
       </a>
-      <p class="cap">Защита при посрещане</p>
     </article>
     <article class="card" id="757523943_1017156814550004_3083112695378249832_n.jfif">
-      <a href="img_bg/757523943_1017156814550004_3083112695378249832_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/757523943_1017156814550004_3083112695378249832_n_bg.jpg" alt="Роли на либерото" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/757523943_1017156814550004_3083112695378249832_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/757523943_1017156814550004_3083112695378249832_n.jfif" alt="Роли на либерото" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Роли на либерото</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Либерото</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Либерото — специалист по защита и пас.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Dig</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Dig — спасява топката, пас към разпределителя.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Не блокира и не атакува над мрежата.</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Не блокира и не атакува над мрежата.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Работи в зони 1, 5, 6.</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Работи в зони 1, 5, 6.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Комуникира с отбора постоянно.</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Комуникира с отбора постоянно.</span></div>
+        </div>
       </a>
-      <p class="cap">Роли на либерото</p>
     </article>
     <article class="card" id="758192894_1360763692270658_2421212583084991638_n.jfif">
-      <a href="img_bg/758192894_1360763692270658_2421212583084991638_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/758192894_1360763692270658_2421212583084991638_n_bg.jpg" alt="Периметрова защита" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/758192894_1360763692270658_2421212583084991638_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/758192894_1360763692270658_2421212583084991638_n.jfif" alt="Периметрова защита" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Периметрова защита</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Периметър</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Периметър — полукръг около терена.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Либерото</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Либерото — център на защитата.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Зона 5 и зона 1</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Зона 5 и зона 1 — покриват ъглите.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Зона 6</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Зона 6 — dig на топки в центъра.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Блокиращите се връщат в покритие след бл</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Блокиращите се връщат в покритие след блок.</span></div>
+        </div>
       </a>
-      <p class="cap">Периметрова защита</p>
     </article>
     <article class="card" id="763701189_1051070130960191_6863780831773810629_n.jfif">
-      <a href="img_bg/763701189_1051070130960191_6863780831773810629_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/763701189_1051070130960191_6863780831773810629_n_bg.jpg" alt="Pancake защита" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/763701189_1051070130960191_6863780831773810629_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/763701189_1051070130960191_6863780831773810629_n.jfif" alt="Pancake защита" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.833333333333333%;"><span>Pancake защита</span></div>
+      <div class="layer step-h" style="left:0%;top:5.833333333333333%;width:100%;height:3.452777777777778%;"><span>1. Виж топката да пада на пода.</span></div>
+      <div class="layer step-b" style="left:0%;top:11.797222222222222%;width:100%;height:9.102777777777778%;"><span>Виж топката да пада на пода.</span></div>
+      <div class="layer step-h" style="left:0%;top:21.52777777777778%;width:100%;height:3.452777777777778%;"><span>2. Хвърли се напред с плоска длан.</span></div>
+      <div class="layer step-b" style="left:0%;top:27.491666666666667%;width:100%;height:9.102777777777778%;"><span>Хвърли се напред с плоска длан.</span></div>
+      <div class="layer step-h" style="left:0%;top:37.22222222222222%;width:100%;height:3.452777777777778%;"><span>3. Дланта паралелна на пода, пръстите разтв</span></div>
+      <div class="layer step-b" style="left:0%;top:43.18611111111111%;width:100%;height:9.102777777777778%;"><span>Дланта паралелна на пода, пръстите разтворени.</span></div>
+      <div class="layer step-h" style="left:0%;top:52.91666666666667%;width:100%;height:3.452777777777778%;"><span>4. Контакт</span></div>
+      <div class="layer step-b" style="left:0%;top:58.88055555555556%;width:100%;height:9.102777777777778%;"><span>Контакт — „pancake“ спасява топката.</span></div>
+      <div class="layer step-h" style="left:0%;top:68.61111111111111%;width:100%;height:3.452777777777778%;"><span>5. Изправи се бързо за следващо действие.</span></div>
+      <div class="layer step-b" style="left:0%;top:74.575%;width:100%;height:9.102777777777778%;"><span>Изправи се бързо за следващо действие.</span></div>
+      <div class="layer step-h" style="left:0%;top:84.30555555555556%;width:100%;height:3.452777777777778%;"><span>6. Комуникирай „моя“ или „свободна“.</span></div>
+      <div class="layer step-b" style="left:0%;top:90.26944444444445%;width:100%;height:9.102777777777778%;"><span>Комуникирай „моя“ или „свободна“.</span></div>
+        </div>
       </a>
-      <p class="cap">Pancake защита</p>
     </article>
     <article class="card" id="777301475_1448189443823798_648649809359149931_n.jfif">
-      <a href="img_bg/777301475_1448189443823798_648649809359149931_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/777301475_1448189443823798_648649809359149931_n_bg.jpg" alt="Либеро: dig и защита" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/777301475_1448189443823798_648649809359149931_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/777301475_1448189443823798_648649809359149931_n.jfif" alt="Либеро: dig и защита" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Либеро: dig и защита</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:6.3%;"><span>1. Ниска стойка — коленете леко сгънати.</span></div>
+      <div class="layer step-b" style="left:2%;top:72.8%;width:96%;height:6.3%;"><span>2. Платформа или dig според височината.</span></div>
+      <div class="layer step-b" style="left:2%;top:79.6%;width:96%;height:6.3%;"><span>3. Крачки преди контакт — не стоиш на място.</span></div>
+      <div class="layer step-b" style="left:2%;top:86.4%;width:96%;height:6.3%;"><span>4. Чети атакуващия — познай посоката.</span></div>
+      <div class="layer step-b" style="left:2%;top:93.2%;width:96%;height:6.3%;"><span>5. Пас към разпределителя след dig.</span></div>
+        </div>
       </a>
-      <p class="cap">Либеро: dig и защита</p>
     </article>
     <article class="card" id="791672886_1067089499050164_5376948990667182189_n.jfif">
-      <a href="img_bg/791672886_1067089499050164_5376948990667182189_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/791672886_1067089499050164_5376948990667182189_n_bg.jpg" alt="Умения на либерото" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/791672886_1067089499050164_5376948990667182189_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/791672886_1067089499050164_5376948990667182189_n.jfif" alt="Умения на либерото" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Умения на либерото</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:5.166666666666667%;"><span>1. Dig — спасява топката от пода.</span></div>
+      <div class="layer step-b" style="left:2%;top:71.66666666666667%;width:96%;height:5.166666666666667%;"><span>2. Бърза реакция — първа крачка към топката.</span></div>
+      <div class="layer step-b" style="left:2%;top:77.33333333333333%;width:96%;height:5.166666666666667%;"><span>3. Точен пас — към разпределителя, не към мрежата.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:5.166666666666667%;"><span>4. Покритие — след блок и атака.</span></div>
+      <div class="layer step-b" style="left:2%;top:88.66666666666667%;width:96%;height:5.166666666666667%;"><span>5. Комуникация — „моя“, „свободна“, „към мен“.</span></div>
+      <div class="layer step-b" style="left:2%;top:94.33333333333334%;width:96%;height:5.166666666666667%;"><span>6. Фокус — на всеки релик, без разсейване.</span></div>
+        </div>
       </a>
-      <p class="cap">Умения на либерото</p>
     </article>
     </div>
   </section>
@@ -155,52 +338,152 @@
     <h2>Техника</h2>
     <div class="grid">
     <article class="card" id="753702236_1724806558725020_3036183811408752526_n.jfif">
-      <a href="img_bg/753702236_1724806558725020_3036183811408752526_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/753702236_1724806558725020_3036183811408752526_n_bg.jpg" alt="Флот сервис с разбег" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/753702236_1724806558725020_3036183811408752526_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/753702236_1724806558725020_3036183811408752526_n.jfif" alt="Флот сервис с разбег" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Флот сервис с разбег</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Стойка</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Стойка — стабилна, топката в лявата ръка.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Хвърляне</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Хвърляне — малко пред тялото.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Разбег</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Разбег — 3–4 крачки, ускорение.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Скок</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Скок — контакт без въртене на топката.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Цели: зона 1, зона 5, зона 6 (дълбоко).</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Цели: зона 1, зона 5, зона 6 (дълбоко).</span></div>
+        </div>
       </a>
-      <p class="cap">Флот сервис с разбег</p>
     </article>
     <article class="card" id="753716002_978672168532114_2328182869301487507_n.jfif">
-      <a href="img_bg/753716002_978672168532114_2328182869301487507_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/753716002_978672168532114_2328182869301487507_n_bg.jpg" alt="Правилен vs грешен пас (разпределител)" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/753716002_978672168532114_2328182869301487507_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/753716002_978672168532114_2328182869301487507_n.jfif" alt="Правилен vs грешен пас (разпределител)" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:9.5%;"><span>ПАС НАД ГЛАВАТА</span></div>
+      <div class="layer sub" style="left:0%;top:9.5%;width:100%;height:3.2%;"><span>ПРАВИЛНО vs ГРЕШНО</span></div>
+      <div class="layer tag" style="left:0%;top:12.5%;width:100%;height:2.5%;"><span>Разликата е в детайлите!</span></div>
+      <div class="layer head-l" style="left:0%;top:15%;width:49.5%;height:3%;"><span>✓ ПРАВИЛНО</span></div>
+      <div class="layer head-r" style="left:50.5%;top:15%;width:49.5%;height:3%;"><span>✗ ГРЕШНО</span></div>
+      <div class="layer label-l" style="left:1%;top:19%;width:47%;height:7.5%;"><span>Ръце над челото</span></div>
+      <div class="layer label-r" style="left:52%;top:19%;width:47%;height:7.5%;"><span>Твърди ръце</span></div>
+      <div class="layer label-l" style="left:1%;top:28.5%;width:47%;height:7.5%;"><span>Пръсти разтворени</span></div>
+      <div class="layer label-r" style="left:52%;top:28.5%;width:47%;height:7.5%;"><span>Контакт с длани</span></div>
+      <div class="layer label-l" style="left:1%;top:38%;width:47%;height:7.5%;"><span>Колене свити</span></div>
+      <div class="layer label-r" style="left:52%;top:38%;width:47%;height:7.5%;"><span>Топката над главата</span></div>
+      <div class="layer label-l" style="left:1%;top:47.5%;width:47%;height:7.5%;"><span>Хълбоци към целта</span></div>
+      <div class="layer label-r" style="left:52%;top:47.5%;width:47%;height:7.5%;"><span>Без пръстов контрол</span></div>
+      <div class="layer label-l" style="left:1%;top:57%;width:47%;height:7.5%;"><span>Мек контакт с пръстите</span></div>
+      <div class="layer label-r" style="left:52%;top:57%;width:47%;height:7.5%;"><span>Губиш посоката</span></div>
+      <div class="layer foot-title-l" style="left:0%;top:71.5%;width:49.5%;height:19%;"><strong class="foot-head">Ключови точки</strong><ul class="foot-list"><li>Триъгълник с ръцете</li><li>Топката пред пръстите</li><li>Мек контакт</li><li>Хълбоци към разпределителя</li></ul></div>
+      <div class="layer foot-title-r" style="left:50.5%;top:71.5%;width:49.5%;height:19%;"><strong class="foot-head">Чести грешки</strong><ul class="foot-list"><li>Контакт с длани</li><li>Твърди ръце</li><li>Топката над главата</li><li>Губиш контрол</li></ul></div>
+      <div class="layer banner" style="left:0%;top:90.5%;width:100%;height:9.5%;"><span>Добър пас → добра атака!</span></div>
+        </div>
       </a>
-      <p class="cap">Правилен vs грешен пас (разпределител)</p>
     </article>
     <article class="card" id="755063251_1569275964932102_5948948879956167813_n.jfif">
-      <a href="img_bg/755063251_1569275964932102_5948948879956167813_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/755063251_1569275964932102_5948948879956167813_n_bg.jpg" alt="Пасове и ръчни сигнали" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/755063251_1569275964932102_5948948879956167813_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/755063251_1569275964932102_5948948879956167813_n.jfif" alt="Пасове и ръчни сигнали" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Пасове и ръчни сигнали</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Сигнали зад гърба</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Сигнали зад гърба — преди сервиса.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Един пръст</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Един пръст — бърза топка в центъра.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Два пръста</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Два пръста — атака от зона 4.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Кула</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Кула — висок пас за външен нападател.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Комбинации</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Комбинации — slide, pipe, темпо 2.</span></div>
+        </div>
       </a>
-      <p class="cap">Пасове и ръчни сигнали</p>
     </article>
     <article class="card" id="758167844_4492037037747328_4680857230861055763_n.jfif">
-      <a href="img_bg/758167844_4492037037747328_4680857230861055763_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/758167844_4492037037747328_4680857230861055763_n_bg.jpg" alt="Как да подобрим настройката" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/758167844_4492037037747328_4680857230861055763_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/758167844_4492037037747328_4680857230861055763_n.jfif" alt="Как да подобрим настройката" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.833333333333333%;"><span>Как да подобрим настройката</span></div>
+      <div class="layer step-h" style="left:0%;top:5.833333333333333%;width:100%;height:3.452777777777778%;"><span>1. Форма на ръцете</span></div>
+      <div class="layer step-b" style="left:0%;top:11.797222222222222%;width:100%;height:9.102777777777778%;"><span>Форма на ръцете — триъгълник над челото.</span></div>
+      <div class="layer step-h" style="left:0%;top:21.52777777777778%;width:100%;height:3.452777777777778%;"><span>2. Крачки</span></div>
+      <div class="layer step-b" style="left:0%;top:27.491666666666667%;width:100%;height:9.102777777777778%;"><span>Крачки — под топката, не стоиш на място.</span></div>
+      <div class="layer step-h" style="left:0%;top:37.22222222222222%;width:100%;height:3.452777777777778%;"><span>3. Стена</span></div>
+      <div class="layer step-b" style="left:0%;top:43.18611111111111%;width:100%;height:9.102777777777778%;"><span>Стена — упражнение със стена за точност.</span></div>
+      <div class="layer step-h" style="left:0%;top:52.91666666666667%;width:100%;height:3.452777777777778%;"><span>4. Цел</span></div>
+      <div class="layer step-b" style="left:0%;top:58.88055555555556%;width:100%;height:9.102777777777778%;"><span>Цел — постоянна височина на паса.</span></div>
+      <div class="layer step-h" style="left:0%;top:68.61111111111111%;width:100%;height:3.452777777777778%;"><span>5. Темпо</span></div>
+      <div class="layer step-b" style="left:0%;top:74.575%;width:100%;height:9.102777777777778%;"><span>Темпо — бърз или висок според атаката.</span></div>
+      <div class="layer step-h" style="left:0%;top:84.30555555555556%;width:100%;height:3.452777777777778%;"><span>6. Пас извън система</span></div>
+      <div class="layer step-b" style="left:0%;top:90.26944444444445%;width:100%;height:9.102777777777778%;"><span>Пас извън система — далеч от мрежата при лош пас.</span></div>
+        </div>
       </a>
-      <p class="cap">Как да подобрим настройката</p>
     </article>
     <article class="card" id="763374519_1854596912614344_4689622875461517280_n.jfif">
-      <a href="img_bg/763374519_1854596912614344_4689622875461517280_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/763374519_1854596912614344_4689622875461517280_n_bg.jpg" alt="Техника на пас над главата" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/763374519_1854596912614344_4689622875461517280_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/763374519_1854596912614344_4689622875461517280_n.jfif" alt="Техника на пас над главата" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Техника на пас над главата</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Палци</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Палци — насочват и фино контролират.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Показалец и среден</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Показалец и среден — основен контакт.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Безимен и кутре</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Безимен и кутре — стабилизират.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Топката пред пръстите, не над главата.</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Топката пред пръстите, не над главата.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Крачки</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Крачки — баланс при настройка.</span></div>
+        </div>
       </a>
-      <p class="cap">Техника на пас над главата</p>
     </article>
     <article class="card" id="766008178_1086402057283784_1694037326067623097_n.jfif">
-      <a href="img_bg/766008178_1086402057283784_1694037326067623097_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/766008178_1086402057283784_1694037326067623097_n_bg.jpg" alt="10 умения на разпределителя" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/766008178_1086402057283784_1694037326067623097_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/766008178_1086402057283784_1694037326067623097_n.jfif" alt="10 умения на разпределителя" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.0%;"><span>10 умения на разпределителя</span></div>
+      <div class="layer step-h" style="left:0%;top:5.0%;width:100%;height:2.9857142857142858%;"><span>1. Бъди ниско</span></div>
+      <div class="layer step-b" style="left:0%;top:10.157142857142858%;width:100%;height:7.871428571428571%;"><span>Бъди ниско — център на тежестта стабилен.</span></div>
+      <div class="layer step-h" style="left:0%;top:18.57142857142857%;width:100%;height:2.9857142857142858%;"><span>2. Крачки първо</span></div>
+      <div class="layer step-b" style="left:0%;top:23.728571428571428%;width:100%;height:7.871428571428571%;"><span>Крачки първо — преди да пипнеш топката.</span></div>
+      <div class="layer step-h" style="left:0%;top:32.14285714285714%;width:100%;height:2.9857142857142858%;"><span>3. Прозорец с ръцете</span></div>
+      <div class="layer step-b" style="left:0%;top:37.3%;width:100%;height:7.871428571428571%;"><span>Прозорец с ръцете — триъгълник над челото.</span></div>
+      <div class="layer step-h" style="left:0%;top:45.714285714285715%;width:100%;height:2.9857142857142858%;"><span>4. Пръсти, не длани</span></div>
+      <div class="layer step-b" style="left:0%;top:50.871428571428574%;width:100%;height:7.871428571428571%;"><span>Пръсти, не длани — мек контакт.</span></div>
+      <div class="layer step-h" style="left:0%;top:59.285714285714285%;width:100%;height:2.9857142857142858%;"><span>5. Хълбоци към целта</span></div>
+      <div class="layer step-b" style="left:0%;top:64.44285714285714%;width:100%;height:7.871428571428571%;"><span>Хълбоци към целта — посока на паса.</span></div>
+      <div class="layer step-h" style="left:0%;top:72.85714285714286%;width:100%;height:2.9857142857142858%;"><span>6. Чети блока</span></div>
+      <div class="layer step-b" style="left:0%;top:78.01428571428572%;width:100%;height:7.871428571428571%;"><span>Чети блока — избирай атакуващ.</span></div>
+      <div class="layer step-h" style="left:0%;top:86.42857142857143%;width:100%;height:2.9857142857142858%;"><span>7. Комуникация</span></div>
+      <div class="layer step-b" style="left:0%;top:91.58571428571429%;width:100%;height:7.871428571428571%;"><span>Комуникация — говори на всеки релик.</span></div>
+        </div>
       </a>
-      <p class="cap">10 умения на разпределителя</p>
     </article>
     <article class="card" id="788613380_1577113590625294_375507833773988575_n.jfif">
-      <a href="img_bg/788613380_1577113590625294_375507833773988575_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/788613380_1577113590625294_375507833773988575_n_bg.jpg" alt="7 чести грешки" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/788613380_1577113590625294_375507833773988575_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/788613380_1577113590625294_375507833773988575_n.jfif" alt="7 чести грешки" loading="lazy" width="1024" height="1535" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>7 чести грешки</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:4.357142857142857%;"><span>1. Длан вместо платформа — губиш контрол.</span></div>
+      <div class="layer step-b" style="left:2%;top:70.85714285714286%;width:96%;height:4.357142857142857%;"><span>2. Прави крака — няма баланс и сила.</span></div>
+      <div class="layer step-b" style="left:2%;top:75.71428571428571%;width:96%;height:4.357142857142857%;"><span>3. Без комуникация — сблъсък между съотборници.</span></div>
+      <div class="layer step-b" style="left:2%;top:80.57142857142857%;width:96%;height:4.357142857142857%;"><span>4. Гледаш топката, не играча — късен dig.</span></div>
+      <div class="layer step-b" style="left:2%;top:85.42857142857143%;width:96%;height:4.357142857142857%;"><span>5. Изправена стойка при посрещане — бавен пас.</span></div>
+      <div class="layer step-b" style="left:2%;top:90.28571428571428%;width:96%;height:4.357142857142857%;"><span>6. Пас над главата с длани — грешка при настройка.</span></div>
+      <div class="layer step-b" style="left:2%;top:95.14285714285714%;width:96%;height:4.357142857142857%;"><span>7. Без довършване — топката отива настрани.</span></div>
+        </div>
       </a>
-      <p class="cap">7 чести грешки</p>
     </article>
     <article class="card" id="788815539_1648331660634682_1857127345186879739_n.jpg">
-      <a href="img_bg/788815539_1648331660634682_1857127345186879739_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/788815539_1648331660634682_1857127345186879739_n_bg.jpg" alt="Трите докосвания" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/788815539_1648331660634682_1857127345186879739_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/788815539_1648331660634682_1857127345186879739_n.jpg" alt="Трите докосвания" loading="lazy" width="1365" height="2048" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Трите докосвания</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:8.0%;"><span>1. 1-во докосване — посрещане: платформа, пас към разпределителя.</span></div>
+      <div class="layer step-b" style="left:2%;top:74.5%;width:96%;height:8.0%;"><span>2. 2-ро докосване — настройка: разпределителят организира атаката.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:8.0%;"><span>3. 3-то докосване — атака: удар над мрежата.</span></div>
+      <div class="layer step-b" style="left:2%;top:91.5%;width:96%;height:8.0%;"><span>4. Максимум 3 докосвания на нашата страна.</span></div>
+        </div>
       </a>
-      <p class="cap">Трите докосвания</p>
     </article>
     </div>
   </section>
@@ -208,28 +491,98 @@
     <h2>Правила</h2>
     <div class="grid">
     <article class="card" id="752822668_1586525346421065_2517337361978898530_n.jfif">
-      <a href="img_bg/752822668_1586525346421065_2517337361978898530_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/752822668_1586525346421065_2517337361978898530_n_bg.jpg" alt="Жестове на съдията" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/752822668_1586525346421065_2517337361978898530_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/752822668_1586525346421065_2517337361978898530_n.jfif" alt="Жестове на съдията" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.0%;"><span>Жестове на съдията</span></div>
+      <div class="layer step-h" style="left:0%;top:5.0%;width:100%;height:2.9857142857142858%;"><span>1. Сервис</span></div>
+      <div class="layer step-b" style="left:0%;top:10.157142857142858%;width:100%;height:7.871428571428571%;"><span>Сервис — ръка показва посока.</span></div>
+      <div class="layer step-h" style="left:0%;top:18.57142857142857%;width:100%;height:2.9857142857142858%;"><span>2. Смяна на подаване</span></div>
+      <div class="layer step-b" style="left:0%;top:23.728571428571428%;width:100%;height:7.871428571428571%;"><span>Смяна на подаване — ротация на страните.</span></div>
+      <div class="layer step-h" style="left:0%;top:32.14285714285714%;width:100%;height:2.9857142857142858%;"><span>3. Тайм-аут</span></div>
+      <div class="layer step-b" style="left:0%;top:37.3%;width:100%;height:7.871428571428571%;"><span>Тайм-аут — ръце в Т.</span></div>
+      <div class="layer step-h" style="left:0%;top:45.714285714285715%;width:100%;height:2.9857142857142858%;"><span>4. 4 докосвания</span></div>
+      <div class="layer step-b" style="left:0%;top:50.871428571428574%;width:100%;height:7.871428571428571%;"><span>4 докосвания — пръсти на 4.</span></div>
+      <div class="layer step-h" style="left:0%;top:59.285714285714285%;width:100%;height:2.9857142857142858%;"><span>5. Двойно докосване</span></div>
+      <div class="layer step-b" style="left:0%;top:64.44285714285714%;width:100%;height:7.871428571428571%;"><span>Двойно докосване — два пръста.</span></div>
+      <div class="layer step-h" style="left:0%;top:72.85714285714286%;width:100%;height:2.9857142857142858%;"><span>6. Мрежа</span></div>
+      <div class="layer step-b" style="left:0%;top:78.01428571428572%;width:100%;height:7.871428571428571%;"><span>Мрежа — ръка по мрежата.</span></div>
+      <div class="layer step-h" style="left:0%;top:86.42857142857143%;width:100%;height:2.9857142857142858%;"><span>7. Топка в/извън</span></div>
+      <div class="layer step-b" style="left:0%;top:91.58571428571429%;width:100%;height:7.871428571428571%;"><span>Топка в/извън — ръка нагоре/надолу.</span></div>
+        </div>
       </a>
-      <p class="cap">Жестове на съдията</p>
     </article>
     <article class="card" id="753164224_1368532982008141_1163636370095677624_n.jfif">
-      <a href="img_bg/753164224_1368532982008141_1163636370095677624_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/753164224_1368532982008141_1163636370095677624_n_bg.jpg" alt="Позиции и ротация" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/753164224_1368532982008141_1163636370095677624_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/753164224_1368532982008141_1163636370095677624_n.jfif" alt="Позиции и ротация" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.0%;"><span>Позиции и ротация</span></div>
+      <div class="layer step-h" style="left:0%;top:5.0%;width:100%;height:2.9857142857142858%;"><span>1. Зона 1</span></div>
+      <div class="layer step-b" style="left:0%;top:10.157142857142858%;width:100%;height:7.871428571428571%;"><span>Зона 1 — дясно задно, сервис и защита.</span></div>
+      <div class="layer step-h" style="left:0%;top:18.57142857142857%;width:100%;height:2.9857142857142858%;"><span>2. Зона 2</span></div>
+      <div class="layer step-b" style="left:0%;top:23.728571428571428%;width:100%;height:7.871428571428571%;"><span>Зона 2 — дясно предно, блок и атака.</span></div>
+      <div class="layer step-h" style="left:0%;top:32.14285714285714%;width:100%;height:2.9857142857142858%;"><span>3. Зона 3</span></div>
+      <div class="layer step-b" style="left:0%;top:37.3%;width:100%;height:7.871428571428571%;"><span>Зона 3 — център преден, блок.</span></div>
+      <div class="layer step-h" style="left:0%;top:45.714285714285715%;width:100%;height:2.9857142857142858%;"><span>4. Зона 4</span></div>
+      <div class="layer step-b" style="left:0%;top:50.871428571428574%;width:100%;height:7.871428571428571%;"><span>Зона 4 — ляво предно, основна атака.</span></div>
+      <div class="layer step-h" style="left:0%;top:59.285714285714285%;width:100%;height:2.9857142857142858%;"><span>5. Зона 5</span></div>
+      <div class="layer step-b" style="left:0%;top:64.44285714285714%;width:100%;height:7.871428571428571%;"><span>Зона 5 — ляво задно, защита.</span></div>
+      <div class="layer step-h" style="left:0%;top:72.85714285714286%;width:100%;height:2.9857142857142858%;"><span>6. Зона 6</span></div>
+      <div class="layer step-b" style="left:0%;top:78.01428571428572%;width:100%;height:7.871428571428571%;"><span>Зона 6 — център задно, основен dig.</span></div>
+      <div class="layer step-h" style="left:0%;top:86.42857142857143%;width:100%;height:2.9857142857142858%;"><span>7. След спечелен сервис</span></div>
+      <div class="layer step-b" style="left:0%;top:91.58571428571429%;width:100%;height:7.871428571428571%;"><span>След спечелен сервис — ротация по часовник.</span></div>
+        </div>
       </a>
-      <p class="cap">Позиции и ротация</p>
     </article>
     <article class="card" id="753169733_1541075264178033_1617758016678013960_n.jfif">
-      <a href="img_bg/753169733_1541075264178033_1617758016678013960_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/753169733_1541075264178033_1617758016678013960_n_bg.jpg" alt="Правила за блок (FIVB)" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/753169733_1541075264178033_1617758016678013960_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/753169733_1541075264178033_1617758016678013960_n.jfif" alt="Правила за блок (FIVB)" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Правила за блок (FIVB)</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Блок = ръце над мрежата, спиране на атак</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Блок = ръце над мрежата, спиране на атаката.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Само предна линия (зони 2, 3, 4) може да</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Само предна линия (зони 2, 3, 4) може да блокира.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Либерото и задна линия</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Либерото и задна линия — не блокират.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Позволени: единичен, двоен, троен блок.</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Позволени: единичен, двоен, троен блок.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Не докосвай мрежата по време на действие</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Не докосвай мрежата по време на действието.</span></div>
+        </div>
       </a>
-      <p class="cap">Правила за блок (FIVB)</p>
     </article>
     <article class="card" id="756138979_1436556018272653_7160920586026884866_n.jfif">
-      <a href="img_bg/756138979_1436556018272653_7160920586026884866_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/756138979_1436556018272653_7160920586026884866_n_bg.jpg" alt="12 жеста на съдията" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/756138979_1436556018272653_7160920586026884866_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/756138979_1436556018272653_7160920586026884866_n.jfif" alt="12 жеста на съдията" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:2.9166666666666665%;"><span>12 жеста на съдията</span></div>
+      <div class="layer step-h" style="left:0%;top:2.9166666666666665%;width:100%;height:1.779861111111111%;"><span>1. Точка</span></div>
+      <div class="layer step-b" style="left:0%;top:5.990972222222222%;width:100%;height:4.6923611111111105%;"><span>Точка — край на релика.</span></div>
+      <div class="layer step-h" style="left:0%;top:11.006944444444443%;width:100%;height:1.779861111111111%;"><span>2. Сервис</span></div>
+      <div class="layer step-b" style="left:0%;top:14.081249999999997%;width:100%;height:4.6923611111111105%;"><span>Сервис — започва играта.</span></div>
+      <div class="layer step-h" style="left:0%;top:19.09722222222222%;width:100%;height:1.779861111111111%;"><span>3. Фол</span></div>
+      <div class="layer step-b" style="left:0%;top:22.171527777777776%;width:100%;height:4.6923611111111105%;"><span>Фол — нарушение на правилата.</span></div>
+      <div class="layer step-h" style="left:0%;top:27.187499999999996%;width:100%;height:1.779861111111111%;"><span>4. Тайм-аут</span></div>
+      <div class="layer step-b" style="left:0%;top:30.26180555555555%;width:100%;height:4.6923611111111105%;"><span>Тайм-аут — почивка 30 сек.</span></div>
+      <div class="layer step-h" style="left:0%;top:35.27777777777777%;width:100%;height:1.779861111111111%;"><span>5. Смяна</span></div>
+      <div class="layer step-b" style="left:0%;top:38.352083333333326%;width:100%;height:4.6923611111111105%;"><span>Смяна — смена на страните.</span></div>
+      <div class="layer step-h" style="left:0%;top:43.36805555555555%;width:100%;height:1.779861111111111%;"><span>6. Блок</span></div>
+      <div class="layer step-b" style="left:0%;top:46.442361111111104%;width:100%;height:4.6923611111111105%;"><span>Блок — докосване на мрежата.</span></div>
+      <div class="layer step-h" style="left:0%;top:51.45833333333332%;width:100%;height:1.779861111111111%;"><span>7. 4 докосвания</span></div>
+      <div class="layer step-b" style="left:0%;top:54.532638888888876%;width:100%;height:4.6923611111111105%;"><span>4 докосвания — прекалено много.</span></div>
+      <div class="layer step-h" style="left:0%;top:59.5486111111111%;width:100%;height:1.779861111111111%;"><span>8. Двойно</span></div>
+      <div class="layer step-b" style="left:0%;top:62.622916666666654%;width:100%;height:4.6923611111111105%;"><span>Двойно — два последователни докосвания.</span></div>
+      <div class="layer step-h" style="left:0%;top:67.63888888888889%;width:100%;height:1.779861111111111%;"><span>9. Топка в/извън</span></div>
+      <div class="layer step-b" style="left:0%;top:70.71319444444444%;width:100%;height:4.6923611111111105%;"><span>Топка в/извън — ръка нагоре/надолу.</span></div>
+      <div class="layer step-h" style="left:0%;top:75.72916666666666%;width:100%;height:1.779861111111111%;"><span>10. Предупреждение</span></div>
+      <div class="layer step-b" style="left:0%;top:78.80347222222221%;width:100%;height:4.6923611111111105%;"><span>Предупреждение — жълт картон.</span></div>
+      <div class="layer step-h" style="left:0%;top:83.81944444444444%;width:100%;height:1.779861111111111%;"><span>11. Изгонване</span></div>
+      <div class="layer step-b" style="left:0%;top:86.89375%;width:100%;height:4.6923611111111105%;"><span>Изгонване — червен картон.</span></div>
+      <div class="layer step-h" style="left:0%;top:91.90972222222221%;width:100%;height:1.779861111111111%;"><span>12. Замяна</span></div>
+      <div class="layer step-b" style="left:0%;top:94.98402777777777%;width:100%;height:4.6923611111111105%;"><span>Замяна — смяна на играч.</span></div>
+        </div>
       </a>
-      <p class="cap">12 жеста на съдията</p>
     </article>
     </div>
   </section>
@@ -237,70 +590,170 @@
     <h2>Тренировка (разпределител)</h2>
     <div class="grid">
     <article class="card" id="596641410_122267972030218003_5245403143343729519_n.jpg">
-      <a href="img_bg/596641410_122267972030218003_5245403143343729519_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/596641410_122267972030218003_5245403143343729519_n_bg.jpg" alt="Вторник: ръце и точност" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/596641410_122267972030218003_5245403143343729519_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/596641410_122267972030218003_5245403143343729519_n.jpg" alt="Вторник: ръце и точност" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Вторник: ръце и точност</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Загряване</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Загряване — 15 мин.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Техника на ръцете</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Техника на ръцете — форма и пръсти.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Целеви пасовe</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Целеви пасовe — точност.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Jump-set</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Jump-set — пас в скок.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Посрещане → настройка</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Посрещане → настройка — втора част.</span></div>
+        </div>
       </a>
-      <p class="cap">Вторник: ръце и точност</p>
     </article>
     <article class="card" id="597388107_122267972036218003_9029431940353510125_n.jpg">
-      <a href="img_bg/597388107_122267972036218003_9029431940353510125_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/597388107_122267972036218003_9029431940353510125_n_bg.jpg" alt="Сряда: бързи топки и темпо" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/597388107_122267972036218003_9029431940353510125_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/597388107_122267972036218003_9029431940353510125_n.jpg" alt="Сряда: бързи топки и темпо" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Сряда: бързи топки и темпо</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Quick sets</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Quick sets — бързи топки.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Shoot</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Shoot — ниска бърза топка.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Tempo 1-2-3</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Tempo 1-2-3 — различни скорости.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Случайни темпа</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Случайни темпа — адаптация в игра.</span></div>
+        </div>
       </a>
-      <p class="cap">Сряда: бързи топки и темпо</p>
     </article>
     <article class="card" id="597391819_122267972024218003_377988595709656608_n.jpg">
-      <a href="img_bg/597391819_122267972024218003_377988595709656608_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/597391819_122267972024218003_377988595709656608_n_bg.jpg" alt="Понеделник: крака и основа" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/597391819_122267972024218003_377988595709656608_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/597391819_122267972024218003_377988595709656608_n.jpg" alt="Понеделник: крака и основа" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Понеделник: крака и основа</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Wall setting</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Wall setting — пасове към стена за точност.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Движещи се настройки</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Движещи се настройки — крачки + пас.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Високи пасове</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Високи пасове — точност и височина.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Основа за разпределителя</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Основа за разпределителя — понеделник.</span></div>
+        </div>
       </a>
-      <p class="cap">Понеделник: крака и основа</p>
     </article>
     <article class="card" id="598823784_122269037744218003_6145557065961426472_n.jpg">
-      <a href="img_bg/598823784_122269037744218003_6145557065961426472_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/598823784_122269037744218003_6145557065961426472_n_bg.jpg" alt="Четвъртък: преход и off-system" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/598823784_122269037744218003_6145557065961426472_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/598823784_122269037744218003_6145557065961426472_n.jpg" alt="Четвъртък: преход и off-system" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Четвъртък: преход и off-system</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Пас след посрещане</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Пас след посрещане — off-system.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Настройка далеч от мрежата.</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Настройка далеч от мрежата.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Аварийни пасове при лош пас.</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Аварийни пасове при лош пас.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Преход</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Преход — от защита към атака.</span></div>
+        </div>
       </a>
-      <p class="cap">Четвъртък: преход и off-system</p>
     </article>
     <article class="card" id="600048224_122269037738218003_5518381082082817166_n.jpg">
-      <a href="img_bg/600048224_122269037738218003_5518381082082817166_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/600048224_122269037738218003_5518381082082817166_n_bg.jpg" alt="Неделя: почивка" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/600048224_122269037738218003_5518381082082817166_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/600048224_122269037738218003_5518381082082817166_n.jpg" alt="Неделя: почивка" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Неделя: почивка</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:6.71%;"><span>1. Ден за възстановяване.</span></div>
+      <div class="layer step-b" style="left:0%;top:20.09%;width:100%;height:17.689999999999998%;"><span>Ден за възстановяване.</span></div>
+      <div class="layer step-h" style="left:0%;top:39.0%;width:100%;height:6.71%;"><span>2. Леко разтягане или пълна почивка.</span></div>
+      <div class="layer step-b" style="left:0%;top:50.59%;width:100%;height:17.689999999999998%;"><span>Леко разтягане или пълна почивка.</span></div>
+      <div class="layer step-h" style="left:0%;top:69.5%;width:100%;height:6.71%;"><span>3. Възстанови се за следващата седмица.</span></div>
+      <div class="layer step-b" style="left:0%;top:81.09%;width:100%;height:17.689999999999998%;"><span>Възстанови се за следващата седмица.</span></div>
+        </div>
       </a>
-      <p class="cap">Неделя: почивка</p>
     </article>
     <article class="card" id="600521449_122269037750218003_7564490775330957981_n.jpg">
-      <a href="img_bg/600521449_122269037750218003_7564490775330957981_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/600521449_122269037750218003_7564490775330957981_n_bg.jpg" alt="Събота: бързина и сила" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/600521449_122269037750218003_7564490775330957981_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/600521449_122269037750218003_7564490775330957981_n.jpg" alt="Събота: бързина и сила" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Събота: бързина и сила</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Agility</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Agility — бързина и координация.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Core</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Core — стабилност на корема.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Контрол на китки</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Контрол на китки — точен пас.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Събота</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Събота — сила и бързина.</span></div>
+        </div>
       </a>
-      <p class="cap">Събота: бързина и сила</p>
     </article>
     <article class="card" id="600521449_122269037762218003_594302812345929425_n.jpg">
-      <a href="img_bg/600521449_122269037762218003_594302812345929425_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/600521449_122269037762218003_594302812345929425_n_bg.jpg" alt="Петък: решения в игра" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/600521449_122269037762218003_594302812345929425_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/600521449_122269037762218003_594302812345929425_n.jpg" alt="Петък: решения в игра" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Петък: решения в игра</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Четене на блок</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Четене на блок — избор на атакуващ.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Мини-scrimmage</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Мини-scrimmage — игра в малък формат.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Решения в реално време.</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Решения в реално време.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Петък</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Петък — тактика за разпределителя.</span></div>
+        </div>
       </a>
-      <p class="cap">Петък: решения в игра</p>
     </article>
     <article class="card" id="600913659_122269037756218003_9121740498026670526_n.jpg">
-      <a href="img_bg/600913659_122269037756218003_9121740498026670526_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/600913659_122269037756218003_9121740498026670526_n_bg.jpg" alt="Сряда: темпо (вариант)" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/600913659_122269037756218003_9121740498026670526_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/600913659_122269037756218003_9121740498026670526_n.jpg" alt="Сряда: темпо (вариант)" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Сряда: темпо (вариант)</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:10.065%;"><span>1. Бързи топки в центъра</span></div>
+      <div class="layer step-b" style="left:0%;top:25.885%;width:100%;height:26.534999999999997%;"><span>Бързи топки в центъра</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:10.065%;"><span>2. tempo setting.</span></div>
+      <div class="layer step-b" style="left:0%;top:71.635%;width:100%;height:26.534999999999997%;"><span>tempo setting.</span></div>
+        </div>
       </a>
-      <p class="cap">Сряда: темпо (вариант)</p>
     </article>
     <article class="card" id="659087884_122285918942218003_5774357089422350978_n.jpg">
-      <a href="img_bg/659087884_122285918942218003_5774357089422350978_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/659087884_122285918942218003_5774357089422350978_n_bg.jpg" alt="Структура 2-часова тренировка" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/659087884_122285918942218003_5774357089422350978_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/659087884_122285918942218003_5774357089422350978_n.jpg" alt="Структура 2-часова тренировка" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Структура 2-часова тренировка</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. 10 мин загряване.</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>10 мин загряване.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Крачки и позиция.</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Крачки и позиция.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Техника на паса.</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Техника на паса.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Точност и преход.</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Точност и преход.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Сила</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Сила — финал на тренировката.</span></div>
+        </div>
       </a>
-      <p class="cap">Структура 2-часова тренировка</p>
     </article>
     <article class="card" id="785925538_1082404737598692_2683043130715955812_n.jfif">
-      <a href="img_bg/785925538_1082404737598692_2683043130715955812_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/785925538_1082404737598692_2683043130715955812_n_bg.jpg" alt="7 упражнения за загряване" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/785925538_1082404737598692_2683043130715955812_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/785925538_1082404737598692_2683043130715955812_n.jfif" alt="7 упражнения за загряване" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>7 упражнения за загряване</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:8.0%;"><span>1. Мобилност — гърба, рамене, бедра.</span></div>
+      <div class="layer step-b" style="left:2%;top:74.5%;width:96%;height:8.0%;"><span>2. Крака — леки скокове.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:8.0%;"><span>3. Рамене — ротации.</span></div>
+      <div class="layer step-b" style="left:2%;top:91.5%;width:96%;height:8.0%;"><span>4. Контролирани скокове преди игра.</span></div>
+        </div>
       </a>
-      <p class="cap">7 упражнения за загряване</p>
     </article>
     <article class="card" id="786106957_2893924520972055_7406568896314630748_n.jfif">
-      <a href="img_bg/786106957_2893924520972055_7406568896314630748_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/786106957_2893924520972055_7406568896314630748_n_bg.jpg" alt="Plyometrics за разбег" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/786106957_2893924520972055_7406568896314630748_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/786106957_2893924520972055_7406568896314630748_n.jfif" alt="Plyometrics за разбег" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Plyometrics за разбег</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:8.0%;"><span>1. Plyometrics — експлозивни скокове.</span></div>
+      <div class="layer step-b" style="left:2%;top:74.5%;width:96%;height:8.0%;"><span>2. По-висок отскок при атака.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:8.0%;"><span>3. По-бърз блок.</span></div>
+      <div class="layer step-b" style="left:2%;top:91.5%;width:96%;height:8.0%;"><span>4. Внимание — правилно приземяване.</span></div>
+        </div>
       </a>
-      <p class="cap">Plyometrics за разбег</p>
     </article>
     </div>
   </section>
@@ -308,58 +761,143 @@
     <h2>Общо</h2>
     <div class="grid">
     <article class="card" id="577813298_122262454028218003_8086180139053689394_n.jpg">
-      <a href="img_bg/577813298_122262454028218003_8086180139053689394_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/577813298_122262454028218003_8086180139053689394_n_bg.jpg" alt="Пет основни умения" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/577813298_122262454028218003_8086180139053689394_n.jpg" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/577813298_122262454028218003_8086180139053689394_n.jpg" alt="Пет основни умения" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Пет основни умения</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Разпределител</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Разпределител — организира атаката.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Атакуващ</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Атакуващ — удар след разбег.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Посрещач</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Посрещач — платформа, пас.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Добър пас → добра настройка → добра атак</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Добър пас → добра настройка → добра атака.</span></div>
+        </div>
       </a>
-      <p class="cap">Пет основни умения</p>
     </article>
     <article class="card" id="754463068_1986237172081904_2312318136588191240_n.jfif">
-      <a href="img_bg/754463068_1986237172081904_2312318136588191240_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/754463068_1986237172081904_2312318136588191240_n_bg.jpg" alt="Зони 1–6 и роли" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/754463068_1986237172081904_2312318136588191240_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/754463068_1986237172081904_2312318136588191240_n.jfif" alt="Зони 1–6 и роли" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:5.833333333333333%;"><span>Зони 1–6 и роли</span></div>
+      <div class="layer step-h" style="left:0%;top:5.833333333333333%;width:100%;height:3.452777777777778%;"><span>1. OH</span></div>
+      <div class="layer step-b" style="left:0%;top:11.797222222222222%;width:100%;height:9.102777777777778%;"><span>OH — външен нападател, зона 4.</span></div>
+      <div class="layer step-h" style="left:0%;top:21.52777777777778%;width:100%;height:3.452777777777778%;"><span>2. Център</span></div>
+      <div class="layer step-b" style="left:0%;top:27.491666666666667%;width:100%;height:9.102777777777778%;"><span>Център — блок и бърза атака, зона 3.</span></div>
+      <div class="layer step-h" style="left:0%;top:37.22222222222222%;width:100%;height:3.452777777777778%;"><span>3. Диагонал</span></div>
+      <div class="layer step-b" style="left:0%;top:43.18611111111111%;width:100%;height:9.102777777777778%;"><span>Диагонал — силна атака, зона 2.</span></div>
+      <div class="layer step-h" style="left:0%;top:52.91666666666667%;width:100%;height:3.452777777777778%;"><span>4. Разпределител</span></div>
+      <div class="layer step-b" style="left:0%;top:58.88055555555556%;width:100%;height:9.102777777777778%;"><span>Разпределител — организира играта.</span></div>
+      <div class="layer step-h" style="left:0%;top:68.61111111111111%;width:100%;height:3.452777777777778%;"><span>5. Либеро</span></div>
+      <div class="layer step-b" style="left:0%;top:74.575%;width:100%;height:9.102777777777778%;"><span>Либеро — защита и dig.</span></div>
+      <div class="layer step-h" style="left:0%;top:84.30555555555556%;width:100%;height:3.452777777777778%;"><span>6. 3-метрова линия</span></div>
+      <div class="layer step-b" style="left:0%;top:90.26944444444445%;width:100%;height:9.102777777777778%;"><span>3-метрова линия — граница за атака.</span></div>
+        </div>
       </a>
-      <p class="cap">Зони 1–6 и роли</p>
     </article>
     <article class="card" id="754498155_4539129866410994_8838480451079226723_n.jfif">
-      <a href="img_bg/754498155_4539129866410994_8838480451079226723_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/754498155_4539129866410994_8838480451079226723_n_bg.jpg" alt="Предна линия" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/754498155_4539129866410994_8838480451079226723_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/754498155_4539129866410994_8838480451079226723_n.jfif" alt="Предна линия" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Предна линия</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Зона 4</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Зона 4 — външен нападател.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Зона 3</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Зона 3 — център, блок.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Зона 2</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Зона 2 — диагонал.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Предна линия</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Предна линия — атака и блок.</span></div>
+        </div>
       </a>
-      <p class="cap">Предна линия</p>
     </article>
     <article class="card" id="759871629_1557286599462223_8781629226135053006_n.jfif">
-      <a href="img_bg/759871629_1557286599462223_8781629226135053006_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/759871629_1557286599462223_8781629226135053006_n_bg.jpg" alt="Коя позиция играеш" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/759871629_1557286599462223_8781629226135053006_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/759871629_1557286599462223_8781629226135053006_n.jfif" alt="Коя позиция играеш" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:7.0%;"><span>Коя позиция играеш</span></div>
+      <div class="layer step-h" style="left:0%;top:7.0%;width:100%;height:4.0920000000000005%;"><span>1. Диагонал</span></div>
+      <div class="layer step-b" style="left:0%;top:14.068000000000001%;width:100%;height:10.788%;"><span>Диагонал — силна атака от зона 2.</span></div>
+      <div class="layer step-h" style="left:0%;top:25.6%;width:100%;height:4.0920000000000005%;"><span>2. Посрещач</span></div>
+      <div class="layer step-b" style="left:0%;top:32.668%;width:100%;height:10.788%;"><span>Посрещач — прием и атака от зона 4.</span></div>
+      <div class="layer step-h" style="left:0%;top:44.2%;width:100%;height:4.0920000000000005%;"><span>3. Център</span></div>
+      <div class="layer step-b" style="left:0%;top:51.268%;width:100%;height:10.788%;"><span>Център — блок и tempo.</span></div>
+      <div class="layer step-h" style="left:0%;top:62.800000000000004%;width:100%;height:4.0920000000000005%;"><span>4. Разпределител</span></div>
+      <div class="layer step-b" style="left:0%;top:69.86800000000001%;width:100%;height:10.788%;"><span>Разпределител — пас и тактика.</span></div>
+      <div class="layer step-h" style="left:0%;top:81.4%;width:100%;height:4.0920000000000005%;"><span>5. Либеро</span></div>
+      <div class="layer step-b" style="left:0%;top:88.468%;width:100%;height:10.788%;"><span>Либеро — защита.</span></div>
+        </div>
       </a>
-      <p class="cap">Коя позиция играеш</p>
     </article>
     <article class="card" id="764116599_27776957591953757_7128067358533713100_n.jfif">
-      <a href="img_bg/764116599_27776957591953757_7128067358533713100_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/764116599_27776957591953757_7128067358533713100_n_bg.jpg" alt="Цели при сервис" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/764116599_27776957591953757_7128067358533713100_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/764116599_27776957591953757_7128067358533713100_n.jfif" alt="Цели при сервис" loading="lazy" width="206" height="206" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8.5%;"><span>Цели при сервис</span></div>
+      <div class="layer step-h" style="left:0%;top:8.5%;width:100%;height:5.0325%;"><span>1. Зона 1</span></div>
+      <div class="layer step-b" style="left:0%;top:17.192500000000003%;width:100%;height:13.267499999999998%;"><span>Зона 1 — често слаба при сервис.</span></div>
+      <div class="layer step-h" style="left:0%;top:31.375%;width:100%;height:5.0325%;"><span>2. Зона 5</span></div>
+      <div class="layer step-b" style="left:0%;top:40.0675%;width:100%;height:13.267499999999998%;"><span>Зона 5 — покрива диагонала.</span></div>
+      <div class="layer step-h" style="left:0%;top:54.25%;width:100%;height:5.0325%;"><span>3. Зона 6</span></div>
+      <div class="layer step-b" style="left:0%;top:62.9425%;width:100%;height:13.267499999999998%;"><span>Зона 6 — дълбок сервис.</span></div>
+      <div class="layer step-h" style="left:0%;top:77.125%;width:100%;height:5.0325%;"><span>4. Избери зона според противника.</span></div>
+      <div class="layer step-b" style="left:0%;top:85.8175%;width:100%;height:13.267499999999998%;"><span>Избери зона според противника.</span></div>
+        </div>
       </a>
-      <p class="cap">Цели при сервис</p>
     </article>
     <article class="card" id="788613382_1662983172208031_3123031800202282260_n.jfif">
-      <a href="img_bg/788613382_1662983172208031_3123031800202282260_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/788613382_1662983172208031_3123031800202282260_n_bg.jpg" alt="6 позиции и роли" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/788613382_1662983172208031_3123031800202282260_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/788613382_1662983172208031_3123031800202282260_n.jfif" alt="6 позиции и роли" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>6 позиции и роли</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:5.166666666666667%;"><span>1. Зона 1 — сервис, защита.</span></div>
+      <div class="layer step-b" style="left:2%;top:71.66666666666667%;width:96%;height:5.166666666666667%;"><span>2. Зона 2 — блок, атака.</span></div>
+      <div class="layer step-b" style="left:2%;top:77.33333333333333%;width:96%;height:5.166666666666667%;"><span>3. Зона 3 — блок в центъра.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:5.166666666666667%;"><span>4. Зона 4 — основна атака.</span></div>
+      <div class="layer step-b" style="left:2%;top:88.66666666666667%;width:96%;height:5.166666666666667%;"><span>5. Зона 5 — защита.</span></div>
+      <div class="layer step-b" style="left:2%;top:94.33333333333334%;width:96%;height:5.166666666666667%;"><span>6. Зона 6 — dig, либеро.</span></div>
+        </div>
       </a>
-      <p class="cap">6 позиции и роли</p>
     </article>
     <article class="card" id="790574680_4552546121656675_5186171076196952051_n.jfif">
-      <a href="img_bg/790574680_4552546121656675_5186171076196952051_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/790574680_4552546121656675_5186171076196952051_n_bg.jpg" alt="Общ преглед на волейбола" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/790574680_4552546121656675_5186171076196952051_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/790574680_4552546121656675_5186171076196952051_n.jfif" alt="Общ преглед на волейбола" loading="lazy" width="1024" height="1536" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Общ преглед на волейбола</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:8.0%;"><span>1. Терен 18×9 m, мрежа 2,43 m (мъже).</span></div>
+      <div class="layer step-b" style="left:2%;top:74.5%;width:96%;height:8.0%;"><span>2. 5 умения: сервис, посрещане, настройка, атака, блок.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:8.0%;"><span>3. 6 играчи, ротация, 3 докосвания.</span></div>
+      <div class="layer step-b" style="left:2%;top:91.5%;width:96%;height:8.0%;"><span>4. 25 точки, разлика 2.</span></div>
+        </div>
       </a>
-      <p class="cap">Общ преглед на волейбола</p>
     </article>
     <article class="card" id="790591027_1695194404914969_8120880964967460128_n.jfif">
-      <a href="img_bg/790591027_1695194404914969_8120880964967460128_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/790591027_1695194404914969_8120880964967460128_n_bg.jpg" alt="Волейбол в една картина" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/790591027_1695194404914969_8120880964967460128_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/790591027_1695194404914969_8120880964967460128_n.jfif" alt="Волейбол в една картина" loading="lazy" width="1365" height="2048" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>Волейбол в една картина</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:5.166666666666667%;"><span>1. Сервис — започва играта (вкл. флот сервис).</span></div>
+      <div class="layer step-b" style="left:2%;top:71.66666666666667%;width:96%;height:5.166666666666667%;"><span>2. Посрещане — платформа, пас към разпределителя.</span></div>
+      <div class="layer step-b" style="left:2%;top:77.33333333333333%;width:96%;height:5.166666666666667%;"><span>3. Настройка — разпределителят избира атакуващ.</span></div>
+      <div class="layer step-b" style="left:2%;top:83.0%;width:96%;height:5.166666666666667%;"><span>4. Атака — удар с разбег.</span></div>
+      <div class="layer step-b" style="left:2%;top:88.66666666666667%;width:96%;height:5.166666666666667%;"><span>5. Блок — първа линия на защита.</span></div>
+      <div class="layer step-b" style="left:2%;top:94.33333333333334%;width:96%;height:5.166666666666667%;"><span>6. Ротация — зони 1–6, по часовниковата стрелка.</span></div>
+        </div>
       </a>
-      <p class="cap">Волейбол в една картина</p>
     </article>
     <article class="card" id="792090637_1453038256653776_3485590854503277132_n.jfif">
-      <a href="img_bg/792090637_1453038256653776_3485590854503277132_n_bg.jpg" target="_blank" rel="noopener">
-        <img src="img_bg/792090637_1453038256653776_3485590854503277132_n_bg.jpg" alt="История на волейбола" loading="lazy" width="1080" />
+      <a class="frame-link" href="img/792090637_1453038256653776_3485590854503277132_n.jfif" target="_blank" rel="noopener" title="Отвори оригинал + превод">
+        <div class="frame">
+          <img src="img/792090637_1453038256653776_3485590854503277132_n.jfif" alt="История на волейбола" loading="lazy" width="1365" height="2048" />
+      <div class="layer title" style="left:0%;top:0%;width:100%;height:8%;"><span>История на волейбола</span></div>
+      <div class="layer step-b" style="left:2%;top:66.0%;width:96%;height:6.3%;"><span>1. 1895 — Уилям Морган създава играта.</span></div>
+      <div class="layer step-b" style="left:2%;top:72.8%;width:96%;height:6.3%;"><span>2. 1947 — FIVB основана.</span></div>
+      <div class="layer step-b" style="left:2%;top:79.6%;width:96%;height:6.3%;"><span>3. 1964 — олимпийски спорт.</span></div>
+      <div class="layer step-b" style="left:2%;top:86.4%;width:96%;height:6.3%;"><span>4. 1996 — плажен волейбол на Олимпиада.</span></div>
+      <div class="layer step-b" style="left:2%;top:93.2%;width:96%;height:6.3%;"><span>5. Днес — милиони играчи по света.</span></div>
+        </div>
       </a>
-      <p class="cap">История на волейбола</p>
     </article>
     </div>
   </section>
