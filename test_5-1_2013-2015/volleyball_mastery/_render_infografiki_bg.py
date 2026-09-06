@@ -1,4 +1,4 @@
-"""Render Bulgarian text overlays on infographic images (higher quality output)."""
+"""Render Bulgarian text overlays ON infographic images (cover EN/ES text in place)."""
 from __future__ import annotations
 
 import re
@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from _infografiki_content import STEPS  # noqa: E402
+from _infografiki_content import COMPARISON, STEPS  # noqa: E402
 
 PUBLIC = ROOT.parents[1] / "frontend" / "volley-platform-client" / "public" / "uchebnik" / "infografiki"
 SRC = PUBLIC / "img"
@@ -44,13 +44,13 @@ def steps_for(fn: str, body: str) -> list[str]:
 
 def load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     path = FONT_BOLD if bold and FONT_BOLD.exists() else FONT_REG
-    return ImageFont.truetype(str(path), size)
+    return ImageFont.truetype(str(path), max(10, size))
 
 
 def upscale(img: Image.Image) -> Image.Image:
     w, h = img.size
     if w >= TARGET_MIN_W:
-        return img
+        return img.filter(ImageFilter.UnsharpMask(radius=1.0, percent=110, threshold=2))
     scale = TARGET_MIN_W / w
     nw, nh = int(w * scale), int(h * scale)
     out = img.resize((nw, nh), Image.Resampling.LANCZOS)
@@ -78,11 +78,10 @@ def draw_text_block(
     draw: ImageDraw.ImageDraw,
     x: int,
     y: int,
-    w: int,
     lines: list[str],
     font: ImageFont.FreeTypeFont,
     fill: tuple[int, int, int] = (20, 40, 50),
-    line_gap: int = 4,
+    line_gap: int = 3,
 ) -> int:
     cy = y
     for line in lines:
@@ -91,13 +90,89 @@ def draw_text_block(
     return cy
 
 
-def render_vertical_strips(base: Image.Image, title: str, steps: list[str]) -> Image.Image:
-    """Cover EN headers/body in each horizontal band; keep illustrations."""
+def fr(w: int, h: int, x0: float, y0: float, x1: float, y1: float) -> tuple[int, int, int, int]:
+    return int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h)
+
+
+def cover(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], fill: tuple[int, int, int, int]) -> None:
+    draw.rectangle(box, fill=fill)
+
+
+def render_comparison(base: Image.Image, spec: dict) -> Image.Image:
+    """Correct vs wrong side-by-side — cover all EN text zones in place."""
     img = base.convert("RGBA")
     w, h = img.size
-    n = len(steps)
-    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ov)
+
+    tf = load_font(max(20, w // 28), bold=True)
+    sf = load_font(max(13, w // 42), bold=True)
+    hf = load_font(max(14, w // 38), bold=True)
+    bf = load_font(max(11, w // 52))
+    small = load_font(max(10, w // 58))
+
+    # Top header
+    cover(draw, fr(w, h, 0, 0, 1, 0.115), (12, 35, 55, 255))
+    cover(draw, fr(w, h, 0, 0.115, 1, 0.145), (8, 28, 45, 255))
+    draw.text((w // 2 - draw.textlength(spec["title"], font=tf) // 2, int(h * 0.018)), spec["title"], font=tf, fill=(255, 255, 255))
+    sub = spec["subtitle"]
+    draw.text((w // 2 - draw.textlength(sub, font=sf) // 2, int(h * 0.075)), sub, font=sf, fill=(120, 220, 140))
+    tag = spec.get("tagline", "")
+    if tag:
+        draw.text((w // 2 - draw.textlength(tag, font=small) // 2, int(h * 0.118)), tag, font=small, fill=(220, 230, 240))
+
+    # Column headers
+    cover(draw, fr(w, h, 0, 0.148, 0.495, 0.178), (20, 120, 60, 250))
+    cover(draw, fr(w, h, 0.505, 0.148, 1, 0.178), (160, 35, 35, 250))
+    draw.text((int(w * 0.04), int(h * 0.152)), spec["left_head"], font=hf, fill=(255, 255, 255))
+    draw.text((int(w * 0.54), int(h * 0.152)), spec["right_head"], font=hf, fill=(255, 255, 255))
+
+    # Callout label bands (cover EN labels, keep player photos in center)
+    y_bands = [0.19, 0.28, 0.37, 0.46, 0.55, 0.64]
+    left_labels = spec.get("left_labels", [])
+    right_labels = spec.get("right_labels", [])
+    for i, y0 in enumerate(y_bands):
+        y1 = y0 + 0.075
+        if i < len(left_labels):
+            box = fr(w, h, 0.02, y0, 0.47, y1)
+            cover(draw, box, (255, 255, 255, 235))
+            lines = wrap_text(draw, left_labels[i], small, int(w * 0.42))
+            draw_text_block(draw, box[0] + 6, box[1] + 4, lines[:2], small, fill=(15, 80, 40))
+        if i < len(right_labels):
+            box = fr(w, h, 0.53, y0, 0.98, y1)
+            cover(draw, box, (255, 255, 255, 235))
+            lines = wrap_text(draw, right_labels[i], small, int(w * 0.42))
+            draw_text_block(draw, box[0] + 6, box[1] + 4, lines[:2], small, fill=(120, 25, 25))
+
+    # Footer list boxes
+    cover(draw, fr(w, h, 0, 0.715, 0.495, 0.905), (15, 75, 40, 245))
+    cover(draw, fr(w, h, 0.505, 0.715, 1, 0.905), (120, 25, 30, 245))
+    draw.text((int(w * 0.04), int(h * 0.722)), spec.get("left_footer_title", "Ключови точки"), font=hf, fill=(180, 255, 180))
+    draw.text((int(w * 0.54), int(h * 0.722)), spec.get("right_footer_title", "Чести грешки"), font=hf, fill=(255, 200, 200))
+    ly = int(h * 0.748)
+    for pt in spec.get("left_footer", []):
+        draw.text((int(w * 0.05), ly), f"✓ {pt}", font=bf, fill=(240, 255, 240))
+        ly += bf.size + 5
+    ry = int(h * 0.748)
+    for pt in spec.get("right_footer", []):
+        draw.text((int(w * 0.55), ry), f"✗ {pt}", font=bf, fill=(255, 235, 235))
+        ry += bf.size + 5
+
+    # Bottom banner
+    cover(draw, fr(w, h, 0, 0.905, 1, 1), (240, 190, 40, 255))
+    banner = spec.get("banner", "")
+    draw.text((w // 2 - draw.textlength(banner, font=sf) // 2, int(h * 0.925)), banner, font=sf, fill=(20, 30, 40))
+
+    return Image.alpha_composite(img, ov).convert("RGB")
+
+
+def render_vertical_strips(base: Image.Image, title: str, steps: list[str]) -> Image.Image:
+    """Multi-step vertical infographic — cover EN text in each band."""
+    img = base.convert("RGBA")
+    w, h = img.size
+    n = max(len(steps), 1)
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ov)
 
     strip_h = h / n
     title_font = load_font(max(14, w // 38), bold=True)
@@ -107,122 +182,96 @@ def render_vertical_strips(base: Image.Image, title: str, steps: list[str]) -> I
         y0 = int(i * strip_h)
         y1 = int((i + 1) * strip_h)
         sh = y1 - y0
-
-        header_h = int(sh * 0.22)
-        body_h = int(sh * 0.50)
+        header_h = int(sh * 0.24)
+        body_h = int(sh * 0.52)
         body_y0 = y1 - body_h
 
-        draw.rectangle([0, y0, w, y0 + header_h], fill=(14, 58, 90, 245))
-        draw.rectangle([0, body_y0, w, y1], fill=(255, 255, 255, 248))
+        cover(draw, (0, y0, w, y0 + header_h), (14, 58, 90, 252))
+        cover(draw, (0, body_y0, w, y1), (255, 255, 255, 252))
 
         num = str(i + 1)
-        draw.ellipse([16, y0 + 6, 16 + header_h - 10, y0 + header_h - 4], fill=(232, 93, 4, 255))
-        draw.text((24, y0 + 8), num, font=title_font, fill=(255, 255, 255))
+        r = max(18, header_h - 8)
+        draw.ellipse([12, y0 + 4, 12 + r, y0 + 4 + r], fill=(232, 93, 4, 255))
+        draw.text((18, y0 + 6), num, font=title_font, fill=(255, 255, 255))
 
-        short = step.split("—")[0].strip() if "—" in step else step[:28]
-        draw.text((16 + header_h, y0 + 8), short[:42], font=title_font, fill=(255, 255, 255))
+        short = step.split("—")[0].strip() if "—" in step else step[:36]
+        draw.text((12 + r + 6, y0 + 6), short[:48], font=title_font, fill=(255, 255, 255))
 
-        body_lines = wrap_text(draw, step, body_font, w - 32)
-        draw_text_block(draw, 16, body_y0 + 8, w - 32, body_lines[:4], body_font)
+        body_lines = wrap_text(draw, step, body_font, w - 24)
+        draw_text_block(draw, 14, body_y0 + 8, body_lines[:5], body_font)
 
-    out = Image.alpha_composite(img, overlay)
-    # Title band over top of image (no extra canvas height)
-    band_h = max(52, int(w * 0.09))
+    out = Image.alpha_composite(img, ov)
+    band_h = max(48, int(w * 0.085))
     draw2 = ImageDraw.Draw(out)
-    draw2.rectangle([0, 0, w, band_h], fill=(10, 61, 74, 240))
-    tf = load_font(max(18, w // 32), bold=True)
-    draw2.text((16, max(8, band_h // 6)), title[:70], font=tf, fill=(255, 255, 255))
+    cover(draw2, (0, 0, w, band_h), (10, 61, 74, 245))
+    tf = load_font(max(17, w // 34), bold=True)
+    draw2.text((14, max(6, band_h // 7)), title[:72], font=tf, fill=(255, 255, 255))
     return out.convert("RGB")
 
 
-def render_bottom_extension(base: Image.Image, title: str, steps: list[str]) -> Image.Image:
-    """For wide/tall complex infographics: keep full art, add BG panel below."""
-    img = base.convert("RGB")
+def render_inplace_blocks(base: Image.Image, title: str, steps: list[str]) -> Image.Image:
+    """Complex/wide infographics — cover top title + bottom text blocks ON the image."""
+    img = base.convert("RGBA")
     w, h = img.size
-    panel_h = int(max(220, len(steps) * 52 + 100))
-    canvas = Image.new("RGB", (w, h + panel_h), (255, 250, 240))
-    canvas.paste(img, (0, 0))
-
-    draw = ImageDraw.Draw(canvas)
-    draw.rectangle([0, h, w, h + panel_h], fill=(255, 250, 240))
-    draw.line([0, h, w, h], fill=(10, 61, 74), width=4)
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ov)
 
     tf = load_font(max(18, w // 32), bold=True)
-    bf = load_font(max(14, w // 42))
-    draw.text((20, h + 16), title, font=tf, fill=(10, 61, 74))
+    bf = load_font(max(13, w // 46))
 
-    y = h + 56
+    # Top title — cover EN header
+    top_h = int(h * 0.11)
+    cover(draw, (0, 0, w, top_h), (10, 61, 74, 248))
+    draw.text((16, top_h // 5), title[:70], font=tf, fill=(255, 255, 255))
+
+    # Bottom zone — cover EN footer/lists (no canvas extension)
+    bot_h = int(min(h * 0.38, max(h * 0.22, len(steps) * 42 + 50)))
+    bot_y = h - bot_h
+    cover(draw, (0, bot_y, w, h), (255, 252, 245, 250))
+
+    cols = 2 if len(steps) >= 6 else 1
+    col_w = w // cols
     for i, step in enumerate(steps):
-        r = 18
-        cx, cy = 28, y + r
-        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(232, 93, 4))
-        draw.text((cx - 6, cy - 10), str(i + 1), font=bf, fill=(255, 255, 255))
-        lines = wrap_text(draw, step, bf, w - 80)
-        y = draw_text_block(draw, 56, y, w - 80, lines[:3], bf) + 8
+        col = i % cols
+        row = i // cols
+        x = 16 + col * col_w
+        y = bot_y + 14 + row * (bf.size + 28)
+        draw.ellipse([x, y, x + 22, y + 22], fill=(232, 93, 4, 255))
+        draw.text((x + 6, y + 2), str(i + 1), font=bf, fill=(255, 255, 255))
+        lines = wrap_text(draw, step, bf, col_w - 44)
+        draw_text_block(draw, x + 28, y, lines[:3], bf)
 
-    return canvas
-
-
-def render_sidebar(base: Image.Image, title: str, steps: list[str]) -> Image.Image:
-    """Square/simple cards: illustration left, BG text panel right."""
-    img = base.convert("RGB")
-    w, h = img.size
-    panel_w = int(w * 0.46)
-    out_w = w + panel_w
-    canvas = Image.new("RGB", (out_w, h), (255, 255, 255))
-    canvas.paste(img, (0, 0))
-
-    draw = ImageDraw.Draw(canvas)
-    draw.rectangle([w, 0, out_w, h], fill=(248, 252, 255))
-    draw.line([w, 0, w, h], fill=(10, 61, 74), width=3)
-
-    tf = load_font(max(16, panel_w // 12), bold=True)
-    bf = load_font(max(13, panel_w // 16))
-    lines_title = wrap_text(draw, title, tf, panel_w - 24)
-    y = 16
-    y = draw_text_block(draw, w + 12, y, panel_w - 24, lines_title[:3], tf, fill=(10, 61, 74)) + 12
-
-    for i, step in enumerate(steps):
-        draw.ellipse([w + 12, y, w + 36, y + 24], fill=(232, 93, 4))
-        draw.text((w + 18, y + 3), str(i + 1), font=bf, fill=(255, 255, 255))
-        lines = wrap_text(draw, step, bf, panel_w - 44)
-        y = draw_text_block(draw, w + 44, y, panel_w - 44, lines[:4], bf) + 10
-
-    return canvas
+    return Image.alpha_composite(img, ov).convert("RGB")
 
 
-def pick_layout(w: int, h: int, n: int) -> str:
+def pick_layout(fn: str, w: int, h: int, n: int) -> str:
+    if fn in COMPARISON:
+        return "comparison"
     ratio = h / w
-    if w <= 280 and n >= 3:
+    if n >= 3 and ratio >= 0.95:
         return "vertical"
-    if ratio >= 1.15 and n >= 3:
+    if ratio >= 1.05 and n >= 2:
         return "vertical"
-    if ratio >= 0.9 and w >= 900:
-        return "bottom"
-    if n >= 4 and w >= 700:
-        return "bottom"
-    return "sidebar"
+    if w >= 700 and ratio >= 0.75:
+        return "inplace"
+    return "vertical"
 
 
-def render_one(src: Path, title: str, steps: list[str], dest: Path) -> tuple[int, int]:
+def render_one(src: Path, fn: str, title: str, steps: list[str], dest: Path) -> tuple[int, int]:
     raw = Image.open(src)
     img = upscale(raw)
     w, h = img.size
-    layout = pick_layout(w, h, len(steps))
+    layout = pick_layout(fn, w, h, len(steps))
 
-    if layout == "vertical":
+    if layout == "comparison":
+        out = render_comparison(img, COMPARISON[fn])
+    elif layout == "vertical":
         out = render_vertical_strips(img, title, steps)
-    elif layout == "bottom":
-        out = render_bottom_extension(img, title, steps)
     else:
-        out = render_sidebar(img, title, steps)
+        out = render_inplace_blocks(img, title, steps)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    ext = dest.suffix.lower()
-    if ext in {".jpg", ".jpeg"}:
-        out.save(dest, quality=92, optimize=True)
-    else:
-        out.save(dest, quality=92, optimize=True)
+    out.save(dest, quality=93, optimize=True)
     return out.size
 
 
@@ -236,11 +285,10 @@ def main() -> None:
             print(f"SKIP missing {fn}")
             continue
         steps = steps_for(fn, body)
-        stem = Path(fn).stem
-        dest = OUT / f"{stem}_bg.jpg"
-        size = render_one(src, title, steps, dest)
+        dest = OUT / f"{Path(fn).stem}_bg.jpg"
+        size = render_one(src, fn, title, steps, dest)
         done += 1
-        print(f"OK {fn} -> {dest.name} {size[0]}x{size[1]}")
+        print(f"OK {fn} -> {dest.name} {size[0]}x{size[1]} [{pick_layout(fn, size[0], size[1], len(steps))}]")
 
     print(f"Rendered {done} images -> {OUT}")
 
