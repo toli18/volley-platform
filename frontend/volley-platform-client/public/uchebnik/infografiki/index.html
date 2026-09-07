@@ -29,10 +29,18 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 52px 8px 72px; background: #0a1628;
   }
-  .slide img {
+  .slide.zooming { scroll-snap-align: none; }
+  .img-wrap {
+    flex: 1; width: 100%; max-height: calc(100dvh - 120px);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: pan-y;
+  }
+  .img-wrap.zoomed { touch-action: none; }
+  .img-wrap img {
     max-width: 100%; max-height: calc(100dvh - 120px);
     width: auto; height: auto; object-fit: contain;
-    border-radius: 8px;
+    border-radius: 8px; transform-origin: center center;
+    will-change: transform;
   }
   .caption {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
@@ -54,10 +62,10 @@
 <body>
   <div class="top-bar">
     <a href="/uchebnik/">← Герои</a>
-    <span>Картинки · плъзни ↕</span>
+    <span>Картинки · разшири · плъзни ↕</span>
     <a href="/uchebnik/klipove.html">Клипове</a>
   </div>
-  <p class="hint">Плъзни нагоре за следващата картинка</p>
+  <p class="hint">Събери/разшири с два пръста · двойно докосване · плъзни ↕</p>
   <div class="feed" id="feed"></div>
   <div class="caption" id="cap"><b></b><span></span></div>
   <script>
@@ -85,16 +93,106 @@
     const cap = document.getElementById("cap");
     const capB = cap.querySelector("b");
     const capS = cap.querySelector("span");
+    function initPinchZoom(slide, wrap, img) {
+      let scale = 1, tx = 0, ty = 0;
+      let startDist = 0, startScale = 1;
+      let panStart = null, pinchMid = null;
+      let lastTap = 0;
+
+      function apply() {
+        img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      }
+
+      function dist(a, b) {
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      }
+
+      function setZoomed(on) {
+        wrap.classList.toggle("zoomed", on);
+        slide.classList.toggle("zooming", on);
+        feed.style.overflowY = on ? "hidden" : "";
+      }
+
+      function reset() {
+        scale = 1; tx = 0; ty = 0;
+        apply();
+        setZoomed(false);
+      }
+
+      function clampPan() {
+        const r = wrap.getBoundingClientRect();
+        const ir = img.getBoundingClientRect();
+        const maxX = Math.max(0, (ir.width - r.width) / 2);
+        const maxY = Math.max(0, (ir.height - r.height) / 2);
+        tx = Math.min(maxX, Math.max(-maxX, tx));
+        ty = Math.min(maxY, Math.max(-maxY, ty));
+      }
+
+      wrap.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          startDist = dist(e.touches[0], e.touches[1]);
+          startScale = scale;
+          pinchMid = {
+            x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+            y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+          };
+          setZoomed(true);
+        } else if (e.touches.length === 1 && scale > 1.05) {
+          panStart = { x: e.touches[0].clientX - tx, y: e.touches[0].clientY - ty };
+          setZoomed(true);
+        }
+      }, { passive: false });
+
+      wrap.addEventListener("touchmove", (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          scale = Math.min(4, Math.max(1, startScale * (dist(e.touches[0], e.touches[1]) / startDist)));
+          apply();
+          setZoomed(scale > 1.05);
+        } else if (e.touches.length === 1 && scale > 1.05 && panStart) {
+          e.preventDefault();
+          tx = e.touches[0].clientX - panStart.x;
+          ty = e.touches[0].clientY - panStart.y;
+          clampPan();
+          apply();
+        }
+      }, { passive: false });
+
+      wrap.addEventListener("touchend", (e) => {
+        panStart = null;
+        if (scale <= 1.05) {
+          reset();
+          return;
+        }
+        clampPan();
+        apply();
+        const now = Date.now();
+        if (e.changedTouches.length === 1 && now - lastTap < 320) {
+          reset();
+        }
+        lastTap = now;
+      });
+
+      wrap.addEventListener("dblclick", () => reset());
+      wrap._resetZoom = reset;
+    }
+
     CARDS.forEach((c, i) => {
       const slide = document.createElement("section");
       slide.className = "slide";
       slide.dataset.i = i;
+      const wrap = document.createElement("div");
+      wrap.className = "img-wrap";
       const img = document.createElement("img");
       img.src = c.src;
       img.alt = c.title;
       img.loading = i < 2 ? "eager" : "lazy";
-      slide.appendChild(img);
+      img.draggable = false;
+      wrap.appendChild(img);
+      slide.appendChild(wrap);
       feed.appendChild(slide);
+      initPinchZoom(slide, wrap, img);
     });
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
@@ -102,6 +200,10 @@
           const i = +e.target.dataset.i;
           capB.textContent = CARDS[i].title;
           capS.textContent = CARDS[i].cat + " · " + (i + 1) + " / " + CARDS.length;
+          feed.querySelectorAll(".slide").forEach((s) => {
+            if (s !== e.target) s.querySelector(".img-wrap")?._resetZoom?.();
+          });
+          feed.style.overflowY = "";
         }
       });
     }, { root: feed, threshold: [0.55] });
