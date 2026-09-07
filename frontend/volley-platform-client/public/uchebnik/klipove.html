@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Клипчета — Volley Platform</title>
+<meta name="description" content="Вертикален feed с видео уроци — плъзни нагоре/надолу като TikTok." />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #000; font-family: Nunito, system-ui, sans-serif; }
+  .top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+    background: linear-gradient(180deg, rgba(0,0,0,.65) 0%, transparent 100%);
+    pointer-events: none;
+  }
+  .top-bar a { pointer-events: auto; color: #fff; text-decoration: none; font-weight: 800; font-size: .9rem; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .top-bar span { color: rgba(255,255,255,.85); font-weight: 700; font-size: .85rem; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .feed {
+    height: 100vh; height: 100dvh;
+    overflow-y: scroll; scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .feed::-webkit-scrollbar { display: none; }
+  .slide {
+    height: 100vh; height: 100dvh;
+    scroll-snap-align: start; scroll-snap-stop: always;
+    position: relative; background: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  video {
+    width: 100%; height: 100%; object-fit: contain; background: #000;
+  }
+  .caption {
+    position: absolute; left: 14px; right: 14px; bottom: max(24px, env(safe-area-inset-bottom));
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9);
+    pointer-events: none;
+  }
+  .caption b { display: block; font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+  .caption span { font-size: .82rem; opacity: .9; font-weight: 700; }
+  .hint {
+    position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,.5); font-size: .75rem; font-weight: 700;
+    z-index: 10; pointer-events: none;
+    animation: fade 4s ease forwards;
+  }
+  @keyframes fade { 0%,70% { opacity: 1; } 100% { opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="top-bar">
+    <a href="/uchebnik/videos.html">← Списък</a>
+    <span>Клипчета · плъзни ↕</span>
+    <a href="/uchebnik/">Герои</a>
+  </div>
+  <p class="hint">Плъзни нагоре за следващото видео</p>
+  <div class="feed" id="feed"></div>
+  <script>
+    const CLIPS = [
+      { src: "/uchebnik/posreshtane-stranichno.mp4", title: "Странично движение", sub: "Разделяща крачка при посрещане" },
+      { src: "/uchebnik/posreshtane-konflikti.mp4", title: "Конфликти при посрещане", sub: "Ляв/десен конфликт · подготовка" },
+      { src: "/uchebnik/posreshtane-lateralen-pas.mp4", title: "Страничен пас при флот", sub: "Пас настрани · з.6" },
+      { src: "/uchebnik/posreshtane.mp4", title: "Посрещане", sub: "Линия · jump/float serve" },
+      { src: "/uchebnik/rotacia-51.mp4", title: "Ротация 5-1", sub: "Шест позиции · либеро" },
+      { src: "/uchebnik/edinichen-blok-i-zashtita.mp4", title: "Единичен блок", sub: "Защита зад единичен блок" },
+      { src: "/uchebnik/dvoen-blok-i-zashtita.mp4", title: "Двоен блок", sub: "Затворена права" },
+      { src: "/uchebnik/blok-funia.mp4", title: "Блок — насочване", sub: "Фуния · блок и защита" },
+      { src: "/uchebnik/troen-blok.mp4", title: "Троен блок", sub: "Кога и как" },
+      { src: "/uchebnik/ataka-z4-zamah.mp4", title: "Атака з.4 — замах", sub: "Диагонала и правата" },
+      { src: "/uchebnik/diagonal-ataka.mp4", title: "Диагонал — посоки", sub: "Посоки на атака" },
+      { src: "/uchebnik/centar-tempo.mp4", title: "Център — темпо", sub: "Темпо и комбинации" },
+      { src: "/uchebnik/razpredelitel-centar.mp4", title: "Разпред. и център", sub: "Игра в играта · маршрути" },
+      { src: "/uchebnik/z1-ataka.mp4", title: "Атака от з.1", sub: "Задна атака от дясно" },
+      { src: "/uchebnik/pokritie-z4.mp4", title: "Покритие з.4", sub: "Покритие на атакуващ" },
+      { src: "/uchebnik/dylga-diagonal.mp4", title: "Дълга диагонала", sub: "Защита на дълга диагонала" },
+      { src: "/uchebnik/zashtita-z4.mp4", title: "Защита з.4", sub: "Защита срещу атака от з.4" },
+      { src: "/uchebnik/tesna-diagonal.mp4", title: "Тесна диагонала", sub: "Защита на тесна диагонала" },
+    ];
+    const feed = document.getElementById("feed");
+    const videos = [];
+
+    CLIPS.forEach((clip, i) => {
+      const slide = document.createElement("section");
+      slide.className = "slide";
+      slide.dataset.index = i;
+      const v = document.createElement("video");
+      v.src = clip.src;
+      v.playsInline = true;
+      v.loop = true;
+      v.preload = i < 2 ? "auto" : "metadata";
+      v.setAttribute("playsinline", "");
+      const cap = document.createElement("div");
+      cap.className = "caption";
+      cap.innerHTML = `<b>${clip.title}</b><span>${clip.sub}</span>`;
+      slide.append(v, cap);
+      feed.appendChild(slide);
+      videos.push(v);
+    });
+
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const v = e.target.querySelector("video");
+        if (!v) return;
+        if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+          videos.forEach((x) => { if (x !== v) { x.pause(); x.currentTime = 0; } });
+          v.muted = false;
+          v.play().catch(() => { v.muted = true; v.play(); });
+        } else {
+          v.pause();
+        }
+      });
+    }, { root: feed, threshold: [0.6] });
+
+    feed.querySelectorAll(".slide").forEach((s) => io.observe(s));
+
+    // start first clip
+    videos[0]?.play().catch(() => { videos[0].muted = true; videos[0].play(); });
+
+    // tap to unmute if needed
+    feed.addEventListener("click", () => {
+      const active = videos.find((v) => !v.paused);
+      if (active?.muted) { active.muted = false; active.play(); }
+    });
+  </script>
+</body>
+</html>
