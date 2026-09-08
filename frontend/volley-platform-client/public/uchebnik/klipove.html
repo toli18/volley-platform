@@ -16,8 +16,16 @@
     background: linear-gradient(180deg, rgba(0,0,0,.65) 0%, transparent 100%);
     pointer-events: none;
   }
-  .top-bar a { pointer-events: auto; color: #fff; text-decoration: none; font-weight: 800; font-size: .9rem; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .top-bar a, .top-bar button { pointer-events: auto; color: #fff; font-weight: 800; font-size: .9rem; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .top-bar a { text-decoration: none; }
   .top-bar span { color: rgba(255,255,255,.85); font-weight: 700; font-size: .85rem; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .subs-btn {
+    border: 2px solid rgba(255,255,255,.55); border-radius: 6px;
+    background: rgba(0,0,0,.35); padding: 4px 10px; cursor: pointer;
+    font-family: inherit; line-height: 1.2; min-width: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .subs-btn.off { opacity: .45; border-color: rgba(255,255,255,.25); }
   .feed {
     height: 100vh; height: 100dvh;
     overflow-y: scroll; scroll-snap-type: y mandatory;
@@ -34,6 +42,16 @@
   video {
     width: 100%; height: 100%; object-fit: contain; background: #000;
   }
+  .subs-overlay {
+    position: absolute; left: 8px; right: 8px; top: max(52px, calc(env(safe-area-inset-top) + 44px));
+    z-index: 12; text-align: center; pointer-events: none;
+    color: #fff; font-size: clamp(.78rem, 3.2vw, .95rem); font-weight: 800; line-height: 1.35;
+    text-shadow: 0 1px 3px #000, 0 0 8px rgba(0,0,0,.85);
+    padding: 6px 10px; border-radius: 6px;
+    background: rgba(0,0,0,.35);
+    display: none;
+  }
+  .subs-overlay.on { display: block; }
   .caption {
     position: absolute; left: 14px; right: 14px; bottom: max(24px, env(safe-area-inset-bottom));
     color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9);
@@ -54,11 +72,15 @@
   <div class="top-bar">
     <a href="/uchebnik/">← Герои</a>
     <span>Клипове · плъзни ↕</span>
-    <a href="/uchebnik/infografiki/">Картинки</a>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button type="button" class="subs-btn" id="subsBtn" aria-pressed="true" title="Субтитри">CC</button>
+      <a href="/uchebnik/infografiki/">Картинки</a>
+    </div>
   </div>
-  <p class="hint">Плъзни нагоре за следващото видео</p>
+  <p class="hint">CC = субтитри · плъзни нагоре за следващото</p>
   <div class="feed" id="feed"></div>
   <script>
+    const STEM = (src) => src.replace(/^.*\//, "").replace(/\.mp4$/, "");
     const CLIPS = [
       { src: "/uchebnik/posreshtane-stranichno.mp4", title: "Странично движение", sub: "Разделяща крачка при посрещане" },
       { src: "/uchebnik/posreshtane-konflikti.mp4", title: "Конфликти при посрещане", sub: "Ляв/десен конфликт · подготовка" },
@@ -78,9 +100,73 @@
       { src: "/uchebnik/dylga-diagonal.mp4", title: "Дълга диагонала", sub: "Защита на дълга диагонала" },
       { src: "/uchebnik/zashtita-z4.mp4", title: "Защита з.4", sub: "Защита срещу атака от з.4" },
       { src: "/uchebnik/tesna-diagonal.mp4", title: "Тесна диагонала", sub: "Защита на тесна диагонала" },
-    ];
+    ].map((c) => ({ ...c, vtt: "/uchebnik/subs/" + STEM(c.src) + ".vtt" }));
+
     const feed = document.getElementById("feed");
+    const subsBtn = document.getElementById("subsBtn");
     const videos = [];
+    const cueCache = new Map();
+    let subsOn = localStorage.getItem("uchebnik-subs") !== "off";
+
+    function parseVttTime(s) {
+      const p = s.trim().split(":");
+      const sec = parseFloat(p.pop().replace(",", "."));
+      const min = +p.pop() || 0;
+      const hr = +p.pop() || 0;
+      return hr * 3600 + min * 60 + sec;
+    }
+
+    function parseVtt(text) {
+      const cues = [];
+      for (const block of text.trim().split(/\r?\n\r?\n+/)) {
+        if (!block.trim() || block.startsWith("WEBVTT")) continue;
+        const lines = block.split(/\r?\n/);
+        const m = lines[0].match(/(.+?)\s*-->\s*(.+)/);
+        if (!m) continue;
+        cues.push({
+          start: parseVttTime(m[1]),
+          end: parseVttTime(m[2]),
+          text: lines.slice(1).join(" "),
+        });
+      }
+      return cues;
+    }
+
+    async function loadCues(url) {
+      if (cueCache.has(url)) return cueCache.get(url);
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const cues = parseVtt(await res.text());
+        cueCache.set(url, cues);
+        return cues;
+      } catch {
+        return [];
+      }
+    }
+
+    function cueAt(cues, t) {
+      for (const c of cues) {
+        if (t >= c.start && t < c.end) return c.text;
+      }
+      return "";
+    }
+
+    function applySubsState() {
+      subsBtn.classList.toggle("off", !subsOn);
+      subsBtn.setAttribute("aria-pressed", subsOn ? "true" : "false");
+      subsBtn.title = subsOn ? "Изключи субтитрите" : "Включи субтитрите";
+      document.querySelectorAll(".subs-overlay").forEach((el) => {
+        el.classList.toggle("on", subsOn);
+        if (!subsOn) el.textContent = "";
+      });
+      localStorage.setItem("uchebnik-subs", subsOn ? "on" : "off");
+    }
+
+    subsBtn.addEventListener("click", () => {
+      subsOn = !subsOn;
+      applySubsState();
+    });
 
     CLIPS.forEach((clip, i) => {
       const slide = document.createElement("section");
@@ -92,37 +178,50 @@
       v.loop = true;
       v.preload = i < 2 ? "auto" : "metadata";
       v.setAttribute("playsinline", "");
+      const subs = document.createElement("div");
+      subs.className = "subs-overlay" + (subsOn ? " on" : "");
       const cap = document.createElement("div");
       cap.className = "caption";
       cap.innerHTML = `<b>${clip.title}</b><span>${clip.sub}</span>`;
-      slide.append(v, cap);
+      slide.append(v, subs, cap);
       feed.appendChild(slide);
-      videos.push(v);
+      videos.push({ v, subs, vtt: clip.vtt, cues: null });
+
+      v.addEventListener("timeupdate", () => {
+        if (!subsOn || !videos[i].cues?.length) return;
+        const txt = cueAt(videos[i].cues, v.currentTime);
+        if (subs.textContent !== txt) subs.textContent = txt;
+      });
+
+      loadCues(clip.vtt).then((cues) => { videos[i].cues = cues; });
     });
+
+    applySubsState();
 
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         const v = e.target.querySelector("video");
+        const subs = e.target.querySelector(".subs-overlay");
         if (!v) return;
         if (e.isIntersecting && e.intersectionRatio >= 0.6) {
-          videos.forEach((x) => { if (x !== v) { x.pause(); x.currentTime = 0; } });
+          videos.forEach((x) => { if (x.v !== v) { x.v.pause(); x.v.currentTime = 0; x.subs.textContent = ""; } });
           v.muted = false;
           v.play().catch(() => { v.muted = true; v.play(); });
         } else {
           v.pause();
+          if (subs) subs.textContent = "";
         }
       });
     }, { root: feed, threshold: [0.6] });
 
     feed.querySelectorAll(".slide").forEach((s) => io.observe(s));
 
-    // start first clip
-    videos[0]?.play().catch(() => { videos[0].muted = true; videos[0].play(); });
+    videos[0]?.v.play().catch(() => { videos[0].v.muted = true; videos[0].v.play(); });
 
-    // tap to unmute if needed
-    feed.addEventListener("click", () => {
-      const active = videos.find((v) => !v.paused);
-      if (active?.muted) { active.muted = false; active.play(); }
+    feed.addEventListener("click", (e) => {
+      if (e.target.closest(".subs-btn")) return;
+      const active = videos.find((x) => !x.v.paused);
+      if (active?.v.muted) { active.v.muted = false; active.v.play(); }
     });
   </script>
 </body>

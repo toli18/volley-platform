@@ -20,9 +20,10 @@ VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-12%"
 SUBTITLE_BLUR_H = 220
 MAX_TEMPO = 1.04
-SUBTITLE_FONT_SIZE = 14
-SUBTITLE_ALIGNMENT = 8  # top center — below blurred EN subs
-SUBTITLE_MARGIN_V = 175
+SUBTITLE_FONT_SIZE = 13
+SUBTITLE_ALIGNMENT = 8  # top center
+SUBTITLE_MARGIN_V = 48
+SUBTITLE_LINE_MAX = 38
 
 ZONE_WORDS = {
     "1": "едно",
@@ -242,6 +243,41 @@ def fmt_ass_time(sec: float) -> str:
     return f"{h}:{m:02d}:{s:05.2f}"
 
 
+def fmt_vtt_time(sec: float) -> str:
+    ms = int(round(sec * 1000))
+    h, rem = divmod(ms, 3_600_000)
+    m, rem = divmod(rem, 60_000)
+    s, ms = divmod(rem, 1000)
+    return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+
+
+def wrap_subtitle_lines(text: str, max_len: int = SUBTITLE_LINE_MAX) -> str:
+    words = text.split()
+    lines: list[str] = []
+    current: list[str] = []
+    for word in words:
+        trial = " ".join(current + [word]).strip()
+        if len(trial) <= max_len:
+            current.append(word)
+        else:
+            if current:
+                lines.append(" ".join(current))
+            current = [word]
+    if current:
+        lines.append(" ".join(current))
+    return "\\N".join(lines[:2])
+
+
+def write_vtt(path: Path, timings: list[tuple[float, float, str]]) -> None:
+    lines = ["WEBVTT", ""]
+    for start, end, text in timings:
+        display = wrap_subtitle_lines(text).replace("\\N", "\n")
+        lines.append(f"{fmt_vtt_time(start)} --> {fmt_vtt_time(end)}")
+        lines.append(display)
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def write_ass(path: Path, timings: list[tuple[float, float, str]]) -> None:
     lines = [
         "[Script Info]",
@@ -263,7 +299,7 @@ def write_ass(path: Path, timings: list[tuple[float, float, str]]) -> None:
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
     for start, end, text in timings:
-        safe = text.replace("\n", " ").replace("{", "").replace("}", "")
+        safe = wrap_subtitle_lines(text.replace("\n", " ").replace("{", "").replace("}", ""))
         lines.append(
             f"Dialogue: 0,{fmt_ass_time(start)},{fmt_ass_time(end)},Default,,0,0,0,,{safe}"
         )
@@ -369,10 +405,13 @@ def process(job: Job, *, blur: bool = True, subs: bool = False) -> None:
     total = probe_duration(video)
     root = job.narration_in.parent
     ass_path = root / f"{job.slug}.bg.ass"
+    vtt_path = root / f"{job.slug}.bg.vtt"
     with tempfile.TemporaryDirectory(prefix=f"vm_dub_{job.slug}_") as td:
         work = Path(td)
         lines, timings = build_dub(phrases, total, work)
         audio = merge_audio(lines, work, job.audio_out)
+        write_vtt(vtt_path, timings)
+        print("VTT:", vtt_path)
         print("Audio:", audio)
         if subs:
             write_ass(ass_path, timings)
