@@ -1323,6 +1323,11 @@ def submit_card_index_to_federation(
         raise HTTPException(status_code=502, detail=f"БФВ sign недостъпно: {exc}") from exc
 
     if res.status_code == 403:
+        body = (res.text or "").strip()
+        if _sek_carding_closed_message(body):
+            local.status = "pending_bvf_sign"
+            db.commit()
+            raise _http_sek_carding_closed(body)
         local.status = "pending_bvf_sign"
         local.signed_by_user_id = current_user.id
         local.signed_at = datetime.utcnow()
@@ -1335,10 +1340,16 @@ def submit_card_index_to_federation(
                 f"Форми: качени {_form_upload_summary(form_uploads)['forms_uploaded']}."
             ),
         )
-    if res.status_code == 400:
-        raise HTTPException(status_code=409, detail=(res.text or "Подписването беше отказано от БФВ")[:300])
     if res.status_code >= 400:
-        raise HTTPException(status_code=502, detail=(res.text or "")[:300] or f"БФВ sign грешка {res.status_code}")
+        body = (res.text or "").strip()
+        if _sek_carding_closed_message(body):
+            local.status = "pending_bvf_sign"
+            db.commit()
+            raise _http_sek_carding_closed(body)
+        raise HTTPException(
+            status_code=409 if res.status_code == 400 else 502,
+            detail=(body or f"БФВ sign грешка {res.status_code}")[:500],
+        )
 
     local.is_signed = True
     local.status = "signed"
@@ -2383,6 +2394,115 @@ def reopen_card_index_for_coach(
     return {"ok": True, "id": local.id, "status": local.status}
 
 
+def _strip_sek_quotes(text: str) -> str:
+    s = (text or "").strip()
+    if len(s) >= 2 and ((s[0] == s[-1] == "'") or (s[0] == s[-1] == '"')):
+        return s[1:-1].strip()
+    return s
+
+
+def _sek_carding_closed_message(detail: str | None) -> bool:
+    """СЕК: прозорецът за картотекиране на отбора е затворен."""
+    t = _strip_sek_quotes(str(detail or "")).lower()
+    if not t:
+        return False
+    needles = (
+        "картотекирането е приключило",
+        "картотекирането приключи",
+        "картотекирането е затворено",
+        "картотекирането за този отбор е приключило",
+        "carding has ended",
+        "carding is closed",
+        "registration has ended",
+    )
+    return any(n in t for n in needles)
+
+
+def _sek_card_index_exists_message(detail: str | None) -> bool:
+    t = _strip_sek_quotes(str(detail or "")).lower()
+    if not t:
+        return False
+    needles = (
+        "вече съществува",
+        "вече има",
+        "already exists",
+        "duplicate",
+        "картотека вече",
+        "лиценз вече",
+    )
+    return any(n in t for n in needles)
+
+
+def _http_sek_carding_closed(detail: str | None = None) -> HTTPException:
+    quote = _strip_sek_quotes(str(detail or ""))
+    msg = (
+        "Съставът е запазен локално. СЕК е затворил картотекирането за този отбор "
+        "(„Картотекирането е приключило за този отбор.“). "
+        "Провери статуса в db.bvf.bg → Лицензи / Картотеки. "
+        "Локалният състав остава при нас; нов запис/подпис в СЕК не е възможен, докато прозорецът е затворен."
+    )
+    if quote and "приключило" not in quote.lower():
+        msg = f"{msg} Отговор от СЕК: {quote}"
+    return HTTPException(status_code=409, detail=msg)
+
+
+def _find_matching_sek_card_index(
+    club: Club,
+    token: str,
+    *,
+    year: int,
+    age: int,
+    sex: int,
+) -> dict | None:
+    """Намира вече създаден remote card index за същата тройка сезон/възраст/пол."""
+    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/card-indexes", token)
+    if not isinstance(remote, list):
+        return None
+    for row in remote:
+        if not isinstance(row, dict):
+            continue
+        try:
+            if int(row.get("year") or 0) != int(year):
+                continue
+            if int(row.get("age") or 0) != int(age):
+                continue
+            if int(row.get("sex") or 0) != int(sex):
+                continue
+            if row.get("id") is None:
+                continue
+            return row
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _sync_local_members_to_sek_card_index(
+    local: BvfCardIndex,
+    *,
+    token: str,
+    card_index_id: int,
+) -> None:
+    for mem in local.members or []:
+        if not mem.bvf_player_id:
+            continue
+        url = f"{BVF_API_BASE}/api/card-indexes/{int(card_index_id)}/players"
+        try:
+            with httpx.Client(timeout=BVF_TIMEOUT) as client:
+                res = client.post(
+                    url,
+                    headers={**_bvf_headers(token), "Content-Type": "application/json"},
+                    json={"playerId": int(mem.bvf_player_id)},
+                )
+                if res.status_code < 400:
+                    mem.synced = True
+                elif _sek_carding_closed_message(res.text):
+                    raise _http_sek_carding_closed(res.text)
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+
 @router.post("/card-indexes/local/{local_id}/submit")
 def submit_local_card_index_to_federation(
     local_id: int,
@@ -2398,7 +2518,7 @@ def submit_local_card_index_to_federation(
     """
     _require_submit_role(current_user)
     club = _club_for_user(db, current_user, payload.club_id)
-    local = _local_card_index(db, club, local_id)
+    local = _local_card_index(db, club, local_id, with_roster=True)
     detail = _detail_payload(db, local, current_user)
     if not detail["all_ready"]:
         raise HTTPException(status_code=422, detail="Съставът не е готов (Форма 03 / снимка / ЕГН).")
@@ -2417,46 +2537,85 @@ def submit_local_card_index_to_federation(
             ),
         ) from exc
 
-    data = {
-        "ClubId": str(int(club.bvf_club_id)),
-        "Year": str(int(local.year)),
-        "Age": str(int(local.age)),
-        "Sex": str(int(local.sex)),
-    }
-    primary = db.query(User).filter(User.id == local.assigned_coach_user_id).first() if local.assigned_coach_user_id else None
-    if primary and getattr(primary, "bvf_coach_id", None):
-        data["SeniorCoachId"] = str(int(primary.bvf_coach_id))
-    second = (
-        db.query(User).filter(User.id == local.second_coach_user_id).first()
-        if getattr(local, "second_coach_user_id", None)
-        else None
-    )
-    if second and getattr(second, "bvf_coach_id", None):
-        data["CoachId"] = str(int(second.bvf_coach_id))
-    doctor = (getattr(local, "doctor_name", None) or "").strip()
-    if doctor:
-        data["Medic"] = doctor
-    try:
-        remote = _bvf_post_multipart("/api/card-indexes", token, data, files={})
-    except HTTPException as exc:
-        bvf_detail = str(exc.detail or "").strip()
-        status = int(getattr(exc, "status_code", 0) or 0)
-        if status == 401:
-            hint = "Ключът е невалиден или сменен — запази новия ApiKey в BVF Admin."
-        elif status == 403:
-            hint = (
-                "Ключът няма право за запис на Лицензи (и/или Клубове). "
-                "В db.bvf.bg създай нов токен с Лицензи = Четене и запис и го запиши в платформата."
-            )
-        else:
-            hint = (
-                "Чести причини: няма активна сезонна заявка за тази възраст/пол в СЕК, "
-                "или възрастовият код не съвпада. Провери в db.bvf.bg → Заявки / Лицензи."
-            )
-        raise HTTPException(
-            status_code=503,
-            detail=f"Съставът е запазен локално. СЕК отказа записа: {bvf_detail}. {hint}",
-        ) from exc
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
+
+    year = int(local.year)
+    age = int(local.age)
+    sex = int(local.sex)
+
+    # Ако в СЕК вече има лиценз за тройката — свързваме, вместо да създаваме наново.
+    existing_remote = _find_matching_sek_card_index(club, token, year=year, age=age, sex=sex)
+    remote: dict | None = existing_remote
+
+    if not remote:
+        data = {
+            "ClubId": str(int(club.bvf_club_id)),
+            "Year": str(year),
+            "Age": str(age),
+            "Sex": str(sex),
+        }
+        primary = (
+            db.query(User).filter(User.id == local.assigned_coach_user_id).first()
+            if local.assigned_coach_user_id
+            else None
+        )
+        if primary and getattr(primary, "bvf_coach_id", None):
+            data["SeniorCoachId"] = str(int(primary.bvf_coach_id))
+        second = (
+            db.query(User).filter(User.id == local.second_coach_user_id).first()
+            if getattr(local, "second_coach_user_id", None)
+            else None
+        )
+        if second and getattr(second, "bvf_coach_id", None):
+            data["CoachId"] = str(int(second.bvf_coach_id))
+        doctor = (getattr(local, "doctor_name", None) or "").strip()
+        if doctor:
+            data["Medic"] = doctor
+        try:
+            created = _bvf_post_multipart("/api/card-indexes", token, data, files={})
+            if isinstance(created, dict) and created.get("id"):
+                remote = created
+        except HTTPException as exc:
+            bvf_detail = str(exc.detail or "").strip()
+            status = int(getattr(exc, "status_code", 0) or 0)
+            if _sek_carding_closed_message(bvf_detail):
+                local.status = "pending_bvf_sign"
+                db.commit()
+                raise _http_sek_carding_closed(bvf_detail) from exc
+            if _sek_card_index_exists_message(bvf_detail) or status in (400, 409, 502):
+                remote = _find_matching_sek_card_index(club, token, year=year, age=age, sex=sex)
+                if remote is None and _sek_card_index_exists_message(bvf_detail):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Съставът е запазен локално. СЕК казва, че картотеката вече съществува, "
+                            "но не намерихме съвпадащ лиценз за тази възраст/пол/сезон. "
+                            f"Отговор от СЕК: {_strip_sek_quotes(bvf_detail)}. Провери в db.bvf.bg."
+                        ),
+                    ) from exc
+                if remote is None:
+                    if status == 401:
+                        hint = "Ключът е невалиден или сменен — запази новия ApiKey в BVF Admin."
+                    elif status == 403:
+                        hint = (
+                            "Ключът няма право за запис на Лицензи. "
+                            "Създай токен с Лицензи = Четене и запис и го запиши в платформата."
+                        )
+                    else:
+                        hint = (
+                            "Провери в db.bvf.bg дали има сезонна заявка/лиценз за този отбор "
+                            "и дали прозорецът за картотекиране е отворен."
+                        )
+                    raise HTTPException(
+                        status_code=409 if status in (400, 409) else 503,
+                        detail=(
+                            f"Съставът е запазен локално. СЕК отказа записа: "
+                            f"{_strip_sek_quotes(bvf_detail)}. {hint}"
+                        ),
+                    ) from exc
+            else:
+                raise
 
     if not isinstance(remote, dict) or not remote.get("id"):
         raise HTTPException(
@@ -2470,24 +2629,25 @@ def submit_local_card_index_to_federation(
     cid = int(remote["id"])
     local.bvf_card_index_id = cid
     local.age_group = str(remote.get("ageGroup") or "").strip() or local.age_group
+    if remote.get("isSigned") is True:
+        local.is_signed = True
+        local.status = "signed"
+        db.commit()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Съставът е свързан с вече подписан лиценз в СЕК. "
+                "Локално е маркиран като signed. Допълнителни промени се правят в db.bvf.bg."
+            ),
+        )
     local.status = "synced"
     db.commit()
 
-    for mem in local.members or []:
-        if not mem.bvf_player_id:
-            continue
-        url = f"{BVF_API_BASE}/api/card-indexes/{cid}/players"
-        try:
-            with httpx.Client(timeout=BVF_TIMEOUT) as client:
-                res = client.post(
-                    url,
-                    headers={**_bvf_headers(token), "Content-Type": "application/json"},
-                    json={"playerId": int(mem.bvf_player_id)},
-                )
-                if res.status_code < 400:
-                    mem.synced = True
-        except Exception:
-            pass
+    try:
+        _sync_local_members_to_sek_card_index(local, token=token, card_index_id=cid)
+    except HTTPException as exc:
+        db.commit()
+        raise
     db.commit()
     return submit_card_index_to_federation(cid, payload, db, current_user)
 

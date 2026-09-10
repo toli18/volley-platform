@@ -20,15 +20,20 @@ export function ToastProvider({ children }) {
     const msg = String(message || "").trim();
     if (!msg) return;
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    // Longer SEK / federation quotes need more reading time.
+    const hold =
+      type === "error"
+        ? Math.min(16000, Math.max(ttl, 5200 + Math.floor(msg.length * 35)))
+        : ttl;
     setToasts((prev) => [...prev, { id, type, message: msg }]);
-    window.setTimeout(() => removeToast(id), ttl);
+    window.setTimeout(() => removeToast(id), hold);
   };
 
   const value = useMemo(
     () => ({
       show,
       success: (message) => show(message, "success"),
-      error: (message) => show(message, "error", 4200),
+      error: (message) => show(message, "error", 8000),
       info: (message) => show(message, "info"),
     }),
     []
