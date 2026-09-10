@@ -270,7 +270,9 @@ export default function CardingFormLiveForm({
       </div>
 
       <p className="cardingFormSigLabel">
-        {is03a ? "Подписи — състезател и родител:" : "Подписи — родители/настойници:"}
+        {is03a
+          ? "Подписи — състезател (екран) и родители:"
+          : "Подписи — родител 1 (екран), родител 2 (име):"}
       </p>
 
       {is03a ? (

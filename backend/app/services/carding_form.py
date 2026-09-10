@@ -95,6 +95,21 @@ def form_kind_for_athlete(athlete: Athlete, season_year: int) -> str:
     return FORM_KIND_03
 
 
+def form_has_federation_signatures(form: AthleteCardingForm) -> bool:
+    """Валиден подпис: canvas за родител 1 (+ състезател при 03А/03B); родител 2 — текстово име."""
+    kind = (form.form_kind or "").strip().lower()
+    if kind == FORM_KIND_03B:
+        return resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None)) is not None
+    if not resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None)):
+        return False
+    if not (getattr(form, "signature_parent2", None) or "").strip():
+        return False
+    if kind == FORM_KIND_03A:
+        if not resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None)):
+            return False
+    return True
+
+
 def get_signed_carding_form(
     db: Session, athlete_id: int, season_year: int, club_id: int | None = None
 ) -> AthleteCardingForm | None:
@@ -109,7 +124,10 @@ def get_signed_carding_form(
     )
     if club_id is not None:
         q = q.filter(AthleteCardingForm.club_id == int(club_id))
-    return q.first()
+    for form in q.all():
+        if form_has_federation_signatures(form):
+            return form
+    return None
 
 
 def signed_carding_form_athlete_ids(
@@ -118,8 +136,8 @@ def signed_carding_form_athlete_ids(
     season_year: int,
     athlete_ids: set[int] | list[int] | None = None,
 ) -> set[int]:
-    """Една заявка вместо N× get_signed_carding_form."""
-    q = db.query(AthleteCardingForm.athlete_id).filter(
+    """Само форми с валидни canvas подписи (не име вместо подпис)."""
+    q = db.query(AthleteCardingForm).filter(
         AthleteCardingForm.club_id == int(club_id),
         AthleteCardingForm.season_year == int(season_year),
         AthleteCardingForm.is_active.is_(True),
@@ -129,7 +147,7 @@ def signed_carding_form_athlete_ids(
         if not wanted:
             return set()
         q = q.filter(AthleteCardingForm.athlete_id.in_(wanted))
-    return {int(r[0]) for r in q.distinct().all()}
+    return {int(f.athlete_id) for f in q.all() if form_has_federation_signatures(f)}
 
 
 def athlete_has_signed_carding_form(db: Session, athlete: Athlete, season_year: int) -> bool:
@@ -262,6 +280,7 @@ def purge_carding_form_files(form: AthleteCardingForm) -> None:
     for rel in (
         getattr(form, "pdf_rel_path", None),
         getattr(form, "signature_parent1_image_rel", None),
+        getattr(form, "signature_parent2_image_rel", None),
         getattr(form, "signature_athlete_image_rel", None),
     ):
         if not rel:
@@ -275,10 +294,10 @@ def purge_carding_form_files(form: AthleteCardingForm) -> None:
                 path.unlink()
         except OSError:
             pass
-    # Fallback имена по id (ако rel липсва, но файлът съществува).
     for path in (
         carding_form_pdf_dir() / f"{form.athlete_id}_{form.season_year}_{form.id}.pdf",
         carding_signature_dir() / f"{form.id}_parent1.png",
+        carding_signature_dir() / f"{form.id}_parent2.png",
         carding_signature_dir() / f"{form.id}_athlete.png",
     ):
         try:
@@ -288,8 +307,57 @@ def purge_carding_form_files(form: AthleteCardingForm) -> None:
             pass
 
 
-def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -> bytes:
-    """PDF близо до официалната бланка Форма 0-3 / 0-3 А (рамка, кутии, лога)."""
+def _draw_canvas_signature(
+    c,
+    *,
+    rel: str | None,
+    ink_bytes: bytes | None,
+    x: float,
+    y_bottom: float,
+    width: float,
+    height: float,
+) -> bool:
+    """Рисува само реален canvas PNG. Никога не печата име като подпис."""
+    from io import BytesIO
+
+    from reportlab.lib.utils import ImageReader
+
+    reader = None
+    if ink_bytes and len(ink_bytes) >= 200:
+        try:
+            reader = ImageReader(BytesIO(ink_bytes))
+        except Exception:
+            reader = None
+    if reader is None:
+        path = resolve_carding_signature_path(rel)
+        if path is None:
+            return False
+        try:
+            reader = ImageReader(str(path))
+        except Exception:
+            return False
+    try:
+        c.drawImage(
+            reader,
+            x,
+            y_bottom,
+            width=width,
+            height=height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+        return True
+    except Exception:
+        return False
+
+
+def build_carding_form_pdf(
+    form: AthleteCardingForm,
+    club: Club | None = None,
+    *,
+    ink_images: dict[str, bytes] | None = None,
+) -> bytes:
+    """PDF близо до официалната бланка. Подписите са САМО canvas PNG."""
     from io import BytesIO
 
     from reportlab.lib.pagesizes import A4
@@ -299,6 +367,7 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
     from app.routers.fees import _ensure_pdf_font
     from app.services.club_membership_consent import _club_logo_filesystem_path
 
+    ink = ink_images or {}
     font_name = _ensure_pdf_font()
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -476,99 +545,84 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
     c.drawString(inner_l + half + 5 * mm, y - 4 * mm, f"Град: {city}")
     y -= meta_h + 8 * mm
 
+    # Подписи: САМО canvas PNG. Никога не печатаме име вместо подпис.
+    sig_box_h = 16 * mm
+    half_w = content_w / 2 - 2 * mm
     if form.form_kind == FORM_KIND_03B:
         text("Състезател:", gap=3 * mm)
-        ath_img = resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None))
-        if ath_img:
-            try:
-                c.drawImage(
-                    str(ath_img),
-                    inner_l,
-                    y - 16 * mm,
-                    width=content_w * 0.55,
-                    height=14 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                text(form.signature_athlete or "_______________")
-            y -= 18 * mm
-        else:
-            text(form.signature_athlete or "_______________", gap=6 * mm)
+        drew = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_athlete_image_rel", None),
+            ink_bytes=ink.get("athlete"),
+            x=inner_l,
+            y_bottom=y - 16 * mm,
+            width=content_w * 0.55,
+            height=14 * mm,
+        )
+        y -= 18 * mm
         c.setFont(font_name, 7)
         c.setFillColorRGB(0.45, 0.5, 0.55)
-        c.drawString(inner_l, y, "(подпис)")
+        c.drawString(inner_l, y, "(подпис)" if drew else "(подпис) — липсва")
     elif form.form_kind == FORM_KIND_03A:
         text("Състезател:", gap=3 * mm)
-        ath_img = resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None))
-        if ath_img:
-            try:
-                c.drawImage(
-                    str(ath_img),
-                    inner_l,
-                    y - 16 * mm,
-                    width=content_w * 0.45,
-                    height=14 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                text(form.signature_athlete or "_______________")
-            y -= 18 * mm
-        else:
-            text(f"{form.signature_athlete or '_______________'}", gap=6 * mm)
-        text("Родители/попечители:", gap=5 * mm)
-        c.setFont(font_name, 10)
-        p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
-        sig_box_h = 16 * mm
-        half_w = content_w / 2 - 2 * mm
-        if p1_img:
-            try:
-                c.drawImage(
-                    str(p1_img),
-                    inner_l,
-                    y - sig_box_h + 2 * mm,
-                    width=half_w,
-                    height=sig_box_h - 4 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-        else:
-            c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-        c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
-        y -= sig_box_h if p1_img else 4 * mm
+        drew_ath = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_athlete_image_rel", None),
+            ink_bytes=ink.get("athlete"),
+            x=inner_l,
+            y_bottom=y - 16 * mm,
+            width=content_w * 0.45,
+            height=14 * mm,
+        )
+        y -= 18 * mm
         c.setFont(font_name, 7)
         c.setFillColorRGB(0.45, 0.5, 0.55)
-        c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
+        c.drawString(inner_l, y, "(подпис)" if drew_ath else "(подпис) — липсва")
+        y -= 6 * mm
+        c.setFillColorRGB(0, 0, 0)
+        text("Родители/попечители:", gap=5 * mm)
+        drew_p1 = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_parent1_image_rel", None),
+            ink_bytes=ink.get("parent1"),
+            x=inner_l,
+            y_bottom=y - sig_box_h + 2 * mm,
+            width=half_w,
+            height=sig_box_h - 4 * mm,
+        )
+        # Родител 2 — изписано име (не canvas)
+        c.setFont(font_name, 10)
+        c.setFillColorRGB(0, 0, 0)
+        p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
+        c.drawCentredString(inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________")
+        y -= sig_box_h
+        c.setFont(font_name, 7)
+        c.setFillColorRGB(0.45, 0.5, 0.55)
+        c.drawCentredString(
+            inner_l + content_w / 4, y, "(подпис)" if drew_p1 else "(подпис) — липсва"
+        )
         c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
     else:
         text("Родители/настойници:", gap=5 * mm)
+        drew_p1 = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_parent1_image_rel", None),
+            ink_bytes=ink.get("parent1"),
+            x=inner_l,
+            y_bottom=y - sig_box_h + 2 * mm,
+            width=half_w,
+            height=sig_box_h - 4 * mm,
+        )
         c.setFont(font_name, 10)
-        p1_img = resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None))
-        sig_box_h = 16 * mm
-        half_w = content_w / 2 - 2 * mm
-        if p1_img:
-            try:
-                c.drawImage(
-                    str(p1_img),
-                    inner_l,
-                    y - sig_box_h + 2 * mm,
-                    width=half_w,
-                    height=sig_box_h - 4 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-        else:
-            c.drawString(inner_l, y, f"1. {form.signature_parent1 or '_______________'}")
-        c.drawString(inner_l + content_w / 2, y, f"2. {form.signature_parent2 or '_______________'}")
-        y -= sig_box_h if p1_img else 4 * mm
+        c.setFillColorRGB(0, 0, 0)
+        p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
+        c.drawCentredString(inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________")
+        y -= sig_box_h
         c.setFont(font_name, 7)
         c.setFillColorRGB(0.45, 0.5, 0.55)
-        c.drawCentredString(inner_l + content_w / 4, y, f"(подпис) {form.signature_parent1 or ''}".strip())
+        c.drawCentredString(
+            inner_l + content_w / 4, y, "(подпис)" if drew_p1 else "(подпис) — липсва"
+        )
         c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
 
     c.showPage()
@@ -576,8 +630,13 @@ def build_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -
     return buffer.getvalue()
 
 
-def persist_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) -> str:
-    data = build_carding_form_pdf(form, club=club)
+def persist_carding_form_pdf(
+    form: AthleteCardingForm,
+    club: Club | None = None,
+    *,
+    ink_images: dict[str, bytes] | None = None,
+) -> str:
+    data = build_carding_form_pdf(form, club=club, ink_images=ink_images)
     rel = f"{form.athlete_id}_{form.season_year}_{form.id}.pdf"
     path = carding_form_pdf_dir() / rel
     path.write_bytes(data)
@@ -661,11 +720,14 @@ def create_signed_carding_form_03b(
     )
     db.add(form)
     db.flush()
+    ink = _decode_png_data_url(signature_image_data_url)
     form.signature_athlete_image_rel = save_carding_signature_png(
         form.id, "athlete", signature_image_data_url
     )
     try:
-        form.pdf_rel_path = persist_carding_form_pdf(form, club=club)
+        form.pdf_rel_path = persist_carding_form_pdf(
+            form, club=club, ink_images={"athlete": ink}
+        )
     except Exception:
         pass
     db.commit()

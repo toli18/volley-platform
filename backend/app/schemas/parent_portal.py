@@ -260,11 +260,13 @@ class ParentCardingFormSignRequest(BaseModel):
     athlete_egn: str = Field(..., min_length=10, max_length=16)
     city: Optional[str] = Field(None, max_length=120)
     rules_accepted: bool = False
-    signature_parent1: str = Field(..., min_length=2, max_length=255)
+    # Текстовите „подписи“: родител 2 е изписано име; родител 1 / състезател — canvas PNG.
+    signature_parent1: Optional[str] = Field(None, max_length=255)
     signature_parent2: str = Field(..., min_length=2, max_length=255)
     signature_athlete: Optional[str] = Field(None, max_length=255)
-    # data:image/png;base64,... — canvas подпис (родител 1 задължителен; състезател при 03-А)
+    # data:image/png;base64,...
     signature_parent1_image: str = Field(..., min_length=32)
+    signature_parent2_image: Optional[str] = Field(None, min_length=32)
     signature_athlete_image: Optional[str] = Field(None, min_length=32)
 
 

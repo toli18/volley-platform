@@ -642,6 +642,12 @@ def _init_db_impl() -> None:
                 conn.execute(
                     text(
                         "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_parent2_image_rel VARCHAR(500)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
                         "ADD COLUMN IF NOT EXISTS signature_athlete_image_rel VARCHAR(500)"
                     )
                 )

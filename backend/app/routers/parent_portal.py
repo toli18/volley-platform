@@ -1549,22 +1549,22 @@ def _sign_carding_form(
         raise HTTPException(status_code=422, detail="ЕГН трябва да е 10 цифри (и двамата родители + състезател)")
     if len(p2_name) < 2:
         raise HTTPException(status_code=422, detail="Имената на родител 2 са задължителни")
-    sig_p2 = (body.signature_parent2 or "").strip()
-    if len(sig_p2) < 2:
-        raise HTTPException(status_code=422, detail="Подписът на родител 2 е задължителен")
 
     kind = form_kind_for_athlete(athlete, year)
+    if not (body.signature_parent1_image or "").strip():
+        raise HTTPException(status_code=422, detail="Нужен е екранен подпис на родител 1")
+    sig_p2_meta = (body.signature_parent2 or "").strip() or p2_name
+    if len(sig_p2_meta) < 2:
+        raise HTTPException(status_code=422, detail="Подписът на родител 2 е задължителен (изпишете името)")
+
     if kind == FORM_KIND_03A:
-        sig_ath = (body.signature_athlete or "").strip()
-        if len(sig_ath) < 2:
-            raise HTTPException(status_code=422, detail="За Форма 0-3 А е нужен подпис на състезателя")
         if not (body.signature_athlete_image or "").strip():
             raise HTTPException(status_code=422, detail="За Форма 0-3 А е нужен екранен подпис на състезателя")
+        sig_ath = (body.signature_athlete or "").strip() or athlete_full
     else:
         sig_ath = (body.signature_athlete or "").strip() or None
 
-    if not (body.signature_parent1_image or "").strip():
-        raise HTTPException(status_code=422, detail="Нужен е екранен подпис на родител 1")
+    sig_p1_meta = (body.signature_parent1 or "").strip() or body.parent1_full_name.strip()
 
     now = datetime.utcnow()
     deactivate_prior_carding_forms(db, athlete.id, year)
@@ -1581,8 +1581,8 @@ def _sign_carding_form(
         athlete_egn=a_egn,
         city=(body.city or "").strip() or None,
         rules_accepted=True,
-        signature_parent1=body.signature_parent1.strip(),
-        signature_parent2=sig_p2,
+        signature_parent1=sig_p1_meta,
+        signature_parent2=sig_p2_meta,
         signature_athlete=sig_ath,
         signed_at=now,
         club_name_snapshot=club.name,
@@ -1591,18 +1591,23 @@ def _sign_carding_form(
     )
     db.add(form)
     db.flush()
+    ink_images: dict[str, bytes] = {}
     try:
+        from app.services.carding_form import _decode_png_data_url
+
         form.signature_parent1_image_rel = save_carding_signature_png(
             form.id, "parent1", body.signature_parent1_image
         )
+        ink_images["parent1"] = _decode_png_data_url(body.signature_parent1_image)
         if kind == FORM_KIND_03A and body.signature_athlete_image:
             form.signature_athlete_image_rel = save_carding_signature_png(
                 form.id, "athlete", body.signature_athlete_image
             )
+            ink_images["athlete"] = _decode_png_data_url(body.signature_athlete_image)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
-        form.pdf_rel_path = persist_carding_form_pdf(form, club=club)
+        form.pdf_rel_path = persist_carding_form_pdf(form, club=club, ink_images=ink_images)
     except Exception as exc:
         logger.warning("PDF for carding form athlete %s: %s", athlete.id, exc)
     db.commit()
