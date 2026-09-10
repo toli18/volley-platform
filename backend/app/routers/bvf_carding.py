@@ -2435,22 +2435,36 @@ def submit_local_card_index_to_federation(
         data["CoachId"] = str(int(second.bvf_coach_id))
     doctor = (getattr(local, "doctor_name", None) or "").strip()
     if doctor:
-        data["DoctorName"] = doctor
+        data["Medic"] = doctor
     try:
         remote = _bvf_post_multipart("/api/card-indexes", token, data, files={})
     except HTTPException as exc:
+        bvf_detail = str(exc.detail or "").strip()
+        status = int(getattr(exc, "status_code", 0) or 0)
+        if status == 401:
+            hint = "Ключът е невалиден или сменен — запази новия ApiKey в BVF Admin."
+        elif status == 403:
+            hint = (
+                "Ключът няма право за запис на Лицензи (и/или Клубове). "
+                "В db.bvf.bg създай нов токен с Лицензи = Четене и запис и го запиши в платформата."
+            )
+        else:
+            hint = (
+                "Чести причини: няма активна сезонна заявка за тази възраст/пол в СЕК, "
+                "или възрастовият код не съвпада. Провери в db.bvf.bg → Заявки / Лицензи."
+            )
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Съставът е запазен локално. Записът в БФВ иска write ApiKey. "
-                f"БФВ: {exc.detail}"
-            ),
+            detail=f"Съставът е запазен локално. СЕК отказа записа: {bvf_detail}. {hint}",
         ) from exc
 
     if not isinstance(remote, dict) or not remote.get("id"):
         raise HTTPException(
             status_code=503,
-            detail="Съставът е готов локално. БФВ не върна card index — провери write token.",
+            detail=(
+                "Съставът е готов локално. СЕК не върна card index id — "
+                "провери ApiKey (Лицензи: запис) и сезонната заявка за този отбор."
+            ),
         )
 
     cid = int(remote["id"])

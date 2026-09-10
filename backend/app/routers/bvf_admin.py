@@ -200,7 +200,11 @@ def _bvf_post_multipart(path: str, token: str, data: dict, files: dict | None = 
     if res.status_code == 401:
         raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
     if res.status_code == 403:
-        raise HTTPException(status_code=403, detail="Нямаш право за този ресурс в БФВ.")
+        body = (res.text or "").strip()[:400]
+        raise HTTPException(
+            status_code=403,
+            detail=body or "Нямаш право за този ресурс в БФВ (403).",
+        )
     if res.status_code >= 400:
         detail = (res.text or "").strip()[:500] or f"БФВ грешка {res.status_code}"
         raise HTTPException(status_code=502, detail=detail)
