@@ -46,6 +46,69 @@ SEK_LEAGUE_LABELS: dict[int, str] = {
 }
 
 
+def sek_season_label(year: int | None) -> str:
+    """СЕК Year = началната година на сезона: 2025 → „2025/2026“."""
+    try:
+        y = int(year)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{y}/{y + 1}"
+
+
+# Известни стартове на картотекиране (от db.bvf.bg tooltip „Добави лиценз“).
+# Ключ = СЕК Year (отваряща година). Стойност = дата YYYY-MM-DD.
+SEK_CARDING_START_BY_YEAR: dict[int, str] = {
+    2026: "2026-09-15",
+}
+
+
+def sek_carding_start_iso(year: int | None) -> str | None:
+    try:
+        return SEK_CARDING_START_BY_YEAR.get(int(year))
+    except (TypeError, ValueError):
+        return None
+
+
+def sek_carding_start_label(year: int | None) -> str | None:
+    iso = sek_carding_start_iso(year)
+    if not iso:
+        return None
+    try:
+        y, m, d = iso.split("-")
+        return f"{int(d):02d}.{int(m):02d}.{y}"
+    except Exception:
+        return iso
+
+
+def sek_carding_window_open(year: int | None, today: datetime | None = None) -> bool | None:
+    """
+    True/False ако имаме известна стартова дата; None ако няма hardcoded календар.
+    """
+    iso = sek_carding_start_iso(year)
+    if not iso:
+        return None
+    try:
+        start = datetime.strptime(iso, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    d = (today or datetime.utcnow()).date()
+    return d >= start
+
+
+def default_sek_season_year(today: datetime | None = None) -> int:
+    """
+    Подразбиране за СЕК Year (отваряща година).
+
+    Волейболният сезон YYYY/YYYY+1 тече грубо авг–юни. Преди август още сме в
+    предишния сезон (Year = calendar_year − 1). От август нататък — текущата година.
+    UI винаги показва и етикета YYYY/YYYY+1, за да не се бърка с календарната година.
+    """
+    d = today or datetime.utcnow()
+    if int(d.month) >= 8:
+        return int(d.year)
+    return int(d.year) - 1
+
+
 def age_group_label(age: int) -> str:
     return AGE_GROUP_LABELS.get(int(age), f"До {age}")
 
@@ -57,6 +120,18 @@ def map_sek_season_age_group(age_group: int) -> tuple[int, int, str] | None:
     except (TypeError, ValueError):
         return None
     return SEK_SEASON_AGE_GROUP_MAP.get(key)
+
+
+def local_age_sex_to_sek_age_group(age: int, sex: int) -> int | None:
+    """Обратно: локален age+sex → СЕК AgeGroup (0–13)."""
+    try:
+        a, s = int(age), int(sex)
+    except (TypeError, ValueError):
+        return None
+    for code, (mapped_age, mapped_sex, _lbl) in SEK_SEASON_AGE_GROUP_MAP.items():
+        if mapped_age == a and mapped_sex == s:
+            return int(code)
+    return None
 
 
 def sek_entry_age_group_label(age_group: int, league: int | None = None) -> str:

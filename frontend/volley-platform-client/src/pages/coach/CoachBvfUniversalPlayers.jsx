@@ -10,6 +10,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import { normalizeError } from "../../utils/normalizeError";
+import { defaultSekSeasonYear, sekSeasonLabel } from "../../utils/sekSeason";
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -176,7 +177,7 @@ export default function CoachBvfUniversalPlayers() {
   const isHead =
     role === "club_head_coach" || role === "platform_admin" || role === "federation_admin";
 
-  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [year, setYear] = useState(String(defaultSekSeasonYear()));
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState(null);
@@ -326,7 +327,7 @@ export default function CoachBvfUniversalPlayers() {
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>Сезон</span>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Сезон Year · {sekSeasonLabel(year)}</span>
             <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
           </label>
           <Button type="button" variant="secondary" disabled={busy} onClick={load}>

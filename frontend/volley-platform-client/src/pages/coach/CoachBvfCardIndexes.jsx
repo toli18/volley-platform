@@ -9,6 +9,7 @@ import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import { defaultSekSeasonYear, formatSekYearField, sekCardingWindowForYear, sekSeasonLabel } from "../../utils/sekSeason";
 
 const AGE_OPTIONS = [
   { age: 12, label: "Детски" },
@@ -47,7 +48,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
 
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
-  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [year, setYear] = useState(String(defaultSekSeasonYear()));
   const [season, setSeason] = useState(null);
   const [coaches, setCoaches] = useState([]);
   const [assignAge, setAssignAge] = useState("14");
@@ -266,8 +267,8 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
             : season.application.status === "draft"
               ? "ЧЕРНОВА"
               : season.application.status
-      } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${season.year}`
-    : "Все още няма сезонна заявка за тази година.";
+      } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"} · ${formatSekYearField(season.year)}`
+    : `Все още няма сезонна заявка за ${formatSekYearField(year)}.`;
 
   const teamsEmpty = (
     <EmptyState
@@ -309,9 +310,45 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
           <h3 className="coachMobileSectionTitle">Сезон</h3>
           <div className="cardIndexesMobileStack">
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>
+                СЕК година (Year) — сезон {sekSeasonLabel(year)}
+              </span>
               <Input value={year} onChange={(e) => setYear(e.target.value)} />
             </label>
+            {(() => {
+              const win = sekCardingWindowForYear(year);
+              if (win.open === false) {
+                return (
+                  <p
+                    className="coachMobileMuted"
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      color: "#92400e",
+                      background: "#fffbeb",
+                      border: "1px solid #fde68a",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    {win.message}
+                  </p>
+                );
+              }
+              if (season?.season_hint) {
+                return (
+                  <p className="coachMobileMuted" style={{ margin: 0, fontSize: 12, color: "#b45309" }}>
+                    {season.season_hint}
+                  </p>
+                );
+              }
+              return (
+                <p className="coachMobileMuted" style={{ margin: 0, fontSize: 12 }}>
+                  В db.bvf.bg: {formatSekYearField(year)}. Локалният състав можеш да пълниш сега;
+                  запис в СЕК — когато федерацията отвори прозореца.
+                </p>
+              );
+            })()}
             {canManage ? (
               <>
                 <Button type="button" disabled={busy} onClick={openSeason} block>
@@ -529,12 +566,35 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
       {isHead || canManage ? (
         <Card title="Сезон">
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Отворен сезон = картотекиране (назначение и състав). Форма 03/03-А се включва отделно.
-            След заявка за участие в СЕК: „Импортни отбори от СЕК“ създава локалните картотеки.
+            СЕК Year = отваряща година (напр. 2025 = сезон 2025/2026 в db.bvf.bg). Отворен локален
+            сезон = картотекиране; Форма 03 се включва отделно. Локалните състави можеш да пълниш
+            винаги. Запис към СЕК (сезонна заявка / лиценз) работи само когато федерацията е
+            отворила прозореца за съответния сезон.
           </p>
+          {(() => {
+            const win = sekCardingWindowForYear(year);
+            if (win.open !== false) return null;
+            return (
+              <p
+                style={{
+                  marginTop: 0,
+                  marginBottom: 12,
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  color: "#92400e",
+                  background: "#fffbeb",
+                  border: "1px solid #fde68a",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                }}
+              >
+                {win.message}
+              </p>
+            );
+          })()}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Year · {sekSeasonLabel(year)}</span>
               <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
             </label>
             {canManage ? (
@@ -564,15 +624,21 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
               Презареди
             </Button>
           </div>
-          <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
-            {seasonStatusLabel}
-          </p>
+          {season?.season_hint ? (
+            <p style={{ marginBottom: 0, marginTop: 10, fontSize: 13, color: "#b45309", fontWeight: 650 }}>
+              {season.season_hint}
+            </p>
+          ) : (
+            <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
+              {seasonStatusLabel}
+            </p>
+          )}
         </Card>
       ) : (
         <Card title="Сезон">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Година</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Year · {sekSeasonLabel(year)}</span>
               <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
             </label>
             <Button type="button" variant="secondary" disabled={busy} onClick={loadSeason}>
@@ -581,7 +647,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
           </div>
           <p className="uiMuted" style={{ marginBottom: 0, marginTop: 10, fontSize: 13 }}>
             {season?.application
-              ? `Сезон ${season.year} · ${
+              ? `Сезон ${formatSekYearField(season.year)} · ${
                   season.application.status === "open" ? "отворен" : season.application.status
                 } · Форма 03: ${season.application.forms_active ? "активна" : "неактивна"}`
               : "Няма сезонна заявка."}

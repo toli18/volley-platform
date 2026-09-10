@@ -10,6 +10,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import { normalizeError } from "../../utils/normalizeError";
 import { AGE_LADDER, ageGroupLabel, ageRuleHint, athleteFitsAgeGroup, resolveAgeCode } from "../../utils/sekAgeRules";
+import { sekCardingWindowForYear, sekSeasonLabel } from "../../utils/sekSeason";
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -116,6 +117,24 @@ export default function CoachBvfCardIndexDetail() {
     () => filterFeesAthletes(availableAthletes, search),
     [availableAthletes, search],
   );
+
+  const cardingWindow = useMemo(() => {
+    if (detail?.sek_carding_window && typeof detail.sek_carding_window === "object") {
+      const w = detail.sek_carding_window;
+      if (w.open === false) {
+        return {
+          open: false,
+          startLabel: w.start_label || null,
+          message: w.message || sekCardingWindowForYear(detail.year).message,
+        };
+      }
+      if (w.known) {
+        return { open: true, startLabel: w.start_label || null, message: null };
+      }
+    }
+    return sekCardingWindowForYear(detail?.year);
+  }, [detail]);
+  const sekSubmitBlocked = cardingWindow?.open === false;
 
   const showSearchDropdown = searchOpen && detail?.can_edit && availableAthletes.length > 0;
 
@@ -307,9 +326,27 @@ export default function CoachBvfCardIndexDetail() {
   };
 
   const submitToBvf = async () => {
+    const win =
+      detail?.sek_carding_window?.open === false
+        ? {
+            open: false,
+            message:
+              detail.sek_carding_window.message ||
+              sekCardingWindowForYear(detail.year).message,
+          }
+        : sekCardingWindowForYear(detail?.year);
+    if (win && win.open === false) {
+      toast.error(
+        win.message ||
+          `Картотекирането за сезон ${sekSeasonLabel(detail?.year)} още не е започнало. Съставът остава локално.`,
+      );
+      return;
+    }
     if (
       !window.confirm(
-        "Запис в СЕК: качва Форма 03/А/B в профилите, създава/синхронизира отбора и изпраща към БФВ. Продължаваш?",
+        `Запис в СЕК за сезон ${sekSeasonLabel(detail?.year)} (Year=${detail?.year}): ` +
+          "свързва съществуващ лиценз или (ако прозорецът е отворен) подава сезонна заявка и създава лиценз, " +
+          "после качва Форма 03 и изпраща състава. Ако федерацията още не е отворила картотекирането — записът остава локално. Продължаваш?",
       )
     ) {
       return;
@@ -326,7 +363,7 @@ export default function CoachBvfCardIndexDetail() {
       );
       await loadAll({ blockPage: false });
     } catch (err) {
-      toast.error(normalizeError(err, "Записът в СЕК чака write token или връзка с БФВ."));
+      toast.error(normalizeError(err, "Записът в СЕК не успя. Съставът остава локално."));
       await loadAll({ blockPage: false });
     } finally {
       setBusy(false);
@@ -541,9 +578,34 @@ export default function CoachBvfCardIndexDetail() {
 
           {isHead && !detail.is_signed && detail.status !== "signed" && detail.status !== "pending_bvf_sign" ? (
             <Card title="Запис в СЕК (главен треньор)">
+              {sekSubmitBlocked ? (
+                <p
+                  style={{
+                    marginTop: 0,
+                    marginBottom: 12,
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    color: "#92400e",
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                  }}
+                >
+                  {cardingWindow.message ||
+                    `Картотекирането за сезон ${sekSeasonLabel(detail.year)} още не е започнало. Дотогава съставът остава само локално.`}
+                </p>
+              ) : (
+                <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+                  За сезон {sekSeasonLabel(detail.year)} (Year={detail.year}): ако в СЕК вече има
+                  лиценз — свързваме го. Ако няма и прозорецът е отворен — подаваме сезонна заявка
+                  (трябва зала) и опитваме създаване на лиценз. Локалното пълнене на състава винаги
+                  е позволено.
+                </p>
+              )}
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
                 {detail.status === "ready_for_head"
-                  ? "Има заявка от треньора. Без write ApiKey записът остава готов при нас."
+                  ? "Има заявка от треньора."
                   : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка)."}
               </p>
               {!permanent ? (
@@ -556,9 +618,16 @@ export default function CoachBvfCardIndexDetail() {
                   style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, width: "100%", marginBottom: 8 }}
                 />
               ) : null}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                <Button type="button" disabled={busy || !detail.all_ready} onClick={submitToBvf}>
-                  Запиши в СЕК / изпрати към БФВ
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <Button
+                  type="button"
+                  disabled={busy || !detail.all_ready || sekSubmitBlocked}
+                  onClick={submitToBvf}
+                  title={sekSubmitBlocked ? cardingWindow.message || undefined : undefined}
+                >
+                  {sekSubmitBlocked
+                    ? `Запиши в СЕК (от ${cardingWindow.startLabel || "…"})`
+                    : "Запиши в СЕК / изпрати към БФВ"}
                 </Button>
                 {detail.status === "ready_for_head" ? (
                   <Button type="button" variant="secondary" disabled={busy} onClick={reopen}>

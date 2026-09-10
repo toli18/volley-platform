@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Optional
 
@@ -21,6 +22,7 @@ from app.models import (
     BvfSeasonApplication,
     BvfUniversalPlayer,
     Club,
+    ClubHall,
     User,
     UserRole,
 )
@@ -48,12 +50,17 @@ from app.services.bvf_season_carding import (
     athlete_has_form_03,
     athlete_sex_code,
     card_index_age_rule_hint,
+    default_sek_season_year,
     eligible_athlete_payload,
     form_03_athlete_ids,
     list_ready_for_head,
+    local_age_sex_to_sek_age_group,
     looks_like_form_03,
     map_sek_season_age_group,
+    sek_carding_start_label,
+    sek_carding_window_open,
     sek_entry_age_group_label,
+    sek_season_label,
     serialize_card_index_row,
 )
 
@@ -294,6 +301,8 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             }
         )
 
+    carding_open = sek_carding_window_open(year)
+    start_lbl = sek_carding_start_label(year)
     return {
         **serialize_card_index_row(db, local),
         "members": members_out,
@@ -310,6 +319,20 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             and form_ok
             and all_ready
         ),
+        "sek_carding_window": {
+            "known": carding_open is not None,
+            "open": True if carding_open is None else bool(carding_open),
+            "start_label": start_lbl,
+            "season_label": sek_season_label(year),
+            "message": (
+                None
+                if carding_open is not False
+                else (
+                    f"Картотекирането за сезон {sek_season_label(year)} започва на {start_lbl} г. "
+                    "Дотогава записът остава само локално."
+                )
+            ),
+        },
     }
 
 
@@ -1327,7 +1350,12 @@ def submit_card_index_to_federation(
         if _sek_carding_closed_message(body):
             local.status = "pending_bvf_sign"
             db.commit()
-            raise _http_sek_carding_closed(body)
+            raise _http_sek_carding_closed(
+                body,
+                year=local.year,
+                age=local.age,
+                sex=local.sex,
+            )
         local.status = "pending_bvf_sign"
         local.signed_by_user_id = current_user.id
         local.signed_at = datetime.utcnow()
@@ -1345,7 +1373,12 @@ def submit_card_index_to_federation(
         if _sek_carding_closed_message(body):
             local.status = "pending_bvf_sign"
             db.commit()
-            raise _http_sek_carding_closed(body)
+            raise _http_sek_carding_closed(
+                body,
+                year=local.year,
+                age=local.age,
+                sex=local.sex,
+            )
         raise HTTPException(
             status_code=409 if res.status_code == 400 else 502,
             detail=(body or f"БФВ sign грешка {res.status_code}")[:500],
@@ -1781,7 +1814,7 @@ def get_or_list_season_application(
     ),
 ):
     club = _club_for_any_coach(db, current_user, club_id)
-    y = int(year or datetime.utcnow().year)
+    y = int(year if year is not None else default_sek_season_year())
     app = (
         db.query(BvfSeasonApplication)
         .filter(BvfSeasonApplication.club_id == club.id, BvfSeasonApplication.year == y)
@@ -1791,6 +1824,30 @@ def get_or_list_season_application(
     if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
         indexes_q = _coach_card_index_filter(indexes_q, current_user)
     indexes = indexes_q.order_by(BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
+
+    # Подсказка: често Year=календарната година сочи към празен СЕК сезон YYYY/YYYY+1,
+    # докато лицензите са в Year−1 (YYYY−1/YYYY).
+    neighbor = int(y) - 1
+    neighbor_count = (
+        db.query(BvfCardIndex)
+        .filter(BvfCardIndex.club_id == club.id, BvfCardIndex.year == neighbor)
+        .count()
+    )
+    season_hint = None
+    if sek_carding_window_open(y) is False:
+        start_lbl = sek_carding_start_label(y)
+        season_hint = (
+            f"Картотекирането за сезон {sek_season_label(y)} (Year={y}) започва на {start_lbl} г. "
+            "Дотогава записът в СЕК остава само локално — можеш да пълниш съставите сега."
+        )
+    elif len(indexes) == 0 and neighbor_count > 0:
+        season_hint = (
+            f"Няма локални отбори за СЕК сезон {sek_season_label(y)} (Year={y}). "
+            f"Има {neighbor_count} за {sek_season_label(neighbor)} (Year={neighbor}) — "
+            f"смени годината на {neighbor}, ако работиш по текущите лицензи в db.bvf.bg."
+        )
+
+    carding_open = sek_carding_window_open(y)
     return {
         "application": None
         if not app
@@ -1803,6 +1860,16 @@ def get_or_list_season_application(
             "created_by_user_id": app.created_by_user_id,
         },
         "year": y,
+        "season_label": sek_season_label(y),
+        "season_hint": season_hint,
+        "default_year": default_sek_season_year(),
+        "sek_carding_window": {
+            "known": carding_open is not None,
+            "open": True if carding_open is None else bool(carding_open),
+            "start_label": sek_carding_start_label(y),
+            "season_label": sek_season_label(y),
+            "message": season_hint if carding_open is False else None,
+        },
         "slots": [serialize_card_index_row(db, r) for r in indexes],
         "age_options": [{"age": a, "label": age_group_label(a)} for a in (12, 13, 14, 16, 18, 20, 99)],
         "can_manage": _can_submit_card_index(current_user),
@@ -2418,6 +2485,38 @@ def _sek_carding_closed_message(detail: str | None) -> bool:
     return any(n in t for n in needles)
 
 
+_SEK_STARTS_ON_RE = re.compile(
+    r"започва\s+на\s+(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _parse_sek_carding_start_from_text(detail: str | None) -> str | None:
+    """Извлича „започва на DD.MM.YYYY“ от текст на СЕК → етикет DD.MM.YYYY."""
+    m = _SEK_STARTS_ON_RE.search(_strip_sek_quotes(str(detail or "")))
+    if not m:
+        return None
+    d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    return f"{d:02d}.{mo:02d}.{y}"
+
+
+def _sek_carding_not_started_message(detail: str | None) -> bool:
+    """СЕК: картотекирането още не е започнало (tooltip / отказ „започва на …“)."""
+    t = _strip_sek_quotes(str(detail or "")).lower()
+    if not t:
+        return False
+    if _parse_sek_carding_start_from_text(t):
+        return True
+    needles = (
+        "картотекирането започва",
+        "картотекиране започва",
+        "registration has not started",
+        "carding has not started",
+        "not started yet",
+    )
+    return any(n in t for n in needles)
+
+
 def _sek_card_index_exists_message(detail: str | None) -> bool:
     t = _strip_sek_quotes(str(detail or "")).lower()
     if not t:
@@ -2433,17 +2532,101 @@ def _sek_card_index_exists_message(detail: str | None) -> bool:
     return any(n in t for n in needles)
 
 
-def _http_sek_carding_closed(detail: str | None = None) -> HTTPException:
+def _http_sek_carding_not_started(
+    detail: str | None = None,
+    *,
+    year: int | None = None,
+) -> HTTPException:
+    """Ясно съобщение: прозорецът още не е отворен; локалният състав остава."""
+    start_lbl = _parse_sek_carding_start_from_text(detail) or (
+        sek_carding_start_label(year) if year is not None else None
+    )
+    season = sek_season_label(year) if year is not None else "—"
+    year_bit = f" (Year={int(year)})" if year is not None else ""
+    if start_lbl:
+        msg = (
+            f"Съставът е запазен локално. Картотекирането за сезон {season}{year_bit} "
+            f"започва на {start_lbl} г. Дотогава записът остава само локално — "
+            "можеш да пълниш състава; „Запиши в СЕК“ ще е възможен след тази дата."
+        )
+    else:
+        msg = (
+            f"Съставът е запазен локално. Картотекирането за сезон {season}{year_bit} "
+            "още не е започнало според календара на СЕК. Дотогава записът остава само локално."
+        )
     quote = _strip_sek_quotes(str(detail or ""))
+    if quote and "започва" not in quote.lower():
+        msg = f"{msg} Отговор от СЕК: {quote}"
+    return HTTPException(status_code=409, detail=msg)
+
+
+def _raise_if_sek_carding_not_open_yet(year: int, detail: str | None = None) -> None:
+    """
+    Хардкод/календар: ако знаем, че прозорецът още не е отворен — спираме
+    преди auto-create на лиценз/сезонна заявка.
+    """
+    if sek_carding_window_open(year) is False:
+        raise _http_sek_carding_not_started(detail, year=year)
+    if _sek_carding_not_started_message(detail):
+        raise _http_sek_carding_not_started(detail, year=year)
+
+
+def _http_sek_carding_closed(
+    detail: str | None = None,
+    *,
+    year: int | None = None,
+    age: int | None = None,
+    sex: int | None = None,
+    alt_years: list[int] | None = None,
+) -> HTTPException:
+    # Преди стартовата дата СЕК понякога връща „приключило“ / затворен прозорец —
+    # предпочитаме ясното „започва на …“.
+    if year is not None and (
+        sek_carding_window_open(year) is False or _sek_carding_not_started_message(detail)
+    ):
+        return _http_sek_carding_not_started(detail, year=year)
+
+    quote = _strip_sek_quotes(str(detail or ""))
+    season_bit = ""
+    if year is not None:
+        season_bit = f" Локалният запис е за СЕК сезон {sek_season_label(year)} (Year={int(year)})."
+        start_lbl = sek_carding_start_label(year)
+        if start_lbl and sek_carding_window_open(year) is False:
+            season_bit += f" Картотекирането започва на {start_lbl} г."
+        if alt_years:
+            alts = ", ".join(f"{sek_season_label(y)} (Year={y})" for y in alt_years)
+            season_bit += (
+                f" В СЕК има лиценз(и) за същата възраст/пол в друг сезон: {alts}. "
+                f"Смени годината в платформата на {alt_years[0]} или добави лиценз за "
+                f"{sek_season_label(year)} в db.bvf.bg → „Добави лиценз“."
+            )
+        else:
+            season_bit += (
+                f" Ако колоната за {sek_season_label(year)} в db.bvf.bg е празна, а "
+                f"{sek_season_label(int(year) - 1)} е пълна — пробвай година {int(year) - 1}, "
+                f"или създай лиценз за {sek_season_label(year)} с „Добави лиценз“ след "
+                f"отваряне на прозореца."
+            )
+    age_bit = ""
+    if age is not None and sex is not None:
+        sex_lbl = "момичета/жени" if int(sex) == 1 else "момчета/мъже"
+        age_bit = f" Отбор: {age_group_label(int(age))} · {sex_lbl}."
     msg = (
         "Съставът е запазен локално. СЕК е затворил картотекирането за този отбор "
-        "(„Картотекирането е приключило за този отбор.“). "
-        "Провери статуса в db.bvf.bg → Лицензи / Картотеки. "
+        "(„Картотекирането е приключило за този отбор.“)."
+        f"{season_bit}{age_bit} "
         "Локалният състав остава при нас; нов запис/подпис в СЕК не е възможен, докато прозорецът е затворен."
     )
     if quote and "приключило" not in quote.lower():
         msg = f"{msg} Отговор от СЕК: {quote}"
     return HTTPException(status_code=409, detail=msg)
+
+
+def _list_sek_card_indexes(club: Club, token: str) -> list[dict]:
+    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/card-indexes", token)
+    if not isinstance(remote, list):
+        return []
+    return [row for row in remote if isinstance(row, dict)]
 
 
 def _find_matching_sek_card_index(
@@ -2453,14 +2636,11 @@ def _find_matching_sek_card_index(
     year: int,
     age: int,
     sex: int,
+    remote_rows: list[dict] | None = None,
 ) -> dict | None:
     """Намира вече създаден remote card index за същата тройка сезон/възраст/пол."""
-    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/card-indexes", token)
-    if not isinstance(remote, list):
-        return None
-    for row in remote:
-        if not isinstance(row, dict):
-            continue
+    rows = remote_rows if remote_rows is not None else _list_sek_card_indexes(club, token)
+    for row in rows:
         try:
             if int(row.get("year") or 0) != int(year):
                 continue
@@ -2474,6 +2654,241 @@ def _find_matching_sek_card_index(
         except (TypeError, ValueError):
             continue
     return None
+
+
+def _alt_sek_years_for_age_sex(
+    remote_rows: list[dict],
+    *,
+    age: int,
+    sex: int,
+    exclude_year: int,
+) -> list[int]:
+    found: set[int] = set()
+    for row in remote_rows:
+        try:
+            if int(row.get("age") or 0) != int(age):
+                continue
+            if int(row.get("sex") or 0) != int(sex):
+                continue
+            y = int(row.get("year") or 0)
+            if y and y != int(exclude_year):
+                found.add(y)
+        except (TypeError, ValueError):
+            continue
+    return sorted(found, reverse=True)
+
+
+def _http_sek_no_license_for_season(
+    *,
+    year: int,
+    age: int,
+    sex: int,
+    alt_years: list[int] | None = None,
+    bvf_detail: str | None = None,
+) -> HTTPException:
+    if sek_carding_window_open(year) is False or _sek_carding_not_started_message(bvf_detail):
+        return _http_sek_carding_not_started(bvf_detail, year=year)
+    sex_lbl = "момичета/жени" if int(sex) == 1 else "момчета/мъже"
+    msg = (
+        f"Съставът е запазен локално. В СЕК няма лиценз за сезон {sek_season_label(year)} "
+        f"(Year={int(year)}) за {age_group_label(int(age))} · {sex_lbl}."
+    )
+    start_lbl = sek_carding_start_label(year)
+    if start_lbl:
+        msg += f" Ако прозорецът още не е отворен — картотекирането започва на {start_lbl} г."
+    if alt_years:
+        alts = ", ".join(f"{sek_season_label(y)} (Year={y})" for y in alt_years)
+        msg += (
+            f" Има лиценз(и) в друг сезон: {alts}. "
+            f"Смени годината в платформата на {alt_years[0]} "
+            f"или в db.bvf.bg натисни „Добави лиценз“ за {sek_season_label(year)}."
+        )
+    else:
+        msg += (
+            f" Провери db.bvf.bg → Лицензи: колоната {sek_season_label(year)} често е празна, "
+            f"докато {sek_season_label(int(year) - 1)} е пълна. "
+            f"Смени годината на {int(year) - 1} или добави лиценз за {sek_season_label(year)}."
+        )
+    if bvf_detail:
+        msg += f" Отговор от СЕК: {_strip_sek_quotes(bvf_detail)}"
+    return HTTPException(status_code=409, detail=msg)
+
+
+def _bvf_post_json(path: str, token: str, body: dict) -> Any:
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.post(
+                url,
+                headers={**_bvf_headers(token), "Content-Type": "application/json"},
+                json=body,
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+    if res.status_code == 401:
+        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+    if res.status_code == 403:
+        body_txt = (res.text or "").strip()[:400]
+        raise HTTPException(status_code=403, detail=body_txt or "Нямаш право за този ресурс в БФВ (403).")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:500] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=400 if res.status_code == 400 else 502, detail=detail)
+    try:
+        return res.json()
+    except Exception:
+        return {"ok": True, "raw": (res.text or "")[:200]}
+
+
+def _default_bvf_hall_id(db: Session, club: Club) -> int | None:
+    hall = (
+        db.query(ClubHall)
+        .filter(
+            ClubHall.club_id == club.id,
+            ClubHall.is_active.is_(True),
+            ClubHall.bvf_hall_id.isnot(None),
+        )
+        .order_by(ClubHall.id.asc())
+        .first()
+    )
+    if hall and hall.bvf_hall_id:
+        return int(hall.bvf_hall_id)
+    return None
+
+
+def _sek_season_overview(club: Club, token: str, year: int) -> dict:
+    path = f"/api/clubs/{int(club.bvf_club_id)}/season-applications?season={int(year)}"
+    remote = _bvf_get(path, token)
+    return remote if isinstance(remote, dict) else {}
+
+
+def _sek_entry_matches_age_sex(entry: dict, *, age: int, sex: int) -> bool:
+    mapped = map_sek_season_age_group(entry.get("ageGroup"))
+    if not mapped:
+        return False
+    return int(mapped[0]) == int(age) and int(mapped[1]) == int(sex)
+
+
+def _ensure_sek_season_application_entry(
+    db: Session,
+    club: Club,
+    token: str,
+    *,
+    year: int,
+    age: int,
+    sex: int,
+) -> dict[str, Any]:
+    """
+    Гарантира сезонна заявка (participation) в СЕК за age/sex/year.
+    Нужни: отворен прозорец + зала (hallId). League=0 за младежки групи.
+    """
+    age_group = local_age_sex_to_sek_age_group(age, sex)
+    if age_group is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Непозната възрастова група за СЕК: age={age}, sex={sex}. "
+                "Не можем да подадем сезонна заявка."
+            ),
+        )
+
+    overview = _sek_season_overview(club, token, year)
+    window = overview.get("window") if isinstance(overview.get("window"), dict) else {}
+    entries = overview.get("entries") if isinstance(overview.get("entries"), list) else []
+    is_open = bool(window.get("isOpen") or window.get("hasActiveOverride"))
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            status_code = int(entry.get("status") if entry.get("status") is not None else 0)
+        except (TypeError, ValueError):
+            status_code = 0
+        if status_code == 1:
+            continue
+        if _sek_entry_matches_age_sex(entry, age=age, sex=sex):
+            return {
+                "created": False,
+                "entry": entry,
+                "window_open": is_open,
+                "age_group": age_group,
+            }
+
+    if not is_open:
+        _raise_if_sek_carding_not_open_yet(year)
+        start_lbl = sek_carding_start_label(year)
+        start_bit = f" Картотекирането започва на {start_lbl} г." if start_lbl else ""
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Съставът е запазен локално. Прозорецът за сезонни заявки в СЕК за "
+                f"{sek_season_label(year)} (Year={year}) е затворен — няма как да добавим "
+                f"заявка/лиценз за {age_group_label(age)}.{start_bit} "
+                "Отвори сезона в db.bvf.bg или смени годината към сезона с активни лицензи "
+                f"(често {sek_season_label(year - 1)} / Year={year - 1})."
+            ),
+        )
+
+    hall_id = _default_bvf_hall_id(db, club)
+    if not hall_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Съставът е запазен локално. За сезонна заявка в СЕК трябва зала (hallId). "
+                "Синхронизирай залите от BVF Admin / клубен профил (db.bvf.bg → Зали), "
+                "после опитай пак."
+            ),
+        )
+
+    # Youth / default league = 0. Висша/А НВГ (1/2) са за мъже/жени при нужда.
+    league = 0
+    try:
+        created = _bvf_post_json(
+            f"/api/clubs/{int(club.bvf_club_id)}/season-applications?season={int(year)}",
+            token,
+            {"ageGroup": int(age_group), "league": int(league), "hallId": int(hall_id)},
+        )
+    except HTTPException as exc:
+        detail = _strip_sek_quotes(str(exc.detail or ""))
+        low = detail.lower()
+        if _sek_carding_not_started_message(detail):
+            raise _http_sek_carding_not_started(detail, year=year) from exc
+        if "window" in low or "shut" in low or "затвор" in low or "приключил" in low or "deadline" in low:
+            if sek_carding_window_open(year) is False:
+                raise _http_sek_carding_not_started(detail, year=year) from exc
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Съставът е запазен локално. СЕК отказа сезонната заявка за "
+                    f"{sek_season_label(year)}: {detail}. Прозорецът вероятно е затворен."
+                ),
+            ) from exc
+        if "already" in low or "вече" in low:
+            # Race: refresh and accept existing
+            overview2 = _sek_season_overview(club, token, year)
+            entries2 = overview2.get("entries") if isinstance(overview2.get("entries"), list) else []
+            for entry in entries2:
+                if isinstance(entry, dict) and _sek_entry_matches_age_sex(entry, age=age, sex=sex):
+                    return {
+                        "created": False,
+                        "entry": entry,
+                        "window_open": True,
+                        "age_group": age_group,
+                    }
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Съставът е запазен локално. Неуспешна сезонна заявка в СЕК за "
+                f"{sek_season_label(year)} · {age_group_label(age)}: {detail}"
+            ),
+        ) from exc
+
+    return {
+        "created": True,
+        "entry": created if isinstance(created, dict) else {},
+        "window_open": True,
+        "age_group": age_group,
+        "hall_id": hall_id,
+    }
 
 
 def _sync_local_members_to_sek_card_index(
@@ -2496,7 +2911,12 @@ def _sync_local_members_to_sek_card_index(
                 if res.status_code < 400:
                     mem.synced = True
                 elif _sek_carding_closed_message(res.text):
-                    raise _http_sek_carding_closed(res.text)
+                    raise _http_sek_carding_closed(
+                        res.text,
+                        year=local.year,
+                        age=local.age,
+                        sex=local.sex,
+                    )
         except HTTPException:
             raise
         except Exception:
@@ -2544,11 +2964,22 @@ def submit_local_card_index_to_federation(
     age = int(local.age)
     sex = int(local.sex)
 
+    remote_rows = _list_sek_card_indexes(club, token)
+    alt_years = _alt_sek_years_for_age_sex(remote_rows, age=age, sex=sex, exclude_year=year)
+
     # Ако в СЕК вече има лиценз за тройката — свързваме, вместо да създаваме наново.
-    existing_remote = _find_matching_sek_card_index(club, token, year=year, age=age, sex=sex)
+    existing_remote = _find_matching_sek_card_index(
+        club, token, year=year, age=age, sex=sex, remote_rows=remote_rows
+    )
     remote: dict | None = existing_remote
 
     if not remote:
+        # Преди auto-create: ако календарът още не е отворен — ясно съобщение, без обещания.
+        _raise_if_sek_carding_not_open_yet(year)
+        # Преди „Добави лиценз“: трябва сезонна заявка (participation) за age/sex/year.
+        _ensure_sek_season_application_entry(
+            db, club, token, year=year, age=age, sex=sex
+        )
         data = {
             "ClubId": str(int(club.bvf_club_id)),
             "Year": str(year),
@@ -2579,52 +3010,58 @@ def submit_local_card_index_to_federation(
         except HTTPException as exc:
             bvf_detail = str(exc.detail or "").strip()
             status = int(getattr(exc, "status_code", 0) or 0)
+            if _sek_carding_not_started_message(bvf_detail) or sek_carding_window_open(year) is False:
+                local.status = "pending_bvf_sign"
+                db.commit()
+                raise _http_sek_carding_not_started(bvf_detail, year=year) from exc
             if _sek_carding_closed_message(bvf_detail):
                 local.status = "pending_bvf_sign"
                 db.commit()
-                raise _http_sek_carding_closed(bvf_detail) from exc
-            if _sek_card_index_exists_message(bvf_detail) or status in (400, 409, 502):
-                remote = _find_matching_sek_card_index(club, token, year=year, age=age, sex=sex)
-                if remote is None and _sek_card_index_exists_message(bvf_detail):
+                raise _http_sek_carding_closed(
+                    bvf_detail,
+                    year=year,
+                    age=age,
+                    sex=sex,
+                    alt_years=alt_years,
+                ) from exc
+            # Refresh list — create may have raced or exists under same triple.
+            remote_rows = _list_sek_card_indexes(club, token)
+            alt_years = _alt_sek_years_for_age_sex(remote_rows, age=age, sex=sex, exclude_year=year)
+            remote = _find_matching_sek_card_index(
+                club, token, year=year, age=age, sex=sex, remote_rows=remote_rows
+            )
+            if remote is None:
+                if status == 401:
                     raise HTTPException(
-                        status_code=409,
+                        status_code=401,
                         detail=(
-                            "Съставът е запазен локално. СЕК казва, че картотеката вече съществува, "
-                            "но не намерихме съвпадащ лиценз за тази възраст/пол/сезон. "
-                            f"Отговор от СЕК: {_strip_sek_quotes(bvf_detail)}. Провери в db.bvf.bg."
+                            "Съставът е запазен локално. Ключът е невалиден или сменен — "
+                            "запази новия ApiKey в BVF Admin."
                         ),
                     ) from exc
-                if remote is None:
-                    if status == 401:
-                        hint = "Ключът е невалиден или сменен — запази новия ApiKey в BVF Admin."
-                    elif status == 403:
-                        hint = (
-                            "Ключът няма право за запис на Лицензи. "
-                            "Създай токен с Лицензи = Четене и запис и го запиши в платформата."
-                        )
-                    else:
-                        hint = (
-                            "Провери в db.bvf.bg дали има сезонна заявка/лиценз за този отбор "
-                            "и дали прозорецът за картотекиране е отворен."
-                        )
+                if status == 403:
                     raise HTTPException(
-                        status_code=409 if status in (400, 409) else 503,
+                        status_code=403,
                         detail=(
-                            f"Съставът е запазен локално. СЕК отказа записа: "
-                            f"{_strip_sek_quotes(bvf_detail)}. {hint}"
+                            "Съставът е запазен локално. Ключът няма право за запис на Лицензи. "
+                            "Създай токен с Лицензи = Четене и запис и го запиши в платформата. "
+                            f"СЕК: {_strip_sek_quotes(bvf_detail)}"
                         ),
                     ) from exc
-            else:
-                raise
+                # Ако отказът е преди стартовата дата — не обещавай „Добави лиценз“ сега.
+                if sek_carding_window_open(year) is False or _sek_carding_not_started_message(bvf_detail):
+                    raise _http_sek_carding_not_started(bvf_detail, year=year) from exc
+                # Няма лиценз за този Year в СЕК (често: пишеш 2026/27, а лицензите са в 2025/26).
+                raise _http_sek_no_license_for_season(
+                    year=year,
+                    age=age,
+                    sex=sex,
+                    alt_years=alt_years,
+                    bvf_detail=bvf_detail,
+                ) from exc
 
     if not isinstance(remote, dict) or not remote.get("id"):
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Съставът е готов локално. СЕК не върна card index id — "
-                "провери ApiKey (Лицензи: запис) и сезонната заявка за този отбор."
-            ),
-        )
+        raise _http_sek_no_license_for_season(year=year, age=age, sex=sex, alt_years=alt_years)
 
     cid = int(remote["id"])
     local.bvf_card_index_id = cid
@@ -2636,7 +3073,7 @@ def submit_local_card_index_to_federation(
         raise HTTPException(
             status_code=409,
             detail=(
-                "Съставът е свързан с вече подписан лиценз в СЕК. "
+                f"Съставът е свързан с вече подписан лиценз в СЕК за сезон {sek_season_label(year)}. "
                 "Локално е маркиран като signed. Допълнителни промени се правят в db.bvf.bg."
             ),
         )
@@ -2645,7 +3082,7 @@ def submit_local_card_index_to_federation(
 
     try:
         _sync_local_members_to_sek_card_index(local, token=token, card_index_id=cid)
-    except HTTPException as exc:
+    except HTTPException:
         db.commit()
         raise
     db.commit()
