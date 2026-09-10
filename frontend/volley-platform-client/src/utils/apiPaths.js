@@ -295,6 +295,7 @@ export const API_PATHS = {
   BVF_ADMIN_UNIVERSAL_PLAYERS: "/api/bvf-admin/universal-players",
   BVF_ADMIN_UNIVERSAL_PLAYERS_SYNC: "/api/bvf-admin/universal-players/sync",
   BVF_ADMIN_UNIVERSAL_PLAYER: (id) => `/api/bvf-admin/universal-players/${id}`,
+  BVF_ADMIN_UNIVERSAL_PLAYER_PUSH: (id) => `/api/bvf-admin/universal-players/${id}/push`,
   BVF_ADMIN_PHYSICAL_LIST: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_CREATE: (athleteId) => `/api/bvf-admin/players/${athleteId}/physical`,
   BVF_ADMIN_PHYSICAL_SEND: (measurementId) => `/api/bvf-admin/players/physical/${measurementId}/send-bvf`,

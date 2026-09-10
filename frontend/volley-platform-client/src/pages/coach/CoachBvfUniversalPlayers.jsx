@@ -17,7 +17,7 @@ function normalizeRole(user) {
   return String(r || "").toLowerCase();
 }
 
-function SlotCard({ title, slot, sex, candidates, busy, onPick, onRemove }) {
+function SlotCard({ title, slot, sex, candidates, busy, canPushSek, onPick, onRemove, onPush }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const available = useMemo(
@@ -28,6 +28,10 @@ function SlotCard({ title, slot, sex, candidates, busy, onPick, onRemove }) {
       ),
     [candidates, search, sex],
   );
+  const needsFirst = useMemo(
+    () => available.filter((a) => a.needs_universal).slice(0, 8),
+    [available],
+  );
 
   return (
     <Card title={title}>
@@ -35,19 +39,64 @@ function SlotCard({ title, slot, sex, candidates, busy, onPick, onRemove }) {
         <div>
           <div style={{ fontWeight: 700, fontSize: 16 }}>{slot.athlete_name}</div>
           <p className="uiMuted" style={{ marginTop: 4, fontSize: 13 }}>
+            {slot.bvf_player_number ? `СЕК № ${slot.bvf_player_number} · ` : ""}
             {slot.birth_year || "—"}
             {slot.team_labels?.length ? ` · ${slot.team_labels.join(", ")}` : ""}
-            {slot.synced ? " · в СЕК" : " · само при нас"}
           </p>
-          <Button type="button" variant="secondary" disabled={busy} onClick={() => onRemove(slot)}>
-            Премахни
-          </Button>
+          <p
+            style={{
+              margin: "8px 0 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              color: slot.synced ? "#047857" : "#b45309",
+            }}
+          >
+            {slot.synced ? "В СЕК" : "Само при нас — още не е изпратен към СЕК"}
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {!slot.synced ? (
+              <Button type="button" disabled={busy || !canPushSek} onClick={() => onPush(slot)}>
+                Изпрати към СЕК
+              </Button>
+            ) : null}
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => onRemove(slot)}>
+              Премахни
+            </Button>
+          </div>
         </div>
       ) : (
         <div>
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Няма избран. Търси и добави — по 1 за сезона.
+            Няма избран. По 1 за сезона — търси или избери от нуждаещите се.
           </p>
+          {needsFirst.length > 0 && !search.trim() ? (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Нуждаят се (вече в 2+ отбора)</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {needsFirst.map((a) => (
+                  <button
+                    key={`need-${a.id}`}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onPick(a.id)}
+                    style={{
+                      textAlign: "left",
+                      border: "1px solid #fde68a",
+                      background: "#fffbeb",
+                      borderRadius: 10,
+                      padding: "8px 10px",
+                      cursor: busy ? "wait" : "pointer",
+                    }}
+                  >
+                    <div style={{ fontWeight: 650 }}>{a.athlete_name}</div>
+                    <div className="uiMuted" style={{ fontSize: 12, marginTop: 2 }}>
+                      {a.team_labels?.join(", ") || "2+ картотеки"}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div style={{ position: "relative" }}>
             <Input
               value={search}
@@ -73,7 +122,7 @@ function SlotCard({ title, slot, sex, candidates, busy, onPick, onRemove }) {
               >
                 {available.length === 0 ? (
                   <p className="uiMuted" style={{ margin: 0, padding: 12, fontSize: 13 }}>
-                    Няма съвпадение.
+                    Няма съвпадение. Трябва връзка със СЕК (БФВ id) и попълнен пол.
                   </p>
                 ) : (
                   available.slice(0, 40).map((a) => (
@@ -93,16 +142,17 @@ function SlotCard({ title, slot, sex, candidates, busy, onPick, onRemove }) {
                         textAlign: "left",
                         border: "none",
                         borderBottom: "1px solid #f1f5f9",
-                        background: "transparent",
+                        background: a.needs_universal ? "#fffbeb" : "transparent",
                         padding: "10px 12px",
                         cursor: busy ? "wait" : "pointer",
                       }}
                     >
                       <div style={{ fontWeight: 650 }}>{a.athlete_name}</div>
                       <div className="uiMuted" style={{ fontSize: 12, marginTop: 2 }}>
+                        {a.bvf_player_number ? `СЕК № ${a.bvf_player_number} · ` : ""}
                         {a.birth_year || "—"}
                         {a.team_labels?.length ? ` · ${a.team_labels.join(", ")}` : ""}
-                        {Number(a.teams_count) >= 2 ? " · вече в 2 отбора" : ""}
+                        {a.needs_universal ? " · нужен универсален" : ""}
                       </div>
                     </button>
                   ))
@@ -130,6 +180,10 @@ export default function CoachBvfUniversalPlayers() {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState(null);
+  const [unmatched, setUnmatched] = useState([]);
+  const [lastSyncMsg, setLastSyncMsg] = useState("");
+
+  const canPushSek = permanent || Boolean(token.trim());
 
   const load = useCallback(async () => {
     try {
@@ -157,6 +211,7 @@ export default function CoachBvfUniversalPlayers() {
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_UNIVERSAL_PLAYERS, {
         athlete_id: athleteId,
         season_year: Number(year),
+        push_to_sek: true,
         ...tokenBody(token),
       });
       toast.success(res.data?.message || "Записан.");
@@ -164,6 +219,22 @@ export default function CoachBvfUniversalPlayers() {
       await load();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен запис."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const push = async (slot) => {
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_UNIVERSAL_PLAYER_PUSH(slot.id), {
+        ...tokenBody(token),
+      });
+      toast.success(res.data?.message || "Изпратен към СЕК.");
+      if (res.data?.sek_error) toast.error(res.data.sek_error);
+      await load();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изпращане към СЕК."));
     } finally {
       setBusy(false);
     }
@@ -192,7 +263,23 @@ export default function CoachBvfUniversalPlayers() {
         season_year: Number(year),
         ...tokenBody(token),
       });
-      toast.success(`Заредени от СЕК: ${res.data?.synced ?? 0}`);
+      const payload = res.data || {};
+      if (payload.season_year && String(payload.season_year) !== String(year)) {
+        setYear(String(payload.season_year));
+      }
+      setUnmatched(Array.isArray(payload.unmatched) ? payload.unmatched : []);
+      const msg = payload.message || `Заредени от СЕК: ${payload.synced ?? 0}`;
+      setLastSyncMsg(msg);
+      if (payload.ok === false) {
+        toast.error(msg);
+      } else if ((payload.synced ?? 0) === 0 && (payload.unmatched || []).length === 0) {
+        toast.error(
+          msg ||
+            "СЕК върна 0 за този сезон. Провери сезона или дали записите са в db.bvf.bg.",
+        );
+      } else {
+        toast.success(msg);
+      }
       await load();
     } catch (err) {
       toast.error(normalizeError(err, "Няма връзка със СЕК или ключът няма права."));
@@ -201,39 +288,98 @@ export default function CoachBvfUniversalPlayers() {
     }
   };
 
+  const statusBadge = (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+        fontWeight: 700,
+        padding: "4px 10px",
+        borderRadius: 999,
+        border: "1px solid #a7f3d0",
+        background: "#ecfdf5",
+        color: "#065f46",
+      }}
+    >
+      В СЕК: {data?.synced_count ?? 0}
+      {(data?.pending_push_count ?? 0) > 0 ? ` · чакат изпращане: ${data.pending_push_count}` : ""}
+    </span>
+  );
+
   const body = (
     <>
       <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
         {data?.rule ||
-          "Обикновен състезател: най-много 2 картотеки. Универсален: 3 и повече. По 1 момиче и 1 момче за сезон."}
+          "Правило: обикновен — до 2 картотеки; универсален — 3+. По 1 момиче и 1 момче. Зареди от СЕК или избери и изпрати."}
       </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end", marginBottom: 12 }}>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Сезон</span>
-          <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
-        </label>
-        <Button type="button" variant="secondary" disabled={busy} onClick={load}>
-          Презареди
-        </Button>
-        <Button type="button" variant="secondary" disabled={busy || (!permanent && !token.trim())} onClick={syncFromSek}>
-          Зареди от СЕК
-        </Button>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          alignItems: "end",
+          marginBottom: 12,
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Сезон</span>
+            <Input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 100 }} />
+          </label>
+          <Button type="button" variant="secondary" disabled={busy} onClick={load}>
+            Презареди
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy || !canPushSek}
+            onClick={syncFromSek}
+          >
+            Зареди от СЕК
+          </Button>
+        </div>
+        {statusBadge}
       </div>
+      {lastSyncMsg ? (
+        <p className="uiMuted" style={{ marginTop: 0, fontSize: 12 }}>
+          Последен sync: {lastSyncMsg}
+        </p>
+      ) : null}
       {!permanent ? (
         <textarea
           className="uiInput"
           rows={2}
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder="БФВ token (временно) — за запис в СЕК трябва write ключ"
+          placeholder="БФВ token (временно) — за запис/зареждане от СЕК трябва write ключ"
           style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, width: "100%", marginBottom: 12 }}
         />
+      ) : null}
+      {unmatched.length > 0 ? (
+        <Card title="В СЕК, но липсват при нас">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            Свържи ги в платформата (СЕК таб / link по ЕГН), после пак „Зареди от СЕК“.
+          </p>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+            {unmatched.map((u, i) => (
+              <li key={`${u.bvf_player_id || u.cup_id || i}-${i}`} style={{ marginBottom: 6 }}>
+                <strong>{u.name || "—"}</strong>
+                {u.bvf_player_number ? ` · СЕК № ${u.bvf_player_number}` : ""}
+                {u.hint ? ` — ${u.hint}` : ""}
+              </li>
+            ))}
+          </ul>
+        </Card>
       ) : null}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
           gap: 12,
+          marginTop: unmatched.length ? 12 : 0,
         }}
       >
         <SlotCard
@@ -242,8 +388,10 @@ export default function CoachBvfUniversalPlayers() {
           sex={1}
           candidates={data?.candidates || []}
           busy={busy}
+          canPushSek={canPushSek}
           onPick={pick}
           onRemove={remove}
+          onPush={push}
         />
         <SlotCard
           title="Момчета"
@@ -251,8 +399,10 @@ export default function CoachBvfUniversalPlayers() {
           sex={0}
           candidates={data?.candidates || []}
           busy={busy}
+          canPushSek={canPushSek}
           onPick={pick}
           onRemove={remove}
+          onPush={push}
         />
       </div>
     </>
@@ -273,7 +423,7 @@ export default function CoachBvfUniversalPlayers() {
     <div className="uiPage">
       <PageHero
         title="Универсални състезатели"
-        subtitle="Само главният треньор. По 1 момиче и 1 момче за сезон — за 3 и повече картотеки."
+        subtitle="Само главният треньор. По 1 момиче и 1 момче — зареди от СЕК или изпрати към СЕК."
         actions={
           <Link to="/coach/bvf-card-indexes">
             <Button variant="secondary">← Картотечни отбори</Button>
