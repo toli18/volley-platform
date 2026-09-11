@@ -5,6 +5,7 @@ import ParentCoachContact, { parentHasCoachContact } from "./ParentCoachContact"
 import ParentPortalFeed from "./ParentPortalFeed";
 import ParentDevelopmentSection from "./ParentDevelopmentSection";
 import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
+import ParentSchoolExcuseSection from "./ParentSchoolExcuseSection";
 import AthleteMembershipChips from "../athletes/AthleteMembershipChips";
 import { IconCalendar, IconEuro } from "./parentPortalIcons";
 import { Button, Card, EmptyState, Input } from "../ui";
@@ -174,6 +175,7 @@ const PROFILE_SECTIONS = [
   { id: "fees", label: "Такси" },
   { id: "attendance", label: "Присъствие" },
   { id: "development", label: "Развитие" },
+  { id: "school_excuse", label: "Извинителни бележки" },
 ];
 
 export default function ParentPortalProfileContent({
@@ -599,6 +601,9 @@ export default function ParentPortalProfileContent({
             variant="tab"
             preferEmptyState
           />
+        ) : null}
+        {section === "school_excuse" ? (
+          <ParentSchoolExcuseSection isSession={isSession} token={token} onSaved={onProfileRefresh} />
         ) : null}
       </ParentPortalTabPanel>
     </>

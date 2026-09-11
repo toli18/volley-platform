@@ -73,6 +73,11 @@ class Settings(BaseSettings):
         env="PARENT_PORTAL_PUBLIC_URL",
         description="Base URL for links in push notifications (e.g. https://volley-platform.vercel.app)",
     )
+    smtp_host: Optional[str] = Field(default=None, env="SMTP_HOST")
+    smtp_port: int = Field(default=587, env="SMTP_PORT")
+    smtp_user: Optional[str] = Field(default=None, env="SMTP_USER")
+    smtp_password: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    smtp_from: Optional[str] = Field(default=None, env="SMTP_FROM")
     api_public_url: Optional[str] = Field(
         default=None,
         validation_alias=AliasChoices(

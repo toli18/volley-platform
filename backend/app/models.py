@@ -115,6 +115,13 @@ class Club(Base):
     fee_age_exempt_min_age = Column(Integer, nullable=False, default=18)
     fee_age_exempt_from_month = Column(String(7), nullable=True)  # YYYY-MM
 
+    # Извинителни бележки за училище (родителски портал)
+    school_excuse_enabled = Column(Boolean, nullable=False, default=False)
+    school_excuse_body = Column(Text, nullable=True)
+    school_excuse_chairman_name = Column(String(255), nullable=True)
+    school_excuse_signature_rel = Column(String(500), nullable=True)
+    school_excuse_stamp_rel = Column(String(500), nullable=True)
+
     # Публична клубна страница (/c/:slug)
     public_slug = Column(String(80), nullable=True, unique=True, index=True)
     public_page_enabled = Column(Boolean, nullable=False, default=False)
@@ -542,6 +549,10 @@ class Athlete(Base):
     athlete_phone = Column(String(50), nullable=True)
     parent_name = Column(String(255), nullable=True)
     parent_phone = Column(String(50), nullable=True)
+    school_name = Column(String(255), nullable=True)
+    school_class = Column(String(32), nullable=True)
+    school_city = Column(String(120), nullable=True)
+    school_email = Column(String(255), nullable=True)
     birth_year = Column(Integer, nullable=True, index=True)
     birth_date = Column(Date, nullable=True)
     place_of_birth = Column(String(255), nullable=True)

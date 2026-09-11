@@ -233,6 +233,18 @@ export const API_PATHS = {
   PARENT_PORTAL_CARDING_FORM_TOKEN: (token) => `/api/parent-portal/${token}/carding-form`,
   PARENT_PORTAL_CARDING_FORM_PREVIEW_ME: "/api/parent-portal/me/carding-form/preview",
   PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN: (token) => `/api/parent-portal/${token}/carding-form/preview`,
+  PARENT_SCHOOL_EXCUSE_LIST_ME: "/api/parent-portal/me/school-excuse-notes",
+  PARENT_SCHOOL_EXCUSE_LIST_TOKEN: (token) => `/api/parent-portal/${token}/school-excuse-notes`,
+  PARENT_SCHOOL_INFO_ME: "/api/parent-portal/me/school-info",
+  PARENT_SCHOOL_INFO_TOKEN: (token) => `/api/parent-portal/${token}/school-info`,
+  PARENT_SCHOOL_EXCUSE_PDF_ME: (competitionId) =>
+    `/api/parent-portal/me/school-excuse-notes/${competitionId}/pdf`,
+  PARENT_SCHOOL_EXCUSE_PDF_TOKEN: (token, competitionId) =>
+    `/api/parent-portal/${token}/school-excuse-notes/${competitionId}/pdf`,
+  PARENT_SCHOOL_EXCUSE_SEND_ME: (competitionId) =>
+    `/api/parent-portal/me/school-excuse-notes/${competitionId}/send-email`,
+  PARENT_SCHOOL_EXCUSE_SEND_TOKEN: (token, competitionId) =>
+    `/api/parent-portal/${token}/school-excuse-notes/${competitionId}/send-email`,
 
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,
@@ -244,6 +256,10 @@ export const API_PATHS = {
   CLUB_ATHLETES: "/api/club/athletes",
   CLUB_FEES_SUMMARY: "/api/club/fees/summary",
   CLUB_FEES_SETTINGS: "/api/club/fees-settings",
+  CLUB_SCHOOL_EXCUSE_SETTINGS: "/api/club/school-excuse-settings",
+  CLUB_SCHOOL_EXCUSE_SIGNATURE: "/api/club/school-excuse-settings/signature",
+  CLUB_SCHOOL_EXCUSE_STAMP: "/api/club/school-excuse-settings/stamp",
+  CLUB_SCHOOL_EXCUSE_PREVIEW: "/api/club/school-excuse-settings/preview.pdf",
   CLUB_ATTENDANCE_SUMMARY: "/api/club/attendance/summary",
   CLUB_TRAININGS: "/api/club/trainings",
   CLUB_REPORT_FEES_XLSX: "/api/club/reports/fees.xlsx",

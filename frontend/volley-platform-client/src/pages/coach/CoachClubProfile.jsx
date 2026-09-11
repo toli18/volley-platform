@@ -8,6 +8,7 @@ import { Button, Card, EmptyState, Input, PageHero } from "../../components/ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import SchoolExcuseSettingsCard from "../../components/club/SchoolExcuseSettingsCard";
 import "./CoachClubProfile.css";
 
 function normalizeRole(user) {
@@ -22,6 +23,7 @@ const PROFILE_TABS = [
   { id: "fees", label: "Такси", headOnly: true },
   { id: "enroll", label: "Записване", headOnly: true },
   { id: "coaches", label: "Треньори" },
+  { id: "school_excuse", label: "Извинителни бележки", headOnly: true },
 ];
 
 export default function CoachClubProfile() {
@@ -1153,6 +1155,16 @@ export default function CoachClubProfile() {
       ) : null}
 
       {activeTab === "enroll" ? publicPageCard : null}
+
+      {activeTab === "school_excuse" && isHead ? (
+        <Card title="Извинителни бележки за училище">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
+            Настройте шаблона, подписа и печата веднъж. Родителите генерират PDF при изтегляне от
+            профила си — по една бележка за всяко състезание, в което детето е в пътуващия състав.
+          </p>
+          <SchoolExcuseSettingsCard toast={toast} />
+        </Card>
+      ) : null}
 
       {activeTab === "coaches" ? (
       <Card title="Треньори — телефони за родители">
