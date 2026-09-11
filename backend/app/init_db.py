@@ -651,6 +651,31 @@ def _init_db_impl() -> None:
                         "ADD COLUMN IF NOT EXISTS signature_athlete_image_rel VARCHAR(500)"
                     )
                 )
+                # Извинителни бележки за училище (ако alembic още не е минал на prod)
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_enabled "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_body TEXT"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_chairman_name VARCHAR(255)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_signature_rel VARCHAR(500)"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_stamp_rel VARCHAR(500)")
+                )
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_name VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_class VARCHAR(32)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_city VARCHAR(120)"))
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_email VARCHAR(255)"))
                 # Вече отворени сезони са имали Форма 03 заедно със status=open — запазваме поведението.
                 conn.execute(
                     text(
@@ -876,6 +901,18 @@ def _init_db_impl() -> None:
             if "fee_exempt_from_month" not in athlete_col_names:
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN fee_exempt_from_month VARCHAR(7)"))
                 print("✅ Added athletes.fee_exempt_from_month column")
+            if "school_name" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN school_name VARCHAR(255)"))
+                print("✅ Added athletes.school_name column")
+            if "school_class" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN school_class VARCHAR(32)"))
+                print("✅ Added athletes.school_class column")
+            if "school_city" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN school_city VARCHAR(120)"))
+                print("✅ Added athletes.school_city column")
+            if "school_email" not in athlete_col_names:
+                conn.execute(text("ALTER TABLE athletes ADD COLUMN school_email VARCHAR(255)"))
+                print("✅ Added athletes.school_email column")
 
             try:
                 ci_cols = conn.execute(text("PRAGMA table_info(bvf_card_indexes)")).fetchall()
@@ -1021,6 +1058,23 @@ def _init_db_impl() -> None:
             if "fee_age_exempt_from_month" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN fee_age_exempt_from_month VARCHAR(7)"))
                 print("✅ Added clubs.fee_age_exempt_from_month column")
+            if "school_excuse_enabled" not in club_col_names:
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN school_excuse_enabled BOOLEAN NOT NULL DEFAULT 0")
+                )
+                print("✅ Added clubs.school_excuse_enabled column")
+            if "school_excuse_body" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_body TEXT"))
+                print("✅ Added clubs.school_excuse_body column")
+            if "school_excuse_chairman_name" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_chairman_name VARCHAR(255)"))
+                print("✅ Added clubs.school_excuse_chairman_name column")
+            if "school_excuse_signature_rel" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_signature_rel VARCHAR(500)"))
+                print("✅ Added clubs.school_excuse_signature_rel column")
+            if "school_excuse_stamp_rel" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_stamp_rel VARCHAR(500)"))
+                print("✅ Added clubs.school_excuse_stamp_rel column")
             if "bvf_default_first_coach_id" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
                 print("✅ Added clubs.bvf_default_first_coach_id column")
