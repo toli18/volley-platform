@@ -128,6 +128,23 @@ def backfill_school_excuse_assets_to_db(club: Club) -> bool:
     return changed
 
 
+def _strip_scan_background(img) -> None:
+    """Маха бял/сив/светлосин фон от скан на печат (JPG/PNG с правоъгълник)."""
+    px = img.load()
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            lum = (r + g + b) / 3.0
+            spread = max(r, g, b) - min(r, g, b)
+            if lum >= 178 and spread <= 62:
+                px[x, y] = (255, 255, 255, 0)
+            elif r >= 225 and g >= 225 and b >= 225:
+                px[x, y] = (255, 255, 255, 0)
+
+
 def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = False):
     """ReportLab 4.x изисква ImageReader за bytes (БД) — raw BytesIO хвърля грешка."""
     from reportlab.lib.utils import ImageReader
@@ -139,13 +156,10 @@ def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = Fals
             white_to_transparent = False
         else:
             img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
-            px = img.load()
-            w, h = img.size
-            for y in range(h):
-                for x in range(w):
-                    r, g, b, a = px[x, y]
-                    if r >= 232 and g >= 232 and b >= 232:
-                        px[x, y] = (255, 255, 255, 0)
+            _strip_scan_background(img)
+            bbox = img.getbbox()
+            if bbox:
+                img = img.crop(bbox)
             out = BytesIO()
             img.save(out, format="PNG")
             out.seek(0)
@@ -165,15 +179,17 @@ def _draw_footer_seal_and_signature(
     footer_y: float,
     stamp_source: Path | bytes | None,
     sig_source: Path | bytes | None,
+    chairman_name: str = "",
 ) -> None:
     """Печат и подпис един до друг — без наслагване."""
     from reportlab.lib.units import mm
 
     stamp_size = 32 * mm
     sig_w = 44 * mm
-    sig_h = 15 * mm
+    sig_h = 14 * mm
     gap = 10 * mm
-    block_bottom = footer_y - 1 * mm
+    name_h = 5 * mm if (chairman_name or "").strip() not in ("", "—") else 0
+    block_bottom = footer_y - 1 * mm - name_h
     right = width - margin
 
     has_stamp = bool(stamp_source)
@@ -197,19 +213,19 @@ def _draw_footer_seal_and_signature(
         stamp_reader = _pdf_image_reader(stamp_source, white_to_transparent=True)
         c.drawImage(
             stamp_reader,
-            stamp_x,
-            block_bottom,
+            stamp_x + stamp_size / 2,
+            block_bottom + stamp_size / 2,
             width=stamp_size,
             height=stamp_size,
             mask="auto",
             preserveAspectRatio=True,
-            anchor="sw",
+            anchor="c",
         )
 
     if has_sig:
         c.drawString(sig_x, label_y, "Подпис")
         sig_y = block_bottom + max(2 * mm, (stamp_size - sig_h) / 2) if has_stamp else block_bottom + 6 * mm
-        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=False)
+        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=True)
         c.drawImage(
             sig_reader,
             sig_x,
@@ -222,6 +238,14 @@ def _draw_footer_seal_and_signature(
         )
         c.setLineWidth(0.4)
         c.line(sig_x, block_bottom, sig_x + sig_w, block_bottom)
+        signer = (chairman_name or "").strip()
+        if signer and signer != "—":
+            c.setFont(font, 8)
+            label = signer
+            while label and c.stringWidth(label, font, 8) > sig_w - 2 * mm:
+                label = label[:-1]
+            if label:
+                c.drawCentredString(sig_x + sig_w / 2, block_bottom - 3.5 * mm, label)
 
 
 def format_date_bg(iso: str | None) -> str:
@@ -420,6 +444,7 @@ def build_school_excuse_pdf(
         footer_y=footer_y,
         stamp_source=stamp_source,
         sig_source=sig_source,
+        chairman_name=ctx.get("chairman_name") or "",
     )
 
     c.showPage()
