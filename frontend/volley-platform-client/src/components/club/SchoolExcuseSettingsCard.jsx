@@ -186,7 +186,8 @@ export default function SchoolExcuseSettingsCard({ toast }) {
         <span className="uiMuted" style={{ fontSize: 12 }}>
           Най-добре <strong>PNG с прозрачен фон</strong> (скан без бял правоъгълник). JPG също работи —
           системата маха светлия фон, но PNG дава по-чист резултат. Печатът и подписът се показват{" "}
-          <strong>един до друг</strong>, без наслагване.
+          <strong>един до друг</strong>, без наслагване. Ако печатът липсва в PDF —{" "}
+          <strong>качете файла отново</strong> (запазва се в базата, не се губи при deploy).
         </span>
       </div>
 

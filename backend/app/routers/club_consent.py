@@ -17,6 +17,7 @@ from app.services.carding_form import (
     athlete_needs_adult_carding_form,
     carding_form_to_document_dict,
     create_signed_carding_form_03b,
+    ensure_carding_form_signatures_persisted,
     form_kind_for_athlete,
     open_carding_season_year,
     prefill_carding_form,
@@ -269,6 +270,7 @@ def preview_carding_form(
     )
     if not form:
         raise HTTPException(status_code=404, detail="Формата не е намерена")
+    form = ensure_carding_form_signatures_persisted(db, form)
     club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
     pdf = read_carding_form_pdf(form, club=club)
     if not pdf:

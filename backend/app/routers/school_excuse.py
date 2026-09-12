@@ -27,6 +27,7 @@ from app.services.email_send import send_email_with_attachment, smtp_configured
 from app.services.school_excuse_note import (
     DEFAULT_BODY_TEMPLATE,
     athlete_school_missing,
+    backfill_school_excuse_assets_to_db,
     build_school_excuse_pdf,
     club_school_excuse_enabled,
     extract_event_city,
@@ -36,6 +37,13 @@ from app.services.school_excuse_note import (
     save_school_excuse_signature_png,
     save_school_excuse_stamp_file,
 )
+
+
+def _club_with_persisted_assets(db: Session, club: Club) -> Club:
+    if backfill_school_excuse_assets_to_db(club):
+        db.commit()
+        db.refresh(club)
+    return club
 
 
 def _resolve_parent_token_athlete(db: Session, token: str) -> Athlete:
@@ -129,7 +137,7 @@ def get_school_excuse_settings(
     ),
 ):
     _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, club_id)
+    club = _club_with_persisted_assets(db, _club_for_user(db, current_user, club_id))
     return _settings_out(club)
 
 
@@ -171,7 +179,9 @@ def save_school_excuse_signature(
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, club_id)
     try:
-        club.school_excuse_signature_rel = save_school_excuse_signature_png(club.id, payload.signature_image)
+        rel, blob = save_school_excuse_signature_png(club.id, payload.signature_image)
+        club.school_excuse_signature_rel = rel
+        club.school_excuse_signature_data = blob
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     db.commit()
@@ -196,6 +206,7 @@ async def upload_school_excuse_stamp(
     if len(content) > 5_000_000:
         raise HTTPException(status_code=422, detail="Файлът е твърде голям (макс. 5 MB).")
     club.school_excuse_stamp_rel = save_school_excuse_stamp_file(club.id, content, file.filename or "stamp.png")
+    club.school_excuse_stamp_data = content
     db.commit()
     db.refresh(club)
     return _settings_out(club)
@@ -210,7 +221,7 @@ def preview_school_excuse_pdf(
     ),
 ):
     _ensure_head_with_club(current_user)
-    club = _club_for_user(db, current_user, club_id)
+    club = _club_with_persisted_assets(db, _club_for_user(db, current_user, club_id))
     sample_athlete = Athlete(
         athlete_name="Иван Петров Иванов",
         school_name='СУ "Пример"',
@@ -380,6 +391,8 @@ def _pdf_filename(athlete: Athlete, comp: ClubCompetitionEvent) -> str:
 def _generate_pdf_response(db: Session, athlete: Athlete, competition_id: int) -> Response:
     comp = _competition_for_athlete(db, athlete, competition_id)
     club = _get_club_for_athlete(db, athlete)
+    if club:
+        club = _club_with_persisted_assets(db, club)
     pdf = build_school_excuse_pdf(athlete=athlete, comp=comp, club=club)
     fname = _pdf_filename(athlete, comp)
     return Response(
@@ -409,6 +422,8 @@ def _send_school_excuse_email(
 ) -> dict:
     comp = _competition_for_athlete(db, athlete, competition_id)
     club = _get_club_for_athlete(db, athlete)
+    if club:
+        club = _club_with_persisted_assets(db, club)
     pdf = build_school_excuse_pdf(athlete=athlete, comp=comp, club=club)
     fname = _pdf_filename(athlete, comp)
     subject = f"Молба за извинение — {(athlete.athlete_name or '').strip()} — {format_date_bg(comp.date)}"

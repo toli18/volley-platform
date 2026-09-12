@@ -651,6 +651,24 @@ def _init_db_impl() -> None:
                         "ADD COLUMN IF NOT EXISTS signature_athlete_image_rel VARCHAR(500)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_parent1_image_data BYTEA"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_parent2_image_data BYTEA"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE athlete_carding_forms "
+                        "ADD COLUMN IF NOT EXISTS signature_athlete_image_data BYTEA"
+                    )
+                )
                 # Извинителни бележки за училище (ако alembic още не е минал на prod)
                 conn.execute(
                     text(
@@ -672,6 +690,10 @@ def _init_db_impl() -> None:
                 conn.execute(
                     text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_stamp_rel VARCHAR(500)")
                 )
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_signature_data BYTEA")
+                )
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_stamp_data BYTEA"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_name VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_class VARCHAR(32)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_city VARCHAR(120)"))
@@ -1075,6 +1097,12 @@ def _init_db_impl() -> None:
             if "school_excuse_stamp_rel" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_stamp_rel VARCHAR(500)"))
                 print("✅ Added clubs.school_excuse_stamp_rel column")
+            if "school_excuse_signature_data" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_signature_data BLOB"))
+                print("✅ Added clubs.school_excuse_signature_data column")
+            if "school_excuse_stamp_data" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_stamp_data BLOB"))
+                print("✅ Added clubs.school_excuse_stamp_data column")
             if "bvf_default_first_coach_id" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
                 print("✅ Added clubs.bvf_default_first_coach_id column")
@@ -1208,6 +1236,29 @@ def _init_db_impl() -> None:
                 print("ℹ️ bvf_textbook_bg.txt липсва — пропуск учебник импорт")
         except Exception as exc:
             print(f"⚠️ BVF library import skipped: {exc}")
+
+        try:
+            from app.models import AthleteCardingForm
+            from app.services.carding_form import backfill_carding_form_signatures_to_db
+            from app.services.school_excuse_note import backfill_school_excuse_assets_to_db
+
+            carding_n = 0
+            for form in db.query(AthleteCardingForm).filter(AthleteCardingForm.is_active.is_(True)).all():
+                if backfill_carding_form_signatures_to_db(form):
+                    carding_n += 1
+            excuse_n = 0
+            for club in db.query(Club).all():
+                if backfill_school_excuse_assets_to_db(club):
+                    excuse_n += 1
+            if carding_n or excuse_n:
+                db.commit()
+                print(
+                    f"✅ Asset backfill to DB: {carding_n} carding form(s), "
+                    f"{excuse_n} club excuse asset(s)"
+                )
+        except Exception as exc:
+            db.rollback()
+            print(f"⚠️ Asset backfill skipped: {exc}")
 
         print("✅ Database initialized successfully")
     except Exception as e:

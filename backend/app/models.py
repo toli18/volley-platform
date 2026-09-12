@@ -120,7 +120,9 @@ class Club(Base):
     school_excuse_body = Column(Text, nullable=True)
     school_excuse_chairman_name = Column(String(255), nullable=True)
     school_excuse_signature_rel = Column(String(500), nullable=True)
+    school_excuse_signature_data = Column(LargeBinary, nullable=True)
     school_excuse_stamp_rel = Column(String(500), nullable=True)
+    school_excuse_stamp_data = Column(LargeBinary, nullable=True)
 
     # Публична клубна страница (/c/:slug)
     public_slug = Column(String(80), nullable=True, unique=True, index=True)
@@ -696,8 +698,11 @@ class AthleteCardingForm(Base):
     signature_parent2 = Column(String(255), nullable=True)
     signature_athlete = Column(String(255), nullable=True)
     signature_parent1_image_rel = Column(String(500), nullable=True)
+    signature_parent1_image_data = Column(LargeBinary, nullable=True)
     signature_parent2_image_rel = Column(String(500), nullable=True)
+    signature_parent2_image_data = Column(LargeBinary, nullable=True)
     signature_athlete_image_rel = Column(String(500), nullable=True)
+    signature_athlete_image_data = Column(LargeBinary, nullable=True)
     signed_at = Column(DateTime, nullable=False)
 
     club_name_snapshot = Column(String(255), nullable=True)

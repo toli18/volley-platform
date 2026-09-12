@@ -89,6 +89,7 @@ from app.services.carding_form import (
     open_carding_season_year,
     persist_carding_form_pdf,
     prefill_carding_form,
+    ensure_carding_form_signatures_persisted,
     read_carding_form_pdf,
     save_carding_signature_png,
     season_label,
@@ -1595,15 +1596,22 @@ def _sign_carding_form(
     try:
         from app.services.carding_form import _decode_png_data_url
 
-        form.signature_parent1_image_rel = save_carding_signature_png(
-            form.id, "parent1", body.signature_parent1_image
-        )
-        ink_images["parent1"] = _decode_png_data_url(body.signature_parent1_image)
-        if kind == FORM_KIND_03A and body.signature_athlete_image:
-            form.signature_athlete_image_rel = save_carding_signature_png(
-                form.id, "athlete", body.signature_athlete_image
+        rel_p1, blob_p1 = save_carding_signature_png(form.id, "parent1", body.signature_parent1_image)
+        form.signature_parent1_image_rel = rel_p1
+        form.signature_parent1_image_data = blob_p1
+        ink_images["parent1"] = blob_p1
+        if (body.signature_parent2_image or "").strip():
+            rel_p2, blob_p2 = save_carding_signature_png(
+                form.id, "parent2", body.signature_parent2_image
             )
-            ink_images["athlete"] = _decode_png_data_url(body.signature_athlete_image)
+            form.signature_parent2_image_rel = rel_p2
+            form.signature_parent2_image_data = blob_p2
+            ink_images["parent2"] = blob_p2
+        if kind == FORM_KIND_03A and body.signature_athlete_image:
+            rel_ath, blob_ath = save_carding_signature_png(form.id, "athlete", body.signature_athlete_image)
+            form.signature_athlete_image_rel = rel_ath
+            form.signature_athlete_image_data = blob_ath
+            ink_images["athlete"] = blob_ath
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
@@ -1664,6 +1672,7 @@ def parent_carding_form_preview_me(
     form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
     if not form:
         raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
+    form = ensure_carding_form_signatures_persisted(db, form)
     club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
     pdf = read_carding_form_pdf(form, club=club)
     if not pdf:
@@ -1682,6 +1691,7 @@ def parent_carding_form_preview_token(token: str, db: Session = Depends(get_db))
     form = get_signed_carding_form(db, athlete.id, year, athlete.club_id) if year else None
     if not form:
         raise HTTPException(status_code=404, detail="Няма подписана Форма 03")
+    form = ensure_carding_form_signatures_persisted(db, form)
     club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
     pdf = read_carding_form_pdf(form, club=club)
     if not pdf:

@@ -821,7 +821,11 @@ def _push_roster_carding_forms_to_sek(
     db: Session, *, local: BvfCardIndex, club: Club, token: str
 ) -> list[dict[str, Any]]:
     """Качва локални PDF Форма 03/А/B в профилите в СЕК (пропуска вече качени)."""
-    from app.services.carding_form import get_signed_carding_form, read_carding_form_pdf
+    from app.services.carding_form import (
+        ensure_carding_form_signatures_persisted,
+        get_signed_carding_form,
+        read_carding_form_pdf,
+    )
 
     year = int(local.year or datetime.utcnow().year)
     results: list[dict[str, Any]] = []
@@ -864,6 +868,7 @@ def _push_roster_carding_forms_to_sek(
             )
             continue
 
+        form = ensure_carding_form_signatures_persisted(db, form)
         pdf = read_carding_form_pdf(form, club=club)
         if not pdf:
             results.append({**base, "status": "error", "detail": "Неуспешно генериране на PDF"})

@@ -95,17 +95,57 @@ def form_kind_for_athlete(athlete: Athlete, season_year: int) -> str:
     return FORM_KIND_03
 
 
+def _carding_signature_role_attrs(role: str) -> tuple[str, str]:
+    return {
+        "parent1": ("signature_parent1_image_rel", "signature_parent1_image_data"),
+        "parent2": ("signature_parent2_image_rel", "signature_parent2_image_data"),
+        "athlete": ("signature_athlete_image_rel", "signature_athlete_image_data"),
+    }[role]
+
+
+def resolve_carding_signature_bytes(form: AthleteCardingForm | None, role: str) -> bytes | None:
+    """PNG подпис от БД (Railway-safe), после от локален файл."""
+    if not form:
+        return None
+    rel_attr, data_attr = _carding_signature_role_attrs(role)
+    data = getattr(form, data_attr, None)
+    if data and len(data) >= 200:
+        return bytes(data)
+    path = resolve_carding_signature_path(getattr(form, rel_attr, None))
+    if path is None:
+        return None
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
+
+
+def backfill_carding_form_signatures_to_db(form: AthleteCardingForm) -> bool:
+    """Копира PNG подписи от диск в БД след deploy, ако blob колоните са празни."""
+    changed = False
+    for role in ("parent1", "parent2", "athlete"):
+        rel_attr, data_attr = _carding_signature_role_attrs(role)
+        if getattr(form, data_attr, None):
+            continue
+        path = resolve_carding_signature_path(getattr(form, rel_attr, None))
+        if not path:
+            continue
+        setattr(form, data_attr, path.read_bytes())
+        changed = True
+    return changed
+
+
 def form_has_federation_signatures(form: AthleteCardingForm) -> bool:
     """Валиден подпис: canvas за родител 1 (+ състезател при 03А/03B); родител 2 — текстово име."""
     kind = (form.form_kind or "").strip().lower()
     if kind == FORM_KIND_03B:
-        return resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None)) is not None
-    if not resolve_carding_signature_path(getattr(form, "signature_parent1_image_rel", None)):
+        return resolve_carding_signature_bytes(form, "athlete") is not None
+    if resolve_carding_signature_bytes(form, "parent1") is None:
         return False
     if not (getattr(form, "signature_parent2", None) or "").strip():
         return False
     if kind == FORM_KIND_03A:
-        if not resolve_carding_signature_path(getattr(form, "signature_athlete_image_rel", None)):
+        if resolve_carding_signature_bytes(form, "athlete") is None:
             return False
     return True
 
@@ -252,15 +292,15 @@ def _decode_png_data_url(data_url: str) -> bytes:
     return data
 
 
-def save_carding_signature_png(form_id: int, role: str, data_url: str) -> str:
-    """Записва canvas PNG; връща относителен път carding_forms/signatures/..."""
+def save_carding_signature_png(form_id: int, role: str, data_url: str) -> tuple[str, bytes]:
+    """Записва canvas PNG на диск + връща (rel, bytes) за запис в БД."""
     blob = _decode_png_data_url(data_url)
     safe_role = "".join(ch for ch in str(role) if ch.isalnum() or ch in ("_", "-")) or "sig"
     rel = f"signatures/{int(form_id)}_{safe_role}.png"
     path = carding_form_pdf_dir() / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(blob)
-    return f"carding_forms/{rel}"
+    return f"carding_forms/{rel}", blob
 
 
 def resolve_carding_signature_path(rel: str | None) -> Path | None:
@@ -328,14 +368,26 @@ def _draw_canvas_signature(
             reader = ImageReader(BytesIO(ink_bytes))
         except Exception:
             reader = None
-    if reader is None:
+    if reader is None and rel:
+        blob = None
         path = resolve_carding_signature_path(rel)
-        if path is None:
-            return False
-        try:
-            reader = ImageReader(str(path))
-        except Exception:
-            return False
+        if path is not None:
+            try:
+                blob = path.read_bytes()
+            except OSError:
+                blob = None
+        if blob and len(blob) >= 200:
+            try:
+                reader = ImageReader(BytesIO(blob))
+            except Exception:
+                reader = None
+        elif path is not None:
+            try:
+                reader = ImageReader(str(path))
+            except Exception:
+                reader = None
+    if reader is None:
+        return False
     try:
         c.drawImage(
             reader,
@@ -367,7 +419,12 @@ def build_carding_form_pdf(
     from app.routers.fees import _ensure_pdf_font
     from app.services.club_membership_consent import _club_logo_filesystem_path
 
-    ink = ink_images or {}
+    ink = dict(ink_images or {})
+    for role in ("parent1", "parent2", "athlete"):
+        if role not in ink:
+            blob = resolve_carding_signature_bytes(form, role)
+            if blob:
+                ink[role] = blob
     font_name = _ensure_pdf_font()
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -653,6 +710,14 @@ def read_carding_form_pdf(form: AthleteCardingForm, club: Club | None = None) ->
         return None
 
 
+def ensure_carding_form_signatures_persisted(db, form: AthleteCardingForm) -> AthleteCardingForm:
+    """Backfill от диск → БД преди preview/изтегляне (ако deploy не е изтрил файловете още)."""
+    if backfill_carding_form_signatures_to_db(form):
+        db.commit()
+        db.refresh(form)
+    return form
+
+
 def carding_form_to_document_dict(form: AthleteCardingForm) -> dict[str, Any]:
     if form.form_kind == FORM_KIND_03B:
         kind_label = "Форма 0-3 B"
@@ -721,9 +786,9 @@ def create_signed_carding_form_03b(
     db.add(form)
     db.flush()
     ink = _decode_png_data_url(signature_image_data_url)
-    form.signature_athlete_image_rel = save_carding_signature_png(
-        form.id, "athlete", signature_image_data_url
-    )
+    rel, blob = save_carding_signature_png(form.id, "athlete", signature_image_data_url)
+    form.signature_athlete_image_rel = rel
+    form.signature_athlete_image_data = blob
     try:
         form.pdf_rel_path = persist_carding_form_pdf(
             form, club=club, ink_images={"athlete": ink}

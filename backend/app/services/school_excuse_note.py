@@ -47,13 +47,23 @@ def resolve_school_excuse_template(club: Club | None) -> dict[str, Any]:
         "enabled": club_school_excuse_enabled(club),
         "chairman_name": chairman,
         "body_template": body,
-        "has_signature": bool(getattr(club, "school_excuse_signature_rel", None)),
-        "has_stamp": bool(getattr(club, "school_excuse_stamp_rel", None)),
+        "has_signature": _club_has_school_excuse_asset(
+            club, "school_excuse_signature_rel", "school_excuse_signature_data"
+        ),
+        "has_stamp": _club_has_school_excuse_asset(club, "school_excuse_stamp_rel", "school_excuse_stamp_data"),
         "club_logo_url": club.logo_url if club else None,
     }
 
 
-def save_school_excuse_signature_png(club_id: int, data_url: str) -> str:
+def _club_has_school_excuse_asset(club: Club | None, rel_attr: str, data_attr: str) -> bool:
+    if not club:
+        return False
+    if getattr(club, data_attr, None):
+        return True
+    return bool(getattr(club, rel_attr, None))
+
+
+def save_school_excuse_signature_png(club_id: int, data_url: str) -> tuple[str, bytes]:
     from app.services.carding_form import _decode_png_data_url
 
     blob = _decode_png_data_url(data_url)
@@ -61,7 +71,7 @@ def save_school_excuse_signature_png(club_id: int, data_url: str) -> str:
     path = school_excuse_assets_dir() / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(blob)
-    return f"school_excuse/{rel}"
+    return f"school_excuse/{rel}", blob
 
 
 def save_school_excuse_stamp_file(club_id: int, content: bytes, filename: str) -> str:
@@ -90,16 +100,52 @@ def resolve_school_excuse_asset_path(rel: str | None) -> Path | None:
     return None
 
 
-def _pdf_image_source(path: Path, *, white_to_transparent: bool = False) -> str | BytesIO:
+def resolve_school_excuse_asset(club: Club | None, rel_attr: str, data_attr: str) -> Path | bytes | None:
+    """Първо от БД (Railway-safe), после от локален файл."""
+    if club:
+        data = getattr(club, data_attr, None)
+        if data and len(data) > 0:
+            return bytes(data)
+    path = resolve_school_excuse_asset_path(getattr(club, rel_attr, None) if club else None)
+    return path
+
+
+def backfill_school_excuse_assets_to_db(club: Club) -> bool:
+    """Копира файлове от диск в БД (еднократно след deploy), ако липсват blob колоните."""
+    changed = False
+    pairs = (
+        ("school_excuse_signature_rel", "school_excuse_signature_data"),
+        ("school_excuse_stamp_rel", "school_excuse_stamp_data"),
+    )
+    for rel_attr, data_attr in pairs:
+        if getattr(club, data_attr, None):
+            continue
+        path = resolve_school_excuse_asset_path(getattr(club, rel_attr, None))
+        if not path:
+            continue
+        setattr(club, data_attr, path.read_bytes())
+        changed = True
+    return changed
+
+
+def _pdf_image_source(source: Path | bytes, *, white_to_transparent: bool = False) -> str | BytesIO:
     """Подготовка на изображение за ReportLab — по желание маха почти-бял фон (JPG на печат)."""
     if not white_to_transparent:
-        return str(path)
+        if isinstance(source, bytes):
+            out = BytesIO(source)
+            out.seek(0)
+            return out
+        return str(source)
     try:
         from PIL import Image
     except ImportError:
-        return str(path)
+        if isinstance(source, bytes):
+            out = BytesIO(source)
+            out.seek(0)
+            return out
+        return str(source)
 
-    img = Image.open(path).convert("RGBA")
+    img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
     px = img.load()
     w, h = img.size
     for y in range(h):
@@ -120,8 +166,8 @@ def _draw_footer_seal_and_signature(
     width: float,
     margin: float,
     footer_y: float,
-    stamp_path: Path | None,
-    sig_path: Path | None,
+    stamp_source: Path | bytes | None,
+    sig_source: Path | bytes | None,
 ) -> None:
     """Печат и подпис един до друг — без наслагване."""
     from reportlab.lib.units import mm
@@ -133,8 +179,8 @@ def _draw_footer_seal_and_signature(
     block_bottom = footer_y - 1 * mm
     right = width - margin
 
-    has_stamp = bool(stamp_path)
-    has_sig = bool(sig_path)
+    has_stamp = bool(stamp_source)
+    has_sig = bool(sig_source)
 
     if not has_stamp and not has_sig:
         c.setFont(font, 10)
@@ -152,7 +198,7 @@ def _draw_footer_seal_and_signature(
     if has_stamp:
         c.drawCentredString(stamp_x + stamp_size / 2, label_y, "Печат")
         try:
-            stamp_src = _pdf_image_source(stamp_path, white_to_transparent=True)
+            stamp_src = _pdf_image_source(stamp_source, white_to_transparent=True)
             c.drawImage(
                 stamp_src,
                 stamp_x,
@@ -170,8 +216,9 @@ def _draw_footer_seal_and_signature(
         c.drawString(sig_x, label_y, "Подпис")
         sig_y = block_bottom + max(2 * mm, (stamp_size - sig_h) / 2) if has_stamp else block_bottom + 6 * mm
         try:
+            sig_src = _pdf_image_source(sig_source, white_to_transparent=False)
             c.drawImage(
-                str(sig_path),
+                sig_src,
                 sig_x,
                 sig_y,
                 width=sig_w,
@@ -372,16 +419,16 @@ def build_school_excuse_pdf(
     c.drawString(left, footer_y + 6 * mm, f"дата: {ctx['issue_date']} г")
     c.drawString(left, footer_y, ctx["club_city"] if ctx["club_city"].lower().startswith("гр") else f"гр. {ctx['club_city']}")
 
-    sig_path = resolve_school_excuse_asset_path(getattr(club, "school_excuse_signature_rel", None))
-    stamp_path = resolve_school_excuse_asset_path(getattr(club, "school_excuse_stamp_rel", None))
+    sig_source = resolve_school_excuse_asset(club, "school_excuse_signature_rel", "school_excuse_signature_data")
+    stamp_source = resolve_school_excuse_asset(club, "school_excuse_stamp_rel", "school_excuse_stamp_data")
     _draw_footer_seal_and_signature(
         c,
         font=font,
         width=width,
         margin=margin,
         footer_y=footer_y,
-        stamp_path=stamp_path,
-        sig_path=sig_path,
+        stamp_source=stamp_source,
+        sig_source=sig_source,
     )
 
     c.showPage()
