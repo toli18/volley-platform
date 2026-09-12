@@ -184,7 +184,9 @@ export default function SchoolExcuseSettingsCard({ toast }) {
         </span>
         <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={uploadStamp} />
         <span className="uiMuted" style={{ fontSize: 12 }}>
-          PNG/JPG с прозрачен фон — ще се показва върху всяка бележка.
+          Най-добре <strong>PNG с прозрачен фон</strong> (скан без бял правоъгълник). JPG също работи —
+          системата маха светлия фон, но PNG дава по-чист резултат. Печатът и подписът се показват{" "}
+          <strong>един до друг</strong>, без наслагване.
         </span>
       </div>
 

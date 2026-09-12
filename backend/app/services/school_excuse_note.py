@@ -90,6 +90,102 @@ def resolve_school_excuse_asset_path(rel: str | None) -> Path | None:
     return None
 
 
+def _pdf_image_source(path: Path, *, white_to_transparent: bool = False) -> str | BytesIO:
+    """Подготовка на изображение за ReportLab — по желание маха почти-бял фон (JPG на печат)."""
+    if not white_to_transparent:
+        return str(path)
+    try:
+        from PIL import Image
+    except ImportError:
+        return str(path)
+
+    img = Image.open(path).convert("RGBA")
+    px = img.load()
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if r >= 232 and g >= 232 and b >= 232:
+                px[x, y] = (255, 255, 255, 0)
+    out = BytesIO()
+    img.save(out, format="PNG")
+    out.seek(0)
+    return out
+
+
+def _draw_footer_seal_and_signature(
+    c,
+    *,
+    font: str,
+    width: float,
+    margin: float,
+    footer_y: float,
+    stamp_path: Path | None,
+    sig_path: Path | None,
+) -> None:
+    """Печат и подпис един до друг — без наслагване."""
+    from reportlab.lib.units import mm
+
+    stamp_size = 32 * mm
+    sig_w = 44 * mm
+    sig_h = 15 * mm
+    gap = 10 * mm
+    block_bottom = footer_y - 1 * mm
+    right = width - margin
+
+    has_stamp = bool(stamp_path)
+    has_sig = bool(sig_path)
+
+    if not has_stamp and not has_sig:
+        c.setFont(font, 10)
+        c.drawString(right - 38 * mm, footer_y + 10 * mm, "Подпис")
+        c.setLineWidth(0.5)
+        c.line(right - 45 * mm, block_bottom + 4 * mm, right, block_bottom + 4 * mm)
+        return
+
+    sig_x = right - sig_w
+    stamp_x = sig_x - gap - stamp_size if has_stamp else right - stamp_size
+    label_y = block_bottom + stamp_size + 4 * mm
+
+    c.setFont(font, 9)
+
+    if has_stamp:
+        c.drawCentredString(stamp_x + stamp_size / 2, label_y, "Печат")
+        try:
+            stamp_src = _pdf_image_source(stamp_path, white_to_transparent=True)
+            c.drawImage(
+                stamp_src,
+                stamp_x,
+                block_bottom,
+                width=stamp_size,
+                height=stamp_size,
+                mask="auto",
+                preserveAspectRatio=True,
+                anchor="sw",
+            )
+        except Exception:
+            pass
+
+    if has_sig:
+        c.drawString(sig_x, label_y, "Подпис")
+        sig_y = block_bottom + max(2 * mm, (stamp_size - sig_h) / 2) if has_stamp else block_bottom + 6 * mm
+        try:
+            c.drawImage(
+                str(sig_path),
+                sig_x,
+                sig_y,
+                width=sig_w,
+                height=sig_h,
+                mask="auto",
+                preserveAspectRatio=True,
+                anchor="sw",
+            )
+        except Exception:
+            pass
+        c.setLineWidth(0.4)
+        c.line(sig_x, block_bottom, sig_x + sig_w, block_bottom)
+
+
 def format_date_bg(iso: str | None) -> str:
     if not iso or len(str(iso)) < 10:
         return "—"
@@ -278,20 +374,15 @@ def build_school_excuse_pdf(
 
     sig_path = resolve_school_excuse_asset_path(getattr(club, "school_excuse_signature_rel", None))
     stamp_path = resolve_school_excuse_asset_path(getattr(club, "school_excuse_stamp_rel", None))
-    sig_x = width - margin - 45 * mm
-    sig_y = footer_y - 2 * mm
-    c.setFont(font, 10)
-    c.drawString(sig_x, footer_y + 10 * mm, "Подпис")
-    if stamp_path:
-        try:
-            c.drawImage(str(stamp_path), sig_x, sig_y, width=40 * mm, height=40 * mm, mask="auto", preserveAspectRatio=True)
-        except Exception:
-            pass
-    if sig_path:
-        try:
-            c.drawImage(str(sig_path), sig_x + 8 * mm, sig_y + 8 * mm, width=35 * mm, height=18 * mm, mask="auto")
-        except Exception:
-            pass
+    _draw_footer_seal_and_signature(
+        c,
+        font=font,
+        width=width,
+        margin=margin,
+        footer_y=footer_y,
+        stamp_path=stamp_path,
+        sig_path=sig_path,
+    )
 
     c.showPage()
     c.save()
