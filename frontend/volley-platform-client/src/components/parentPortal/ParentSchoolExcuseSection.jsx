@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card, EmptyState, Input } from "../ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { normalizeError } from "../../utils/normalizeError";
+import { normalizeError, parseApiError } from "../../utils/normalizeError";
 import { useToast } from "../ToastProvider";
 
 function formatShortDate(iso) {
@@ -71,7 +71,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
       await load();
       onSaved?.();
     } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешен запис."));
+      toast?.error(await parseApiError(err, "Неуспешен запис."));
     } finally {
       setBusy(false);
     }
@@ -83,15 +83,23 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
       const path = isSession
         ? API_PATHS.PARENT_SCHOOL_EXCUSE_PDF_ME(competitionId)
         : API_PATHS.PARENT_SCHOOL_EXCUSE_PDF_TOKEN(token, competitionId);
-      const res = await axiosInstance.get(path, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `izvinitelna_${competitionId}.pdf`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      const res = await axiosInstance.get(path, { responseType: "blob", timeout: 120_000 });
+      const blob = res.data;
+      const header = await blob.slice(0, 5).text();
+      if (!header.startsWith("%PDF")) {
+        throw new Error(await parseApiError({ response: { data: blob, status: res.status } }, "PDF не е генериран."));
+      }
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `izvinitelna_${competitionId}.pdf`;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешно изтегляне на PDF."));
+      toast?.error(await parseApiError(err, "Неуспешно изтегляне на PDF."));
     } finally {
       setBusy(false);
     }
@@ -114,7 +122,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         setSchoolForm((f) => ({ ...f, school_email: email }));
       }
     } catch (err) {
-      toast?.error(normalizeError(err, "Неуспешно изпращане."));
+      toast?.error(await parseApiError(err, "Неуспешно изпращане."));
     } finally {
       setBusy(false);
     }

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -389,11 +392,26 @@ def _pdf_filename(athlete: Athlete, comp: ClubCompetitionEvent) -> str:
 
 
 def _generate_pdf_response(db: Session, athlete: Athlete, competition_id: int) -> Response:
-    comp = _competition_for_athlete(db, athlete, competition_id)
-    club = _get_club_for_athlete(db, athlete)
-    if club:
-        club = _club_with_persisted_assets(db, club)
-    pdf = build_school_excuse_pdf(athlete=athlete, comp=comp, club=club)
+    try:
+        comp = _competition_for_athlete(db, athlete, competition_id)
+        club = _get_club_for_athlete(db, athlete)
+        if club:
+            club = _club_with_persisted_assets(db, club)
+        if not club:
+            raise HTTPException(status_code=404, detail="Клубът не е намерен.")
+        pdf = build_school_excuse_pdf(athlete=athlete, comp=comp, club=club)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "school_excuse_pdf_failed athlete_id=%s competition_id=%s",
+            getattr(athlete, "id", None),
+            competition_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Грешка при генериране на PDF. Опитайте отново или свържете се с клуба.",
+        ) from exc
     fname = _pdf_filename(athlete, comp)
     return Response(
         content=pdf,

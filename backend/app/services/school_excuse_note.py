@@ -155,15 +155,23 @@ def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = Fals
         except ImportError:
             white_to_transparent = False
         else:
-            img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
-            _strip_scan_background(img)
-            bbox = img.getbbox()
-            if bbox:
-                img = img.crop(bbox)
-            out = BytesIO()
-            img.save(out, format="PNG")
-            out.seek(0)
-            return ImageReader(out)
+            try:
+                img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
+                w, h = img.size
+                max_dim = 900
+                if max(w, h) > max_dim:
+                    scale = max_dim / float(max(w, h))
+                    img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
+                _strip_scan_background(img)
+                bbox = img.getbbox()
+                if bbox:
+                    img = img.crop(bbox)
+                out = BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                out.seek(0)
+                return ImageReader(out)
+            except Exception:
+                white_to_transparent = False
 
     if isinstance(source, bytes):
         return ImageReader(BytesIO(source))
@@ -232,7 +240,7 @@ def _draw_footer_seal_and_signature(
         sig_draw_w = sig_col_w - 6 * mm
         sig_x = sig_left + (sig_col_w - sig_draw_w) / 2
         sig_y = line_y + (img_box_h - sig_img_h) / 2 + 1 * mm
-        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=True)
+        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=False)
         c.drawImage(
             sig_reader,
             sig_x,
