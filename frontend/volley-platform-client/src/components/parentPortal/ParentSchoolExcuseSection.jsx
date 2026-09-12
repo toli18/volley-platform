@@ -149,8 +149,16 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
           Попълнете веднъж — данните се ползват за всички бъдещи бележки.
         </p>
-        <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
-          <label style={{ display: "grid", gap: 4 }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            alignItems: "flex-end",
+            width: "100%",
+          }}
+        >
+          <label style={{ display: "grid", gap: 4, flex: "2 1 180px", minWidth: 140 }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Училище</span>
             <Input
               placeholder='СУ "Васил Левски"'
@@ -159,7 +167,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
               onChange={(e) => setSchoolForm((f) => ({ ...f, school_name: e.target.value }))}
             />
           </label>
-          <label style={{ display: "grid", gap: 4 }}>
+          <label style={{ display: "grid", gap: 4, flex: "0 1 72px", minWidth: 56 }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Клас</span>
             <Input
               placeholder="7а"
@@ -168,7 +176,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
               onChange={(e) => setSchoolForm((f) => ({ ...f, school_class: e.target.value }))}
             />
           </label>
-          <label style={{ display: "grid", gap: 4 }}>
+          <label style={{ display: "grid", gap: 4, flex: "1 1 130px", minWidth: 100 }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Град на училището</span>
             <Input
               placeholder="гр. Троян"
@@ -177,8 +185,14 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
               onChange={(e) => setSchoolForm((f) => ({ ...f, school_city: e.target.value }))}
             />
           </label>
-          <Button type="button" size="sm" disabled={busy} onClick={saveSchoolInfo}>
-            Запази училище
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy}
+            onClick={saveSchoolInfo}
+            style={{ flexShrink: 0, marginBottom: 1 }}
+          >
+            Запази
           </Button>
         </div>
       </Card>
