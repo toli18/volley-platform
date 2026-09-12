@@ -128,35 +128,32 @@ def backfill_school_excuse_assets_to_db(club: Club) -> bool:
     return changed
 
 
-def _pdf_image_source(source: Path | bytes, *, white_to_transparent: bool = False) -> str | BytesIO:
-    """Подготовка на изображение за ReportLab — по желание маха почти-бял фон (JPG на печат)."""
-    if not white_to_transparent:
-        if isinstance(source, bytes):
-            out = BytesIO(source)
-            out.seek(0)
-            return out
-        return str(source)
-    try:
-        from PIL import Image
-    except ImportError:
-        if isinstance(source, bytes):
-            out = BytesIO(source)
-            out.seek(0)
-            return out
-        return str(source)
+def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = False):
+    """ReportLab 4.x изисква ImageReader за bytes (БД) — raw BytesIO хвърля грешка."""
+    from reportlab.lib.utils import ImageReader
 
-    img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
-    px = img.load()
-    w, h = img.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if r >= 232 and g >= 232 and b >= 232:
-                px[x, y] = (255, 255, 255, 0)
-    out = BytesIO()
-    img.save(out, format="PNG")
-    out.seek(0)
-    return out
+    if white_to_transparent:
+        try:
+            from PIL import Image
+        except ImportError:
+            white_to_transparent = False
+        else:
+            img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
+            px = img.load()
+            w, h = img.size
+            for y in range(h):
+                for x in range(w):
+                    r, g, b, a = px[x, y]
+                    if r >= 232 and g >= 232 and b >= 232:
+                        px[x, y] = (255, 255, 255, 0)
+            out = BytesIO()
+            img.save(out, format="PNG")
+            out.seek(0)
+            return ImageReader(out)
+
+    if isinstance(source, bytes):
+        return ImageReader(BytesIO(source))
+    return ImageReader(str(source))
 
 
 def _draw_footer_seal_and_signature(
@@ -197,38 +194,32 @@ def _draw_footer_seal_and_signature(
 
     if has_stamp:
         c.drawCentredString(stamp_x + stamp_size / 2, label_y, "Печат")
-        try:
-            stamp_src = _pdf_image_source(stamp_source, white_to_transparent=True)
-            c.drawImage(
-                stamp_src,
-                stamp_x,
-                block_bottom,
-                width=stamp_size,
-                height=stamp_size,
-                mask="auto",
-                preserveAspectRatio=True,
-                anchor="sw",
-            )
-        except Exception:
-            pass
+        stamp_reader = _pdf_image_reader(stamp_source, white_to_transparent=True)
+        c.drawImage(
+            stamp_reader,
+            stamp_x,
+            block_bottom,
+            width=stamp_size,
+            height=stamp_size,
+            mask="auto",
+            preserveAspectRatio=True,
+            anchor="sw",
+        )
 
     if has_sig:
         c.drawString(sig_x, label_y, "Подпис")
         sig_y = block_bottom + max(2 * mm, (stamp_size - sig_h) / 2) if has_stamp else block_bottom + 6 * mm
-        try:
-            sig_src = _pdf_image_source(sig_source, white_to_transparent=False)
-            c.drawImage(
-                sig_src,
-                sig_x,
-                sig_y,
-                width=sig_w,
-                height=sig_h,
-                mask="auto",
-                preserveAspectRatio=True,
-                anchor="sw",
-            )
-        except Exception:
-            pass
+        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=False)
+        c.drawImage(
+            sig_reader,
+            sig_x,
+            sig_y,
+            width=sig_w,
+            height=sig_h,
+            mask="auto",
+            preserveAspectRatio=True,
+            anchor="sw",
+        )
         c.setLineWidth(0.4)
         c.line(sig_x, block_bottom, sig_x + sig_w, block_bottom)
 
