@@ -13,6 +13,7 @@ export default function SchoolExcuseSettingsCard({ toast }) {
   const [chairmanName, setChairmanName] = useState("");
   const [bodyTemplate, setBodyTemplate] = useState("");
   const [hasSignature, setHasSignature] = useState(false);
+  const [usesBundledSignature, setUsesBundledSignature] = useState(false);
   const [hasStamp, setHasStamp] = useState(false);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [sigInk, setSigInk] = useState(null);
@@ -26,6 +27,7 @@ export default function SchoolExcuseSettingsCard({ toast }) {
       setChairmanName(d.chairman_name || "");
       setBodyTemplate(d.body_template || d.defaults?.body || "");
       setHasSignature(Boolean(d.has_signature));
+      setUsesBundledSignature(Boolean(d.uses_bundled_signature));
       setHasStamp(Boolean(d.has_stamp));
       setSmtpConfigured(Boolean(d.smtp_configured));
     } catch (err) {
@@ -48,7 +50,7 @@ export default function SchoolExcuseSettingsCard({ toast }) {
         chairman_name: chairmanName.trim() || null,
         body_template: bodyTemplate,
       });
-      if (sigInk) {
+      if (sigInk && !usesBundledSignature) {
         await axiosInstance.put(API_PATHS.CLUB_SCHOOL_EXCUSE_SIGNATURE, {
           signature_image: sigInk,
         });
@@ -176,7 +178,13 @@ export default function SchoolExcuseSettingsCard({ toast }) {
         <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>
           Подпис на председателя {hasSignature ? "· записан" : "· липсва"}
         </p>
-        <SignaturePad label="Подпис" disabled={busy} onChange={setSigInk} />
+        {usesBundledSignature ? (
+          <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+            За <strong>Троян</strong> се ползва официалният подпис на председателя от платформата (не canvas).
+          </p>
+        ) : (
+          <SignaturePad label="Подпис" disabled={busy} onChange={setSigInk} />
+        )}
       </div>
 
       <div style={{ display: "grid", gap: 6 }}>

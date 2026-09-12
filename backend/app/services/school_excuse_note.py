@@ -12,6 +12,9 @@ from app.competition_kinds import competition_kind_label
 from app.models import Athlete, Club, ClubCompetitionEvent
 from app.settings import settings
 
+# Сдружение ВК Троян Волей — фиксиран подпис в git (без canvas)
+TROYAN_BVF_CLUB_ID = 167
+
 DEFAULT_BODY_TEMPLATE = """Уважаеми Г-н/Г-жо Директор,
 
 на {period_from} в {event_city} се проведоха {event_description}. В отборите бяха включени състезатели от повереното Ви училище:
@@ -25,6 +28,34 @@ def school_excuse_assets_dir() -> Path:
     base = Path(settings.storage_path).resolve() / "school_excuse"
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def _app_static_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "static"
+
+
+def is_troyan_volley_club(club: Club | None) -> bool:
+    if not club:
+        return False
+    if getattr(club, "bvf_club_id", None) == TROYAN_BVF_CLUB_ID:
+        return True
+    name = (club.name or "").lower()
+    return "троян" in name and "волей" in name
+
+
+def bundled_school_excuse_signature_path(club: Club | None) -> Path | None:
+    """Фиксиран подпис от repo — само за Троян (deploy-safe)."""
+    if not is_troyan_volley_club(club):
+        return None
+    for name in (f"{TROYAN_BVF_CLUB_ID}.png", "troyan.png"):
+        path = _app_static_dir() / "school-excuse-signatures" / name
+        if path.is_file() and path.stat().st_size > 0:
+            return path
+    return None
+
+
+def uses_bundled_school_excuse_signature(club: Club | None) -> bool:
+    return bundled_school_excuse_signature_path(club) is not None
 
 
 def club_school_excuse_enabled(club: Club | None) -> bool:
@@ -47,9 +78,8 @@ def resolve_school_excuse_template(club: Club | None) -> dict[str, Any]:
         "enabled": club_school_excuse_enabled(club),
         "chairman_name": chairman,
         "body_template": body,
-        "has_signature": _club_has_school_excuse_asset(
-            club, "school_excuse_signature_rel", "school_excuse_signature_data"
-        ),
+        "has_signature": has_school_excuse_signature(club),
+        "uses_bundled_signature": uses_bundled_school_excuse_signature(club),
         "has_stamp": _club_has_school_excuse_asset(club, "school_excuse_stamp_rel", "school_excuse_stamp_data"),
         "club_logo_url": club.logo_url if club else None,
     }
@@ -61,6 +91,22 @@ def _club_has_school_excuse_asset(club: Club | None, rel_attr: str, data_attr: s
     if getattr(club, data_attr, None):
         return True
     return bool(getattr(club, rel_attr, None))
+
+
+def has_school_excuse_signature(club: Club | None) -> bool:
+    if uses_bundled_school_excuse_signature(club):
+        return True
+    return _club_has_school_excuse_asset(
+        club, "school_excuse_signature_rel", "school_excuse_signature_data"
+    )
+
+
+def resolve_school_excuse_signature(club: Club | None) -> Path | bytes | None:
+    """Подпис за PDF — bundled (Троян) има приоритет пред canvas/БД."""
+    bundled = bundled_school_excuse_signature_path(club)
+    if bundled:
+        return bundled
+    return resolve_school_excuse_asset(club, "school_excuse_signature_rel", "school_excuse_signature_data")
 
 
 def save_school_excuse_signature_png(club_id: int, data_url: str) -> tuple[str, bytes]:
@@ -128,6 +174,19 @@ def backfill_school_excuse_assets_to_db(club: Club) -> bool:
     return changed
 
 
+def _strip_dark_background(img) -> None:
+    """Маха черен фон от скан на подпис (PNG върху #000)."""
+    px = img.load()
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            if r <= 48 and g <= 48 and b <= 48:
+                px[x, y] = (255, 255, 255, 0)
+
+
 def _strip_scan_background(img) -> None:
     """Маха бял/сив/светлосин фон от скан на печат (JPG/PNG с правоъгълник)."""
     px = img.load()
@@ -145,15 +204,21 @@ def _strip_scan_background(img) -> None:
                 px[x, y] = (255, 255, 255, 0)
 
 
-def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = False):
+def _pdf_image_reader(
+    source: Path | bytes,
+    *,
+    white_to_transparent: bool = False,
+    dark_to_transparent: bool = False,
+):
     """ReportLab 4.x изисква ImageReader за bytes (БД) — raw BytesIO хвърля грешка."""
     from reportlab.lib.utils import ImageReader
 
-    if white_to_transparent:
+    if white_to_transparent or dark_to_transparent:
         try:
             from PIL import Image
         except ImportError:
             white_to_transparent = False
+            dark_to_transparent = False
         else:
             try:
                 img = Image.open(BytesIO(source) if isinstance(source, bytes) else source).convert("RGBA")
@@ -162,7 +227,10 @@ def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = Fals
                 if max(w, h) > max_dim:
                     scale = max_dim / float(max(w, h))
                     img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
-                _strip_scan_background(img)
+                if dark_to_transparent:
+                    _strip_dark_background(img)
+                if white_to_transparent:
+                    _strip_scan_background(img)
                 bbox = img.getbbox()
                 if bbox:
                     img = img.crop(bbox)
@@ -172,6 +240,7 @@ def _pdf_image_reader(source: Path | bytes, *, white_to_transparent: bool = Fals
                 return ImageReader(out)
             except Exception:
                 white_to_transparent = False
+                dark_to_transparent = False
 
     if isinstance(source, bytes):
         return ImageReader(BytesIO(source))
@@ -188,6 +257,7 @@ def _draw_footer_seal_and_signature(
     stamp_source: Path | bytes | None,
     sig_source: Path | bytes | None,
     chairman_name: str = "",
+    sig_dark_background: bool = False,
 ) -> None:
     """Печат и подпис — две колони, подравнени: етикет / картинка / линия / име."""
     from reportlab.lib.units import mm
@@ -240,7 +310,11 @@ def _draw_footer_seal_and_signature(
         sig_draw_w = sig_col_w - 6 * mm
         sig_x = sig_left + (sig_col_w - sig_draw_w) / 2
         sig_y = line_y + (img_box_h - sig_img_h) / 2 + 1 * mm
-        sig_reader = _pdf_image_reader(sig_source, white_to_transparent=False)
+        sig_reader = _pdf_image_reader(
+            sig_source,
+            white_to_transparent=False,
+            dark_to_transparent=sig_dark_background,
+        )
         c.drawImage(
             sig_reader,
             sig_x,
@@ -471,7 +545,7 @@ def build_school_excuse_pdf(
     c.drawString(left, footer_y + 6 * mm, f"дата: {ctx['issue_date']} г")
     c.drawString(left, footer_y, ctx["club_city"] if ctx["club_city"].lower().startswith("гр") else f"гр. {ctx['club_city']}")
 
-    sig_source = resolve_school_excuse_asset(club, "school_excuse_signature_rel", "school_excuse_signature_data")
+    sig_source = resolve_school_excuse_signature(club)
     stamp_source = resolve_school_excuse_asset(club, "school_excuse_stamp_rel", "school_excuse_stamp_data")
     _draw_footer_seal_and_signature(
         c,
@@ -482,6 +556,7 @@ def build_school_excuse_pdf(
         stamp_source=stamp_source,
         sig_source=sig_source,
         chairman_name=ctx.get("chairman_name") or "",
+        sig_dark_background=uses_bundled_school_excuse_signature(club),
     )
 
     c.showPage()

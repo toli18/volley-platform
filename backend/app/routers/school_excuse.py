@@ -35,6 +35,7 @@ from app.services.school_excuse_note import (
     build_school_excuse_pdf,
     club_school_excuse_enabled,
     extract_event_city,
+    uses_bundled_school_excuse_signature,
     format_date_bg,
     is_weekend_date,
     resolve_school_excuse_template,
@@ -67,6 +68,7 @@ class SchoolExcuseSettingsOut(BaseModel):
     body_template: str
     has_signature: bool = False
     has_stamp: bool = False
+    uses_bundled_signature: bool = False
     smtp_configured: bool = False
     defaults: dict = Field(default_factory=dict)
 
@@ -127,6 +129,7 @@ def _settings_out(club: Club) -> SchoolExcuseSettingsOut:
         body_template=resolved["body_template"],
         has_signature=resolved["has_signature"],
         has_stamp=resolved["has_stamp"],
+        uses_bundled_signature=bool(resolved.get("uses_bundled_signature")),
         smtp_configured=smtp_configured(),
         defaults={"body": DEFAULT_BODY_TEMPLATE},
     )
@@ -182,6 +185,11 @@ def save_school_excuse_signature(
 ):
     _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user, club_id)
+    if uses_bundled_school_excuse_signature(club):
+        raise HTTPException(
+            status_code=422,
+            detail="Троян използва фиксиран подпис от платформата — canvas не се записва.",
+        )
     try:
         rel, blob = save_school_excuse_signature_png(club.id, payload.signature_image)
         club.school_excuse_signature_rel = rel
