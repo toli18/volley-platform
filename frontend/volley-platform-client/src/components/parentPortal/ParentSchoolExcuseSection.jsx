@@ -21,7 +21,6 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
     school_name: "",
     school_class: "",
     school_city: "",
-    school_email: "",
   });
   const [sendEmailByComp, setSendEmailByComp] = useState({});
 
@@ -41,7 +40,6 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         school_name: res.data?.school_name || "",
         school_class: res.data?.school_class || "",
         school_city: res.data?.school_city || "",
-        school_email: res.data?.school_email || "",
       });
     } catch (err) {
       toast?.error(normalizeError(err, "Неуспешно зареждане на бележките."));
@@ -65,7 +63,6 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         school_name: schoolForm.school_name.trim(),
         school_class: schoolForm.school_class.trim(),
         school_city: schoolForm.school_city.trim() || null,
-        school_email: schoolForm.school_email.trim() || null,
       });
       toast?.success("Данните за училището са записани.");
       await load();
@@ -106,7 +103,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
   };
 
   const sendToSchool = async (competitionId) => {
-    const email = (sendEmailByComp[competitionId] || schoolForm.school_email || "").trim();
+    const email = (sendEmailByComp[competitionId] || "").trim();
     if (!email) {
       toast?.error("Въведете имейл на училището.");
       return;
@@ -118,9 +115,6 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         : API_PATHS.PARENT_SCHOOL_EXCUSE_SEND_TOKEN(token, competitionId);
       await axiosInstance.post(path, { school_email: email });
       toast?.success("Бележката е изпратена на училището.");
-      if (!schoolForm.school_email) {
-        setSchoolForm((f) => ({ ...f, school_email: email }));
-      }
     } catch (err) {
       toast?.error(await parseApiError(err, "Неуспешно изпращане."));
     } finally {
@@ -183,16 +177,6 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
               onChange={(e) => setSchoolForm((f) => ({ ...f, school_city: e.target.value }))}
             />
           </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>Имейл на училището (за изпращане)</span>
-            <Input
-              type="email"
-              placeholder="sekretariat@school.bg"
-              value={schoolForm.school_email}
-              disabled={busy}
-              onChange={(e) => setSchoolForm((f) => ({ ...f, school_email: e.target.value }))}
-            />
-          </label>
           <Button type="button" size="sm" disabled={busy} onClick={saveSchoolInfo}>
             Запази училище
           </Button>
@@ -249,7 +233,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
                       <Input
                         type="email"
                         placeholder="имейл на училището"
-                        value={sendEmailByComp[item.competition_id] ?? schoolForm.school_email ?? ""}
+                        value={sendEmailByComp[item.competition_id] ?? ""}
                         disabled={busy || !item.can_download}
                         onChange={(e) =>
                           setSendEmailByComp((m) => ({ ...m, [item.competition_id]: e.target.value }))

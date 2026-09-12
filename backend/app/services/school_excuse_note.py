@@ -16,7 +16,7 @@ DEFAULT_BODY_TEMPLATE = """Уважаеми Г-н/Г-жо Директор,
 
 на {period_from} в {event_city} се проведоха {event_description}. В отборите бяха включени състезатели от повереното Ви училище:
 
-• {student_name}
+• {student_name}, {student_class} клас
 
 С настоящата и на основание НАРЕДБА ЗА ПРИОБЩАВАЩОТО ОБРАЗОВАНИЕ. В сила от 27.10.2017 г. Приета с ПМС № 232 от 20.10.2017 г. Обн. ДВ. бр.86 от 27 Октомври 2017г. чл. 62, ал. 1, т. 2, Ви Моля отсъствията на гореспоменатите ученици в периода {period_from} – {period_to} да бъдат извинени."""
 
@@ -335,11 +335,15 @@ def build_placeholder_context(
     school_city = (athlete.school_city or club.city or "").strip()
     if school_city and not school_city.lower().startswith("гр"):
         school_city = f"гр. {school_city}"
+    student_name = (athlete.athlete_name or "").strip()
+    student_class = (athlete.school_class or "").strip()
+    student_line = f"{student_name}, {student_class} клас" if student_class else student_name
     return {
         "school_name": (athlete.school_name or "").strip(),
         "school_city": school_city or "—",
-        "student_name": (athlete.athlete_name or "").strip(),
-        "student_class": (athlete.school_class or "").strip(),
+        "student_name": student_name,
+        "student_class": student_class,
+        "student_line": student_line,
         "period_from": format_date_bg(pf),
         "period_to": format_date_bg(pt),
         "event_description": build_event_description(comp),
@@ -358,6 +362,22 @@ def apply_template(template: str, ctx: dict[str, str]) -> str:
         text = text.replace("{" + key + "}", val)
         text = text.replace("{{" + key + "}}", val)
     return text
+
+
+def _ensure_student_class_visible(body_text: str, ctx: dict[str, str]) -> str:
+    """Стари клубни шаблони може да имат само {student_name} — добавяме клас автоматично."""
+    student_class = (ctx.get("student_class") or "").strip()
+    student_name = (ctx.get("student_name") or "").strip()
+    if not student_class or not student_name or student_class in body_text:
+        return body_text
+    for prefix in ("• ", "- ", "– "):
+        old = f"{prefix}{student_name}"
+        new = f"{prefix}{student_name}, {student_class} клас"
+        if old in body_text:
+            return body_text.replace(old, new, 1)
+    if student_name in body_text:
+        return body_text.replace(student_name, f"{student_name}, {student_class} клас", 1)
+    return body_text
 
 
 def build_school_excuse_pdf(
@@ -379,7 +399,7 @@ def build_school_excuse_pdf(
         athlete=athlete, comp=comp, club=club, period_from=period_from, period_to=period_to
     )
     body_template = (getattr(club, "school_excuse_body", None) or "").strip() or DEFAULT_BODY_TEMPLATE
-    body_text = apply_template(body_template, ctx)
+    body_text = _ensure_student_class_visible(apply_template(body_template, ctx), ctx)
 
     font = _ensure_pdf_font()
     buf = BytesIO()

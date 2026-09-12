@@ -146,8 +146,9 @@ export default function SchoolExcuseSettingsCard({ toast }) {
       <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
         PDF се генерира <strong>при изтегляне</strong> от родителя — без предварително архивиране.
         Плейсхолдери:{" "}
-        <code>{"{student_name}"}</code>, <code>{"{school_name}"}</code>, <code>{"{period_from}"}</code>,{" "}
-        <code>{"{period_to}"}</code>, <code>{"{event_city}"}</code>, <code>{"{event_description}"}</code>.
+        <code>{"{student_name}"}</code>, <code>{"{student_class}"}</code>, <code>{"{student_line}"}</code>,{" "}
+        <code>{"{school_name}"}</code>, <code>{"{period_from}"}</code>, <code>{"{period_to}"}</code>,{" "}
+        <code>{"{event_city}"}</code>, <code>{"{event_description}"}</code>.
       </p>
 
       <label style={{ display: "grid", gap: 4 }}>
