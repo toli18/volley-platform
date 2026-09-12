@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Optional
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -391,6 +392,18 @@ def _pdf_filename(athlete: Athlete, comp: ClubCompetitionEvent) -> str:
     return f"izvinitelna_{safe_name}_{comp.date}.pdf"
 
 
+def _pdf_content_disposition(filename: str, *, inline: bool = False) -> dict[str, str]:
+    """HTTP headers are latin-1 — use ASCII fallback + RFC 5987 UTF-8 filename*."""
+    ascii_name = re.sub(r"[^A-Za-z0-9._\-]+", "_", filename).strip("._") or "izvinitelna.pdf"
+    if not ascii_name.lower().endswith(".pdf"):
+        ascii_name = f"{ascii_name}.pdf"
+    disposition = "inline" if inline else "attachment"
+    encoded = quote(filename, safe="")
+    return {
+        "Content-Disposition": f'{disposition}; filename="{ascii_name}"; filename*=UTF-8\'\'{encoded}'
+    }
+
+
 def _generate_pdf_response(db: Session, athlete: Athlete, competition_id: int) -> Response:
     try:
         comp = _competition_for_athlete(db, athlete, competition_id)
@@ -416,7 +429,7 @@ def _generate_pdf_response(db: Session, athlete: Athlete, competition_id: int) -
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers=_pdf_content_disposition(fname),
     )
 
 
