@@ -181,71 +181,80 @@ def _draw_footer_seal_and_signature(
     sig_source: Path | bytes | None,
     chairman_name: str = "",
 ) -> None:
-    """Печат и подпис един до друг — без наслагване."""
+    """Печат и подпис — две колони, подравнени: етикет / картинка / линия / име."""
     from reportlab.lib.units import mm
 
-    stamp_size = 32 * mm
-    sig_w = 44 * mm
-    sig_h = 14 * mm
-    gap = 10 * mm
-    name_h = 5 * mm if (chairman_name or "").strip() not in ("", "—") else 0
-    block_bottom = footer_y - 1 * mm - name_h
     right = width - margin
-
     has_stamp = bool(stamp_source)
     has_sig = bool(sig_source)
+    signer = (chairman_name or "").strip()
+    has_name = bool(signer and signer != "—")
+
+    stamp_col_w = 34 * mm
+    sig_col_w = 50 * mm
+    col_gap = 12 * mm
+    img_box_h = 24 * mm
+    sig_img_h = 12 * mm
+    name_h = 4.5 * mm if has_name else 0
 
     if not has_stamp and not has_sig:
         c.setFont(font, 10)
-        c.drawString(right - 38 * mm, footer_y + 10 * mm, "Подпис")
+        line_y = footer_y + 6 * mm
+        c.drawCentredString(right - 25 * mm, line_y + 14 * mm, "Подпис")
         c.setLineWidth(0.5)
-        c.line(right - 45 * mm, block_bottom + 4 * mm, right, block_bottom + 4 * mm)
+        c.line(right - 45 * mm, line_y, right, line_y)
         return
 
-    sig_x = right - sig_w
-    stamp_x = sig_x - gap - stamp_size if has_stamp else right - stamp_size
-    label_y = block_bottom + stamp_size + 4 * mm
+    sig_left = right - sig_col_w
+    stamp_left = sig_left - col_gap - stamp_col_w if has_stamp else sig_left
+    line_y = footer_y + name_h + 1 * mm
+    label_y = line_y + img_box_h + 5 * mm
 
     c.setFont(font, 9)
+    c.setFillColorRGB(0.35, 0.35, 0.35)
 
     if has_stamp:
-        c.drawCentredString(stamp_x + stamp_size / 2, label_y, "Печат")
+        c.drawCentredString(stamp_left + stamp_col_w / 2, label_y, "Печат")
         stamp_reader = _pdf_image_reader(stamp_source, white_to_transparent=True)
         c.drawImage(
             stamp_reader,
-            stamp_x + stamp_size / 2,
-            block_bottom + stamp_size / 2,
-            width=stamp_size,
-            height=stamp_size,
+            stamp_left + stamp_col_w / 2,
+            line_y + img_box_h / 2,
+            width=stamp_col_w - 4 * mm,
+            height=img_box_h - 2 * mm,
             mask="auto",
             preserveAspectRatio=True,
             anchor="c",
         )
 
     if has_sig:
-        c.drawString(sig_x, label_y, "Подпис")
-        sig_y = block_bottom + max(2 * mm, (stamp_size - sig_h) / 2) if has_stamp else block_bottom + 6 * mm
+        c.drawCentredString(sig_left + sig_col_w / 2, label_y, "Подпис")
+        sig_draw_w = sig_col_w - 6 * mm
+        sig_x = sig_left + (sig_col_w - sig_draw_w) / 2
+        sig_y = line_y + (img_box_h - sig_img_h) / 2 + 1 * mm
         sig_reader = _pdf_image_reader(sig_source, white_to_transparent=True)
         c.drawImage(
             sig_reader,
             sig_x,
             sig_y,
-            width=sig_w,
-            height=sig_h,
+            width=sig_draw_w,
+            height=sig_img_h,
             mask="auto",
             preserveAspectRatio=True,
             anchor="sw",
         )
+        c.setFillColorRGB(0, 0, 0)
         c.setLineWidth(0.4)
-        c.line(sig_x, block_bottom, sig_x + sig_w, block_bottom)
-        signer = (chairman_name or "").strip()
-        if signer and signer != "—":
+        c.line(sig_left + 3 * mm, line_y, right - 3 * mm, line_y)
+        if has_name:
             c.setFont(font, 8)
             label = signer
-            while label and c.stringWidth(label, font, 8) > sig_w - 2 * mm:
+            while label and c.stringWidth(label, font, 8) > sig_col_w - 4 * mm:
                 label = label[:-1]
             if label:
-                c.drawCentredString(sig_x + sig_w / 2, block_bottom - 3.5 * mm, label)
+                c.drawCentredString(sig_left + sig_col_w / 2, footer_y + 0.5 * mm, label)
+
+    c.setFillColorRGB(0, 0, 0)
 
 
 def format_date_bg(iso: str | None) -> str:
