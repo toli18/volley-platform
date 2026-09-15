@@ -1,0 +1,21 @@
+# url | slug | public_stem | title | subtitle | skip
+https://vm.tiktok.com/ZN8jKtqjQ/|blok_greshka|blok-greshka|Грешка при блок|Скачаш твърде високо — защитата страда|
+https://vm.tiktok.com/ZN8jKujgh/|moment_killer|moment-killer|Спиране на момента|Най-големият momentum killer|
+https://vm.tiktok.com/ZN8jKtkKb/|sreden_elit|sreden-elit|Среден vs елит|Разликата при атака|
+https://vm.tiktok.com/ZN8jKG8eL/|vylo_promo|vylo-promo|VYLO promo|—|yes
+https://vm.tiktok.com/ZN8jKAKb6/|lateralen_pas_vylo|lateralen-pas-vylo|Страничен пас|Float сервис · пас настрани|
+https://vm.tiktok.com/ZN8jKunqn/|tri_serva|tri-serva|Три вида сервис|Jump · float · hybrid|
+https://vm.tiktok.com/ZN8jKqRgN/|tochki_troen_blok|tochki-troen-blok|Точки срещу троен блок|Как да отбелязваш|
+https://vm.tiktok.com/ZN8jKq2mE/|igra_v_igrata|igra-v-igrata|Игра в играта|Разпределител и център|
+https://vm.tiktok.com/ZN8jKAd9H/|vsiaki_ugli|vsiaki-ugli|Всички ъгли|Как да удариш навсякъде|
+https://vm.tiktok.com/ZN8jK4Kpb/|razp_ataka|razp-ataka|Разпределител атакува|Setters attacking|
+https://vm.tiktok.com/ZN8jKau37/|swing_blok|swing-blok|Swing block|Грешка при swing block|
+https://vm.tiktok.com/ZN8jKmtwa/|timing_ataka|timing-ataka|Тайминг на атака|Най-лесният fix|
+https://vm.tiktok.com/ZN8jKV4V6/|centar_ugli|centar-ugli|Център — ъгли|Cut angles|
+https://vm.tiktok.com/ZN8jKqF3q/|paipe_variacii|paipe-variacii|Pipe вариации|Задна атака з.6|
+https://vm.tiktok.com/ZN8jKx2Qa/|loshi_greshki|loshi-greshki|Лоши грешки|Какво да избягваш|
+https://vm.tiktok.com/ZN8jKpTfe/|tempo_stres|tempo-stres|Темпо срещу блок|Стрес за блокиращите|
+https://vm.tiktok.com/ZN8jK5hY1/|blok_slozhno|blok-slozhno|Блокът е сложен|Повече от скачане|
+https://vm.tiktok.com/ZN8jKXC3f/|nevspotavim_udar|nevspotavim-udar|Труден за спиране|Удар почти без отговор|
+https://vm.tiktok.com/ZN8jK4mBo/|obraten_potok|obraten-potok|Обратен поток|Flow на разпределителя|
+https://vm.tiktok.com/ZN8jKs7kc/|doverie_centar|doverie-centar|Доверие в центъра|Работа с центъра|

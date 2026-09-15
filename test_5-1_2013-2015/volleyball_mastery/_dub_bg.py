@@ -17,7 +17,7 @@ import imageio_ffmpeg
 ROOT = Path(__file__).resolve().parent
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICE = "bg-BG-KalinaNeural"
-TTS_RATE = "-12%"
+TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
 SUBTITLE_BLUR_H = 220
 MAX_TEMPO = 1.04
 SUBTITLE_FONT_SIZE = 13
