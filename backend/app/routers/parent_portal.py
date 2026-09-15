@@ -390,6 +390,8 @@ def _pick_next_by_kind(items: list[ParentScheduleItem], *, competition: bool) ->
             continue
         if not competition and is_comp:
             continue
+        if item.is_cancelled:
+            continue
         if _is_upcoming_schedule_item(item, today_s, now_t):
             return item
     return None
@@ -421,6 +423,8 @@ def _pick_next_event(items: list[ParentScheduleItem]) -> ParentScheduleItem | No
     today_s = date.today().isoformat()
     now_t = datetime.utcnow().strftime("%H:%M")
     for item in items:
+        if item.is_cancelled:
+            continue
         if _is_upcoming_schedule_item(item, today_s, now_t):
             return item
     return None

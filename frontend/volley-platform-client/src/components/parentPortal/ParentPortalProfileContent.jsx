@@ -30,8 +30,9 @@ import {
 
 function HighlightEventBlock({ item, variant, onAckChange, formatDateBg }) {
   const isComp = variant === "competition" || isCompetitionEvent(item);
-  const daysUntil = item ? formatDaysUntil(item.date) : null;
-  if (!item) {
+  const cancelled = Boolean(item?.is_cancelled);
+  const daysUntil = item && !cancelled ? formatDaysUntil(item.date) : null;
+  if (!item || cancelled) {
     return (
       <p className="parentPortalHighlightMuted parentPortalNextEventEmpty">
         {isComp ? "Няма предстоящо състезание." : "Няма предстояща тренировка."}
