@@ -13,6 +13,8 @@ from app.services.bvf_season_carding import (  # noqa: E402
     allowed_age_codes,
     athlete_fits_card_index_rules,
     natural_age_code,
+    platform_age_sex_from_sek_card_index,
+    sek_card_index_multipart_age,
     sek_license_category_label,
 )
 
@@ -71,6 +73,23 @@ class BvfAgeCohortTests(unittest.TestCase):
     def test_u13_and_u14_sek_labels_differ(self):
         self.assertIn("Мини", sek_license_category_label(13, 0))
         self.assertIn("14", sek_license_category_label(14, 0))
+
+    def test_sek_card_index_age_enum_read(self):
+        row = {"age": 3, "sex": 0, "ageGroup": "Момчета - Мини Волейбол"}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row), (13, 0))
+        row2 = {"age": 1, "sex": 0, "ageGroup": "Момчета - Детски Волейбол"}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row2), (12, 0))
+        row3 = {"age": 5, "sex": 0, "ageGroup": "Момчета под 14г."}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row3), (14, 0))
+        row4 = {"age": 0, "sex": 1, "ageGroup": "Момичета - Детски Волейбол"}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row4), (12, 1))
+
+    def test_sek_card_index_multipart_age_uses_enum(self):
+        self.assertEqual(sek_card_index_multipart_age(12, 0), "1")
+        self.assertEqual(sek_card_index_multipart_age(13, 0), "3")
+        self.assertEqual(sek_card_index_multipart_age(14, 0), "5")
+        self.assertEqual(sek_card_index_multipart_age(12, 1), "0")
+        self.assertEqual(sek_card_index_multipart_age(99, 1), "12")
 
 
 if __name__ == "__main__":

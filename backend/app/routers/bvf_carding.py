@@ -58,6 +58,8 @@ from app.services.bvf_season_carding import (
     form_03_athlete_ids,
     list_ready_for_head,
     local_age_sex_to_sek_age_group,
+    platform_age_sex_from_sek_card_index,
+    sek_card_index_multipart_age,
     looks_like_form_03,
     map_sek_season_age_group,
     sek_carding_start_label,
@@ -1050,8 +1052,7 @@ def fetch_card_indexes(
         except Exception:
             continue
         year = int(row.get("year") or 0)
-        age = int(row.get("age") or 0)
-        sex = int(row.get("sex") or 0)
+        age, sex = platform_age_sex_from_sek_card_index(row)
         local = db.query(BvfCardIndex).filter(BvfCardIndex.bvf_card_index_id == cid).first()
         if not local:
             local = BvfCardIndex(club_id=club.id, bvf_card_index_id=cid, year=year, age=age, sex=sex)
@@ -1059,7 +1060,11 @@ def fetch_card_indexes(
         local.year = year
         local.age = age
         local.sex = sex
-        local.age_group = age_group_label(age)
+        local.age_group = (
+            (row.get("ageGroup") or "").strip()
+            or sek_license_category_label(age, sex)
+            or age_group_label(age)
+        )
         local.is_signed = bool(row.get("isSigned")) if row.get("isSigned") is not None else None
         if local.is_signed:
             local.status = "signed"
@@ -1100,11 +1105,13 @@ def create_card_index(
     """Създава локален картотечен отбор (огледало в БФВ). Попълването е отделна стъпка."""
     club = _club_for_any_coach(db, current_user, payload.club_id)
     token = _token_matches_club(payload.bvf_token, club)
+    plat_age = int(payload.age)
+    plat_sex = int(payload.sex)
     data = {
         "ClubId": str(int(club.bvf_club_id)),
         "Year": str(int(payload.year)),
-        "Age": str(int(payload.age)),
-        "Sex": str(int(payload.sex)),
+        "Age": sek_card_index_multipart_age(plat_age, plat_sex),
+        "Sex": str(plat_sex),
     }
     if payload.senior_coach_id:
         data["SeniorCoachId"] = str(int(payload.senior_coach_id))
@@ -1118,9 +1125,9 @@ def create_card_index(
         club_id=club.id,
         bvf_card_index_id=cid,
         year=int(payload.year),
-        age=int(payload.age),
-        sex=int(payload.sex),
-        age_group=str(remote.get("ageGroup") or "").strip() or None,
+        age=plat_age,
+        sex=plat_sex,
+        age_group=str(remote.get("ageGroup") or "").strip() or sek_license_category_label(plat_age, plat_sex),
         is_signed=bool(remote.get("isSigned")) if remote.get("isSigned") is not None else False,
         senior_coach_bvf_id=payload.senior_coach_id,
         status="synced",
@@ -2832,9 +2839,10 @@ def _find_matching_sek_card_index(
         try:
             if int(row.get("year") or 0) != int(year):
                 continue
-            if int(row.get("age") or 0) != int(age):
+            ra, rs = platform_age_sex_from_sek_card_index(row)
+            if ra != int(age):
                 continue
-            if int(row.get("sex") or 0) != int(sex):
+            if rs != int(sex):
                 continue
             if row.get("id") is None:
                 continue
@@ -2845,7 +2853,7 @@ def _find_matching_sek_card_index(
 
 
 def _sek_card_index_age_sex(remote: dict) -> tuple[int, int]:
-    return int(remote.get("age") or 0), int(remote.get("sex") or 0)
+    return platform_age_sex_from_sek_card_index(remote)
 
 
 def _ensure_sek_license_matches_local(local: BvfCardIndex, remote: dict, *, bvf_id: int | None = None) -> None:
@@ -2873,10 +2881,13 @@ def _ensure_sek_license_matches_local(local: BvfCardIndex, remote: dict, *, bvf_
 def _bind_local_to_sek_card_index(local: BvfCardIndex, remote: dict) -> int:
     _ensure_sek_license_matches_local(local, remote)
     cid = int(remote["id"])
-    ra, _ = _sek_card_index_age_sex(remote)
+    ra, rs = _sek_card_index_age_sex(remote)
     local.bvf_card_index_id = cid
-    local.age = ra
-    local.age_group = age_group_label(ra)
+    local.age_group = (
+        (remote.get("ageGroup") or "").strip()
+        or sek_license_category_label(ra, rs)
+        or age_group_label(int(local.age))
+    )
     return cid
 
 
@@ -2890,9 +2901,10 @@ def _alt_sek_years_for_age_sex(
     found: set[int] = set()
     for row in remote_rows:
         try:
-            if int(row.get("age") or 0) != int(age):
+            ra, rs = platform_age_sex_from_sek_card_index(row)
+            if ra != int(age):
                 continue
-            if int(row.get("sex") or 0) != int(sex):
+            if rs != int(sex):
                 continue
             y = int(row.get("year") or 0)
             if y and y != int(exclude_year):
@@ -3231,7 +3243,7 @@ def submit_local_card_index_to_federation(
         data = {
             "ClubId": str(int(club.bvf_club_id)),
             "Year": str(year),
-            "Age": str(age),
+            "Age": sek_card_index_multipart_age(age, sex),
             "Sex": str(sex),
         }
         data.update(_sek_staff_form_for_card_index(db, local))

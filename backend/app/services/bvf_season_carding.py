@@ -165,6 +165,55 @@ def local_age_sex_to_sek_age_group(age: int, sex: int) -> int | None:
     return None
 
 
+def _sex_from_sek_age_group_label(label: str, default: int = 0) -> int:
+    low = (label or "").lower()
+    if "момичета" in low:
+        return 1
+    if "момчета" in low:
+        return 0
+    if "жени" in low:
+        return 1
+    if "мъже" in low:
+        return 0
+    return int(default)
+
+
+def platform_age_sex_from_sek_card_index(row: dict) -> tuple[int, int]:
+    """
+    Нормализира ред от GET /card-indexes към локални age (12,13,14,…) и sex.
+    Полето `age` в API може да е AgeGroup enum (0–13) или платформен код — `ageGroup` текстът е най-надежден.
+    """
+    sex = int(row.get("sex") or 0)
+    label = (row.get("ageGroup") or "").strip()
+    if label:
+        code = resolve_age_code(None, label)
+        return int(code), _sex_from_sek_age_group_label(label, sex)
+
+    try:
+        raw_i = int(row.get("age") if row.get("age") is not None else 0)
+    except (TypeError, ValueError):
+        raw_i = 0
+
+    if raw_i in (12, 13, 14, 16, 18, 20, 99):
+        return raw_i, sex
+
+    if 0 <= raw_i <= 13:
+        mapped = map_sek_season_age_group(raw_i)
+        if mapped:
+            ma, ms, _ = mapped
+            return int(ma), int(ms)
+
+    return raw_i if raw_i else 12, sex
+
+
+def sek_card_index_multipart_age(platform_age: int, sex: int) -> str:
+    """Стойност за multipart Age при POST/PUT на /api/card-indexes (СЕК AgeGroup enum, не 12/13/14)."""
+    enum_code = local_age_sex_to_sek_age_group(int(platform_age), int(sex))
+    if enum_code is not None:
+        return str(int(enum_code))
+    return str(int(platform_age))
+
+
 def sek_entry_age_group_label(age_group: int, league: int | None = None) -> str:
     mapped = map_sek_season_age_group(age_group)
     base = mapped[2] if mapped else f"Група {age_group}"
