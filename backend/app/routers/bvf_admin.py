@@ -214,6 +214,27 @@ def _bvf_post_multipart(path: str, token: str, data: dict, files: dict | None = 
         return {"ok": True, "raw": (res.text or "")[:200]}
 
 
+def _bvf_delete(path: str, token: str, *, ok_on_404: bool = False) -> None:
+    """DELETE към БФВ. При ok_on_404=404 се третира като успех (напр. вече махнат sign)."""
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.delete(url, headers=_bvf_headers(token))
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+
+    if ok_on_404 and res.status_code == 404:
+        return
+    if res.status_code == 401:
+        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+    if res.status_code == 403:
+        body = (res.text or "").strip()[:400]
+        raise HTTPException(status_code=403, detail=body or "Нямаш право за изтриване в БФВ (403).")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:500] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=502, detail=detail)
+
+
 def _athlete_for_bvf_action(db: Session, user: User, athlete_id: int) -> Athlete:
     athlete = db.query(Athlete).filter(Athlete.id == int(athlete_id)).first()
     if not athlete:

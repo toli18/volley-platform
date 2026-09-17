@@ -32,6 +32,7 @@ from app.routers.bvf_admin import (
     CoachesListIn,
     _athlete_for_bvf_action,
     _assert_cred_matches_club,
+    _bvf_delete,
     _bvf_get,
     _bvf_headers,
     _bvf_post_multipart,
@@ -2301,30 +2302,66 @@ def assign_coach_to_age_slot(
     return serialize_card_index_row(db, local)
 
 
+def _purge_sek_card_index_before_local_delete(token: str, bvf_card_index_id: int) -> None:
+    """Маха играчи и лиценза в СЕК (само докато не е isSigned)."""
+    cid = int(bvf_card_index_id)
+    remote = _bvf_get_soft(f"/api/card-indexes/{cid}", token)
+    if isinstance(remote, dict) and bool(remote.get("isSigned")):
+        raise HTTPException(
+            status_code=409,
+            detail="Лицензът е заключен от БФВ — изтриване е невъзможно. Свържи се с федерацията.",
+        )
+
+    players = _bvf_get_soft(f"/api/card-indexes/{cid}/players", token) or []
+    if isinstance(players, list):
+        for row in players:
+            if not isinstance(row, dict):
+                continue
+            pid = row.get("id")
+            if pid is None:
+                continue
+            _bvf_delete(f"/api/card-indexes/{cid}/players/{int(pid)}", token, ok_on_404=True)
+
+    _bvf_delete(f"/api/card-indexes/{cid}/sign", token, ok_on_404=True)
+    _bvf_delete(f"/api/card-indexes/{cid}", token)
+
 
 @router.delete("/card-indexes/local/{local_id}")
 def delete_local_card_index(
     local_id: int,
     club_id: int | None = None,
+    bvf_token: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Изтрива локална чернова преди заявка към главния / запис в СЕК."""
+    """Главен треньор изтрива отбор локално; при запис в СЕК — и лиценза там (ако не е заключен)."""
     club = _club_for_user(db, current_user, club_id)
     local = _local_card_index(db, club, local_id)
-    status = (local.status or "").strip()
-    if local.bvf_card_index_id is not None or bool(local.is_signed):
-        raise HTTPException(status_code=409, detail="Отборът вече е в СЕК и не може да се изтрие оттук")
-    if status not in ("draft", "building"):
+    if _card_index_locked_by_sek(local):
         raise HTTPException(
             status_code=409,
-            detail="Може да се изтрие само преди заявка към главния треньор (чернова / в изграждане)",
+            detail="Отборът е заключен в СЕК и не може да се изтрие от платформата.",
         )
+
+    sek_id = local.bvf_card_index_id
+    if sek_id is not None:
+        try:
+            token = _token_matches_club(bvf_token, club)
+        except HTTPException as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Отборът е в СЕК — нужен е write ApiKey или БФВ token в Администрация БФВ. "
+                    f"({exc.detail})"
+                ),
+            ) from exc
+        _purge_sek_card_index_before_local_delete(token, int(sek_id))
+
     db.delete(local)
     db.commit()
-    return {"ok": True, "deleted_id": int(local_id)}
+    return {"ok": True, "deleted_id": int(local_id), "sek_deleted": sek_id is not None}
 
 
 @router.get("/card-indexes/local")

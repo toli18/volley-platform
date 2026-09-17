@@ -489,13 +489,16 @@ def coach_display_name(db: Session, user_id: int | None) -> str | None:
     return u.name if u else None
 
 
+def _local_card_index_locked_by_sek(local: BvfCardIndex) -> bool:
+    if bool(local.is_signed):
+        return True
+    return (local.status or "").strip().lower() == "signed"
+
+
 def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]:
     status = (local.status or "").strip()
-    can_delete = (
-        local.bvf_card_index_id is None
-        and not bool(local.is_signed)
-        and status in ("draft", "building")
-    )
+    locked = _local_card_index_locked_by_sek(local)
+    can_delete = not locked
     return {
         "id": local.id,
         "bvf_card_index_id": local.bvf_card_index_id,

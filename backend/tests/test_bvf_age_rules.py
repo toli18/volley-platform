@@ -9,6 +9,7 @@ if _BACKEND_DIR not in sys.path:
     sys.path.insert(0, _BACKEND_DIR)
 
 from app.services.bvf_season_carding import (  # noqa: E402
+    _local_card_index_locked_by_sek,
     allowed_age_codes,
     athlete_fits_card_index_rules,
     natural_age_code,
@@ -58,6 +59,14 @@ class BvfAgeCohortTests(unittest.TestCase):
         young = SimpleNamespace(gender="male", birth_year=2016, birth_date=None, egn=None)
         ok, _ = athlete_fits_card_index_rules(young, season_year=2026, age=12, sex=0)
         self.assertTrue(ok)
+
+    def test_pending_sek_not_locked_for_delete(self):
+        loc = SimpleNamespace(is_signed=False, status="pending_bvf_sign")
+        self.assertFalse(_local_card_index_locked_by_sek(loc))
+
+    def test_signed_sek_blocks_delete(self):
+        loc = SimpleNamespace(is_signed=True, status="pending_bvf_sign")
+        self.assertTrue(_local_card_index_locked_by_sek(loc))
 
 
 if __name__ == "__main__":
