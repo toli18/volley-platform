@@ -68,6 +68,10 @@ class BvfAgeCohortTests(unittest.TestCase):
         loc = SimpleNamespace(is_signed=True, status="pending_bvf_sign")
         self.assertTrue(_local_card_index_locked_by_sek(loc))
 
+    def test_u13_and_u14_sek_labels_differ(self):
+        self.assertIn("Мини", sek_license_category_label(13, 0))
+        self.assertIn("14", sek_license_category_label(14, 0))
+
 
 if __name__ == "__main__":
     unittest.main()

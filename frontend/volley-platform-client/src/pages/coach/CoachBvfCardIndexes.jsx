@@ -769,7 +769,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                     onClick={() => navigate(`/coach/bvf-card-indexes/${it.id}`)}
                   >
                     <td>
-                      {it.age_group || it.age}
+                      {ageAssignOptionLabel(it.age, it.sex)}
                       {it.local_only ? " · локално" : it.bvf_card_index_id ? ` · БФВ #${it.bvf_card_index_id}` : ""}
                     </td>
                     <td>{it.sex === 1 ? "Ж" : "М"}</td>

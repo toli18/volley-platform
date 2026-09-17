@@ -1059,7 +1059,7 @@ def fetch_card_indexes(
         local.year = year
         local.age = age
         local.sex = sex
-        local.age_group = str(row.get("ageGroup") or "").strip() or None
+        local.age_group = age_group_label(age)
         local.is_signed = bool(row.get("isSigned")) if row.get("isSigned") is not None else None
         if local.is_signed:
             local.status = "signed"
@@ -2844,6 +2844,42 @@ def _find_matching_sek_card_index(
     return None
 
 
+def _sek_card_index_age_sex(remote: dict) -> tuple[int, int]:
+    return int(remote.get("age") or 0), int(remote.get("sex") or 0)
+
+
+def _ensure_sek_license_matches_local(local: BvfCardIndex, remote: dict, *, bvf_id: int | None = None) -> None:
+    """Локалният Age (13=Мини, 14=Под 14) трябва да съвпада с лиценза в СЕК."""
+    ra, rs = _sek_card_index_age_sex(remote)
+    la = int(local.age)
+    ls = int(local.sex or 0)
+    cid = int(bvf_id or remote.get("id") or local.bvf_card_index_id or 0)
+    if ra and ra != la:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Лиценз БФВ #{cid} в СЕК е „{sek_license_category_label(ra, rs)}“ (Age={ra}), "
+                f"а отборът в платформата е „{sek_license_category_label(la, ls)}“ (Age={la}). "
+                "Не се свързват автоматично — изтрий локално/SEK връзката или създай отделен лиценз Мини (13)."
+            ),
+        )
+    if rs != ls:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Лиценз #{cid}: полът в СЕК не съвпада с локалния отбор.",
+        )
+
+
+def _bind_local_to_sek_card_index(local: BvfCardIndex, remote: dict) -> int:
+    _ensure_sek_license_matches_local(local, remote)
+    cid = int(remote["id"])
+    ra, _ = _sek_card_index_age_sex(remote)
+    local.bvf_card_index_id = cid
+    local.age = ra
+    local.age_group = age_group_label(ra)
+    return cid
+
+
 def _alt_sek_years_for_age_sex(
     remote_rows: list[dict],
     *,
@@ -3085,9 +3121,28 @@ def _sync_local_members_to_sek_card_index(
     token: str,
     card_index_id: int,
 ) -> None:
+    year = int(local.year or datetime.utcnow().year)
     for mem in local.members or []:
         if not mem.bvf_player_id:
             continue
+        athlete = mem.athlete
+        if athlete:
+            ok_fit, age_reason = athlete_fits_card_index_rules(
+                athlete,
+                season_year=year,
+                age=int(local.age),
+                sex=int(local.sex),
+                age_group=local.age_group,
+            )
+            if not ok_fit:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"{athlete.athlete_name} не отговаря на лиценза "
+                        f"„{sek_license_category_label(int(local.age), int(local.sex or 0))}“: "
+                        f"{age_reason or 'грешна възрастова група'}"
+                    ),
+                )
         url = f"{BVF_API_BASE}/api/card-indexes/{int(card_index_id)}/players"
         try:
             with httpx.Client(timeout=BVF_TIMEOUT) as client:
@@ -3131,12 +3186,11 @@ def submit_local_card_index_to_federation(
     if not detail["all_ready"]:
         raise HTTPException(status_code=422, detail="Съставът не е готов (Форма 03 / снимка / ЕГН).")
 
-    if local.bvf_card_index_id:
-        return submit_card_index_to_federation(local.bvf_card_index_id, payload, db, current_user)
-
     try:
         token = _token_matches_club(payload.bvf_token, club)
     except HTTPException as exc:
+        if local.bvf_card_index_id:
+            raise
         raise HTTPException(
             status_code=503,
             detail=(
@@ -3144,6 +3198,12 @@ def submit_local_card_index_to_federation(
                 f"Причина: {exc.detail}"
             ),
         ) from exc
+
+    if local.bvf_card_index_id:
+        remote_chk = _bvf_get_soft(f"/api/card-indexes/{int(local.bvf_card_index_id)}", token)
+        if isinstance(remote_chk, dict):
+            _ensure_sek_license_matches_local(local, remote_chk, bvf_id=int(local.bvf_card_index_id))
+        return submit_card_index_to_federation(local.bvf_card_index_id, payload, db, current_user)
 
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
@@ -3235,9 +3295,7 @@ def submit_local_card_index_to_federation(
     if not isinstance(remote, dict) or not remote.get("id"):
         raise _http_sek_no_license_for_season(year=year, age=age, sex=sex, alt_years=alt_years)
 
-    cid = int(remote["id"])
-    local.bvf_card_index_id = cid
-    local.age_group = str(remote.get("ageGroup") or "").strip() or local.age_group
+    cid = _bind_local_to_sek_card_index(local, remote)
     if remote.get("isSigned") is True:
         local.is_signed = True
         local.status = "signed"
