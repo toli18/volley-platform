@@ -3,7 +3,13 @@
   "packages": {
     "python": "3.11"
   },
+  "exclude": [
+    "frontend",
+    "presentation",
+    "test_5-1_2013-2015",
+    "_refs"
+  ],
   "deploy": {
-    "startCommand": "cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "cd backend && alembic upgrade head && WEB_CONCURRENCY=${WEB_CONCURRENCY:-2} uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}"
   }
 }

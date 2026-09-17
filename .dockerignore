@@ -1,0 +1,17 @@
+# Railway / Railpack: backend service does not need frontend media (~567 MB in git).
+frontend/
+presentation/
+test_5-1_2013-2015/
+_refs/
+
+.git/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.venv/
+**/node_modules/
+**/.cursor/
+
+# Repo-root scratch scripts (local only; safe if missing in CI)
+/_*.py
+/_rsk_*

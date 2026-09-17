@@ -1,0 +1,12 @@
+# Railway service settings (Config-as-Code).
+# In the dashboard set: Root Directory = /backend
+# and Config file path = /backend/railway.toml
+# Watch paths are repo-relative (still from /).
+
+[build]
+builder = "RAILPACK"
+watchPatterns = ["/backend/**"]
+
+[deploy]
+startCommand = "alembic upgrade head && WEB_CONCURRENCY=${WEB_CONCURRENCY:-2} uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}"
+restartPolicyType = "ON_FAILURE"
