@@ -112,8 +112,17 @@ def strip_burned_subtitles(src: Path, dst: Path) -> Path:
 
 
 async def tts(text: str, out: Path) -> None:
-    comm = edge_tts.Communicate(clean_text(text), VOICE, rate=TTS_RATE, pitch="-1Hz")
-    await comm.save(str(out))
+    last: Exception | None = None
+    for attempt in range(5):
+        try:
+            comm = edge_tts.Communicate(clean_text(text), VOICE, rate=TTS_RATE, pitch="-1Hz")
+            await comm.save(str(out))
+            return
+        except edge_tts.exceptions.NoAudioReceived as exc:
+            last = exc
+            await asyncio.sleep(1.5 * (attempt + 1))
+    if last:
+        raise last
 
 
 def fit_segment(src: Path, dst: Path, target: float) -> float:
