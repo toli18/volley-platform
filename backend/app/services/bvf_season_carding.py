@@ -498,7 +498,6 @@ def _local_card_index_locked_by_sek(local: BvfCardIndex) -> bool:
 def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]:
     status = (local.status or "").strip()
     locked = _local_card_index_locked_by_sek(local)
-    can_delete = not locked
     return {
         "id": local.id,
         "bvf_card_index_id": local.bvf_card_index_id,
@@ -521,7 +520,8 @@ def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]
         "request_note": local.request_note,
         "created_by_user_id": local.created_by_user_id,
         "local_only": local.bvf_card_index_id is None,
-        "can_delete": can_delete,
+        "can_delete": True,
+        "sek_locked": locked,
     }
 
 

@@ -2380,17 +2380,14 @@ def delete_local_card_index(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Главен треньор изтрива отбор локално; при запис в СЕК — и лиценза там (ако не е заключен)."""
+    """Главен треньор изтрива локалния отбор; в СЕК — само ако лицензът още не е заключен."""
     club = _club_for_user(db, current_user, club_id)
     local = _local_card_index(db, club, local_id)
-    if _card_index_locked_by_sek(local):
-        raise HTTPException(
-            status_code=409,
-            detail="Отборът е заключен в СЕК и не може да се изтрие от платформата.",
-        )
-
+    locked = _card_index_locked_by_sek(local)
     sek_id = local.bvf_card_index_id
-    if sek_id is not None:
+    sek_deleted = False
+
+    if sek_id is not None and not locked:
         try:
             token = _token_matches_club(bvf_token, club)
         except HTTPException as exc:
@@ -2402,10 +2399,16 @@ def delete_local_card_index(
                 ),
             ) from exc
         _purge_sek_card_index_before_local_delete(token, int(sek_id))
+        sek_deleted = True
 
     db.delete(local)
     db.commit()
-    return {"ok": True, "deleted_id": int(local_id), "sek_deleted": sek_id is not None}
+    return {
+        "ok": True,
+        "deleted_id": int(local_id),
+        "sek_deleted": sek_deleted,
+        "sek_local_only": bool(sek_id is not None and locked),
+    }
 
 
 @router.get("/card-indexes/local")

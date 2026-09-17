@@ -64,7 +64,7 @@ class BvfAgeCohortTests(unittest.TestCase):
         loc = SimpleNamespace(is_signed=False, status="pending_bvf_sign")
         self.assertFalse(_local_card_index_locked_by_sek(loc))
 
-    def test_signed_sek_blocks_delete(self):
+    def test_signed_sek_marked_locked_for_editing(self):
         loc = SimpleNamespace(is_signed=True, status="pending_bvf_sign")
         self.assertTrue(_local_card_index_locked_by_sek(loc))
 

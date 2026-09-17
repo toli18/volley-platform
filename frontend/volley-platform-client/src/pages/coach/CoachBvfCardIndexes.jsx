@@ -216,26 +216,33 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
 
   const deleteDraft = async (it, e) => {
     e?.stopPropagation?.();
-    if (!it?.can_delete) {
-      toast.error("Заключените в СЕК отбори не могат да се изтриват оттук.");
-      return;
-    }
     const inSek = Boolean(it.bvf_card_index_id);
-    if (inSek && !canCallBvf) {
+    const sekLocked = Boolean(it.sek_locked || it.is_signed || it.status === "signed");
+    if (inSek && !sekLocked && !canCallBvf) {
       toast.error("За изтриване от СЕК първо свържи клуба с write ApiKey в Администрация БФВ.");
       return;
     }
-    const confirmMsg = inSek
-      ? `Изтриване на „${it.age_group || it.age}“ и лиценз БФВ #${it.bvf_card_index_id} в СЕК?\n\n` +
-        "Работи само докато лицензът не е заключен от федерацията. Локалният състав също се маха."
-      : `Изтриване на ${it.age_group || it.age}? Съставът също ще се премахне.`;
+    let confirmMsg = `Изтриване на ${it.age_group || it.age}? Локалният състав ще се премахне.`;
+    if (inSek && sekLocked) {
+      confirmMsg =
+        `Локално изтриване на „${it.age_group || it.age}“?\n\n` +
+        `Лиценз БФВ #${it.bvf_card_index_id} в СЕК остава (заключен) — промените са само в платформата.`;
+    } else if (inSek) {
+      confirmMsg =
+        `Изтриване на „${it.age_group || it.age}“ и лиценз БФВ #${it.bvf_card_index_id} в СЕК?\n\n` +
+        "Локалният състав също се маха.";
+    }
     if (!window.confirm(confirmMsg)) return;
     try {
       setBusy(true);
-      await axiosInstance.delete(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DELETE(it.id), {
-        params: tokenBody(token),
+      const res = await axiosInstance.delete(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DELETE(it.id), {
+        params: sekLocked ? {} : tokenBody(token),
       });
-      toast.success("Отборът е изтрит.");
+      toast.success(
+        res.data?.sek_local_only
+          ? "Локалният отбор е изтрит. Лицензът в СЕК не е пипан."
+          : "Отборът е изтрит.",
+      );
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно изтриване."));
