@@ -270,10 +270,21 @@ export default function CoachBvfCardIndexDetail() {
     const row = (detail?.members || []).find((m) => m.athlete_id === athleteId);
     try {
       setBusy(true);
-      await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REMOVE(localId), {
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_REMOVE(localId), {
         athlete_ids: [athleteId],
+        ...tokenBody(token),
       });
-      toast.success("Премахнат от локалния състав.");
+      if (res.data?.sek_errors?.length) {
+        toast.error(
+          `${res.data.sek_errors[0]} Локално е премахнат; провери лиценза в db.bvf.bg.`,
+        );
+      } else {
+        toast.success(
+          res.data?.sek_removed
+            ? "Премахнат от състава и от лиценза в СЕК."
+            : "Премахнат от локалния състав.",
+        );
+      }
       setDetail((d) =>
         d ? { ...d, members: (d.members || []).filter((m) => m.athlete_id !== athleteId) } : d,
       );

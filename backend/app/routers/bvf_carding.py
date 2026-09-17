@@ -1843,6 +1843,7 @@ class SeasonAssignCoachIn(BaseModel):
 class LocalAddPlayersIn(BaseModel):
     athlete_ids: list[int] = Field(default_factory=list)
     club_id: Optional[int] = None
+    bvf_token: Optional[str] = None
 
 
 class RequestHeadIn(BaseModel):
@@ -2346,14 +2347,25 @@ def assign_coach_to_age_slot(
     return serialize_card_index_row(db, local)
 
 
-def _purge_sek_card_index_before_local_delete(token: str, bvf_card_index_id: int) -> None:
-    """Маха играчи и лиценза в СЕК (само докато не е isSigned)."""
+def _sek_remove_player_from_card_index(
+    token: str, *, card_index_id: int, bvf_player_id: int
+) -> None:
+    _bvf_delete(
+        f"/api/card-indexes/{int(card_index_id)}/players/{int(bvf_player_id)}",
+        token,
+        ok_on_404=True,
+    )
+
+
+def _purge_sek_card_index_before_local_delete(token: str, bvf_card_index_id: int) -> list[str]:
+    """Маха играчи и лиценза в СЕК (best-effort). Връща предупреждения."""
+    warnings: list[str] = []
     cid = int(bvf_card_index_id)
     remote = _bvf_get_soft(f"/api/card-indexes/{cid}", token)
     if isinstance(remote, dict) and bool(remote.get("isSigned")):
         raise HTTPException(
             status_code=409,
-            detail="Лицензът е заключен от БФВ — изтриване е невъзможно. Свържи се с федерацията.",
+            detail="Лицензът е заключен от БФВ — изтриване в СЕК е невъзможно.",
         )
 
     players = _bvf_get_soft(f"/api/card-indexes/{cid}/players", token) or []
@@ -2364,10 +2376,17 @@ def _purge_sek_card_index_before_local_delete(token: str, bvf_card_index_id: int
             pid = row.get("id")
             if pid is None:
                 continue
-            _bvf_delete(f"/api/card-indexes/{cid}/players/{int(pid)}", token, ok_on_404=True)
+            try:
+                _sek_remove_player_from_card_index(token, card_index_id=cid, bvf_player_id=int(pid))
+            except HTTPException as exc:
+                warnings.append(str(exc.detail or exc)[:200])
 
-    _bvf_delete(f"/api/card-indexes/{cid}/sign", token, ok_on_404=True)
-    _bvf_delete(f"/api/card-indexes/{cid}", token)
+    for path in (f"/api/card-indexes/{cid}/sign", f"/api/card-indexes/{cid}"):
+        try:
+            _bvf_delete(path, token, ok_on_404=True)
+        except HTTPException as exc:
+            warnings.append(str(exc.detail or exc)[:200])
+    return warnings
 
 
 @router.delete("/card-indexes/local/{local_id}")
@@ -2386,20 +2405,15 @@ def delete_local_card_index(
     locked = _card_index_locked_by_sek(local)
     sek_id = local.bvf_card_index_id
     sek_deleted = False
+    sek_warnings: list[str] = []
 
     if sek_id is not None and not locked:
         try:
             token = _token_matches_club(bvf_token, club)
+            sek_warnings = _purge_sek_card_index_before_local_delete(token, int(sek_id))
+            sek_deleted = not sek_warnings
         except HTTPException as exc:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Отборът е в СЕК — нужен е write ApiKey или БФВ token в Администрация БФВ. "
-                    f"({exc.detail})"
-                ),
-            ) from exc
-        _purge_sek_card_index_before_local_delete(token, int(sek_id))
-        sek_deleted = True
+            sek_warnings.append(str(exc.detail or exc))
 
     db.delete(local)
     db.commit()
@@ -2407,7 +2421,8 @@ def delete_local_card_index(
         "ok": True,
         "deleted_id": int(local_id),
         "sek_deleted": sek_deleted,
-        "sek_local_only": bool(sek_id is not None and locked),
+        "sek_local_only": bool(sek_id is not None and (locked or sek_warnings)),
+        "sek_warnings": sek_warnings,
     }
 
 
@@ -2515,9 +2530,9 @@ def remove_players_from_local_card_index(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Маха състезатели от локалния състав (преди запис в СЕК)."""
+    """Маха състезатели от локалния състав; при лиценз в СЕК — и от там (best-effort)."""
     club = _club_for_any_coach(db, current_user, payload.club_id)
-    local = _local_card_index(db, club, local_id)
+    local = _local_card_index(db, club, local_id, with_roster=True)
     _require_card_index_access(db, current_user, local)
     if not _can_edit_card_index(current_user, local):
         raise HTTPException(status_code=409, detail="Съставът е заключен")
@@ -2526,17 +2541,52 @@ def remove_players_from_local_card_index(
 
     ids = [int(x) for x in (payload.athlete_ids or [])]
     removed = 0
+    sek_errors: list[str] = []
+    sek_removed = 0
+    rows: list[BvfCardIndexMember] = []
     if ids:
         rows = (
             db.query(BvfCardIndexMember)
             .filter(BvfCardIndexMember.card_index_id == local.id, BvfCardIndexMember.athlete_id.in_(ids))
             .all()
         )
-        for row in rows:
-            db.delete(row)
-            removed += 1
+
+    if (
+        rows
+        and local.bvf_card_index_id
+        and not _card_index_locked_by_sek(local)
+    ):
+        try:
+            token = _token_matches_club(payload.bvf_token, club)
+            cid = int(local.bvf_card_index_id)
+            for row in rows:
+                pid = row.bvf_player_id
+                if not pid and row.athlete:
+                    pid = row.athlete.bvf_player_id
+                if not pid:
+                    continue
+                try:
+                    _sek_remove_player_from_card_index(token, card_index_id=cid, bvf_player_id=int(pid))
+                    sek_removed += 1
+                    row.synced = False
+                except HTTPException as exc:
+                    sek_errors.append(str(exc.detail or exc)[:200])
+        except HTTPException:
+            pass
+
+    for row in rows:
+        db.delete(row)
+        removed += 1
+    if removed and local.status in ("synced", "pending_bvf_sign"):
+        local.status = "building"
     db.commit()
-    return {"removed": removed, "id": local.id, "status": local.status}
+    return {
+        "removed": removed,
+        "sek_removed": sek_removed,
+        "sek_errors": sek_errors,
+        "id": local.id,
+        "status": local.status,
+    }
 
 
 @router.post("/card-indexes/local/{local_id}/request-head")

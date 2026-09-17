@@ -238,11 +238,17 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
       const res = await axiosInstance.delete(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_DELETE(it.id), {
         params: sekLocked ? {} : tokenBody(token),
       });
-      toast.success(
-        res.data?.sek_local_only
-          ? "Локалният отбор е изтрит. Лицензът в СЕК не е пипан."
-          : "Отборът е изтрит.",
-      );
+      if (res.data?.sek_warnings?.length) {
+        toast.error(
+          `${res.data.sek_warnings[0]} Локалният отбор е изтрит; провери лиценза в СЕК.`,
+        );
+      } else {
+        toast.success(
+          res.data?.sek_local_only
+            ? "Локалният отбор е изтрит. Лицензът в СЕК не е пипан."
+            : "Отборът е изтрит.",
+        );
+      }
       await loadSeason();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно изтриване."));
