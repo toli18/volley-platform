@@ -178,10 +178,33 @@ def _sex_from_sek_age_group_label(label: str, default: int = 0) -> int:
     return int(default)
 
 
+# Лицензи (/api/card-indexes): POST поле Age ≠ platform age и ≠ SeasonApplication AgeGroup.
+# Наблюдение в db.bvf.bg: POST Age = platform band − 1 (POST 12 → ред „Мини“, POST 11 → „Детски“).
+# Сезонни заявки (/season-applications) ползват JSON ageGroup enum 0–13.
+SEK_CARD_INDEX_YOUTH_BANDS: tuple[int, ...] = (12, 13, 14, 16, 18, 20)
+
+
+def sek_card_index_post_age(platform_age: int) -> int:
+    """Platform age (12=Детски, 13=Мини, …) → стойност за multipart Age при създаване на лиценз."""
+    a = int(platform_age)
+    if a in SEK_CARD_INDEX_YOUTH_BANDS:
+        return a - 1
+    return a
+
+
+def platform_age_from_sek_card_index_raw_age(raw_i: int) -> int | None:
+    """Обратно от GET `age`, когато липсва read-only `ageGroup`."""
+    if raw_i in (*SEK_CARD_INDEX_YOUTH_BANDS, 99):
+        return raw_i
+    if raw_i + 1 in SEK_CARD_INDEX_YOUTH_BANDS:
+        return raw_i + 1
+    return None
+
+
 def platform_age_sex_from_sek_card_index(row: dict) -> tuple[int, int]:
     """
     Нормализира ред от GET /card-indexes към локални age (12,13,14,…) и sex.
-    Полето `age` в API може да е AgeGroup enum (0–13) или платформен код — `ageGroup` текстът е най-надежден.
+    `ageGroup` (read-only) е най-надежден; `age` може да е POST encoding, enum 0–13 или platform band.
     """
     sex = int(row.get("sex") or 0)
     label = (row.get("ageGroup") or "").strip()
@@ -194,8 +217,9 @@ def platform_age_sex_from_sek_card_index(row: dict) -> tuple[int, int]:
     except (TypeError, ValueError):
         raw_i = 0
 
-    if raw_i in (12, 13, 14, 16, 18, 20, 99):
-        return raw_i, sex
+    plat = platform_age_from_sek_card_index_raw_age(raw_i)
+    if plat is not None:
+        return plat, sex
 
     if 0 <= raw_i <= 13:
         mapped = map_sek_season_age_group(raw_i)
@@ -207,13 +231,9 @@ def platform_age_sex_from_sek_card_index(row: dict) -> tuple[int, int]:
 
 
 def sek_card_index_multipart_age(platform_age: int, sex: int) -> str:
-    """
-    Стойност за multipart Age при POST /api/card-indexes.
-    Swagger: Age е int 1–255 (таван на възрастовата лента), не SeasonApplication AgeGroup 0–13.
-    Полът е отделно (Sex). Сезонните заявки ползват ageGroup enum — виж local_age_sex_to_sek_age_group.
-    """
-    _ = sex  # полът се подава като Sex; Age не включва пол
-    return str(int(platform_age))
+    """Multipart Age при POST /api/card-indexes (виж sek_card_index_post_age)."""
+    _ = sex
+    return str(sek_card_index_post_age(int(platform_age)))
 
 
 def sek_entry_age_group_label(age_group: int, league: int | None = None) -> str:

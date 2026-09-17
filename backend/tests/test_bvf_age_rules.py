@@ -84,11 +84,17 @@ class BvfAgeCohortTests(unittest.TestCase):
         row4 = {"age": 0, "sex": 1, "ageGroup": "Момичета - Детски Волейбол"}
         self.assertEqual(platform_age_sex_from_sek_card_index(row4), (12, 1))
 
-    def test_sek_card_index_multipart_age_uses_platform_band(self):
-        self.assertEqual(sek_card_index_multipart_age(12, 0), "12")
-        self.assertEqual(sek_card_index_multipart_age(13, 0), "13")
-        self.assertEqual(sek_card_index_multipart_age(14, 0), "14")
+    def test_sek_card_index_post_age_one_below_platform_band(self):
+        self.assertEqual(sek_card_index_multipart_age(12, 0), "11")
+        self.assertEqual(sek_card_index_multipart_age(13, 0), "12")
+        self.assertEqual(sek_card_index_multipart_age(14, 0), "13")
         self.assertEqual(sek_card_index_multipart_age(99, 1), "99")
+
+    def test_sek_card_index_raw_age_post_encoding(self):
+        row = {"age": 12, "sex": 0, "ageGroup": "Момчета - Мини Волейбол"}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row), (13, 0))
+        row2 = {"age": 11, "sex": 0}
+        self.assertEqual(platform_age_sex_from_sek_card_index(row2), (12, 0))
 
 
 if __name__ == "__main__":

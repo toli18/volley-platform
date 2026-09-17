@@ -3275,6 +3275,9 @@ def submit_local_card_index_to_federation(
         try:
             created = _bvf_post_multipart("/api/card-indexes", token, data, files={})
             if isinstance(created, dict) and created.get("id"):
+                _ensure_sek_license_matches_local(
+                    local, created, bvf_id=int(created["id"])
+                )
                 remote = created
         except HTTPException as exc:
             bvf_detail = str(exc.detail or "").strip()
