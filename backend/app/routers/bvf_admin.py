@@ -214,6 +214,28 @@ def _bvf_post_multipart(path: str, token: str, data: dict, files: dict | None = 
         return {"ok": True, "raw": (res.text or "")[:200]}
 
 
+def _bvf_put_multipart(path: str, token: str, data: dict) -> Any:
+    url = f"{BVF_API_BASE}{path}"
+    try:
+        with httpx.Client(timeout=BVF_TIMEOUT) as client:
+            res = client.put(url, headers=_bvf_headers(token), data=data)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"БФВ API недостъпно: {exc}") from exc
+
+    if res.status_code == 401:
+        raise HTTPException(status_code=401, detail="БФВ token е невалиден или изтекъл.")
+    if res.status_code == 403:
+        body = (res.text or "").strip()[:400]
+        raise HTTPException(status_code=403, detail=body or "Нямаш право за този ресурс в БФВ (403).")
+    if res.status_code >= 400:
+        detail = (res.text or "").strip()[:500] or f"БФВ грешка {res.status_code}"
+        raise HTTPException(status_code=502, detail=detail)
+    try:
+        return res.json()
+    except Exception:
+        return {"ok": True, "raw": (res.text or "")[:200]}
+
+
 def _bvf_delete(path: str, token: str, *, ok_on_404: bool = False) -> None:
     """DELETE към БФВ. При ok_on_404=404 се третира като успех (напр. вече махнат sign)."""
     url = f"{BVF_API_BASE}{path}"

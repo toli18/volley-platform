@@ -36,6 +36,7 @@ from app.routers.bvf_admin import (
     _bvf_get,
     _bvf_headers,
     _bvf_post_multipart,
+    _bvf_put_multipart,
     _club_for_user,
     _ensure_head_with_club,
     _normalize_bearer,
@@ -128,6 +129,42 @@ def _card_index_locked_by_sek(local: BvfCardIndex) -> bool:
     if bool(local.is_signed):
         return True
     return (local.status or "").strip().lower() == "signed"
+
+
+def _physiotherapist_name(local: BvfCardIndex) -> str | None:
+    return (getattr(local, "doctor_name", None) or "").strip() or None
+
+
+def _sek_staff_form_for_card_index(db: Session, local: BvfCardIndex) -> dict[str, str]:
+    """Полета за create/update на лиценз в СЕК (Masseur = физиотерапевт)."""
+    data: dict[str, str] = {}
+    primary = (
+        db.query(User).filter(User.id == local.assigned_coach_user_id).first()
+        if local.assigned_coach_user_id
+        else None
+    )
+    if primary and getattr(primary, "bvf_coach_id", None):
+        data["SeniorCoachId"] = str(int(primary.bvf_coach_id))
+    second = (
+        db.query(User).filter(User.id == local.second_coach_user_id).first()
+        if getattr(local, "second_coach_user_id", None)
+        else None
+    )
+    if second and getattr(second, "bvf_coach_id", None):
+        data["CoachId"] = str(int(second.bvf_coach_id))
+    physio = _physiotherapist_name(local)
+    if physio:
+        data["Masseur"] = physio
+    return data
+
+
+def _push_card_index_staff_to_sek(db: Session, local: BvfCardIndex, club: Club, token: str) -> None:
+    if not local.bvf_card_index_id or _card_index_locked_by_sek(local):
+        return
+    data = _sek_staff_form_for_card_index(db, local)
+    # Платформата записва само физиотерапевт (Masseur), не Medic.
+    data["Medic"] = ""
+    _bvf_put_multipart(f"/api/card-indexes/{int(local.bvf_card_index_id)}", token, data)
 
 
 def _can_edit_card_index(user: User, local: BvfCardIndex) -> bool:
@@ -1798,7 +1835,8 @@ class SeasonAssignCoachIn(BaseModel):
     sex: int = 0
     coach_user_id: int
     second_coach_user_id: Optional[int] = None
-    doctor_name: Optional[str] = None
+    physiotherapist_name: Optional[str] = None
+    doctor_name: Optional[str] = None  # deprecated alias → physiotherapist_name
     club_id: Optional[int] = None
 
 
@@ -2217,7 +2255,7 @@ def assign_coach_to_age_slot(
         require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Назначава треньор(и) и лекар по възраст/пол. Не отваря сезона — само бутонът „Отвори сезон“."""
+    """Назначава треньор(и) и физиотерапевт по възраст/пол. Не отваря сезона — само бутонът „Отвори сезон“."""
     club = _club_for_user(db, current_user, payload.club_id)
     year = int(payload.year or datetime.utcnow().year)
     app = (
@@ -2259,7 +2297,7 @@ def assign_coach_to_age_slot(
         if not second_coach:
             raise HTTPException(status_code=404, detail="Вторият треньор не е от този клуб")
 
-    doctor_name = (payload.doctor_name or "").strip() or None
+    physio_name = (payload.physiotherapist_name or payload.doctor_name or "").strip() or None
 
     age = int(payload.age)
     sex = int(payload.sex)
@@ -2275,11 +2313,11 @@ def assign_coach_to_age_slot(
         .first()
     )
     if existing:
-        if existing.is_signed or existing.status in ("signed", "pending_bvf_sign"):
-            raise HTTPException(status_code=409, detail="Отборът вече е подписан и не може да се преназначава")
+        if existing.is_signed or (existing.status or "").strip() == "signed":
+            raise HTTPException(status_code=409, detail="Отборът е заключен в СЕК и не може да се преназначава")
         existing.assigned_coach_user_id = coach.id
         existing.second_coach_user_id = second_coach.id if second_coach else None
-        existing.doctor_name = doctor_name
+        existing.doctor_name = physio_name
         local = existing
     else:
         local = BvfCardIndex(
@@ -2293,12 +2331,18 @@ def assign_coach_to_age_slot(
             created_by_user_id=current_user.id,
             assigned_coach_user_id=coach.id,
             second_coach_user_id=second_coach.id if second_coach else None,
-            doctor_name=doctor_name,
+            doctor_name=physio_name,
             season_application_id=app.id,
         )
         db.add(local)
     db.commit()
     db.refresh(local)
+    if local.bvf_card_index_id and not _card_index_locked_by_sek(local):
+        try:
+            token = _token_matches_club(None, club)
+            _push_card_index_staff_to_sek(db, local, club, token)
+        except HTTPException:
+            pass
     return serialize_card_index_row(db, local)
 
 
@@ -3077,23 +3121,7 @@ def submit_local_card_index_to_federation(
             "Age": str(age),
             "Sex": str(sex),
         }
-        primary = (
-            db.query(User).filter(User.id == local.assigned_coach_user_id).first()
-            if local.assigned_coach_user_id
-            else None
-        )
-        if primary and getattr(primary, "bvf_coach_id", None):
-            data["SeniorCoachId"] = str(int(primary.bvf_coach_id))
-        second = (
-            db.query(User).filter(User.id == local.second_coach_user_id).first()
-            if getattr(local, "second_coach_user_id", None)
-            else None
-        )
-        if second and getattr(second, "bvf_coach_id", None):
-            data["CoachId"] = str(int(second.bvf_coach_id))
-        doctor = (getattr(local, "doctor_name", None) or "").strip()
-        if doctor:
-            data["Medic"] = doctor
+        data.update(_sek_staff_form_for_card_index(db, local))
         try:
             created = _bvf_post_multipart("/api/card-indexes", token, data, files={})
             if isinstance(created, dict) and created.get("id"):
@@ -3170,6 +3198,11 @@ def submit_local_card_index_to_federation(
         )
     local.status = "synced"
     db.commit()
+
+    try:
+        _push_card_index_staff_to_sek(db, local, club, token)
+    except HTTPException:
+        pass
 
     try:
         _sync_local_members_to_sek_card_index(local, token=token, card_index_id=cid)

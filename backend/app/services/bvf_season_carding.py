@@ -514,6 +514,7 @@ def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]
         "assigned_coach_name": coach_display_name(db, local.assigned_coach_user_id),
         "second_coach_user_id": getattr(local, "second_coach_user_id", None),
         "second_coach_name": coach_display_name(db, getattr(local, "second_coach_user_id", None)),
+        "physiotherapist_name": (getattr(local, "doctor_name", None) or "").strip() or None,
         "doctor_name": (getattr(local, "doctor_name", None) or "").strip() or None,
         "season_application_id": local.season_application_id,
         "requested_at": local.requested_at.isoformat() if local.requested_at else None,

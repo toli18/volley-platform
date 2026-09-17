@@ -799,7 +799,7 @@ class BvfCardIndex(Base):
     status = Column(String(32), nullable=False, default="draft")
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    # Втори треньор + лекар (както в СЕК card index / протокол)
+    # Втори треньор + физиотерапевт (СЕК: Masseur; колоната doctor_name е историческо име)
     second_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     doctor_name = Column(String(255), nullable=True)
     season_application_id = Column(

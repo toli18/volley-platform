@@ -49,7 +49,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
   const [assignSex, setAssignSex] = useState("0");
   const [assignCoachId, setAssignCoachId] = useState("");
   const [assignSecondCoachId, setAssignSecondCoachId] = useState("");
-  const [assignDoctorName, setAssignDoctorName] = useState("");
+  const [assignPhysioName, setAssignPhysioName] = useState("");
   const [items, setItems] = useState([]);
   const [bvfMirrorItems, setBvfMirrorItems] = useState([]);
   const [autoOpened, setAutoOpened] = useState(false);
@@ -202,7 +202,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
         sex: Number(assignSex),
         coach_user_id: Number(assignCoachId),
         second_coach_user_id: assignSecondCoachId ? Number(assignSecondCoachId) : null,
-        doctor_name: assignDoctorName.trim() || null,
+        physiotherapist_name: assignPhysioName.trim() || null,
       });
       toast.success(`Назначен: ${res.data?.assigned_coach_name || "треньор"} · ${res.data?.age_group}`);
       await loadSeason();
@@ -437,12 +437,12 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                 </select>
               </label>
               <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Лекар</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Физиотерапевт</span>
                 <input
                   className="uiInput"
-                  value={assignDoctorName}
-                  onChange={(e) => setAssignDoctorName(e.target.value)}
-                  placeholder="Име на лекар"
+                  value={assignPhysioName}
+                  onChange={(e) => setAssignPhysioName(e.target.value)}
+                  placeholder="Име (както в СЕК)"
                 />
               </label>
               <Button type="button" disabled={busy || !assignCoachId} onClick={assignCoach} block>
@@ -712,12 +712,12 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
               </select>
             </label>
             <label style={{ display: "grid", gap: 4, minWidth: 180 }}>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Лекар</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Физиотерапевт</span>
               <input
                 className="uiInput"
-                value={assignDoctorName}
-                onChange={(e) => setAssignDoctorName(e.target.value)}
-                placeholder="Име на лекар"
+                value={assignPhysioName}
+                onChange={(e) => setAssignPhysioName(e.target.value)}
+                placeholder="Име (както в СЕК)"
               />
             </label>
             <Button type="button" disabled={busy || !assignCoachId} onClick={assignCoach}>
@@ -742,7 +742,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                   <th>Пол</th>
                   <th>Треньор</th>
                   <th>Втори</th>
-                  <th>Лекар</th>
+                  <th>Физиотерапевт</th>
                   <th>Състав</th>
                   <th>Статус</th>
                   {isHead ? <th></th> : null}
@@ -762,7 +762,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                     <td>{it.sex === 1 ? "Ж" : "М"}</td>
                     <td>{it.assigned_coach_name || "—"}</td>
                     <td>{it.second_coach_name || "—"}</td>
-                    <td>{it.doctor_name || "—"}</td>
+                    <td>{it.physiotherapist_name || it.doctor_name || "—"}</td>
                     <td>{it.members_count ?? 0}</td>
                     <td>{statusLabel(it)}</td>
                     {isHead ? (
