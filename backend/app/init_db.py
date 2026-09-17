@@ -1,6 +1,7 @@
 # backend/app/init_db.py
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, text
+from sqlalchemy.exc import ProgrammingError
 
 from .database import engine, SessionLocal, Base
 from .settings import settings
@@ -49,6 +50,19 @@ def _table_has_rows(db: Session, model) -> bool:
 _INIT_DB_LOCK_KEY = 911002
 
 
+def _create_all_tables_safe() -> None:
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print("✅ Database tables ensured (create_all)")
+    except ProgrammingError as exc:
+        orig = getattr(exc, "orig", None)
+        pgcode = getattr(orig, "pgcode", None)
+        if pgcode == "42P07" or "already exists" in str(exc).lower():
+            print("ℹ️ Database tables already exist (create_all), continuing")
+            return
+        raise
+
+
 def init_db() -> None:
     """
     Безопасен за много worker-и старт.
@@ -91,8 +105,7 @@ def _init_db_impl() -> None:
     - Seed-ва platform admin само ако няма такъв
     """
     # ✅ НЕ ПИПАМЕ ДАННИ! Само създаваме таблици ако липсват.
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables ensured (create_all)")
+    _create_all_tables_safe()
 
     # Critical: users.phone must exist before any login SELECT (idempotent).
     db_url = (settings.database_url or "").lower()

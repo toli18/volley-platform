@@ -4,6 +4,6 @@
     "python": "3.11"
   },
   "deploy": {
-    "startCommand": "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "python -m app.scripts.ensure_db_migrations && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   }
 }
