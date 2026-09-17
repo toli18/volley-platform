@@ -770,7 +770,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                   >
                     <td>
                       {ageAssignOptionLabel(it.age, it.sex)}
-                      {it.local_only ? " · локално" : it.bvf_card_index_id ? ` · БФВ #${it.bvf_card_index_id}` : ""}
+                      {it.local_only ? " · локално" : ""}
                     </td>
                     <td>{it.sex === 1 ? "Ж" : "М"}</td>
                     <td>{it.assigned_coach_name || "—"}</td>

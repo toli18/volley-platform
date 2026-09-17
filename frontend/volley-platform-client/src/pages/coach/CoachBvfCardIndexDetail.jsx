@@ -478,9 +478,9 @@ export default function CoachBvfCardIndexDetail() {
                               <span
                                 className="uiMuted"
                                 style={{ fontSize: 12 }}
-                                title="Вече е на заключен лиценз в СЕК — не се премахва от тук."
+                                title="На заключен лиценз в СЕК — не се премахва от тук."
                               >
-                                В СЕК
+                                Заключен в СЕК
                               </span>
                             )}
                           </td>
@@ -660,9 +660,25 @@ export default function CoachBvfCardIndexDetail() {
                         ? "Лицензът още не е заключен в СЕК — съставът може да се променя; натисни отново „Запиши в СЕК“ след промени."
                         : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка).")}
                 </p>
-                {detail.bvf_sek_license_id ? (
+                {(detail.sek_license_ids?.length || detail.bvf_sek_license_id) ? (
                   <p className="uiMuted" style={{ marginTop: 0, fontSize: 12 }}>
-                    Активен лиценз в СЕК: #{detail.bvf_sek_license_id}
+                    {(() => {
+                      const ids =
+                        detail.sek_license_ids?.length > 0
+                          ? detail.sek_license_ids
+                          : detail.bvf_sek_license_id
+                            ? [detail.bvf_sek_license_id]
+                            : [];
+                      const active = detail.bvf_sek_license_id;
+                      if (ids.length <= 1) {
+                        return `Лиценз в СЕК: #${ids[0]}`;
+                      }
+                      return `Лицензи в СЕК: ${ids
+                        .map((id) =>
+                          `#${id}${Number(id) === Number(active) ? " (активен)" : ""}`,
+                        )
+                        .join(", ")}`;
+                    })()}
                   </p>
                 ) : null}
               {!permanent ? (

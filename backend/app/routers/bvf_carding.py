@@ -150,16 +150,32 @@ def _backfill_locked_member_sek_ids(local: BvfCardIndex) -> None:
 
 
 def _member_on_signed_sek_license(mem: BvfCardIndexMember, local: BvfCardIndex) -> bool:
-    """Качен в СЕК на лиценз, който вече е подписан/заключен — не се маха локално."""
+    """True → играчът е на заключен/стар подписан лиценз и не се маха от състава."""
     if not mem.synced:
         return False
     lic = _member_sek_license_id(mem, local)
-    if not lic:
-        return True
     active = int(local.bvf_card_index_id) if local.bvf_card_index_id else None
-    if active and lic == active and not _card_index_locked_by_sek(local):
-        return False
+    locked_roster = _card_index_locked_by_sek(local)
+
+    if not locked_roster:
+        if not lic or (active and int(lic) == active):
+            return False
+        return True
+
+    if not lic or (active and int(lic) == active):
+        return True
     return True
+
+
+def _sek_license_ids_for_local(local: BvfCardIndex) -> list[int]:
+    ids: set[int] = set()
+    if local.bvf_card_index_id:
+        ids.add(int(local.bvf_card_index_id))
+    for mem in local.members or []:
+        sid = _member_sek_license_id(mem, local)
+        if sid:
+            ids.add(int(sid))
+    return sorted(ids)
 
 
 def _member_can_remove_from_roster(mem: BvfCardIndexMember, local: BvfCardIndex) -> bool:
@@ -414,6 +430,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "sek_license_label": sek_license_category_label(int(local.age), int(local.sex or 0)),
         "sek_locked": _card_index_locked_by_sek(local),
         "bvf_sek_license_id": local.bvf_card_index_id,
+        "sek_license_ids": _sek_license_ids_for_local(local),
         "sek_submit_hint": (
             "Лицензът в СЕК е заключен. Новите състезатели остават в този списък; "
             "„Запиши в СЕК“ ще отвори допълнителен лиценз само за тях."
