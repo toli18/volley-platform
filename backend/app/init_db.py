@@ -809,6 +809,18 @@ def _init_db_impl() -> None:
                         "WHERE end_date IS NULL"
                     )
                 )
+                conn.execute(
+                    text(
+                        "ALTER TABLE bvf_card_index_members "
+                        "ADD COLUMN IF NOT EXISTS sek_bvf_card_index_id INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_bvf_card_index_members_sek_bvf_card_index_id "
+                        "ON bvf_card_index_members (sek_bvf_card_index_id)"
+                    )
+                )
             print("✅ PostgreSQL: training_assignments.completion_note ensured")
             print("✅ PostgreSQL: athletes.gender / birth_date / place_of_birth ensured")
             print("✅ PostgreSQL: teams.gender ensured")
@@ -819,6 +831,7 @@ def _init_db_impl() -> None:
             print("✅ PostgreSQL: match_stat_events.related_athlete_id ensured")
             print("✅ PostgreSQL: competition travel roster columns/table ensured")
             print("✅ PostgreSQL: parent_absence_notices.end_date ensured")
+            print("✅ PostgreSQL: bvf_card_index_members.sek_bvf_card_index_id ensured")
         except Exception as exc:
             print(f"⚠️ PostgreSQL schema patch (completion_note): {exc}")
 

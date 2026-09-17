@@ -1378,6 +1378,29 @@ def list_eligible_card_index_athletes(
     }
 
 
+@router.get("/card-indexes/local")
+def list_local_card_indexes(
+    year: int | None = None,
+    club_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    club = _club_for_any_coach(db, current_user, club_id)
+    q = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club.id)
+    if year:
+        q = q.filter(BvfCardIndex.year == int(year))
+    if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
+        q = _coach_card_index_filter(q, current_user)
+    rows = q.order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
+    return {
+        "items": [serialize_card_index_row(db, r) for r in rows],
+        "can_submit": _can_submit_card_index(current_user),
+        "ready_for_head_count": len([r for r in rows if r.status == "ready_for_head"]),
+    }
+
+
 @router.get("/card-indexes/{bvf_card_index_id}")
 def get_card_index_detail(
     bvf_card_index_id: int,
@@ -2491,29 +2514,6 @@ def delete_local_card_index(
         "sek_deleted": sek_deleted,
         "sek_local_only": bool(sek_id is not None and (locked or sek_warnings)),
         "sek_warnings": sek_warnings,
-    }
-
-
-@router.get("/card-indexes/local")
-def list_local_card_indexes(
-    year: int | None = None,
-    club_id: int | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-    ),
-):
-    club = _club_for_any_coach(db, current_user, club_id)
-    q = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club.id)
-    if year:
-        q = q.filter(BvfCardIndex.year == int(year))
-    if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
-        q = _coach_card_index_filter(q, current_user)
-    rows = q.order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc(), BvfCardIndex.sex.asc()).all()
-    return {
-        "items": [serialize_card_index_row(db, r) for r in rows],
-        "can_submit": _can_submit_card_index(current_user),
-        "ready_for_head_count": len([r for r in rows if r.status == "ready_for_head"]),
     }
 
 
