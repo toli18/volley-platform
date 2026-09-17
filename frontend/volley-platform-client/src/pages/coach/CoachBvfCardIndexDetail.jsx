@@ -464,15 +464,25 @@ export default function CoachBvfCardIndexDetail() {
                         </td>
                         {detail.can_edit ? (
                           <td data-label=" ">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              disabled={busy}
-                              onClick={() => removeAthlete(m.athlete_id, m.athlete_name)}
-                            >
-                              Премахни
-                            </Button>
+                            {m.can_remove !== false ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                disabled={busy}
+                                onClick={() => removeAthlete(m.athlete_id, m.athlete_name)}
+                              >
+                                Премахни
+                              </Button>
+                            ) : (
+                              <span
+                                className="uiMuted"
+                                style={{ fontSize: 12 }}
+                                title="Вече е на заключен лиценз в СЕК — не се премахва от тук."
+                              >
+                                В СЕК
+                              </span>
+                            )}
                           </td>
                         ) : null}
                       </tr>
@@ -643,12 +653,18 @@ export default function CoachBvfCardIndexDetail() {
                 </p>
               )}
                 <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                  {detail.status === "ready_for_head"
-                    ? "Има заявка от треньора."
-                    : detail.status === "pending_bvf_sign" || detail.status === "synced"
-                      ? "Лицензът още не е заключен в СЕК — съставът може да се променя; натисни отново „Запиши в СЕК“ след промени."
-                      : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка)."}
+                  {detail.sek_submit_hint ||
+                    (detail.status === "ready_for_head"
+                      ? "Има заявка от треньора."
+                      : detail.status === "pending_bvf_sign" || detail.status === "synced"
+                        ? "Лицензът още не е заключен в СЕК — съставът може да се променя; натисни отново „Запиши в СЕК“ след промени."
+                        : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка).")}
                 </p>
+                {detail.bvf_sek_license_id ? (
+                  <p className="uiMuted" style={{ marginTop: 0, fontSize: 12 }}>
+                    Активен лиценз в СЕК: #{detail.bvf_sek_license_id}
+                  </p>
+                ) : null}
               {!permanent ? (
                 <textarea
                   className="uiInput"

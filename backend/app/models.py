@@ -830,6 +830,7 @@ class BvfCardIndexMember(Base):
     athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
     bvf_player_id = Column(Integer, nullable=True, index=True)
     synced = Column(Boolean, nullable=False, default=False)
+    sek_bvf_card_index_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())
 
     card_index = relationship("BvfCardIndex", back_populates="members")

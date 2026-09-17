@@ -133,6 +133,56 @@ def _card_index_locked_by_sek(local: BvfCardIndex) -> bool:
     return (local.status or "").strip().lower() == "signed"
 
 
+def _member_sek_license_id(mem: BvfCardIndexMember, local: BvfCardIndex) -> int | None:
+    if mem.sek_bvf_card_index_id:
+        return int(mem.sek_bvf_card_index_id)
+    return None
+
+
+def _backfill_locked_member_sek_ids(local: BvfCardIndex) -> None:
+    """Legacy редове: synced без sek_bvf_card_index_id при заключен активен лиценз."""
+    if not local.bvf_card_index_id or not _card_index_locked_by_sek(local):
+        return
+    cid = int(local.bvf_card_index_id)
+    for mem in local.members or []:
+        if mem.synced and not mem.sek_bvf_card_index_id:
+            mem.sek_bvf_card_index_id = cid
+
+
+def _member_on_signed_sek_license(mem: BvfCardIndexMember, local: BvfCardIndex) -> bool:
+    """Качен в СЕК на лиценз, който вече е подписан/заключен — не се маха локално."""
+    if not mem.synced:
+        return False
+    lic = _member_sek_license_id(mem, local)
+    if not lic:
+        return True
+    active = int(local.bvf_card_index_id) if local.bvf_card_index_id else None
+    if active and lic == active and not _card_index_locked_by_sek(local):
+        return False
+    return True
+
+
+def _member_can_remove_from_roster(mem: BvfCardIndexMember, local: BvfCardIndex) -> bool:
+    return not _member_on_signed_sek_license(mem, local)
+
+
+def _member_needs_sek_sync(mem: BvfCardIndexMember, local: BvfCardIndex, active_sek_id: int | None) -> bool:
+    if not mem.bvf_player_id:
+        return False
+    if not mem.synced:
+        return True
+    if not active_sek_id:
+        return True
+    on = _member_sek_license_id(mem, local)
+    return int(on or 0) != int(active_sek_id)
+
+
+def _backfill_member_sek_license_ids(local: BvfCardIndex, sek_id: int) -> None:
+    for mem in local.members or []:
+        if mem.synced and not mem.sek_bvf_card_index_id:
+            mem.sek_bvf_card_index_id = int(sek_id)
+
+
 def _physiotherapist_name(local: BvfCardIndex) -> str | None:
     return (getattr(local, "doctor_name", None) or "").strip() or None
 
@@ -170,7 +220,8 @@ def _push_card_index_staff_to_sek(db: Session, local: BvfCardIndex, club: Club, 
 
 
 def _can_edit_card_index(user: User, local: BvfCardIndex) -> bool:
-    if _card_index_locked_by_sek(local):
+    """Добавяне в локалния състав — дори след подписан SEK лиценз (новите отиват в следващ лиценз при submit)."""
+    if local.status == "ready_for_head" and not _can_submit_card_index(user):
         return False
     if _can_submit_card_index(user):
         return True
@@ -280,6 +331,7 @@ def _team_labels_for_member(teams: list[dict], local: BvfCardIndex) -> list[str]
 
 
 def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dict:
+    _backfill_locked_member_sek_ids(local)
     year = local.year or datetime.utcnow().year
     members_out = []
     all_ready = True
@@ -337,6 +389,8 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "bvf_player_id": athlete.bvf_player_id,
                 "bvf_player_number": athlete.bvf_player_number,
                 "synced": bool(mem.synced),
+                "can_remove": _member_can_remove_from_roster(mem, local),
+                "sek_locked_player": _member_on_signed_sek_license(mem, local),
                 "ready": ready and fits_age,
                 "has_form_03": has_form,
                 "fits_age": fits_age,
@@ -359,6 +413,13 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "age_rule_hint": card_index_age_rule_hint(year, int(local.age), local.age_group),
         "sek_license_label": sek_license_category_label(int(local.age), int(local.sex or 0)),
         "sek_locked": _card_index_locked_by_sek(local),
+        "bvf_sek_license_id": local.bvf_card_index_id,
+        "sek_submit_hint": (
+            "Лицензът в СЕК е заключен. Новите състезатели остават в този списък; "
+            "„Запиши в СЕК“ ще отвори допълнителен лиценз само за тях."
+            if _card_index_locked_by_sek(local)
+            else None
+        ),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
         "can_request_head": (
@@ -2558,15 +2619,28 @@ def remove_players_from_local_card_index(
             .all()
         )
 
-    if (
-        rows
-        and local.bvf_card_index_id
-        and not _card_index_locked_by_sek(local)
-    ):
+    blocked: list[str] = []
+    for row in rows:
+        if not _member_can_remove_from_roster(row, local):
+            name = row.athlete.athlete_name if row.athlete else f"#{row.athlete_id}"
+            blocked.append(name)
+    if blocked:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Не може да се премахне от локалния състав — вече е на заключен лиценз в СЕК: "
+                + ", ".join(blocked[:5])
+                + (f" (+{len(blocked) - 5})" if len(blocked) > 5 else "")
+            ),
+        )
+
+    if rows and local.bvf_card_index_id and not _card_index_locked_by_sek(local):
         try:
             token = _token_matches_club(payload.bvf_token, club)
             cid = int(local.bvf_card_index_id)
             for row in rows:
+                if not row.synced or int(_member_sek_license_id(row, local) or 0) != cid:
+                    continue
                 pid = row.bvf_player_id
                 if not pid and row.athlete:
                     pid = row.athlete.bvf_player_id
@@ -2576,6 +2650,7 @@ def remove_players_from_local_card_index(
                     _sek_remove_player_from_card_index(token, card_index_id=cid, bvf_player_id=int(pid))
                     sek_removed += 1
                     row.synced = False
+                    row.sek_bvf_card_index_id = None
                 except HTTPException as exc:
                     sek_errors.append(str(exc.detail or exc)[:200])
         except HTTPException:
@@ -2832,9 +2907,11 @@ def _find_matching_sek_card_index(
     age: int,
     sex: int,
     remote_rows: list[dict] | None = None,
+    prefer_unsigned: bool = False,
 ) -> dict | None:
     """Намира вече създаден remote card index за същата тройка сезон/възраст/пол."""
     rows = remote_rows if remote_rows is not None else _list_sek_card_indexes(club, token)
+    matches: list[dict] = []
     for row in rows:
         try:
             if int(row.get("year") or 0) != int(year):
@@ -2846,10 +2923,17 @@ def _find_matching_sek_card_index(
                 continue
             if row.get("id") is None:
                 continue
-            return row
+            matches.append(row)
         except (TypeError, ValueError):
             continue
-    return None
+    if not matches:
+        return None
+    if prefer_unsigned:
+        for row in matches:
+            if not row.get("isSigned"):
+                return row
+        return None
+    return matches[0]
 
 
 def _sek_card_index_age_sex(remote: dict) -> tuple[int, int]:
@@ -3157,10 +3241,14 @@ def _sync_local_members_to_sek_card_index(
     *,
     token: str,
     card_index_id: int,
+    only_pending: bool = False,
 ) -> None:
     year = int(local.year or datetime.utcnow().year)
+    cid = int(card_index_id)
     for mem in local.members or []:
         if not mem.bvf_player_id:
+            continue
+        if only_pending and not _member_needs_sek_sync(mem, local, cid):
             continue
         athlete = mem.athlete
         if athlete:
@@ -3180,7 +3268,7 @@ def _sync_local_members_to_sek_card_index(
                         f"{age_reason or 'грешна възрастова група'}"
                     ),
                 )
-        url = f"{BVF_API_BASE}/api/card-indexes/{int(card_index_id)}/players"
+        url = f"{BVF_API_BASE}/api/card-indexes/{cid}/players"
         try:
             with httpx.Client(timeout=BVF_TIMEOUT) as client:
                 res = client.post(
@@ -3190,6 +3278,7 @@ def _sync_local_members_to_sek_card_index(
                 )
                 if res.status_code < 400:
                     mem.synced = True
+                    mem.sek_bvf_card_index_id = cid
                 elif _sek_carding_closed_message(res.text):
                     raise _http_sek_carding_closed(
                         res.text,
@@ -3236,25 +3325,88 @@ def submit_local_card_index_to_federation(
             ),
         ) from exc
 
+    year = int(local.year)
+    age = int(local.age)
+    sex = int(local.sex)
+
     if local.bvf_card_index_id:
         remote_chk = _bvf_get_soft(f"/api/card-indexes/{int(local.bvf_card_index_id)}", token)
         if isinstance(remote_chk, dict):
             _ensure_sek_license_matches_local(local, remote_chk, bvf_id=int(local.bvf_card_index_id))
-        return submit_card_index_to_federation(local.bvf_card_index_id, payload, db, current_user)
+            if remote_chk.get("isSigned") is True:
+                old_cid = int(local.bvf_card_index_id)
+                _backfill_member_sek_license_ids(local, old_cid)
+                pending = [
+                    m
+                    for m in (local.members or [])
+                    if _member_needs_sek_sync(m, local, old_cid)
+                ]
+                if not pending:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Лицензът в СЕК е заключен. Няма нови състезатели за допълнителен лиценз — "
+                            "добави състезател в състава и натисни отново „Запиши в СЕК“."
+                        ),
+                    )
+                if not club.bvf_club_id:
+                    raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
+                _raise_if_sek_carding_not_open_yet(year)
+                _ensure_sek_season_application_entry(
+                    db, club, token, year=year, age=age, sex=sex
+                )
+                data = {
+                    "ClubId": str(int(club.bvf_club_id)),
+                    "Year": str(year),
+                    "Age": sek_card_index_multipart_age(age, sex),
+                    "Sex": str(sex),
+                }
+                data.update(_sek_staff_form_for_card_index(db, local))
+                try:
+                    created = _bvf_post_multipart("/api/card-indexes", token, data, files={})
+                except HTTPException as exc:
+                    raise HTTPException(
+                        status_code=int(getattr(exc, "status_code", 502) or 502),
+                        detail=(
+                            f"Съставът е локално. Неуспешно създаване на допълнителен лиценз в СЕК: "
+                            f"{exc.detail}"
+                        ),
+                    ) from exc
+                if not isinstance(created, dict) or not created.get("id"):
+                    raise HTTPException(status_code=502, detail="БФВ не върна нов card index")
+                _ensure_sek_license_matches_local(local, created, bvf_id=int(created["id"]))
+                local.bvf_card_index_id = int(created["id"])
+                local.is_signed = False
+                local.status = "synced"
+                db.commit()
+                db.refresh(local)
+
+        cid = int(local.bvf_card_index_id)
+        try:
+            _push_card_index_staff_to_sek(db, local, club, token)
+        except HTTPException:
+            pass
+        _sync_local_members_to_sek_card_index(
+            local, token=token, card_index_id=cid, only_pending=True
+        )
+        db.commit()
+        return submit_card_index_to_federation(cid, payload, db, current_user)
 
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
-
-    year = int(local.year)
-    age = int(local.age)
-    sex = int(local.sex)
 
     remote_rows = _list_sek_card_indexes(club, token)
     alt_years = _alt_sek_years_for_age_sex(remote_rows, age=age, sex=sex, exclude_year=year)
 
     # Ако в СЕК вече има лиценз за тройката — свързваме, вместо да създаваме наново.
     existing_remote = _find_matching_sek_card_index(
-        club, token, year=year, age=age, sex=sex, remote_rows=remote_rows
+        club,
+        token,
+        year=year,
+        age=age,
+        sex=sex,
+        remote_rows=remote_rows,
+        prefer_unsigned=True,
     )
     remote: dict | None = existing_remote
 
@@ -3300,7 +3452,13 @@ def submit_local_card_index_to_federation(
             remote_rows = _list_sek_card_indexes(club, token)
             alt_years = _alt_sek_years_for_age_sex(remote_rows, age=age, sex=sex, exclude_year=year)
             remote = _find_matching_sek_card_index(
-                club, token, year=year, age=age, sex=sex, remote_rows=remote_rows
+                club,
+                token,
+                year=year,
+                age=age,
+                sex=sex,
+                remote_rows=remote_rows,
+                prefer_unsigned=True,
             )
             if remote is None:
                 if status == 401:
@@ -3363,7 +3521,9 @@ def submit_local_card_index_to_federation(
         pass
 
     try:
-        _sync_local_members_to_sek_card_index(local, token=token, card_index_id=cid)
+        _sync_local_members_to_sek_card_index(
+            local, token=token, card_index_id=cid, only_pending=True
+        )
     except HTTPException:
         db.commit()
         raise
