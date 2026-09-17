@@ -113,6 +113,37 @@ def age_group_label(age: int) -> str:
     return AGE_GROUP_LABELS.get(int(age), f"До {age}")
 
 
+# Етикети в db.bvf.bg → Лицензи (колона за сезона). Няма отделна „под 13“ — U13 ≈ Мини (age=13).
+SEK_LICENSE_CATEGORY_LABELS: dict[tuple[int, int], str] = {
+    (12, 0): "Момчета - Детски Волейбол",
+    (12, 1): "Момичета - Детски Волейбол",
+    (13, 0): "Момчета - Мини Волейбол",
+    (13, 1): "Момичета - Мини Волейбол",
+    (14, 0): "Момчета под 14г.",
+    (14, 1): "Момичета под 14г.",
+    (16, 0): "Момчета под 16г.",
+    (16, 1): "Момичета под 16г.",
+    (18, 0): "Момчета под 18г.",
+    (18, 1): "Момичета под 18г.",
+    (20, 0): "Момчета под 20г.",
+    (20, 1): "Момичета под 20г.",
+    (99, 0): "Мъже",
+    (99, 1): "Жени",
+}
+
+
+def sek_license_category_label(age: int, sex: int = 0) -> str:
+    """Как се показва лицензът в СЕК (не само краткият платформен етикет „Мини“ / „Под 14“)."""
+    try:
+        key = (int(age), int(sex))
+    except (TypeError, ValueError):
+        return age_group_label(int(age) if age is not None else 0)
+    if key in SEK_LICENSE_CATEGORY_LABELS:
+        return SEK_LICENSE_CATEGORY_LABELS[key]
+    sex_lbl = "Жени" if key[1] == 1 else "Мъже"
+    return f"{age_group_label(key[0])} · {sex_lbl}"
+
+
 def map_sek_season_age_group(age_group: int) -> tuple[int, int, str] | None:
     """Връща (age, sex, label) или None ако кодът е неизвестен."""
     try:
@@ -471,6 +502,7 @@ def serialize_card_index_row(db: Session, local: BvfCardIndex) -> dict[str, Any]
         "year": local.year,
         "age": local.age,
         "age_group": local.age_group or age_group_label(local.age),
+        "sek_license_label": sek_license_category_label(int(local.age), int(local.sex or 0)),
         "sex": local.sex,
         "status": local.status,
         "is_signed": bool(local.is_signed),

@@ -9,7 +9,14 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import { normalizeError } from "../../utils/normalizeError";
-import { AGE_LADDER, ageGroupLabel, ageRuleHint, athleteFitsAgeGroup, resolveAgeCode } from "../../utils/sekAgeRules";
+import {
+  AGE_LADDER,
+  ageGroupLabel,
+  ageRuleHint,
+  athleteFitsAgeGroup,
+  resolveAgeCode,
+  sekLicenseCategoryLabel,
+} from "../../utils/sekAgeRules";
 import { sekCardingWindowForYear, sekSeasonLabel } from "../../utils/sekSeason";
 
 function normalizeRole(user) {
@@ -342,11 +349,21 @@ export default function CoachBvfCardIndexDetail() {
       );
       return;
     }
+    const sekLic =
+      detail?.sek_license_label ||
+      sekLicenseCategoryLabel(detail?.age, detail?.sex);
+    const misfits = (detail?.members || []).filter((m) => m.fits_age === false);
+    if (misfits.length) {
+      toast.error(
+        `Има ${misfits.length} състезател(и) извън възрастта на отбора. Премахни ги преди запис в СЕК.`,
+      );
+      return;
+    }
     if (
       !window.confirm(
-        `Запис в СЕК за сезон ${sekSeasonLabel(detail?.year)} (Year=${detail?.year}): ` +
-          "свързва съществуващ лиценз или (ако прозорецът е отворен) подава сезонна заявка и създава лиценз, " +
-          "после качва Форма 03 и изпраща състава. Ако федерацията още не е отворила картотекирането — записът остава локално. Продължаваш?",
+        `Лиценз в СЕК: „${sekLic}“ (Age=${detail?.age}, сезон ${sekSeasonLabel(detail?.year)} / Year=${detail?.year}).\n\n` +
+          "U13 / „момчета под 13“ в клуба = Мини (Age=13), не Под 14.\n\n" +
+          "Ще свържем съществуващ лиценз или (ако прозорецът е отворен) създадем нов, качим Форма 03 и изпратим състава. Продължаваш?",
       )
     ) {
       return;
@@ -372,6 +389,8 @@ export default function CoachBvfCardIndexDetail() {
 
   const titleAge = detail?.age_group || detail?.age || "Отбор";
   const titleSex = detail ? sexLabel(detail.sex) : "";
+  const sekLicTitle =
+    detail?.sek_license_label || (detail ? sekLicenseCategoryLabel(detail.age, detail.sex) : "");
 
   return (
     <div className="uiPage">
@@ -379,7 +398,7 @@ export default function CoachBvfCardIndexDetail() {
         title={detail ? `${titleAge} · ${titleSex}` : "Картотечен отбор"}
         subtitle={
           detail
-            ? `${statusLabel(detail)} · сезон ${year}${detail.assigned_coach_name ? ` · ${detail.assigned_coach_name}` : ""}`
+            ? `${statusLabel(detail)} · сезон ${year} · СЕК: ${sekLicTitle}${detail.assigned_coach_name ? ` · ${detail.assigned_coach_name}` : ""}`
             : "Зареждане…"
         }
         actions={

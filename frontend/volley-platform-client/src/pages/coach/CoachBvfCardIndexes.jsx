@@ -9,17 +9,10 @@ import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import { ageAssignOptionLabel } from "../../utils/sekAgeRules";
 import { defaultSekSeasonYear, formatSekYearField, sekCardingWindowForYear, sekSeasonLabel } from "../../utils/sekSeason";
 
-const AGE_OPTIONS = [
-  { age: 12, label: "Детски" },
-  { age: 13, label: "Мини" },
-  { age: 14, label: "Под 14" },
-  { age: 16, label: "Под 16" },
-  { age: 18, label: "Под 18" },
-  { age: 20, label: "Под 20" },
-  { age: 99, label: "Мъже / Жени" },
-];
+const AGE_OPTIONS = [12, 13, 14, 16, 18, 20, 99];
 
 function normalizeRole(user) {
   const r = user?.role;
@@ -51,7 +44,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
   const [year, setYear] = useState(String(defaultSekSeasonYear()));
   const [season, setSeason] = useState(null);
   const [coaches, setCoaches] = useState([]);
-  const [assignAge, setAssignAge] = useState("14");
+  const [assignAge, setAssignAge] = useState("13");
   const [assignSex, setAssignSex] = useState("0");
   const [assignCoachId, setAssignCoachId] = useState("");
   const [assignSecondCoachId, setAssignSecondCoachId] = useState("");
@@ -389,9 +382,9 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
               <label style={{ display: "grid", gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 700 }}>Възраст</span>
                 <select className="uiInput" value={assignAge} onChange={(e) => setAssignAge(e.target.value)}>
-                  {AGE_OPTIONS.map((o) => (
-                    <option key={o.age} value={o.age}>
-                      {o.label} ({o.age})
+                  {AGE_OPTIONS.map((age) => (
+                    <option key={age} value={age}>
+                      {ageAssignOptionLabel(age, assignSex)}
                     </option>
                   ))}
                 </select>
@@ -664,9 +657,9 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
             <label style={{ display: "grid", gap: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 700 }}>Възраст</span>
               <select className="uiInput" value={assignAge} onChange={(e) => setAssignAge(e.target.value)}>
-                {AGE_OPTIONS.map((o) => (
-                  <option key={o.age} value={o.age}>
-                    {o.label} ({o.age})
+                {AGE_OPTIONS.map((age) => (
+                  <option key={age} value={age}>
+                    {ageAssignOptionLabel(age, assignSex)}
                   </option>
                 ))}
               </select>

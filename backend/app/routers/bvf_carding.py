@@ -44,6 +44,7 @@ from app.services.athlete_photo import cached_photo_athlete_ids, has_cached_phot
 from app.services.bvf_season_carding import (
     AGE_LADDER,
     age_group_label,
+    sek_license_category_label,
     athlete_birth_year,
     athlete_docs_as_dicts,
     athlete_fits_card_index_rules,
@@ -309,6 +310,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "members_count": len(members_out),
         "all_ready": all_ready and len(members_out) > 0 and form_ok,
         "age_rule_hint": card_index_age_rule_hint(year, int(local.age), local.age_group),
+        "sek_license_label": sek_license_category_label(int(local.age), int(local.sex or 0)),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
         "can_request_head": (
@@ -1328,6 +1330,7 @@ def submit_card_index_to_federation(
 
     year = local.year or datetime.utcnow().year
     not_ready = []
+    age_mismatch = []
     for mem in members:
         athlete = mem.athlete
         if not athlete:
@@ -1337,6 +1340,24 @@ def submit_card_index_to_federation(
         if not all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form")):
             missing = [c["label"] for c in checklist if not c["ok"] and c["key"] != "any_doc"]
             not_ready.append(f"{athlete.athlete_name}: {', '.join(missing)}")
+        ok_fit, age_reason = athlete_fits_card_index_rules(
+            athlete,
+            season_year=int(year),
+            age=int(local.age),
+            sex=int(local.sex),
+            age_group=local.age_group,
+        )
+        if not ok_fit:
+            age_mismatch.append(f"{athlete.athlete_name}: {age_reason or 'не отговаря на възрастта'}")
+    if age_mismatch:
+        lic = sek_license_category_label(int(local.age), int(local.sex or 0))
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Съставът не отговаря на лиценза „{lic}“ (Age={local.age}): "
+                + "; ".join(age_mismatch[:5])
+            ),
+        )
     if not_ready:
         raise HTTPException(
             status_code=422,

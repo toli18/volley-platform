@@ -12,10 +12,16 @@ from app.services.bvf_season_carding import (  # noqa: E402
     allowed_age_codes,
     athlete_fits_card_index_rules,
     natural_age_code,
+    sek_license_category_label,
 )
 
 
 class BvfAgeCohortTests(unittest.TestCase):
+    def test_sek_license_labels_u13_vs_u14(self):
+        self.assertIn("Мини", sek_license_category_label(13, 0))
+        self.assertIn("14", sek_license_category_label(14, 0))
+        self.assertNotEqual(sek_license_category_label(13, 0), sek_license_category_label(14, 0))
+
     def test_season_2022_matches_bvf_announcement(self):
         self.assertEqual(natural_age_code(2012, 2022), 12)  # Детски
         self.assertEqual(natural_age_code(2011, 2022), 13)  # Мини

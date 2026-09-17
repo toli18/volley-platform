@@ -12,8 +12,45 @@ const AGE_LABELS = {
   99: "Мъже / Жени",
 };
 
+/** Имена на лицензите в db.bvf.bg (колона за сезона). U13 ≈ Мини (13), не „под 13“. */
+const SEK_LICENSE_LABELS = {
+  "12_0": "Момчета - Детски Волейбол",
+  "12_1": "Момичета - Детски Волейбол",
+  "13_0": "Момчета - Мини Волейбол",
+  "13_1": "Момичета - Мини Волейбол",
+  "14_0": "Момчета под 14г.",
+  "14_1": "Момичета под 14г.",
+  "16_0": "Момчета под 16г.",
+  "16_1": "Момичета под 16г.",
+  "18_0": "Момчета под 18г.",
+  "18_1": "Момичета под 18г.",
+  "20_0": "Момчета под 20г.",
+  "20_1": "Момичета под 20г.",
+  "99_0": "Мъже",
+  "99_1": "Жени",
+};
+
 export function ageGroupLabel(code) {
   return AGE_LABELS[Number(code)] || `До ${code}`;
+}
+
+export function sekLicenseCategoryLabel(age, sex = 0) {
+  const key = `${Number(age)}_${Number(sex)}`;
+  return SEK_LICENSE_LABELS[key] || ageGroupLabel(age);
+}
+
+/** Етикет за dropdown „Назначи треньор“ — платформа + СЕК. */
+export function ageAssignOptionLabel(age, sex = 0) {
+  const a = Number(age);
+  const platform = ageGroupLabel(a);
+  const sek = sekLicenseCategoryLabel(a, sex);
+  if (a === 13) {
+    return `${platform} (U13) → СЕК: ${sek}`;
+  }
+  if (a === 14) {
+    return `${platform} (U14) → СЕК: ${sek}`;
+  }
+  return `${platform} → СЕК: ${sek}`;
 }
 
 export function resolveAgeCode(age, ageGroup) {
