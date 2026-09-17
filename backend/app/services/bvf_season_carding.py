@@ -207,10 +207,12 @@ def platform_age_sex_from_sek_card_index(row: dict) -> tuple[int, int]:
 
 
 def sek_card_index_multipart_age(platform_age: int, sex: int) -> str:
-    """Стойност за multipart Age при POST/PUT на /api/card-indexes (СЕК AgeGroup enum, не 12/13/14)."""
-    enum_code = local_age_sex_to_sek_age_group(int(platform_age), int(sex))
-    if enum_code is not None:
-        return str(int(enum_code))
+    """
+    Стойност за multipart Age при POST /api/card-indexes.
+    Swagger: Age е int 1–255 (таван на възрастовата лента), не SeasonApplication AgeGroup 0–13.
+    Полът е отделно (Sex). Сезонните заявки ползват ageGroup enum — виж local_age_sex_to_sek_age_group.
+    """
+    _ = sex  # полът се подава като Sex; Age не включва пол
     return str(int(platform_age))
 
 

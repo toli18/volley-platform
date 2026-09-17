@@ -2914,6 +2914,27 @@ def _alt_sek_years_for_age_sex(
     return sorted(found, reverse=True)
 
 
+def _sek_licenses_in_year_summary(remote_rows: list[dict] | None, year: int) -> str:
+    if not remote_rows:
+        return ""
+    parts: list[str] = []
+    for row in remote_rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            if int(row.get("year") or 0) != int(year):
+                continue
+            cid = int(row.get("id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not cid:
+            continue
+        ra, rs = platform_age_sex_from_sek_card_index(row)
+        lbl = (row.get("ageGroup") or "").strip() or sek_license_category_label(ra, rs)
+        parts.append(f"#{cid} {lbl}")
+    return "; ".join(parts)
+
+
 def _http_sek_no_license_for_season(
     *,
     year: int,
@@ -2921,6 +2942,7 @@ def _http_sek_no_license_for_season(
     sex: int,
     alt_years: list[int] | None = None,
     bvf_detail: str | None = None,
+    remote_rows: list[dict] | None = None,
 ) -> HTTPException:
     if sek_carding_window_open(year) is False or _sek_carding_not_started_message(bvf_detail):
         return _http_sek_carding_not_started(bvf_detail, year=year)
@@ -2945,6 +2967,9 @@ def _http_sek_no_license_for_season(
             f"докато {sek_season_label(int(year) - 1)} е пълна. "
             f"Смени годината на {int(year) - 1} или добави лиценз за {sek_season_label(year)}."
         )
+    in_year = _sek_licenses_in_year_summary(remote_rows, year)
+    if in_year:
+        msg += f" Лицензи в СЕК за {sek_season_label(year)}: {in_year}."
     if bvf_detail:
         msg += f" Отговор от СЕК: {_strip_sek_quotes(bvf_detail)}"
     return HTTPException(status_code=409, detail=msg)
@@ -3302,10 +3327,17 @@ def submit_local_card_index_to_federation(
                     sex=sex,
                     alt_years=alt_years,
                     bvf_detail=bvf_detail,
+                    remote_rows=remote_rows,
                 ) from exc
 
     if not isinstance(remote, dict) or not remote.get("id"):
-        raise _http_sek_no_license_for_season(year=year, age=age, sex=sex, alt_years=alt_years)
+        raise _http_sek_no_license_for_season(
+            year=year,
+            age=age,
+            sex=sex,
+            alt_years=alt_years,
+            remote_rows=remote_rows,
+        )
 
     cid = _bind_local_to_sek_card_index(local, remote)
     if remote.get("isSigned") is True:
