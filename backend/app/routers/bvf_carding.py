@@ -122,8 +122,15 @@ def _coach_assigned_to_card_index(user: User, local: BvfCardIndex) -> bool:
     return False
 
 
+def _card_index_locked_by_sek(local: BvfCardIndex) -> bool:
+    """Заключен в СЕК след издаване на хартия (isSigned). Дотогава съставът се редактира локално."""
+    if bool(local.is_signed):
+        return True
+    return (local.status or "").strip().lower() == "signed"
+
+
 def _can_edit_card_index(user: User, local: BvfCardIndex) -> bool:
-    if local.is_signed or local.status in ("signed", "pending_bvf_sign"):
+    if _card_index_locked_by_sek(local):
         return False
     if _can_submit_card_index(user):
         return True
@@ -311,6 +318,7 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         "all_ready": all_ready and len(members_out) > 0 and form_ok,
         "age_rule_hint": card_index_age_rule_hint(year, int(local.age), local.age_group),
         "sek_license_label": sek_license_category_label(int(local.age), int(local.sex or 0)),
+        "sek_locked": _card_index_locked_by_sek(local),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
         "can_request_head": (
@@ -1410,16 +1418,36 @@ def submit_card_index_to_federation(
             detail=(body or f"БФВ sign грешка {res.status_code}")[:500],
         )
 
-    local.is_signed = True
-    local.status = "signed"
+    remote_is_signed = False
+    try:
+        signed_payload = res.json()
+        if isinstance(signed_payload, dict):
+            remote_is_signed = signed_payload.get("isSigned") is True
+    except Exception:
+        pass
+    if not remote_is_signed:
+        try:
+            row = _bvf_get(f"/api/card-indexes/{int(bvf_card_index_id)}", token)
+            if isinstance(row, dict):
+                remote_is_signed = row.get("isSigned") is True
+        except Exception:
+            pass
+
     local.signed_by_user_id = current_user.id
     local.signed_at = datetime.utcnow()
+    if remote_is_signed:
+        local.is_signed = True
+        local.status = "signed"
+    else:
+        local.is_signed = False
+        local.status = "pending_bvf_sign"
     db.commit()
     return {
         "ok": True,
         "bvf_card_index_id": local.bvf_card_index_id,
         "status": local.status,
-        "is_signed": True,
+        "is_signed": bool(local.is_signed),
+        "sek_locked": bool(local.is_signed),
         "signed_at": local.signed_at.isoformat() if local.signed_at else None,
         **_form_upload_summary(form_uploads),
     }

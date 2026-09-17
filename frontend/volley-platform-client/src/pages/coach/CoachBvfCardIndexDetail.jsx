@@ -27,8 +27,9 @@ function normalizeRole(user) {
 
 function statusLabel(it) {
   if (!it) return "—";
-  if (it.is_signed || it.status === "signed") return "Изпратен към БФВ";
-  if (it.status === "pending_bvf_sign") return "Готов (чака подпис в БФВ)";
+  if (it.is_signed || it.status === "signed") return "Заключен в СЕК (хартия)";
+  if (it.status === "pending_bvf_sign") return "В СЕК · чака заключване от БФВ";
+  if (it.status === "synced") return "Свързан със СЕК · съставът се редактира";
   if (it.status === "ready_for_head") return "Заявка към главния";
   if (it.status === "building") return "Пълни се";
   if (it.local_only) return "Локална чернова";
@@ -575,11 +576,19 @@ export default function CoachBvfCardIndexDetail() {
                 </p>
               ) : null}
             </Card>
-          ) : (
+          ) : detail.is_signed || detail.status === "signed" ? (
             <Card>
-              <p style={{ color: "#166534", fontSize: 13, margin: 0 }}>Съставът е заключен за редакция.</p>
+              <p style={{ color: "#166534", fontSize: 13, margin: 0 }}>
+                Съставът е заключен от БФВ след издаване на хартия. Нов състезател — допълнителен лиценз в db.bvf.bg.
+              </p>
             </Card>
-          )}
+          ) : detail.status === "ready_for_head" ? (
+            <Card>
+              <p style={{ color: "#92400e", fontSize: 13, margin: 0 }}>
+                Съставът чака главния треньор — промени са заключени до връщане или запис в СЕК.
+              </p>
+            </Card>
+          ) : null}
 
           {!isHead && detail.can_request_head ? (
             <Card title="Заявка към главния треньор">
@@ -595,7 +604,7 @@ export default function CoachBvfCardIndexDetail() {
             </Card>
           ) : null}
 
-          {isHead && !detail.is_signed && detail.status !== "signed" && detail.status !== "pending_bvf_sign" ? (
+          {isHead && !detail.is_signed && detail.status !== "signed" ? (
             <Card title="Запис в СЕК (главен треньор)">
               {sekSubmitBlocked ? (
                 <p
@@ -622,11 +631,13 @@ export default function CoachBvfCardIndexDetail() {
                   е позволено.
                 </p>
               )}
-              <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                {detail.status === "ready_for_head"
-                  ? "Има заявка от треньора."
-                  : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка)."}
-              </p>
+                <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+                  {detail.status === "ready_for_head"
+                    ? "Има заявка от треньора."
+                    : detail.status === "pending_bvf_sign" || detail.status === "synced"
+                      ? "Лицензът още не е заключен в СЕК — съставът може да се променя; натисни отново „Запиши в СЕК“ след промени."
+                      : "Можеш да запишеш директно, ако съставът е готов (или да изчакаш заявка)."}
+                </p>
               {!permanent ? (
                 <textarea
                   className="uiInput"

@@ -21,8 +21,9 @@ function normalizeRole(user) {
 }
 
 function statusLabel(it) {
-  if (it.is_signed || it.status === "signed") return "Изпратен към БФВ";
-  if (it.status === "pending_bvf_sign") return "Готов (чака подпис в БФВ)";
+  if (it.is_signed || it.status === "signed") return "Заключен в СЕК";
+  if (it.status === "pending_bvf_sign") return "В СЕК · чака заключване";
+  if (it.status === "synced") return "Свързан със СЕК";
   if (it.status === "ready_for_head") return "Заявка към главния";
   if (it.status === "building") return "Пълни се";
   if (it.local_only) return "Локална чернова";
