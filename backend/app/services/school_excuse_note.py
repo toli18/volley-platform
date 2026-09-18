@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -610,6 +610,25 @@ def _format_weekdays_line(weekdays: set[int]) -> str:
     return ", ".join(WEEKDAY_BG_FULL[w] for w in ordered)
 
 
+def _rule_weekday_applies_in_range(rule: TrainingScheduleRule, from_date: str, to_date: str) -> bool:
+    """Има ли поне една дата в прозореца, в която правилото важи за своя weekday (като календара)."""
+    d0 = datetime.strptime(from_date[:10], "%Y-%m-%d").date()
+    d1 = datetime.strptime(to_date[:10], "%Y-%m-%d").date()
+    eff_from = datetime.strptime(str(rule.effective_from)[:10], "%Y-%m-%d").date()
+    if eff_from > d0:
+        d0 = eff_from
+    if rule.effective_to:
+        eff_to = datetime.strptime(str(rule.effective_to)[:10], "%Y-%m-%d").date()
+        if eff_to < d1:
+            d1 = eff_to
+    if d0 > d1:
+        return False
+    target = int(rule.weekday)
+    days_ahead = (target - d0.weekday()) % 7
+    first = d0 + timedelta(days=days_ahead)
+    return first <= d1
+
+
 class WeeklyScheduleBlock:
     """Един блок график (отбор + дни + часове)."""
 
@@ -634,18 +653,20 @@ def weekly_schedule_blocks_for_teams(
     team_ids: list[int],
     *,
     ref_date: str | None = None,
+    horizon_days: int = 365,
 ) -> list[WeeklyScheduleBlock]:
-    """Активни седмични правила за отборите — по блок на (отбор, часови диапазон)."""
+    """Седмичен шаблон за годишна бележка — същият прозорец като родителския календар."""
     if not team_ids:
         return []
-    today = (ref_date or date.today().isoformat())[:10]
+    start = (ref_date or date.today().isoformat())[:10]
+    end = (datetime.strptime(start, "%Y-%m-%d").date() + timedelta(days=max(7, int(horizon_days)))).isoformat()
     rules = (
         db.query(TrainingScheduleRule)
         .filter(
             TrainingScheduleRule.team_id.in_([int(t) for t in team_ids]),
             TrainingScheduleRule.is_active.is_(True),
-            TrainingScheduleRule.effective_from <= today,
-            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= today),
+            TrainingScheduleRule.effective_from <= end,
+            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= start),
         )
         .order_by(TrainingScheduleRule.team_id.asc(), TrainingScheduleRule.start_time.asc())
         .all()
@@ -659,6 +680,8 @@ def weekly_schedule_blocks_for_teams(
 
     by_team: dict[int, dict[tuple[str, str], set[int]]] = {}
     for r in rules:
+        if not _rule_weekday_applies_in_range(r, start, end):
+            continue
         tid = int(r.team_id)
         key = (_format_time_hhmm(r.start_time), _format_time_hhmm(r.end_time))
         by_team.setdefault(tid, {}).setdefault(key, set()).add(int(r.weekday))
