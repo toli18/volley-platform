@@ -573,21 +573,6 @@ def _generate_pdf_response(db: Session, athlete: Athlete, competition_id: int) -
     )
 
 
-@parent_router.get("/parent-portal/me/school-excuse-notes/{competition_id}/pdf")
-def parent_download_school_excuse_me(
-    competition_id: int,
-    athlete: Athlete = Depends(get_current_parent_athlete),
-    db: Session = Depends(get_db),
-):
-    return _generate_pdf_response(db, athlete, competition_id)
-
-
-@parent_router.get("/parent-portal/{token}/school-excuse-notes/{competition_id}/pdf")
-def parent_download_school_excuse_token(competition_id: int, token: str, db: Session = Depends(get_db)):
-    athlete = _resolve_parent_token_athlete(db, token)
-    return _generate_pdf_response(db, athlete, competition_id)
-
-
 def _annual_pdf_filename(athlete: Athlete) -> str:
     safe_name = re.sub(r"[^\w\-]+", "_", (athlete.athlete_name or "zanimalnya"), flags=re.UNICODE).strip("_")
     return f"zanimalnya_{safe_name}.pdf"
@@ -616,6 +601,7 @@ def _generate_annual_pdf_response(db: Session, athlete: Athlete) -> Response:
     )
 
 
+# Статичният path преди {competition_id} — иначе „annual-afterschool“ се парсва като int.
 @parent_router.get("/parent-portal/me/school-excuse-notes/annual-afterschool/pdf")
 def parent_download_annual_afterschool_me(
     athlete: Athlete = Depends(get_current_parent_athlete),
@@ -628,6 +614,21 @@ def parent_download_annual_afterschool_me(
 def parent_download_annual_afterschool_token(token: str, db: Session = Depends(get_db)):
     athlete = _resolve_parent_token_athlete(db, token)
     return _generate_annual_pdf_response(db, athlete)
+
+
+@parent_router.get("/parent-portal/me/school-excuse-notes/{competition_id}/pdf")
+def parent_download_school_excuse_me(
+    competition_id: int,
+    athlete: Athlete = Depends(get_current_parent_athlete),
+    db: Session = Depends(get_db),
+):
+    return _generate_pdf_response(db, athlete, competition_id)
+
+
+@parent_router.get("/parent-portal/{token}/school-excuse-notes/{competition_id}/pdf")
+def parent_download_school_excuse_token(competition_id: int, token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_token_athlete(db, token)
+    return _generate_pdf_response(db, athlete, competition_id)
 
 
 def _send_school_excuse_email(
