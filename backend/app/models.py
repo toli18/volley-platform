@@ -123,6 +123,8 @@ class Club(Base):
     school_excuse_signature_data = Column(LargeBinary, nullable=True)
     school_excuse_stamp_rel = Column(String(500), nullable=True)
     school_excuse_stamp_data = Column(LargeBinary, nullable=True)
+    school_excuse_annual_enabled = Column(Boolean, nullable=False, default=False)
+    school_excuse_annual_body = Column(Text, nullable=True)
 
     # Публична клубна страница (/c/:slug)
     public_slug = Column(String(80), nullable=True, unique=True, index=True)

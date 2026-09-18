@@ -10,8 +10,10 @@ export default function SchoolExcuseSettingsCard({ toast }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [enabled, setEnabled] = useState(false);
+  const [annualEnabled, setAnnualEnabled] = useState(false);
   const [chairmanName, setChairmanName] = useState("");
   const [bodyTemplate, setBodyTemplate] = useState("");
+  const [annualBodyTemplate, setAnnualBodyTemplate] = useState("");
   const [hasSignature, setHasSignature] = useState(false);
   const [usesBundledSignature, setUsesBundledSignature] = useState(false);
   const [hasStamp, setHasStamp] = useState(false);
@@ -24,8 +26,10 @@ export default function SchoolExcuseSettingsCard({ toast }) {
       const res = await axiosInstance.get(API_PATHS.CLUB_SCHOOL_EXCUSE_SETTINGS);
       const d = res.data || {};
       setEnabled(Boolean(d.enabled));
+      setAnnualEnabled(Boolean(d.annual_enabled));
       setChairmanName(d.chairman_name || "");
       setBodyTemplate(d.body_template || d.defaults?.body || "");
+      setAnnualBodyTemplate(d.annual_body_template || d.defaults?.annual_body || "");
       setHasSignature(Boolean(d.has_signature));
       setUsesBundledSignature(Boolean(d.uses_bundled_signature));
       setHasStamp(Boolean(d.has_stamp));
@@ -45,10 +49,13 @@ export default function SchoolExcuseSettingsCard({ toast }) {
     try {
       setBusy(true);
       const nextEnabled = overrides.enabled !== undefined ? overrides.enabled : enabled;
+      const nextAnnual = overrides.annual_enabled !== undefined ? overrides.annual_enabled : annualEnabled;
       await axiosInstance.put(API_PATHS.CLUB_SCHOOL_EXCUSE_SETTINGS, {
         enabled: nextEnabled,
+        annual_enabled: nextAnnual,
         chairman_name: chairmanName.trim() || null,
         body_template: bodyTemplate,
+        annual_body_template: annualBodyTemplate,
       });
       if (sigInk && !usesBundledSignature) {
         await axiosInstance.put(API_PATHS.CLUB_SCHOOL_EXCUSE_SIGNATURE, {
@@ -60,10 +67,12 @@ export default function SchoolExcuseSettingsCard({ toast }) {
       await load();
       toast?.success(
         overrides.enabled === true
-          ? "Извинителните бележки са активирани за родителите."
-          : overrides.enabled === false
-            ? "Извинителните бележки са изключени."
-            : "Настройките са записани.",
+          ? "Извинителните бележки за състезания са активирани."
+          : overrides.annual_enabled === true
+            ? "Годишната бележка за занималня е активирана."
+            : overrides.enabled === false || overrides.annual_enabled === false
+              ? "Настройката е обновена."
+              : "Настройките са записани.",
       );
     } catch (err) {
       toast?.error(normalizeError(err, "Неуспешен запис."));
@@ -92,10 +101,11 @@ export default function SchoolExcuseSettingsCard({ toast }) {
     }
   };
 
-  const openPreview = async () => {
+  const openPreview = async (annual = false) => {
     try {
       setBusy(true);
-      const res = await axiosInstance.get(API_PATHS.CLUB_SCHOOL_EXCUSE_PREVIEW, { responseType: "blob" });
+      const path = annual ? API_PATHS.CLUB_SCHOOL_EXCUSE_ANNUAL_PREVIEW : API_PATHS.CLUB_SCHOOL_EXCUSE_PREVIEW;
+      const res = await axiosInstance.get(path, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       window.open(url, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -111,7 +121,7 @@ export default function SchoolExcuseSettingsCard({ toast }) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 16 }}>
       <div
         style={{
           display: "grid",
@@ -135,22 +145,47 @@ export default function SchoolExcuseSettingsCard({ toast }) {
             style={{ marginTop: 3 }}
           />
           <span>
-            Активирай извинителни бележки за родителите
+            Бележки за състезания
             <span style={{ display: "block", fontWeight: 500, fontSize: 12, color: "#475569", marginTop: 4 }}>
-              {enabled
-                ? "Родителите виждат раздел в профила и могат да изтеглят PDF за всяко състезание."
-                : "Изключено — родителите няма да виждат бележките, докато не активираш."}
+              PDF за всеки мач с потвърден пътуващ състав.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 8,
+          padding: 12,
+          borderRadius: 10,
+          border: `1px solid ${annualEnabled ? "#86efac" : "#fcd34d"}`,
+          background: annualEnabled ? "#f0fdf4" : "#fffbeb",
+        }}
+      >
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, fontWeight: 700 }}>
+          <input
+            type="checkbox"
+            checked={annualEnabled}
+            disabled={busy}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setAnnualEnabled(next);
+              save({ annual_enabled: next });
+            }}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            Годишна бележка за занималня
+            <span style={{ display: "block", fontWeight: 500, fontSize: 12, color: "#475569", marginTop: 4 }}>
+              Един PDF за цялата година — седмичен график от тренировките (без имейл в тази версия).
             </span>
           </span>
         </label>
       </div>
 
       <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-        PDF се генерира <strong>при изтегляне</strong> от родителя — без предварително архивиране.
-        Плейсхолдери:{" "}
-        <code>{"{student_name}"}</code>, <code>{"{student_class}"}</code>, <code>{"{student_line}"}</code>,{" "}
-        <code>{"{school_name}"}</code>, <code>{"{period_from}"}</code>, <code>{"{period_to}"}</code>,{" "}
-        <code>{"{event_city}"}</code>, <code>{"{event_description}"}</code>.
+        Подпис, печат и председател са общи за двата вида. PDF се генерира при изтегляне от родителя.
       </p>
 
       <label style={{ display: "grid", gap: 4 }}>
@@ -164,14 +199,33 @@ export default function SchoolExcuseSettingsCard({ toast }) {
       </label>
 
       <label style={{ display: "grid", gap: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 700 }}>Текст на молбата (основна част)</span>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Текст — състезание (молба)</span>
         <textarea
           className="uiInput"
-          rows={10}
+          rows={8}
           value={bodyTemplate}
           disabled={busy}
           onChange={(e) => setBodyTemplate(e.target.value)}
         />
+        <span className="uiMuted" style={{ fontSize: 11 }}>
+          Плейсхолдери: <code>{"{student_name}"}</code>, <code>{"{student_class}"}</code>,{" "}
+          <code>{"{period_from}"}</code>, <code>{"{period_to}"}</code>, <code>{"{event_description}"}</code>…
+        </span>
+      </label>
+
+      <label style={{ display: "grid", gap: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Текст — занималня (годишна бележка)</span>
+        <textarea
+          className="uiInput"
+          rows={12}
+          value={annualBodyTemplate}
+          disabled={busy}
+          onChange={(e) => setAnnualBodyTemplate(e.target.value)}
+        />
+        <span className="uiMuted" style={{ fontSize: 11 }}>
+          Плейсхолдери: <code>{"{student_name}"}</code>, <code>{"{student_class}"}</code>,{" "}
+          <code>{"{sport}"}</code>, <code>{"{schedule_blocks}"}</code> (автоматично: дни + часове, по отбор при нужда).
+        </span>
       </label>
 
       <div style={{ display: "grid", gap: 8 }}>
@@ -192,17 +246,11 @@ export default function SchoolExcuseSettingsCard({ toast }) {
           Печат на клуба {hasStamp ? "· качен" : "· липсва"}
         </span>
         <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={uploadStamp} />
-        <span className="uiMuted" style={{ fontSize: 12 }}>
-          Най-добре <strong>PNG с прозрачен фон</strong> (скан без бял правоъгълник). JPG също работи —
-          системата маха светлия фон, но PNG дава по-чист резултат. Печатът и подписът се показват{" "}
-          <strong>един до друг</strong>, без наслагване. Ако печатът липсва в PDF —{" "}
-          <strong>качете файла отново</strong> (запазва се в базата, не се губи при deploy).
-        </span>
       </div>
 
       {!smtpConfigured ? (
         <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
-          Имейл „Изпрати на училище“ изисква SMTP на сървъра (SMTP_HOST). Изтегляне на PDF работи винаги.
+          Имейл „Изпрати на училище“ (само за състезания) изисква SMTP на сървъра.
         </p>
       ) : null}
 
@@ -210,8 +258,11 @@ export default function SchoolExcuseSettingsCard({ toast }) {
         <Button type="button" size="sm" disabled={busy} onClick={() => save()}>
           Запази
         </Button>
-        <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={openPreview}>
-          Преглед PDF (пример)
+        <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => openPreview(false)}>
+          Преглед PDF — състезание
+        </Button>
+        <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => openPreview(true)}>
+          Преглед PDF — занималня
         </Button>
       </div>
     </div>

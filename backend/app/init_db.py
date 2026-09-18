@@ -707,6 +707,13 @@ def _init_db_impl() -> None:
                     text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_signature_data BYTEA")
                 )
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_stamp_data BYTEA"))
+                conn.execute(
+                    text(
+                        "ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_annual_enabled "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN IF NOT EXISTS school_excuse_annual_body TEXT"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_name VARCHAR(255)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_class VARCHAR(32)"))
                 conn.execute(text("ALTER TABLE athletes ADD COLUMN IF NOT EXISTS school_city VARCHAR(120)"))
@@ -1129,6 +1136,14 @@ def _init_db_impl() -> None:
             if "school_excuse_stamp_data" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_stamp_data BLOB"))
                 print("✅ Added clubs.school_excuse_stamp_data column")
+            if "school_excuse_annual_enabled" not in club_col_names:
+                conn.execute(
+                    text("ALTER TABLE clubs ADD COLUMN school_excuse_annual_enabled BOOLEAN NOT NULL DEFAULT 0")
+                )
+                print("✅ Added clubs.school_excuse_annual_enabled column")
+            if "school_excuse_annual_body" not in club_col_names:
+                conn.execute(text("ALTER TABLE clubs ADD COLUMN school_excuse_annual_body TEXT"))
+                print("✅ Added clubs.school_excuse_annual_body column")
             if "bvf_default_first_coach_id" not in club_col_names:
                 conn.execute(text("ALTER TABLE clubs ADD COLUMN bvf_default_first_coach_id INTEGER"))
                 print("✅ Added clubs.bvf_default_first_coach_id column")
@@ -1272,15 +1287,21 @@ def _init_db_impl() -> None:
             for form in db.query(AthleteCardingForm).filter(AthleteCardingForm.is_active.is_(True)).all():
                 if backfill_carding_form_signatures_to_db(form):
                     carding_n += 1
+            from app.services.school_excuse_note import seed_troyan_school_excuse_annual
+
             excuse_n = 0
+            troyan_annual_n = 0
             for club in db.query(Club).all():
                 if backfill_school_excuse_assets_to_db(club):
                     excuse_n += 1
-            if carding_n or excuse_n:
+                if seed_troyan_school_excuse_annual(club):
+                    troyan_annual_n += 1
+            if carding_n or excuse_n or troyan_annual_n:
                 db.commit()
                 print(
                     f"✅ Asset backfill to DB: {carding_n} carding form(s), "
-                    f"{excuse_n} club excuse asset(s)"
+                    f"{excuse_n} club excuse asset(s), "
+                    f"{troyan_annual_n} Troyan annual excuse seed(s)"
                 )
         except Exception as exc:
             db.rollback()

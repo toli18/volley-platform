@@ -74,6 +74,34 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
     }
   };
 
+  const downloadAnnualPdf = async () => {
+    try {
+      setBusy(true);
+      const path = isSession
+        ? API_PATHS.PARENT_SCHOOL_EXCUSE_ANNUAL_PDF_ME
+        : API_PATHS.PARENT_SCHOOL_EXCUSE_ANNUAL_PDF_TOKEN(token);
+      const res = await axiosInstance.get(path, { responseType: "blob", timeout: 120_000 });
+      const blob = res.data;
+      const header = await blob.slice(0, 5).text();
+      if (!header.startsWith("%PDF")) {
+        throw new Error(await parseApiError({ response: { data: blob, status: res.status } }, "PDF не е генериран."));
+      }
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "zanimalnya_belejka.pdf";
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      toast?.error(await parseApiError(err, "Неуспешно изтегляне на PDF."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const downloadPdf = async (competitionId) => {
     try {
       setBusy(true);
@@ -130,7 +158,9 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
     );
   }
 
-  if (!data?.enabled) {
+  const featureOn = Boolean(data?.enabled || data?.annual_enabled);
+
+  if (!featureOn) {
     return (
       <Card title="Извинителни бележки">
         <EmptyState
@@ -197,6 +227,58 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
         </div>
       </Card>
 
+      {data.annual_enabled ? (
+        <Card title="Занималня — годишна бележка">
+          <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            Издава се в началото на учебната година и важи за целия период. Графикът идва от седмичните
+            тренировки на клуба — при смяна на часовете изтеглете бележката отново.
+          </p>
+          {(data.annual?.schedule_blocks || []).length > 0 ? (
+            <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+              {data.annual.schedule_blocks.map((block, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 8,
+                    padding: 10,
+                    fontSize: 13,
+                  }}
+                >
+                  {block.team_name ? (
+                    <strong style={{ display: "block", marginBottom: 4 }}>Отбор {block.team_name}</strong>
+                  ) : null}
+                  <div>Дни: {block.weekdays_line}</div>
+                  <div className="uiMuted">Часове: {block.time_range_line}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="uiMuted" style={{ marginTop: 0 }}>
+              Клубът още не е публикувал седмичен график на тренировки.
+            </p>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || !data.annual?.can_download}
+            onClick={downloadAnnualPdf}
+          >
+            Изтегли PDF за занималня
+          </Button>
+          {!data.annual?.can_download && data.annual?.missing_fields?.length ? (
+            <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+              {data.annual.missing_fields.includes("training_schedule")
+                ? "Нужен е активен график на тренировки от треньора."
+                : data.annual.missing_fields.includes("club_config")
+                  ? "Клубът още не е завършил настройката (председател/подпис)."
+                  : "Попълнете училище и клас."}
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {data.enabled ? (
       <Card title="Състезания — извинителни бележки">
         {missingSchool ? (
           <p className="uiMuted" style={{ marginTop: 0 }}>
@@ -282,6 +364,7 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
           </div>
         )}
       </Card>
+      ) : null}
     </div>
   );
 }

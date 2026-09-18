@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from app.competition_kinds import competition_kind_label
-from app.models import Athlete, Club, ClubCompetitionEvent
+from app.models import Athlete, Club, ClubCompetitionEvent, Team, TrainingScheduleRule
 from app.settings import settings
 
 # Сдружение ВК Троян Волей — фиксиран подпис в git (без canvas)
@@ -22,6 +22,28 @@ DEFAULT_BODY_TEMPLATE = """Уважаеми Г-н/Г-жо Директор,
 • {student_name}, {student_class} клас
 
 С настоящата и на основание НАРЕДБА ЗА ПРИОБЩАВАЩОТО ОБРАЗОВАНИЕ. В сила от 27.10.2017 г. Приета с ПМС № 232 от 20.10.2017 г. Обн. ДВ. бр.86 от 27 Октомври 2017г. чл. 62, ал. 1, т. 2, Ви Моля отсъствията на гореспоменатите ученици в периода {period_from} – {period_to} да бъдат извинени."""
+
+DEFAULT_ANNUAL_BODY_TEMPLATE = """УВАЖАЕМА/И ГОСПОЖО/ГОСПОДИН ДИРЕКТОР / КЛАСЕН РЪКОВОДИТЕЛ,
+
+С настоящото удостоверяваме, че ученикът/ученичката {student_name}, от {student_class} клас, е редовен състезател/член на нашия спортен клуб по {sport}.
+
+Във връзка с интензивния тренировъчен процес и подготовката за предстоящи спортни прояви, детето провежда редовни тренировки по следния график:
+
+{schedule_blocks}
+
+Молим ученикът/ученичката да бъде освобождаван/а от занималня (целодневна форма на обучение) в посочените дни и часове, за да може да посещава навреме спортните занимания. Клубът поема отговорност за безопасността на детето след напускане на училищната територия и по време на тренировките.
+
+Бележката се издава, за да послужи пред ръководството на училището."""
+
+WEEKDAY_BG_FULL = (
+    "понеделник",
+    "вторник",
+    "сряда",
+    "четвъртък",
+    "петък",
+    "събота",
+    "неделя",
+)
 
 
 def school_excuse_assets_dir() -> Path:
@@ -62,8 +84,16 @@ def club_school_excuse_enabled(club: Club | None) -> bool:
     return bool(club and getattr(club, "school_excuse_enabled", False))
 
 
+def club_school_excuse_annual_enabled(club: Club | None) -> bool:
+    return bool(club and getattr(club, "school_excuse_annual_enabled", False))
+
+
 def default_body_template() -> str:
     return DEFAULT_BODY_TEMPLATE
+
+
+def default_annual_body_template() -> str:
+    return DEFAULT_ANNUAL_BODY_TEMPLATE
 
 
 def resolve_school_excuse_template(club: Club | None) -> dict[str, Any]:
@@ -562,3 +592,257 @@ def build_school_excuse_pdf(
     c.showPage()
     c.save()
     return buf.getvalue()
+
+
+def _format_time_hhmm(t: str) -> str:
+    s = (t or "").strip()[:5]
+    if len(s) == 5 and s[2] == ":":
+        return s
+    return s or "—"
+
+
+def _format_time_range_line(start: str, end: str) -> str:
+    return f"от {_format_time_hhmm(start)} ч. до {_format_time_hhmm(end)} ч."
+
+
+def _format_weekdays_line(weekdays: set[int]) -> str:
+    ordered = sorted(int(w) for w in weekdays if 0 <= int(w) <= 6)
+    return ", ".join(WEEKDAY_BG_FULL[w] for w in ordered)
+
+
+class WeeklyScheduleBlock:
+    """Един блок график (отбор + дни + часове)."""
+
+    __slots__ = ("team_id", "team_name", "weekdays_line", "time_range_line")
+
+    def __init__(
+        self,
+        *,
+        team_id: int | None,
+        team_name: str | None,
+        weekdays_line: str,
+        time_range_line: str,
+    ):
+        self.team_id = team_id
+        self.team_name = team_name
+        self.weekdays_line = weekdays_line
+        self.time_range_line = time_range_line
+
+
+def weekly_schedule_blocks_for_teams(
+    db,
+    team_ids: list[int],
+    *,
+    ref_date: str | None = None,
+) -> list[WeeklyScheduleBlock]:
+    """Активни седмични правила за отборите — по блок на (отбор, часови диапазон)."""
+    if not team_ids:
+        return []
+    today = (ref_date or date.today().isoformat())[:10]
+    rules = (
+        db.query(TrainingScheduleRule)
+        .filter(
+            TrainingScheduleRule.team_id.in_([int(t) for t in team_ids]),
+            TrainingScheduleRule.is_active.is_(True),
+            TrainingScheduleRule.effective_from <= today,
+            (TrainingScheduleRule.effective_to.is_(None)) | (TrainingScheduleRule.effective_to >= today),
+        )
+        .order_by(TrainingScheduleRule.team_id.asc(), TrainingScheduleRule.start_time.asc())
+        .all()
+    )
+    if not rules:
+        return []
+
+    team_names: dict[int, str] = {}
+    for t in db.query(Team).filter(Team.id.in_([int(x) for x in team_ids])).all():
+        team_names[int(t.id)] = (t.name or "").strip() or f"Отбор #{t.id}"
+
+    by_team: dict[int, dict[tuple[str, str], set[int]]] = {}
+    for r in rules:
+        tid = int(r.team_id)
+        key = (_format_time_hhmm(r.start_time), _format_time_hhmm(r.end_time))
+        by_team.setdefault(tid, {}).setdefault(key, set()).add(int(r.weekday))
+
+    multi_team = len(by_team) > 1
+    blocks: list[WeeklyScheduleBlock] = []
+    for tid in sorted(by_team.keys()):
+        slots = by_team[tid]
+        for (start, end) in sorted(slots.keys()):
+            blocks.append(
+                WeeklyScheduleBlock(
+                    team_id=tid,
+                    team_name=team_names.get(tid) if multi_team else None,
+                    weekdays_line=_format_weekdays_line(slots[(start, end)]),
+                    time_range_line=_format_time_range_line(start, end),
+                )
+            )
+    return blocks
+
+
+def format_schedule_blocks_text(blocks: list[WeeklyScheduleBlock]) -> str:
+    if not blocks:
+        return "Дни от седмицата: —\nЧасови диапазон: —"
+    parts: list[str] = []
+    for b in blocks:
+        chunk_lines = []
+        if b.team_name:
+            chunk_lines.append(f"Отбор {b.team_name}:")
+        chunk_lines.append(f"Дни от седмицата: {b.weekdays_line}")
+        chunk_lines.append(f"Часови диапазон: {b.time_range_line}")
+        parts.append("\n".join(chunk_lines))
+    return "\n\n".join(parts)
+
+
+def build_annual_afterschool_context(
+    *,
+    athlete: Athlete,
+    club: Club,
+    blocks: list[WeeklyScheduleBlock],
+    sport: str = "волейбол",
+) -> dict[str, str]:
+    school_city = (athlete.school_city or club.city or "").strip()
+    if school_city and not school_city.lower().startswith("гр"):
+        school_city = f"гр. {school_city}"
+    student_name = (athlete.athlete_name or "").strip()
+    student_class = (athlete.school_class or "").strip()
+    schedule_blocks = format_schedule_blocks_text(blocks)
+    return {
+        "school_name": (athlete.school_name or "").strip(),
+        "school_city": school_city or "—",
+        "student_name": student_name,
+        "student_class": student_class,
+        "sport": (sport or "волейбол").strip(),
+        "schedule_blocks": schedule_blocks,
+        "weekdays_line": ", ".join(dict.fromkeys(b.weekdays_line for b in blocks)) if blocks else "—",
+        "time_ranges_line": "; ".join(dict.fromkeys(b.time_range_line for b in blocks)) if blocks else "—",
+        "issue_date": format_date_short(date.today().isoformat()),
+        "issue_date_long": format_date_bg(date.today().isoformat()),
+        "club_name": (club.name or "").strip(),
+        "club_city": (club.city or "").strip() or "—",
+        "chairman_name": (getattr(club, "school_excuse_chairman_name", None) or "").strip() or "—",
+    }
+
+
+def build_annual_afterschool_pdf(
+    *,
+    athlete: Athlete,
+    club: Club,
+    blocks: list[WeeklyScheduleBlock],
+    sport: str = "волейбол",
+) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+
+    from app.routers.fees import _ensure_pdf_font
+    from app.services.club_membership_consent import _club_logo_filesystem_path
+
+    ctx = build_annual_afterschool_context(athlete=athlete, club=club, blocks=blocks, sport=sport)
+    body_template = (
+        (getattr(club, "school_excuse_annual_body", None) or "").strip() or DEFAULT_ANNUAL_BODY_TEMPLATE
+    )
+    body_text = apply_template(body_template, ctx)
+
+    font = _ensure_pdf_font()
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    margin = 20 * mm
+    logo_size = 22 * mm
+
+    club_logo = _club_logo_filesystem_path(club.logo_url if club else None, club=club)
+    if club_logo:
+        try:
+            c.drawImage(str(club_logo), margin, height - margin - logo_size, width=logo_size, height=logo_size, mask="auto")
+        except Exception:
+            pass
+
+    y = height - margin - logo_size - 4 * mm
+    c.setFont(font, 12)
+    c.drawCentredString(width / 2, y, "Извинителна бележка от спортен клуб")
+    y -= 10 * mm
+
+    c.setFont(font, 11)
+    c.drawRightString(width - margin, y, "ДО")
+    y -= 5 * mm
+    c.drawRightString(width - margin, y, "ДИРЕКТОРА / КЛАСНИЯ РЪКОВОДИТЕЛ")
+    y -= 5 * mm
+    school_line = ctx["school_name"] or "......................................................................"
+    c.drawRightString(width - margin, y, f"на {school_line}")
+
+    y -= 12 * mm
+    c.setFont(font, 15)
+    c.drawCentredString(width / 2, y, "ИЗВИНИТЕЛНА БЕЛЕЖКА")
+    y -= 9 * mm
+    c.setFont(font, 10)
+    c.drawString(margin, y, f"От: {ctx['club_name']}")
+    y -= 5 * mm
+    c.drawString(margin, y, "Относно: Освобождаване от занималня (целодневни учебни занимания)")
+
+    y -= 10 * mm
+    left = margin
+    max_w = width - 2 * margin
+    size = 11
+    leading = 5.5 * mm
+
+    for para in body_text.split("\n"):
+        para = para.strip()
+        if not para:
+            y -= leading * 0.5
+            continue
+        words = para.split()
+        line = ""
+        for word in words:
+            trial = f"{line} {word}".strip()
+            if c.stringWidth(trial, font, size) <= max_w:
+                line = trial
+            else:
+                if line:
+                    c.drawString(left, y, line)
+                    y -= leading
+                line = word
+        if line:
+            c.drawString(left, y, line)
+            y -= leading
+        y -= leading * 0.3
+
+    footer_y = margin + 18 * mm
+    c.setFont(font, 10)
+    c.drawString(left, footer_y + 6 * mm, f"Дата: {ctx['issue_date_long']}")
+    city = ctx["club_city"]
+    c.drawString(
+        left,
+        footer_y,
+        city if city.lower().startswith("гр") else f"гр. {city}",
+    )
+
+    sig_source = resolve_school_excuse_signature(club)
+    stamp_source = resolve_school_excuse_asset(club, "school_excuse_stamp_rel", "school_excuse_stamp_data")
+    chairman = ctx.get("chairman_name") or ""
+    c.setFont(font, 9)
+    c.drawRightString(width - margin, footer_y + 14 * mm, "Председател/Треньор:")
+    _draw_footer_seal_and_signature(
+        c,
+        font=font,
+        width=width,
+        margin=margin,
+        footer_y=footer_y,
+        stamp_source=stamp_source,
+        sig_source=sig_source,
+        chairman_name=chairman,
+        sig_dark_background=uses_bundled_school_excuse_signature(club),
+    )
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def seed_troyan_school_excuse_annual(club: Club) -> bool:
+    """Pilot: ВК Троян — включва годишна бележка (шаблон по подразбиране от кода)."""
+    if not is_troyan_volley_club(club):
+        return False
+    if getattr(club, "school_excuse_annual_enabled", False):
+        return False
+    club.school_excuse_annual_enabled = True
+    return True

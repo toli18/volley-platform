@@ -245,6 +245,9 @@ export const API_PATHS = {
     `/api/parent-portal/me/school-excuse-notes/${competitionId}/send-email`,
   PARENT_SCHOOL_EXCUSE_SEND_TOKEN: (token, competitionId) =>
     `/api/parent-portal/${token}/school-excuse-notes/${competitionId}/send-email`,
+  PARENT_SCHOOL_EXCUSE_ANNUAL_PDF_ME: "/api/parent-portal/me/school-excuse-notes/annual-afterschool/pdf",
+  PARENT_SCHOOL_EXCUSE_ANNUAL_PDF_TOKEN: (token) =>
+    `/api/parent-portal/${token}/school-excuse-notes/annual-afterschool/pdf`,
 
   TEAM_PORTAL_ITEMS_LIST: (teamId) => `/api/teams/${teamId}/team-portal/items`,
   TEAM_PORTAL_TEXT_CREATE: (teamId) => `/api/teams/${teamId}/team-portal/items/text`,
@@ -260,6 +263,7 @@ export const API_PATHS = {
   CLUB_SCHOOL_EXCUSE_SIGNATURE: "/api/club/school-excuse-settings/signature",
   CLUB_SCHOOL_EXCUSE_STAMP: "/api/club/school-excuse-settings/stamp",
   CLUB_SCHOOL_EXCUSE_PREVIEW: "/api/club/school-excuse-settings/preview.pdf",
+  CLUB_SCHOOL_EXCUSE_ANNUAL_PREVIEW: "/api/club/school-excuse-settings/annual-preview.pdf",
   CLUB_ATTENDANCE_SUMMARY: "/api/club/attendance/summary",
   CLUB_TRAININGS: "/api/club/trainings",
   CLUB_REPORT_FEES_XLSX: "/api/club/reports/fees.xlsx",
