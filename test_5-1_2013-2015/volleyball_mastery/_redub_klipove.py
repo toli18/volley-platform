@@ -16,6 +16,8 @@ KLIPOVE = PUBLIC / "klipove.html"
 # same mapping as _export_narrations.py
 from _export_narrations import stem_to_source  # noqa: E402
 
+ANCHORED_STEMS = frozenset({"vsiaki-ugli"})
+
 
 def stems() -> list[str]:
     html = KLIPOVE.read_text(encoding="utf-8")
@@ -49,6 +51,8 @@ def main() -> int:
         cmd = [sys.executable, str(DUB), slug]
         if subdir and subdir != ".":
             cmd.extend(["--dir", subdir])
+        if stem in ANCHORED_STEMS:
+            cmd.append("--anchored")
         print(">>>", " ".join(cmd))
         for attempt in range(5):
             r = subprocess.run(cmd, cwd=ROOT)

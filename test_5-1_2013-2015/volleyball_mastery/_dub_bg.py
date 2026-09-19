@@ -20,6 +20,7 @@ VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
 SUBTITLE_BLUR_H = 220
 MAX_TEMPO = 1.22  # BG TTS often longer than EN slots; cap keeps speech intelligible
+ANCHOR_TEMPO = 1.32  # max speed-up in --anchored mode (no word trimming)
 SUBTITLE_FONT_SIZE = 13
 SUBTITLE_ALIGNMENT = 8  # top center
 SUBTITLE_MARGIN_V = 48
@@ -201,6 +202,107 @@ def fit_segment(src: Path, dst: Path, target: float) -> float:
         ]
     )
     return target
+
+
+def fit_anchored_phrase(src: Path, dst: Path, window: float) -> float:
+    """Fit TTS into [window] with atempo only — full words, synced to video slots."""
+    window = max(window, 0.35)
+    dur = probe_duration(src)
+    if dur + 0.03 < window:
+        pad = window - dur
+        run(
+            [
+                FFMPEG,
+                "-y",
+                "-i",
+                str(src),
+                "-af",
+                f"apad=pad_dur={pad:.3f}",
+                "-t",
+                f"{window:.3f}",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(dst),
+            ]
+        )
+        return window
+    tempo = min(dur / window, ANCHOR_TEMPO)
+    af = _atempo_chain(tempo)
+    out_dur = dur / tempo
+    cmd = [FFMPEG, "-y", "-i", str(src), "-af", af, "-c:a", "libmp3lame", "-q:a", "2"]
+    if out_dur <= window + 0.04:
+        cmd.extend(["-t", f"{window:.3f}"])
+        run(cmd + [str(dst)])
+        return window
+    run(cmd + [str(dst)])
+    return probe_duration(dst)
+
+
+def build_dub_anchored(
+    phrases: list[Phrase], total: float, work: Path
+) -> tuple[list[str], list[tuple[float, float, str]]]:
+    """Start each phrase on its timestamp; gentle atempo only, no word trimming."""
+    lines: list[str] = []
+    timings: list[tuple[float, float, str]] = []
+    pos = 0.0
+    for i, phrase in enumerate(phrases):
+        gap = phrase.start - pos
+        if gap > 0.02:
+            silence = work / f"sil_before_{i:02d}.mp3"
+            run(
+                [
+                    FFMPEG,
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=24000:cl=mono",
+                    "-t",
+                    f"{gap:.3f}",
+                    "-c:a",
+                    "libmp3lame",
+                    "-q:a",
+                    "2",
+                    str(silence),
+                ]
+            )
+            lines.append(f"file '{silence.as_posix()}'")
+            pos += gap
+
+        raw = work / f"raw_{i:02d}.mp3"
+        seg = work / f"seg_{i:02d}.mp3"
+        asyncio.run(tts(phrase.text, raw))
+        window = slot_until(phrases, i, total)
+        seg_dur = fit_anchored_phrase(raw, seg, window)
+        lines.append(f"file '{seg.as_posix()}'")
+        timings.append((phrase.start, phrase.start + seg_dur, phrase.text))
+        pos += seg_dur
+
+    tail = max(total - pos, 0.0)
+    if tail > 0.05:
+        silence = work / "sil_tail.mp3"
+        run(
+            [
+                FFMPEG,
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=24000:cl=mono",
+                "-t",
+                f"{tail:.3f}",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(silence),
+            ]
+        )
+        lines.append(f"file '{silence.as_posix()}'")
+
+    return lines, timings
 
 
 def slot_until(phrases: list[Phrase], i: int, total: float) -> float:
@@ -426,41 +528,42 @@ def burn_subtitles(video: Path, audio: Path, ass: Path, out: Path, work: Path) -
     )
 
 
-def mux(video: Path, audio: Path, out: Path, work: Path | None = None) -> None:
+def mux(video: Path, audio: Path, out: Path, work: Path | None = None, *, full_audio: bool = False) -> None:
     if work is not None:
         video = extend_video_to_audio(video, audio, work)
-    run(
-        [
-            FFMPEG,
-            "-y",
-            "-i",
-            str(video),
-            "-i",
-            str(audio),
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "160k",
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-shortest",
-            str(out),
-        ]
-    )
+    cmd = [
+        FFMPEG,
+        "-y",
+        "-i",
+        str(video),
+        "-i",
+        str(audio),
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "160k",
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+    ]
+    if not full_audio:
+        cmd.append("-shortest")
+    cmd.append(str(out))
+    run(cmd)
 
 
-def process(job: Job, *, blur: bool = True, subs: bool = False) -> None:
+def process(job: Job, *, blur: bool = True, subs: bool = False, anchored: bool = False) -> None:
     if not job.video_in.exists():
         raise FileNotFoundError(job.video_in)
     if not job.narration_in.exists():
         raise FileNotFoundError(job.narration_in)
 
     phrases = parse_narration(job.narration_in)
-    print(f"[{job.slug}] {len(phrases)} phrases, voice={VOICE}, subs={subs}")
+    mode = "anchored" if anchored else "concat"
+    print(f"[{job.slug}] {len(phrases)} phrases, voice={VOICE}, subs={subs}, mode={mode}")
     video = prepare_video(job.video_in, job.video_clean, blur)
     total = probe_duration(video)
     root = job.narration_in.parent
@@ -468,8 +571,12 @@ def process(job: Job, *, blur: bool = True, subs: bool = False) -> None:
     vtt_path = root / f"{job.slug}.bg.vtt"
     with tempfile.TemporaryDirectory(prefix=f"vm_dub_{job.slug}_") as td:
         work = Path(td)
-        lines, timings = build_dub(phrases, total, work)
-        audio = merge_audio(lines, work, job.audio_out)
+        if anchored:
+            lines, timings = build_dub_anchored(phrases, total, work)
+            audio = merge_audio(lines, work, job.audio_out)
+        else:
+            lines, timings = build_dub(phrases, total, work)
+            audio = merge_audio(lines, work, job.audio_out)
         write_vtt(vtt_path, timings)
         print("VTT:", vtt_path)
         print("Audio:", audio)
@@ -478,7 +585,7 @@ def process(job: Job, *, blur: bool = True, subs: bool = False) -> None:
             print("Subs:", ass_path)
             burn_subtitles(video, audio, ass_path, job.video_out, work)
         else:
-            mux(video, audio, job.video_out, work)
+            mux(video, audio, job.video_out, work, full_audio=anchored)
         print("Video:", job.video_out)
 
 
@@ -488,10 +595,15 @@ def main() -> int:
     parser.add_argument("--dir", default="", help="Subfolder under volleyball_mastery (e.g. tiktok)")
     parser.add_argument("--no-blur", action="store_true", help="Skip blurring burned-in EN subtitles")
     parser.add_argument("--subs", action="store_true", help="Burn Bulgarian ASS subtitles into output")
+    parser.add_argument(
+        "--anchored",
+        action="store_true",
+        help="Start each phrase on timestamp; full TTS (no word trim), for long VYLO clips",
+    )
     args = parser.parse_args()
     base = ROOT / args.dir if args.dir else ROOT
     try:
-        process(job_for(args.slug, base), blur=not args.no_blur, subs=args.subs)
+        process(job_for(args.slug, base), blur=not args.no_blur, subs=args.subs, anchored=args.anchored)
     except FileNotFoundError as exc:
         print("Missing:", exc, file=sys.stderr)
         return 1
