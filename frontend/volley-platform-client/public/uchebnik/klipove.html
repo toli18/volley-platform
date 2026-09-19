@@ -58,6 +58,11 @@
     bottom: max(88px, calc(env(safe-area-inset-bottom) + 64px));
     z-index: 20; display: flex; gap: 10px; align-items: center;
     pointer-events: auto; touch-action: manipulation;
+    opacity: 1; visibility: visible;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+  }
+  .controls.ui-hidden {
+    opacity: 0; visibility: hidden; pointer-events: none;
   }
   .ctrl-btn {
     border: 2px solid rgba(255,255,255,.75); border-radius: 999px;
@@ -162,9 +167,39 @@
     let audioUnlocked =
       sessionStorage.getItem("uchebnik-audio") === "1" || !isIOS;
     let activeIndex = 0;
+    const CONTROLS_HIDE_MS = 2800;
+    let controlsHideTimer = null;
 
     function activeEntry() {
       return videos[activeIndex];
+    }
+
+    function setControlsVisible(entry, visible) {
+      if (!entry?.controlsEl) return;
+      entry.controlsEl.classList.toggle("ui-hidden", !visible);
+    }
+
+    function scheduleControlsHide(entry) {
+      if (controlsHideTimer) clearTimeout(controlsHideTimer);
+      if (!entry?.v || entry.v.paused || entry.userPaused) {
+        setControlsVisible(entry, true);
+        return;
+      }
+      controlsHideTimer = setTimeout(() => {
+        if (activeIndex === entry.index && !entry.v.paused && !entry.userPaused) {
+          setControlsVisible(entry, false);
+        }
+      }, CONTROLS_HIDE_MS);
+    }
+
+    function revealControls(entry) {
+      if (!entry) return;
+      setControlsVisible(entry, true);
+      scheduleControlsHide(entry);
+    }
+
+    function revealActiveControls() {
+      revealControls(activeEntry());
     }
 
     function togglePlay(entry) {
@@ -180,6 +215,7 @@
       }
       syncPlayBtn(entry);
       updateSoundHint(entry);
+      revealControls(entry);
     }
 
     function seekActive(delta) {
@@ -194,6 +230,7 @@
       }
       syncPlayBtn(entry);
       updateSoundHint(entry);
+      revealControls(entry);
     }
 
     function unlockAudio() {
@@ -332,7 +369,7 @@
       slide.append(v, soundHint, controls, subs, cap);
       feed.appendChild(slide);
       const entry = {
-        v, subs, vtt: clip.vtt, cues: null, playBtn, soundHint, index: i, userPaused: false,
+        v, subs, vtt: clip.vtt, cues: null, playBtn, soundHint, controlsEl: controls, index: i, userPaused: false,
       };
       videos.push(entry);
 
@@ -341,8 +378,8 @@
         const txt = cueAt(entry.cues, v.currentTime);
         if (subs.textContent !== txt) subs.textContent = txt;
       });
-      v.addEventListener("play", () => { syncPlayBtn(entry); updateSoundHint(entry); });
-      v.addEventListener("pause", () => { syncPlayBtn(entry); updateSoundHint(entry); });
+      v.addEventListener("play", () => { syncPlayBtn(entry); updateSoundHint(entry); scheduleControlsHide(entry); });
+      v.addEventListener("pause", () => { syncPlayBtn(entry); updateSoundHint(entry); setControlsVisible(entry, true); });
       v.addEventListener("volumechange", () => updateSoundHint(entry));
 
       controls.addEventListener("click", (e) => {
@@ -362,6 +399,13 @@
         }
         syncPlayBtn(entry);
         updateSoundHint(entry);
+        revealControls(entry);
+      });
+
+      slide.addEventListener("click", (e) => {
+        if (e.target.closest(".controls, .sound-hint")) return;
+        if (activeIndex !== i) return;
+        revealControls(entry);
       });
 
       soundHint.addEventListener("click", (e) => {
@@ -393,6 +437,7 @@
             syncPlayBtn(x);
             updateSoundHint(x);
           });
+          revealControls(entry);
           if (entry.userPaused) {
             syncPlayBtn(entry);
             updateSoundHint(entry);
@@ -400,6 +445,7 @@
             playWithSound(v).then(() => {
               syncPlayBtn(entry);
               updateSoundHint(entry);
+              scheduleControlsHide(entry);
             });
           }
         } else if (!v.paused) {
@@ -417,18 +463,23 @@
       playWithSound(videos[0].v).then(() => {
         syncPlayBtn(videos[0]);
         updateSoundHint(videos[0]);
+        scheduleControlsHide(videos[0]);
       });
+      revealControls(videos[0]);
     }
 
     feed.addEventListener("click", (e) => {
       if (e.target.closest(".subs-btn, .controls, .sound-hint, a, .top-bar")) return;
-      togglePlay(activeEntry());
+      const entry = activeEntry();
+      revealControls(entry);
+      togglePlay(entry);
     });
 
     document.addEventListener("keydown", (e) => {
       if (e.target.closest("input, textarea, select")) return;
       const entry = activeEntry();
       if (!entry) return;
+      revealControls(entry);
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay(entry);
@@ -440,6 +491,9 @@
         seekActive(10);
       }
     });
+
+    feed.addEventListener("mousemove", () => revealActiveControls(), { passive: true });
+    feed.addEventListener("touchstart", () => revealActiveControls(), { passive: true });
 
     if (isIOS) {
       document.body.addEventListener(

@@ -26,12 +26,22 @@ def stems() -> list[str]:
 
 
 def main() -> int:
-    after = sys.argv[1] if len(sys.argv) > 1 else ""
+    args = sys.argv[1:]
+    only = False
+    after = ""
+    if "--only" in args:
+        only = True
+        i = args.index("--only")
+        if i + 1 >= len(args):
+            raise SystemExit("Usage: _redub_klipove.py [--only] STEM")
+        after = args[i + 1]
+    elif args:
+        after = args[0]
     all_stems = stems()
     if after:
         if after not in all_stems:
             raise SystemExit(f"Unknown stem: {after}")
-        all_stems = all_stems[all_stems.index(after) :]
+        all_stems = [after] if only else all_stems[all_stems.index(after) :]
     SUBS.mkdir(parents=True, exist_ok=True)
     for stem in all_stems:
         slug, subdir, narr = stem_to_source(stem)

@@ -94,6 +94,8 @@ def export_text() -> None:
         "2. Един ред = едно изречение/фраза за TTS (не махай редове без причина).",
         "3. Не пипай STEM, SLUG, DIR, FILE и маркерите.",
         "4. След корекция: python _export_narrations.py import",
+        "5. Преозвучи клипа: python _redub_klipove.py --only STEM",
+        "   (STEM = posreshtane-konflikti и т.н.; правописът директно влияе на TTS.)",
         "",
     ]
     for i, (stem, title, sub) in enumerate(clips, 1):

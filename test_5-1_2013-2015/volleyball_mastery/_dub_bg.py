@@ -19,7 +19,7 @@ FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
 SUBTITLE_BLUR_H = 220
-MAX_TEMPO = 1.04
+MAX_TEMPO = 1.22  # BG TTS often longer than EN slots; cap keeps speech intelligible
 SUBTITLE_FONT_SIZE = 13
 SUBTITLE_ALIGNMENT = 8  # top center
 SUBTITLE_MARGIN_V = 48
@@ -125,10 +125,22 @@ async def tts(text: str, out: Path) -> None:
         raise last
 
 
+def _atempo_chain(ratio: float) -> str:
+    """Build ffmpeg atempo filter chain (each node must stay in 0.5–2.0)."""
+    ratio = max(ratio, 1.0)
+    parts: list[str] = []
+    while ratio > 2.0 + 1e-6:
+        parts.append("atempo=2.0")
+        ratio /= 2.0
+    parts.append(f"atempo={ratio:.5f}")
+    return ",".join(parts)
+
+
 def fit_segment(src: Path, dst: Path, target: float) -> float:
-    """Keep full TTS; pad short segments, never speed up or cut words."""
+    """Pad or time-fit TTS so each phrase ends on schedule (video stays in sync)."""
+    target = max(target, 0.35)
     dur = probe_duration(src)
-    if dur <= target:
+    if dur + 0.03 < target:
         pad = target - dur
         run(
             [
@@ -148,8 +160,47 @@ def fit_segment(src: Path, dst: Path, target: float) -> float:
             ]
         )
         return target
-    run([FFMPEG, "-y", "-i", str(src), "-c:a", "libmp3lame", "-q:a", "2", str(dst)])
-    return dur
+    if dur <= target + 0.03:
+        run(
+            [
+                FFMPEG,
+                "-y",
+                "-i",
+                str(src),
+                "-t",
+                f"{target:.3f}",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(dst),
+            ]
+        )
+        return target
+    tempo = min(dur / target, MAX_TEMPO)
+    af = _atempo_chain(tempo)
+    dur_after = dur / tempo
+    if dur_after > target + 0.05:
+        fade_start = max(target - 0.1, 0.0)
+        af = f"{af},afade=t=out:st={fade_start:.3f}:d=0.1"
+    run(
+        [
+            FFMPEG,
+            "-y",
+            "-i",
+            str(src),
+            "-af",
+            af,
+            "-t",
+            f"{target:.3f}",
+            "-c:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+            str(dst),
+        ]
+    )
+    return target
 
 
 def slot_until(phrases: list[Phrase], i: int, total: float) -> float:
