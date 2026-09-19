@@ -41,6 +41,7 @@
   }
   video {
     width: 100%; height: 100%; object-fit: contain; background: #000;
+    pointer-events: none;
   }
   .subs-overlay {
     position: absolute; left: 8px; right: 8px; top: max(52px, calc(env(safe-area-inset-top) + 44px));
@@ -52,6 +53,37 @@
     display: none;
   }
   .subs-overlay.on { display: block; }
+  .controls {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: max(88px, calc(env(safe-area-inset-bottom) + 64px));
+    z-index: 20; display: flex; gap: 10px; align-items: center;
+    pointer-events: auto; touch-action: manipulation;
+  }
+  .ctrl-btn {
+    border: 2px solid rgba(255,255,255,.75); border-radius: 999px;
+    background: rgba(0,0,0,.55); color: #fff;
+    font-family: inherit; font-weight: 800; font-size: .82rem;
+    min-width: 48px; min-height: 48px; padding: 0 14px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    text-shadow: 0 1px 3px rgba(0,0,0,.8);
+    box-shadow: 0 2px 10px rgba(0,0,0,.45);
+  }
+  .ctrl-btn.ctrl-play { min-width: 56px; font-size: 1.1rem; }
+  .ctrl-btn:active { background: rgba(255,255,255,.2); }
+  @media (hover: hover) and (pointer: fine) {
+    .controls { gap: 14px; bottom: max(96px, calc(env(safe-area-inset-bottom) + 72px)); }
+    .ctrl-btn { min-width: 52px; min-height: 52px; font-size: .88rem; }
+    .ctrl-btn.ctrl-play { min-width: 60px; font-size: 1.2rem; }
+    .ctrl-btn:hover { background: rgba(255,255,255,.18); border-color: #fff; }
+  }
+  .sound-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 14; pointer-events: none;
+    background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: .85rem;
+    padding: 10px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.45);
+    display: none; text-align: center; max-width: 85%;
+  }
+  .sound-hint.on { display: block; pointer-events: auto; cursor: pointer; }
   .caption {
     position: absolute; left: 14px; right: 14px; bottom: max(24px, env(safe-area-inset-bottom));
     color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9);
@@ -77,7 +109,7 @@
       <a href="/uchebnik/infografiki/">Картинки</a>
     </div>
   </div>
-  <p class="hint">CC = субтитри · плъзни нагоре за следващото</p>
+  <p class="hint">−10 · ⏸ · +10 на всеки клип · на компютър: ← → и Space</p>
   <div class="feed" id="feed"></div>
   <script>
     const STEM = (src) => src.replace(/^.*\//, "").replace(/\.mp4$/, "");
@@ -124,6 +156,90 @@
     const videos = [];
     const cueCache = new Map();
     let subsOn = localStorage.getItem("uchebnik-subs") !== "off";
+    const isIOS =
+      /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    let audioUnlocked =
+      sessionStorage.getItem("uchebnik-audio") === "1" || !isIOS;
+    let activeIndex = 0;
+
+    function activeEntry() {
+      return videos[activeIndex];
+    }
+
+    function togglePlay(entry) {
+      if (!entry) return;
+      unlockAudio();
+      entry.v.muted = false;
+      if (entry.v.paused) {
+        entry.userPaused = false;
+        playWithSound(entry.v);
+      } else {
+        entry.userPaused = true;
+        entry.v.pause();
+      }
+      syncPlayBtn(entry);
+      updateSoundHint(entry);
+    }
+
+    function seekActive(delta) {
+      const entry = activeEntry();
+      if (!entry) return;
+      unlockAudio();
+      entry.v.muted = false;
+      seekVideo(entry.v, delta);
+      if (entry.v.paused) {
+        entry.userPaused = false;
+        playWithSound(entry.v);
+      }
+      syncPlayBtn(entry);
+      updateSoundHint(entry);
+    }
+
+    function unlockAudio() {
+      audioUnlocked = true;
+      sessionStorage.setItem("uchebnik-audio", "1");
+      document.querySelectorAll(".sound-hint").forEach((h) => h.classList.remove("on"));
+    }
+
+    function syncPlayBtn(entry) {
+      const btn = entry?.playBtn;
+      if (!btn) return;
+      btn.textContent = entry.v.paused ? "▶" : "⏸";
+      btn.setAttribute("aria-label", entry.v.paused ? "Пусни" : "Пауза");
+    }
+
+    function updateSoundHint(entry) {
+      if (!entry?.soundHint) return;
+      const show = isIOS && entry.v.muted && !entry.v.paused && !audioUnlocked;
+      entry.soundHint.classList.toggle("on", show);
+      entry.soundHint.textContent = show ? "🔊 Докосни за звук" : "";
+    }
+
+    async function playWithSound(v) {
+      if (audioUnlocked) v.muted = false;
+      try {
+        await v.play();
+        if (audioUnlocked) v.muted = false;
+        return true;
+      } catch {
+        if (!audioUnlocked) {
+          v.muted = true;
+          try {
+            await v.play();
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      }
+    }
+
+    function seekVideo(v, delta) {
+      if (!Number.isFinite(v.duration)) return;
+      v.currentTime = Math.max(0, Math.min(v.duration - 0.05, v.currentTime + delta));
+    }
 
     function parseVttTime(s) {
       const p = s.trim().split(":");
@@ -195,51 +311,152 @@
       v.loop = true;
       v.preload = i < 2 ? "auto" : "metadata";
       v.setAttribute("playsinline", "");
+      v.setAttribute("webkit-playsinline", "");
+      v.setAttribute("x-webkit-airplay", "allow");
+      const soundHint = document.createElement("button");
+      soundHint.type = "button";
+      soundHint.className = "sound-hint";
+      soundHint.setAttribute("aria-label", "Включи звук");
+      const controls = document.createElement("div");
+      controls.className = "controls";
+      controls.innerHTML =
+        '<button type="button" class="ctrl-btn" data-seek="-10" aria-label="Назад 10 сек">−10</button>' +
+        '<button type="button" class="ctrl-btn ctrl-play" aria-label="Пауза">⏸</button>' +
+        '<button type="button" class="ctrl-btn" data-seek="10" aria-label="Напред 10 сек">+10</button>';
+      const playBtn = controls.querySelector(".ctrl-play");
       const subs = document.createElement("div");
       subs.className = "subs-overlay" + (subsOn ? " on" : "");
       const cap = document.createElement("div");
       cap.className = "caption";
       cap.innerHTML = `<b>${clip.title}</b><span>${clip.sub}</span>`;
-      slide.append(v, subs, cap);
+      slide.append(v, soundHint, controls, subs, cap);
       feed.appendChild(slide);
-      videos.push({ v, subs, vtt: clip.vtt, cues: null });
+      const entry = {
+        v, subs, vtt: clip.vtt, cues: null, playBtn, soundHint, index: i, userPaused: false,
+      };
+      videos.push(entry);
 
       v.addEventListener("timeupdate", () => {
-        if (!subsOn || !videos[i].cues?.length) return;
-        const txt = cueAt(videos[i].cues, v.currentTime);
+        if (!subsOn || !entry.cues?.length) return;
+        const txt = cueAt(entry.cues, v.currentTime);
         if (subs.textContent !== txt) subs.textContent = txt;
       });
+      v.addEventListener("play", () => { syncPlayBtn(entry); updateSoundHint(entry); });
+      v.addEventListener("pause", () => { syncPlayBtn(entry); updateSoundHint(entry); });
+      v.addEventListener("volumechange", () => updateSoundHint(entry));
 
-      loadCues(clip.vtt).then((cues) => { videos[i].cues = cues; });
+      controls.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-seek], .ctrl-play");
+        if (!btn) return;
+        e.stopPropagation();
+        if (btn.classList.contains("ctrl-play")) {
+          togglePlay(entry);
+          return;
+        }
+        unlockAudio();
+        entry.v.muted = false;
+        seekVideo(entry.v, parseInt(btn.dataset.seek, 10));
+        if (entry.v.paused) {
+          entry.userPaused = false;
+          playWithSound(entry.v);
+        }
+        syncPlayBtn(entry);
+        updateSoundHint(entry);
+      });
+
+      soundHint.addEventListener("click", (e) => {
+        e.stopPropagation();
+        unlockAudio();
+        v.muted = false;
+        playWithSound(v);
+        updateSoundHint(entry);
+      });
+
+      loadCues(clip.vtt).then((cues) => { entry.cues = cues; });
     });
 
     applySubsState();
 
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
-        const v = e.target.querySelector("video");
-        const subs = e.target.querySelector(".subs-overlay");
-        if (!v) return;
+        const idx = +e.target.dataset.index;
+        const entry = videos[idx];
+        if (!entry) return;
+        const { v, subs } = entry;
         if (e.isIntersecting && e.intersectionRatio >= 0.6) {
-          videos.forEach((x) => { if (x.v !== v) { x.v.pause(); x.v.currentTime = 0; x.subs.textContent = ""; } });
-          v.muted = false;
-          v.play().catch(() => { v.muted = true; v.play(); });
-        } else {
+          activeIndex = idx;
+          videos.forEach((x) => {
+            if (x.index === idx) return;
+            x.v.pause();
+            x.v.currentTime = 0;
+            x.subs.textContent = "";
+            syncPlayBtn(x);
+            updateSoundHint(x);
+          });
+          if (entry.userPaused) {
+            syncPlayBtn(entry);
+            updateSoundHint(entry);
+          } else {
+            playWithSound(v).then(() => {
+              syncPlayBtn(entry);
+              updateSoundHint(entry);
+            });
+          }
+        } else if (!v.paused) {
           v.pause();
           if (subs) subs.textContent = "";
+          syncPlayBtn(entry);
+          updateSoundHint(entry);
         }
       });
     }, { root: feed, threshold: [0.6] });
 
     feed.querySelectorAll(".slide").forEach((s) => io.observe(s));
 
-    videos[0]?.v.play().catch(() => { videos[0].v.muted = true; videos[0].v.play(); });
+    if (videos[0]) {
+      playWithSound(videos[0].v).then(() => {
+        syncPlayBtn(videos[0]);
+        updateSoundHint(videos[0]);
+      });
+    }
 
     feed.addEventListener("click", (e) => {
-      if (e.target.closest(".subs-btn")) return;
-      const active = videos.find((x) => !x.v.paused);
-      if (active?.v.muted) { active.v.muted = false; active.v.play(); }
+      if (e.target.closest(".subs-btn, .controls, .sound-hint, a, .top-bar")) return;
+      togglePlay(activeEntry());
     });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.closest("input, textarea, select")) return;
+      const entry = activeEntry();
+      if (!entry) return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay(entry);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        seekActive(-10);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        seekActive(10);
+      }
+    });
+
+    if (isIOS) {
+      document.body.addEventListener(
+        "touchstart",
+        () => {
+          if (audioUnlocked) return;
+          unlockAudio();
+          const entry = activeEntry();
+          if (entry && !entry.v.paused) {
+            entry.v.muted = false;
+            entry.v.play().catch(() => {});
+            updateSoundHint(entry);
+          }
+        },
+        { once: true, passive: true }
+      );
+    }
   </script>
 </body>
 </html>
