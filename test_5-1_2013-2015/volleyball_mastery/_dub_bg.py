@@ -18,8 +18,9 @@ ROOT = Path(__file__).resolve().parent
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
-SUBTITLE_BLUR_TOP = 240
-SUBTITLE_BLUR_BOTTOM = 280  # TikTok / Reels captions often sit low on screen
+SUBTITLE_BLUR_TOP = 280
+SUBTITLE_BLUR_BOTTOM = 460  # TikTok / Reels — captions often sit low on 9:16
+SUBTITLE_BLUR_STRENGTH = "boxblur=40:10"
 MAX_TEMPO = 1.22  # BG TTS often longer than EN slots; cap keeps speech intelligible
 ANCHOR_TEMPO = 1.32  # max speed-up in --anchored mode (no word trimming)
 SUBTITLE_FONT_SIZE = 13
@@ -107,8 +108,8 @@ def strip_burned_subtitles(src: Path, dst: Path, *, force: bool = False) -> Path
     top, bot = SUBTITLE_BLUR_TOP, SUBTITLE_BLUR_BOTTOM
     vf = (
         f"[0:v]split=3[main][strip_top][strip_bot];"
-        f"[strip_top]crop=iw:{top}:0:0,boxblur=28:6[blur_top];"
-        f"[strip_bot]crop=iw:{bot}:0:ih-{bot},boxblur=28:6[blur_bot];"
+        f"[strip_top]crop=iw:{top}:0:0,{SUBTITLE_BLUR_STRENGTH}[blur_top];"
+        f"[strip_bot]crop=iw:{bot}:0:ih-{bot},{SUBTITLE_BLUR_STRENGTH}[blur_bot];"
         f"[main][blur_top]overlay=0:0[tmp];"
         f"[tmp][blur_bot]overlay=0:H-h"
     )
@@ -559,6 +560,20 @@ def mux(video: Path, audio: Path, out: Path, work: Path | None = None, *, full_a
     run(cmd)
 
 
+def process_blur_only(job: Job, *, force_blur: bool = True) -> None:
+    """Re-blur burned EN subs and remux with existing BG audio (no TTS)."""
+    if not job.video_in.exists():
+        raise FileNotFoundError(job.video_in)
+    if not job.audio_out.exists():
+        raise FileNotFoundError(job.audio_out)
+    print(f"[{job.slug}] blur-only remux")
+    video = prepare_video(job.video_in, job.video_clean, blur=True, force_blur=force_blur)
+    with tempfile.TemporaryDirectory(prefix=f"vm_blur_{job.slug}_") as td:
+        work = Path(td)
+        mux(video, job.audio_out, job.video_out, work)
+    print("Video:", job.video_out)
+
+
 def process(
     job: Job,
     *,
@@ -616,16 +631,25 @@ def main() -> int:
         action="store_true",
         help="Re-blur burned EN subtitles (top and bottom bands)",
     )
+    parser.add_argument(
+        "--blur-only",
+        action="store_true",
+        help="Only re-blur EN subs and remux existing BG audio",
+    )
     args = parser.parse_args()
     base = ROOT / args.dir if args.dir else ROOT
     try:
-        process(
-            job_for(args.slug, base),
-            blur=not args.no_blur,
-            subs=args.subs,
-            anchored=args.anchored,
-            force_blur=args.force_blur,
-        )
+        job = job_for(args.slug, base)
+        if args.blur_only:
+            process_blur_only(job, force_blur=True)
+        else:
+            process(
+                job,
+                blur=not args.no_blur,
+                subs=args.subs,
+                anchored=args.anchored,
+                force_blur=args.force_blur,
+            )
     except FileNotFoundError as exc:
         print("Missing:", exc, file=sys.stderr)
         return 1

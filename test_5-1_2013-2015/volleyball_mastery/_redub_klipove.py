@@ -29,6 +29,9 @@ def stems() -> list[str]:
 
 def main() -> int:
     args = sys.argv[1:]
+    blur_only = "--blur-only" in args
+    if blur_only:
+        args = [a for a in args if a != "--blur-only"]
     only = False
     after = ""
     if "--only" in args:
@@ -51,9 +54,12 @@ def main() -> int:
         cmd = [sys.executable, str(DUB), slug]
         if subdir and subdir != ".":
             cmd.extend(["--dir", subdir])
-        if stem in ANCHORED_STEMS:
+        if stem in ANCHORED_STEMS and not blur_only:
             cmd.append("--anchored")
-        cmd.append("--force-blur")
+        if blur_only:
+            cmd.append("--blur-only")
+        else:
+            cmd.append("--force-blur")
         print(">>>", " ".join(cmd))
         for attempt in range(5):
             r = subprocess.run(cmd, cwd=ROOT)
@@ -63,9 +69,10 @@ def main() -> int:
         else:
             raise subprocess.CalledProcessError(r.returncode, cmd)
         src = base / f"{slug}_BG_internal.mp4"
-        vtt = base / f"{slug}.bg.vtt"
         shutil.copy2(src, PUBLIC / f"{stem}.mp4")
-        shutil.copy2(vtt, SUBS / f"{stem}.vtt")
+        vtt = base / f"{slug}.bg.vtt"
+        if vtt.exists():
+            shutil.copy2(vtt, SUBS / f"{stem}.vtt")
         print("Published", stem)
     return 0
 
