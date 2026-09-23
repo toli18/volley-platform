@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parent
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
-SUBTITLE_BLUR_H = 220
+SUBTITLE_BLUR_TOP = 240
+SUBTITLE_BLUR_BOTTOM = 280  # TikTok / Reels captions often sit low on screen
 MAX_TEMPO = 1.22  # BG TTS often longer than EN slots; cap keeps speech intelligible
 ANCHOR_TEMPO = 1.32  # max speed-up in --anchored mode (no word trimming)
 SUBTITLE_FONT_SIZE = 13
@@ -100,13 +101,16 @@ def probe_duration(path: Path) -> float:
     return int(h) * 3600 + int(mnt) * 60 + float(sec)
 
 
-def strip_burned_subtitles(src: Path, dst: Path) -> Path:
-    if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+def strip_burned_subtitles(src: Path, dst: Path, *, force: bool = False) -> Path:
+    if not force and dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
         return dst
+    top, bot = SUBTITLE_BLUR_TOP, SUBTITLE_BLUR_BOTTOM
     vf = (
-        f"[0:v]split[main][top];"
-        f"[top]crop=iw:{SUBTITLE_BLUR_H}:0:0,boxblur=28:6[blur];"
-        f"[main][blur]overlay=0:0"
+        f"[0:v]split=3[main][strip_top][strip_bot];"
+        f"[strip_top]crop=iw:{top}:0:0,boxblur=28:6[blur_top];"
+        f"[strip_bot]crop=iw:{bot}:0:ih-{bot},boxblur=28:6[blur_bot];"
+        f"[main][blur_top]overlay=0:0[tmp];"
+        f"[tmp][blur_bot]overlay=0:H-h"
     )
     run([FFMPEG, "-y", "-i", str(src), "-vf", vf, "-c:v", "libx264", "-crf", "20", "-preset", "fast", "-an", str(dst)])
     return dst
@@ -383,12 +387,12 @@ def merge_audio(lines: list[str], work: Path, audio_out: Path) -> Path:
     return audio_out
 
 
-def prepare_video(src: Path, dst: Path, blur: bool) -> Path:
+def prepare_video(src: Path, dst: Path, blur: bool, *, force_blur: bool = False) -> Path:
     if not blur:
         if not dst.exists() or dst.stat().st_mtime < src.stat().st_mtime:
             shutil.copy2(src, dst)
         return dst
-    return strip_burned_subtitles(src, dst)
+    return strip_burned_subtitles(src, dst, force=force_blur)
 
 
 def phrase_timings(phrases: list[Phrase], total: float) -> list[tuple[float, float, str]]:
@@ -555,7 +559,14 @@ def mux(video: Path, audio: Path, out: Path, work: Path | None = None, *, full_a
     run(cmd)
 
 
-def process(job: Job, *, blur: bool = True, subs: bool = False, anchored: bool = False) -> None:
+def process(
+    job: Job,
+    *,
+    blur: bool = True,
+    subs: bool = False,
+    anchored: bool = False,
+    force_blur: bool = False,
+) -> None:
     if not job.video_in.exists():
         raise FileNotFoundError(job.video_in)
     if not job.narration_in.exists():
@@ -564,7 +575,7 @@ def process(job: Job, *, blur: bool = True, subs: bool = False, anchored: bool =
     phrases = parse_narration(job.narration_in)
     mode = "anchored" if anchored else "concat"
     print(f"[{job.slug}] {len(phrases)} phrases, voice={VOICE}, subs={subs}, mode={mode}")
-    video = prepare_video(job.video_in, job.video_clean, blur)
+    video = prepare_video(job.video_in, job.video_clean, blur, force_blur=force_blur)
     total = probe_duration(video)
     root = job.narration_in.parent
     ass_path = root / f"{job.slug}.bg.ass"
@@ -600,10 +611,21 @@ def main() -> int:
         action="store_true",
         help="Start each phrase on timestamp; full TTS (no word trim), for long VYLO clips",
     )
+    parser.add_argument(
+        "--force-blur",
+        action="store_true",
+        help="Re-blur burned EN subtitles (top and bottom bands)",
+    )
     args = parser.parse_args()
     base = ROOT / args.dir if args.dir else ROOT
     try:
-        process(job_for(args.slug, base), blur=not args.no_blur, subs=args.subs, anchored=args.anchored)
+        process(
+            job_for(args.slug, base),
+            blur=not args.no_blur,
+            subs=args.subs,
+            anchored=args.anchored,
+            force_blur=args.force_blur,
+        )
     except FileNotFoundError as exc:
         print("Missing:", exc, file=sys.stderr)
         return 1

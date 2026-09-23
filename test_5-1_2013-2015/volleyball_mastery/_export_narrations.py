@@ -158,15 +158,19 @@ def import_text() -> None:
         if not path.exists():
             raise FileNotFoundError(path)
         old_rows = read_phrases(path)
-        if len(body_lines) != len(old_rows):
-            raise ValueError(
-                f"{path.name}: очаквани {len(old_rows)} реда, получени {len(body_lines)}"
-            )
         header = next(
             (ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip().startswith("#")),
             None,
         )
-        new_rows = [(start, body_lines[i]) for i, (start, _old) in enumerate(old_rows)]
+        if len(body_lines) == len(old_rows):
+            new_rows = [(start, body_lines[i]) for i, (start, _old) in enumerate(old_rows)]
+        else:
+            n_old, n_new = len(old_rows), len(body_lines)
+            new_rows = []
+            for j, text in enumerate(body_lines):
+                i = min(int(j * n_old / n_new), n_old - 1)
+                new_rows.append((old_rows[i][0], text))
+            print(f"  ({path.name}: {n_old} -> {n_new} lines, timestamps realigned)")
         write_narration(path, new_rows, header)
         print("Updated", path.relative_to(ROOT.parents[1]))
         updated += 1

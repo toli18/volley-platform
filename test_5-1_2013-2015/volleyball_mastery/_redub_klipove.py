@@ -53,6 +53,7 @@ def main() -> int:
             cmd.extend(["--dir", subdir])
         if stem in ANCHORED_STEMS:
             cmd.append("--anchored")
+        cmd.append("--force-blur")
         print(">>>", " ".join(cmd))
         for attempt in range(5):
             r = subprocess.run(cmd, cwd=ROOT)
