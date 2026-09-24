@@ -18,9 +18,12 @@ ROOT = Path(__file__).resolve().parent
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 VOICE = "bg-BG-KalinaNeural"
 TTS_RATE = "-8%"  # slightly slower for clearer kid-friendly diction
-SUBTITLE_BLUR_TOP = 280
-SUBTITLE_BLUR_BOTTOM = 460  # TikTok / Reels — captions often sit low on 9:16
-SUBTITLE_BLUR_STRENGTH = "boxblur=40:10"
+# Narrow bands only — wide blur was hiding the court animation.
+SUBTITLE_BLUR_TOP = 118
+SUBTITLE_BLUR_BOTTOM = 168
+SUBTITLE_BLUR_STRENGTH = "boxblur=14:3"
+# Volleyball Mastery: large EN line ~18–32% from top (9:16).
+SUBTITLE_BLUR_MID = "crop=iw:ih*0.13:0:ih*0.19," + SUBTITLE_BLUR_STRENGTH
 MAX_TEMPO = 1.22  # BG TTS often longer than EN slots; cap keeps speech intelligible
 ANCHOR_TEMPO = 1.32  # max speed-up in --anchored mode (no word trimming)
 SUBTITLE_FONT_SIZE = 13
@@ -107,11 +110,13 @@ def strip_burned_subtitles(src: Path, dst: Path, *, force: bool = False) -> Path
         return dst
     top, bot = SUBTITLE_BLUR_TOP, SUBTITLE_BLUR_BOTTOM
     vf = (
-        f"[0:v]split=3[main][strip_top][strip_bot];"
+        f"[0:v]split=4[main][strip_top][strip_bot][strip_mid];"
         f"[strip_top]crop=iw:{top}:0:0,{SUBTITLE_BLUR_STRENGTH}[blur_top];"
         f"[strip_bot]crop=iw:{bot}:0:ih-{bot},{SUBTITLE_BLUR_STRENGTH}[blur_bot];"
-        f"[main][blur_top]overlay=0:0[tmp];"
-        f"[tmp][blur_bot]overlay=0:H-h"
+        f"[strip_mid]{SUBTITLE_BLUR_MID}[blur_mid];"
+        f"[main][blur_top]overlay=0:0[tmp1];"
+        f"[tmp1][blur_bot]overlay=0:H-h[tmp2];"
+        f"[tmp2][blur_mid]overlay=0:H*0.19"
     )
     run([FFMPEG, "-y", "-i", str(src), "-vf", vf, "-c:v", "libx264", "-crf", "20", "-preset", "fast", "-an", str(dst)])
     return dst
