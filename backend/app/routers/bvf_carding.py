@@ -924,13 +924,9 @@ def _doc_checklist(
 
 
 def _sek_docs_have_form_03(docs: list[dict], season_year: int) -> bool:
-    season_docs = [
-        d
-        for d in docs
-        if d.get("season_year") == season_year or str(season_year) in (d.get("description") or "")
-    ]
-    pool = season_docs or docs
-    return any(looks_like_form_03(d.get("doc_type"), d.get("description")) for d in pool)
+    from app.services.bvf_season_carding import _docs_count_as_form_03
+
+    return _docs_count_as_form_03(docs, int(season_year))
 
 
 def _carding_form_upload_title(form) -> str:
@@ -3407,6 +3403,16 @@ def submit_local_card_index_to_federation(
             local, token=token, card_index_id=cid, only_pending=True
         )
         db.commit()
+        form_uploads = _push_roster_carding_forms_to_sek(db, local=local, club=club, token=token)
+        upload_errors = [r for r in form_uploads if r.get("status") in ("error", "missing_local_form")]
+        if upload_errors:
+            names = [
+                f"{r.get('athlete_name')}: {r.get('detail') or r.get('status')}" for r in upload_errors[:5]
+            ]
+            raise HTTPException(
+                status_code=422,
+                detail="Неуспешно качване на Форма 03 в СЕК: " + "; ".join(names),
+            )
         return submit_card_index_to_federation(cid, payload, db, current_user)
 
     if not club.bvf_club_id:

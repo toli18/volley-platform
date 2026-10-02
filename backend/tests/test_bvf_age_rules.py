@@ -9,6 +9,7 @@ if _BACKEND_DIR not in sys.path:
     sys.path.insert(0, _BACKEND_DIR)
 
 from app.services.bvf_season_carding import (  # noqa: E402
+    _docs_count_as_form_03,
     _local_card_index_locked_by_sek,
     allowed_age_codes,
     athlete_fits_card_index_rules,
@@ -95,6 +96,30 @@ class BvfAgeCohortTests(unittest.TestCase):
         self.assertEqual(platform_age_sex_from_sek_card_index(row), (13, 0))
         row2 = {"age": 11, "sex": 0}
         self.assertEqual(platform_age_sex_from_sek_card_index(row2), (12, 0))
+
+    def test_form_03_season_strict_not_old_year(self):
+        old = [
+            {
+                "doc_type": 2,
+                "description": "Форма 0-3 — сезон 2024/2025",
+                "season_year": 2024,
+                "bvf_document_id": "999",
+            }
+        ]
+        self.assertFalse(_docs_count_as_form_03(old, 2026))
+        self.assertTrue(
+            _docs_count_as_form_03(
+                [
+                    {
+                        "doc_type": 2,
+                        "description": "Форма 0-3 — сезон 2026/2027",
+                        "season_year": 2026,
+                        "bvf_document_id": "1000",
+                    }
+                ],
+                2026,
+            )
+        )
 
 
 if __name__ == "__main__":

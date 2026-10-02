@@ -303,6 +303,27 @@ def _doc_fields(d: Any) -> tuple[Any, str, Any, str]:
     )
 
 
+def _doc_matches_season_year(season_year: int, sy: Any, description: str) -> bool:
+    """Документът от СЕК е за този сезон — не броим стари форми от минали години."""
+    year_i = int(season_year)
+    year_s = str(year_i)
+    desc = (description or "").lower()
+    if sy is not None:
+        try:
+            if int(sy) == year_i:
+                return True
+        except (TypeError, ValueError):
+            pass
+    if year_s in (description or ""):
+        return True
+    # Сезон 2026/2027 — често в описанието
+    if f"{year_i}/{year_i + 1}" in desc.replace(" ", ""):
+        return True
+    if f"{year_i - 1}/{year_i}" in desc.replace(" ", ""):
+        return True
+    return False
+
+
 def _docs_count_as_form_03(docs: list, season_year: int) -> bool:
     real_docs = []
     for d in docs:
@@ -310,10 +331,12 @@ def _docs_count_as_form_03(docs: list, season_year: int) -> bool:
         if bid.startswith("local-form03-") or bid.startswith("local-"):
             continue
         real_docs.append((doc_type, description, sy))
-    year_s = str(int(season_year))
-    season_docs = [d for d in real_docs if d[2] == int(season_year) or year_s in d[1]]
-    pool = season_docs or real_docs
-    return any(looks_like_form_03(d[0], d[1]) for d in pool)
+    season_docs = [
+        d
+        for d in real_docs
+        if _doc_matches_season_year(season_year, d[2], d[1]) and looks_like_form_03(d[0], d[1])
+    ]
+    return bool(season_docs)
 
 
 def form_03_athlete_ids(
