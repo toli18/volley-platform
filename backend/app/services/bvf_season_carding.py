@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Athlete, AthleteBvfDocument, BvfCardIndex, User
+from app.models import Athlete, AthleteBvfDocument, BvfCardIndex, BvfUniversalPlayer, User
 from app.services.athlete_photo import has_cached_photo
 
 AGE_GROUP_LABELS: dict[int, str] = {
@@ -392,6 +392,7 @@ def eligible_athlete_payload(
     *,
     has_form: bool | None = None,
     has_photo: bool | None = None,
+    is_universal: bool = False,
 ) -> dict[str, Any]:
     if has_form is None:
         has_form = athlete_has_form_03(athlete, season_year, db=db)
@@ -412,6 +413,7 @@ def eligible_athlete_payload(
         "natural_age": nat,
         "natural_age_label": age_group_label(nat) if nat is not None else None,
         "eligible_for_roster": bool(athlete.bvf_player_id) and bool(has_form),
+        "is_universal": bool(is_universal),
     }
 
 
@@ -574,6 +576,49 @@ def athlete_fits_card_index_rules(
             f"(разрешена е само една група нагоре)"
         )
     return True, None
+
+
+def universal_athlete_ids_for_season(db: Session, *, club_id: int, season_year: int) -> set[int]:
+    rows = (
+        db.query(BvfUniversalPlayer.athlete_id)
+        .filter(
+            BvfUniversalPlayer.club_id == int(club_id),
+            BvfUniversalPlayer.season_year == int(season_year),
+        )
+        .all()
+    )
+    return {int(r[0]) for r in rows}
+
+
+def athlete_can_join_card_index(
+    db: Session,
+    athlete: Athlete,
+    *,
+    club_id: int,
+    season_year: int,
+    age: int,
+    sex: int,
+    age_group: str | None = None,
+    universal_ids: set[int] | None = None,
+) -> tuple[bool, str | None]:
+    """Стандартни СЕК правила или универсален състезател (същия пол) за сезона."""
+    ok, reason = athlete_fits_card_index_rules(
+        athlete,
+        season_year=int(season_year),
+        age=int(age),
+        sex=int(sex),
+        age_group=age_group,
+    )
+    if ok:
+        return True, None
+    ids = universal_ids
+    if ids is None:
+        ids = universal_athlete_ids_for_season(db, club_id=int(club_id), season_year=int(season_year))
+    if int(athlete.id) in ids:
+        got_sex = athlete_sex_code(athlete)
+        if got_sex is not None and got_sex == int(sex):
+            return True, "универсален — допустим във всички възрастови лицензи (същия пол)"
+    return False, reason
 
 
 def coach_display_name(db: Session, user_id: int | None) -> str | None:

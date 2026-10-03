@@ -49,7 +49,9 @@ from app.services.bvf_season_carding import (
     sek_license_category_label,
     athlete_birth_year,
     athlete_docs_as_dicts,
+    athlete_can_join_card_index,
     athlete_fits_card_index_rules,
+    universal_athlete_ids_for_season,
     athlete_has_form_03,
     athlete_sex_code,
     card_index_age_rule_hint,
@@ -383,13 +385,17 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             athlete, docs, year, db=db, has_photo=has_photo, has_form=has_form
         )
         ready = all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form"))
-        fits_age, age_reason = athlete_fits_card_index_rules(
-            athlete,
-            season_year=int(year),
-            age=int(local.age),
-            sex=int(local.sex),
-            age_group=local.age_group,
-        )
+        is_univ = int(athlete.id) in universal_ids
+        if is_univ and athlete_sex_code(athlete) == int(local.sex):
+            fits_age, age_reason = True, None
+        else:
+            fits_age, age_reason = athlete_fits_card_index_rules(
+                athlete,
+                season_year=int(year),
+                age=int(local.age),
+                sex=int(local.sex),
+                age_group=local.age_group,
+            )
         if not ready:
             all_ready = False
         if not has_form:
@@ -1341,16 +1347,20 @@ def list_eligible_card_index_athletes(
     rows = q.order_by(Athlete.athlete_name.asc()).all()
     if filter_sex is not None:
         rows = [a for a in rows if athlete_sex_code(a) == int(filter_sex)]
+    universal_ids = universal_athlete_ids_for_season(db, club_id=int(club.id), season_year=year)
     if filter_age is not None and filter_sex is not None:
         rows = [
             a
             for a in rows
-            if athlete_fits_card_index_rules(
+            if athlete_can_join_card_index(
+                db,
                 a,
+                club_id=int(club.id),
                 season_year=year,
                 age=int(filter_age),
                 sex=int(filter_sex),
                 age_group=filter_age_group,
+                universal_ids=universal_ids,
             )[0]
         ]
 
@@ -1369,6 +1379,7 @@ def list_eligible_card_index_athletes(
             year,
             has_form=a.id in form_ids,
             has_photo=False,
+            is_universal=int(a.id) in universal_ids,
         )
         for a in rows
     ]
@@ -1490,8 +1501,10 @@ def submit_card_index_to_federation(
         if not all(c["ok"] for c in checklist if c["key"] in ("photo", "egn", "carding_form")):
             missing = [c["label"] for c in checklist if not c["ok"] and c["key"] != "any_doc"]
             not_ready.append(f"{athlete.athlete_name}: {', '.join(missing)}")
-        ok_fit, age_reason = athlete_fits_card_index_rules(
+        ok_fit, age_reason = athlete_can_join_card_index(
+            db,
             athlete,
+            club_id=int(local.club_id),
             season_year=int(year),
             age=int(local.age),
             sex=int(local.sex),
@@ -2628,8 +2641,10 @@ def add_players_to_local_card_index(
         if not athlete_has_form_03(athlete, int(season_year), db=db):
             errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
             continue
-        ok_fit, reason = athlete_fits_card_index_rules(
+        ok_fit, reason = athlete_can_join_card_index(
+            db,
             athlete,
+            club_id=int(club.id),
             season_year=int(season_year),
             age=int(local.age),
             sex=int(local.sex),
@@ -3306,12 +3321,14 @@ def _ensure_sek_season_application_entry(
 def _sync_local_members_to_sek_card_index(
     local: BvfCardIndex,
     *,
+    db: Session,
     token: str,
     card_index_id: int,
     only_pending: bool = False,
 ) -> None:
     year = int(local.year or datetime.utcnow().year)
     cid = int(card_index_id)
+    universal_ids = universal_athlete_ids_for_season(db, club_id=int(local.club_id), season_year=year)
     for mem in local.members or []:
         if not mem.bvf_player_id:
             continue
@@ -3319,12 +3336,15 @@ def _sync_local_members_to_sek_card_index(
             continue
         athlete = mem.athlete
         if athlete:
-            ok_fit, age_reason = athlete_fits_card_index_rules(
+            ok_fit, age_reason = athlete_can_join_card_index(
+                db,
                 athlete,
+                club_id=int(local.club_id),
                 season_year=year,
                 age=int(local.age),
                 sex=int(local.sex),
                 age_group=local.age_group,
+                universal_ids=universal_ids,
             )
             if not ok_fit:
                 raise HTTPException(
@@ -3454,7 +3474,7 @@ def submit_local_card_index_to_federation(
         except HTTPException:
             pass
         _sync_local_members_to_sek_card_index(
-            local, token=token, card_index_id=cid, only_pending=True
+            local, db=db, token=token, card_index_id=cid, only_pending=True
         )
         db.commit()
         return submit_card_index_to_federation(cid, payload, db, current_user)
@@ -3589,7 +3609,7 @@ def submit_local_card_index_to_federation(
 
     try:
         _sync_local_members_to_sek_card_index(
-            local, token=token, card_index_id=cid, only_pending=True
+            local, db=db, token=token, card_index_id=cid, only_pending=True
         )
     except HTTPException:
         db.commit()

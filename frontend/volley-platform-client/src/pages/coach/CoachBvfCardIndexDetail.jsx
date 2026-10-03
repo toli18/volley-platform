@@ -41,6 +41,7 @@ function sexLabel(sex) {
 }
 
 function memberAgeNote(m, year, detail) {
+  if (m.is_universal) return null;
   if (m.fits_age === false && m.age_reason) return m.age_reason;
   const fit = athleteFitsAgeGroup(m.birth_year, year, detail?.age, detail?.age_group);
   return fit.ok ? null : fit.reason;
@@ -115,6 +116,7 @@ export default function CoachBvfCardIndexDetail() {
     () =>
       eligible.filter((a) => {
         if (memberIds.has(a.id)) return false;
+        if (a.is_universal) return true;
         const fit = athleteFitsAgeGroup(a.birth_year, year, detail?.age, detail?.age_group);
         return fit.ok;
       }),
@@ -208,10 +210,12 @@ export default function CoachBvfCardIndexDetail() {
   const addAthlete = async (athleteId) => {
     if (!athleteId) return;
     const row = eligible.find((a) => a.id === athleteId);
-    const fit = athleteFitsAgeGroup(row?.birth_year, year, detail?.age, detail?.age_group);
-    if (!fit.ok) {
-      toast.error(fit.reason || "Не отговаря на възрастта на отбора.");
-      return;
+    if (!row?.is_universal) {
+      const fit = athleteFitsAgeGroup(row?.birth_year, year, detail?.age, detail?.age_group);
+      if (!fit.ok) {
+        toast.error(fit.reason || "Не отговаря на възрастта на отбора.");
+        return;
+      }
     }
     try {
       setBusy(true);
@@ -238,6 +242,7 @@ export default function CoachBvfCardIndexDetail() {
                       ready: true,
                       has_form_03: true,
                       fits_age: true,
+                      is_universal: Boolean(row.is_universal),
                       birth_year: row.birth_year,
                       teams_count: Number(row.teams_count || 0) + 1,
                       team_labels: row.team_labels || [],
@@ -566,6 +571,7 @@ export default function CoachBvfCardIndexDetail() {
                               СЕК: {a.bvf_player_number || a.bvf_player_id}
                               {a.birth_year != null ? ` · ${a.birth_year}` : ""}
                               {a.natural_age_label ? ` · ${a.natural_age_label}` : ""}
+                              {a.is_universal ? " · универсален" : ""}
                               {(a.team_labels || []).length
                                 ? ` · ${(a.team_labels || []).join(", ")}`
                                 : Number(a.teams_count) > 0

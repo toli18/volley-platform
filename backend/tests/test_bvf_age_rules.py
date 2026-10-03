@@ -3,6 +3,7 @@ import os
 import sys
 import unittest
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 _BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _BACKEND_DIR not in sys.path:
@@ -12,6 +13,7 @@ from app.services.bvf_season_carding import (  # noqa: E402
     _docs_count_as_form_03,
     _local_card_index_locked_by_sek,
     allowed_age_codes,
+    athlete_can_join_card_index,
     athlete_fits_card_index_rules,
     natural_age_code,
     platform_age_sex_from_sek_card_index,
@@ -96,6 +98,20 @@ class BvfAgeCohortTests(unittest.TestCase):
         self.assertEqual(platform_age_sex_from_sek_card_index(row), (13, 0))
         row2 = {"age": 11, "sex": 0}
         self.assertEqual(platform_age_sex_from_sek_card_index(row2), (12, 0))
+
+    def test_universal_player_any_age_license_same_sex(self):
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [(7,)]
+        athlete = SimpleNamespace(id=7, gender="female", birth_year=2010, birth_date=None, egn=None)
+        ok, msg = athlete_can_join_card_index(
+            db, athlete, club_id=1, season_year=2026, age=16, sex=1, universal_ids={7}
+        )
+        self.assertTrue(ok)
+        self.assertIn("универсален", msg or "")
+        ok_wrong, _ = athlete_can_join_card_index(
+            db, athlete, club_id=1, season_year=2026, age=16, sex=0, universal_ids={7}
+        )
+        self.assertFalse(ok_wrong)
 
     def test_form_03_season_strict_not_old_year(self):
         old = [
