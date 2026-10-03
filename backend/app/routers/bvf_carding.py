@@ -1942,6 +1942,7 @@ class SeasonAssignCoachIn(BaseModel):
     physiotherapist_name: Optional[str] = None
     doctor_name: Optional[str] = None  # deprecated alias → physiotherapist_name
     club_id: Optional[int] = None
+    bvf_token: Optional[str] = None
 
 
 class LocalAddPlayersIn(BaseModel):
@@ -1981,25 +1982,74 @@ def mark_form_03_local(
     )
 
 
+def _fetch_sek_club_coaches_safe(club: Club, optional_token: str | None = None) -> list[dict]:
+    if not club.bvf_club_id:
+        return []
+    try:
+        from app.services.bvf_auth import club_has_bvf_auth, resolve_club_bvf_token
+        from app.services.bvf_club_coaches_merge import parse_sek_club_coaches
+
+        if not club_has_bvf_auth(club) and not (optional_token or "").strip():
+            return []
+        token = resolve_club_bvf_token(club, optional_token)
+        remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/coaches", token)
+        if not isinstance(remote, list):
+            return []
+        return parse_sek_club_coaches(remote)
+    except HTTPException:
+        return []
+    except Exception:
+        return []
+
+
+def _auto_link_coach_sek_id(db: Session, coach: User, sek_coaches: list[dict]) -> None:
+    if not coach or getattr(coach, "bvf_coach_id", None):
+        return
+    from app.services.bvf_club_coaches_merge import find_sek_coach_for_user
+    from app.services.bvf_coach_link import apply_sek_link
+
+    match = find_sek_coach_for_user(coach, sek_coaches)
+    if not match:
+        return
+    try:
+        apply_sek_link(
+            coach,
+            mode="self",
+            bvf_coach_id=int(match["id"]),
+            bvf_coach_name=str(match.get("name") or ""),
+        )
+        db.commit()
+        db.refresh(coach)
+    except ValueError:
+        pass
+
+
 @router.get("/club-coaches")
 def list_club_coaches_for_carding(
     club_id: int | None = None,
+    bvf_token: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
+    from app.services.bvf_club_coaches_merge import merge_club_coaches_for_carding
+
     club = _club_for_any_coach(db, current_user, club_id)
     if current_user.role == UserRole.coach and not _can_submit_card_index(current_user):
-        return [{"id": current_user.id, "name": current_user.name, "role": "coach"}]
-    return [
-        {
-            "id": c.id,
-            "name": c.name,
-            "role": c.role.value if hasattr(c.role, "value") else str(c.role),
-        }
-        for c in _club_coaches(db, club)
-    ]
+        return [
+            {
+                "id": current_user.id,
+                "name": current_user.name,
+                "display_name": current_user.name,
+                "role": "coach",
+                "selectable": True,
+                "sek_only": False,
+            }
+        ]
+    platform = _club_coaches(db, club)
+    sek = _fetch_sek_club_coaches_safe(club, bvf_token)
+    return merge_club_coaches_for_carding(platform, sek)
 
 
 @router.get("/season-applications")
@@ -2386,6 +2436,9 @@ def assign_coach_to_age_slot(
     if not coach:
         raise HTTPException(status_code=404, detail="Треньорът не е от този клуб")
 
+    sek_coaches = _fetch_sek_club_coaches_safe(club, payload.bvf_token)
+    _auto_link_coach_sek_id(db, coach, sek_coaches)
+
     second_coach = None
     if payload.second_coach_user_id:
         if int(payload.second_coach_user_id) == int(coach.id):
@@ -2401,6 +2454,7 @@ def assign_coach_to_age_slot(
         )
         if not second_coach:
             raise HTTPException(status_code=404, detail="Вторият треньор не е от този клуб")
+        _auto_link_coach_sek_id(db, second_coach, sek_coaches)
 
     physio_name = (payload.physiotherapist_name or payload.doctor_name or "").strip() or None
 
@@ -3403,16 +3457,6 @@ def submit_local_card_index_to_federation(
             local, token=token, card_index_id=cid, only_pending=True
         )
         db.commit()
-        form_uploads = _push_roster_carding_forms_to_sek(db, local=local, club=club, token=token)
-        upload_errors = [r for r in form_uploads if r.get("status") in ("error", "missing_local_form")]
-        if upload_errors:
-            names = [
-                f"{r.get('athlete_name')}: {r.get('detail') or r.get('status')}" for r in upload_errors[:5]
-            ]
-            raise HTTPException(
-                status_code=422,
-                detail="Неуспешно качване на Форма 03 в СЕК: " + "; ".join(names),
-            )
         return submit_card_index_to_federation(cid, payload, db, current_user)
 
     if not club.bvf_club_id:

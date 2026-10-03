@@ -20,6 +20,15 @@ function normalizeRole(user) {
   return String(r || "").toLowerCase();
 }
 
+function coachOptionKey(c) {
+  if (c?.id != null) return `u-${c.id}`;
+  return `sek-${c.sek_coach_id ?? c.bvf_coach_id ?? c.name}`;
+}
+
+function coachOptionLabel(c) {
+  return c.display_name || c.name || "—";
+}
+
 function statusLabel(it) {
   if (it.is_signed || it.status === "signed") return "Заключен в СЕК";
   if (it.status === "pending_bvf_sign") return "В СЕК · чака заключване";
@@ -74,18 +83,27 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
   const loadCoaches = useCallback(async () => {
     if (!isHead) return;
     try {
-      const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_COACHES);
-      setCoaches(res.data || []);
-      if (!assignCoachId && res.data?.[0]?.id) setAssignCoachId(String(res.data[0].id));
+      const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CLUB_COACHES, {
+        params: permanent ? {} : token.trim() ? { bvf_token: token.trim() } : {},
+      });
+      const list = res.data || [];
+      setCoaches(list);
+      if (!assignCoachId) {
+        const first = list.find((c) => c.selectable !== false && c.id != null);
+        if (first?.id) setAssignCoachId(String(first.id));
+      }
     } catch {
       setCoaches([]);
     }
-  }, [assignCoachId, isHead]);
+  }, [assignCoachId, isHead, permanent, token]);
 
   useEffect(() => {
     loadSeason();
+  }, [loadSeason]);
+
+  useEffect(() => {
     loadCoaches();
-  }, [loadSeason, loadCoaches]);
+  }, [loadCoaches]);
 
   // Треньор с точно 1 назначен отбор → направо в екрана за състав.
   useEffect(() => {
@@ -203,6 +221,7 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
         coach_user_id: Number(assignCoachId),
         second_coach_user_id: assignSecondCoachId ? Number(assignSecondCoachId) : null,
         physiotherapist_name: assignPhysioName.trim() || null,
+        ...tokenBody(token),
       });
       toast.success(`Назначен: ${res.data?.assigned_coach_name || "треньор"} · ${res.data?.age_group}`);
       await loadSeason();
@@ -426,8 +445,12 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                 <select className="uiInput" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
                   <option value="">—</option>
                   {coaches.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+                    <option
+                      key={coachOptionKey(c)}
+                      value={c.id ?? ""}
+                      disabled={c.selectable === false || c.id == null}
+                    >
+                      {coachOptionLabel(c)}
                     </option>
                   ))}
                 </select>
@@ -441,10 +464,15 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
                 >
                   <option value="">— по желание —</option>
                   {coaches
-                    .filter((c) => String(c.id) !== String(assignCoachId))
+                    .filter(
+                      (c) =>
+                        c.selectable !== false &&
+                        c.id != null &&
+                        String(c.id) !== String(assignCoachId),
+                    )
                     .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
+                      <option key={coachOptionKey(c)} value={c.id}>
+                        {coachOptionLabel(c)}
                       </option>
                     ))}
                 </select>
@@ -676,7 +704,9 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
       {canManage ? (
         <Card title="1. Назначи треньор по възраст">
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Създава локална чернова. След назначение се отваря екранът за състав.
+            Създава локална чернова. След назначение се отваря екранът за състав. В списъка са
+            треньори от клуба и от СЕК (един ред на човек). Редове „само в СЕК“ не могат да се
+            назначат — добави профил в клуба.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
             <label style={{ display: "grid", gap: 4 }}>
@@ -701,8 +731,12 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
               <select className="uiInput" value={assignCoachId} onChange={(e) => setAssignCoachId(e.target.value)}>
                 <option value="">—</option>
                 {coaches.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                  <option
+                    key={coachOptionKey(c)}
+                    value={c.id ?? ""}
+                    disabled={c.selectable === false || c.id == null}
+                  >
+                    {coachOptionLabel(c)}
                   </option>
                 ))}
               </select>
@@ -716,10 +750,15 @@ export default function CoachBvfCardIndexes({ embedded = false }) {
               >
                 <option value="">— по желание —</option>
                 {coaches
-                  .filter((c) => String(c.id) !== String(assignCoachId))
+                  .filter(
+                    (c) =>
+                      c.selectable !== false &&
+                      c.id != null &&
+                      String(c.id) !== String(assignCoachId),
+                  )
                   .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+                    <option key={coachOptionKey(c)} value={c.id}>
+                      {coachOptionLabel(c)}
                     </option>
                   ))}
               </select>
