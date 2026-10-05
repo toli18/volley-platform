@@ -40,12 +40,35 @@ const CHECKLIST_ITEMS = [
   "снимка",
 ];
 
-function SekChecklist({ missing, inSek }) {
+function form03Label(seasonYear) {
+  const y = seasonYear != null ? Number(seasonYear) : null;
+  if (y && !Number.isNaN(y)) {
+    return `Заявление Форма 03 · сезон ${y}/${y + 1}`;
+  }
+  return "Заявление Форма 03";
+}
+
+function Form03Row({ hasForm03, seasonYear }) {
+  const ok = Boolean(hasForm03);
+  return (
+    <li className={ok ? "is-ok" : "is-missing"}>
+      <span aria-hidden>{ok ? "✓" : "—"}</span>
+      <span>{form03Label(seasonYear)}</span>
+    </li>
+  );
+}
+
+function SekChecklist({ missing, inSek, hasForm03, seasonYear }) {
   if (inSek) {
     return (
-      <p className="sekAthleteCardOk" style={{ margin: "8px 0 0" }}>
-        Свързан със СЕК — не се търсят липсващи данни или документи за регистрация.
-      </p>
+      <>
+        <ul className="sekAthleteChecklist" style={{ marginTop: 8 }}>
+          <Form03Row hasForm03={hasForm03} seasonYear={seasonYear} />
+        </ul>
+        <p className="sekAthleteCardOk" style={{ margin: "8px 0 0", fontSize: 12 }}>
+          Свързан със СЕК — не се търсят липсващи данни или документи за регистрация.
+        </p>
+      </>
     );
   }
   const miss = new Set(missing || []);
@@ -60,6 +83,7 @@ function SekChecklist({ missing, inSek }) {
           </li>
         );
       })}
+      <Form03Row hasForm03={hasForm03} seasonYear={seasonYear} />
     </ul>
   );
 }
@@ -155,13 +179,15 @@ export default function BvfClubAthletesSekCard({
   };
 
   const counts = board?.counts || {};
+  const seasonYear = board?.season_year ?? null;
 
   return (
     <>
       <Card title={title}>
         {!compact ? (
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
-            Чеклист за готовност към СЕК. Ако състезателят е свързан — не се търсят липсващи данни/документи за
+            Чеклист за готовност към СЕК. За текущия сезон всяка карта показва ✓ или — за{" "}
+            <strong>Форма 03</strong>. Ако състезателят е свързан — не се търсят други липсващи данни за
             регистрация. Първо <strong>Свържи по ЕГН</strong>, иначе <strong>Създай в СЕК</strong> при пълни данни +
             снимка.
           </p>
@@ -250,7 +276,12 @@ export default function BvfClubAthletesSekCard({
                   </span>
                 </div>
 
-                <SekChecklist missing={r.missing} inSek={r.in_sek} />
+                <SekChecklist
+                  missing={r.missing}
+                  inSek={r.in_sek}
+                  hasForm03={r.has_form_03}
+                  seasonYear={r.season_year ?? seasonYear}
+                />
 
                 {r.sek_task_code && !r.in_sek ? (
                   <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b45309" }}>

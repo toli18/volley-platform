@@ -71,15 +71,19 @@ def is_roster_time_locked(event: ClubCompetitionEvent, *, now: datetime | None =
     return now >= lock_at
 
 
-def roster_is_locked(event: ClubCompetitionEvent) -> bool:
+def roster_lock_reason(event: ClubCompetitionEvent) -> str | None:
     status = (event.roster_status or "pending").strip().lower()
     if status == "locked" or event.roster_locked_at:
-        return True
+        return "Съставът е заключен след финални корекции."
     if int(event.roster_edit_count or 0) >= ROSTER_MAX_EDITS and status == "confirmed":
-        return True
+        return f"Използвани са {ROSTER_MAX_EDITS} корекции — листът е заключен."
     if is_roster_time_locked(event):
-        return True
-    return False
+        return "Заключен 24 ч преди деня на мача — промени само в db.bvf.bg или с главния треньор."
+    return None
+
+
+def roster_is_locked(event: ClubCompetitionEvent) -> bool:
+    return roster_lock_reason(event) is not None
 
 
 def set_roster(
@@ -224,10 +228,11 @@ def roster_summary(db: Session, event: ClubCompetitionEvent) -> dict[str, Any]:
         "athlete_ids": sorted(ids),
         "days_until": days_until_match(event, today=today),
         "roster_action": action,
+        "lock_reason": roster_lock_reason(event),
         "candidates": [
             {
                 "id": int(a.id),
-                "name": a.athlete_name,
+                "name": (a.athlete_name or "").strip() or f"Състезател #{int(a.id)}",
                 "jersey_number": getattr(a, "jersey_number", None),
                 "selected": int(a.id) in ids,
             }

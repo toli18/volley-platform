@@ -82,3 +82,5 @@ class CompetitionRosterRead(BaseModel):
     roster_action: Optional[str] = None
     athlete_ids: list[int] = Field(default_factory=list)
     candidates: list[dict] = Field(default_factory=list)
+    can_edit_roster: bool = False
+    lock_reason: Optional[str] = None

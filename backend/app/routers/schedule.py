@@ -848,23 +848,8 @@ def create_competition_event(
     db.add(event)
     db.flush()
 
-    from app.services.competition_roster import notify_roster_parents, try_auto_confirm_roster
-
-    auto_ok = False
-    try:
-        auto_ok = try_auto_confirm_roster(db, event)
-    except ValueError:
-        auto_ok = False
-
     db.commit()
     db.refresh(event)
-
-    # Родители се уведомяват само при потвърден състав (не при голото създаване).
-    if auto_ok:
-        from app.services.competition_roster import roster_athlete_ids
-
-        ids = roster_athlete_ids(db, event.id)
-        notify_roster_parents(event, {"added": sorted(ids), "removed": []})
 
     return _competition_to_read(db, event, current_user=current_user)
 
@@ -972,10 +957,15 @@ def get_competition_roster(
     ).first()
     if not event:
         raise HTTPException(status_code=404, detail="Състезанието не е намерено")
-    # Преглед — всички треньори; редакцията се проверява при save
-    _ = can_edit_roster
+    is_head = _is_head_coach(current_user)
     summary = roster_summary(db, event)
-    return CompetitionRosterRead(competition_id=int(event.id), **summary)
+    can_roster = can_edit_roster(db, current_user, event, is_head)
+    locked = bool(summary.get("locked"))
+    return CompetitionRosterRead(
+        competition_id=int(event.id),
+        can_edit_roster=bool(can_roster and not locked),
+        **summary,
+    )
 
 
 @router.put("/schedule/competitions/{event_id}/roster", response_model=CompetitionRosterRead)
@@ -1003,8 +993,15 @@ def save_competition_roster(
     db.commit()
     db.refresh(event)
     notify_roster_parents(event, meta)
+    is_head = _is_head_coach(current_user)
     summary = roster_summary(db, event)
-    return CompetitionRosterRead(competition_id=int(event.id), **summary)
+    can_roster = can_edit_roster(db, current_user, event, is_head)
+    locked = bool(summary.get("locked"))
+    return CompetitionRosterRead(
+        competition_id=int(event.id),
+        can_edit_roster=bool(can_roster and not locked),
+        **summary,
+    )
 
 
 @router.post("/schedule/competitions/{event_id}/open-match")

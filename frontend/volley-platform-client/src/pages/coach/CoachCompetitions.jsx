@@ -228,7 +228,14 @@ export default function CoachCompetitions() {
     try {
       const res = await axiosInstance.get(API_PATHS.SCHEDULE_COMPETITION_ROSTER(event.id));
       setRoster(res.data);
-      setSelectedIds(res.data?.athlete_ids || []);
+      setSelectedIds((res.data?.athlete_ids || []).map(Number));
+      if (event) {
+        setRosterEvent((prev) =>
+          prev && Number(prev.id) === Number(event.id)
+            ? { ...prev, can_edit_roster: Boolean(res.data?.can_edit_roster) }
+            : prev,
+        );
+      }
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно зареждане на тимовия лист."));
       setRosterEvent(null);
@@ -496,19 +503,41 @@ export default function CoachCompetitions() {
               Макс. {roster.max_athletes}. Избрани: {selectedIds.length}. Корекции: {roster.edit_count}/3
               {roster.locked ? " · Заключен" : ` · Остават ${roster.edits_remaining}`}.
             </p>
+            {roster.lock_reason ? (
+              <p className="matchLiveSubHint" style={{ color: "#fbbf24", marginTop: 0 }}>
+                {roster.lock_reason}
+              </p>
+            ) : roster.can_edit_roster !== false && rosterEvent.can_edit_roster ? (
+              <p className="matchLiveSubHint" style={{ marginTop: 0 }}>
+                Докосни име — добавя/маха от листа (✓ = избран).
+              </p>
+            ) : !rosterEvent.can_edit_roster ? (
+              <p className="matchLiveSubHint" style={{ color: "#fbbf24", marginTop: 0 }}>
+                Нямаш право да редактираш този тимов лист.
+              </p>
+            ) : null}
             <div className="matchLiveSubSection">
-              {(roster.candidates || []).map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`matchLiveSubChip${selectedIds.includes(Number(c.id)) ? " is-active" : ""}`}
-                  disabled={roster.locked || !rosterEvent.can_edit_roster}
-                  onClick={() => toggleAthlete(c.id)}
-                >
-                  {c.jersey_number != null ? `#${c.jersey_number} ` : ""}
-                  {c.name}
-                </button>
-              ))}
+              {(roster.candidates || []).map((c) => {
+                const picked = selectedIds.includes(Number(c.id));
+                const canToggle =
+                  !roster.locked && Boolean(roster.can_edit_roster ?? rosterEvent.can_edit_roster);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`matchLiveSubChip${picked ? " is-active" : ""}`}
+                    disabled={!canToggle}
+                    onClick={() => toggleAthlete(c.id)}
+                    aria-pressed={picked}
+                  >
+                    <span aria-hidden style={{ width: 18, flexShrink: 0 }}>
+                      {picked ? "✓" : "—"}
+                    </span>
+                    {c.jersey_number != null ? `#${c.jersey_number} ` : ""}
+                    {c.name}
+                  </button>
+                );
+              })}
               {!roster.candidates?.length ? (
                 <p className="matchLiveSubEmpty">Няма кандидати (група/картотека).</p>
               ) : null}
@@ -534,7 +563,7 @@ export default function CoachCompetitions() {
                   {openingMatchId === rosterEvent.id ? "Отваряне…" : "Статистика"}
                 </button>
               ) : null}
-              {rosterEvent.can_edit_roster && !roster.locked ? (
+              {(roster.can_edit_roster ?? rosterEvent.can_edit_roster) && !roster.locked ? (
                 <button type="button" className="matchLiveNext" disabled={savingRoster} onClick={saveRoster}>
                   {savingRoster ? "Запис…" : "Запиши състава"}
                 </button>
