@@ -64,6 +64,8 @@ export default function CoachAthleteProfile() {
   const [syncingPhoto, setSyncingPhoto] = useState(false);
   const [syncingIdentity, setSyncingIdentity] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [leavingClub, setLeavingClub] = useState(false);
+  const [restoringClub, setRestoringClub] = useState(false);
 
   const feesAllHref = useMemo(() => {
     if (!profile?.athlete_id) return "/coach/fees";
@@ -292,15 +294,53 @@ export default function CoachAthleteProfile() {
     }
   };
 
+  const leaveClub = async () => {
+    if (!profile?.athlete_id || !isHeadCoach) return;
+    const sekNote = profile.bvf_player_id
+      ? " Записът в СЕК остава — при връщане го възстанови или свържи по ЕГН."
+      : "";
+    if (
+      !window.confirm(
+        `Отписване на ${profile.athlete_name} от клуба? Ще изчезне от групи, такси и родителски портал.${sekNote} Историята се запазва.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setLeavingClub(true);
+      const res = await axiosInstance.post(API_PATHS.FEES_ATHLETE_LEAVE_CLUB(profile.athlete_id));
+      toast.success(res.data?.message || "Отписан от клуба.");
+      navigate(from || "/coach/athletes", { replace: true });
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно отписване."));
+    } finally {
+      setLeavingClub(false);
+    }
+  };
+
+  const restoreClub = async () => {
+    if (!profile?.athlete_id || !isHeadCoach) return;
+    try {
+      setRestoringClub(true);
+      await axiosInstance.post(API_PATHS.FEES_ATHLETE_RESTORE_CLUB(profile.athlete_id));
+      toast.success("Възстановен в клуба. Добави го към група при нужда.");
+      await reloadProfile();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно възстановяване."));
+    } finally {
+      setRestoringClub(false);
+    }
+  };
+
   const deleteAthlete = async () => {
-    if (!profile?.athlete_id) return;
+    if (!profile?.athlete_id || !isHeadCoach) return;
     if (profile.bvf_player_id) {
-      toast.error("Състезател, свързан със СЕК, не може да се изтрие.");
+      toast.error("Състезател със СЕК връзка не се изтрива. Ползвай „Отпиши от клуба“.");
       return;
     }
     if (
       !window.confirm(
-        `Изтриване на ${profile.athlete_name}? Това премахва локалния запис (такси, групи). Действието е необратимо.`,
+        `Изтриване на черновата ${profile.athlete_name}? Това е необратимо (такси/документи се губят). За напуснали ползвай „Отпиши“.`,
       )
     ) {
       return;
@@ -308,7 +348,7 @@ export default function CoachAthleteProfile() {
     try {
       setDeleting(true);
       await axiosInstance.delete(API_PATHS.FEES_ATHLETE_DELETE(profile.athlete_id));
-      toast.success("Състезателят е изтрит.");
+      toast.success("Черновата е изтрита.");
       navigate(from || "/coach/athletes", { replace: true });
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно изтриване."));
@@ -377,7 +417,11 @@ export default function CoachAthleteProfile() {
         syncingPhoto={syncingPhoto}
         syncingIdentity={syncingIdentity}
         canManageSek={isHeadCoach}
-        onDelete={!profile.bvf_player_id ? deleteAthlete : undefined}
+        onLeaveClub={isHeadCoach ? leaveClub : undefined}
+        onRestoreClub={isHeadCoach ? restoreClub : undefined}
+        leavingClub={leavingClub}
+        restoringClub={restoringClub}
+        onDelete={isHeadCoach && !profile.bvf_player_id ? deleteAthlete : undefined}
         deleting={deleting}
         onSaveFeeExempt={isHeadCoach ? saveFeeExempt : undefined}
         savingFeeExempt={savingFeeExempt}

@@ -331,21 +331,30 @@ export default function MonthlyFees() {
   };
 
   const removeAthlete = async (athlete) => {
-    if (athlete?.bvf_player_id) {
-      toast.error("Състезател, свързан със СЕК, не може да се изтрие.");
+    if (!isHeadCoach) {
+      toast.error("Само главният треньор може да отписва състезатели.");
       return;
     }
-    if (!window.confirm(`Да изтрия ли ${athlete.athlete_name}?`)) return;
+    const sekNote = athlete?.bvf_player_id
+      ? " Записът в СЕК остава."
+      : "";
+    if (
+      !window.confirm(
+        `Отписване на ${athlete.athlete_name} от клуба? Ще изчезне от такси и групи.${sekNote} Историята се запазва.`,
+      )
+    ) {
+      return;
+    }
     try {
       setBusy(true);
-      await axiosInstance.delete(API_PATHS.FEES_ATHLETE_DELETE(athlete.id));
+      const res = await axiosInstance.post(API_PATHS.FEES_ATHLETE_LEAVE_CLUB(athlete.id));
       if (payAthlete?.id === athlete.id) setPayAthlete(null);
       if (reportAthlete?.id === athlete.id) {
         setReportAthlete(null);
         setAthleteReport(null);
       }
       await loadAthletes(coachFilter);
-      toast.success("Състезателят е изтрит.");
+      toast.success(res.data?.message || "Отписан от клуба.");
     } catch (err) {
       toast.error(normalizeError(err));
     } finally {
@@ -845,11 +854,12 @@ export default function MonthlyFees() {
                     >
                       Редактирай
                     </Button>
-                    {!a.bvf_player_id ? (
+                    {isHeadCoach ? (
                       <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                        Изтрий
+                        Отпиши
                       </Button>
-                    ) : null}                    <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
+                    ) : null}
+                    <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                       Отчет
                     </Button>
                     {isHeadCoach && (
@@ -938,9 +948,9 @@ export default function MonthlyFees() {
                           >
                             Редактирай
                           </Button>
-                          {!a.bvf_player_id ? (
+                          {isHeadCoach ? (
                             <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                              Изтрий
+                              Отпиши
                             </Button>
                           ) : null}
                           <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>

@@ -136,6 +136,8 @@ export const API_PATHS = {
   FEES_COACHES_LIST: "/api/fees/coaches",
   FEES_ATHLETE_UPDATE: (athleteId) => `/api/fees/athletes/${athleteId}`,
   FEES_ATHLETE_DELETE: (athleteId) => `/api/fees/athletes/${athleteId}`,
+  FEES_ATHLETE_LEAVE_CLUB: (athleteId) => `/api/fees/athletes/${athleteId}/leave-club`,
+  FEES_ATHLETE_RESTORE_CLUB: (athleteId) => `/api/fees/athletes/${athleteId}/restore-club`,
   FEES_ATHLETE_TRANSFER: (athleteId) => `/api/fees/athletes/${athleteId}/transfer`,
   FEES_ATHLETE_FEE_EXEMPT: (athleteId) => `/api/fees/athletes/${athleteId}/fee-exempt`,
   FEES_PAYMENT_SAVE: (athleteId) => `/api/fees/athletes/${athleteId}/payments`,

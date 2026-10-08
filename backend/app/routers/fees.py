@@ -21,6 +21,7 @@ from app.database import get_db
 from app.money_format import format_money_eur
 from app.dependencies.roles import require_role
 from app.models import Athlete, AthletePayment, Club, Team, TeamMember, User, UserRole
+from app.services.athlete_memberships import leave_club_locally, restore_club_locally
 from app.services.parent_portal_notify import queue_fee_paid
 from app.services.athlete_birth import resolve_birth_date, resolve_place_of_birth
 from app.services.athlete_identity import (
@@ -410,6 +411,7 @@ def _build_receipt_pdf(lines: list[str]) -> bytes:
 def list_athletes(
     query: str | None = Query(default=None),
     coach_id: int | None = Query(default=None),
+    status: str | None = Query(default="active", description="active | inactive | all"),
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
@@ -422,6 +424,9 @@ def list_athletes(
             q = q.filter(Athlete.coach_id == coach_id)
     else:
         q = q.filter(Athlete.coach_id == current_user.id)
+    status_key = (status or "active").strip().lower()
+    if status_key in {"active", "inactive"}:
+        q = q.filter(Athlete.is_active.is_(status_key == "active"))
     q = q.order_by(Athlete.athlete_name.asc())
     if query and query.strip():
         search = f"%{query.strip()}%"
@@ -1052,17 +1057,73 @@ def update_athlete(
     return athlete
 
 
+@router.post("/fees/athletes/{athlete_id}/leave-club")
+def leave_athlete_club(
+    athlete_id: int,
+    note: str | None = Query(default=None, max_length=300),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    """Отпис от клуба: скрива от активни списъци, маха от групи/портал. СЕК връзката остава."""
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    if not athlete.is_active:
+        return {
+            "ok": True,
+            "already_left": True,
+            "athlete_id": athlete.id,
+            "is_active": False,
+            "bvf_player_id": athlete.bvf_player_id,
+            "message": "Състезателят вече е отписан от клуба.",
+        }
+    result = leave_club_locally(db, athlete, by_user=current_user, note=note)
+    db.commit()
+    db.refresh(athlete)
+    return {
+        "ok": True,
+        "already_left": False,
+        **result,
+        "message": (
+            "Отписан от клуба. Записът в СЕК е запазен — при връщане възстанови го или го свържи отново по ЕГН."
+            if athlete.bvf_player_id
+            else "Отписан от клуба. Историята (такси, документи) е запазена."
+        ),
+    }
+
+
+@router.post("/fees/athletes/{athlete_id}/restore-club", response_model=AthleteRead)
+def restore_athlete_club(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    """Връща отписан състезател в активния клубен списък."""
+    athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    if athlete.is_active:
+        return athlete
+    restore_club_locally(db, athlete)
+    db.commit()
+    db.refresh(athlete)
+    return athlete
+
+
 @router.delete("/fees/athletes/{athlete_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_athlete(
     athlete_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
 ):
+    """Твърдо изтриване само за чернови без СЕК. За напуснали ползвай leave-club."""
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
     if getattr(athlete, "bvf_player_id", None):
         raise HTTPException(
             status_code=409,
-            detail="Състезател, свързан със СЕК, не може да се изтрие от платформата.",
+            detail="Състезател със СЕК връзка не се изтрива. Използвай „Отпиши от клуба“ — записът в СЕК остава.",
         )
     db.delete(athlete)
     db.commit()

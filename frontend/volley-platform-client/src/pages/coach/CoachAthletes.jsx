@@ -24,7 +24,8 @@ const TABS = [
 ];
 
 const FILTERS = [
-  { id: "all", label: "Всички" },
+  { id: "all", label: "Активни" },
+  { id: "left", label: "Отписани" },
   { id: "no_sek", label: "Без СЕК" },
   { id: "with_sek", label: "В СЕК" },
   { id: "no_photo", label: "Без снимка" },
@@ -42,13 +43,15 @@ function formatGenderShort(v) {
 
 function matchesStatusFilter(a, filterId) {
   const hasTeam = Boolean(a.team_names && a.team_names.length);
-  if (filterId === "no_sek") return !a.bvf_player_id;
-  if (filterId === "with_sek") return Boolean(a.bvf_player_id);
-  if (filterId === "no_photo") return !a.has_photo;
-  if (filterId === "with_photo") return Boolean(a.has_photo);
-  if (filterId === "no_team") return !hasTeam;
-  if (filterId === "with_team") return hasTeam;
-  if (filterId === "ready") return Boolean(a.bvf_player_id) && Boolean(a.has_photo);
+  if (filterId === "left") return a.is_active === false;
+  if (filterId === "all") return a.is_active !== false;
+  if (filterId === "no_sek") return a.is_active !== false && !a.bvf_player_id;
+  if (filterId === "with_sek") return a.is_active !== false && Boolean(a.bvf_player_id);
+  if (filterId === "no_photo") return a.is_active !== false && !a.has_photo;
+  if (filterId === "with_photo") return a.is_active !== false && Boolean(a.has_photo);
+  if (filterId === "no_team") return a.is_active !== false && !hasTeam;
+  if (filterId === "with_team") return a.is_active !== false && hasTeam;
+  if (filterId === "ready") return a.is_active !== false && Boolean(a.bvf_player_id) && Boolean(a.has_photo);
   return true;
 }
 
@@ -86,7 +89,9 @@ export default function CoachAthletes() {
   const importInputRef = useRef(null);
 
   const loadAthletes = async () => {
-    const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST);
+    const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST, {
+      params: { status: "all" },
+    });
     setAthletes(Array.isArray(res.data) ? res.data : []);
   };
 

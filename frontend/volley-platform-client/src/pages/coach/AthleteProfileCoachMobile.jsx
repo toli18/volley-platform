@@ -100,7 +100,21 @@ const profileInitials = (profile) => {
   return String(profile.athlete_name || "?").slice(0, 2).toUpperCase();
 };
 
-function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack, onDelete, canDelete }) {
+function MoreMenu({
+  open,
+  onClose,
+  onHistory,
+  onCopyParent,
+  onBack,
+  onLeaveClub,
+  onRestoreClub,
+  onDelete,
+  canLeave,
+  canRestore,
+  canDelete,
+  leaving,
+  restoring,
+}) {
   return (
     <Modal open={open} onClose={onClose} title="Още" size="compact" className="athleteProfileMoreSheet">
       <div className="athleteProfileMoreBtns">
@@ -113,17 +127,44 @@ function MoreMenu({ open, onClose, onHistory, onCopyParent, onBack, onDelete, ca
         <Button type="button" variant="secondary" block onClick={() => { onCopyParent(); onClose(); }}>
           Копирай линк
         </Button>
-        {canDelete && onDelete ? (
+        {canRestore && onRestoreClub ? (
+          <Button
+            type="button"
+            block
+            disabled={restoring}
+            onClick={() => {
+              onClose();
+              onRestoreClub();
+            }}
+          >
+            {restoring ? "…" : "Възстанови в клуба"}
+          </Button>
+        ) : null}
+        {canLeave && onLeaveClub ? (
           <Button
             type="button"
             variant="danger"
+            block
+            disabled={leaving}
+            onClick={() => {
+              onClose();
+              onLeaveClub();
+            }}
+          >
+            {leaving ? "…" : "Отпиши от клуба"}
+          </Button>
+        ) : null}
+        {canDelete && onDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
             block
             onClick={() => {
               onClose();
               onDelete();
             }}
           >
-            Изтрий състезател
+            Изтрий чернова (без СЕК)
           </Button>
         ) : null}
         <Button type="button" variant="ghost" block onClick={() => { onBack(); onClose(); }}>
@@ -239,6 +280,10 @@ export default function AthleteProfileCoachMobile({
   syncingIdentity = false,
   /** Само главен треньор / админ: създаване, свързване и синхрон със СЕК. */
   canManageSek = false,
+  onLeaveClub,
+  onRestoreClub,
+  leavingClub = false,
+  restoringClub = false,
   onDelete,
   deleting = false,
   onSaveFeeExempt,
@@ -284,7 +329,9 @@ export default function AthleteProfileCoachMobile({
   const teamsShort = (profile.teams || []).map(shortenTeamName).join(", ") || "—";
   const identityLocked = Boolean(profile.bvf_player_id || profile.bvf_identity_locked);
   const genderEditableWhenLocked = Boolean(canManageSek && identityLocked && athleteGenderMissing(profile.gender));
-  const canDelete = Boolean(onDelete) && !profile.bvf_player_id;
+  const canLeave = Boolean(onLeaveClub) && profile.is_active !== false;
+  const canRestore = Boolean(onRestoreClub) && profile.is_active === false;
+  const canDelete = Boolean(onDelete) && !profile.bvf_player_id && profile.is_active === false;
 
   const currentPayment = useMemo(() => {
     const rows = profile.monthly_payments || [];
@@ -379,9 +426,14 @@ export default function AthleteProfileCoachMobile({
               <Button type="button" size="sm" variant="secondary" onClick={onStartEdit}>
                 Редактирай
               </Button>
-              {canDelete ? (
-                <Button type="button" size="sm" variant="danger" disabled={deleting} onClick={onDelete}>
-                  {deleting ? "…" : "Изтрий"}
+              {canRestore ? (
+                <Button type="button" size="sm" disabled={restoringClub} onClick={onRestoreClub}>
+                  {restoringClub ? "…" : "Възстанови"}
+                </Button>
+              ) : null}
+              {canLeave ? (
+                <Button type="button" size="sm" variant="danger" disabled={leavingClub} onClick={onLeaveClub}>
+                  {leavingClub ? "…" : "Отпиши"}
                 </Button>
               ) : null}
               <button type="button" className="athleteProfileMenuBtn" aria-label="Още" onClick={() => setMoreOpen(true)}>
@@ -992,8 +1044,14 @@ export default function AthleteProfileCoachMobile({
         onHistory={goHistoryTab}
         onCopyParent={onCopyParentUrl}
         onBack={onBack}
+        canLeave={canLeave}
+        canRestore={canRestore}
         canDelete={canDelete}
+        onLeaveClub={onLeaveClub}
+        onRestoreClub={onRestoreClub}
         onDelete={onDelete}
+        leaving={leavingClub}
+        restoring={restoringClub}
       />
     </div>
   );
