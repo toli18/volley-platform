@@ -4,10 +4,10 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
 import { competitionKindLabel } from "../../utils/competitionKinds";
-import { Button } from "../ui";
+import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
 
-function kindBg(kind) {
+function kindLabel(kind) {
   return competitionKindLabel(kind) || kind || "—";
 }
 
@@ -132,166 +132,169 @@ export default function RisImportModal({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="matchLiveSubOverlay" role="dialog" aria-modal="true">
-      <button type="button" className="matchLiveSubBackdrop" aria-label="Затвори" onClick={onClose} />
-      <div className="matchLiveSubDrawer" style={{ maxHeight: "min(90dvh, 720px)", overflow: "auto" }}>
-        <div className="matchLiveSubHead">
-          <strong>От БФВ календар</strong>
-          <button type="button" className="matchLiveStatsClose" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        {!status?.linked ? (
-          <p className="matchLiveSubHint" style={{ color: "#fbbf24" }}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      dismissable={!importing}
+      title="От БФВ календар"
+      size="wide"
+    >
+      <div style={{ display: "grid", gap: 10 }}>
+        {!status?.linked && !loading ? (
+          <p className="uiHint" style={{ margin: 0, color: "#b45309" }}>
             Клубът няма връзка със СЕК (bvf_club_id). Свържи клуба в BVF Admin, после пробвай пак.
           </p>
         ) : (
-          <p className="matchLiveSubHint">
+          <p className="uiHint" style={{ margin: 0 }}>
             Официални мачове за клуба · {fromDate} – {toDate}
             {status?.season_year ? ` · сезон ${status.season_year}` : ""}
           </p>
         )}
 
-        <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Група</span>
-            <select
-              className="uiInput"
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              style={{ minHeight: 40 }}
-            >
-              <option value="">— избери —</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name || `Група #${t.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Треньор</span>
-            <select
-              className="uiInput"
-              value={coachId}
-              onChange={(e) => setCoachId(e.target.value)}
-              style={{ minHeight: 40 }}
-            >
-              <option value="">— избери —</option>
-              {coaches.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || c.email || `Треньор #${c.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-              Картотечен отбор (общ, опционално)
-            </span>
-            <select
-              className="uiInput"
-              value={cardIndexId}
-              onChange={(e) => setCardIndexId(e.target.value)}
-              style={{ minHeight: 40 }}
-            >
-              <option value="">Авто по възраст / без</option>
-              {cardIndexes.map((ci) => (
-                <option key={ci.id} value={ci.id}>
-                  {ci.label || ci.age_group || `Картотека #${ci.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <Input as="select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+          <option value="">Избери тренировъчна група</option>
+          {teams.map((t) => (
+            <option key={t.id} value={String(t.id)}>
+              {t.name || `Група #${t.id}`}
+            </option>
+          ))}
+        </Input>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <Button size="sm" variant="secondary" onClick={selectAllNew} disabled={!selectable.length}>
+        <Input as="select" value={coachId} onChange={(e) => setCoachId(e.target.value)}>
+          <option value="">Избери треньор</option>
+          {coaches.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name || c.email || `Треньор #${c.id}`}
+            </option>
+          ))}
+        </Input>
+
+        <Input as="select" value={cardIndexId} onChange={(e) => setCardIndexId(e.target.value)}>
+          <option value="">Картотека: авто по възраст / без</option>
+          {cardIndexes.map((ci) => (
+            <option key={ci.id} value={String(ci.id)}>
+              {ci.label || ci.age_group || `Картотека #${ci.id}`}
+            </option>
+          ))}
+        </Input>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Button size="sm" variant="secondary" onClick={selectAllNew} disabled={!selectable.length || loading}>
             Маркирай новите ({selectable.length})
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => setSelected(new Set())}>
+          <Button size="sm" variant="secondary" onClick={() => setSelected(new Set())} disabled={!selected.size}>
             Изчисти
           </Button>
         </div>
 
-        {loading ? <p className="coachMobileMuted">Зареждане от RIS…</p> : null}
+        {loading ? <p className="uiHint">Зареждане от БФВ…</p> : null}
         {!loading && games.length === 0 ? (
-          <p className="coachMobileMuted">Няма мачове в БФВ календара за този период.</p>
+          <p className="uiHint">Няма мачове в БФВ календара за този период.</p>
         ) : null}
 
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+        <div
+          style={{
+            maxHeight: "min(42vh, 360px)",
+            overflowY: "auto",
+            overflowX: "hidden",
+            display: "grid",
+            gap: 8,
+            paddingRight: 2,
+          }}
+        >
           {games.map((g) => {
             const id = Number(g.ris_game_id);
             const checked = selected.has(id);
-            const disabled = g.already_imported || g.has_placeholders;
+            const disabled = Boolean(g.already_imported || g.has_placeholders);
             return (
-              <li
+              <button
                 key={id}
+                type="button"
+                disabled={disabled}
+                onClick={() => toggle(id)}
+                aria-pressed={checked}
                 style={{
-                  border: "1px solid #e2e8f0",
+                  display: "grid",
+                  gridTemplateColumns: "22px 1fr",
+                  gap: 10,
+                  alignItems: "start",
+                  textAlign: "left",
+                  width: "100%",
+                  border: checked ? "1.5px solid #0284c7" : "1px solid #e2e8f0",
                   borderRadius: 10,
-                  padding: 10,
-                  opacity: disabled ? 0.55 : 1,
+                  padding: "10px 12px",
                   background: checked ? "#f0f9ff" : "#fff",
+                  opacity: disabled ? 0.55 : 1,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  color: "#0f172a",
                 }}
               >
-                <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: disabled ? "default" : "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => toggle(id)}
-                    style={{ marginTop: 4 }}
-                  />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <strong>
-                      {g.date} · {g.start_time}
-                      {g.time_placeholder ? " (час уточни)" : ""}
-                    </strong>
-                    <div className="coachMobileMuted" style={{ fontSize: 13 }}>
-                      vs {g.opponent_name || "—"} · {kindBg(g.competition_kind)}
-                      {g.match_number ? ` · №${g.match_number}` : ""}
-                    </div>
-                    <div style={{ fontSize: 13 }}>{g.location}</div>
-                    {g.championship_label ? (
-                      <div className="coachMobileMuted" style={{ fontSize: 12 }}>
-                        {g.championship_label}
-                        {g.age_group_short ? ` · ${g.age_group_short}` : ""}
-                      </div>
-                    ) : null}
-                    {g.already_imported ? (
-                      <div style={{ fontSize: 12, color: "#059669", fontWeight: 600 }}>Вече импортиран</div>
-                    ) : null}
-                    {g.has_placeholders ? (
-                      <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-                        Отборът още не е определен в БФВ
-                      </div>
-                    ) : null}
+                <span
+                  aria-hidden
+                  style={{
+                    width: 18,
+                    height: 18,
+                    marginTop: 2,
+                    borderRadius: 4,
+                    border: checked ? "2px solid #0284c7" : "2px solid #94a3b8",
+                    background: checked ? "#0284c7" : "#fff",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    display: "grid",
+                    placeItems: "center",
+                    lineHeight: 1,
+                  }}
+                >
+                  {checked ? "✓" : ""}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <strong style={{ display: "block", fontSize: 14 }}>
+                    {g.date} · {g.start_time}
+                    {g.time_placeholder ? " (час уточни)" : ""}
+                  </strong>
+                  <span style={{ display: "block", fontSize: 13, color: "#64748b" }}>
+                    vs {g.opponent_name || "—"} · {kindLabel(g.competition_kind)}
+                    {g.match_number ? ` · №${g.match_number}` : ""}
                   </span>
-                </label>
-              </li>
+                  <span style={{ display: "block", fontSize: 13, wordBreak: "break-word" }}>
+                    {g.location}
+                  </span>
+                  {g.championship_label ? (
+                    <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
+                      {g.championship_label}
+                      {g.age_group_short ? ` · ${g.age_group_short}` : ""}
+                    </span>
+                  ) : null}
+                  {g.already_imported ? (
+                    <span style={{ display: "block", fontSize: 12, color: "#059669", fontWeight: 700 }}>
+                      Вече импортиран
+                    </span>
+                  ) : null}
+                  {g.has_placeholders ? (
+                    <span style={{ display: "block", fontSize: 12, color: "#b45309", fontWeight: 700 }}>
+                      Отборът още не е определен в БФВ
+                    </span>
+                  ) : null}
+                </span>
+              </button>
             );
           })}
-        </ul>
+        </div>
 
-        <div className="matchLiveSubActions" style={{ marginTop: 12 }}>
-          <button type="button" className="matchLiveUndo" onClick={onClose}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <Button variant="secondary" onClick={onClose} disabled={importing}>
             Затвори
-          </button>
-          <button
-            type="button"
-            className="matchLiveNext"
-            disabled={importing || !selected.size || !status?.linked}
+          </Button>
+          <Button
             onClick={importSelected}
+            disabled={importing || !selected.size || !status?.linked}
           >
             {importing ? "Импорт…" : `Импортирай (${selected.size})`}
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
