@@ -145,6 +145,13 @@ function AthleteSearch({ athletes, value, onPick, placeholder = "Търси по
   );
 }
 
+function fmtBirth(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
+  if (!d) return iso;
+  return `${d}.${m}.${y}`;
+}
+
 export default function CoachClubDocuments() {
   const toast = useToast();
   const [tab, setTab] = useState("notes");
@@ -154,6 +161,17 @@ export default function CoachClubDocuments() {
   const [busy, setBusy] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [insurance, setInsurance] = useState(null);
+  const [insBusy, setInsBusy] = useState(false);
+  const [insFilters, setInsFilters] = useState({
+    season_year: String(new Date().getFullYear()),
+    status: "active",
+    sek: "any",
+    carded: "any",
+    gender: "any",
+    team_id: "",
+    require_egn: false,
+  });
 
   const [noteForm, setNoteForm] = useState({
     athlete_id: "",
@@ -215,6 +233,65 @@ export default function CoachClubDocuments() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadInsurance = useCallback(async () => {
+    setInsBusy(true);
+    try {
+      const params = {
+        season_year: Number(insFilters.season_year) || new Date().getFullYear(),
+        status: insFilters.status,
+        sek: insFilters.sek,
+        carded: insFilters.carded,
+        gender: insFilters.gender,
+        require_egn: Boolean(insFilters.require_egn),
+      };
+      if (insFilters.team_id) params.team_id = Number(insFilters.team_id);
+      const res = await axiosInstance.get(API_PATHS.CLUB_DOCUMENTS_INSURANCE_ROSTER, { params });
+      setInsurance(res.data || null);
+    } catch (err) {
+      setInsurance(null);
+      toast.error(normalizeError(err, "Неуспешно зареждане на списъка за застраховка."));
+    } finally {
+      setInsBusy(false);
+    }
+  }, [insFilters, toast]);
+
+  useEffect(() => {
+    if (tab !== "insurance") return;
+    loadInsurance();
+  }, [tab, loadInsurance]);
+
+  const downloadInsuranceXlsx = async () => {
+    try {
+      setInsBusy(true);
+      const params = {
+        season_year: Number(insFilters.season_year) || new Date().getFullYear(),
+        status: insFilters.status,
+        sek: insFilters.sek,
+        carded: insFilters.carded,
+        gender: insFilters.gender,
+        require_egn: Boolean(insFilters.require_egn),
+      };
+      if (insFilters.team_id) params.team_id = Number(insFilters.team_id);
+      const res = await axiosInstance.get(API_PATHS.CLUB_DOCUMENTS_INSURANCE_ROSTER_XLSX, {
+        params,
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `zastrahovka_${params.season_year}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success("Excel файлът е изтеглен.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изтегляне."));
+    } finally {
+      setInsBusy(false);
+    }
+  };
 
   const pickAthleteForNote = (id) => {
     if (!id) {
@@ -354,7 +431,7 @@ export default function CoachClubDocuments() {
         <span className="feesCoachHeadBadge">{notes.length + invoices.length}</span>
       </header>
       <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-        Служебни бележки и фактури на клуба. Записват се тук и се отварят като PDF за печат.
+        Служебни бележки, фактури и списък за застраховка. Бележките и фактурите се отварят като PDF за печат.
         {defaults?.club_full_name ? ` Издател: ${defaults.club_full_name}.` : ""}
       </p>
 
@@ -362,6 +439,7 @@ export default function CoachClubDocuments() {
         {[
           { id: "notes", label: `Бележки (${notes.length})` },
           { id: "invoices", label: `Фактури (${invoices.length})` },
+          { id: "insurance", label: `Застраховки${insurance?.count != null ? ` (${insurance.count})` : ""}` },
         ].map((f) => (
           <button
             key={f.id}
@@ -496,7 +574,9 @@ export default function CoachClubDocuments() {
             ))}
           </ul>
         </>
-      ) : (
+      ) : null}
+
+      {tab === "invoices" ? (
         <>
           <div style={{ marginBottom: 12 }}>
             <Button type="button" onClick={() => setShowInvoiceForm((v) => !v)}>
@@ -715,7 +795,154 @@ export default function CoachClubDocuments() {
             ))}
           </ul>
         </>
-      )}
+      ) : null}
+
+      {tab === "insurance" ? (
+        <>
+          <p className="coachMobileMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            Извличаш списък от състезателите в приложението за застраховка. Филтрирай по СЕК, картотека,
+            група и пол, после изтегли Excel.
+          </p>
+          <div
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: 12,
+              background: "#fff",
+              marginBottom: 14,
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <label className="uiField" style={{ margin: 0, minWidth: 100 }}>
+                <span className="uiFieldLabel">Сезон</span>
+                <input
+                  className="uiControl"
+                  value={insFilters.season_year}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, season_year: e.target.value }))}
+                  inputMode="numeric"
+                  style={{ width: 100 }}
+                />
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 140 }}>
+                <span className="uiFieldLabel">Статус</span>
+                <select
+                  className="uiControl"
+                  value={insFilters.status}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, status: e.target.value }))}
+                >
+                  <option value="active">Активни</option>
+                  <option value="all">Всички</option>
+                  <option value="inactive">Неактивни</option>
+                </select>
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 140 }}>
+                <span className="uiFieldLabel">СЕК</span>
+                <select
+                  className="uiControl"
+                  value={insFilters.sek}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, sek: e.target.value }))}
+                >
+                  <option value="any">Всички</option>
+                  <option value="in_sek">В СЕК</option>
+                  <option value="not_in_sek">Без СЕК</option>
+                </select>
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 160 }}>
+                <span className="uiFieldLabel">Картотека ({insFilters.season_year})</span>
+                <select
+                  className="uiControl"
+                  value={insFilters.carded}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, carded: e.target.value }))}
+                >
+                  <option value="any">Всички</option>
+                  <option value="carded">Картотекирани</option>
+                  <option value="not_carded">Некартотекирани</option>
+                </select>
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 120 }}>
+                <span className="uiFieldLabel">Пол</span>
+                <select
+                  className="uiControl"
+                  value={insFilters.gender}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, gender: e.target.value }))}
+                >
+                  <option value="any">Всички</option>
+                  <option value="female">Момичета</option>
+                  <option value="male">Момчета</option>
+                </select>
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 160 }}>
+                <span className="uiFieldLabel">Група</span>
+                <select
+                  className="uiControl"
+                  value={insFilters.team_id}
+                  onChange={(e) => setInsFilters((p) => ({ ...p, team_id: e.target.value }))}
+                >
+                  <option value="">Всички групи</option>
+                  {(insurance?.teams || []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(insFilters.require_egn)}
+                onChange={(e) => setInsFilters((p) => ({ ...p, require_egn: e.target.checked }))}
+              />
+              Само с ЕГН (нужно за повечето застрахователни бланки)
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button type="button" variant="secondary" disabled={insBusy} onClick={loadInsurance}>
+                {insBusy ? "Зареждане…" : "Обнови списъка"}
+              </Button>
+              <Button type="button" disabled={insBusy || !(insurance?.count > 0)} onClick={downloadInsuranceXlsx}>
+                Изтегли Excel ({insurance?.count ?? 0})
+              </Button>
+            </div>
+          </div>
+
+          {insBusy && !insurance ? <p className="coachMobileMuted">Зареждане…</p> : null}
+          {!insBusy && insurance && insurance.count === 0 ? (
+            <p className="coachMobileMuted">Няма състезатели по тези филтри.</p>
+          ) : null}
+          {insurance?.items?.length ? (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+              {insurance.items.map((row, idx) => (
+                <li
+                  key={row.id}
+                  style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, background: "#fff" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <strong>
+                      {idx + 1}. {row.athlete_name}
+                    </strong>
+                    <span className="coachMobileMuted">
+                      {row.in_sek ? "в СЕК" : "без СЕК"}
+                      {row.is_carded ? " · картотекиран" : ""}
+                    </span>
+                  </div>
+                  <div className="coachMobileMuted" style={{ marginTop: 4, fontSize: 13 }}>
+                    ЕГН {row.egn || "—"} · роден {fmtBirth(row.birth_date)}
+                    {row.gender_label ? ` · ${row.gender_label}` : ""}
+                    {row.team_names?.length ? ` · ${row.team_names.join(", ")}` : ""}
+                  </div>
+                  {row.card_index_labels?.length ? (
+                    <div className="coachMobileMuted" style={{ marginTop: 2, fontSize: 12 }}>
+                      Картотеки: {row.card_index_labels.join(", ")}
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

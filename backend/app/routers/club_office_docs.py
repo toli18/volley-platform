@@ -1,18 +1,32 @@
-"""Club office documents — service notes and invoices."""
+"""Club office documents — service notes, invoices, insurance roster."""
 
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from io import BytesIO
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from openpyxl import Workbook
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Athlete, ClubInvoice, ClubServiceNote, User, UserRole
+from app.models import (
+    Athlete,
+    BvfCardIndex,
+    BvfCardIndexMember,
+    ClubInvoice,
+    ClubServiceNote,
+    Team,
+    TeamMember,
+    User,
+    UserRole,
+)
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
+from app.services.athlete_identity import birth_date_from_egn
+from app.services.bvf_season_carding import card_index_display_label
 from app.services.club_office_docs import (
     DEFAULT_REP_TITLE,
     NOTE_KIND_NO_CLAIMS,
@@ -369,4 +383,251 @@ def invoice_pdf(
         content=data,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+def _gender_label(gender: str | None) -> str:
+    g = (gender or "").strip().lower()
+    if g in ("male", "м", "мъж", "момче"):
+        return "мъж"
+    if g in ("female", "ж", "жена", "момиче"):
+        return "жена"
+    return ""
+
+
+def _insurance_roster(
+    db: Session,
+    club_id: int,
+    *,
+    season_year: int,
+    status: str = "active",
+    sek: str = "any",
+    carded: str = "any",
+    gender: str = "any",
+    team_id: int | None = None,
+    require_egn: bool = False,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    status = (status or "active").strip().lower()
+    sek = (sek or "any").strip().lower()
+    carded = (carded or "any").strip().lower()
+    gender = (gender or "any").strip().lower()
+
+    q = db.query(Athlete).filter(Athlete.club_id == int(club_id))
+    if status == "active":
+        q = q.filter(Athlete.is_active.is_(True))
+    elif status == "inactive":
+        q = q.filter(Athlete.is_active.is_(False))
+    if gender in ("male", "female"):
+        q = q.filter(Athlete.gender == gender)
+    if sek == "in_sek":
+        q = q.filter(Athlete.bvf_player_id.isnot(None))
+    elif sek == "not_in_sek":
+        q = q.filter(Athlete.bvf_player_id.is_(None))
+    if team_id:
+        q = (
+            q.join(TeamMember, TeamMember.athlete_id == Athlete.id)
+            .filter(TeamMember.team_id == int(team_id), TeamMember.is_active.is_(True))
+        )
+    athletes = q.order_by(Athlete.athlete_name.asc()).all()
+    if not athletes:
+        teams = (
+            db.query(Team)
+            .filter(Team.club_id == int(club_id), Team.is_active.is_(True))
+            .order_by(Team.name.asc())
+            .all()
+        )
+        return [], [{"id": t.id, "name": t.name} for t in teams]
+
+    athlete_ids = [int(a.id) for a in athletes]
+    egn_by_id = athlete_egn_map(db, club_id, athletes)
+
+    team_rows = (
+        db.query(TeamMember.athlete_id, Team.name)
+        .join(Team, Team.id == TeamMember.team_id)
+        .filter(
+            TeamMember.athlete_id.in_(athlete_ids),
+            TeamMember.is_active.is_(True),
+            Team.club_id == int(club_id),
+        )
+        .order_by(Team.name.asc())
+        .all()
+    )
+    teams_by_athlete: dict[int, list[str]] = {}
+    for aid, tname in team_rows:
+        teams_by_athlete.setdefault(int(aid), []).append(tname)
+
+    card_rows = (
+        db.query(BvfCardIndexMember.athlete_id, BvfCardIndex)
+        .join(BvfCardIndex, BvfCardIndex.id == BvfCardIndexMember.card_index_id)
+        .filter(
+            BvfCardIndex.club_id == int(club_id),
+            BvfCardIndex.year == int(season_year),
+            BvfCardIndexMember.athlete_id.in_(athlete_ids),
+        )
+        .all()
+    )
+    carded_by_athlete: dict[int, list[str]] = {}
+    for aid, ci in card_rows:
+        label = card_index_display_label(ci)
+        carded_by_athlete.setdefault(int(aid), []).append(label)
+
+    items: list[dict[str, Any]] = []
+    for athlete in athletes:
+        aid = int(athlete.id)
+        is_carded = aid in carded_by_athlete
+        if carded == "carded" and not is_carded:
+            continue
+        if carded == "not_carded" and is_carded:
+            continue
+        egn = egn_by_id.get(aid) or clean_egn(athlete.egn) or ""
+        if require_egn and len(egn) != 10:
+            continue
+        birth = athlete.birth_date
+        if not birth and egn:
+            birth = birth_date_from_egn(egn)
+        items.append(
+            {
+                "id": aid,
+                "athlete_name": athlete.athlete_name,
+                "egn": egn or None,
+                "birth_date": birth.isoformat() if birth else None,
+                "birth_year": athlete.birth_year or (birth.year if birth else None),
+                "gender": athlete.gender,
+                "gender_label": _gender_label(athlete.gender),
+                "parent_phone": athlete.parent_phone,
+                "athlete_phone": athlete.athlete_phone,
+                "in_sek": bool(athlete.bvf_player_id),
+                "bvf_player_number": athlete.bvf_player_number,
+                "is_carded": is_carded,
+                "card_index_labels": carded_by_athlete.get(aid, []),
+                "team_names": teams_by_athlete.get(aid, []),
+                "is_active": bool(athlete.is_active),
+            }
+        )
+
+    teams = (
+        db.query(Team)
+        .filter(Team.club_id == int(club_id), Team.is_active.is_(True))
+        .order_by(Team.name.asc())
+        .all()
+    )
+    return items, [{"id": t.id, "name": t.name} for t in teams]
+
+
+@router.get("/insurance-roster")
+def insurance_roster(
+    season_year: int | None = Query(None),
+    status: str = Query("active"),
+    sek: str = Query("any"),
+    carded: str = Query("any"),
+    gender: str = Query("any"),
+    team_id: int | None = Query(None),
+    require_egn: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_head),
+):
+    """Списък за застраховка — филтри по СЕК, картотека, група, пол."""
+    club = _club_for_user(db, current_user)
+    year = int(season_year or date.today().year)
+    items, teams = _insurance_roster(
+        db,
+        club.id,
+        season_year=year,
+        status=status,
+        sek=sek,
+        carded=carded,
+        gender=gender,
+        team_id=team_id,
+        require_egn=require_egn,
+    )
+    return {
+        "season_year": year,
+        "club_name": club_display_name(club),
+        "count": len(items),
+        "items": items,
+        "teams": teams,
+        "filters": {
+            "status": status,
+            "sek": sek,
+            "carded": carded,
+            "gender": gender,
+            "team_id": team_id,
+            "require_egn": require_egn,
+        },
+    }
+
+
+@router.get("/insurance-roster.xlsx")
+def insurance_roster_xlsx(
+    season_year: int | None = Query(None),
+    status: str = Query("active"),
+    sek: str = Query("any"),
+    carded: str = Query("any"),
+    gender: str = Query("any"),
+    team_id: int | None = Query(None),
+    require_egn: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_head),
+):
+    club = _club_for_user(db, current_user)
+    year = int(season_year or date.today().year)
+    items, _teams = _insurance_roster(
+        db,
+        club.id,
+        season_year=year,
+        status=status,
+        sek=sek,
+        carded=carded,
+        gender=gender,
+        team_id=team_id,
+        require_egn=require_egn,
+    )
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Застраховка"
+    ws.append(
+        [
+            "№",
+            "Три имена",
+            "ЕГН",
+            "Дата на раждане",
+            "Година",
+            "Пол",
+            "Група",
+            "В СЕК",
+            "Картотекиран",
+            "Картотеки",
+            "БФВ №",
+            "Телефон родител",
+        ]
+    )
+    for i, row in enumerate(items, start=1):
+        birth = row.get("birth_date") or ""
+        if birth and len(birth) == 10:
+            y, m, d = birth.split("-")
+            birth = f"{d}.{m}.{y}"
+        ws.append(
+            [
+                i,
+                row.get("athlete_name") or "",
+                row.get("egn") or "",
+                birth,
+                row.get("birth_year") or "",
+                row.get("gender_label") or "",
+                ", ".join(row.get("team_names") or []),
+                "да" if row.get("in_sek") else "не",
+                "да" if row.get("is_carded") else "не",
+                ", ".join(row.get("card_index_labels") or []),
+                row.get("bvf_player_number") or "",
+                row.get("parent_phone") or "",
+            ]
+        )
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    fname = f"zastrahovka_{club.id}_{year}.xlsx"
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
