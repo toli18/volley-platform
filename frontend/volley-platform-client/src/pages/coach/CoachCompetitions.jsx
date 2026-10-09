@@ -7,6 +7,7 @@ import { normalizeError } from "../../utils/normalizeError";
 import useNavRoles from "../../navigation/useNavRoles";
 import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
+import RisImportModal from "../../components/schedule/RisImportModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { competitionRosterAction } from "../../utils/competitionRosterPriority";
@@ -104,6 +105,7 @@ export default function CoachCompetitions() {
   const [cardIndexes, setCardIndexes] = useState([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetCtx, setSheetCtx] = useState(null);
+  const [risOpen, setRisOpen] = useState(false);
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
@@ -373,9 +375,14 @@ export default function CoachCompetitions() {
           {rangeLabel}
         </span>
         {isHeadCoachUser ? (
-          <Button size="sm" onClick={openCreate}>
-            Ново състезание
-          </Button>
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setRisOpen(true)}>
+              От БФВ календар
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              Ново състезание
+            </Button>
+          </>
         ) : null}
       </div>
 
@@ -435,6 +442,9 @@ export default function CoachCompetitions() {
               <div className="coachMobileMuted">
                 {row.competition_kind_label || row.competition_kind} · {row.location}
                 {row.opponent_name ? ` · vs ${row.opponent_name}` : ""}
+                {row.ris_game_id
+                  ? ` · БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
+                  : ""}
               </div>
               <div>
                 {row.team_name || `Група #${row.team_id}`}
@@ -484,6 +494,18 @@ export default function CoachCompetitions() {
         editId={null}
         onClose={() => setModalOpen(false)}
         onSave={saveCompetition}
+      />
+
+      <RisImportModal
+        open={risOpen}
+        onClose={() => setRisOpen(false)}
+        onImported={() => load()}
+        fromDate={fromDate}
+        toDate={toDate}
+        teams={teams}
+        coaches={coaches}
+        cardIndexes={cardIndexes}
+        defaultCoachId={currentUserId}
       />
 
       {rosterEvent && roster ? (

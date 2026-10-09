@@ -39,6 +39,7 @@ from app.routers.match_live import router as match_live_router
 from app.routers.match_public import router as match_public_router
 from app.routers.bvf_admin import router as bvf_admin_router
 from app.routers.bvf_carding import router as bvf_carding_router
+from app.routers.ris_public import router as ris_public_router
 from app.routers.club_consent import docs_router as athlete_docs_router
 from app.routers.club_consent import router as club_consent_router
 from app.routers.public_carding_03b import router as public_carding_03b_router
@@ -113,6 +114,7 @@ app.include_router(match_live_router)
 app.include_router(match_public_router)
 app.include_router(bvf_admin_router)
 app.include_router(bvf_carding_router)
+app.include_router(ris_public_router)
 app.include_router(club_consent_router)
 app.include_router(athlete_docs_router)
 app.include_router(public_carding_03b_router)

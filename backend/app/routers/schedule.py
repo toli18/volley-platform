@@ -733,6 +733,15 @@ def _competition_to_read(
         coach_name=coach_name,
         card_index_id=int(ci_id) if ci_id else None,
         carded_team_label=carded_team_label,
+        ris_game_id=int(event.ris_game_id) if getattr(event, "ris_game_id", None) else None,
+        ris_championship_id=(
+            int(event.ris_championship_id) if getattr(event, "ris_championship_id", None) else None
+        ),
+        ris_match_number=(
+            int(event.ris_match_number) if getattr(event, "ris_match_number", None) is not None else None
+        ),
+        ris_stream_url=(getattr(event, "ris_stream_url", None) or None),
+        ris_synced_at=getattr(event, "ris_synced_at", None),
     )
 
 

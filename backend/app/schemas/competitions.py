@@ -61,6 +61,11 @@ class CompetitionEventRead(CompetitionEventBase):
     team_name: Optional[str] = None
     coach_name: Optional[str] = None
     carded_team_label: Optional[str] = None
+    ris_game_id: Optional[int] = None
+    ris_championship_id: Optional[int] = None
+    ris_match_number: Optional[int] = None
+    ris_stream_url: Optional[str] = None
+    ris_synced_at: Optional[datetime] = None
 
 
 class CompetitionRosterSaveIn(BaseModel):

@@ -441,6 +441,53 @@ def _init_db_impl() -> None:
                     )
                 except Exception:
                     pass
+                try:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS ris_game_id INTEGER"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS ris_championship_id INTEGER"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS ris_match_number INTEGER"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS ris_stream_url VARCHAR(500)"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "ALTER TABLE club_competition_events "
+                            "ADD COLUMN IF NOT EXISTS ris_synced_at TIMESTAMP"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS "
+                            "ix_club_competition_events_ris_game_id "
+                            "ON club_competition_events (ris_game_id)"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS "
+                            "ix_club_competition_events_ris_championship_id "
+                            "ON club_competition_events (ris_championship_id)"
+                        )
+                    )
+                except Exception:
+                    pass
                 conn.execute(
                     text(
                         "ALTER TABLE match_sets ADD COLUMN IF NOT EXISTS start_rotation "

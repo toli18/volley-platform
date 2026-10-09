@@ -371,6 +371,13 @@ export const API_PATHS = {
   SCHEDULE_COMPETITION_ROSTER: (eventId) => `/api/schedule/competitions/${eventId}/roster`,
   SCHEDULE_COMPETITION_OPEN_MATCH: (eventId) => `/api/schedule/competitions/${eventId}/open-match`,
 
+  // RIS (BVF official calendar)
+  RIS_STATUS: "/api/ris/status",
+  RIS_CLUB_GAMES: "/api/ris/club-games",
+  RIS_IMPORT_GAMES: "/api/ris/import-games",
+  RIS_GAME_DETAIL: (gameId) => `/api/ris/games/${gameId}`,
+  RIS_CHAMPIONSHIP: (id) => `/api/ris/championships/${id}`,
+
   // Public club page + enrollment
   PUBLIC_CLUB_PAGE: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}`,
   PUBLIC_CLUB_ENROLL: (slug) => `/api/public/clubs/${encodeURIComponent(slug)}/enroll`,

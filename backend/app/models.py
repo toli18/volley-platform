@@ -1266,6 +1266,13 @@ class ClubCompetitionEvent(Base):
     roster_confirmed_at = Column(DateTime, nullable=True)
     roster_locked_at = Column(DateTime, nullable=True)
 
+    # RIS (ris.bgvolley.dev) official calendar link
+    ris_game_id = Column(Integer, nullable=True, unique=True, index=True)
+    ris_championship_id = Column(Integer, nullable=True, index=True)
+    ris_match_number = Column(Integer, nullable=True)
+    ris_stream_url = Column(String(500), nullable=True)
+    ris_synced_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
