@@ -9037,6 +9037,116 @@ button.matchChipSlot:not(:disabled) {
 .feesAthleteCardCompactActions--stack {
   min-width: min(140px, 38vw);
 }
+
+/* Coach competitions — phone-friendly toolbar (not parentPortalScheduleNav) */
+.competitionsToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.competitionsToolbarLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+}
+.competitionsToolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.competitionsDateRange {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+
+/* RIS import modal */
+.risImportBody {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.risImportList {
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+.risImportRow {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  text-align: left;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.risImportRow.is-checked {
+  border: 1.5px solid #0284c7;
+  background: #f0f9ff;
+}
+.risImportRow:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.risImportCheck {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 4px;
+  border: 2px solid #94a3b8;
+  background: #fff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.risImportRow.is-checked .risImportCheck {
+  border-color: #0284c7;
+  background: #0284c7;
+}
+.risImportRowText {
+  min-width: 0;
+}
+.risImportRowText strong,
+.risImportRowText span {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.risImportActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-top: 8px;
+}
+
 @media (max-width: 640px) {
   .competitionRosterMeta {
     grid-template-columns: 1fr;
@@ -9054,6 +9164,65 @@ button.matchChipSlot:not(:disabled) {
   }
   .feesAthleteCardCompactActions--stack .uiMuted {
     grid-column: 1 / -1;
+  }
+  .feesAthleteCardCompactActions--stack .uiButton {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .competitionsToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .competitionsToolbarActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .competitionsToolbarActions .uiButton {
+    width: 100%;
+    min-height: 44px;
+  }
+  .competitionsDateRange {
+    grid-template-columns: 1fr;
+  }
+  .competitionsDateRange .uiButton {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .coachMobileSubNavBtn {
+    min-height: 40px;
+    padding: 10px 14px;
+  }
+
+  .risImportList {
+    max-height: min(38dvh, 280px);
+  }
+  .risImportActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .risImportActions .uiButton {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .matchLiveSubDrawer {
+    width: 100%;
+    max-height: min(88dvh, 100%);
+    border-radius: 16px 16px 0 0;
+  }
+  .matchLiveSubActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .matchLiveSubActions > button {
+    width: 100%;
+    min-height: 44px;
+  }
+  .matchLiveSubChip {
+    min-height: 44px;
   }
 }
 

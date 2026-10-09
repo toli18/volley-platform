@@ -140,7 +140,7 @@ export default function RisImportModal({
       title="От БФВ календар"
       size="wide"
     >
-      <div style={{ display: "grid", gap: 10 }}>
+      <div className="risImportBody">
         {!status?.linked && !loading ? (
           <p className="uiHint" style={{ margin: 0, color: "#b45309" }}>
             Клубът няма връзка със СЕК (bvf_club_id). Свържи клуба в BVF Admin, после пробвай пак.
@@ -179,7 +179,7 @@ export default function RisImportModal({
           ))}
         </Input>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="competitionsToolbarActions">
           <Button size="sm" variant="secondary" onClick={selectAllNew} disabled={!selectable.length || loading}>
             Маркирай новите ({selectable.length})
           </Button>
@@ -193,16 +193,7 @@ export default function RisImportModal({
           <p className="uiHint">Няма мачове в БФВ календара за този период.</p>
         ) : null}
 
-        <div
-          style={{
-            maxHeight: "min(42vh, 360px)",
-            overflowY: "auto",
-            overflowX: "hidden",
-            display: "grid",
-            gap: 8,
-            paddingRight: 2,
-          }}
-        >
+        <div className="risImportList">
           {games.map((g) => {
             const id = Number(g.ris_game_id);
             const checked = selected.has(id);
@@ -214,66 +205,32 @@ export default function RisImportModal({
                 disabled={disabled}
                 onClick={() => toggle(id)}
                 aria-pressed={checked}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "22px 1fr",
-                  gap: 10,
-                  alignItems: "start",
-                  textAlign: "left",
-                  width: "100%",
-                  border: checked ? "1.5px solid #0284c7" : "1px solid #e2e8f0",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  background: checked ? "#f0f9ff" : "#fff",
-                  opacity: disabled ? 0.55 : 1,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  color: "#0f172a",
-                }}
+                className={`risImportRow${checked ? " is-checked" : ""}`}
               >
-                <span
-                  aria-hidden
-                  style={{
-                    width: 18,
-                    height: 18,
-                    marginTop: 2,
-                    borderRadius: 4,
-                    border: checked ? "2px solid #0284c7" : "2px solid #94a3b8",
-                    background: checked ? "#0284c7" : "#fff",
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    display: "grid",
-                    placeItems: "center",
-                    lineHeight: 1,
-                  }}
-                >
+                <span className="risImportCheck" aria-hidden>
                   {checked ? "✓" : ""}
                 </span>
-                <span style={{ minWidth: 0 }}>
-                  <strong style={{ display: "block", fontSize: 14 }}>
+                <span className="risImportRowText">
+                  <strong>
                     {g.date} · {g.start_time}
                     {g.time_placeholder ? " (час уточни)" : ""}
                   </strong>
-                  <span style={{ display: "block", fontSize: 13, color: "#64748b" }}>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>
                     vs {g.opponent_name || "—"} · {kindLabel(g.competition_kind)}
                     {g.match_number ? ` · №${g.match_number}` : ""}
                   </span>
-                  <span style={{ display: "block", fontSize: 13, wordBreak: "break-word" }}>
-                    {g.location}
-                  </span>
+                  <span style={{ fontSize: 13 }}>{g.location}</span>
                   {g.championship_label ? (
-                    <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>
                       {g.championship_label}
                       {g.age_group_short ? ` · ${g.age_group_short}` : ""}
                     </span>
                   ) : null}
                   {g.already_imported ? (
-                    <span style={{ display: "block", fontSize: 12, color: "#059669", fontWeight: 700 }}>
-                      Вече импортиран
-                    </span>
+                    <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>Вече импортиран</span>
                   ) : null}
                   {g.has_placeholders ? (
-                    <span style={{ display: "block", fontSize: 12, color: "#b45309", fontWeight: 700 }}>
+                    <span style={{ fontSize: 12, color: "#b45309", fontWeight: 700 }}>
                       Отборът още не е определен в БФВ
                     </span>
                   ) : null}
@@ -283,14 +240,11 @@ export default function RisImportModal({
           })}
         </div>
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <div className="risImportActions">
           <Button variant="secondary" onClick={onClose} disabled={importing}>
             Затвори
           </Button>
-          <Button
-            onClick={importSelected}
-            disabled={importing || !selected.size || !status?.linked}
-          >
+          <Button onClick={importSelected} disabled={importing || !selected.size || !status?.linked}>
             {importing ? "Импорт…" : `Импортирай (${selected.size})`}
           </Button>
         </div>

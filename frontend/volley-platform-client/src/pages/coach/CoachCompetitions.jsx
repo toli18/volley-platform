@@ -370,32 +370,22 @@ export default function CoachCompetitions() {
         ))}
       </div>
 
-      <div className="parentPortalScheduleNav" style={{ marginBottom: 12, gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <span className="parentPortalScheduleNavLabel" style={{ textTransform: "none" }}>
-          {rangeLabel}
-        </span>
+      <div className="competitionsToolbar">
+        <span className="competitionsToolbarLabel">{rangeLabel}</span>
         {isHeadCoachUser ? (
-          <>
+          <div className="competitionsToolbarActions">
             <Button size="sm" variant="secondary" onClick={() => setRisOpen(true)}>
               От БФВ календар
             </Button>
             <Button size="sm" onClick={openCreate}>
               Ново състезание
             </Button>
-          </>
+          </div>
         ) : null}
       </div>
 
       {periodPreset === "custom" ? (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr auto",
-            gap: 8,
-            marginBottom: 12,
-            alignItems: "end",
-          }}
-        >
+        <div className="competitionsDateRange">
           <label style={{ display: "grid", gap: 4 }}>
             <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>От</span>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />

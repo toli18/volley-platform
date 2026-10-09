@@ -90,7 +90,7 @@ export default function CompetitionEventModal({
         </div>
         <Input placeholder="Бележки (по избор)" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, justifyContent: "flex-end" }}>
+      <div className="uiModalActions" style={{ marginTop: 14, justifyContent: "flex-end" }}>
         {editId ? (
           <Button variant="danger" disabled={busy} onClick={onDelete}>
             Изтрий
