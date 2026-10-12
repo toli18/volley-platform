@@ -5,12 +5,20 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models import Club, TrainingScheduleException, TrainingScheduleRule, User
 from app.services.school_excuse_note import is_troyan_volley_club
+
+
+def _obshtina_logo_path() -> Path | None:
+    path = Path(__file__).resolve().parent.parent / "static" / "troyan-hall" / "obshtina-troyan-logo.png"
+    if path.is_file() and path.stat().st_size > 0:
+        return path
+    return None
 
 MONTH_BG = (
     "",
@@ -326,14 +334,40 @@ def build_troyan_hall_application_pdf(
 
     def draw_header_and_body(start_slot_idx: int) -> int:
         """Draw form; return next slot index to draw."""
-        y = height - margin
+        y_top = height - margin
+        logo_path = _obshtina_logo_path()
+        logo_w = 14 * mm
+        logo_h = 18 * mm
+        text_left = margin
+        if logo_path is not None:
+            c.drawImage(
+                str(logo_path),
+                margin,
+                y_top - logo_h,
+                width=logo_w,
+                height=logo_h,
+                mask="auto",
+                preserveAspectRatio=True,
+            )
+            text_left = margin + logo_w + 3 * mm
+
+        # Left block: ОБЩИНА ТРОЯН + № ........
+        c.setFont(font, 12)
+        c.drawString(text_left, y_top - 5 * mm, "ОБЩИНА ТРОЯН")
         c.setFont(font, 9)
-        c.drawString(margin, y, "Приложение № 12")
-        c.drawRightString(width - margin, y, "Община Троян")
-        y -= 5 * mm
+        c.drawString(text_left, y_top - 11 * mm, "№ .............................................")
+
+        # Right block: Приложение № 12 + Вх. / Дата (as on the official blank)
+        right = width - margin
+        c.setFont(font, 11)
+        c.drawRightString(right, y_top - 3 * mm, "Приложение № 12")
         c.setFont(font, 8)
-        c.drawString(margin, y, "(ново, Решение № 965/17.09.2026 г.)")
-        y -= 7 * mm
+        c.drawRightString(right, y_top - 7.5 * mm, "(ново, Решение № 965/17.09.2026 г.)")
+        c.setFont(font, 9)
+        c.drawRightString(right, y_top - 13 * mm, "Вх. № .............................................")
+        c.drawRightString(right, y_top - 18 * mm, "Дата ...............................................")
+
+        y = min(y_top - logo_h, y_top - 20 * mm) - 6 * mm
 
         c.setFont(font, 14)
         c.drawCentredString(width / 2, y, "ЗАЯВЛЕНИЕ")
