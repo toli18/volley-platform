@@ -41,6 +41,64 @@ def event_title_for_month(year: int, month: int) -> str:
     return f"Тренировки по волейбол – месец {MONTH_BG[int(month)]} {int(year)}"
 
 
+def event_title_for_period(date_from: date, date_to: date) -> str:
+    if date_from.year == date_to.year and date_from.month == date_to.month:
+        last = calendar.monthrange(date_from.year, date_from.month)[1]
+        if date_from.day == 1 and date_to.day == last:
+            return event_title_for_month(date_from.year, date_from.month)
+        if date_from.day == date_to.day:
+            return (
+                f"Тренировки по волейбол – {date_from.day:02d}.{date_from.month:02d}.{date_from.year}"
+            )
+        return (
+            f"Тренировки по волейбол – {date_from.day:02d}–{date_to.day:02d} "
+            f"{MONTH_BG[date_from.month]} {date_from.year}"
+        )
+    return (
+        f"Тренировки по волейбол – {date_from.day:02d}.{date_from.month:02d}.{date_from.year}"
+        f" – {date_to.day:02d}.{date_to.month:02d}.{date_to.year}"
+    )
+
+
+def _parse_iso_date(value: str | None, label: str) -> date | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        y, m, d = raw.split("-")
+        return date(int(y), int(m), int(d))
+    except Exception as exc:
+        raise ValueError(f"Невалидна дата за {label}") from exc
+
+
+def resolve_period(
+    year: int | None,
+    month: int | None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> tuple[date, date]:
+    """Период от–до. Ако липсват дати — целият месец (year/month или текущ)."""
+    d_from = _parse_iso_date(date_from, "date_from")
+    d_to = _parse_iso_date(date_to, "date_to")
+    today = date.today()
+    y = int(year or (d_from.year if d_from else today.year))
+    m = int(month or (d_from.month if d_from else today.month))
+    if m < 1 or m > 12:
+        raise ValueError("month must be 1–12")
+    last = calendar.monthrange(y, m)[1]
+    month_start = date(y, m, 1)
+    month_end = date(y, m, last)
+    if d_from is None:
+        d_from = month_start
+    if d_to is None:
+        d_to = month_end
+    if d_to < d_from:
+        raise ValueError("Крайната дата трябва да е след началната")
+    if (d_to - d_from).days > 62:
+        raise ValueError("Периодът е твърде дълъг (макс. 62 дни)")
+    return d_from, d_to
+
+
 def legal_defaults(club: Club | None, current_user: User | None = None) -> dict[str, Any]:
     chairman = ""
     if club:
@@ -97,13 +155,17 @@ def _minutes_to_time(total: int) -> str:
     return f"{h:02d}:{m:02d}"
 
 
-def build_month_slots(db: Session, club_id: int, year: int, month: int) -> list[dict[str, Any]]:
+def build_month_slots(
+    db: Session,
+    club_id: int,
+    year: int | None = None,
+    month: int | None = None,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> list[dict[str, Any]]:
     """Един ред на ден: обединени часове за всички тренировки с локация „Троян“."""
-    year = int(year)
-    month = int(month)
-    last_day = calendar.monthrange(year, month)[1]
-    d0 = date(year, month, 1)
-    d1 = date(year, month, last_day)
+    d0, d1 = resolve_period(year, month, date_from, date_to)
 
     rules = (
         db.query(TrainingScheduleRule)
@@ -201,20 +263,33 @@ def build_month_slots(db: Session, club_id: int, year: int, month: int) -> list[
 def preview_payload(
     db: Session,
     club: Club,
-    year: int,
-    month: int,
+    year: int | None = None,
+    month: int | None = None,
     current_user: User | None = None,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> dict[str, Any]:
     if not is_troyan_volley_club(club):
         raise PermissionError("Заявлението за зала Троян е само за ВК Троян Волей")
-    slots = build_month_slots(db, club.id, year, month)
+    d0, d1 = resolve_period(year, month, date_from, date_to)
+    slots = build_month_slots(
+        db,
+        club.id,
+        d0.year,
+        d0.month,
+        date_from=d0.isoformat(),
+        date_to=d1.isoformat(),
+    )
     defaults = legal_defaults(club, current_user)
     total_hours = round(sum(float(s["hours"]) for s in slots), 2)
     return {
-        "year": int(year),
-        "month": int(month),
-        "month_label": MONTH_BG[int(month)],
-        "event_title": event_title_for_month(year, month),
+        "year": d0.year,
+        "month": d0.month,
+        "month_label": MONTH_BG[d0.month],
+        "date_from": d0.isoformat(),
+        "date_to": d1.isoformat(),
+        "event_title": event_title_for_period(d0, d1),
         "count": len(slots),
         "total_hours": total_hours,
         "slots": slots,

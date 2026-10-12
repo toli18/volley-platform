@@ -46,8 +46,9 @@ from app.services.club_office_docs import (
 from app.services.school_excuse_note import is_troyan_volley_club
 from app.services.troyan_hall_application import (
     build_troyan_hall_application_pdf,
-    event_title_for_month,
+    event_title_for_period,
     preview_payload as troyan_hall_preview,
+    resolve_period,
 )
 
 router = APIRouter(prefix="/api/club-documents", tags=["Club Documents"])
@@ -641,8 +642,10 @@ def insurance_roster_xlsx(
 
 
 class TroyanHallPdfIn(BaseModel):
-    year: int
-    month: int = Field(..., ge=1, le=12)
+    year: Optional[int] = None
+    month: Optional[int] = Field(None, ge=1, le=12)
+    date_from: Optional[str] = Field(None, max_length=10)
+    date_to: Optional[str] = Field(None, max_length=10)
     org_name: Optional[str] = Field(None, max_length=255)
     eik: Optional[str] = Field(None, max_length=32)
     city: Optional[str] = Field(None, max_length=120)
@@ -664,17 +667,25 @@ def _require_troyan(club) -> None:
 def troyan_hall_application_preview(
     year: int | None = Query(None),
     month: int | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(_head),
 ):
     club = _club_for_user(db, current_user)
     _require_troyan(club)
-    today = date.today()
-    y = int(year or today.year)
-    m = int(month or today.month)
-    if m < 1 or m > 12:
-        raise HTTPException(status_code=422, detail="month must be 1–12")
-    return troyan_hall_preview(db, club, y, m, current_user)
+    try:
+        return troyan_hall_preview(
+            db,
+            club,
+            year,
+            month,
+            current_user,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/troyan-hall-application/pdf")
@@ -685,7 +696,19 @@ def troyan_hall_application_pdf(
 ):
     club = _club_for_user(db, current_user)
     _require_troyan(club)
-    preview = troyan_hall_preview(db, club, int(body.year), int(body.month), current_user)
+    try:
+        d0, d1 = resolve_period(body.year, body.month, body.date_from, body.date_to)
+        preview = troyan_hall_preview(
+            db,
+            club,
+            d0.year,
+            d0.month,
+            current_user,
+            date_from=d0.isoformat(),
+            date_to=d1.isoformat(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     fields = dict(preview["defaults"])
     for key in (
         "org_name",
@@ -701,16 +724,14 @@ def troyan_hall_application_pdf(
         val = getattr(body, key, None)
         if val is not None and str(val).strip():
             fields[key] = str(val).strip()
-    fields["event_title"] = (body.event_title or "").strip() or event_title_for_month(
-        int(body.year), int(body.month)
-    )
+    fields["event_title"] = (body.event_title or "").strip() or event_title_for_period(d0, d1)
     pdf = build_troyan_hall_application_pdf(
-        year=int(body.year),
-        month=int(body.month),
+        year=d0.year,
+        month=d0.month,
         slots=preview["slots"],
         fields=fields,
     )
-    fname = f"zayavlenie-zala-troyan-{int(body.year):04d}-{int(body.month):02d}.pdf"
+    fname = f"zayavlenie-zala-troyan-{d0.isoformat()}_{d1.isoformat()}.pdf"
     return Response(
         content=pdf,
         media_type="application/pdf",

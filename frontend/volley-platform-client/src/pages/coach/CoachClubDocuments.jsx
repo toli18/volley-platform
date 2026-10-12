@@ -176,7 +176,16 @@ export default function CoachClubDocuments() {
   const [hallPreview, setHallPreview] = useState(null);
   const [hallMonth, setHallMonth] = useState(() => {
     const d = new Date();
-    return { year: String(d.getFullYear()), month: String(d.getMonth() + 1) };
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const last = new Date(y, m, 0).getDate();
+    const mm = String(m).padStart(2, "0");
+    return {
+      year: String(y),
+      month: String(m),
+      date_from: `${y}-${mm}-01`,
+      date_to: `${y}-${mm}-${String(last).padStart(2, "0")}`,
+    };
   });
   const [hallForm, setHallForm] = useState({
     org_name: "",
@@ -190,6 +199,20 @@ export default function CoachClubDocuments() {
     email: "",
     event_title: "",
   });
+
+  const setHallCalendarMonth = (year, month) => {
+    const y = Number(year) || new Date().getFullYear();
+    const m = Number(month) || new Date().getMonth() + 1;
+    const last = new Date(y, m, 0).getDate();
+    const mm = String(m).padStart(2, "0");
+    setHallMonth({
+      year: String(y),
+      month: String(m),
+      date_from: `${y}-${mm}-01`,
+      date_to: `${y}-${mm}-${String(last).padStart(2, "0")}`,
+    });
+    setHallForm((p) => ({ ...p, event_title: "" }));
+  };
 
   const [noteForm, setNoteForm] = useState({
     athlete_id: "",
@@ -287,6 +310,8 @@ export default function CoachClubDocuments() {
         params: {
           year: Number(hallMonth.year) || new Date().getFullYear(),
           month: Number(hallMonth.month) || new Date().getMonth() + 1,
+          date_from: hallMonth.date_from,
+          date_to: hallMonth.date_to,
         },
       });
       setHallPreview(res.data || null);
@@ -301,7 +326,9 @@ export default function CoachClubDocuments() {
         representative_name: prev.representative_name || d.representative_name || "",
         phone: prev.phone || d.phone || "",
         email: prev.email || d.email || "",
-        event_title: res.data?.event_title || prev.event_title || "",
+        event_title: !prev.event_title || prev.event_title.startsWith("Тренировки по волейбол")
+          ? res.data?.event_title || prev.event_title || ""
+          : prev.event_title,
       }));
     } catch (err) {
       setHallPreview(null);
@@ -309,7 +336,14 @@ export default function CoachClubDocuments() {
     } finally {
       setHallBusy(false);
     }
-  }, [defaults?.troyan_hall_application, hallMonth.month, hallMonth.year, toast]);
+  }, [
+    defaults?.troyan_hall_application,
+    hallMonth.date_from,
+    hallMonth.date_to,
+    hallMonth.month,
+    hallMonth.year,
+    toast,
+  ]);
 
   useEffect(() => {
     if (tab !== "hall") return;
@@ -324,6 +358,8 @@ export default function CoachClubDocuments() {
         {
           year: Number(hallMonth.year) || new Date().getFullYear(),
           month: Number(hallMonth.month) || new Date().getMonth() + 1,
+          date_from: hallMonth.date_from,
+          date_to: hallMonth.date_to,
           ...hallForm,
         },
         { responseType: "blob" },
@@ -1050,7 +1086,7 @@ export default function CoachClubDocuments() {
                 <input
                   className="uiControl"
                   value={hallMonth.year}
-                  onChange={(e) => setHallMonth((p) => ({ ...p, year: e.target.value }))}
+                  onChange={(e) => setHallCalendarMonth(e.target.value, hallMonth.month)}
                   inputMode="numeric"
                   style={{ width: 100 }}
                 />
@@ -1060,10 +1096,7 @@ export default function CoachClubDocuments() {
                 <select
                   className="uiControl"
                   value={hallMonth.month}
-                  onChange={(e) => {
-                    setHallMonth((p) => ({ ...p, month: e.target.value }));
-                    setHallForm((p) => ({ ...p, event_title: "" }));
-                  }}
+                  onChange={(e) => setHallCalendarMonth(hallMonth.year, e.target.value)}
                 >
                   {[
                     ["1", "януари"],
@@ -1085,6 +1118,30 @@ export default function CoachClubDocuments() {
                   ))}
                 </select>
               </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 150 }}>
+                <span className="uiFieldLabel">Период от</span>
+                <input
+                  className="uiControl"
+                  type="date"
+                  value={hallMonth.date_from}
+                  onChange={(e) => {
+                    setHallMonth((p) => ({ ...p, date_from: e.target.value }));
+                    setHallForm((p) => ({ ...p, event_title: "" }));
+                  }}
+                />
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 150 }}>
+                <span className="uiFieldLabel">до</span>
+                <input
+                  className="uiControl"
+                  type="date"
+                  value={hallMonth.date_to}
+                  onChange={(e) => {
+                    setHallMonth((p) => ({ ...p, date_to: e.target.value }));
+                    setHallForm((p) => ({ ...p, event_title: "" }));
+                  }}
+                />
+              </label>
               <Button type="button" variant="secondary" disabled={hallBusy} onClick={loadHall}>
                 {hallBusy ? "Зареждане…" : "Обнови от графика"}
               </Button>
@@ -1092,6 +1149,9 @@ export default function CoachClubDocuments() {
                 Преглед / печат PDF
               </Button>
             </div>
+            <p className="coachMobileMuted" style={{ margin: 0, fontSize: 12 }}>
+              Избери от–до преди PDF. При смяна на месеца периодът се нулира до целия месец.
+            </p>
 
             <Input
               label="Наименование"
