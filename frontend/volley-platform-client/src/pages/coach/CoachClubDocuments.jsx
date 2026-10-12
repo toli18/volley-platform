@@ -240,6 +240,13 @@ export default function CoachClubDocuments() {
   });
 
   const athletes = defaults?.athletes || [];
+  const showTroyanHall = Boolean(
+    defaults?.troyan_hall_application ||
+      (() => {
+        const blob = `${defaults?.club_full_name || ""} ${defaults?.club_name || ""}`.toLowerCase();
+        return blob.includes("троян") && blob.includes("волей");
+      })(),
+  );
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -303,7 +310,7 @@ export default function CoachClubDocuments() {
   }, [tab, loadInsurance]);
 
   const loadHall = useCallback(async () => {
-    if (!defaults?.troyan_hall_application) return;
+    if (!showTroyanHall) return;
     setHallBusy(true);
     try {
       const res = await axiosInstance.get(API_PATHS.CLUB_DOCUMENTS_TROYAN_HALL, {
@@ -337,7 +344,7 @@ export default function CoachClubDocuments() {
       setHallBusy(false);
     }
   }, [
-    defaults?.troyan_hall_application,
+    showTroyanHall,
     hallMonth.date_from,
     hallMonth.date_to,
     hallMonth.month,
@@ -545,7 +552,7 @@ export default function CoachClubDocuments() {
       </header>
       <p className="coachMobileMuted" style={{ marginTop: 0 }}>
         Служебни бележки, фактури и списък за застраховка.
-        {defaults?.troyan_hall_application ? " За Троян — и месечно заявление за зала." : ""}
+        {showTroyanHall ? " За Троян — и месечно заявление за зала." : ""}
         {" "}Бележките и фактурите се отварят като PDF за печат.
         {defaults?.club_full_name ? ` Издател: ${defaults.club_full_name}.` : ""}
       </p>
@@ -555,7 +562,7 @@ export default function CoachClubDocuments() {
           { id: "notes", label: `Бележки (${notes.length})` },
           { id: "invoices", label: `Фактури (${invoices.length})` },
           { id: "insurance", label: `Застраховки${insurance?.count != null ? ` (${insurance.count})` : ""}` },
-          ...(defaults?.troyan_hall_application
+          ...(showTroyanHall
             ? [{ id: "hall", label: `Зала Троян${hallPreview?.count != null ? ` (${hallPreview.count})` : ""}` }]
             : []),
         ].map((f) => (
@@ -1062,7 +1069,7 @@ export default function CoachClubDocuments() {
         </>
       ) : null}
 
-      {tab === "hall" && defaults?.troyan_hall_application ? (
+      {tab === "hall" && showTroyanHall ? (
         <>
           <p className="coachMobileMuted" style={{ marginTop: 0, fontSize: 13 }}>
             Месечно заявление към Община Троян за Спортна зала. Взимат се тренировките от графика,

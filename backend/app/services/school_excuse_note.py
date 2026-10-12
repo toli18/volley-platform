@@ -61,8 +61,15 @@ def is_troyan_volley_club(club: Club | None) -> bool:
         return False
     if getattr(club, "bvf_club_id", None) == TROYAN_BVF_CLUB_ID:
         return True
-    name = (club.name or "").lower()
-    return "троян" in name and "волей" in name
+    blob = " ".join(
+        str(x or "").lower()
+        for x in (
+            getattr(club, "name", None),
+            getattr(club, "full_name", None),
+            getattr(club, "bvf_club_name", None),
+        )
+    )
+    return "троян" in blob and "волей" in blob
 
 
 def bundled_school_excuse_signature_path(club: Club | None) -> Path | None:
