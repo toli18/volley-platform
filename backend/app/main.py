@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -124,10 +125,28 @@ app.include_router(school_excuse_parent_router)
 app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])
 app.include_router(club_public_router)
 
-# --- Root ---
+# --- SPA (lean frontend build under static/web; Railway fallback when Vercel Production is stuck) ---
+WEB_DIR = static_dir / "web"
+_SPA_RESERVED = frozenset(
+    {"api", "auth", "docs", "redoc", "static", "assets", "healthz", "openapi.json", "drills-page", "generator"}
+)
+
+if (WEB_DIR / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="spa-assets")
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
+
 @app.get("/")
 def root():
+    index = WEB_DIR / "index.html"
+    if index.is_file():
+        return FileResponse(index)
     return {"status": "Volley Platform API is running"}
+
 
 # --- Pages (ако ги ползваш) ---
 @app.get("/drills-page")
@@ -142,6 +161,26 @@ def generator_page(request: Request):
     if templates is None:
         return {"error": "Templates directory not found"}
     return templates.TemplateResponse("generator.html", {"request": request})
+
+
+@app.get("/{full_path:path}")
+def spa_fallback(full_path: str):
+    """Client-side routes for the bundled SPA; never swallow real API prefixes."""
+    index = WEB_DIR / "index.html"
+    if not index.is_file():
+        raise HTTPException(status_code=404, detail="Not Found")
+    first = full_path.split("/", 1)[0]
+    if first in _SPA_RESERVED:
+        raise HTTPException(status_code=404, detail="Not Found")
+    candidate = (WEB_DIR / full_path).resolve()
+    try:
+        candidate.relative_to(WEB_DIR.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Not Found") from exc
+    if candidate.is_file():
+        return FileResponse(candidate)
+    return FileResponse(index)
+
 
 # --- Startup ---
 @app.on_event("startup")

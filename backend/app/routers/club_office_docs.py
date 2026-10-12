@@ -129,6 +129,8 @@ def document_defaults(
         "club_id": club.id,
         "club_name": club.name,
         "club_full_name": club_display_name(club),
+        "bvf_club_id": getattr(club, "bvf_club_id", None),
+        "bvf_club_name": getattr(club, "bvf_club_name", None),
         "city": city,
         "address": club_address_line(club),
         "bulstat": club.bulstat,

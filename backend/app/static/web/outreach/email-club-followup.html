@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Шаблон — Follow-up към клуб</title>
+<link rel="stylesheet" href="/legal.css" />
+<link rel="stylesheet" href="/outreach/outreach.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/presentation/logo.png" alt="" onerror="this.style.display='none'" />
+    <div><b>Outreach</b><small>Личен контакт → клуб</small></div>
+  </div>
+
+  <h1>Съобщение към клуб</h1>
+  <p class="lead">Viber, WhatsApp или личен имейл. Персонализирай [име] и [клуб]. Без цени — само стойност и линкове.</p>
+
+  <div class="copyToolbar noPrint">
+    <button type="button" class="btn" id="copyAll">Копирай текста</button>
+  </div>
+
+  <p><b>Тема (ако е имейл):</b> <span id="subjectLine">Volley Coach — пилотен достъп за [клуб]</span></p>
+
+  <div class="copyBlock" id="emailBody">Здравейте, [име],
+
+Volley Coach Platform вече работи с пилотни клубове — методиката на БФВ в джоба на треньора всеки ден: присъствие, график, родители и AI тренировки от конспект.
+
+Пилотна програма за сезон 2026/27:
+• 18 клуба — по 3 от всеки регион на БФВ
+• 12 месеца пълен достъп за всички треньори на избрания клуб
+• Onboarding + видео инструкция
+• В замяна — кратък отзив след 4–6 седмици
+
+Вижте накратко (2 мин):
+https://volley-platform.vercel.app/pilot/demo
+
+Заявка за клуба:
+https://volley-platform.vercel.app/pilot/
+
+Ако сте заинтересовани — попълнете формата или отговорете с името на клуба и региона. Активираме до 24 часа.
+
+Поздрави,
+Anatoli Penev
+Volley Coach Platform</div>
+
+  <div class="tip">
+    <b>Viber/SMS:</b> „Здравей, Anatoli от Volley Coach. Пилот: пълен достъп 12 мес. за избрани клубове по методиката на БФВ. Видео: volley-platform.vercel.app/pilot/demo · Заявка: volley-platform.vercel.app/pilot“
+  </div>
+
+  <footer><a href="/outreach/">← Outreach материали</a></footer>
+</div>
+
+<script>
+(function () {
+  var sub = document.getElementById("subjectLine").textContent;
+  var body = document.getElementById("emailBody").textContent;
+  document.getElementById("copyAll").addEventListener("click", function () {
+    navigator.clipboard.writeText("Тема: " + sub + "\n\n" + body).then(function () {
+      document.getElementById("copyAll").textContent = "Копирано ✓";
+      setTimeout(function () { document.getElementById("copyAll").textContent = "Копирай текста"; }, 2000);
+    });
+  });
+})();
+</script>
+</body>
+</html>

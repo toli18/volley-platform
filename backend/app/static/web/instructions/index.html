@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volley Coach Platform — Инструкция за треньори</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #111c33;
+    --ink: #f8fafc;
+    --muted: #9fb1cc;
+    --line: rgba(148, 163, 184, 0.22);
+    --blue: #2f6df6;
+    --blue-soft: rgba(47, 109, 246, 0.16);
+    --green: #16a34a;
+    --amber: #f59e0b;
+    --accent: #38bdf8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(1200px 800px at 80% -10%, #16284d 0%, var(--bg) 55%) fixed;
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    line-height: 1.5;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* Header */
+  .top { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .top img {
+    width: 64px; height: 64px; object-fit: contain;
+    border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .top b { display: block; font-size: 18px; }
+  .top small { color: var(--muted); }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 50px);
+    line-height: 1.07; margin: 18px 0 12px; font-weight: 800; letter-spacing: -0.02em;
+  }
+  .lead { font-size: clamp(16px, 2vw, 21px); color: var(--muted); max-width: 70ch; margin: 0 0 8px; }
+
+  .meta { display: inline-flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 8px; }
+  .meta span {
+    background: var(--blue-soft); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 12px; font-size: 14px;
+  }
+
+  /* Table of contents */
+  .toc {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px 22px; margin: 26px 0 10px;
+  }
+  .toc h2 { margin: 0 0 14px; font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .toc ol { margin: 0; padding-left: 0; list-style: none; counter-reset: toc; columns: 2; column-gap: 28px; }
+  .toc li { counter-increment: toc; margin: 0 0 10px; break-inside: avoid; }
+  .toc a {
+    color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: baseline;
+    font-size: 15px;
+  }
+  .toc a::before {
+    content: counter(toc); flex: none;
+    width: 26px; height: 26px; border-radius: 8px; display: inline-grid; place-items: center;
+    background: var(--blue-soft); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--accent);
+  }
+  .toc a:hover { color: var(--accent); }
+
+  /* Section */
+  section.step {
+    border-top: 1px solid var(--line);
+    padding-top: 30px; margin-top: 34px;
+    scroll-margin-top: 16px;
+  }
+  .stepHead { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  .stepNum {
+    flex: none; width: 42px; height: 42px; border-radius: 12px;
+    display: grid; place-items: center; font-weight: 800; font-size: 19px;
+    background: linear-gradient(135deg, var(--blue), var(--accent)); color: #051026;
+  }
+  section.step h2 { font-size: clamp(22px, 3vw, 32px); margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  .stepIntro { color: var(--muted); margin: 10px 0 16px; font-size: clamp(15px, 1.7vw, 18px); }
+
+  .row { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 26px; align-items: start; }
+  .row.flip { grid-template-columns: 0.95fr 1.05fr; }
+  .row.flip .shot { order: 2; }
+
+  ol.howto { margin: 4px 0 0; padding-left: 0; list-style: none; counter-reset: ht; }
+  ol.howto li {
+    counter-increment: ht; position: relative; padding-left: 40px; margin: 0 0 14px;
+    font-size: clamp(15px, 1.7vw, 18px);
+  }
+  ol.howto li::before {
+    content: counter(ht); position: absolute; left: 0; top: 0;
+    width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--blue-soft); border: 1px solid var(--line); font-size: 14px; font-weight: 700; color: var(--accent);
+  }
+  ol.howto li b { color: var(--ink); }
+  ul.bullets { margin: 6px 0 0; padding-left: 20px; }
+  ul.bullets li { margin: 8px 0; font-size: clamp(15px, 1.7vw, 18px); color: var(--ink); }
+
+  .shot {
+    border: 1px solid var(--line); border-radius: 16px;
+    background: rgba(255,255,255,0.03); overflow: hidden; position: relative;
+    display: grid; place-items: center;
+  }
+  .shot img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; cursor: zoom-in; }
+  .shotCap { text-align: center; color: var(--muted); font-size: 13px; padding: 8px 10px 12px; }
+  .shot .ph { text-align: center; color: var(--muted); padding: 36px 20px; }
+  .shot .ph .big { font-size: 40px; margin-bottom: 10px; }
+
+  .tip, .note {
+    margin-top: 16px; border-radius: 14px; padding: 14px 18px;
+    font-size: clamp(14px, 1.6vw, 17px);
+  }
+  .tip { background: var(--blue-soft); border: 1px solid var(--line); }
+  .note { background: rgba(245, 158, 11, 0.10); border-left: 4px solid var(--amber); color: #fde9c7; border-radius: 0 14px 14px 0; }
+  .tip b, .note b { color: #fff; }
+
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .chip { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-size: 14px; color: var(--muted); }
+
+  /* Final / links */
+  .finish {
+    margin-top: 44px; border: 1px solid var(--line); border-radius: 20px;
+    padding: 28px 24px; background: linear-gradient(180deg, rgba(47,109,246,0.12), rgba(255,255,255,0.01));
+    text-align: center;
+  }
+  .finish h2 { font-size: clamp(24px, 3.4vw, 36px); margin: 0 0 10px; }
+  .finish p { color: var(--muted); margin: 0 auto 18px; max-width: 56ch; }
+  .linkRow { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .linkRow a {
+    color: var(--ink); text-decoration: none; font-weight: 600; font-size: 16px;
+    padding: 11px 18px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.05);
+  }
+  .linkRow a.primary { background: linear-gradient(135deg, var(--blue), var(--accent)); color: #fff; border: none; }
+  .linkRow a:hover { border-color: var(--accent); color: var(--accent); }
+  .linkRow a.primary:hover { color: #fff; filter: brightness(1.08); }
+
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* Back to top */
+  .toTop {
+    position: fixed; right: 18px; bottom: 18px; z-index: 30;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(47,109,246,0.9); color: #fff; border: none; cursor: pointer;
+    font-size: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    opacity: 0; pointer-events: none; transition: opacity 220ms ease;
+  }
+  .toTop.show { opacity: 1; pointer-events: auto; }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 90; background: rgba(3,8,18,0.92);
+    display: none; align-items: center; justify-content: center; padding: 3vh 3vw; cursor: zoom-out;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img { max-width: 96vw; max-height: 94vh; object-fit: contain; border-radius: 12px; box-shadow: 0 30px 90px rgba(0,0,0,0.6); }
+  .lbClose {
+    position: fixed; top: 16px; right: 22px; width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 1px solid var(--line); color: #fff; font-size: 24px; cursor: pointer; z-index: 91;
+  }
+
+  @media (max-width: 760px) {
+    .row, .row.flip { grid-template-columns: 1fr; gap: 14px; }
+    .row.flip .shot { order: 0; }
+    .toc ol { columns: 1; }
+    .shot img { max-height: 60vh; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <img src="../presentation/logo.png" alt="Българска федерация по волейбол" onerror="this.style.display='none'" />
+    <div><b>Volley Coach Platform</b><small>Българска федерация по волейбол</small></div>
+  </div>
+
+  <h1>Инструкция за треньори</h1>
+  <p class="lead">Кратко и практично ръководство как да ползвате платформата в ежедневието — от телефона в залата. Всичко е на едно място: присъствие, тренировки по методиката на БФВ, график, такси и комуникация с родителите.</p>
+  <div class="meta">
+    <span>📱 Работи на телефон и компютър</span>
+    <span>⏱️ ~10 минути четене</span>
+    <span>🏐 от треньор за треньори</span>
+  </div>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <h2>Съдържание</h2>
+    <ol>
+      <li><a href="#vhod">Вход в платформата</a></li>
+      <li><a href="#tablo">Табло „Днес“ — началният екран</a></li>
+      <li><a href="#otbori">Отбори и състезатели</a></li>
+      <li><a href="#programa">Годишна програма и „Моята програмна седмица“</a></li>
+      <li><a href="#grafik">График на тренировки</a></li>
+      <li><a href="#prisastvie">Присъствие в залата</a></li>
+      <li><a href="#trenirovka">От присъствие към готова тренировка (AI)</a></li>
+      <li><a href="#taksi">Месечни такси</a></li>
+      <li><a href="#chat">Новини и чат с отбора</a></li>
+      <li><a href="#metodika">Учебник, упражнения и форум</a></li>
+      <li><a href="#diagnostika">Диагностика и развитие на състезателя</a></li>
+      <li><a href="#izvestiq">Известия на телефона + инсталиране</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <section class="step" id="vhod">
+    <div class="stepHead"><div class="stepNum">1</div><h2>Вход в платформата</h2></div>
+    <p class="stepIntro">Влизате с профила на треньор, който ви е предоставен от клуба или Федерацията.</p>
+    <ol class="howto">
+      <li>Отворете <b>volley-platform.vercel.app/login</b> в браузъра на телефона или компютъра.</li>
+      <li>Въведете <b>имейл</b> и <b>парола</b> и натиснете „Вход“.</li>
+      <li>След първия вход препоръчваме да „инсталирате“ приложението на телефона (вижте точка 12) — отваря се като истинско приложение.</li>
+    </ol>
+    <div class="tip">💡 <b>Съвет:</b> Запазете страницата в любими или на началния екран на телефона, за да влизате с един тап.</div>
+  </section>
+
+  <!-- 2 -->
+  <section class="step" id="tablo">
+    <div class="stepHead"><div class="stepNum">2</div><h2>Табло „Днес“ — началният екран</h2></div>
+    <div class="row">
+      <div class="shot">
+        <img src="../presentation/screenshots/dashboard.png" alt="Табло на треньора" data-cap="Табло на треньора — Днес" />
+        <div class="shotCap">Табло на треньора — Днес</div>
+      </div>
+      <div>
+        <p class="stepIntro">Това е първото, което виждате при вход — целият клуб накратко.</p>
+        <ul class="bullets">
+          <li><b>Предварителни извинения</b> от родители — изскачат най-горе.</li>
+          <li><b>Днешните тренировки</b> с бутон за бързо отваряне на присъствието.</li>
+          <li><b>Известия и дължими такси</b> — на едно място.</li>
+          <li><b>Програмна седмица</b> — коя седмица от програмата на БФВ сте и темата за деня.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tip">🧭 Менюто отдолу (телефон) или отстрани (компютър) ви води между разделите: Днес, График, Присъствие, Такси, Обучение и др.</div>
+  </section>
+
+  <!-- 3 -->
+  <section class="step" id="otbori">
+    <div class="stepHead"><div class="stepNum">3</div><h2>Отбори и състезатели</h2></div>
+    <p class="stepIntro">Преди да водите присъствие и такси, добавете отборите и състезателите си.</p>
+    <ol class="howto">
+      <li>Отидете в раздел <b>„Отбори“</b>.</li>
+      <li>Създайте отбор: задайте <b>име, възрастова група и сезон</b>.</li>
+      <li>Добавете състезателите — име, година на раждане и (по желание) телефон на родител.</li>
+      <li>Родителят влиза в своя портал само с <b>телефон + година на раждане</b> — без пароли.</li>
+    </ol>
+    <div class="note">⚠️ <b>Важно:</b> Годината на раждане трябва да е точна — тя се ползва и за родителския вход, и за възрастовите норми в диагностиката.</div>
+  </section>
+
+  <!-- 4 -->
+  <section class="step" id="programa">
+    <div class="stepHead"><div class="stepNum">4</div><h2>Годишна програма и „Моята програмна седмица“</h2></div>
+    <div class="row flip">
+      <div>
+        <p class="stepIntro">Назначавате официалната програма на БФВ към отбора веднъж — платформата сама следи коя седмица сте спрямо календара.</p>
+        <ol class="howto">
+          <li>Отворете <b>„Моята програмна седмица“</b>.</li>
+          <li>Изберете <b>отбор</b>, после <b>макроцикъл</b> (по възраст), <b>мезоцикъл</b> и <b>начална дата</b>.</li>
+          <li>Готово — отгоре виждате „Мезо X/11 · Седмица Y от Z“ и <b>темата за деня</b>.</li>
+          <li>Темата за деня се показва автоматично до всяка тренировка в графика.</li>
+        </ol>
+      </div>
+      <div class="shot">
+        <img src="../presentation/screenshots/program-today.png" alt="Програмна седмица" data-cap="Моята програмна седмица" />
+        <div class="shotCap">Моята програмна седмица + тема за деня</div>
+      </div>
+    </div>
+    <div class="tip">🔁 Ако сгрешите или искате друг цикъл — има бутон <b>„Смени/махни“</b> макроцикъла/мезоцикъла.</div>
+  </section>
+
+  <!-- 5 -->
+  <section class="step" id="grafik">
+    <div class="stepHead"><div class="stepNum">5</div><h2>График на тренировки</h2></div>
+    <div class="row">
+      <div class="shot">
+        <img src="../presentation/screenshots/schedule.png" alt="Месечен график" data-cap="Месечен график" />
+        <div class="shotCap">Месечен график — цял месец пред очите ви</div>
+      </div>
+      <div>
+        <p class="stepIntro">Виждате целия месец; промените веднага стигат до родителите.</p>
+        <ul class="bullets">
+          <li><b>Зелено</b> = тренировка, <b>оранжево</b> = състезание, <b>червено</b> = промяна/отмяна.</li>
+          <li>Можете да <b>добавяте, местите или отменяте</b> тренировка.</li>
+          <li>Щом промените нещо — родителите получават известие и виждат новия час/зала.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="step" id="prisastvie">
+    <div class="stepHead"><div class="stepNum">6</div><h2>Присъствие в залата</h2></div>
+    <div class="row flip">
+      <div>
+        <p class="stepIntro">Най-честото действие — отнема секунди, направо от телефона.</p>
+        <ol class="howto">
+          <li>Отворете <b>„Присъствие“</b> за днешната тренировка.</li>
+          <li>Тапвайте по списъка: <b>Тук · Закъсня · Няма · Извинен</b>.</li>
+          <li>До дете с предварително извинение свети зелен бадж <b>„Извинение от родител“</b>.</li>
+          <li>При нужда добавете <b>бележка</b> към състезател.</li>
+        </ol>
+      </div>
+      <div class="shot">
+        <img src="../presentation/screenshots/attendance.png" alt="Присъствие" data-cap="Присъствие" />
+        <div class="shotCap">Тап: Тук · Закъсня · Няма · Извинен</div>
+      </div>
+    </div>
+    <div class="tip">📈 Цялата история на присъствието се пази — полезно за разговори с родители и за селекция.</div>
+  </section>
+
+  <!-- 7 -->
+  <section class="step" id="trenirovka">
+    <div class="stepHead"><div class="stepNum">7</div><h2>От присъствие към готова тренировка (AI)</h2></div>
+    <p class="stepIntro">Тренировката за деня се генерира предварително от програмата. След присъствието тя вече ви чака.</p>
+    <div class="row">
+      <div class="shot">
+        <img src="../presentation/screenshots/attendance-training.png" alt="Продължи с тренировката" data-cap="Продължи с тренировката" />
+        <div class="shotCap">След присъствието → „Продължи с тренировката“</div>
+      </div>
+      <div>
+        <ol class="howto">
+          <li>След като отметнете присъствието, отдолу се появява <b>„Продължи с тренировката“</b>.</li>
+          <li>Натиснете го — отваря се готовият план по фази (timeline от конспекта на БФВ).</li>
+          <li>Ако няма генерирана тренировка, бутонът предлага <b>„Генерирай сега“</b> с AI помощника.</li>
+          <li>Всички генерирани тренировки се пазят в <b>„Моите тренировки“</b> — за преглед преди залата.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="tip">🧠 Не започвате от „празен лист“ — планът идва по методиката на БФВ и можете да го редактирате.</div>
+  </section>
+
+  <!-- 8 -->
+  <section class="step" id="taksi">
+    <div class="stepHead"><div class="stepNum">8</div><h2>Месечни такси</h2></div>
+    <div class="row flip">
+      <div>
+        <p class="stepIntro">Край на въпроса „кой е платил“ — всичко е цветно и ясно.</p>
+        <ol class="howto">
+          <li>Отворете <b>„Месечни такси“</b>.</li>
+          <li>Виждате кой е <b>платил (зелено)</b> и кой <b>дължи (червено)</b> за месеца.</li>
+          <li>Натиснете <b>„Плати“</b> до състезател — статусът светва зелено.</li>
+          <li>Родителят вижда статуса в своя портал — без неудобни лични съобщения.</li>
+        </ol>
+      </div>
+      <div class="shot">
+        <img src="../presentation/screenshots/fees.png" alt="Месечни такси" data-cap="Месечни такси" />
+        <div class="shotCap">Платено (зелено) · Дължимо (червено)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="step" id="chat">
+    <div class="stepHead"><div class="stepNum">9</div><h2>Новини и чат с отбора</h2></div>
+    <div class="row">
+      <div class="shot">
+        <img src="../presentation/screenshots/coach-chat.png" alt="Чат с отбора" data-cap="Чат и новини" />
+        <div class="shotCap">Чат с отбора + снимка в „Новините“</div>
+      </div>
+      <div>
+        <p class="stepIntro">Заменя хаотичните Вайбър групи — всичко на едно място.</p>
+        <ul class="bullets">
+          <li>Пишете <b>съобщение</b> или качвате <b>снимка</b>, която влиза в „Новините“ на отбора.</li>
+          <li>Родителите и състезателите получават <b>известие на телефона</b>.</li>
+          <li>Историята на чата се пази — нищо не се губи.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="step" id="metodika">
+    <div class="stepHead"><div class="stepNum">10</div><h2>Учебник, упражнения и форум</h2></div>
+    <p class="stepIntro">Всичко за качеството на тренировката — в раздел <b>„Обучение &amp; Ресурси“</b>.</p>
+    <div class="row flip">
+      <div>
+        <ul class="bullets">
+          <li><b>Учебник на БФВ</b> — методиката, търсима по теми и възрасти.</li>
+          <li><b>Каталог с упражнения</b> — одобрени от Федерацията; можете да предлагате свои.</li>
+          <li><b>Статии</b> — практически знания с филтри по тема и ниво.</li>
+          <li><b>Форум</b> — въпроси и обмяна на опит с треньори от цялата страна.</li>
+        </ul>
+      </div>
+      <div class="shot">
+        <img src="../presentation/screenshots/textbook.png" alt="Учебник БФВ" data-cap="Учебник БФВ" />
+        <div class="shotCap">Учебник на БФВ (методика)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section class="step" id="diagnostika">
+    <div class="stepHead"><div class="stepNum">11</div><h2>Диагностика и развитие на състезателя</h2></div>
+    <div class="row">
+      <div class="shot">
+        <img src="../presentation/screenshots/club-assessment.png" alt="Въвеждане на измервания" data-cap="Диагностика" />
+        <div class="shotCap">Въвеждам тестовете → излиза справка</div>
+      </div>
+      <div>
+        <p class="stepIntro">Измервате веднъж — платформата сама прави справките и следи развитието.</p>
+        <ol class="howto">
+          <li>Отворете <b>„Диагностика“</b> и въведете резултатите от тестовете (отскок, подаване и др.).</li>
+          <li>Платформата ги превръща в <b>справка по състезатели</b> с филтри по пол, възраст и отбор.</li>
+          <li>В картона на всяко дете виждате <b>лични рекорди</b> и развитие във времето.</li>
+          <li>С един бутон <b>експортирате CSV или PDF</b> за отчет.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="tip">📊 Цветовете показват къде стои детето спрямо нормите — това е <b>ориентир</b>, не оценка.</div>
+  </section>
+
+  <!-- 12 -->
+  <section class="step" id="izvestiq">
+    <div class="stepHead"><div class="stepNum">12</div><h2>Известия на телефона + инсталиране</h2></div>
+    <p class="stepIntro">За да получавате известия (нови съобщения, извинения, такси), инсталирайте приложението и включете известията.</p>
+    <ol class="howto">
+      <li>Отворете платформата в <b>Chrome</b> (Android) или <b>Safari</b> (iPhone).</li>
+      <li>От менюто на браузъра изберете <b>„Добави към началния екран“</b> / „Инсталирай приложение“.</li>
+      <li>Отворете приложението от иконата на началния екран.</li>
+      <li>В профила/отборната стая натиснете <b>„Включи известията“</b> и потвърдете в браузъра.</li>
+      <li>Тествайте с бутона <b>„Тестово известие“</b> — трябва да получите известие с логото на клуба.</li>
+    </ol>
+    <div class="note">📵 Ако не получавате известия: проверете дали известията за браузъра са разрешени в настройките на телефона и че не сте в режим „Не безпокойте“.</div>
+  </section>
+
+  <!-- Finish -->
+  <div class="finish">
+    <h2>Готови сте! 🏐</h2>
+    <p>Започнете с един отбор този сезон — присъствие от телефона още на следващата тренировка. Разширявате, когато сте готови.</p>
+    <div class="linkRow">
+      <a class="primary" href="https://volley-platform.vercel.app/login" target="_blank" rel="noreferrer">Вход за треньори</a>
+      <a href="https://volley-platform.vercel.app/" target="_blank" rel="noreferrer">Начална страница</a>
+    </div>
+  </div>
+
+  <footer>Volley Coach Platform · Българска федерация по волейбол · Имате въпрос? Пишете в Форума.</footer>
+</div>
+
+<button class="toTop" id="toTop" aria-label="Нагоре">↑</button>
+
+<div class="lightbox" id="lightbox">
+  <button type="button" class="lbClose" id="lbClose" aria-label="Затвори">&times;</button>
+  <img id="lightboxImg" src="" alt="Уголемен екран" />
+</div>
+
+<script>
+  // Lightbox (zoom screenshots)
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  function closeLightbox() { lightbox.classList.remove('show'); lightboxImg.src = ''; }
+  lightbox.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+  document.querySelectorAll('.shot img').forEach((img) => {
+    img.addEventListener('click', () => { lightboxImg.src = img.getAttribute('src'); lightbox.classList.add('show'); });
+    img.addEventListener('error', () => {
+      const cap = img.getAttribute('data-cap') || 'Екран от приложението';
+      const ph = document.createElement('div');
+      ph.className = 'ph';
+      ph.innerHTML = '<div class="big">📸</div><div><b>' + cap + '</b></div>';
+      img.replaceWith(ph);
+    });
+    if (img.complete && img.naturalWidth === 0) img.dispatchEvent(new Event('error'));
+  });
+
+  // Back to top
+  const toTop = document.getElementById('toTop');
+  window.addEventListener('scroll', () => {
+    toTop.classList.toggle('show', window.scrollY > 600);
+  });
+  toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+</body>
+</html>

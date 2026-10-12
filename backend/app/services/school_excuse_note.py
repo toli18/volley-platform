@@ -67,9 +67,10 @@ def is_troyan_volley_club(club: Club | None) -> bool:
             getattr(club, "name", None),
             getattr(club, "full_name", None),
             getattr(club, "bvf_club_name", None),
+            getattr(club, "city", None),
         )
     )
-    return "троян" in blob and "волей" in blob
+    return "troyan" in blob or "троян" in blob
 
 
 def bundled_school_excuse_signature_path(club: Club | None) -> Path | None:

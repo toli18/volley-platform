@@ -242,9 +242,10 @@ export default function CoachClubDocuments() {
   const athletes = defaults?.athletes || [];
   const showTroyanHall = Boolean(
     defaults?.troyan_hall_application ||
+      Number(defaults?.bvf_club_id) === 167 ||
       (() => {
-        const blob = `${defaults?.club_full_name || ""} ${defaults?.club_name || ""}`.toLowerCase();
-        return blob.includes("троян") && blob.includes("волей");
+        const blob = `${defaults?.club_full_name || ""} ${defaults?.club_name || ""} ${defaults?.bvf_club_name || ""}`.toLowerCase();
+        return blob.includes("troyan") || blob.includes("троян");
       })(),
   );
 

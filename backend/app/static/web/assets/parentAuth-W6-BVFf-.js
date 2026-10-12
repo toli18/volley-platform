@@ -1,0 +1,1 @@
+const e="parent_access_token";function o(){return localStorage.getItem(e)}function a(t){t?localStorage.setItem(e,t):localStorage.removeItem(e)}function r(){localStorage.removeItem(e)}function n(){return"/parent/login"}function i(){return"/parent/portal"}function c(){return typeof window>"u"?n():`${window.location.origin}${n()}`}export{c as a,i as b,r as c,o as g,n as p,a as s};
