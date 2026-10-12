@@ -172,6 +172,24 @@ export default function CoachClubDocuments() {
     team_id: "",
     require_egn: false,
   });
+  const [hallBusy, setHallBusy] = useState(false);
+  const [hallPreview, setHallPreview] = useState(null);
+  const [hallMonth, setHallMonth] = useState(() => {
+    const d = new Date();
+    return { year: String(d.getFullYear()), month: String(d.getMonth() + 1) };
+  });
+  const [hallForm, setHallForm] = useState({
+    org_name: "",
+    eik: "",
+    city: "",
+    municipality: "",
+    oblast: "",
+    street: "",
+    representative_name: "",
+    phone: "",
+    email: "",
+    event_title: "",
+  });
 
   const [noteForm, setNoteForm] = useState({
     athlete_id: "",
@@ -260,6 +278,65 @@ export default function CoachClubDocuments() {
     if (tab !== "insurance") return;
     loadInsurance();
   }, [tab, loadInsurance]);
+
+  const loadHall = useCallback(async () => {
+    if (!defaults?.troyan_hall_application) return;
+    setHallBusy(true);
+    try {
+      const res = await axiosInstance.get(API_PATHS.CLUB_DOCUMENTS_TROYAN_HALL, {
+        params: {
+          year: Number(hallMonth.year) || new Date().getFullYear(),
+          month: Number(hallMonth.month) || new Date().getMonth() + 1,
+        },
+      });
+      setHallPreview(res.data || null);
+      const d = res.data?.defaults || {};
+      setHallForm((prev) => ({
+        org_name: prev.org_name || d.org_name || "",
+        eik: prev.eik || d.eik || "",
+        city: prev.city || d.city || "",
+        municipality: prev.municipality || d.municipality || "",
+        oblast: prev.oblast || d.oblast || "",
+        street: prev.street || d.street || "",
+        representative_name: prev.representative_name || d.representative_name || "",
+        phone: prev.phone || d.phone || "",
+        email: prev.email || d.email || "",
+        event_title: res.data?.event_title || prev.event_title || "",
+      }));
+    } catch (err) {
+      setHallPreview(null);
+      toast.error(normalizeError(err, "Неуспешно зареждане на заявлението за зала."));
+    } finally {
+      setHallBusy(false);
+    }
+  }, [defaults?.troyan_hall_application, hallMonth.month, hallMonth.year, toast]);
+
+  useEffect(() => {
+    if (tab !== "hall") return;
+    loadHall();
+  }, [tab, loadHall]);
+
+  const openHallPdf = async () => {
+    try {
+      setHallBusy(true);
+      const res = await axiosInstance.post(
+        API_PATHS.CLUB_DOCUMENTS_TROYAN_HALL_PDF,
+        {
+          year: Number(hallMonth.year) || new Date().getFullYear(),
+          month: Number(hallMonth.month) || new Date().getMonth() + 1,
+          ...hallForm,
+        },
+        { responseType: "blob" },
+      );
+      const url = URL.createObjectURL(res.data);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен PDF."));
+    } finally {
+      setHallBusy(false);
+    }
+  };
 
   const downloadInsuranceXlsx = async () => {
     try {
@@ -431,7 +508,9 @@ export default function CoachClubDocuments() {
         <span className="feesCoachHeadBadge">{notes.length + invoices.length}</span>
       </header>
       <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-        Служебни бележки, фактури и списък за застраховка. Бележките и фактурите се отварят като PDF за печат.
+        Служебни бележки, фактури и списък за застраховка.
+        {defaults?.troyan_hall_application ? " За Троян — и месечно заявление за зала." : ""}
+        {" "}Бележките и фактурите се отварят като PDF за печат.
         {defaults?.club_full_name ? ` Издател: ${defaults.club_full_name}.` : ""}
       </p>
 
@@ -440,6 +519,9 @@ export default function CoachClubDocuments() {
           { id: "notes", label: `Бележки (${notes.length})` },
           { id: "invoices", label: `Фактури (${invoices.length})` },
           { id: "insurance", label: `Застраховки${insurance?.count != null ? ` (${insurance.count})` : ""}` },
+          ...(defaults?.troyan_hall_application
+            ? [{ id: "hall", label: `Зала Троян${hallPreview?.count != null ? ` (${hallPreview.count})` : ""}` }]
+            : []),
         ].map((f) => (
           <button
             key={f.id}
@@ -937,6 +1019,162 @@ export default function CoachClubDocuments() {
                       Картотеки: {row.card_index_labels.join(", ")}
                     </div>
                   ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : null}
+
+      {tab === "hall" && defaults?.troyan_hall_application ? (
+        <>
+          <p className="coachMobileMuted" style={{ marginTop: 0, fontSize: 13 }}>
+            Месечно заявление към Община Троян за Спортна зала. Взимат се тренировките от графика,
+            чието място съдържа „Троян“ (Чавдар/Нупи се пропускат). По 1 ред на ден с обединени часове.
+            Остава само физическият подпис на председателя.
+          </p>
+          <div
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: 12,
+              background: "#fff",
+              marginBottom: 14,
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
+              <label className="uiField" style={{ margin: 0, minWidth: 100 }}>
+                <span className="uiFieldLabel">Година</span>
+                <input
+                  className="uiControl"
+                  value={hallMonth.year}
+                  onChange={(e) => setHallMonth((p) => ({ ...p, year: e.target.value }))}
+                  inputMode="numeric"
+                  style={{ width: 100 }}
+                />
+              </label>
+              <label className="uiField" style={{ margin: 0, minWidth: 140 }}>
+                <span className="uiFieldLabel">Месец</span>
+                <select
+                  className="uiControl"
+                  value={hallMonth.month}
+                  onChange={(e) => {
+                    setHallMonth((p) => ({ ...p, month: e.target.value }));
+                    setHallForm((p) => ({ ...p, event_title: "" }));
+                  }}
+                >
+                  {[
+                    ["1", "януари"],
+                    ["2", "февруари"],
+                    ["3", "март"],
+                    ["4", "април"],
+                    ["5", "май"],
+                    ["6", "юни"],
+                    ["7", "юли"],
+                    ["8", "август"],
+                    ["9", "септември"],
+                    ["10", "октомври"],
+                    ["11", "ноември"],
+                    ["12", "декември"],
+                  ].map(([v, lbl]) => (
+                    <option key={v} value={v}>
+                      {lbl}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="button" variant="secondary" disabled={hallBusy} onClick={loadHall}>
+                {hallBusy ? "Зареждане…" : "Обнови от графика"}
+              </Button>
+              <Button type="button" disabled={hallBusy} onClick={openHallPdf}>
+                Преглед / печат PDF
+              </Button>
+            </div>
+
+            <Input
+              label="Наименование"
+              value={hallForm.org_name}
+              onChange={(e) => setHallForm((p) => ({ ...p, org_name: e.target.value }))}
+            />
+            <Input
+              label="ЕИК"
+              value={hallForm.eik}
+              onChange={(e) => setHallForm((p) => ({ ...p, eik: e.target.value }))}
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Input
+                label="Град"
+                value={hallForm.city}
+                onChange={(e) => setHallForm((p) => ({ ...p, city: e.target.value }))}
+              />
+              <Input
+                label="Община"
+                value={hallForm.municipality}
+                onChange={(e) => setHallForm((p) => ({ ...p, municipality: e.target.value }))}
+              />
+              <Input
+                label="Област"
+                value={hallForm.oblast}
+                onChange={(e) => setHallForm((p) => ({ ...p, oblast: e.target.value }))}
+              />
+            </div>
+            <Input
+              label="Улица / №"
+              value={hallForm.street}
+              onChange={(e) => setHallForm((p) => ({ ...p, street: e.target.value }))}
+            />
+            <Input
+              label="Представляван от (председател)"
+              value={hallForm.representative_name}
+              onChange={(e) => setHallForm((p) => ({ ...p, representative_name: e.target.value }))}
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Input
+                label="Телефон"
+                value={hallForm.phone}
+                onChange={(e) => setHallForm((p) => ({ ...p, phone: e.target.value }))}
+              />
+              <Input
+                label="E-mail"
+                value={hallForm.email}
+                onChange={(e) => setHallForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+            <Input
+              label="Наименование на събитието"
+              value={hallForm.event_title}
+              onChange={(e) => setHallForm((p) => ({ ...p, event_title: e.target.value }))}
+            />
+            <p className="coachMobileMuted" style={{ margin: 0, fontSize: 13 }}>
+              {hallPreview
+                ? `${hallPreview.count} дни · ${hallPreview.total_hours} ч. · ${hallPreview.hall_label}`
+                : "Избери месец и обнови."}
+            </p>
+          </div>
+
+          {hallBusy && !hallPreview ? <p className="coachMobileMuted">Зареждане…</p> : null}
+          {!hallBusy && hallPreview && hallPreview.count === 0 ? (
+            <p className="coachMobileMuted">Няма тренировки в зала Троян за този месец.</p>
+          ) : null}
+          {hallPreview?.slots?.length ? (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+              {hallPreview.slots.map((row) => (
+                <li
+                  key={row.date}
+                  style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, background: "#fff" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <strong>{row.date_bg}</strong>
+                    <span>
+                      {row.start_time} – {row.end_time}
+                    </span>
+                  </div>
+                  <div className="coachMobileMuted" style={{ marginTop: 4, fontSize: 13 }}>
+                    {row.session_count} тренировки · {row.hours} ч.
+                    {row.locations?.length ? ` · ${row.locations.join(", ")}` : ""}
+                  </div>
                 </li>
               ))}
             </ul>

@@ -214,7 +214,7 @@ export const COACH_CLUB_ADMIN_HUB_LINKS = [
     label: "Документи",
     to: "/coach/documents",
     icon: "article",
-    hint: "Бележки, фактури, застраховки",
+    hint: "Бележки, фактури, застраховки, зала",
   },
 ];
 

@@ -432,4 +432,6 @@ export const API_PATHS = {
   CLUB_DOCUMENTS_INVOICE_CANCEL: (id) => `/api/club-documents/invoices/${id}/cancel`,
   CLUB_DOCUMENTS_INSURANCE_ROSTER: "/api/club-documents/insurance-roster",
   CLUB_DOCUMENTS_INSURANCE_ROSTER_XLSX: "/api/club-documents/insurance-roster.xlsx",
+  CLUB_DOCUMENTS_TROYAN_HALL: "/api/club-documents/troyan-hall-application",
+  CLUB_DOCUMENTS_TROYAN_HALL_PDF: "/api/club-documents/troyan-hall-application/pdf",
 };

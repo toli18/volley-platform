@@ -43,6 +43,12 @@ from app.services.club_office_docs import (
     normalize_invoice_items,
     note_to_dict,
 )
+from app.services.school_excuse_note import is_troyan_volley_club
+from app.services.troyan_hall_application import (
+    build_troyan_hall_application_pdf,
+    event_title_for_month,
+    preview_payload as troyan_hall_preview,
+)
 
 router = APIRouter(prefix="/api/club-documents", tags=["Club Documents"])
 
@@ -132,6 +138,7 @@ def document_defaults(
         "today": today.isoformat(),
         "next_note_number": next_note_number(db, club.id, today.year),
         "next_invoice_number": next_invoice_number(db, club.id, today.year),
+        "troyan_hall_application": is_troyan_volley_club(club),
         "athletes": [
             {
                 "id": a.id,
@@ -630,4 +637,82 @@ def insurance_roster_xlsx(
         content=bio.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+class TroyanHallPdfIn(BaseModel):
+    year: int
+    month: int = Field(..., ge=1, le=12)
+    org_name: Optional[str] = Field(None, max_length=255)
+    eik: Optional[str] = Field(None, max_length=32)
+    city: Optional[str] = Field(None, max_length=120)
+    municipality: Optional[str] = Field(None, max_length=120)
+    oblast: Optional[str] = Field(None, max_length=120)
+    street: Optional[str] = Field(None, max_length=255)
+    representative_name: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=255)
+    event_title: Optional[str] = Field(None, max_length=500)
+
+
+def _require_troyan(club) -> None:
+    if not is_troyan_volley_club(club):
+        raise HTTPException(status_code=403, detail="Заявлението за зала Троян е само за ВК Троян Волей")
+
+
+@router.get("/troyan-hall-application")
+def troyan_hall_application_preview(
+    year: int | None = Query(None),
+    month: int | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_head),
+):
+    club = _club_for_user(db, current_user)
+    _require_troyan(club)
+    today = date.today()
+    y = int(year or today.year)
+    m = int(month or today.month)
+    if m < 1 or m > 12:
+        raise HTTPException(status_code=422, detail="month must be 1–12")
+    return troyan_hall_preview(db, club, y, m, current_user)
+
+
+@router.post("/troyan-hall-application/pdf")
+def troyan_hall_application_pdf(
+    body: TroyanHallPdfIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_head),
+):
+    club = _club_for_user(db, current_user)
+    _require_troyan(club)
+    preview = troyan_hall_preview(db, club, int(body.year), int(body.month), current_user)
+    fields = dict(preview["defaults"])
+    for key in (
+        "org_name",
+        "eik",
+        "city",
+        "municipality",
+        "oblast",
+        "street",
+        "representative_name",
+        "phone",
+        "email",
+    ):
+        val = getattr(body, key, None)
+        if val is not None and str(val).strip():
+            fields[key] = str(val).strip()
+    fields["event_title"] = (body.event_title or "").strip() or event_title_for_month(
+        int(body.year), int(body.month)
+    )
+    pdf = build_troyan_hall_application_pdf(
+        year=int(body.year),
+        month=int(body.month),
+        slots=preview["slots"],
+        fields=fields,
+    )
+    fname = f"zayavlenie-zala-troyan-{int(body.year):04d}-{int(body.month):02d}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
     )
