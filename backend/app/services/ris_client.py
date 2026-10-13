@@ -129,8 +129,13 @@ def list_championships(season_year: int, *, age_group: int | None = None) -> lis
     return data if isinstance(data, list) else []
 
 
-def get_championship(championship_id: int) -> dict:
-    data = ris_get(f"/api/public/championships/{int(championship_id)}", cache_ttl=90)
+def get_championship(championship_id: int, *, fresh: bool = True) -> dict:
+    """Championship detail with standings/bracket.
+
+    Default fresh=True: no cache — standings must stay current for coaches.
+    """
+    ttl = 0.0 if fresh else 90.0
+    data = ris_get(f"/api/public/championships/{int(championship_id)}", cache_ttl=ttl)
     return data if isinstance(data, dict) else {}
 
 

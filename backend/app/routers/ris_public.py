@@ -140,12 +140,25 @@ def ris_championships(
 @router.get("/championships/{championship_id}")
 def ris_championship_detail(
     championship_id: int,
+    fresh: bool = Query(default=True, description="Skip cache; always fetch live standings from RIS"),
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_COACH_ROLES)),
 ):
+    """Live championship standings (no local copy). fresh=true by default."""
+    club = _club_for_user(db, current_user)
+    bvf_club_id = int(getattr(club, "bvf_club_id", 0) or 0) or None
     try:
-        return {"data": get_championship(championship_id)}
+        data = get_championship(championship_id, fresh=bool(fresh))
     except RisApiError as exc:
         raise http_error_from_ris(exc) from exc
+    return {
+        "data": data,
+        "meta": {
+            "fresh": bool(fresh),
+            "bvf_club_id": bvf_club_id,
+            "source": "ris.bgvolley.dev",
+        },
+    }
 
 
 @router.get("/games/{game_id}")

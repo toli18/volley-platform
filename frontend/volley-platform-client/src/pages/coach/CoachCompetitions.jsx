@@ -8,6 +8,7 @@ import useNavRoles from "../../navigation/useNavRoles";
 import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
 import RisImportModal from "../../components/schedule/RisImportModal";
+import RisStandingsModal from "../../components/schedule/RisStandingsModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { competitionRosterAction } from "../../utils/competitionRosterPriority";
@@ -106,6 +107,9 @@ export default function CoachCompetitions() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetCtx, setSheetCtx] = useState(null);
   const [risOpen, setRisOpen] = useState(false);
+  const [standingsOpen, setStandingsOpen] = useState(false);
+  const [standingsChampId, setStandingsChampId] = useState(null);
+  const [standingsHint, setStandingsHint] = useState("");
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
@@ -456,6 +460,23 @@ export default function CoachCompetitions() {
               <Button size="sm" variant="secondary" onClick={() => openOfficialSheet(row)}>
                 Генерирай тимов лист
               </Button>
+              {row.ris_championship_id ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setStandingsChampId(Number(row.ris_championship_id));
+                    setStandingsHint(
+                      [row.competition_kind_label || row.competition_kind, row.carded_team_label]
+                        .filter(Boolean)
+                        .join(" · "),
+                    );
+                    setStandingsOpen(true);
+                  }}
+                >
+                  Класиране
+                </Button>
+              ) : null}
               {row.date === todayKey() ? (
                 <Button
                   size="sm"
@@ -498,6 +519,17 @@ export default function CoachCompetitions() {
         coaches={coaches}
         cardIndexes={cardIndexes}
         defaultCoachId={currentUserId}
+      />
+
+      <RisStandingsModal
+        open={standingsOpen}
+        onClose={() => {
+          setStandingsOpen(false);
+          setStandingsChampId(null);
+          setStandingsHint("");
+        }}
+        championshipId={standingsChampId}
+        titleHint={standingsHint}
       />
 
       {rosterEvent && roster ? (
