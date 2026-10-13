@@ -314,18 +314,30 @@ def _chk(checked: bool) -> str:
 
 
 def _replace_in_paragraph(paragraph, mapping: dict[str, str]) -> None:
+    """Replace placeholders per-run so Times New Roman / bold / italic stay intact."""
     if not paragraph.runs:
         return
-    full = "".join(run.text for run in paragraph.runs)
-    if not any(k in full for k in mapping):
-        return
-    new = full
-    for key, val in mapping.items():
-        new = new.replace(key, val)
-    # Put all text in first run; clear the rest to keep formatting of first run.
-    paragraph.runs[0].text = new
-    for run in paragraph.runs[1:]:
-        run.text = ""
+    for run in paragraph.runs:
+        text = run.text or ""
+        if not text:
+            continue
+        new = text
+        changed = False
+        for key, val in mapping.items():
+            if key in new:
+                new = new.replace(key, val)
+                changed = True
+        if changed:
+            run.text = new
+
+
+def _iter_cell_paragraphs(cell):
+    for p in cell.paragraphs:
+        yield p
+    for nested in cell.tables:
+        for row in nested.rows:
+            for nested_cell in row.cells:
+                yield from _iter_cell_paragraphs(nested_cell)
 
 
 def _iter_all_paragraphs(doc):
@@ -334,8 +346,7 @@ def _iter_all_paragraphs(doc):
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                for p in cell.paragraphs:
-                    yield p
+                yield from _iter_cell_paragraphs(cell)
 
 
 def build_troyan_hall_application_docx(
@@ -414,8 +425,11 @@ def build_troyan_hall_application_docx(
             p = cell.paragraphs[0]
             run = p.add_run("☑" if checkbox else (text or ""))
             run.font.name = "Times New Roman"
+            run._element.rPr.rFonts.set(qn("w:ascii"), "Times New Roman")
+            run._element.rPr.rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            run._element.rPr.rFonts.set(qn("w:cs"), "Times New Roman")
             run._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-            run.font.size = Pt(10)
+            run.font.size = Pt(14)
 
         for i in range(1, len(sched.rows)):
             slot = slots[i - 1] if i - 1 < len(slots) else None
