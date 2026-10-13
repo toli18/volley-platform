@@ -10,7 +10,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Club, TrainingScheduleException, TrainingScheduleRule, User
+from app.models import (
+    Club,
+    ClubCompetitionEvent,
+    TrainingScheduleException,
+    TrainingScheduleRule,
+    User,
+)
 from app.services.school_excuse_note import is_troyan_volley_club
 
 
@@ -157,6 +163,43 @@ def _minutes_to_time(total: int) -> str:
     return f"{h:02d}:{m:02d}"
 
 
+def _merge_slot(
+    by_date: dict[str, dict[str, Any]],
+    *,
+    day: str,
+    start_v: str,
+    end_v: str,
+    location_v: str,
+    kind: str,
+) -> None:
+    start_m = _time_to_minutes(start_v)
+    end_m = _time_to_minutes(end_v)
+    if end_m <= start_m:
+        return
+    slot = by_date.get(day)
+    if slot is None:
+        by_date[day] = {
+            "date": day,
+            "start_time": start_v,
+            "end_time": end_v,
+            "_start_m": start_m,
+            "_end_m": end_m,
+            "session_count": 1,
+            "locations": [location_v] if location_v else [],
+            "kinds": [kind],
+        }
+        return
+    slot["_start_m"] = min(slot["_start_m"], start_m)
+    slot["_end_m"] = max(slot["_end_m"], end_m)
+    slot["start_time"] = _minutes_to_time(slot["_start_m"])
+    slot["end_time"] = _minutes_to_time(slot["_end_m"])
+    slot["session_count"] = int(slot["session_count"]) + 1
+    if location_v and location_v not in slot["locations"]:
+        slot["locations"].append(location_v)
+    if kind not in slot["kinds"]:
+        slot["kinds"].append(kind)
+
+
 def build_month_slots(
     db: Session,
     club_id: int,
@@ -166,8 +209,9 @@ def build_month_slots(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Един ред на ден: обединени часове за всички тренировки с локация „Троян“."""
+    """Един ред на ден: обединени часове за тренировки + домакински събития в зала Троян."""
     d0, d1 = resolve_period(year, month, date_from, date_to)
+    by_date: dict[str, dict[str, Any]] = {}
 
     rules = (
         db.query(TrainingScheduleRule)
@@ -182,22 +226,20 @@ def build_month_slots(
         )
         .all()
     )
-    if not rules:
-        return []
-
     rule_ids = [r.id for r in rules]
-    exc_rows = (
-        db.query(TrainingScheduleException)
-        .filter(
-            TrainingScheduleException.rule_id.in_(rule_ids),
-            TrainingScheduleException.date >= d0.isoformat(),
-            TrainingScheduleException.date <= d1.isoformat(),
+    exc_by_key: dict[tuple[int, str], TrainingScheduleException] = {}
+    if rule_ids:
+        exc_rows = (
+            db.query(TrainingScheduleException)
+            .filter(
+                TrainingScheduleException.rule_id.in_(rule_ids),
+                TrainingScheduleException.date >= d0.isoformat(),
+                TrainingScheduleException.date <= d1.isoformat(),
+            )
+            .all()
         )
-        .all()
-    )
-    exc_by_key = {(e.rule_id, e.date): e for e in exc_rows}
+        exc_by_key = {(e.rule_id, e.date): e for e in exc_rows}
 
-    by_date: dict[str, dict[str, Any]] = {}
     for day_idx in range((d1 - d0).days + 1):
         cur = d0 + timedelta(days=day_idx)
         weekday = cur.weekday()
@@ -221,27 +263,38 @@ def build_month_slots(
                 continue
             start_v = exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
             end_v = exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
-            slot = by_date.get(cur_s)
-            start_m = _time_to_minutes(start_v)
-            end_m = _time_to_minutes(end_v)
-            if slot is None:
-                by_date[cur_s] = {
-                    "date": cur_s,
-                    "start_time": start_v,
-                    "end_time": end_v,
-                    "_start_m": start_m,
-                    "_end_m": end_m,
-                    "session_count": 1,
-                    "locations": [location_v] if location_v else [],
-                }
-            else:
-                slot["_start_m"] = min(slot["_start_m"], start_m)
-                slot["_end_m"] = max(slot["_end_m"], end_m)
-                slot["start_time"] = _minutes_to_time(slot["_start_m"])
-                slot["end_time"] = _minutes_to_time(slot["_end_m"])
-                slot["session_count"] = int(slot["session_count"]) + 1
-                if location_v and location_v not in slot["locations"]:
-                    slot["locations"].append(location_v)
+            _merge_slot(
+                by_date,
+                day=cur_s,
+                start_v=str(start_v or ""),
+                end_v=str(end_v or ""),
+                location_v=location_v,
+                kind="training",
+            )
+
+    # Домакински състезания / турнири / мачове в зала Троян (от календара на клуба)
+    comps = (
+        db.query(ClubCompetitionEvent)
+        .filter(
+            ClubCompetitionEvent.club_id == int(club_id),
+            ClubCompetitionEvent.is_cancelled.is_(False),
+            ClubCompetitionEvent.date >= d0.isoformat(),
+            ClubCompetitionEvent.date <= d1.isoformat(),
+        )
+        .all()
+    )
+    for comp in comps:
+        location_v = _norm_location(comp.location)
+        if not _is_troyan_location(location_v):
+            continue
+        _merge_slot(
+            by_date,
+            day=str(comp.date),
+            start_v=str(comp.start_time or ""),
+            end_v=str(comp.end_time or ""),
+            location_v=location_v,
+            kind=str(comp.competition_kind or "competition"),
+        )
 
     out: list[dict[str, Any]] = []
     for key in sorted(by_date.keys()):
@@ -256,6 +309,7 @@ def build_month_slots(
                 "hours": round(hours, 2),
                 "session_count": row["session_count"],
                 "locations": row["locations"],
+                "kinds": row.get("kinds") or [],
                 "all_day": False,
             }
         )
@@ -297,9 +351,11 @@ def preview_payload(
         "slots": slots,
         "defaults": defaults,
         "hall_label": "Спортна зала",
-        "rule": "Само тренировки с място, съдържащо „Троян“. По 1 ред на ден с обединени часове.",
+        "rule": (
+            "Тренировки и домакински събития (мачове/турнири) с място „Троян“. "
+            "По 1 ред на ден с обединени часове. Бланката не се променя — само таблицата с дати."
+        ),
     }
-
 
 
 def _template_docx_path() -> Path:
@@ -309,44 +365,30 @@ def _template_docx_path() -> Path:
     return path
 
 
-def _chk(checked: bool) -> str:
-    return "☑" if checked else "☐"
+def _write_schedule_cell(cell, text: str, *, checkbox: bool = False) -> None:
+    """Write into a schedule cell with fonts matching the official blank."""
+    from docx.oxml.ns import qn
+    from docx.shared import Pt
 
-
-def _replace_in_paragraph(paragraph, mapping: dict[str, str]) -> None:
-    """Replace placeholders per-run so Times New Roman / bold / italic stay intact."""
-    if not paragraph.runs:
+    cell.text = ""
+    p = cell.paragraphs[0]
+    if checkbox:
+        run = p.add_run("☐")
+        run.font.name = "Segoe UI Symbol"
+        run._element.rPr.rFonts.set(qn("w:ascii"), "Segoe UI Symbol")
+        run._element.rPr.rFonts.set(qn("w:hAnsi"), "Segoe UI Symbol")
+        sp = p.add_run("  ")
+        sp.font.name = "Times New Roman"
         return
-    for run in paragraph.runs:
-        text = run.text or ""
-        if not text:
-            continue
-        new = text
-        changed = False
-        for key, val in mapping.items():
-            if key in new:
-                new = new.replace(key, val)
-                changed = True
-        if changed:
-            run.text = new
-
-
-def _iter_cell_paragraphs(cell):
-    for p in cell.paragraphs:
-        yield p
-    for nested in cell.tables:
-        for row in nested.rows:
-            for nested_cell in row.cells:
-                yield from _iter_cell_paragraphs(nested_cell)
-
-
-def _iter_all_paragraphs(doc):
-    for p in doc.paragraphs:
-        yield p
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                yield from _iter_cell_paragraphs(cell)
+    if not text:
+        return
+    run = p.add_run(text)
+    run.font.name = "Times New Roman"
+    run._element.rPr.rFonts.set(qn("w:ascii"), "Times New Roman")
+    run._element.rPr.rFonts.set(qn("w:hAnsi"), "Times New Roman")
+    run._element.rPr.rFonts.set(qn("w:cs"), "Times New Roman")
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+    run.font.size = Pt(10)
 
 
 def build_troyan_hall_application_docx(
@@ -354,95 +396,41 @@ def build_troyan_hall_application_docx(
     year: int,
     month: int,
     slots: list[dict[str, Any]],
-    fields: dict[str, Any],
+    fields: dict[str, Any] | None = None,
 ) -> bytes:
-    """Fill the official Appendix 12 DOCX blank — layout unchanged, only field values."""
+    """Use the official filled blank as-is; only fill the dates/hours table."""
     from copy import deepcopy
 
     from docx import Document
-    from docx.oxml.ns import qn
-    from docx.shared import Pt
 
+    del year, month, fields  # blank already contains legal text; only slots are written
     template = _template_docx_path()
     doc = Document(str(template))
 
-    hall_type = (fields.get("hall_type") or "sport").strip().lower()
-    event_kind = (fields.get("event_kind") or "training").strip().lower()
-    rebuild = bool(fields.get("rebuild_hall"))
-    eq_volley = bool(fields.get("equipment_volleyball", True))
-
-    today = date.today()
-    mapping = {
-        "{{ORG_NAME}}": (fields.get("org_name") or TROYAN_ORG_NAME).strip(),
-        "{{EIK}}": (fields.get("eik") or TROYAN_EIK).strip(),
-        "{{CITY}}": (fields.get("city") or TROYAN_CITY).strip(),
-        "{{MUNICIPALITY}}": (fields.get("municipality") or TROYAN_MUNICIPALITY).strip(),
-        "{{OBLAST}}": (fields.get("oblast") or TROYAN_OBLAST).strip(),
-        "{{STREET}}": (fields.get("street") or TROYAN_STREET).strip(),
-        "{{PHONE}}": (fields.get("phone") or "").strip() or "—",
-        "{{REP_NAME}}": (fields.get("representative_name") or "").strip() or "—",
-        "{{EMAIL}}": (fields.get("email") or "").strip() or "—",
-        "{{EVENT_TITLE}}": (
-            fields.get("event_title") or event_title_for_month(year, month)
-        ).strip(),
-        "{{TODAY}}": f"{today.day:02d}.{today.month:02d}.{today.year}",
-        "{{CHK_HALL_SPORT}}": _chk(hall_type in ("sport", "sports", "спортна")),
-        "{{CHK_HALL_TRAIN}}": _chk(hall_type in ("train", "training", "тренировъчна")),
-        "{{CHK_HALL_CONF}}": _chk(hall_type in ("conf", "conference", "конферентна")),
-        "{{CHK_KIND_TRAIN}}": _chk(event_kind in ("training", "train", "тренировки")),
-        "{{CHK_KIND_TOURN}}": _chk(event_kind in ("tournament", "tourn", "турнир")),
-        "{{CHK_KIND_OTHER}}": _chk(event_kind in ("other", "друго")),
-        "{{CHK_EQ_BASKET}}": _chk(False),
-        "{{CHK_EQ_VOLLEY}}": _chk(eq_volley),
-        "{{CHK_EQ_TENNIS}}": _chk(False),
-        "{{CHK_EQ_VINYL}}": _chk(False),
-        "{{CHK_EQ_SOUND}}": _chk(False),
-        "{{CHK_EQ_SCREEN}}": _chk(False),
-        "{{CHK_REBUILD_YES}}": _chk(rebuild),
-        "{{CHK_REBUILD_NO}}": _chk(not rebuild),
-    }
-
-    for paragraph in _iter_all_paragraphs(doc):
-        _replace_in_paragraph(paragraph, mapping)
-
-    # Fill schedule table (first 4-column table with Дата header)
     sched = None
     for table in doc.tables:
         if len(table.columns) == 4 and table.rows and "Дата" in (table.rows[0].cells[0].text or ""):
             sched = table
             break
-    if sched is not None:
-        # Ensure enough rows: header + len(slots)
-        needed = max(len(slots), 10)
-        while len(sched.rows) - 1 < needed:
-            # clone last row
-            tbl = sched._tbl
-            last = sched.rows[-1]._tr
-            tbl.append(deepcopy(last))
+    if sched is None:
+        raise RuntimeError("В бланката липсва таблицата за дати и часове")
 
-        def _set_cell(cell, text: str, *, checkbox: bool = False) -> None:
-            cell.text = ""
-            p = cell.paragraphs[0]
-            run = p.add_run("☑" if checkbox else (text or ""))
-            run.font.name = "Times New Roman"
-            run._element.rPr.rFonts.set(qn("w:ascii"), "Times New Roman")
-            run._element.rPr.rFonts.set(qn("w:hAnsi"), "Times New Roman")
-            run._element.rPr.rFonts.set(qn("w:cs"), "Times New Roman")
-            run._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-            run.font.size = Pt(9)
+    # Keep all existing blank rows; grow only if calendar needs more days.
+    while len(sched.rows) - 1 < len(slots):
+        sched._tbl.append(deepcopy(sched.rows[-1]._tr))
 
-        for i in range(1, len(sched.rows)):
-            slot = slots[i - 1] if i - 1 < len(slots) else None
-            if slot:
-                _set_cell(sched.rows[i].cells[0], slot.get("date_bg") or slot.get("date") or "")
-                _set_cell(sched.rows[i].cells[1], slot.get("start_time") or "")
-                _set_cell(sched.rows[i].cells[2], slot.get("end_time") or "")
-                _set_cell(sched.rows[i].cells[3], "☐", checkbox=False)
-            else:
-                _set_cell(sched.rows[i].cells[0], "")
-                _set_cell(sched.rows[i].cells[1], "")
-                _set_cell(sched.rows[i].cells[2], "")
-                _set_cell(sched.rows[i].cells[3], "☐")
+    for i in range(1, len(sched.rows)):
+        slot = slots[i - 1] if i - 1 < len(slots) else None
+        if slot:
+            _write_schedule_cell(sched.rows[i].cells[0], slot.get("date_bg") or "")
+            _write_schedule_cell(sched.rows[i].cells[1], slot.get("start_time") or "")
+            _write_schedule_cell(sched.rows[i].cells[2], slot.get("end_time") or "")
+            _write_schedule_cell(sched.rows[i].cells[3], "", checkbox=True)
+        else:
+            _write_schedule_cell(sched.rows[i].cells[0], "")
+            _write_schedule_cell(sched.rows[i].cells[1], "")
+            _write_schedule_cell(sched.rows[i].cells[2], "")
+            _write_schedule_cell(sched.rows[i].cells[3], "", checkbox=True)
 
     buf = BytesIO()
     doc.save(buf)
@@ -450,5 +438,11 @@ def build_troyan_hall_application_docx(
 
 
 # Backwards-compatible alias (UI/API now serve DOCX).
-def build_troyan_hall_application_pdf(*, year: int, month: int, slots: list[dict[str, Any]], fields: dict[str, Any]) -> bytes:
+def build_troyan_hall_application_pdf(
+    *,
+    year: int,
+    month: int,
+    slots: list[dict[str, Any]],
+    fields: dict[str, Any] | None = None,
+) -> bytes:
     return build_troyan_hall_application_docx(year=year, month=month, slots=slots, fields=fields)
