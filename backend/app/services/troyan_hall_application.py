@@ -14,12 +14,6 @@ from app.models import Club, TrainingScheduleException, TrainingScheduleRule, Us
 from app.services.school_excuse_note import is_troyan_volley_club
 
 
-def _obshtina_logo_path() -> Path | None:
-    path = Path(__file__).resolve().parent.parent / "static" / "troyan-hall" / "obshtina-troyan-logo.png"
-    if path.is_file() and path.stat().st_size > 0:
-        return path
-    return None
-
 MONTH_BG = (
     "",
     "януари",
@@ -307,285 +301,140 @@ def preview_payload(
     }
 
 
-def build_troyan_hall_application_pdf(
+
+def _template_docx_path() -> Path:
+    path = Path(__file__).resolve().parent.parent / "static" / "troyan-hall" / "prilozhenie-12.docx"
+    if not path.is_file():
+        raise FileNotFoundError("Липсва бланката Приложение 12 (prilozhenie-12.docx)")
+    return path
+
+
+def _chk(checked: bool) -> str:
+    return "☑" if checked else "☐"
+
+
+def _replace_in_paragraph(paragraph, mapping: dict[str, str]) -> None:
+    if not paragraph.runs:
+        return
+    full = "".join(run.text for run in paragraph.runs)
+    if not any(k in full for k in mapping):
+        return
+    new = full
+    for key, val in mapping.items():
+        new = new.replace(key, val)
+    # Put all text in first run; clear the rest to keep formatting of first run.
+    paragraph.runs[0].text = new
+    for run in paragraph.runs[1:]:
+        run.text = ""
+
+
+def _iter_all_paragraphs(doc):
+    for p in doc.paragraphs:
+        yield p
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    yield p
+
+
+def build_troyan_hall_application_docx(
     *,
     year: int,
     month: int,
     slots: list[dict[str, Any]],
     fields: dict[str, Any],
 ) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas
+    """Fill the official Appendix 12 DOCX blank — layout unchanged, only field values."""
+    from copy import deepcopy
 
-    from app.routers.fees import _ensure_pdf_font
+    from docx import Document
+    from docx.oxml.ns import qn
+    from docx.shared import Pt
 
-    font = _ensure_pdf_font()
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    width, height = A4
-    margin = 14 * mm
+    template = _template_docx_path()
+    doc = Document(str(template))
 
-    def checkbox(x: float, y: float, checked: bool, size: float = 3.2 * mm) -> None:
-        c.rect(x, y, size, size, stroke=1, fill=0)
-        if checked:
-            c.setFont(font, 9)
-            c.drawString(x + 0.5 * mm, y + 0.3 * mm, "X")
+    hall_type = (fields.get("hall_type") or "sport").strip().lower()
+    event_kind = (fields.get("event_kind") or "training").strip().lower()
+    rebuild = bool(fields.get("rebuild_hall"))
+    eq_volley = bool(fields.get("equipment_volleyball", True))
 
-    def draw_header_and_body(start_slot_idx: int) -> int:
-        """Draw form; return next slot index to draw."""
-        y_top = height - margin
-        logo_path = _obshtina_logo_path()
-        logo_w = 14 * mm
-        logo_h = 18 * mm
-        text_left = margin
-        if logo_path is not None:
-            c.drawImage(
-                str(logo_path),
-                margin,
-                y_top - logo_h,
-                width=logo_w,
-                height=logo_h,
-                mask="auto",
-                preserveAspectRatio=True,
-            )
-            text_left = margin + logo_w + 3 * mm
+    today = date.today()
+    mapping = {
+        "{{ORG_NAME}}": (fields.get("org_name") or TROYAN_ORG_NAME).strip(),
+        "{{EIK}}": (fields.get("eik") or TROYAN_EIK).strip(),
+        "{{CITY}}": (fields.get("city") or TROYAN_CITY).strip(),
+        "{{MUNICIPALITY}}": (fields.get("municipality") or TROYAN_MUNICIPALITY).strip(),
+        "{{OBLAST}}": (fields.get("oblast") or TROYAN_OBLAST).strip(),
+        "{{STREET}}": (fields.get("street") or TROYAN_STREET).strip(),
+        "{{PHONE}}": (fields.get("phone") or "").strip() or "—",
+        "{{REP_NAME}}": (fields.get("representative_name") or "").strip() or "—",
+        "{{EMAIL}}": (fields.get("email") or "").strip() or "—",
+        "{{EVENT_TITLE}}": (
+            fields.get("event_title") or event_title_for_month(year, month)
+        ).strip(),
+        "{{TODAY}}": f"{today.day:02d}.{today.month:02d}.{today.year}",
+        "{{CHK_HALL_SPORT}}": _chk(hall_type in ("sport", "sports", "спортна")),
+        "{{CHK_HALL_TRAIN}}": _chk(hall_type in ("train", "training", "тренировъчна")),
+        "{{CHK_HALL_CONF}}": _chk(hall_type in ("conf", "conference", "конферентна")),
+        "{{CHK_KIND_TRAIN}}": _chk(event_kind in ("training", "train", "тренировки")),
+        "{{CHK_KIND_TOURN}}": _chk(event_kind in ("tournament", "tourn", "турнир")),
+        "{{CHK_KIND_OTHER}}": _chk(event_kind in ("other", "друго")),
+        "{{CHK_EQ_BASKET}}": _chk(False),
+        "{{CHK_EQ_VOLLEY}}": _chk(eq_volley),
+        "{{CHK_EQ_TENNIS}}": _chk(False),
+        "{{CHK_EQ_VINYL}}": _chk(False),
+        "{{CHK_EQ_SOUND}}": _chk(False),
+        "{{CHK_EQ_SCREEN}}": _chk(False),
+        "{{CHK_REBUILD_YES}}": _chk(rebuild),
+        "{{CHK_REBUILD_NO}}": _chk(not rebuild),
+    }
 
-        # Left block: ОБЩИНА ТРОЯН + № ........
-        c.setFont(font, 12)
-        c.drawString(text_left, y_top - 5 * mm, "ОБЩИНА ТРОЯН")
-        c.setFont(font, 9)
-        c.drawString(text_left, y_top - 11 * mm, "№ .............................................")
+    for paragraph in _iter_all_paragraphs(doc):
+        _replace_in_paragraph(paragraph, mapping)
 
-        # Right block: Приложение № 12 + Вх. / Дата (as on the official blank)
-        right = width - margin
-        c.setFont(font, 11)
-        c.drawRightString(right, y_top - 3 * mm, "Приложение № 12")
-        c.setFont(font, 8)
-        c.drawRightString(right, y_top - 7.5 * mm, "(ново, Решение № 965/17.09.2026 г.)")
-        c.setFont(font, 9)
-        c.drawRightString(right, y_top - 13 * mm, "Вх. № .............................................")
-        c.drawRightString(right, y_top - 18 * mm, "Дата ...............................................")
-
-        y = min(y_top - logo_h, y_top - 20 * mm) - 6 * mm
-
-        c.setFont(font, 14)
-        c.drawCentredString(width / 2, y, "ЗАЯВЛЕНИЕ")
-        y -= 5.5 * mm
-        c.setFont(font, 10)
-        c.drawCentredString(width / 2, y, "ползване на спортни зали и помещения в")
-        y -= 5 * mm
-        c.setFont(font, 11)
-        c.drawCentredString(width / 2, y, "Многофункционална спортна зала „Троян“")
-        y -= 8 * mm
-
-        org = (fields.get("org_name") or TROYAN_ORG_NAME).strip()
-        eik = (fields.get("eik") or TROYAN_EIK).strip()
-        city = (fields.get("city") or TROYAN_CITY).strip()
-        municipality = (fields.get("municipality") or TROYAN_MUNICIPALITY).strip()
-        oblast = (fields.get("oblast") or TROYAN_OBLAST).strip()
-        street = (fields.get("street") or TROYAN_STREET).strip()
-        rep = (fields.get("representative_name") or "").strip()
-        phone = (fields.get("phone") or "").strip()
-        email = (fields.get("email") or "").strip()
-        event = (fields.get("event_title") or event_title_for_month(year, month)).strip()
-
-        c.setFont(font, 9)
-        c.drawString(margin, y, f"от {org}")
-        y -= 5 * mm
-        c.setFont(font, 8)
-        c.drawString(margin, y, "(наименование на юридическото лице)")
-        y -= 6 * mm
-        c.setFont(font, 9)
-        c.drawString(margin, y, f"ЕИК {eik}")
-        y -= 5 * mm
-        c.drawString(
-            margin,
-            y,
-            f"адрес на управление: гр./с. {city}, община {municipality}, област {oblast},",
-        )
-        y -= 5 * mm
-        c.drawString(margin, y, f"ул. (ж.к.) {street}, тел.: {phone or '—'}")
-        y -= 5 * mm
-        c.drawString(margin, y, f"представляван/а от {rep or '—'}")
-        y -= 4.5 * mm
-        c.setFont(font, 8)
-        c.drawString(margin, y, "(трите имена на законния представител)")
-        y -= 5 * mm
-        c.setFont(font, 9)
-        c.drawString(margin, y, f"e-mail: {email or '—'}")
-        y -= 7 * mm
-
-        c.setFont(font, 10)
-        c.drawString(margin, y, "УВАЖАЕМА ГОСПОЖО КМЕТ,")
-        y -= 6 * mm
-        c.setFont(font, 9)
-        c.drawString(
-            margin,
-            y,
-            "Заявявам желание за предоставяне за ползване на следното помещение в",
-        )
-        y -= 4.5 * mm
-        c.drawString(margin, y, "Многофункционална спортна зала „Троян“:")
-        y -= 6 * mm
-
-        checkbox(margin, y, True)
-        c.drawString(margin + 5 * mm, y + 0.4 * mm, "Спортна зала")
-        checkbox(margin + 45 * mm, y, False)
-        c.drawString(margin + 50 * mm, y + 0.4 * mm, "Тренировъчна зала")
-        checkbox(margin + 100 * mm, y, False)
-        c.drawString(margin + 105 * mm, y + 0.4 * mm, "Конферентна зала")
-        y -= 6 * mm
-
-        c.drawString(margin, y, f"за провеждане на: {event}")
-        y -= 5.5 * mm
-        c.drawString(margin, y, "вид на събитието:")
-        y -= 5.5 * mm
-        checkbox(margin, y, True)
-        c.drawString(margin + 5 * mm, y + 0.4 * mm, "Тренировки")
-        checkbox(margin + 40 * mm, y, False)
-        c.drawString(margin + 45 * mm, y + 0.4 * mm, "Спортни турнири/състезания")
-        checkbox(margin + 105 * mm, y, False)
-        c.drawString(margin + 110 * mm, y + 0.4 * mm, "Други")
-        y -= 6 * mm
-
-        c.setFont(font, 9)
-        c.drawString(margin, y, "дати и часове за ползване:")
-        y -= 5 * mm
-
-        # Table header
-        col_w = [32 * mm, 28 * mm, 28 * mm, 70 * mm]
-        headers = ["Дата", "Начален час", "Краен час", "Целодневно ползване"]
-        row_h = 6 * mm
-        x0 = margin
-        c.setFont(font, 8)
-        x = x0
-        for i, htxt in enumerate(headers):
-            c.rect(x, y - row_h, col_w[i], row_h, stroke=1, fill=0)
-            c.drawString(x + 1.5 * mm, y - row_h + 1.8 * mm, htxt)
-            x += col_w[i]
-        y -= row_h
-
-        idx = start_slot_idx
-        while idx < len(slots):
-            if y < margin + 55 * mm:
-                break
-            slot = slots[idx]
-            vals = [
-                slot.get("date_bg") or slot.get("date") or "",
-                slot.get("start_time") or "",
-                slot.get("end_time") or "",
-                "",
-            ]
-            x = x0
-            for i, val in enumerate(vals):
-                c.rect(x, y - row_h, col_w[i], row_h, stroke=1, fill=0)
-                c.drawString(x + 1.5 * mm, y - row_h + 1.8 * mm, str(val))
-                if i == 3:
-                    checkbox(x + 3 * mm, y - row_h + 1.5 * mm, False, size=2.8 * mm)
-                x += col_w[i]
-            y -= row_h
-            idx += 1
-
-        if start_slot_idx == 0:
-            y -= 5 * mm
-            c.setFont(font, 9)
-            c.drawString(margin, y, "За провеждането на събитието е необходимо:")
-            y -= 5.5 * mm
-            checkbox(margin, y, False)
-            c.drawString(margin + 5 * mm, y + 0.3 * mm, "Баскетбол")
-            checkbox(margin + 35 * mm, y, True)
-            c.drawString(margin + 40 * mm, y + 0.3 * mm, "Волейбол")
-            checkbox(margin + 70 * mm, y, False)
-            c.drawString(margin + 75 * mm, y + 0.3 * mm, "Тенис")
-            y -= 5.5 * mm
-            checkbox(margin, y, False)
-            c.drawString(margin + 5 * mm, y + 0.3 * mm, "Винилова настилка / озвучаване / табла")
-            y -= 6 * mm
-            c.drawString(margin, y, "Изисква се преустройство на залата:")
-            checkbox(margin + 70 * mm, y, False)
-            c.drawString(margin + 75 * mm, y + 0.3 * mm, "ДА")
-            checkbox(margin + 90 * mm, y, True)
-            c.drawString(margin + 95 * mm, y + 0.3 * mm, "НЕ")
-            y -= 7 * mm
-
-            c.setFont(font, 8)
-            c.drawString(margin, y, "Цени (по Наредба № 7) — без промяна:")
-            y -= 4.5 * mm
-            c.drawString(
-                margin,
-                y,
-                "Спортна зала: 8,00 €/час (местни клубове) · Тренировъчна: 5,00 €/час · Конферентна: 15,00 €/час",
-            )
-            y -= 4.5 * mm
-            c.drawString(
-                margin,
-                y,
-                "Плащане до 3 работни дни след Разрешение: каса Община Троян / ПОС / IBAN BG92UBBS81558420008108",
-            )
-            y -= 8 * mm
-
-            today = date.today()
-            c.setFont(font, 9)
-            c.drawString(margin, y, f"Дата: {today.day:02d}.{today.month:02d}.{today.year} г.    гр. Троян")
-            c.drawRightString(width - margin, y, "С уважение: ........................")
-            y -= 5 * mm
-            c.setFont(font, 8)
-            c.drawRightString(width - margin, y, f"{rep or 'Председател'}  (подпис)")
-            y -= 4 * mm
-            if idx < len(slots):
-                c.setFont(font, 8)
-                c.drawString(margin, y, f"Продължение на таблицата — още {len(slots) - idx} дати на следваща страница.")
-
-        return idx
-
-    next_idx = 0
-    page = 0
-    while True:
-        page += 1
-        if page > 1:
-            c.setFont(font, 9)
-            c.drawString(margin, height - margin, f"Приложение № 12 — продължение (стр. {page})")
-            c.drawCentredString(width / 2, height - margin - 6 * mm, "дати и часове за ползване (продължение)")
-            # continuation table only
-            y = height - margin - 12 * mm
-            col_w = [32 * mm, 28 * mm, 28 * mm, 70 * mm]
-            headers = ["Дата", "Начален час", "Краен час", "Целодневно ползване"]
-            row_h = 6 * mm
-            c.setFont(font, 8)
-            x = margin
-            for i, htxt in enumerate(headers):
-                c.rect(x, y - row_h, col_w[i], row_h, stroke=1, fill=0)
-                c.drawString(x + 1.5 * mm, y - row_h + 1.8 * mm, htxt)
-                x += col_w[i]
-            y -= row_h
-            while next_idx < len(slots) and y >= margin + 15 * mm:
-                slot = slots[next_idx]
-                vals = [
-                    slot.get("date_bg") or slot.get("date") or "",
-                    slot.get("start_time") or "",
-                    slot.get("end_time") or "",
-                    "",
-                ]
-                x = margin
-                for i, val in enumerate(vals):
-                    c.rect(x, y - row_h, col_w[i], row_h, stroke=1, fill=0)
-                    c.drawString(x + 1.5 * mm, y - row_h + 1.8 * mm, str(val))
-                    if i == 3:
-                        checkbox(x + 3 * mm, y - row_h + 1.5 * mm, False, size=2.8 * mm)
-                    x += col_w[i]
-                y -= row_h
-                next_idx += 1
-            if next_idx < len(slots):
-                c.showPage()
-                continue
+    # Fill schedule table (first 4-column table with Дата header)
+    sched = None
+    for table in doc.tables:
+        if len(table.columns) == 4 and table.rows and "Дата" in (table.rows[0].cells[0].text or ""):
+            sched = table
             break
+    if sched is not None:
+        # Ensure enough rows: header + len(slots)
+        needed = max(len(slots), 10)
+        while len(sched.rows) - 1 < needed:
+            # clone last row
+            tbl = sched._tbl
+            last = sched.rows[-1]._tr
+            tbl.append(deepcopy(last))
 
-        next_idx = draw_header_and_body(0)
-        if next_idx < len(slots):
-            c.showPage()
-            continue
-        break
+        def _set_cell(cell, text: str, *, checkbox: bool = False) -> None:
+            cell.text = ""
+            p = cell.paragraphs[0]
+            run = p.add_run("☑" if checkbox else (text or ""))
+            run.font.name = "Times New Roman"
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+            run.font.size = Pt(10)
 
-    c.save()
+        for i in range(1, len(sched.rows)):
+            slot = slots[i - 1] if i - 1 < len(slots) else None
+            if slot:
+                _set_cell(sched.rows[i].cells[0], slot.get("date_bg") or slot.get("date") or "")
+                _set_cell(sched.rows[i].cells[1], slot.get("start_time") or "")
+                _set_cell(sched.rows[i].cells[2], slot.get("end_time") or "")
+                _set_cell(sched.rows[i].cells[3], "☐", checkbox=False)
+            else:
+                _set_cell(sched.rows[i].cells[0], "")
+                _set_cell(sched.rows[i].cells[1], "")
+                _set_cell(sched.rows[i].cells[2], "")
+                _set_cell(sched.rows[i].cells[3], "☐")
+
+    buf = BytesIO()
+    doc.save(buf)
     return buf.getvalue()
+
+
+# Backwards-compatible alias (UI/API now serve DOCX).
+def build_troyan_hall_application_pdf(*, year: int, month: int, slots: list[dict[str, Any]], fields: dict[str, Any]) -> bytes:
+    return build_troyan_hall_application_docx(year=year, month=month, slots=slots, fields=fields)

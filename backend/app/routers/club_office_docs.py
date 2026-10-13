@@ -45,7 +45,7 @@ from app.services.club_office_docs import (
 )
 from app.services.school_excuse_note import is_troyan_volley_club
 from app.services.troyan_hall_application import (
-    build_troyan_hall_application_pdf,
+    build_troyan_hall_application_docx,
     event_title_for_period,
     preview_payload as troyan_hall_preview,
     resolve_period,
@@ -690,8 +690,9 @@ def troyan_hall_application_preview(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.post("/troyan-hall-application/pdf")
-def troyan_hall_application_pdf(
+@router.post("/troyan-hall-application/docx")
+@router.post("/troyan-hall-application/pdf")  # legacy alias — still returns DOCX blank
+def troyan_hall_application_docx(
     body: TroyanHallPdfIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(_head),
@@ -727,15 +728,18 @@ def troyan_hall_application_pdf(
         if val is not None and str(val).strip():
             fields[key] = str(val).strip()
     fields["event_title"] = (body.event_title or "").strip() or event_title_for_period(d0, d1)
-    pdf = build_troyan_hall_application_pdf(
-        year=d0.year,
-        month=d0.month,
-        slots=preview["slots"],
-        fields=fields,
-    )
-    fname = f"zayavlenie-zala-troyan-{d0.isoformat()}_{d1.isoformat()}.pdf"
+    try:
+        payload = build_troyan_hall_application_docx(
+            year=d0.year,
+            month=d0.month,
+            slots=preview["slots"],
+            fields=fields,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    fname = f"zayavlenie-zala-troyan-{d0.isoformat()}_{d1.isoformat()}.docx"
     return Response(
-        content=pdf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+        content=payload,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )

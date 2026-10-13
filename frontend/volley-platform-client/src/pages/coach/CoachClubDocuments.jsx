@@ -358,11 +358,11 @@ export default function CoachClubDocuments() {
     loadHall();
   }, [tab, loadHall]);
 
-  const openHallPdf = async () => {
+  const downloadHallDocx = async () => {
     try {
       setHallBusy(true);
       const res = await axiosInstance.post(
-        API_PATHS.CLUB_DOCUMENTS_TROYAN_HALL_PDF,
+        API_PATHS.CLUB_DOCUMENTS_TROYAN_HALL_DOCX,
         {
           year: Number(hallMonth.year) || new Date().getFullYear(),
           month: Number(hallMonth.month) || new Date().getMonth() + 1,
@@ -372,11 +372,19 @@ export default function CoachClubDocuments() {
         },
         { responseType: "blob" },
       );
-      const url = URL.createObjectURL(res.data);
-      window.open(url, "_blank", "noopener,noreferrer");
+      const blob = new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `zayavlenie-zala-troyan-${hallMonth.date_from || "period"}_${hallMonth.date_to || ""}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешен PDF."));
+      toast.error(normalizeError(err, "Неуспешен DOCX."));
     } finally {
       setHallBusy(false);
     }
@@ -1073,9 +1081,8 @@ export default function CoachClubDocuments() {
       {tab === "hall" && showTroyanHall ? (
         <>
           <p className="coachMobileMuted" style={{ marginTop: 0, fontSize: 13 }}>
-            Месечно заявление към Община Троян за Спортна зала. Взимат се тренировките от графика,
-            чието място съдържа „Троян“ (Чавдар/Нупи се пропускат). По 1 ред на ден с обединени часове.
-            Остава само физическият подпис на председателя.
+            Месечно заявление към Община Троян — попълва се официалната бланка Приложение № 12 (DOCX).
+            Взимат се тренировките от графика с място „Троян“. По 1 ред на ден с обединени часове.
           </p>
           <div
             style={{
@@ -1153,12 +1160,13 @@ export default function CoachClubDocuments() {
               <Button type="button" variant="secondary" disabled={hallBusy} onClick={loadHall}>
                 {hallBusy ? "Зареждане…" : "Обнови от графика"}
               </Button>
-              <Button type="button" disabled={hallBusy} onClick={openHallPdf}>
-                Преглед / печат PDF
+              <Button type="button" disabled={hallBusy} onClick={downloadHallDocx}>
+                Изтегли DOCX (бланка)
               </Button>
             </div>
             <p className="coachMobileMuted" style={{ margin: 0, fontSize: 12 }}>
-              Избери от–до преди PDF. При смяна на месеца периодът се нулира до целия месец.
+              Изтегля официалната бланка Приложение № 12 като Word (.docx) с попълнени данни и дати.
+              Остава само физическият подпис. При смяна на месеца периодът се нулира до целия месец.
             </p>
 
             <Input
