@@ -23,9 +23,11 @@ OUT = ROOT / "backend" / "app" / "static" / "troyan-hall" / "prilozhenie-12.docx
 LOGO = ROOT / "backend" / "app" / "static" / "troyan-hall" / "obshtina-troyan-logo.png"
 
 FONT = "Times New Roman"
-BODY = 14
-HINT = 10
-SMALL = 11
+BODY = 12
+HINT = 9
+SMALL = 10
+TITLE = 14
+TABLE = 9
 
 
 def _font(run, *, size=BODY, bold=False, italic=False, name=FONT):
@@ -170,7 +172,7 @@ def build() -> Path:
     _p(doc, "", after=8)
 
     # ===== Title =====
-    _p(doc, "ЗАЯВЛЕНИЕ", size=16, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, after=2)
+    _p(doc, "ЗАЯВЛЕНИЕ", size=TITLE, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, after=2)
     _p(
         doc,
         "ползване на спортни зали и помещения в",

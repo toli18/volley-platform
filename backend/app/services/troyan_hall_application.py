@@ -429,7 +429,7 @@ def build_troyan_hall_application_docx(
             run._element.rPr.rFonts.set(qn("w:hAnsi"), "Times New Roman")
             run._element.rPr.rFonts.set(qn("w:cs"), "Times New Roman")
             run._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-            run.font.size = Pt(14)
+            run.font.size = Pt(9)
 
         for i in range(1, len(sched.rows)):
             slot = slots[i - 1] if i - 1 < len(slots) else None
