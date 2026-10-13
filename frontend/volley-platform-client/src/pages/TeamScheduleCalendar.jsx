@@ -104,6 +104,7 @@ const defaultCompetitionForm = (date, coachId) => ({
   start_time: "10:00",
   end_time: "12:00",
   competition_kind: COMPETITION_KIND_OPTIONS[0].value,
+  opponent_name: "",
   notes: "",
 });
 
@@ -693,6 +694,7 @@ export default function TeamScheduleCalendar() {
       start_time: it.start_time || "10:00",
       end_time: it.end_time || "12:00",
       competition_kind: it.competition_kind || COMPETITION_KIND_OPTIONS[0].value,
+      opponent_name: it.opponent_name || "",
       notes: "",
     });
     setCompOpen(true);
@@ -716,6 +718,7 @@ export default function TeamScheduleCalendar() {
       start_time: compForm.start_time,
       end_time: compForm.end_time,
       competition_kind: compForm.competition_kind,
+      opponent_name: (compForm.opponent_name || "").trim() || null,
       notes: compForm.notes.trim() || null,
       card_index_id: compForm.card_index_id ? Number(compForm.card_index_id) : null,
     };
@@ -779,6 +782,7 @@ export default function TeamScheduleCalendar() {
           </span>
         </div>
         <div className="calendarShellEventMeta">
+          {isCompetitionEvent(it) && it.opponent_name ? `vs ${it.opponent_name} · ` : ""}
           {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
           {it.location}
           {it.coach_name ? ` · ${it.coach_name}` : ""}
@@ -1086,6 +1090,7 @@ export default function TeamScheduleCalendar() {
                     </span>
                   </div>
                   <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
+                    {isCompetitionEvent(it) && it.opponent_name ? `vs ${it.opponent_name} · ` : ""}
                     {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
                     {it.location}
                     {it.coach_name ? ` · ${it.coach_name}` : ""}
@@ -1176,6 +1181,9 @@ export default function TeamScheduleCalendar() {
                           }
                         >
                           <div>{it.start_time} {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}{cancelled ? " (отм.)" : ""}</div>
+                          {isCompetitionEvent(it) && it.opponent_name ? (
+                            <div style={{ opacity: 0.95, fontWeight: 700 }}>vs {it.opponent_name}</div>
+                          ) : null}
                           <div style={{ opacity: 0.9 }}>{it.location}</div>
                         </Link>
                         );
@@ -1242,6 +1250,7 @@ export default function TeamScheduleCalendar() {
                                   >
                                     {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
                                   </span>
+                                  {isCompetitionEvent(it) && it.opponent_name ? `vs ${it.opponent_name} · ` : ""}
                                   {it.location}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>

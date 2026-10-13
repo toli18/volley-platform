@@ -71,6 +71,7 @@ class ParentScheduleItem(BaseModel):
     start_time: str
     end_time: str
     location: str
+    opponent_name: Optional[str] = None
     team_name: Optional[str] = None
     carded_team_label: Optional[str] = None
     event_type: str = "training"

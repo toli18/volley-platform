@@ -430,12 +430,13 @@ export default function CoachCompetitions() {
                 {row.date} · {row.start_time}–{row.end_time}
               </strong>
               <div className="coachMobileMuted">
-                {row.competition_kind_label || row.competition_kind} · {row.location}
-                {row.opponent_name ? ` · vs ${row.opponent_name}` : ""}
+                {row.competition_kind_label || row.competition_kind}
+                {row.opponent_name ? ` · vs ${row.opponent_name}` : " · без противник"}
                 {row.ris_game_id
                   ? ` · БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
                   : ""}
               </div>
+              <div className="coachMobileMuted">{row.location}</div>
               <div>
                 {row.team_name || `Група #${row.team_id}`}
                 {row.carded_team_label ? ` · ${row.carded_team_label}` : ""}

@@ -38,8 +38,9 @@ function eventTitle(row) {
   if (row.is_cancelled) return "Отменена";
   if (isCompetitionEvent(row)) {
     const kind = competitionKindLabel(row);
-    if (row.carded_team_label) return `${kind} · ${row.carded_team_label}`;
-    return kind;
+    const opp = (row.opponent_name || "").trim();
+    const base = row.carded_team_label ? `${kind} · ${row.carded_team_label}` : kind;
+    return opp ? `${base} vs ${opp}` : base;
   }
   return row.team_name || "Група";
 }
@@ -63,6 +64,7 @@ function displayLocation(row) {
 
 function gridCellTooltip(row) {
   const parts = [eventTitle(row)];
+  if (row.opponent_name && isCompetitionEvent(row)) parts.push(`Противник: ${row.opponent_name}`);
   if (row.team_name && isCompetitionEvent(row)) parts.push(`Група: ${row.team_name}`);
   if (row.start_time) parts.push(`${row.start_time} – ${row.end_time || ""}`);
   const loc = displayLocation(row);
@@ -148,6 +150,9 @@ function SessionBlock({ row, variant = "card", onAckChange }) {
         <span className="parentPortalSchedRowTime">{time}</span>
         <span className="parentPortalSchedRowMain">
           <span className="parentPortalSchedRowTitle">{title}</span>
+          {isComp && row.opponent_name ? (
+            <span className="parentPortalSchedRowLoc"> · vs {row.opponent_name}</span>
+          ) : null}
           {row.team_name && isComp ? (
             <span className="parentPortalSchedRowLoc"> · Група: {row.team_name}</span>
           ) : null}
@@ -171,6 +176,9 @@ function SessionBlock({ row, variant = "card", onAckChange }) {
     >
       <div className="parentPortalSchedBlockTime">{time}</div>
       <div className="parentPortalSchedBlockTeam">{title}</div>
+      {isComp && row.opponent_name ? (
+        <div className="parentPortalSchedBlockMeta">vs {row.opponent_name}</div>
+      ) : null}
       {displayLocation(row) ? (
         <div className="parentPortalSchedBlockMeta">
           {variant === "compact" ? displayLocation(row) : `Място: ${displayLocation(row)}`}
