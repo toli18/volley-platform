@@ -178,6 +178,11 @@ class AthleteProfileResponse(BaseModel):
     timeline: list[AthleteTimelineEvent] = Field(default_factory=list)
 
 
+class TeamSheetJerseyOverride(BaseModel):
+    athlete_id: int
+    jersey_number: int
+
+
 class TeamSheetRequest(BaseModel):
     competition: Optional[str] = None
     venue_city: Optional[str] = None
@@ -189,6 +194,8 @@ class TeamSheetRequest(BaseModel):
     assistant_2: Optional[str] = None
     manager: Optional[str] = None
     athlete_ids: list[int] = Field(default_factory=list)
+    # Само за този PDF — не променя профила.
+    jersey_overrides: list[TeamSheetJerseyOverride] = Field(default_factory=list)
 
 
 class TeamAttendanceReportRow(BaseModel):

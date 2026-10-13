@@ -326,6 +326,7 @@ export default function CoachCompetitions() {
       const athletes = (data?.candidates || []).map((c) => ({
         athlete_id: Number(c.id),
         athlete_name: c.name,
+        jersey_number: c.jersey_number,
       }));
       const kind = competitionKindLabel(event);
       const titleBits = [kind, event.carded_team_label].filter(Boolean);
