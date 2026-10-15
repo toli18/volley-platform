@@ -1,1 +1,0 @@
-import{j as e}from"./index-S6cGxb06.js";function r({items:s,renderMobileCard:i,children:n,className:d=""}){return s?.length?e.jsxs("div",{className:d,children:[e.jsx("div",{className:"md:hidden space-y-3",children:s.map(i)}),e.jsx("div",{className:"hidden md:block",children:n})]}):null}export{r as R};

@@ -424,6 +424,9 @@ export default function ParentPortalProfileContent({
               {profile.carding_form.signed_at
                 ? ` · ${new Date(profile.carding_form.signed_at).toLocaleDateString("bg-BG")}`
                 : ""}
+              {profile.carding_form.needs_parent2_sign
+                ? " · липсва подпис на родител 2"
+                : ""}
               .
             </p>
             <Button

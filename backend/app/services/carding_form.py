@@ -103,21 +103,51 @@ def _carding_signature_role_attrs(role: str) -> tuple[str, str]:
     }[role]
 
 
+def _signature_png_has_ink(blob: bytes | None) -> bool:
+    """
+    True само при реални щрихи върху canvas.
+    Празен/бял PNG (>~200B) иначе се брои като „има подпис“ и блокира
+    банера за родител 2 при деца, които реално нямат втори подпис.
+    """
+    if not blob or len(blob) < 200:
+        return False
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        im = Image.open(BytesIO(bytes(blob))).convert("L")
+        # Брой по-тъмни пиксели (мастило). Бял фон ≈ 255.
+        dark = 0
+        for p in im.getdata():
+            if p < 245:
+                dark += 1
+                if dark >= 60:
+                    return True
+        return False
+    except Exception:
+        # Ако PNG не се чете — приеми по-голям blob като валиден подпис.
+        return len(blob) >= 2500
+
+
 def resolve_carding_signature_bytes(form: AthleteCardingForm | None, role: str) -> bytes | None:
-    """PNG подпис от БД (Railway-safe), после от локален файл."""
+    """PNG подпис от БД (Railway-safe), после от локален файл. Игнорира празен бял canvas."""
     if not form:
         return None
     rel_attr, data_attr = _carding_signature_role_attrs(role)
     data = getattr(form, data_attr, None)
-    if data and len(data) >= 200:
+    if data and _signature_png_has_ink(bytes(data)):
         return bytes(data)
     path = resolve_carding_signature_path(getattr(form, rel_attr, None))
     if path is None:
         return None
     try:
-        return path.read_bytes()
+        blob = path.read_bytes()
     except OSError:
         return None
+    if _signature_png_has_ink(blob):
+        return blob
+    return None
 
 
 def backfill_carding_form_signatures_to_db(form: AthleteCardingForm) -> bool:
@@ -130,13 +160,16 @@ def backfill_carding_form_signatures_to_db(form: AthleteCardingForm) -> bool:
         path = resolve_carding_signature_path(getattr(form, rel_attr, None))
         if not path:
             continue
-        setattr(form, data_attr, path.read_bytes())
+        blob = path.read_bytes()
+        if not _signature_png_has_ink(blob):
+            continue
+        setattr(form, data_attr, blob)
         changed = True
     return changed
 
 
 def form_has_parent2_canvas(form: AthleteCardingForm | None) -> bool:
-    """Има ли рисуван (canvas) подпис на родител 2."""
+    """Има ли реален (с мастило) canvas подпис на родител 2."""
     if not form:
         return False
     return resolve_carding_signature_bytes(form, "parent2") is not None
@@ -144,9 +177,8 @@ def form_has_parent2_canvas(form: AthleteCardingForm | None) -> bool:
 
 def form_needs_parent2_canvas(form: AthleteCardingForm | None) -> bool:
     """
-    Всяка активна Форма 0-3 / 0-3 А без canvas на родител 2.
-    Не изисква пълна federation-валидация — иначе част от старите редове
-    (напр. без текстово signature_parent2) остават без банер за втори подпис.
+    Всяка активна Форма 0-3 / 0-3 А без реален canvas на родител 2.
+    Празен/бял PNG не брои — иначе някои деца никога не виждат банера.
     """
     if not form or not getattr(form, "is_active", False):
         return False
