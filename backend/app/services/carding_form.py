@@ -144,30 +144,64 @@ def form_has_parent2_canvas(form: AthleteCardingForm | None) -> bool:
 
 def form_needs_parent2_canvas(form: AthleteCardingForm | None) -> bool:
     """
-    Активна Форма 0-3 / 0-3 А с валиден родител 1, но без canvas на родител 2.
-    Старите редове (само изписано име) остават валидни за has_signed, но СЕК иска и втория подпис.
+    Всяка активна Форма 0-3 / 0-3 А без canvas на родител 2.
+    Не изисква пълна federation-валидация — иначе част от старите редове
+    (напр. без текстово signature_parent2) остават без банер за втори подпис.
     """
     if not form or not getattr(form, "is_active", False):
         return False
     kind = (form.form_kind or "").strip().lower()
     if kind not in (FORM_KIND_03, FORM_KIND_03A):
         return False
-    if not form_has_federation_signatures(form):
-        return False
     return not form_has_parent2_canvas(form)
+
+
+def get_active_carding_form_for_season(
+    db: Session, athlete_id: int, season_year: int, club_id: int | None = None
+) -> AthleteCardingForm | None:
+    """Активна Форма 0-3/0-3А/0-3B за сезона (без проверка на canvas валидност)."""
+    q = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.athlete_id == int(athlete_id),
+            AthleteCardingForm.season_year == int(season_year),
+            AthleteCardingForm.is_active.is_(True),
+        )
+        .order_by(AthleteCardingForm.signed_at.desc())
+    )
+    if club_id is not None:
+        q = q.filter(AthleteCardingForm.club_id == int(club_id))
+    return q.first()
 
 
 def get_form_needing_parent2_canvas(
     db: Session, athlete_id: int, season_year: int, club_id: int | None = None
 ) -> AthleteCardingForm | None:
-    form = get_signed_carding_form(db, athlete_id, season_year, club_id)
-    if form and form_needs_parent2_canvas(form):
-        return form
+    """
+    Търси активна 03/03А без parent2 canvas.
+    Не минава през get_signed_carding_form — иначе форми без пълен
+    federation-подпис се пропускат и няма банер за родител 2.
+    """
+    q = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.athlete_id == int(athlete_id),
+            AthleteCardingForm.season_year == int(season_year),
+            AthleteCardingForm.is_active.is_(True),
+            AthleteCardingForm.form_kind.in_([FORM_KIND_03, FORM_KIND_03A]),
+        )
+        .order_by(AthleteCardingForm.signed_at.desc())
+    )
+    if club_id is not None:
+        q = q.filter(AthleteCardingForm.club_id == int(club_id))
+    for form in q.all():
+        if form_needs_parent2_canvas(form):
+            return form
     return None
 
 
 def athlete_needs_parent2_canvas(db: Session, athlete: Athlete) -> bool:
-    """Родителски портал / треньор: липсва само canvas на родител 2 върху вече подписана форма."""
+    """Родителски портал / треньор: липсва canvas на родител 2 върху активна форма."""
     if not athlete.club_id or not getattr(athlete, "is_active", True):
         return False
     year = open_carding_season_year(db, int(athlete.club_id))
@@ -193,8 +227,6 @@ def attach_parent2_canvas_signature(
         raise ValueError("Само Форма 0-3 / 0-3 А приема подпис на родител 2")
     if not form.is_active:
         raise ValueError("Формата не е активна")
-    if resolve_carding_signature_bytes(form, "parent1") is None:
-        raise ValueError("Липсва подпис на родител 1 — не може да се допълва")
     if form_has_parent2_canvas(form):
         raise ValueError("Подписът на родител 2 вече е записан")
 
@@ -223,18 +255,18 @@ def attach_parent2_canvas_signature(
 
 def form_has_federation_signatures(form: AthleteCardingForm) -> bool:
     """
-    Базова валидност (legacy + нови):
+    Базова валидност за „има подписана форма“ (портал / не трий):
     - 03b → canvas състезател
-    - 03/03a → canvas родител 1 + текстово име родител 2 (+ canvas състезател при 03а)
-    Новите подписвания изискват и canvas родител 2 (виж attach / _sign_carding_form).
-    Старите форми без parent2 canvas остават „подписани“, но form_needs_parent2_canvas=True.
+    - 03/03a → canvas родител 1 (+ canvas състезател при 03а)
+
+    Родител 2 canvas НЕ е условие тук — иначе стари редове се третират като
+    „няма форма“ и порталът иска пълен нов подпис (трие parent1).
+    Липсата на родител 2 се хваща с form_needs_parent2_canvas / needs_parent2_sign.
     """
     kind = (form.form_kind or "").strip().lower()
     if kind == FORM_KIND_03B:
         return resolve_carding_signature_bytes(form, "athlete") is not None
     if resolve_carding_signature_bytes(form, "parent1") is None:
-        return False
-    if not (getattr(form, "signature_parent2", None) or "").strip():
         return False
     if kind == FORM_KIND_03A:
         if resolve_carding_signature_bytes(form, "athlete") is None:

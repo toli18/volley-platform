@@ -968,6 +968,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         sy = open_carding_season_year(db, int(athlete.club_id))
         if sy:
             signed = get_signed_carding_form(db, athlete.id, sy, athlete.club_id)
+            p2_form = get_form_needing_parent2_canvas(db, athlete.id, sy, athlete.club_id)
             kind = form_kind_for_athlete(athlete, sy)
             needs = athlete_needs_carding_form(db, athlete)
             if signed:
@@ -975,14 +976,34 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                     enabled=True,
                     needs_form=False,
                     has_signed=True,
-                    needs_parent2_sign=form_needs_parent2_canvas(signed),
+                    needs_parent2_sign=form_needs_parent2_canvas(signed) or p2_form is not None,
                     season_year=sy,
                     season_label=season_label(sy),
                     form_kind=signed.form_kind,
                     form_id=signed.id,
                     signed_at=signed.signed_at,
                     club_name=club_name,
-                    parent2_full_name=(signed.parent2_full_name or "").strip() or None,
+                    parent2_full_name=(
+                        (signed.parent2_full_name or "").strip()
+                        or ((p2_form.parent2_full_name or "").strip() if p2_form else "")
+                        or None
+                    ),
+                )
+            elif p2_form:
+                # Има активна форма без parent2 canvas, но не минава пълна валидация —
+                # искаме САМО родител 2, без пълен нов подпис.
+                carding_status = ParentCardingFormStatus(
+                    enabled=True,
+                    needs_form=False,
+                    has_signed=True,
+                    needs_parent2_sign=True,
+                    season_year=sy,
+                    season_label=season_label(sy),
+                    form_kind=p2_form.form_kind,
+                    form_id=p2_form.id,
+                    signed_at=p2_form.signed_at,
+                    club_name=club_name,
+                    parent2_full_name=(p2_form.parent2_full_name or "").strip() or None,
                 )
             else:
                 # Season open via head coach button → form required until signed
