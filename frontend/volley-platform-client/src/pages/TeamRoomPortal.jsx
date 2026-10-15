@@ -98,6 +98,11 @@ function NextEventChip({ item, label, onAckChange }) {
         {daysUntil ? <span className="teamRoomDaysUntil">{daysUntil}</span> : null}
       </div>
       <p className="teamRoomNextEventDate">{formatDateBg(item.date)}</p>
+      {isComp && item.opponent_name ? (
+        <p className="teamRoomNextEventMeta" style={{ fontWeight: 700 }}>
+          vs {item.opponent_name}
+        </p>
+      ) : null}
       <p className="teamRoomNextEventMeta">
         {item.start_time} – {item.end_time}
         {item.location ? ` · ${item.location}` : ""}

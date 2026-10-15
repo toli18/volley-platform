@@ -365,6 +365,7 @@ def _build_schedule_for_teams(
                 start_time=_schedule_text(e.start_time, "00:00"),
                 end_time=_schedule_text(e.end_time, "00:00"),
                 location=_schedule_text(e.location),
+                opponent_name=(getattr(e, "opponent_name", None) or "").strip() or None,
                 team_name=team_name_map.get(tid),
                 carded_team_label=carded_label,
                 event_type="competition",

@@ -1255,6 +1255,35 @@ def generate_team_sheet_pdf(
     if not selected_ids:
         raise HTTPException(status_code=422, detail="Изберете поне един състезател (макс. 14)")
 
+    from app.services.athlete_jersey import normalize_jersey_number
+
+    override_map: dict[int, int] = {}
+    for item in payload.jersey_overrides or []:
+        aid = int(item.athlete_id)
+        if aid not in seen:
+            continue
+        override_map[aid] = normalize_jersey_number(item.jersey_number)
+
+    sheet_jerseys: dict[int, int] = {}
+    for athlete_id in selected_ids:
+        athlete = members_by_id[athlete_id]
+        j = override_map.get(int(athlete_id))
+        if j is None:
+            raw = getattr(athlete, "jersey_number", None)
+            j = int(raw) if raw is not None else None
+        if j is not None:
+            if j in sheet_jerseys.values():
+                other_id = next(k for k, v in sheet_jerseys.items() if v == j)
+                other = members_by_id.get(other_id)
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Номер {j} е дублиран в листа "
+                        f"({athlete.athlete_name} и {other.athlete_name if other else other_id})."
+                    ),
+                )
+            sheet_jerseys[int(athlete_id)] = int(j)
+
     anthro = _latest_anthro_map(db, selected_ids)
 
     players: list[TeamSheetPlayerRow] = []
@@ -1270,9 +1299,10 @@ def generate_team_sheet_pdf(
         measures = anthro.get(int(athlete.id), {})
         height = measures.get("ANTH_HEIGHT")
         reach = measures.get("ANTH_REACH")
+        j = sheet_jerseys.get(int(athlete_id))
         players.append(
             TeamSheetPlayerRow(
-                jersey="" if getattr(athlete, "jersey_number", None) is None else str(int(athlete.jersey_number)),
+                jersey="" if j is None else str(int(j)),
                 last_name=last_name,
                 first_name=first_name,
                 birth_year=birth_year,

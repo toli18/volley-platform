@@ -15,12 +15,31 @@ function normalizeAthletes(list) {
     .map((m) => {
       const id = Number(m.athlete_id ?? m.id);
       if (!id) return null;
+      const j = m.jersey_number;
       return {
         athlete_id: id,
         athlete_name: m.athlete_name || m.name || `Състезател #${id}`,
+        jersey_number:
+          j === 0 || j ? String(j) : "",
       };
     })
     .filter(Boolean);
+}
+
+function parseJerseyInput(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0 || n > 99) return "invalid";
+  return n;
+}
+
+function buildJerseyMapFromRoster(roster) {
+  const map = {};
+  for (const m of roster) {
+    map[m.athlete_id] = m.jersey_number ?? "";
+  }
+  return map;
 }
 
 /**
@@ -39,6 +58,7 @@ export default function TeamSheetO2Modal({
   const [sheetBusy, setSheetBusy] = useState(false);
   const [sheetStep, setSheetStep] = useState(1);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState([]);
+  const [jerseyByAthlete, setJerseyByAthlete] = useState({});
   const [sheetForm, setSheetForm] = useState({
     competition: "",
     venue_city: "",
@@ -70,6 +90,7 @@ export default function TeamSheetO2Modal({
       ? initialAthleteIds.map(Number).filter(Boolean)
       : rosterNow.map((m) => m.athlete_id);
     setSelectedAthleteIds(preset.slice(0, TEAM_SHEET_MAX_PLAYERS));
+    setJerseyByAthlete(buildJerseyMapFromRoster(rosterNow));
     // Reset only when dialog opens — avoid wiping edits on parent re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -103,6 +124,39 @@ export default function TeamSheetO2Modal({
     setSelectedAthleteIds(ids);
   };
 
+  const setJersey = (athleteId, value) => {
+    const id = Number(athleteId);
+    setJerseyByAthlete((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const resetJerseysFromProfile = () => {
+    setJerseyByAthlete(buildJerseyMapFromRoster(roster));
+    toast.success("Номерата са върнати от профилите.");
+  };
+
+  const validateSelectedJerseys = () => {
+    const used = new Map();
+    for (const id of selectedAthleteIds) {
+      const parsed = parseJerseyInput(jerseyByAthlete[id]);
+      if (parsed === "invalid") {
+        const row = roster.find((m) => m.athlete_id === id);
+        toast.error(`Невалиден номер за ${row?.athlete_name || id} (0–99).`);
+        return false;
+      }
+      if (parsed == null) continue;
+      if (used.has(parsed)) {
+        const other = roster.find((m) => m.athlete_id === used.get(parsed));
+        const row = roster.find((m) => m.athlete_id === id);
+        toast.error(
+          `Номер ${parsed} е дублиран в листа (${row?.athlete_name || id} и ${other?.athlete_name || used.get(parsed)}).`,
+        );
+        return false;
+      }
+      used.set(parsed, id);
+    }
+    return true;
+  };
+
   const downloadTeamSheet = async () => {
     const tid = Number(teamId);
     if (!tid) {
@@ -113,6 +167,16 @@ export default function TeamSheetO2Modal({
       toast.error("Изберете поне един състезател.");
       return;
     }
+    if (!validateSelectedJerseys()) return;
+
+    const jersey_overrides = [];
+    for (const id of selectedAthleteIds) {
+      const parsed = parseJerseyInput(jerseyByAthlete[id]);
+      if (parsed != null && parsed !== "invalid") {
+        jersey_overrides.push({ athlete_id: id, jersey_number: parsed });
+      }
+    }
+
     try {
       setSheetBusy(true);
       const res = await axiosInstance.post(
@@ -127,6 +191,7 @@ export default function TeamSheetO2Modal({
           assistant_1: sheetForm.assistant_1.trim() || null,
           assistant_2: sheetForm.assistant_2.trim() || null,
           athlete_ids: selectedAthleteIds,
+          jersey_overrides,
         },
         { responseType: "blob" },
       );
@@ -157,7 +222,9 @@ export default function TeamSheetO2Modal({
     >
       <div style={{ display: "grid", gap: 8 }}>
         <p style={{ margin: 0, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-          {sheetStep === 1 ? "Попълнете данните за листа" : "Изберете състезателите (до 14)"}
+          {sheetStep === 1
+            ? "Попълнете данните за листа"
+            : "Изберете състезателите и проверете номерата (до 14)"}
         </p>
 
         {sheetStep === 1 ? (
@@ -217,11 +284,11 @@ export default function TeamSheetO2Modal({
         ) : (
           <>
             <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
                   Състезатели ({selectedAthleteIds.length}/{TEAM_SHEET_MAX_PLAYERS})
                 </span>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button
                     type="button"
                     disabled={sheetBusy || roster.length === 0}
@@ -254,6 +321,22 @@ export default function TeamSheetO2Modal({
                   >
                     Изчисти
                   </button>
+                  <button
+                    type="button"
+                    disabled={sheetBusy || roster.length === 0}
+                    onClick={resetJerseysFromProfile}
+                    style={{
+                      border: "none",
+                      background: "none",
+                      color: "#0f766e",
+                      fontWeight: 700,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Номера от профил
+                  </button>
                 </div>
               </div>
               {roster.length === 0 ? (
@@ -274,16 +357,16 @@ export default function TeamSheetO2Modal({
                     const id = m.athlete_id;
                     const checked = selectedAthleteIds.includes(id);
                     return (
-                      <label
+                      <div
                         key={id}
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 10,
+                          gap: 8,
                           padding: "7px 4px",
                           borderBottom: "1px solid #eef2f7",
-                          cursor: "pointer",
                           fontSize: 14,
+                          opacity: checked ? 1 : 0.55,
                         }}
                       >
                         <input
@@ -291,9 +374,22 @@ export default function TeamSheetO2Modal({
                           checked={checked}
                           disabled={sheetBusy}
                           onChange={() => toggleAthlete(id)}
+                          aria-label={`Включи ${m.athlete_name}`}
                         />
-                        <span>{m.athlete_name}</span>
-                      </label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={99}
+                          disabled={sheetBusy || !checked}
+                          value={jerseyByAthlete[id] ?? ""}
+                          onChange={(e) => setJersey(id, e.target.value)}
+                          placeholder="№"
+                          style={{ width: 56, flexShrink: 0, padding: "6px 8px" }}
+                          aria-label={`Номер ${m.athlete_name}`}
+                        />
+                        <span style={{ flex: 1, minWidth: 0 }}>{m.athlete_name}</span>
+                      </div>
                     );
                   })}
                 </div>
@@ -301,7 +397,7 @@ export default function TeamSheetO2Modal({
             </div>
 
             <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
-              СЕК остава празен; година, място, ръст и разтег се попълват автоматично.
+              Номерата идват от профила; промяната тук важи само за този лист (не записва профила).
             </p>
             <div className="uiModalActions">
               <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>

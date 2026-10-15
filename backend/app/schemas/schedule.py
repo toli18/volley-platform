@@ -91,6 +91,7 @@ class ScheduleOccurrence(BaseModel):
     location: str
     start_time: str
     end_time: str
+    opponent_name: Optional[str] = None
 
     coach_id: int
     coach_name: Optional[str] = None

@@ -8,6 +8,7 @@ import useNavRoles from "../../navigation/useNavRoles";
 import TeamSheetO2Modal from "../../components/schedule/TeamSheetO2Modal";
 import CompetitionEventModal from "../../components/schedule/CompetitionEventModal";
 import RisImportModal from "../../components/schedule/RisImportModal";
+import RisStandingsModal from "../../components/schedule/RisStandingsModal";
 import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { competitionRosterAction } from "../../utils/competitionRosterPriority";
@@ -106,6 +107,9 @@ export default function CoachCompetitions() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetCtx, setSheetCtx] = useState(null);
   const [risOpen, setRisOpen] = useState(false);
+  const [standingsOpen, setStandingsOpen] = useState(false);
+  const [standingsChampId, setStandingsChampId] = useState(null);
+  const [standingsHint, setStandingsHint] = useState("");
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
@@ -326,6 +330,7 @@ export default function CoachCompetitions() {
       const athletes = (data?.candidates || []).map((c) => ({
         athlete_id: Number(c.id),
         athlete_name: c.name,
+        jersey_number: c.jersey_number,
       }));
       const kind = competitionKindLabel(event);
       const titleBits = [kind, event.carded_team_label].filter(Boolean);
@@ -430,12 +435,13 @@ export default function CoachCompetitions() {
                 {row.date} · {row.start_time}–{row.end_time}
               </strong>
               <div className="coachMobileMuted">
-                {row.competition_kind_label || row.competition_kind} · {row.location}
-                {row.opponent_name ? ` · vs ${row.opponent_name}` : ""}
+                {row.competition_kind_label || row.competition_kind}
+                {row.opponent_name ? ` · vs ${row.opponent_name}` : " · без противник"}
                 {row.ris_game_id
                   ? ` · БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
                   : ""}
               </div>
+              <div className="coachMobileMuted">{row.location}</div>
               <div>
                 {row.team_name || `Група #${row.team_id}`}
                 {row.carded_team_label ? ` · ${row.carded_team_label}` : ""}
@@ -454,6 +460,23 @@ export default function CoachCompetitions() {
               <Button size="sm" variant="secondary" onClick={() => openOfficialSheet(row)}>
                 Генерирай тимов лист
               </Button>
+              {row.ris_championship_id ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setStandingsChampId(Number(row.ris_championship_id));
+                    setStandingsHint(
+                      [row.competition_kind_label || row.competition_kind, row.carded_team_label]
+                        .filter(Boolean)
+                        .join(" · "),
+                    );
+                    setStandingsOpen(true);
+                  }}
+                >
+                  Класиране
+                </Button>
+              ) : null}
               {row.date === todayKey() ? (
                 <Button
                   size="sm"
@@ -496,6 +519,17 @@ export default function CoachCompetitions() {
         coaches={coaches}
         cardIndexes={cardIndexes}
         defaultCoachId={currentUserId}
+      />
+
+      <RisStandingsModal
+        open={standingsOpen}
+        onClose={() => {
+          setStandingsOpen(false);
+          setStandingsChampId(null);
+          setStandingsHint("");
+        }}
+        championshipId={standingsChampId}
+        titleHint={standingsHint}
       />
 
       {rosterEvent && roster ? (

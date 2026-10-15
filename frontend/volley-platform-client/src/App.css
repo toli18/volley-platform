@@ -9147,6 +9147,52 @@ button.matchChipSlot:not(:disabled) {
   padding-top: 8px;
 }
 
+.risStandingsTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.risStandingsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 420px;
+}
+.risStandingsTable th,
+.risStandingsTable td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+.risStandingsTable th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+}
+.risStandingsTable td:nth-child(2) {
+  white-space: normal;
+  word-break: break-word;
+  min-width: 120px;
+}
+.risStandingsTable tr.is-our-club {
+  background: #ecfdf5;
+  font-weight: 700;
+}
+.risStandingsTable tr.is-our-club td {
+  border-bottom-color: #bbf7d0;
+}
+.risStandingsRatio {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 @media (max-width: 640px) {
   .competitionRosterMeta {
     grid-template-columns: 1fr;

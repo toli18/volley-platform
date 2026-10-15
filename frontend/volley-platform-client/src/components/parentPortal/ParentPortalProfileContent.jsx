@@ -78,6 +78,11 @@ function HighlightEventBlock({ item, variant, onAckChange, formatDateBg }) {
           ) : null}
         </span>
       </p>
+      {isComp && item.opponent_name ? (
+        <p className="parentPortalHighlightDetail" title={item.opponent_name}>
+          vs {item.opponent_name}
+        </p>
+      ) : null}
       {item.location ? (
         <p className="parentPortalHighlightDetail parentPortalHighlightDetail--iconRow" title={item.location}>
           <IconLocation className="parentPortalInlineIcon" size={16} />
