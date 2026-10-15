@@ -15,7 +15,7 @@ function splitThreeNames(value) {
 
 /**
  * Жива Форма 0-3 / 0-3 А — оформление близо до официалната бланка.
- * Подписи: canvas за родител 1 (+ състезател при 03-А); родител 2 — изписано име.
+ * Подписи: canvas за родител 1 и родител 2 (+ състезател при 03-А).
  */
 export default function CardingFormLiveForm({
   meta,
@@ -36,9 +36,9 @@ export default function CardingFormLiveForm({
     athlete_egn: initial.athlete_egn || "",
     city: initial.city || "",
     rules_accepted: false,
-    signature_parent2: "",
   }));
   const [sigParent1, setSigParent1] = useState(null);
+  const [sigParent2, setSigParent2] = useState(null);
   const [sigAthlete, setSigAthlete] = useState(null);
   const [localError, setLocalError] = useState("");
 
@@ -85,9 +85,8 @@ export default function CardingFormLiveForm({
       setLocalError("Попълнете трите имена и ЕГН на родител 2.");
       return;
     }
-    const sigP2 = String(fields.signature_parent2 || "").trim() || p2name;
-    if (sigP2.length < 2) {
-      setLocalError("Подписът на родител 2 е задължителен (изпишете името).");
+    if (!sigParent2) {
+      setLocalError("Нужен е екранен подпис на родител 2.");
       return;
     }
     if (is03a && !sigAthlete) {
@@ -107,9 +106,10 @@ export default function CardingFormLiveForm({
       city: String(fields.city || "").trim() || null,
       rules_accepted: true,
       signature_parent1: fields.parent1_full_name.trim(),
-      signature_parent2: sigP2,
+      signature_parent2: p2name,
       signature_athlete: is03a ? athleteFull : null,
       signature_parent1_image: sigParent1,
+      signature_parent2_image: sigParent2,
       signature_athlete_image: is03a ? sigAthlete : null,
     });
   };
@@ -271,8 +271,8 @@ export default function CardingFormLiveForm({
 
       <p className="cardingFormSigLabel">
         {is03a
-          ? "Подписи — състезател (екран) и родители:"
-          : "Подписи — родител 1 (екран), родител 2 (име):"}
+          ? "Подписи — състезател и двамата родители (екран):"
+          : "Подписи — и двамата родители (екран):"}
       </p>
 
       {is03a ? (
@@ -291,15 +291,12 @@ export default function CardingFormLiveForm({
         onChange={setSigParent1}
       />
 
-      <label className="cardingFormField" style={{ marginTop: 8 }}>
-        <span>Родител 2 — изпишете името като подпис *</span>
-        <Input
-          value={fields.signature_parent2}
-          onChange={(e) => setField("signature_parent2", e.target.value)}
-          placeholder={fields.parent2_full_name || "Трите имена на родител 2"}
-          required
-        />
-      </label>
+      <SignaturePad
+        label="Екранен подпис — родител 2"
+        required
+        disabled={busy}
+        onChange={setSigParent2}
+      />
 
       <Button type="submit" disabled={busy}>
         {busy ? "Запис…" : `Подпиши ${kindLabel}`}

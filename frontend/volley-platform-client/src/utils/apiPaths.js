@@ -235,6 +235,8 @@ export const API_PATHS = {
   PARENT_PORTAL_CARDING_FORM_TOKEN: (token) => `/api/parent-portal/${token}/carding-form`,
   PARENT_PORTAL_CARDING_FORM_PREVIEW_ME: "/api/parent-portal/me/carding-form/preview",
   PARENT_PORTAL_CARDING_FORM_PREVIEW_TOKEN: (token) => `/api/parent-portal/${token}/carding-form/preview`,
+  PARENT_PORTAL_CARDING_PARENT2_ME: "/api/parent-portal/me/carding-form/parent2",
+  PARENT_PORTAL_CARDING_PARENT2_TOKEN: (token) => `/api/parent-portal/${token}/carding-form/parent2`,
   PARENT_SCHOOL_EXCUSE_LIST_ME: "/api/parent-portal/me/school-excuse-notes",
   PARENT_SCHOOL_EXCUSE_LIST_TOKEN: (token) => `/api/parent-portal/${token}/school-excuse-notes`,
   PARENT_SCHOOL_INFO_ME: "/api/parent-portal/me/school-info",
@@ -344,8 +346,14 @@ export const API_PATHS = {
     `/api/athletes/${athleteId}/documents/carding-form-03b/sign`,
   ATHLETE_DOCUMENT_CARDING_03B_INVITE: (athleteId) =>
     `/api/athletes/${athleteId}/documents/carding-form-03b/invite-link`,
+  ATHLETE_DOCUMENT_CARDING_PARENT2_SIGN: (athleteId, formId) =>
+    `/api/athletes/${athleteId}/documents/carding-form/${formId}/parent2-sign`,
+  ATHLETE_DOCUMENT_CARDING_PARENT2_INVITE: (athleteId, formId) =>
+    `/api/athletes/${athleteId}/documents/carding-form/${formId}/parent2-invite-link`,
   PUBLIC_CARDING_03B: (token) =>
     `/api/public/carding-form-03b/${encodeURIComponent(token)}`,
+  PUBLIC_CARDING_PARENT2: (token) =>
+    `/api/public/carding-form-parent2/${encodeURIComponent(token)}`,
 
   // Training assignments
   CLUB_TRAINING_ASSIGNMENTS_LIST: "/api/club/training-assignments",

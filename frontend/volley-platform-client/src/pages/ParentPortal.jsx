@@ -9,6 +9,7 @@ import ParentPortalLayout from "../components/parentPortal/ParentPortalLayout";
 import ParentPortalProfileContent from "../components/parentPortal/ParentPortalProfileContent";
 import ParentMembershipConsentGate from "../components/parentPortal/ParentMembershipConsentGate";
 import ParentCardingFormGate from "../components/parentPortal/ParentCardingFormGate";
+import ParentCardingParent2Gate from "../components/parentPortal/ParentCardingParent2Gate";
 import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
 import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
 import { Button, Card, EmptyState } from "../components/ui";
@@ -234,7 +235,9 @@ export default function ParentPortal() {
 
   const needsConsent = Boolean(profile?.membership_consent?.needs_consent);
   const needsCardingForm = !needsConsent && Boolean(profile?.carding_form?.needs_form);
-  const gated = needsConsent || needsCardingForm;
+  const needsParent2Sign =
+    !needsConsent && !needsCardingForm && Boolean(profile?.carding_form?.needs_parent2_sign);
+  const gated = needsConsent || needsCardingForm || needsParent2Sign;
 
   const fab = profile && !gated ? (
     <button
@@ -273,7 +276,9 @@ export default function ParentPortal() {
               ? "Необходимо е клубно заявление"
               : needsCardingForm
                 ? "Необходима е Форма 03 / 03-А за картотекиране"
-                : "Присъствие, график и профил"}
+                : needsParent2Sign
+                  ? "Липсва подпис на родител 2 (СЕК)"
+                  : "Присъствие, график и профил"}
           </p>
           {profile && !gated ? (
             <AthleteMembershipChips
@@ -304,6 +309,15 @@ export default function ParentPortal() {
           <ParentCardingFormGate
             isSession={isSession}
             token={token}
+            onSigned={() => loadProfile({ silent: false })}
+          />
+        ) : null}
+
+        {!loading && !error && profile && needsParent2Sign ? (
+          <ParentCardingParent2Gate
+            isSession={isSession}
+            token={token}
+            profile={profile}
             onSigned={() => loadProfile({ silent: false })}
           />
         ) : null}

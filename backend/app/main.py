@@ -44,6 +44,7 @@ from app.routers.ris_public import router as ris_public_router
 from app.routers.club_consent import docs_router as athlete_docs_router
 from app.routers.club_consent import router as club_consent_router
 from app.routers.public_carding_03b import router as public_carding_03b_router
+from app.routers.public_carding_parent2 import router as public_carding_parent2_router
 from app.routers.club_office_docs import router as club_office_docs_router
 from app.routers.school_excuse import club_router as school_excuse_club_router
 from app.routers.school_excuse import parent_router as school_excuse_parent_router
@@ -119,6 +120,7 @@ app.include_router(ris_public_router)
 app.include_router(club_consent_router)
 app.include_router(athlete_docs_router)
 app.include_router(public_carding_03b_router)
+app.include_router(public_carding_parent2_router)
 app.include_router(club_office_docs_router)
 app.include_router(school_excuse_club_router)
 app.include_router(school_excuse_parent_router)

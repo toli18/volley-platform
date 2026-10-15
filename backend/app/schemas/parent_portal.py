@@ -230,12 +230,15 @@ class ParentCardingFormStatus(BaseModel):
     enabled: bool = False
     needs_form: bool = False
     has_signed: bool = False
+    # Вече подписана форма, но липсва canvas на родител 2 (СЕК изисква и двамата).
+    needs_parent2_sign: bool = False
     season_year: Optional[int] = None
     season_label: Optional[str] = None
     form_kind: Optional[str] = None  # "03" | "03a"
     form_id: Optional[int] = None
     signed_at: Optional[datetime] = None
     club_name: Optional[str] = None
+    parent2_full_name: Optional[str] = None
 
 
 class ParentCardingFormMeta(BaseModel):
@@ -260,14 +263,20 @@ class ParentCardingFormSignRequest(BaseModel):
     athlete_egn: str = Field(..., min_length=10, max_length=16)
     city: Optional[str] = Field(None, max_length=120)
     rules_accepted: bool = False
-    # Текстовите „подписи“: родител 2 е изписано име; родител 1 / състезател — canvas PNG.
+    # Текстови етикети + canvas PNG и за двамата родители (+ състезател при 03А).
     signature_parent1: Optional[str] = Field(None, max_length=255)
     signature_parent2: str = Field(..., min_length=2, max_length=255)
     signature_athlete: Optional[str] = Field(None, max_length=255)
     # data:image/png;base64,...
     signature_parent1_image: str = Field(..., min_length=32)
-    signature_parent2_image: Optional[str] = Field(None, min_length=32)
+    signature_parent2_image: str = Field(..., min_length=32)
     signature_athlete_image: Optional[str] = Field(None, min_length=32)
+
+
+class ParentCardingParent2SignRequest(BaseModel):
+    """Допълва САМО подписа на родител 2 върху вече записана форма."""
+    signature_parent2_image: str = Field(..., min_length=32)
+    signature_parent2: Optional[str] = Field(None, max_length=255)
 
 
 class ParentCardingFormSignResponse(BaseModel):

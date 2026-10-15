@@ -135,8 +135,100 @@ def backfill_carding_form_signatures_to_db(form: AthleteCardingForm) -> bool:
     return changed
 
 
+def form_has_parent2_canvas(form: AthleteCardingForm | None) -> bool:
+    """Има ли рисуван (canvas) подпис на родител 2."""
+    if not form:
+        return False
+    return resolve_carding_signature_bytes(form, "parent2") is not None
+
+
+def form_needs_parent2_canvas(form: AthleteCardingForm | None) -> bool:
+    """
+    Активна Форма 0-3 / 0-3 А с валиден родител 1, но без canvas на родител 2.
+    Старите редове (само изписано име) остават валидни за has_signed, но СЕК иска и втория подпис.
+    """
+    if not form or not getattr(form, "is_active", False):
+        return False
+    kind = (form.form_kind or "").strip().lower()
+    if kind not in (FORM_KIND_03, FORM_KIND_03A):
+        return False
+    if not form_has_federation_signatures(form):
+        return False
+    return not form_has_parent2_canvas(form)
+
+
+def get_form_needing_parent2_canvas(
+    db: Session, athlete_id: int, season_year: int, club_id: int | None = None
+) -> AthleteCardingForm | None:
+    form = get_signed_carding_form(db, athlete_id, season_year, club_id)
+    if form and form_needs_parent2_canvas(form):
+        return form
+    return None
+
+
+def athlete_needs_parent2_canvas(db: Session, athlete: Athlete) -> bool:
+    """Родителски портал / треньор: липсва само canvas на родител 2 върху вече подписана форма."""
+    if not athlete.club_id or not getattr(athlete, "is_active", True):
+        return False
+    year = open_carding_season_year(db, int(athlete.club_id))
+    if not year:
+        return False
+    return get_form_needing_parent2_canvas(db, athlete.id, year, athlete.club_id) is not None
+
+
+def attach_parent2_canvas_signature(
+    db: Session,
+    form: AthleteCardingForm,
+    *,
+    signature_image_data_url: str,
+    signature_parent2_text: str | None = None,
+    club: Club | None = None,
+) -> AthleteCardingForm:
+    """
+    Добавя САМО canvas на родител 2 към съществуваща форма.
+    Не деактивира реда и не пипа подписите на родител 1 / състезателя.
+    """
+    kind = (form.form_kind or "").strip().lower()
+    if kind not in (FORM_KIND_03, FORM_KIND_03A):
+        raise ValueError("Само Форма 0-3 / 0-3 А приема подпис на родител 2")
+    if not form.is_active:
+        raise ValueError("Формата не е активна")
+    if resolve_carding_signature_bytes(form, "parent1") is None:
+        raise ValueError("Липсва подпис на родител 1 — не може да се допълва")
+    if form_has_parent2_canvas(form):
+        raise ValueError("Подписът на родител 2 вече е записан")
+
+    rel, blob = save_carding_signature_png(form.id, "parent2", signature_image_data_url)
+    form.signature_parent2_image_rel = rel
+    form.signature_parent2_image_data = blob
+    meta = (signature_parent2_text or "").strip() or (form.parent2_full_name or "").strip()
+    if meta:
+        form.signature_parent2 = meta
+
+    ink: dict[str, bytes] = {"parent2": blob}
+    for role in ("parent1", "athlete"):
+        existing = resolve_carding_signature_bytes(form, role)
+        if existing:
+            ink[role] = existing
+    try:
+        form.pdf_rel_path = persist_carding_form_pdf(form, club=club, ink_images=ink)
+    except Exception:
+        # Preview винаги регенерира от DB; кешираният PDF е best-effort.
+        pass
+    db.add(form)
+    db.commit()
+    db.refresh(form)
+    return form
+
+
 def form_has_federation_signatures(form: AthleteCardingForm) -> bool:
-    """Валиден подпис: canvas за родител 1 (+ състезател при 03А/03B); родител 2 — текстово име."""
+    """
+    Базова валидност (legacy + нови):
+    - 03b → canvas състезател
+    - 03/03a → canvas родител 1 + текстово име родител 2 (+ canvas състезател при 03а)
+    Новите подписвания изискват и canvas родител 2 (виж attach / _sign_carding_form).
+    Старите форми без parent2 canvas остават „подписани“, но form_needs_parent2_canvas=True.
+    """
     kind = (form.form_kind or "").strip().lower()
     if kind == FORM_KIND_03B:
         return resolve_carding_signature_bytes(form, "athlete") is not None
@@ -647,18 +739,32 @@ def build_carding_form_pdf(
             width=half_w,
             height=sig_box_h - 4 * mm,
         )
-        # Родител 2 — изписано име (не canvas)
-        c.setFont(font_name, 10)
-        c.setFillColorRGB(0, 0, 0)
-        p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
-        c.drawCentredString(inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________")
+        drew_p2 = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_parent2_image_rel", None),
+            ink_bytes=ink.get("parent2"),
+            x=inner_l + half_w + 2 * mm,
+            y_bottom=y - sig_box_h + 2 * mm,
+            width=half_w,
+            height=sig_box_h - 4 * mm,
+        )
+        if not drew_p2:
+            # Legacy: само изписано име на родител 2
+            c.setFont(font_name, 10)
+            c.setFillColorRGB(0, 0, 0)
+            p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
+            c.drawCentredString(
+                inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________"
+            )
         y -= sig_box_h
         c.setFont(font_name, 7)
         c.setFillColorRGB(0.45, 0.5, 0.55)
         c.drawCentredString(
             inner_l + content_w / 4, y, "(подпис)" if drew_p1 else "(подпис) — липсва"
         )
-        c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
+        c.drawCentredString(
+            inner_l + 3 * content_w / 4, y, "(подпис)" if drew_p2 else "(подпис) — липсва"
+        )
     else:
         text("Родители/настойници:", gap=5 * mm)
         drew_p1 = _draw_canvas_signature(
@@ -670,17 +776,31 @@ def build_carding_form_pdf(
             width=half_w,
             height=sig_box_h - 4 * mm,
         )
-        c.setFont(font_name, 10)
-        c.setFillColorRGB(0, 0, 0)
-        p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
-        c.drawCentredString(inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________")
+        drew_p2 = _draw_canvas_signature(
+            c,
+            rel=getattr(form, "signature_parent2_image_rel", None),
+            ink_bytes=ink.get("parent2"),
+            x=inner_l + half_w + 2 * mm,
+            y_bottom=y - sig_box_h + 2 * mm,
+            width=half_w,
+            height=sig_box_h - 4 * mm,
+        )
+        if not drew_p2:
+            c.setFont(font_name, 10)
+            c.setFillColorRGB(0, 0, 0)
+            p2_sig = (form.signature_parent2 or form.parent2_full_name or "").strip()
+            c.drawCentredString(
+                inner_l + 3 * content_w / 4, y - sig_box_h / 2, p2_sig or "_______________"
+            )
         y -= sig_box_h
         c.setFont(font_name, 7)
         c.setFillColorRGB(0.45, 0.5, 0.55)
         c.drawCentredString(
             inner_l + content_w / 4, y, "(подпис)" if drew_p1 else "(подпис) — липсва"
         )
-        c.drawCentredString(inner_l + 3 * content_w / 4, y, "(подпис)")
+        c.drawCentredString(
+            inner_l + 3 * content_w / 4, y, "(подпис)" if drew_p2 else "(подпис) — липсва"
+        )
 
     c.showPage()
     c.save()
@@ -725,6 +845,7 @@ def carding_form_to_document_dict(form: AthleteCardingForm) -> dict[str, Any]:
         kind_label = "Форма 0-3 А"
     else:
         kind_label = "Форма 0-3"
+    needs_p2 = form_needs_parent2_canvas(form) if form.is_active else False
     return {
         "id": form.id,
         "doc_type": "carding_form",
@@ -734,6 +855,11 @@ def carding_form_to_document_dict(form: AthleteCardingForm) -> dict[str, Any]:
         "season_year": form.season_year,
         "form_kind": form.form_kind,
         "has_preview": True,
+        "has_parent1_canvas": resolve_carding_signature_bytes(form, "parent1") is not None,
+        "has_parent2_canvas": form_has_parent2_canvas(form),
+        "has_athlete_canvas": resolve_carding_signature_bytes(form, "athlete") is not None,
+        "needs_parent2_sign": needs_p2,
+        "parent2_full_name": (form.parent2_full_name or "").strip() or None,
     }
 
 

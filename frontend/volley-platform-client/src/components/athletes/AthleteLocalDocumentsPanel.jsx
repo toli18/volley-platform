@@ -32,15 +32,20 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   const [docs, setDocs] = useState([]);
   const [active, setActive] = useState(false);
   const [carding03b, setCarding03b] = useState(null);
+  const [cardingParent2, setCardingParent2] = useState(null);
   const [busy, setBusy] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
+  const [parent2Open, setParent2Open] = useState(false);
   const [inviteUrl, setInviteUrl] = useState("");
+  const [parent2InviteUrl, setParent2InviteUrl] = useState("");
   const [fullName, setFullName] = useState("");
   const [egn, setEgn] = useState("");
   const [city, setCity] = useState("");
   const [rules, setRules] = useState(false);
   const [sig, setSig] = useState(null);
+  const [sigParent2, setSigParent2] = useState(null);
   const [signError, setSignError] = useState("");
+  const [parent2Error, setParent2Error] = useState("");
 
   const load = async () => {
     if (!athleteId) return;
@@ -50,6 +55,7 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
       setDocs(res.data?.documents || []);
       setActive(Boolean(res.data?.membership_consent_active));
       setCarding03b(res.data?.carding_03b || null);
+      setCardingParent2(res.data?.carding_parent2 || null);
     } catch (err) {
       toast?.error(normalizeError(err, "Неуспешно зареждане на документи."));
     } finally {
@@ -187,8 +193,72 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     }
   };
 
+  const openParent2Modal = () => {
+    setSigParent2(null);
+    setParent2Error("");
+    setParent2InviteUrl("");
+    setParent2Open(true);
+  };
+
+  const createParent2Invite = async (formId) => {
+    const id = formId || cardingParent2?.form_id;
+    if (!id) return;
+    try {
+      setBusy(true);
+      setParent2Error("");
+      const res = await axiosInstance.post(
+        API_PATHS.ATHLETE_DOCUMENT_CARDING_PARENT2_INVITE(athleteId, id),
+      );
+      const url = res.data?.url || "";
+      setParent2InviteUrl(url);
+      if (url && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast?.success("Линк за родител 2 е копиран (валиден 72 ч).");
+        } catch {
+          toast?.success("Линкът е готов — копирай го ръчно.");
+        }
+      } else {
+        toast?.success("Линкът за родител 2 е готов.");
+      }
+    } catch (err) {
+      toast?.error(normalizeError(err, "Неуспешно създаване на линк за родител 2."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitParent2Sign = async () => {
+    const formId = cardingParent2?.form_id;
+    if (!formId) return;
+    if (!sigParent2) {
+      setParent2Error("Нарисувай подписа на родител 2.");
+      return;
+    }
+    try {
+      setBusy(true);
+      setParent2Error("");
+      await axiosInstance.post(API_PATHS.ATHLETE_DOCUMENT_CARDING_PARENT2_SIGN(athleteId, formId), {
+        signature_parent2_image: sigParent2,
+        signature_parent2: cardingParent2?.parent2_full_name || null,
+      });
+      toast?.success("Подписът на родител 2 е добавен. Другите подписи са запазени.");
+      setParent2Open(false);
+      await load();
+    } catch (err) {
+      setParent2Error(normalizeError(err, "Неуспешен подпис на родител 2."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const statusLabel = (doc) => {
-    if (doc.status === "active") return "Активно";
+    if (doc.status === "active") {
+      if (doc.doc_type === "carding_form" && doc.needs_parent2_sign) {
+        return "Активно · липсва родител 2";
+      }
+      return "Активно";
+    }
     if (doc.status === "revoked") {
       return doc.doc_type === "carding_form" ? "Неактивно" : "Оттеглено";
     }
@@ -196,6 +266,7 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   };
 
   const needs03b = Boolean(carding03b?.needs_sign);
+  const needsParent2 = Boolean(cardingParent2?.needs_sign && cardingParent2?.form_id);
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -236,6 +307,44 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
         </div>
       ) : null}
 
+      {needsParent2 && canDeleteCarding ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 8,
+            padding: 10,
+            borderRadius: 8,
+            background: "rgba(127, 29, 29, 0.06)",
+            border: "1px solid rgba(127, 29, 29, 0.22)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13 }}>
+            Форма 0-3 — липсва подпис на родител 2
+            {cardingParent2?.parent2_full_name ? ` (${cardingParent2.parent2_full_name})` : ""}.
+            Първият подпис се запазва.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button type="button" size="sm" disabled={busy} onClick={openParent2Modal}>
+              Подпиши пред мен
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => createParent2Invite()}
+            >
+              Изпрати линк на родител 2
+            </Button>
+          </div>
+          {parent2InviteUrl ? (
+            <p style={{ margin: 0, fontSize: 11, wordBreak: "break-all" }} className="uiMuted">
+              {parent2InviteUrl}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={load}>
         Обнови
       </Button>
@@ -262,6 +371,17 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
                     Оттегли
                   </Button>
                 ) : null}
+                {canDeleteCarding && d.doc_type === "carding_form" && d.needs_parent2_sign ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => createParent2Invite(d.id)}
+                  >
+                    Линк родител 2
+                  </Button>
+                ) : null}
                 {canDeleteCarding && d.doc_type === "carding_form" ? (
                   <Button
                     type="button"
@@ -282,6 +402,37 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
           Все още няма локални документи.
         </p>
       )}
+
+      <Modal
+        open={parent2Open}
+        onClose={busy ? undefined : () => setParent2Open(false)}
+        dismissable={!busy}
+        title="Подпис — родител 2"
+        size="compact"
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+            Добавя се само подписът на{" "}
+            <strong>{cardingParent2?.parent2_full_name || "родител 2"}</strong>. Подписът на родител 1
+            се запазва.
+          </p>
+          <SignaturePad
+            label={`Подпис — ${cardingParent2?.parent2_full_name || "родител 2"}`}
+            required
+            disabled={busy}
+            onChange={setSigParent2}
+          />
+          {parent2Error ? <p style={{ color: "#b91c1c", margin: 0, fontSize: 13 }}>{parent2Error}</p> : null}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button type="button" disabled={busy} onClick={submitParent2Sign}>
+              {busy ? "Запис…" : "Добави подпис"}
+            </Button>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => setParent2Open(false)}>
+              Отказ
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={signOpen}

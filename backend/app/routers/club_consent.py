@@ -15,10 +15,13 @@ from app.models import Athlete, AthleteCardingForm, AthleteClubConsent, Club, Us
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
 from app.services.carding_form import (
     athlete_needs_adult_carding_form,
+    attach_parent2_canvas_signature,
     carding_form_to_document_dict,
     create_signed_carding_form_03b,
     ensure_carding_form_signatures_persisted,
     form_kind_for_athlete,
+    form_needs_parent2_canvas,
+    get_form_needing_parent2_canvas,
     open_carding_season_year,
     prefill_carding_form,
     purge_carding_form_files,
@@ -205,20 +208,44 @@ def list_athlete_documents(
         "club_name": None,
         "prefill": None,
     }
+    parent2 = {
+        "needs_sign": False,
+        "form_id": None,
+        "form_kind": None,
+        "season_year": year,
+        "season_label": season_label(year) if year else None,
+        "club_name": None,
+        "parent2_full_name": None,
+        "parent1_full_name": None,
+        "athlete_name": athlete.athlete_name,
+    }
     if year and athlete.club_id:
         club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
         kind = form_kind_for_athlete(athlete, year)
         adult["form_kind"] = kind
         adult["club_name"] = (club.name if club else "") or ""
+        parent2["club_name"] = adult["club_name"]
         if athlete_needs_adult_carding_form(db, athlete):
             adult["needs_sign"] = True
             adult["prefill"] = prefill_carding_form(db, athlete, year)
+        p2_form = get_form_needing_parent2_canvas(db, athlete.id, year, athlete.club_id)
+        if p2_form:
+            parent2.update(
+                {
+                    "needs_sign": True,
+                    "form_id": p2_form.id,
+                    "form_kind": p2_form.form_kind,
+                    "parent2_full_name": (p2_form.parent2_full_name or "").strip() or None,
+                    "parent1_full_name": (p2_form.parent1_full_name or "").strip() or None,
+                }
+            )
 
     return {
         "athlete_id": athlete.id,
         "membership_consent_active": active is not None,
         "documents": docs,
         "carding_03b": adult,
+        "carding_parent2": parent2,
     }
 
 
@@ -337,6 +364,123 @@ def sign_carding_form_03b_in_person(
         "form_kind": form.form_kind,
         "signed_at": form.signed_at,
         "season_year": form.season_year,
+    }
+
+
+class Parent2SignIn(BaseModel):
+    signature_parent2_image: str = Field(..., min_length=32)
+    signature_parent2: Optional[str] = Field(None, max_length=255)
+
+
+@docs_router.post("/{athlete_id}/documents/carding-form/{form_id}/parent2-sign")
+def sign_carding_form_parent2_in_person(
+    athlete_id: int,
+    form_id: int,
+    payload: Parent2SignIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Добавя canvas на родител 2 към съществуваща Форма 0-3 — без да пипа другите подписи."""
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    form = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.id == int(form_id),
+            AthleteCardingForm.athlete_id == athlete.id,
+            AthleteCardingForm.is_active.is_(True),
+        )
+        .first()
+    )
+    if not form:
+        raise HTTPException(status_code=404, detail="Форма 03 не е намерена")
+    if not form_needs_parent2_canvas(form):
+        raise HTTPException(status_code=409, detail="Подписът на родител 2 вече е записан или не е нужен")
+    club = db.query(Club).filter(Club.id == int(form.club_id)).first() if form.club_id else None
+    try:
+        form = attach_parent2_canvas_signature(
+            db,
+            form,
+            signature_image_data_url=payload.signature_parent2_image,
+            signature_parent2_text=payload.signature_parent2,
+            club=club,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "form_id": form.id,
+        "needs_parent2_sign": False,
+        "has_parent2_canvas": True,
+    }
+
+
+@docs_router.post("/{athlete_id}/documents/carding-form/{form_id}/parent2-invite-link")
+def create_carding_form_parent2_invite_link(
+    athlete_id: int,
+    form_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.platform_admin,
+            UserRole.federation_admin,
+        )
+    ),
+):
+    """Линк (72 ч) само за подпис на родител 2 — запазва съществуващите подписи."""
+    from datetime import timedelta
+
+    from app.auth import create_access_token
+    from app.settings import settings
+
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    form = (
+        db.query(AthleteCardingForm)
+        .filter(
+            AthleteCardingForm.id == int(form_id),
+            AthleteCardingForm.athlete_id == athlete.id,
+            AthleteCardingForm.is_active.is_(True),
+        )
+        .first()
+    )
+    if not form:
+        raise HTTPException(status_code=404, detail="Форма 03 не е намерена")
+    if not form_needs_parent2_canvas(form):
+        raise HTTPException(status_code=409, detail="Подписът на родител 2 вече е записан или не е нужен")
+    year = open_carding_season_year(db, int(athlete.club_id)) if athlete.club_id else None
+    if not year or int(year) != int(form.season_year):
+        raise HTTPException(status_code=409, detail="Сезонът вече не е отворен за Форма 03")
+    token = create_access_token(
+        {
+            "sub": f"carding_parent2:{int(form.id)}",
+            "typ": "carding_parent2",
+            "athlete_id": int(athlete.id),
+            "form_id": int(form.id),
+            "season_year": int(form.season_year),
+            "club_id": int(athlete.club_id),
+        },
+        expires_delta=timedelta(hours=72),
+    )
+    base = (settings.parent_portal_public_url or "").rstrip("/") or "https://volley-platform-bul.vercel.app"
+    path = f"/sign/form-parent2/{token}"
+    return {
+        "ok": True,
+        "token": token,
+        "path": path,
+        "url": f"{base}{path}",
+        "expires_hours": 72,
+        "athlete_name": athlete.athlete_name,
+        "parent2_full_name": (form.parent2_full_name or "").strip() or None,
+        "season_label": season_label(form.season_year),
+        "form_id": form.id,
     }
 
 

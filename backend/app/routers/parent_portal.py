@@ -47,6 +47,7 @@ from app.schemas.parent_portal import (
     ParentCardingFormSignRequest,
     ParentCardingFormSignResponse,
     ParentCardingFormStatus,
+    ParentCardingParent2SignRequest,
     ParentCurrentMonthFee,
     ParentFeeCoachContact,
     ParentMembershipConsentForm,
@@ -83,8 +84,12 @@ from app.services.club_membership_consent import (
 from app.services.carding_form import (
     FORM_KIND_03A,
     athlete_needs_carding_form,
+    athlete_needs_parent2_canvas,
+    attach_parent2_canvas_signature,
     deactivate_prior_carding_forms,
     form_kind_for_athlete,
+    form_needs_parent2_canvas,
+    get_form_needing_parent2_canvas,
     get_signed_carding_form,
     open_carding_season_year,
     persist_carding_form_pdf,
@@ -969,12 +974,14 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                     enabled=True,
                     needs_form=False,
                     has_signed=True,
+                    needs_parent2_sign=form_needs_parent2_canvas(signed),
                     season_year=sy,
                     season_label=season_label(sy),
                     form_kind=signed.form_kind,
                     form_id=signed.id,
                     signed_at=signed.signed_at,
                     club_name=club_name,
+                    parent2_full_name=(signed.parent2_full_name or "").strip() or None,
                 )
             else:
                 # Season open via head coach button → form required until signed
@@ -982,6 +989,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                     enabled=True,
                     needs_form=bool(needs),
                     has_signed=False,
+                    needs_parent2_sign=False,
                     season_year=sy,
                     season_label=season_label(sy),
                     form_kind=kind,
@@ -1558,9 +1566,11 @@ def _sign_carding_form(
     kind = form_kind_for_athlete(athlete, year)
     if not (body.signature_parent1_image or "").strip():
         raise HTTPException(status_code=422, detail="Нужен е екранен подпис на родител 1")
+    if not (body.signature_parent2_image or "").strip():
+        raise HTTPException(status_code=422, detail="Нужен е екранен подпис на родител 2")
     sig_p2_meta = (body.signature_parent2 or "").strip() or p2_name
     if len(sig_p2_meta) < 2:
-        raise HTTPException(status_code=422, detail="Подписът на родител 2 е задължителен (изпишете името)")
+        raise HTTPException(status_code=422, detail="Подписът на родител 2 е задължителен")
 
     if kind == FORM_KIND_03A:
         if not (body.signature_athlete_image or "").strip():
@@ -1604,13 +1614,10 @@ def _sign_carding_form(
         form.signature_parent1_image_rel = rel_p1
         form.signature_parent1_image_data = blob_p1
         ink_images["parent1"] = blob_p1
-        if (body.signature_parent2_image or "").strip():
-            rel_p2, blob_p2 = save_carding_signature_png(
-                form.id, "parent2", body.signature_parent2_image
-            )
-            form.signature_parent2_image_rel = rel_p2
-            form.signature_parent2_image_data = blob_p2
-            ink_images["parent2"] = blob_p2
+        rel_p2, blob_p2 = save_carding_signature_png(form.id, "parent2", body.signature_parent2_image)
+        form.signature_parent2_image_rel = rel_p2
+        form.signature_parent2_image_data = blob_p2
+        ink_images["parent2"] = blob_p2
         if kind == FORM_KIND_03A and body.signature_athlete_image:
             rel_ath, blob_ath = save_carding_signature_png(form.id, "athlete", body.signature_athlete_image)
             form.signature_athlete_image_rel = rel_ath
@@ -1665,6 +1672,101 @@ def parent_sign_carding_form_token(
 ):
     athlete = _resolve_parent_portal_athlete(db, token)
     return _sign_carding_form(db, athlete, body)
+
+
+def _parent2_addon_meta(db: Session, athlete: Athlete) -> dict:
+    year = open_carding_season_year(db, int(athlete.club_id)) if athlete.club_id else None
+    if not year:
+        return {
+            "needs_parent2_sign": False,
+            "form_id": None,
+            "season_year": None,
+            "season_label": None,
+            "form_kind": None,
+            "club_name": "",
+            "athlete_name": athlete.athlete_name,
+            "parent2_full_name": None,
+            "parent1_full_name": None,
+        }
+    form = get_form_needing_parent2_canvas(db, athlete.id, year, athlete.club_id)
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first() if athlete.club_id else None
+    return {
+        "needs_parent2_sign": form is not None,
+        "form_id": form.id if form else None,
+        "season_year": year,
+        "season_label": season_label(year),
+        "form_kind": form.form_kind if form else None,
+        "club_name": (club.name if club else "") or "",
+        "athlete_name": athlete.athlete_name,
+        "parent2_full_name": (form.parent2_full_name or "").strip() if form else None,
+        "parent1_full_name": (form.parent1_full_name or "").strip() if form else None,
+    }
+
+
+def _sign_parent2_addon(
+    db: Session, athlete: Athlete, body: ParentCardingParent2SignRequest
+) -> dict:
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма назначен клуб")
+    year = open_carding_season_year(db, int(athlete.club_id))
+    if not year:
+        raise HTTPException(status_code=409, detail="Няма отворена сезонна заявка")
+    form = get_form_needing_parent2_canvas(db, athlete.id, year, athlete.club_id)
+    if not form:
+        if athlete_needs_parent2_canvas(db, athlete):
+            raise HTTPException(status_code=409, detail="Формата не приема допълнителен подпис")
+        raise HTTPException(status_code=409, detail="Подписът на родител 2 вече е записан или не е нужен")
+    club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
+    try:
+        form = attach_parent2_canvas_signature(
+            db,
+            form,
+            signature_image_data_url=body.signature_parent2_image,
+            signature_parent2_text=body.signature_parent2,
+            club=club,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "form_id": form.id,
+        "needs_parent2_sign": False,
+        "has_parent2_canvas": True,
+        "signed_at": form.signed_at,
+    }
+
+
+@router.get("/parent-portal/me/carding-form/parent2")
+def parent_carding_parent2_meta_me(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _parent2_addon_meta(db, athlete)
+
+
+@router.get("/parent-portal/{token}/carding-form/parent2")
+def parent_carding_parent2_meta_token(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _parent2_addon_meta(db, athlete)
+
+
+@router.post("/parent-portal/me/carding-form/parent2")
+def parent_carding_parent2_sign_me(
+    body: ParentCardingParent2SignRequest,
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    return _sign_parent2_addon(db, athlete, body)
+
+
+@router.post("/parent-portal/{token}/carding-form/parent2")
+def parent_carding_parent2_sign_token(
+    token: str,
+    body: ParentCardingParent2SignRequest,
+    db: Session = Depends(get_db),
+):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _sign_parent2_addon(db, athlete, body)
 
 
 @router.get("/parent-portal/me/carding-form/preview")
