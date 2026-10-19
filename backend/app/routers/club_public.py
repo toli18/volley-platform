@@ -26,8 +26,10 @@ from app.models import (
     User,
     UserRole,
 )
+from app.competition_kinds import competition_kind_label
 from app.services.athlete_identity import compose_athlete_name
 from app.services.club_profile_sync import load_club_halls, match_club_hall, serialize_hall
+from app.services.schedule_competitions import load_competition_occurrences
 
 router = APIRouter(prefix="/api", tags=["Club Public & Enrollment"])
 
@@ -75,6 +77,29 @@ def _public_club_or_404(db: Session, slug: str) -> Club:
     if not club:
         raise HTTPException(status_code=404, detail="Публичната страница не е активна")
     return club
+
+
+def _public_club_by_slug_or_404(db: Session, slug: str) -> Club:
+    """График за външен сайт: нужни са публичен slug + активен клуб (без enrollment page flag)."""
+    key = (slug or "").strip().lower()
+    if not key:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    club = (
+        db.query(Club)
+        .filter(Club.public_slug == key, Club.is_active.is_(True))
+        .first()
+    )
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    return club
+
+
+def _parse_public_date(value: str, field: str) -> date:
+    raw = (value or "").strip()
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD") from exc
 
 
 def _logo_url(club: Club) -> str | None:
@@ -439,6 +464,241 @@ def get_public_upcoming_trainings(
         db, club_id=int(club.id), team_id=int(team.id), limit=int(limit)
     )
     return {"team_id": int(team.id), "team_name": team.name, "items": items}
+
+
+def _public_training_occurrences(
+    db: Session,
+    *,
+    club_id: int,
+    d0: date,
+    d1: date,
+    team_id: int | None = None,
+    halls: list[ClubHall] | None = None,
+) -> list[dict[str, Any]]:
+    """Всички тренировки на клуба в периода (правила + изключения), за всички възрасти."""
+    q = db.query(TrainingScheduleRule).filter(
+        TrainingScheduleRule.club_id == int(club_id),
+        TrainingScheduleRule.is_active.is_(True),
+        TrainingScheduleRule.effective_from <= d1.isoformat(),
+    )
+    q = q.filter(
+        (TrainingScheduleRule.effective_to.is_(None))
+        | (TrainingScheduleRule.effective_to >= d0.isoformat())
+    )
+    if team_id:
+        q = q.filter(TrainingScheduleRule.team_id == int(team_id))
+    rules = q.all()
+    if not rules:
+        return []
+
+    rule_ids = [int(r.id) for r in rules]
+    exc_rows = (
+        db.query(TrainingScheduleException)
+        .filter(
+            TrainingScheduleException.rule_id.in_(rule_ids),
+            TrainingScheduleException.date >= d0.isoformat(),
+            TrainingScheduleException.date <= d1.isoformat(),
+        )
+        .all()
+    )
+    exc_by_key = {(int(e.rule_id), e.date): e for e in exc_rows}
+
+    team_ids = {int(r.team_id) for r in rules}
+    for e in exc_rows:
+        if e.kind == "override" and e.team_id:
+            team_ids.add(int(e.team_id))
+    coach_ids = {int(r.coach_id) for r in rules}
+    for e in exc_rows:
+        if e.kind == "override" and e.coach_id:
+            coach_ids.add(int(e.coach_id))
+
+    teams = (
+        db.query(Team).filter(Team.id.in_(list(team_ids))).all() if team_ids else []
+    )
+    team_by_id = {int(t.id): t for t in teams}
+    coach_names = (
+        dict(db.query(User.id, User.name).filter(User.id.in_(list(coach_ids))).all())
+        if coach_ids
+        else {}
+    )
+    hall_rows = halls if halls is not None else load_club_halls(db, club_id, active_only=True)
+
+    out: list[dict[str, Any]] = []
+    days = (d1 - d0).days
+    for day_idx in range(days + 1):
+        cur = d0 + timedelta(days=day_idx)
+        weekday = cur.weekday()
+        cur_s = cur.isoformat()
+        for r in rules:
+            if int(r.weekday) != int(weekday):
+                continue
+            if r.effective_from > cur_s:
+                continue
+            if r.effective_to and r.effective_to < cur_s:
+                continue
+            exc = exc_by_key.get((int(r.id), cur_s))
+            if exc and exc.kind == "cancelled":
+                continue
+
+            team_id_v = (
+                int(exc.team_id)
+                if exc and exc.kind == "override" and exc.team_id
+                else int(r.team_id)
+            )
+            coach_id_v = (
+                int(exc.coach_id)
+                if exc and exc.kind == "override" and exc.coach_id
+                else int(r.coach_id)
+            )
+            start_v = (
+                exc.start_time if exc and exc.kind == "override" and exc.start_time else r.start_time
+            )
+            end_v = (
+                exc.end_time if exc and exc.kind == "override" and exc.end_time else r.end_time
+            )
+            if exc and exc.kind == "override" and (exc.location or "").strip():
+                loc_v = " ".join((exc.location or "").strip().split())
+            else:
+                loc_v = " ".join((r.location or "").strip().split())
+
+            team = team_by_id.get(team_id_v)
+            gender = (getattr(team, "gender", None) or "").strip().lower() or None if team else None
+            age_group = (getattr(team, "age_group", None) or "").strip() or None if team else None
+            team_name = team.name if team else None
+            out.append(
+                _enrich_slot_location(
+                    {
+                        "date": cur_s,
+                        "weekday": weekday,
+                        "weekday_label": _WEEKDAY_BG[weekday] if 0 <= weekday < 7 else str(weekday),
+                        "event_type": "training",
+                        "competition_kind": None,
+                        "competition_kind_label": None,
+                        "start_time": start_v,
+                        "end_time": end_v,
+                        "location": loc_v or None,
+                        "team_id": team_id_v,
+                        "team_name": team_name,
+                        "team_label": _public_team_hint(age_group, gender, None) or team_name,
+                        "team_gender": gender,
+                        "age_group": age_group,
+                        "opponent_name": None,
+                        "coach_name": coach_names.get(coach_id_v),
+                    },
+                    hall_rows,
+                )
+            )
+    return out
+
+
+@router.get("/public/clubs/{slug}/schedule")
+def get_public_club_schedule(
+    slug: str,
+    from_date: str = Query(..., alias="from", description="YYYY-MM-DD"),
+    to_date: str = Query(..., alias="to", description="YYYY-MM-DD"),
+    team_id: int | None = Query(default=None, description="Филтър по група/възраст"),
+    event_type: str | None = Query(
+        default=None,
+        description="training | competition (мачове/турнири/контролни)",
+    ),
+    db: Session = Depends(get_db),
+):
+    """Публичен график: тренировки + състезания (мачове/турнири) за всички възрасти."""
+    club = _public_club_by_slug_or_404(db, slug)
+    d0 = _parse_public_date(from_date, "from")
+    d1 = _parse_public_date(to_date, "to")
+    if d1 < d0:
+        raise HTTPException(status_code=422, detail="to must be >= from")
+    if (d1 - d0).days > 92:
+        raise HTTPException(status_code=422, detail="Date range too large (max 92 days)")
+
+    et = (event_type or "").strip().lower() or None
+    if et and et not in {"training", "competition"}:
+        raise HTTPException(status_code=422, detail="event_type must be training or competition")
+
+    if team_id is not None:
+        team = (
+            db.query(Team)
+            .filter(Team.id == int(team_id), Team.club_id == int(club.id), Team.is_active.is_(True))
+            .first()
+        )
+        if not team:
+            raise HTTPException(status_code=404, detail="Групата не е намерена")
+
+    halls = load_club_halls(db, int(club.id), active_only=True)
+    items: list[dict[str, Any]] = []
+
+    if et is None or et == "training":
+        items.extend(
+            _public_training_occurrences(
+                db,
+                club_id=int(club.id),
+                d0=d0,
+                d1=d1,
+                team_id=int(team_id) if team_id else None,
+                halls=halls,
+            )
+        )
+
+    if et is None or et == "competition":
+        comps = load_competition_occurrences(
+            db,
+            club_id=int(club.id),
+            d0=d0,
+            d1=d1,
+            coach_id=None,
+            team_id=int(team_id) if team_id else None,
+            location=None,
+            line_coach_user_id=None,
+        )
+        team_ids = {int(c.team_id) for c in comps}
+        teams = (
+            db.query(Team).filter(Team.id.in_(list(team_ids))).all() if team_ids else []
+        )
+        team_by_id = {int(t.id): t for t in teams}
+        for c in comps:
+            team = team_by_id.get(int(c.team_id))
+            gender = (getattr(team, "gender", None) or "").strip().lower() or None if team else None
+            age_group = (getattr(team, "age_group", None) or "").strip() or None if team else None
+            team_name = c.team_name or (team.name if team else None)
+            kind = (c.competition_kind or "").strip() or None
+            items.append(
+                _enrich_slot_location(
+                    {
+                        "date": c.date,
+                        "weekday": int(c.weekday),
+                        "weekday_label": (
+                            _WEEKDAY_BG[int(c.weekday)]
+                            if 0 <= int(c.weekday) < 7
+                            else str(c.weekday)
+                        ),
+                        "event_type": "competition",
+                        "competition_kind": kind,
+                        "competition_kind_label": competition_kind_label(kind) if kind else None,
+                        "start_time": c.start_time,
+                        "end_time": c.end_time,
+                        "location": c.location or None,
+                        "team_id": int(c.team_id),
+                        "team_name": team_name,
+                        "team_label": _public_team_hint(age_group, gender, None) or team_name,
+                        "team_gender": gender,
+                        "age_group": age_group,
+                        "opponent_name": c.opponent_name,
+                        "coach_name": c.coach_name,
+                    },
+                    halls,
+                )
+            )
+
+    items.sort(key=lambda x: (x.get("date") or "", x.get("start_time") or "", x.get("team_name") or ""))
+    return {
+        "slug": club.public_slug,
+        "club_name": club.name,
+        "from": d0.isoformat(),
+        "to": d1.isoformat(),
+        "count": len(items),
+        "items": items,
+    }
 
 
 class PublicEnrollmentCreate(BaseModel):
