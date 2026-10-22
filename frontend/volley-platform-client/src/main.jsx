@@ -13,6 +13,7 @@ import EditDrill from "./pages/EditDrill.jsx";
 import Generator from "./pages/Generator.jsx";
 import CreateDrill from "./pages/CreateDrill.jsx";
 import { ToastProvider } from "./components/ToastProvider.jsx";
+import { installSpaBootRecovery } from "./utils/spaBootRecovery.js";
 const Home = React.lazy(() => import("./pages/Home.jsx"));
 
 const MyDrills = React.lazy(() => import("./pages/MyDrills.jsx"));
@@ -120,30 +121,20 @@ function LegacyChatRoute() {
 }
 
 // Prevent white-screen after deploy when browser has stale cached chunk references.
+installSpaBootRecovery();
+
+// Drop one-shot recovery query params after a successful boot.
 if (typeof window !== "undefined") {
-  const reloadKey = "vp-preload-reload-once";
-  const reloadOnce = () => {
-    const alreadyReloaded = sessionStorage.getItem(reloadKey) === "1";
-    if (!alreadyReloaded) {
-      sessionStorage.setItem(reloadKey, "1");
-      window.location.reload();
-    } else {
-      sessionStorage.removeItem(reloadKey);
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("_spa") || url.searchParams.has("_recover")) {
+      url.searchParams.delete("_spa");
+      url.searchParams.delete("_recover");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
     }
-  };
-
-  window.addEventListener("vite:preloadError", (event) => {
-    event.preventDefault();
-    reloadOnce();
-  });
-
-  window.addEventListener("unhandledrejection", (event) => {
-    const message = String(event?.reason?.message || event?.reason || "");
-    if (message.includes("Failed to fetch dynamically imported module")) {
-      event.preventDefault();
-      reloadOnce();
-    }
-  });
+  } catch {
+    /* ignore */
+  }
 }
 
 const router = createBrowserRouter([
