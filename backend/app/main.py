@@ -137,13 +137,14 @@ if (WEB_DIR / "assets").is_dir():
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="spa-assets")
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 def healthz():
     return {"ok": True}
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
+    """HEAD is required: Facebook/Messenger link shim probes with HEAD before opening."""
     index = WEB_DIR / "index.html"
     if index.is_file():
         return FileResponse(index)
@@ -165,9 +166,13 @@ def generator_page(request: Request):
     return templates.TemplateResponse("generator.html", {"request": request})
 
 
-@app.get("/{full_path:path}")
+@app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
 def spa_fallback(full_path: str):
-    """Client-side routes for the bundled SPA; never swallow real API prefixes."""
+    """Client-side routes for the bundled SPA; never swallow real API prefixes.
+
+    Include HEAD so Messenger/Facebook in-app browsers (l.facebook.com shim) can
+    validate the URL instead of getting 405 and a blank white screen.
+    """
     index = WEB_DIR / "index.html"
     if not index.is_file():
         raise HTTPException(status_code=404, detail="Not Found")
