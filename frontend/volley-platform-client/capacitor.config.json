@@ -3,12 +3,12 @@
   "appName": "Троян Волей",
   "webDir": "mobile-shell",
   "server": {
-    "url": "https://volley-platform.vercel.app/app",
+    "url": "https://volley-platform-bul.vercel.app/app",
     "cleartext": false,
     "allowNavigation": [
-      "https://volley-platform.vercel.app/*",
-      "https://volley-platform-bul.vercel.app/*",
-      "https://volley-platform-production.up.railway.app/*"
+      "volley-platform.vercel.app",
+      "volley-platform-bul.vercel.app",
+      "volley-platform-production.up.railway.app"
     ]
   },
   "android": {

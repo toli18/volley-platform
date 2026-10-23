@@ -2,9 +2,11 @@
 
 Уеб линковете **остават непроменени**. Това приложение е допълнение.
 
-- Входна страница в уеба: https://volley-platform.vercel.app/app  
+- Входна страница в уеба: https://volley-platform-bul.vercel.app/app  
 - Родител (както досега): https://volley-platform.vercel.app/parent/login  
 - Състезател (както досега): https://volley-platform.vercel.app/room/login  
+
+> Android app-ът зарежда директно `volley-platform-bul.vercel.app` (без redirect), за да не скача към Chrome. 
 
 Приложението отваря живия портал (`server.url`). Промени в родителския/състезателския уеб портал се виждат **без** ново APK.  
 Промени само в треньор/админ **не** изискват ъпдейт на app-а.
