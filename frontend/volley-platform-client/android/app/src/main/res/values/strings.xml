@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Троян Волей</string>
-    <string name="title_activity_main">Троян Волей</string>
-    <string name="package_name">bg.troyanvolley.portal</string>
-    <string name="custom_url_scheme">bg.troyanvolley.portal</string>
+    <string name="app_name">Volley Coach BUL</string>
+    <string name="title_activity_main">Volley Coach BUL</string>
+    <string name="package_name">bg.volleycoach.portal</string>
+    <string name="custom_url_scheme">bg.volleycoach.portal</string>
 </resources>

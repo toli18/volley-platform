@@ -23,7 +23,7 @@ export default function MobileAppLanding() {
             <div className="parentPortalBrand">
               <PlatformBrandTitle />
             </div>
-            <div className="parentPortalBrandSub">Троян Волей — мобилен вход</div>
+            <div className="parentPortalBrandSub">Мобилен вход за родители и състезатели</div>
             <BrandTriLine className="brandTriLine--portal" />
           </div>
         </div>
@@ -75,8 +75,8 @@ export default function MobileAppLanding() {
         </div>
 
         <p style={{ marginTop: 22, fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-          Треньорският и админ порталът остават през обичайния уеб адрес — това приложение е само за
-          родители и състезатели.
+          Volley Coach BUL — за всички клубове в платформата. Треньорският и админ порталът остават
+          през обичайния уеб адрес; това приложение е само за родители и състезатели.
         </p>
       </main>
 

@@ -1,4 +1,4 @@
-package bg.troyanvolley.portal;
+package bg.volleycoach.portal;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;

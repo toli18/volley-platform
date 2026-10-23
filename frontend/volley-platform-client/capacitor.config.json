@@ -1,6 +1,6 @@
 {
-  "appId": "bg.troyanvolley.portal",
-  "appName": "Троян Волей",
+  "appId": "bg.volleycoach.portal",
+  "appName": "Volley Coach BUL",
   "webDir": "mobile-shell",
   "server": {
     "allowNavigation": [
@@ -16,7 +16,7 @@
   "ios": {
     "backgroundColor": "#f8fafc",
     "contentInset": "automatic",
-    "scheme": "Troyan Volley"
+    "scheme": "Volley Coach BUL"
   },
   "plugins": {
     "SplashScreen": {

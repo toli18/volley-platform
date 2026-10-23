@@ -1,64 +1,57 @@
-# Мобилно приложение — Троян Волей (родител + състезател)
+# Мобилно приложение — Volley Coach BUL (родител + състезател)
 
-Уеб линковете **остават непроменени**. Това приложение е допълнение.
+Уеб линковете **остават непроменени**. Това приложение е допълнение за **всички клубове** в платформата (не е само за един клуб).
 
-- Входна страница в уеба: https://volley-platform-bul.vercel.app/app  
-- Родител (както досега): https://volley-platform.vercel.app/parent/login  
-- Състезател (както досега): https://volley-platform.vercel.app/room/login  
+- Име на app-а: **Volley Coach BUL** (лого БФВ)
+- Входна страница: https://volley-platform-bul.vercel.app/app  
+- Родител: https://volley-platform.vercel.app/parent/login  
+- Състезател: https://volley-platform.vercel.app/room/login  
 
-> Android app-ът е WebView обвивка към `volley-platform-bul.vercel.app/app` и **не** отваря Chrome.  
-> При проблем: деинсталирай старата версия и сложи най-новия APK (виж `versionName` ≥ 1.0.3). 
+Android app-ът е WebView към `/app` и **не** отваря Chrome.  
+При проблем: деинсталирай старата версия (вкл. ако е пишело „Троян Волей“) и сложи най-новия APK.
 
-Приложението отваря живия портал (`server.url`). Промени в родителския/състезателския уеб портал се виждат **без** ново APK.  
+Приложението отваря живия портал. Промени в родителския/състезателския уеб портал се виждат **без** ново APK.  
 Промени само в треньор/админ **не** изискват ъпдейт на app-а.
 
 ---
 
-## Android — файл за `troyanvolley.com`
+## Android — файл за клубен сайт
 
 Готов файл:
 
-`frontend/volley-platform-client/mobile-release/troyan-volley-portal-android.apk`
+`frontend/volley-platform-client/mobile-release/volley-coach-bul-android.apk`
+
+(същият файл се публикува и като `troyan-volley-portal-android.apk` за обратна съвместимост на стари линкове)
 
 ### За колегата на сайта
 
-1. Качи `troyan-volley-portal-android.apk` на хостинга.  
-2. Добави бутон напр. **„Свали за Android“** с директен линк към файла.  
-3. Кратък текст за родителите:
+1. Качи `volley-coach-bul-android.apk` на хостинга.  
+2. Бутон **„Свали за Android“**.  
+3. Текст за родителите:
    - отвори линка от телефона (Chrome/Files, не от Messenger);
-   - след сваляне: **Настройки → Приложения → Специален достъп → Инсталиране на неизвестни приложения** → разреши за Chrome/Files;
-   - отвори APK-то от „Изтегляния“ и инсталирай;
-   - ако пише „Приложението не бе инсталирано“ — почти винаги липсва горното разрешение; ако вече има стара версия, деинсталирай я и пробвай пак;
-   - след инсталация отвори иконата **Троян Волей**.
+   - **Настройки → Приложения → Специален достъп → Инсталиране на неизвестни приложения** → разреши за Chrome/Files;
+   - инсталирай от „Изтегляния“;
+   - иконата е **Volley Coach BUL** с логото на БФВ.
 
 ### Повторно генериране на APK
 
 ```bash
 cd frontend/volley-platform-client
 npm ci
-npx cap sync
-cd android && ./gradlew assembleDebug
-cp app/build/outputs/apk/debug/app-debug.apk ../mobile-release/troyan-volley-portal-android.apk
+cd android && ./gradlew assembleRelease
+# after signing — see scripts / previous release notes
 ```
-
-Нужни: JDK 21+, Android SDK (`ANDROID_HOME`).
 
 ---
 
-## iPhone — App Store (кратко)
+## iPhone — App Store
 
-Apple **не позволява** нормално сваляне на `.ipa` от сайта като Android APK. За iPhone:
+Bundle id: `bg.volleycoach.portal`  
+Име: **Volley Coach BUL**
 
-1. Регистрация в [Apple Developer](https://developer.apple.com) (~99 USD/година).  
-2. На **Mac**: отвори проекта  
-   `frontend/volley-platform-client/ios/App/App.xcodeproj`  
-   (или `npx cap open ios`).  
-3. В Xcode: Team / Signing с твоя Developer акаунт, Archive → Upload.  
-4. В [App Store Connect](https://appstoreconnect.apple.com): име, икона, скрийншоти, privacy policy, Submit for Review.  
-5. След одобрение: бутон на `troyanvolley.com` → „За iPhone (App Store)“.
-
-Bundle id: `bg.troyanvolley.portal`  
-Име: **Троян Волей**
+1. Apple Developer акаунт.  
+2. На Mac: `npx cap open ios` / Xcode проекта в `ios/App`.  
+3. App Store Connect → Submit for Review.
 
 ---
 
@@ -67,5 +60,5 @@ Bundle id: `bg.troyanvolley.portal`
 | Какво | Трябва ли ново app? |
 |-------|---------------------|
 | Промяна в треньор / админ | Не |
-| Промяна в родителски / състезателски портал (уеб) | Обикновено не (app зарежда сайта) |
-| Нова икона / native права / splash | Да — ново APK / нова версия в App Store |
+| Промяна в родителски / състезателски портал (уеб) | Обикновено не |
+| Нова икона / native права / splash | Да |
