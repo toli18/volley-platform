@@ -4,7 +4,7 @@ import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
 
 /**
  * Entry screen for the Capacitor mobile shell (and a normal web URL /app).
- * Existing /parent/login and /room/login links stay unchanged.
+ * Existing /login, /parent/login and /room/login links stay unchanged.
  */
 export default function MobileAppLanding() {
   return (
@@ -23,7 +23,7 @@ export default function MobileAppLanding() {
             <div className="parentPortalBrand">
               <PlatformBrandTitle />
             </div>
-            <div className="parentPortalBrandSub">Мобилен вход за родители и състезатели</div>
+            <div className="parentPortalBrandSub">Мобилен вход за треньори, родители и състезатели</div>
             <BrandTriLine className="brandTriLine--portal" />
           </div>
         </div>
@@ -34,13 +34,30 @@ export default function MobileAppLanding() {
           Изберете вход
         </h1>
         <p style={{ margin: "0 0 20px", color: "#475569", lineHeight: 1.45, fontSize: 15 }}>
-          Родителски портал или стая за състезатели. Същите данни както в уеб линка.
+          Същите акаунти и данни както в уеб линка. Изберете ролята си.
         </p>
 
         <div style={{ display: "grid", gap: 12 }}>
           <Link
-            to="/parent/login"
+            to="/login"
             className="uiBtn uiBtn--primary"
+            style={{
+              display: "block",
+              textAlign: "center",
+              textDecoration: "none",
+              padding: "16px 18px",
+              borderRadius: 12,
+              fontWeight: 800,
+              fontSize: 16,
+              background: "#0b3d91",
+              color: "#fff",
+            }}
+          >
+            Вход за треньор
+          </Link>
+          <Link
+            to="/parent/login"
+            className="uiBtn"
             style={{
               display: "block",
               textAlign: "center",
@@ -75,8 +92,8 @@ export default function MobileAppLanding() {
         </div>
 
         <p style={{ marginTop: 22, fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-          Volley Coach BUL — за всички клубове в платформата. Треньорският и админ порталът остават
-          през обичайния уеб адрес; това приложение е само за родители и състезатели.
+          Volley Coach BUL — за всички клубове в платформата. Нови функции в портала се виждат
+          автоматично в приложението; не е нужно ново APK / App Store ъпдейт за обикновени уеб промени.
         </p>
       </main>
 

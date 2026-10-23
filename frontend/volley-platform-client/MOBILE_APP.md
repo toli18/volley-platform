@@ -1,37 +1,43 @@
-# Мобилно приложение — Volley Coach BUL (родител + състезател)
+# Мобилно приложение — Volley Coach BUL
 
-Уеб линковете **остават непроменени**. Това приложение е допълнение за **всички клубове** в платформата (не е само за един клуб).
+Уеб линковете **остават непроменени**. App-ът е допълнение за **всички клубове**.
 
-- Име на app-а: **Volley Coach BUL** (лого БФВ)
-- Входна страница: https://volley-platform-bul.vercel.app/app  
-- Родител: https://volley-platform.vercel.app/parent/login  
-- Състезател: https://volley-platform.vercel.app/room/login  
+- Име: **Volley Coach BUL** (лого БФВ)
+- Вход: https://volley-platform-bul.vercel.app/app  
+  - Треньор → `/login`  
+  - Родител → `/parent/login`  
+  - Състезател → `/room/login`
 
-Android app-ът е WebView към `/app` и **не** отваря Chrome.  
-При проблем: деинсталирай старата версия (вкл. ако е пишело „Троян Волей“) и сложи най-новия APK.
+Android: WebView към `/app`, без Chrome hand-off.  
+При проблем: деинсталирай стара версия („Троян Волей“) и инсталирай най-новия APK.
 
-Приложението отваря живия портал. Промени в родителския/състезателския уеб портал се виждат **без** ново APK.  
-Промени само в треньор/админ **не** изискват ъпдейт на app-а.
+**Ъпдейти:** промени в уеб портала (треньор / родител / състезател) се виждат **без** ново APK или App Store версия. Ново native build трябва само при икона, права, splash и подобни.
+
+Подробно за iPhone: виж **[APPLE_APP_STORE.md](./APPLE_APP_STORE.md)**.
 
 ---
 
-## Android — файл за клубен сайт
+## Android — споделяне с колеги
 
-Готов файл:
+Файл:
 
 `frontend/volley-platform-client/mobile-release/volley-coach-bul-android.apk`
 
-(същият файл се публикува и като `troyan-volley-portal-android.apk` за обратна съвместимост на стари линкове)
+Директен линк (след push в `main`):
 
-### За колегата на сайта
+https://raw.githubusercontent.com/toli18/volley-platform/main/frontend/volley-platform-client/mobile-release/volley-coach-bul-android.apk
 
-1. Качи `volley-coach-bul-android.apk` на хостинга.  
-2. Бутон **„Свали за Android“**.  
-3. Текст за родителите:
-   - отвори линка от телефона (Chrome/Files, не от Messenger);
-   - **Настройки → Приложения → Специален достъп → Инсталиране на неизвестни приложения** → разреши за Chrome/Files;
-   - инсталирай от „Изтегляния“;
-   - иконата е **Volley Coach BUL** с логото на БФВ.
+(старият файл `troyan-volley-portal-android.apk` сочи към същия билд за обратна съвместимост)
+
+### За сайт / колеги
+
+1. Качи APK-то или дай raw GitHub линка.  
+2. Отвори от телефона (Chrome/Files, не Messenger).  
+3. Разреши инсталация от неизвестни източници за Chrome/Files.  
+4. Икона: **Volley Coach BUL** + БФВ.  
+5. На началния екран: **Вход за треньор / родител / състезател**.
+
+Ако колегата вече има инсталиран същия app: след деплой на уеба бутонът за треньор се появява **автоматично** при следващо отваряне (не е задължително да сваля APK отново). Ново APK е нужно само ако още ползва старата „Троян Волей“ обвивка.
 
 ### Повторно генериране на APK
 
@@ -39,26 +45,24 @@ Android app-ът е WebView към `/app` и **не** отваря Chrome.
 cd frontend/volley-platform-client
 npm ci
 cd android && ./gradlew assembleRelease
-# after signing — see scripts / previous release notes
+# подписване с release keystore (виж предишни release notes)
 ```
 
 ---
 
-## iPhone — App Store
+## iPhone — App Store (колега с Apple Developer)
 
-Bundle id: `bg.volleycoach.portal`  
-Име: **Volley Coach BUL**
+Виж **APPLE_APP_STORE.md** — стъпки за Developer акаунт, Xcode signing, App Store Connect, Archive/Upload и Review.
 
-1. Apple Developer акаунт.  
-2. На Mac: `npx cap open ios` / Xcode проекта в `ios/App`.  
-3. App Store Connect → Submit for Review.
+- Bundle ID: `bg.volleycoach.portal`  
+- Име: **Volley Coach BUL**
 
 ---
 
 ## Важно
 
-| Какво | Трябва ли ново app? |
-|-------|---------------------|
-| Промяна в треньор / админ | Не |
-| Промяна в родителски / състезателски портал (уеб) | Обикновено не |
-| Нова икона / native права / splash | Да |
+| Какво | Ново APK / App Store? |
+|-------|------------------------|
+| Нова функция в треньор / родител / състезател (уеб) | Не |
+| Текст/бутони на `/app` (уеб) | Не |
+| Икона / native права / splash | Да |

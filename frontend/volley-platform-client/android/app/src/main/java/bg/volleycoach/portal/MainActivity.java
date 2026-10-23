@@ -17,7 +17,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 /**
- * Simple in-app WebView shell for parent/athlete portals.
+ * Simple in-app WebView shell for coach/parent/athlete portals.
  * Avoids Capacitor remote {@code server.url} hand-off to Chrome Custom Tabs.
  */
 public class MainActivity extends AppCompatActivity {

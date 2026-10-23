@@ -3,6 +3,7 @@
   "appName": "Volley Coach BUL",
   "webDir": "mobile-shell",
   "server": {
+    "url": "https://volley-platform-bul.vercel.app/app",
     "allowNavigation": [
       "volley-platform.vercel.app",
       "volley-platform-bul.vercel.app",
@@ -16,7 +17,8 @@
   "ios": {
     "backgroundColor": "#f8fafc",
     "contentInset": "automatic",
-    "scheme": "Volley Coach BUL"
+    "scheme": "Volley Coach BUL",
+    "limitsNavigationsToAppBoundDomains": true
   },
   "plugins": {
     "SplashScreen": {
