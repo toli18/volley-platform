@@ -24,3 +24,18 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Capacitor / native build outputs (source projects android/ + ios/ are tracked)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+ios/App/build/
+ios/App/Pods/
+ios/DerivedData/
+ios/**/xcuserdata/
+*.ipa
+*.keystore
+*.jks

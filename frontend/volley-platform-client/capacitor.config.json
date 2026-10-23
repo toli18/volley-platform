@@ -1,0 +1,32 @@
+{
+  "appId": "bg.troyanvolley.portal",
+  "appName": "Троян Волей",
+  "webDir": "mobile-shell",
+  "server": {
+    "url": "https://volley-platform.vercel.app/app",
+    "cleartext": false,
+    "allowNavigation": [
+      "https://volley-platform.vercel.app/*",
+      "https://volley-platform-bul.vercel.app/*",
+      "https://volley-platform-production.up.railway.app/*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#f8fafc"
+  },
+  "ios": {
+    "backgroundColor": "#f8fafc",
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0f172a",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK"
+    }
+  }
+}

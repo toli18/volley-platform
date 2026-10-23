@@ -24,6 +24,8 @@ export default function App() {
   const isPublicPortal = useMemo(() => {
     const path = location.pathname || "";
     return (
+      path === "/app" ||
+      path.startsWith("/app/") ||
       path === "/parent" ||
       path.startsWith("/parent/") ||
       path === "/room" ||

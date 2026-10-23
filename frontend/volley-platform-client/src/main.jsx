@@ -39,6 +39,7 @@ const ParentPortal = React.lazy(() => import("./pages/ParentPortal.jsx"));
 const ParentLogin = React.lazy(() => import("./pages/ParentLogin.jsx"));
 const TeamRoomLogin = React.lazy(() => import("./pages/TeamRoomLogin.jsx"));
 const TeamRoomPortal = React.lazy(() => import("./pages/TeamRoomPortal.jsx"));
+const MobileAppLanding = React.lazy(() => import("./pages/MobileAppLanding.jsx"));
 const PublicMatchWatch = React.lazy(() => import("./pages/PublicMatchWatch.jsx"));
 const PublicForm03bSign = React.lazy(() => import("./pages/PublicForm03bSign.jsx"));
 const PublicFormParent2Sign = React.lazy(() => import("./pages/PublicFormParent2Sign.jsx"));
@@ -150,6 +151,7 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       { path: "login", element: <Login /> },
+      { path: "app", element: <MobileAppLanding /> },
       { path: "parent/login", element: <ParentLogin /> },
       { path: "parent/portal", element: <ParentPortal /> },
       { path: "parent", element: <Navigate to="/parent/login" replace /> },
