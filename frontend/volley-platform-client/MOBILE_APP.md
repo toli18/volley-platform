@@ -6,7 +6,8 @@
 - Родител (както досега): https://volley-platform.vercel.app/parent/login  
 - Състезател (както досега): https://volley-platform.vercel.app/room/login  
 
-> Android app-ът зарежда директно `volley-platform-bul.vercel.app` (без redirect), за да не скача към Chrome. 
+> Android app-ът е WebView обвивка към `volley-platform-bul.vercel.app/app` и **не** отваря Chrome.  
+> При проблем: деинсталирай старата версия и сложи най-новия APK (виж `versionName` ≥ 1.0.3). 
 
 Приложението отваря живия портал (`server.url`). Промени в родителския/състезателския уеб портал се виждат **без** ново APK.  
 Промени само в треньор/админ **не** изискват ъпдейт на app-а.
