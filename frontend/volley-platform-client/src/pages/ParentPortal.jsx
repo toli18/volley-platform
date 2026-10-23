@@ -94,6 +94,16 @@ export default function ParentPortal() {
   const [activeTab, setActiveTab] = useState("home");
   const [profileSection, setProfileSection] = useState("fees");
 
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(location.search).get("enable_push") === "1") {
+        setActiveTab("profile");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [location.search]);
+
   const handleSwitchTab = useCallback((tab, section) => {
     setActiveTab(tab);
     if (tab === "profile" && section) {

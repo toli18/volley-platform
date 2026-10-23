@@ -156,6 +156,16 @@ export default function TeamRoomPortal() {
   const [liveChatUnread, setLiveChatUnread] = useState(null);
   const [pendingChatTeamId, setPendingChatTeamId] = useState(null);
 
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(location.search).get("enable_push") === "1") {
+        setActiveTab("profile");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [location.search]);
+
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!getTeamRoomToken()) {
       navigate(teamRoomLoginPath(), { replace: true });

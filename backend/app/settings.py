@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     vapid_public_key: Optional[str] = Field(default=None, env="VAPID_PUBLIC_KEY")
     vapid_private_key: Optional[str] = Field(default=None, env="VAPID_PRIVATE_KEY")
     vapid_subject: str = Field(default="mailto:support@volley-platform.local", env="VAPID_SUBJECT")
+    # Optional Firebase service-account JSON (string) for native FCM device tokens (endpoint fcm:…).
+    firebase_credentials_json: Optional[str] = Field(default=None, env="FIREBASE_CREDENTIALS_JSON")
     parent_portal_public_url: Optional[str] = Field(
         default=None,
         env="PARENT_PORTAL_PUBLIC_URL",

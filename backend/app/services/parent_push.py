@@ -14,12 +14,51 @@ logger = logging.getLogger(__name__)
 
 PORTAL_PARENT = "parent"
 PORTAL_ATHLETE_ROOM = "athlete_room"
+FCM_ENDPOINT_PREFIX = "fcm:"
 
 _WEEKDAYS_BG = ["понеделник", "вторник", "сряда", "четвъртък", "петък", "събота", "неделя"]
+_firebase_app = None
+
+
+def fcm_configured() -> bool:
+    return bool((settings.firebase_credentials_json or "").strip())
 
 
 def push_configured() -> bool:
-    return bool(settings.vapid_public_key and settings.vapid_private_key)
+    return bool(settings.vapid_public_key and settings.vapid_private_key) or fcm_configured()
+
+
+def _is_fcm_endpoint(endpoint: str | None) -> bool:
+    return str(endpoint or "").startswith(FCM_ENDPOINT_PREFIX)
+
+
+def _fcm_token_from_endpoint(endpoint: str) -> str:
+    return str(endpoint)[len(FCM_ENDPOINT_PREFIX) :].strip()
+
+
+def _get_firebase_app():
+    global _firebase_app
+    if _firebase_app is not None:
+        return _firebase_app
+    raw = (settings.firebase_credentials_json or "").strip()
+    if not raw:
+        return None
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+    except ImportError:
+        logger.warning("firebase-admin not installed")
+        return None
+    try:
+        data = json.loads(raw)
+        if firebase_admin._apps:
+            _firebase_app = firebase_admin.get_app()
+        else:
+            _firebase_app = firebase_admin.initialize_app(credentials.Certificate(data))
+        return _firebase_app
+    except Exception as exc:
+        logger.warning("Firebase init failed: %s", exc)
+        return None
 
 
 def format_date_bg(iso_date: str) -> str:
@@ -72,8 +111,48 @@ def _push_sub_info(sub: ParentPushSubscription) -> _PushSubInfo:
     )
 
 
+def _send_fcm(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
+    if not fcm_configured():
+        return "fail", "Firebase credentials not configured on server"
+    app = _get_firebase_app()
+    if app is None:
+        return "fail", "Firebase not initialized"
+    token = _fcm_token_from_endpoint(sub.endpoint)
+    if not token:
+        return "stale", "empty FCM token"
+    try:
+        from firebase_admin import messaging
+    except ImportError:
+        return "fail", "firebase-admin not installed"
+    try:
+        message = messaging.Message(
+            token=token,
+            notification=messaging.Notification(
+                title=str(payload.get("title") or "Volley Coach BUL"),
+                body=str(payload.get("body") or ""),
+                image=payload.get("icon") or None,
+            ),
+            data={
+                "url": str(payload.get("url") or ""),
+                "title": str(payload.get("title") or ""),
+                "body": str(payload.get("body") or ""),
+            },
+            android=messaging.AndroidConfig(priority="high"),
+        )
+        messaging.send(message)
+        return "ok", None
+    except Exception as exc:
+        msg = str(exc)
+        if "registration-token-not-registered" in msg or "invalid-registration-token" in msg:
+            return "stale", msg
+        logger.warning("FCM push failed sub=%s %s", sub.id, msg)
+        return "fail", msg
+
+
 def _send_web_push(sub: _PushSubInfo, payload: dict) -> tuple[str, str | None]:
-    if not push_configured():
+    if _is_fcm_endpoint(sub.endpoint):
+        return _send_fcm(sub, payload)
+    if not (settings.vapid_public_key and settings.vapid_private_key):
         return "fail", "VAPID keys not configured on server"
     try:
         from pywebpush import WebPushException, webpush
