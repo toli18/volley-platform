@@ -3,8 +3,6 @@
   "appName": "Троян Волей",
   "webDir": "mobile-shell",
   "server": {
-    "url": "https://volley-platform-bul.vercel.app/app",
-    "cleartext": false,
     "allowNavigation": [
       "volley-platform.vercel.app",
       "volley-platform-bul.vercel.app",
@@ -17,7 +15,8 @@
   },
   "ios": {
     "backgroundColor": "#f8fafc",
-    "contentInset": "automatic"
+    "contentInset": "automatic",
+    "scheme": "Troyan Volley"
   },
   "plugins": {
     "SplashScreen": {
