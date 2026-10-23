@@ -11,6 +11,7 @@ import {
   setToken,
   setUser,
 } from "../utils/auth";
+import { clearLastPortal, PORTAL_COACH, setLastPortal } from "../utils/portalSession";
 
 const AuthContext = createContext(null);
 
@@ -31,9 +32,11 @@ export const AuthProvider = ({ children }) => {
       const me = res.data;
       setUser(me);
       setUserState(me);
+      setLastPortal(PORTAL_COACH);
       return me;
     } catch (e) {
       clearAuth();
+      clearLastPortal();
       setUserState(null);
       return null;
     } finally {
@@ -60,10 +63,12 @@ export const AuthProvider = ({ children }) => {
 
       setUser(me);
       setUserState(me);
+      setLastPortal(PORTAL_COACH);
 
       return { success: true, user: me };
     } catch (err) {
       clearAuth();
+      clearLastPortal();
       setUserState(null);
       const detail = err?.response?.data?.detail;
       const message =
@@ -78,6 +83,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     clearAuth();
+    clearLastPortal();
     setUserState(null);
   };
 

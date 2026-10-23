@@ -33,6 +33,7 @@ function clearAuthStorage() {
   localStorage.removeItem("token");
   localStorage.removeItem("role");
   localStorage.removeItem("user");
+  localStorage.removeItem("vp_last_portal");
 }
 
 // attach token
@@ -89,11 +90,13 @@ axiosInstance.interceptors.response.use(
     if (status === 401 && typeof window !== "undefined") {
       if (isParentSessionCall || (isParentPublicPath && getParentSessionToken())) {
         localStorage.removeItem("parent_access_token");
+        localStorage.removeItem("vp_last_portal");
         if (path !== "/parent/login") {
           window.location.replace("/parent/login?session=expired");
         }
       } else if (isTeamRoomSessionCall || (isTeamRoomPublicPath && getTeamRoomSessionToken())) {
         localStorage.removeItem("athlete_room_access_token");
+        localStorage.removeItem("vp_last_portal");
         if (path !== "/room/login") {
           window.location.replace("/room/login?session=expired");
         }

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
 import { parentLoginPath } from "../utils/parentAuth";
-import { setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
+import { getTeamRoomToken, setTeamRoomToken, teamRoomPortalPath } from "../utils/teamRoomAuth";
 import {
   clearRememberedLogin,
   loadRememberedLogin,
@@ -43,6 +43,12 @@ export default function TeamRoomLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [candidates, setCandidates] = useState(null);
+
+  useEffect(() => {
+    if (getTeamRoomToken()) {
+      navigate(teamRoomPortalPath(), { replace: true });
+    }
+  }, [navigate]);
 
   const submit = async (athleteId = null) => {
     const parent_phone = phone.trim();

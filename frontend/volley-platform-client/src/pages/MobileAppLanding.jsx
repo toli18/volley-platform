@@ -1,12 +1,42 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
 import BrandTriLine from "../components/shared/BrandTriLine";
 import PlatformBrandTitle from "../components/shared/PlatformBrandTitle";
+import { getToken } from "../utils/auth";
+import { getParentToken } from "../utils/parentAuth";
+import { getTeamRoomToken } from "../utils/teamRoomAuth";
+import { resolveResumePath } from "../utils/portalSession";
 
 /**
  * Entry screen for the Capacitor mobile shell (and a normal web URL /app).
- * Existing /login, /parent/login and /room/login links stay unchanged.
+ * If a session already exists on this device, reopen that portal immediately.
  */
 export default function MobileAppLanding() {
+  const [resumeTo, setResumeTo] = useState(undefined);
+
+  useEffect(() => {
+    const path = resolveResumePath({
+      getToken,
+      getParentToken,
+      getTeamRoomToken,
+    });
+    setResumeTo(path);
+  }, []);
+
+  if (resumeTo === undefined) {
+    return (
+      <div className="parentPortalShell">
+        <main className="parentPortalMain" style={{ padding: 28, textAlign: "center", color: "#64748b" }}>
+          Зареждане…
+        </main>
+      </div>
+    );
+  }
+
+  if (resumeTo) {
+    return <Navigate to={resumeTo} replace />;
+  }
+
   return (
     <div className="parentPortalShell">
       <header className="parentPortalHeader">
@@ -34,7 +64,7 @@ export default function MobileAppLanding() {
           Изберете вход
         </h1>
         <p style={{ margin: "0 0 20px", color: "#475569", lineHeight: 1.45, fontSize: 15 }}>
-          Същите акаунти и данни както в уеб линка. Изберете ролята си.
+          След първия вход акаунтът се запомня на това устройство докато натиснете „Изход“.
         </p>
 
         <div style={{ display: "grid", gap: 12 }}>
@@ -92,8 +122,7 @@ export default function MobileAppLanding() {
         </div>
 
         <p style={{ marginTop: 22, fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-          Volley Coach BUL — за всички клубове в платформата. Нови функции в портала се виждат
-          автоматично в приложението; не е нужно ново APK / App Store ъпдейт за обикновени уеб промени.
+          Volley Coach BUL — за всички клубове в платформата.
         </p>
       </main>
 

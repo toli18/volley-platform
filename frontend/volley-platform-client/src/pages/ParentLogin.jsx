@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
 import { API_PATHS } from "../utils/apiPaths";
-import { parentPortalPath, setParentToken } from "../utils/parentAuth";
+import { getParentToken, parentPortalPath, setParentToken } from "../utils/parentAuth";
 import { teamRoomLoginPath } from "../utils/teamRoomAuth";
 import {
   clearRememberedLogin,
@@ -48,6 +48,12 @@ export default function ParentLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [candidates, setCandidates] = useState(null);
+
+  useEffect(() => {
+    if (getParentToken()) {
+      navigate(parentPortalPath(), { replace: true });
+    }
+  }, [navigate]);
 
   const submit = async (athleteId = null) => {
     const parent_phone = phone.trim();

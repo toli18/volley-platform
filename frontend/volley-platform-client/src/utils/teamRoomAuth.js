@@ -1,3 +1,5 @@
+import { clearLastPortal, PORTAL_ROOM, setLastPortal } from "./portalSession";
+
 const TEAM_ROOM_TOKEN_KEY = "athlete_room_access_token";
 
 export function getTeamRoomToken() {
@@ -5,12 +7,17 @@ export function getTeamRoomToken() {
 }
 
 export function setTeamRoomToken(token) {
-  if (token) localStorage.setItem(TEAM_ROOM_TOKEN_KEY, token);
-  else localStorage.removeItem(TEAM_ROOM_TOKEN_KEY);
+  if (token) {
+    localStorage.setItem(TEAM_ROOM_TOKEN_KEY, token);
+    setLastPortal(PORTAL_ROOM);
+  } else {
+    localStorage.removeItem(TEAM_ROOM_TOKEN_KEY);
+  }
 }
 
 export function clearTeamRoomToken() {
   localStorage.removeItem(TEAM_ROOM_TOKEN_KEY);
+  clearLastPortal();
 }
 
 export function teamRoomLoginPath() {

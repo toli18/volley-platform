@@ -19,7 +19,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SECRET_KEY = settings.jwt_secret
 ALGORITHM = settings.jwt_algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # треньори / админи — 24 часа
+# Треньори / админи: дълга сесия до изричен „Изход“ (мобилно app + уеб)
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365  # 365 дни
 # Родители и състезатели: практически постоянна сесия (~10 години)
 PORTAL_ACCESS_TOKEN_EXPIRE_DAYS = 3650
 

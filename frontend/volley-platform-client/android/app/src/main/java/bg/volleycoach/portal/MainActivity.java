@@ -1,11 +1,17 @@
 package bg.volleycoach.portal;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -14,17 +20,28 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 /**
- * Simple in-app WebView shell for coach/parent/athlete portals.
- * Avoids Capacitor remote {@code server.url} hand-off to Chrome Custom Tabs.
+ * In-app WebView shell for coach/parent/athlete portals.
+ * Persists cookies + DOM storage across app restarts and restores the last URL.
  */
 public class MainActivity extends AppCompatActivity {
     private static final String START_URL = "https://volley-platform-bul.vercel.app/app";
+    private static final String PREFS = "volley_coach_shell";
+    private static final String KEY_LAST_URL = "last_url";
 
     private WebView webView;
     private ProgressBar progress;
+    private SharedPreferences prefs;
+
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+        registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+            // Web Push may still be limited inside WebView; permission helps when supported.
+        });
 
     private static boolean isAllowed(String url) {
         if (url == null) {
@@ -37,10 +54,20 @@ public class MainActivity extends AppCompatActivity {
             || url.startsWith("data:");
     }
 
+    private String resumeUrl() {
+        String last = prefs.getString(KEY_LAST_URL, null);
+        if (last != null && isAllowed(last) && last.startsWith("https://")) {
+            // Prefer last portal page; /app will auto-resume session after web deploy.
+            return last;
+        }
+        return START_URL;
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#F8FAFC"));
@@ -59,6 +86,10 @@ public class MainActivity extends AppCompatActivity {
         root.addView(progress, progressParams);
         setContentView(root);
 
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -70,18 +101,27 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         settings.setSupportMultipleWindows(false);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(
+            new WebChromeClient() {
+                @Override
+                public void onPermissionRequest(final PermissionRequest request) {
+                    if (request == null) {
+                        return;
+                    }
+                    runOnUiThread(() -> request.grant(request.getResources()));
+                }
+            }
+        );
         webView.setWebViewClient(
             new WebViewClient() {
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     String url = request.getUrl() != null ? request.getUrl().toString() : null;
                     if (isAllowed(url)) {
-                        // false = load inside this WebView (never hand off to Chrome)
                         return false;
                     }
-                    // Block unknown hosts instead of opening an external browser.
                     return true;
                 }
 
@@ -93,6 +133,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onPageFinished(WebView view, String url) {
                     progress.setVisibility(View.GONE);
+                    CookieManager.getInstance().flush();
+                    if (url != null && isAllowed(url) && url.startsWith("https://")) {
+                        prefs.edit().putString(KEY_LAST_URL, url).apply();
+                    }
                 }
             }
         );
@@ -113,7 +157,25 @@ public class MainActivity extends AppCompatActivity {
                 }
             );
 
-        webView.loadUrl(START_URL);
+        maybeRequestNotificationPermission();
+        webView.loadUrl(resumeUrl());
+    }
+
+    private void maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+    }
+
+    @Override
+    protected void onPause() {
+        CookieManager.getInstance().flush();
+        super.onPause();
     }
 
     @Override

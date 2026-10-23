@@ -1,3 +1,5 @@
+import { clearLastPortal, PORTAL_PARENT, setLastPortal } from "./portalSession";
+
 const PARENT_TOKEN_KEY = "parent_access_token";
 
 export function getParentToken() {
@@ -5,12 +7,17 @@ export function getParentToken() {
 }
 
 export function setParentToken(token) {
-  if (token) localStorage.setItem(PARENT_TOKEN_KEY, token);
-  else localStorage.removeItem(PARENT_TOKEN_KEY);
+  if (token) {
+    localStorage.setItem(PARENT_TOKEN_KEY, token);
+    setLastPortal(PORTAL_PARENT);
+  } else {
+    localStorage.removeItem(PARENT_TOKEN_KEY);
+  }
 }
 
 export function clearParentToken() {
   localStorage.removeItem(PARENT_TOKEN_KEY);
+  clearLastPortal();
 }
 
 export function parentLoginPath() {
