@@ -1,1 +1,0 @@
-const o="athlete_room_access_token";function n(){return localStorage.getItem(o)}function a(e){e?localStorage.setItem(o,e):localStorage.removeItem(o)}function r(){localStorage.removeItem(o)}function t(){return"/room/login"}function m(){return"/room/portal"}function i(){return typeof window>"u"?t():`${window.location.origin}${t()}`}export{m as a,i as b,r as c,n as g,a as s,t};

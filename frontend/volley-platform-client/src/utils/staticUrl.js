@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+import { resolveApiBaseUrl } from "./apiBaseUrl";
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export function resolveStaticUrl(path) {
   if (!path) return "";

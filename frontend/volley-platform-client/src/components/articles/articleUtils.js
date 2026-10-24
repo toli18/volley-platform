@@ -1,11 +1,13 @@
+import { resolveApiBaseUrl } from "../../utils/apiBaseUrl";
+
+const API_BASE_URL = resolveApiBaseUrl().replace(/\/+$/, "");
+
 export const formatDateBg = (value) => {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleDateString("bg-BG", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 export const resolveMediaUrl = (url) => {
   const raw = String(url || "").trim();

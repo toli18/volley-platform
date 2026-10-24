@@ -69,17 +69,19 @@ if static_dir.exists() and static_dir.is_dir():
 templates = Jinja2Templates(directory=str(templates_dir)) if templates_dir.exists() else None
 
 # --- CORS ---
-# Local dev + Vercel prod + all Vercel preview deployments
+# Local dev + Vercel prod/previews + Railway-hosted SPA
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://volley-platform.vercel.app",
+    "https://volley-platform-bul.vercel.app",
+    "https://volley-platform-production.up.railway.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"^https://.*\.vercel\.app$",
+    allow_origin_regex=r"^https://(.*\.vercel\.app|.*\.up\.railway\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -142,12 +144,47 @@ def healthz():
     return {"ok": True}
 
 
+_NO_CACHE_HTML = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+_ASSET_SUFFIXES = (
+    ".js",
+    ".css",
+    ".map",
+    ".mjs",
+    ".json",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".ico",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".txt",
+    ".xml",
+)
+
+
+def _spa_index_response():
+    index = WEB_DIR / "index.html"
+    if not index.is_file():
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(index, headers=dict(_NO_CACHE_HTML))
+
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
     """HEAD is required: Facebook/Messenger link shim probes with HEAD before opening."""
     index = WEB_DIR / "index.html"
     if index.is_file():
-        return FileResponse(index)
+        return FileResponse(index, headers=dict(_NO_CACHE_HTML))
     return {"status": "Volley Platform API is running"}
 
 
@@ -172,12 +209,18 @@ def spa_fallback(full_path: str):
 
     Include HEAD so Messenger/Facebook in-app browsers (l.facebook.com shim) can
     validate the URL instead of getting 405 and a blank white screen.
+
+    Missing hashed assets must 404 (not return index.html) — otherwise iOS Safari
+    refuses to execute HTML as a module script and shows a white screen.
     """
     index = WEB_DIR / "index.html"
     if not index.is_file():
         raise HTTPException(status_code=404, detail="Not Found")
     first = full_path.split("/", 1)[0]
     if first in _SPA_RESERVED:
+        raise HTTPException(status_code=404, detail="Not Found")
+    lower = full_path.lower()
+    if any(lower.endswith(suf) for suf in _ASSET_SUFFIXES):
         raise HTTPException(status_code=404, detail="Not Found")
     candidate = (WEB_DIR / full_path).resolve()
     try:
@@ -186,7 +229,7 @@ def spa_fallback(full_path: str):
         raise HTTPException(status_code=404, detail="Not Found") from exc
     if candidate.is_file():
         return FileResponse(candidate)
-    return FileResponse(index)
+    return _spa_index_response()
 
 
 # --- Startup ---
