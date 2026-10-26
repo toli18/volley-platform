@@ -44,12 +44,33 @@ class BvfAgeCohortTests(unittest.TestCase):
         self.assertIn(12, allowed_age_codes(2017, 2026))
 
     def test_play_up_one_group_only(self):
-        self.assertEqual(allowed_age_codes(2016, 2026), {12, 13})  # Детски → Мини
-        self.assertEqual(allowed_age_codes(2015, 2026), {13, 14})  # Мини → Под 14
-        self.assertEqual(allowed_age_codes(2014, 2026), {14, 16})  # Под 14 → Под 16
-        self.assertNotIn(16, allowed_age_codes(2016, 2026))  # без прескачане
+        # Юношески: своя + една нагоре; Мъже/Жени (99) винаги са опция.
+        self.assertEqual(allowed_age_codes(2016, 2026), {12, 13, 99})  # Детски → Мини
+        self.assertEqual(allowed_age_codes(2015, 2026), {13, 14, 99})  # Мини → Под 14
+        self.assertEqual(allowed_age_codes(2014, 2026), {14, 16, 99})  # Под 14 → Под 16
+        self.assertNotIn(16, allowed_age_codes(2016, 2026))  # без прескачане в юношески
+
+    def test_men_women_accept_all_ages_same_sex(self):
+        """Мъже/Жени: всички възрасти от клуба — без „две възрасти“."""
+        youth = SimpleNamespace(gender="male", birth_year=2016, birth_date=None, egn=None)
+        mid = SimpleNamespace(gender="male", birth_year=2010, birth_date=None, egn=None)
+        adult = SimpleNamespace(gender="male", birth_year=1995, birth_date=None, egn=None)
+        for ath in (youth, mid, adult):
+            ok, reason = athlete_fits_card_index_rules(
+                ath, season_year=2026, age=99, sex=0, age_group="Мъже"
+            )
+            self.assertTrue(ok, msg=reason)
+        wrong_sex = SimpleNamespace(gender="female", birth_year=2010, birth_date=None, egn=None)
+        ok_w, reason_w = athlete_fits_card_index_rules(
+            wrong_sex, season_year=2026, age=99, sex=0, age_group="Мъже"
+        )
+        self.assertFalse(ok_w)
+        self.assertIn("пол", reason_w or "")
+        self.assertIn(99, allowed_age_codes(2016, 2026))
+        self.assertIn(99, allowed_age_codes(2000, 2026))
 
     def test_detski_label_rejects_2014(self):
+        # age_group „Детски“ печели над age=99 — родени 2014 не влизат в Детски.
         older = SimpleNamespace(gender="male", birth_year=2014, birth_date=None, egn=None)
         ok, reason = athlete_fits_card_index_rules(
             older, season_year=2026, age=99, sex=0, age_group="Детски - локално"

@@ -426,7 +426,8 @@ def athlete_sex_code(athlete: Athlete) -> int | None:
     return None
 
 
-# Най-млада → най-възрастна. СЕК: естествена група или една нагоре, без надолу и без прескачане.
+# Най-млада → най-възрастна. Юношески лицензи: естествена група или една нагоре.
+# Мъже/Жени (99): всички възрасти от клуба (същия пол) — без „две възрасти“.
 AGE_LADDER: tuple[int, ...] = (12, 13, 14, 16, 18, 20, 99)
 
 
@@ -513,15 +514,22 @@ def allowed_age_codes(birth_year: int, season_year: int) -> set[int]:
     allowed = {nat}
     if idx + 1 < len(AGE_LADDER):
         allowed.add(AGE_LADDER[idx + 1])
+    # Мъже/Жени приемат всички възрасти (вкл. юноши) — освен възрастовите лицензи.
+    allowed.add(99)
     return allowed
 
 
 def birth_years_for_age_code(season_year: int, age_code: int) -> list[int]:
-    """Рождени години, които СЕК допуска в тази група (естествени + една по-млада група)."""
+    """Рождени години, допустими в тази група.
+
+    Юношески: естествени + една по-млада група.
+    Мъже/Жени (99): всички години в клуба.
+    """
     y = int(season_year)
     code = int(age_code)
+    if code >= 99:
+        return list(range(y - 50, y + 1))
     years: list[int] = []
-    # Широк, но краен диапазон — филтрираме през allowed_age_codes.
     for by in range(y - 50, y + 1):
         if code in allowed_age_codes(by, y):
             years.append(by)
@@ -530,10 +538,13 @@ def birth_years_for_age_code(season_year: int, age_code: int) -> list[int]:
 
 def card_index_age_rule_hint(season_year: int, age_code: int, age_group: str | None = None) -> str:
     code = resolve_age_code(age_code, age_group)
-    years = birth_years_for_age_code(season_year, code)
     label = age_group_label(code)
     if int(code) >= 99:
-        return f"{label}: възрастни + Под 20 (една група нагоре)."
+        return (
+            f"{label}: всички състезатели от клуба със същия пол "
+            f"(без ограничение по възраст / „две възрасти“)."
+        )
+    years = birth_years_for_age_code(season_year, code)
     if not years:
         return f"{label}: няма допустими години на раждане."
     lo, hi = min(years), max(years)
@@ -555,7 +566,7 @@ def athlete_fits_card_index_rules(
     sex: int,
     age_group: str | None = None,
 ) -> tuple[bool, str | None]:
-    """Локално като СЕК: пол + кохорта по година на раждане (без игра надолу / прескачане)."""
+    """Пол + възраст: юношески = своя/една нагоре; Мъже/Жени = само пол."""
     want_sex = int(sex)
     got_sex = athlete_sex_code(athlete)
     if got_sex is None:
@@ -564,6 +575,10 @@ def athlete_fits_card_index_rules(
         return False, "полът не съвпада с отбора"
 
     age_code = resolve_age_code(age, age_group)
+    # Мъже / Жени — картотекират се всички от клуба със същия пол.
+    if int(age_code) >= 99:
+        return True, None
+
     by = athlete_birth_year(athlete)
     if by is None:
         return False, "липсва година на раждане"
