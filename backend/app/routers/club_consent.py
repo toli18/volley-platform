@@ -469,7 +469,9 @@ def create_carding_form_parent2_invite_link(
         },
         expires_delta=timedelta(hours=72),
     )
-    base = (settings.parent_portal_public_url or "").rstrip("/") or "https://volley-platform-bul.vercel.app"
+    base = (settings.parent_portal_public_url or "").rstrip("/")
+    if not base or "vercel.app" in base.lower():
+        base = "https://volley-platform-production.up.railway.app"
     path = f"/sign/form-parent2/{token}"
     return {
         "ok": True,
@@ -521,7 +523,9 @@ def create_carding_form_03b_invite_link(
         },
         expires_delta=timedelta(hours=72),
     )
-    base = (settings.parent_portal_public_url or "").rstrip("/") or "https://volley-platform-bul.vercel.app"
+    base = (settings.parent_portal_public_url or "").rstrip("/")
+    if not base or "vercel.app" in base.lower():
+        base = "https://volley-platform-production.up.railway.app"
     path = f"/sign/form-03b/{token}"
     return {
         "ok": True,

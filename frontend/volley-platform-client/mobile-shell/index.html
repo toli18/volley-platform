@@ -14,11 +14,21 @@
     <main>
       <strong>Volley Coach BUL</strong>
       <span>Зареждане на портала…</span>
-      <a href="https://volley-platform-bul.vercel.app/app">Отвори портала</a>
+      <a href="https://volley-platform-production.up.railway.app/app">Отвори портала</a>
+      <a href="https://volley-platform-bul.vercel.app/app">Резервен вход</a>
     </main>
     <script>
-      // Fallback if Capacitor server.url is unavailable — always go to the live portal.
-      window.location.replace("https://volley-platform-bul.vercel.app/app");
+      // Canonical: Railway (SPA+API). Vercel only if Railway fails to navigate.
+      var PRIMARY = "https://volley-platform-production.up.railway.app/app";
+      var MIRROR = "https://volley-platform-bul.vercel.app/app";
+      window.location.replace(PRIMARY);
+      setTimeout(function () {
+        // If still on this shell after 8s, offer mirror (page never left).
+        if (!document.hidden) {
+          var a = document.querySelector('a[href="' + MIRROR + '"]');
+          if (a) a.style.fontSize = "18px";
+        }
+      }, 8000);
     </script>
   </body>
 </html>

@@ -55,23 +55,75 @@
         var title = document.getElementById("vp-boot-title");
         var msg = document.getElementById("vp-boot-msg");
 
+        // Canonical host: SPA+API together. Vercel is only a mirror.
+        var RAILWAY = "https://volley-platform-production.up.railway.app";
+        var FAILOVER_KEY = "vp-origin-failover-once";
+
+        function onVercelMirror() {
+          try {
+            return String(window.location.hostname || "").toLowerCase().indexOf("vercel.app") !== -1;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        function railwayMirrorHref() {
+          try {
+            var u = new URL(window.location.href);
+            return RAILWAY + u.pathname + u.search + u.hash;
+          } catch (e) {
+            return RAILWAY + "/";
+          }
+        }
+
+        function tryOriginFailover(reason) {
+          if (!onVercelMirror()) return false;
+          try {
+            if (sessionStorage.getItem(FAILOVER_KEY) === "1") return false;
+            sessionStorage.setItem(FAILOVER_KEY, "1");
+          } catch (e) {}
+          try {
+            var dest = new URL(railwayMirrorHref());
+            dest.searchParams.set("_failover", String(reason || "boot").slice(0, 40));
+            window.location.replace(dest.toString());
+            return true;
+          } catch (e2) {
+            window.location.replace(RAILWAY);
+            return true;
+          }
+        }
+
         function markStuck(reason) {
           if (!boot) return;
           boot.setAttribute("data-stuck", "1");
           if (title) title.textContent = "Не можа да се зареди";
           if (msg) {
-            msg.textContent =
-              "Натисни „Обнови“. Ако пак не тръгне: Safari → Aa → „Искане за десктоп сайт“ изкл. / изчисти данни за сайта. Не отваряй от Messenger.";
+            msg.textContent = onVercelMirror()
+              ? "Натисни „Обнови“ или отвори резервния сървър (Railway). Не отваряй от Messenger."
+              : "Натисни „Обнови“. Ако пак не тръгне: Safari → Aa → „Искане за десктоп сайт“ изкл. / изчисти данни за сайта. Не отваряй от Messenger.";
           }
           try {
             boot.setAttribute("data-reason", String(reason || "").slice(0, 60));
           } catch (e) {}
+          try {
+            if (onVercelMirror() && !document.getElementById("vp-boot-mirror")) {
+              var mirrorBtn = document.createElement("button");
+              mirrorBtn.type = "button";
+              mirrorBtn.id = "vp-boot-mirror";
+              mirrorBtn.textContent = "Отвори резервен сървър";
+              mirrorBtn.addEventListener("click", function () {
+                window.location.replace(railwayMirrorHref());
+              });
+              boot.appendChild(mirrorBtn);
+            }
+          } catch (e3) {}
         }
 
         function hardRecover(reason) {
           try {
             if (sessionStorage.getItem(KEY) === "1") {
               sessionStorage.removeItem(KEY);
+              if (tryOriginFailover(reason || "already-recovered")) return;
               markStuck(reason || "already-recovered");
               return;
             }
@@ -113,6 +165,10 @@
 
         var btn = document.getElementById("vp-boot-reload");
         if (btn) btn.addEventListener("click", function () { hardRecover("manual"); });
+        // Clear one-shot failover flag after a successful navigation window.
+        try {
+          if (!onVercelMirror()) sessionStorage.removeItem(FAILOVER_KEY);
+        } catch (e5) {}
 
         // Module script / asset load failures (classic listener — works even if modules fail).
         window.addEventListener(

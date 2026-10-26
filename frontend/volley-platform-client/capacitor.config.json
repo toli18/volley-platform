@@ -3,31 +3,12 @@
   "appName": "Volley Coach BUL",
   "webDir": "mobile-shell",
   "server": {
-    "url": "https://volley-platform-bul.vercel.app/app",
+    "url": "https://volley-platform-production.up.railway.app/app",
+    "cleartext": false,
     "allowNavigation": [
       "volley-platform.vercel.app",
       "volley-platform-bul.vercel.app",
       "volley-platform-production.up.railway.app"
     ]
-  },
-  "android": {
-    "allowMixedContent": false,
-    "backgroundColor": "#f8fafc"
-  },
-  "ios": {
-    "backgroundColor": "#f8fafc",
-    "contentInset": "automatic",
-    "scheme": "Volley Coach BUL",
-    "limitsNavigationsToAppBoundDomains": true
-  },
-  "plugins": {
-    "SplashScreen": {
-      "launchAutoHide": true,
-      "backgroundColor": "#0f172a",
-      "showSpinner": false
-    },
-    "StatusBar": {
-      "style": "DARK"
-    }
   }
 }

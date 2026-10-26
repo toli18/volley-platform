@@ -1,4 +1,31 @@
 {
+  "redirects": [
+    {
+      "source": "/parent/:path*",
+      "destination": "https://volley-platform-production.up.railway.app/parent/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/room/:path*",
+      "destination": "https://volley-platform-production.up.railway.app/room/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/app",
+      "destination": "https://volley-platform-production.up.railway.app/app",
+      "permanent": true
+    },
+    {
+      "source": "/login",
+      "destination": "https://volley-platform-production.up.railway.app/login",
+      "permanent": true
+    },
+    {
+      "source": "/coach/:path*",
+      "destination": "https://volley-platform-production.up.railway.app/coach/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/backend-api/:path*",

@@ -71,7 +71,11 @@ def format_date_bg(iso_date: str) -> str:
 
 
 def _public_base() -> str:
-    return (settings.parent_portal_public_url or "").strip().rstrip("/")
+    """Canonical portal host — never emit Vercel-only links (dual-host outages)."""
+    raw = (settings.parent_portal_public_url or "").strip().rstrip("/")
+    if not raw or "vercel.app" in raw.lower():
+        return "https://volley-platform-production.up.railway.app"
+    return raw
 
 
 def portal_url_for_portal(portal: str) -> str:

@@ -140,8 +140,9 @@ if (WEB_DIR / "assets").is_dir():
 
 
 @app.api_route("/healthz", methods=["GET", "HEAD"])
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def healthz():
-    return {"ok": True}
+    return {"ok": True, "service": "volley-platform"}
 
 
 _NO_CACHE_HTML = {

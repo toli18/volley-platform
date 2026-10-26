@@ -17,6 +17,7 @@ import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -32,18 +33,23 @@ import org.json.JSONObject;
 
 /**
  * In-app WebView shell for coach/parent/athlete portals.
- * Exposes {@code window.VolleyNative} so the web app can open Chrome for Web Push
- * (Android WebView does not support PushManager) and later request FCM tokens.
+ * Primary host is Railway (SPA+API same origin). Vercel is automatic failover.
+ * Exposes {@code window.VolleyNative} so the web app can open Chrome for Web Push.
  */
 public class MainActivity extends AppCompatActivity {
-    private static final String START_URL = "https://volley-platform-bul.vercel.app/app";
+    private static final String PRIMARY_ORIGIN = "https://volley-platform-production.up.railway.app";
+    private static final String MIRROR_ORIGIN = "https://volley-platform-bul.vercel.app";
+    private static final String LEGACY_MIRROR_ORIGIN = "https://volley-platform.vercel.app";
+    private static final String START_URL = PRIMARY_ORIGIN + "/app";
     private static final String PREFS = "volley_coach_shell";
     private static final String KEY_LAST_URL = "last_url";
-    private static final String UA_SUFFIX = " VolleyCoachBULApp/1.2.2";
+    private static final String KEY_FAILOVER_ONCE = "origin_failover_once";
+    private static final String UA_SUFFIX = " VolleyCoachBULApp/1.2.3";
 
     private WebView webView;
     private ProgressBar progress;
     private SharedPreferences prefs;
+    private boolean failoverArmed = true;
 
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
         registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {});
@@ -52,19 +58,72 @@ public class MainActivity extends AppCompatActivity {
         if (url == null) {
             return false;
         }
-        return url.startsWith("https://volley-platform-bul.vercel.app")
-            || url.startsWith("https://volley-platform.vercel.app")
-            || url.startsWith("https://volley-platform-production.up.railway.app")
+        return url.startsWith(PRIMARY_ORIGIN)
+            || url.startsWith(MIRROR_ORIGIN)
+            || url.startsWith(LEGACY_MIRROR_ORIGIN)
             || url.startsWith("about:blank")
             || url.startsWith("data:");
+    }
+
+    private static String swapOrigin(String url, String toOrigin) {
+        if (url == null || toOrigin == null) {
+            return START_URL;
+        }
+        try {
+            Uri uri = Uri.parse(url);
+            String path = uri.getEncodedPath();
+            if (path == null || path.isEmpty()) {
+                path = "/";
+            }
+            String q = uri.getEncodedQuery();
+            String frag = uri.getEncodedFragment();
+            StringBuilder out = new StringBuilder(toOrigin);
+            out.append(path);
+            if (q != null && !q.isEmpty()) {
+                out.append('?').append(q);
+            }
+            if (frag != null && !frag.isEmpty()) {
+                out.append('#').append(frag);
+            }
+            return out.toString();
+        } catch (Exception ignored) {
+            return toOrigin + "/app";
+        }
     }
 
     private String resumeUrl() {
         String last = prefs.getString(KEY_LAST_URL, null);
         if (last != null && isAllowed(last) && last.startsWith("https://")) {
+            // Prefer Railway even if an older install stored a Vercel URL.
+            if (last.startsWith(MIRROR_ORIGIN) || last.startsWith(LEGACY_MIRROR_ORIGIN)) {
+                return swapOrigin(last, PRIMARY_ORIGIN);
+            }
             return last;
         }
         return START_URL;
+    }
+
+    private void failoverFrom(String failedUrl) {
+        if (!failoverArmed) {
+            return;
+        }
+        if (prefs.getBoolean(KEY_FAILOVER_ONCE, false)) {
+            return;
+        }
+        String target;
+        if (failedUrl != null && failedUrl.startsWith(PRIMARY_ORIGIN)) {
+            target = swapOrigin(failedUrl, MIRROR_ORIGIN);
+        } else if (failedUrl != null
+            && (failedUrl.startsWith(MIRROR_ORIGIN) || failedUrl.startsWith(LEGACY_MIRROR_ORIGIN))) {
+            target = swapOrigin(failedUrl, PRIMARY_ORIGIN);
+        } else {
+            target = START_URL;
+        }
+        failoverArmed = false;
+        prefs.edit().putBoolean(KEY_FAILOVER_ONCE, true).apply();
+        if (webView != null) {
+            webView.loadUrl(target);
+        }
     }
 
     public class VolleyNativeBridge {
@@ -93,8 +152,6 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void requestFcmToken(String callbackId) {
-            // When google-services.json + Firebase Messaging are present, returns a token.
-            // Otherwise returns "" so the web layer opens Chrome for Web Push.
             tryGetFirebaseToken(callbackId);
         }
 
@@ -161,6 +218,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        // Allow one automatic origin swap per cold start.
+        prefs.edit().putBoolean(KEY_FAILOVER_ONCE, false).apply();
+        failoverArmed = true;
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#F8FAFC"));
@@ -235,6 +295,17 @@ public class MainActivity extends AppCompatActivity {
                     CookieManager.getInstance().flush();
                     if (url != null && isAllowed(url) && url.startsWith("https://")) {
                         prefs.edit().putString(KEY_LAST_URL, url).apply();
+                    }
+                }
+
+                @Override
+                public void onReceivedError(
+                    WebView view, WebResourceRequest request, WebResourceError error
+                ) {
+                    if (request != null && request.isForMainFrame()) {
+                        String failed =
+                            request.getUrl() != null ? request.getUrl().toString() : view.getUrl();
+                        failoverFrom(failed);
                     }
                 }
             }
