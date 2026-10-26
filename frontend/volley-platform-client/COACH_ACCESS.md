@@ -1,20 +1,10 @@
-# Вход за треньори (iPhone / Android) — работещи линкове
+# Coach / parent / athlete access
 
-## Каноничен линк (ползвай този)
-
-**https://volley-platform-bul.vercel.app/login**
-
-Алтернатива след деплой на Railway:
-
+**Canonical production (SPA + API, same origin):**  
 **https://volley-platform-production.up.railway.app/login**
 
-## Важно правила
+Parent portal: https://volley-platform-production.up.railway.app/parent/login  
+Team room: https://volley-platform-production.up.railway.app/room/login  
+Mobile shell: https://volley-platform-production.up.railway.app/app
 
-1. Отваряй в **Safari** или **Chrome**, не от Messenger / Facebook / Viber (там често е бял екран).  
-2. Ако имаш активен разговор, на някои мрежи данните спират — пробвай след края на обаждането.  
-3. При бял екран: бутон **„Обнови приложението“**, или Safari → изчисти данни за сайта и отвори пак.
-
-## Какво беше счупено (оправено)
-
-Railway SPA беше билднат с API към `http://127.0.0.1:8000`. На телефона това **никога** не работи (HTTPS страница → localhost).  
-Сега API сочи към production Railway / same-origin, плюс по-сигурен boot на iPhone.
+Vercel (`*.vercel.app`) is a mirror only. Critical routes permanently redirect to Railway so login does not depend on two hosts.

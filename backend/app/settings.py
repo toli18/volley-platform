@@ -71,9 +71,12 @@ class Settings(BaseSettings):
     # Optional Firebase service-account JSON (string) for native FCM device tokens (endpoint fcm:…).
     firebase_credentials_json: Optional[str] = Field(default=None, env="FIREBASE_CREDENTIALS_JSON")
     parent_portal_public_url: Optional[str] = Field(
-        default=None,
+        default="https://volley-platform-production.up.railway.app",
         env="PARENT_PORTAL_PUBLIC_URL",
-        description="Base URL for links in push notifications (e.g. https://volley-platform.vercel.app)",
+        description=(
+            "Canonical public base URL for parent/athlete portal links "
+            "(SPA+API same origin on Railway)."
+        ),
     )
     smtp_host: Optional[str] = Field(default=None, env="SMTP_HOST")
     smtp_port: int = Field(default=587, env="SMTP_PORT")
