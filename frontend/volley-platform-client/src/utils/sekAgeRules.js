@@ -1,4 +1,7 @@
-/** СЕК възрастови кохорти: своята група или една нагоре, без надолу и без прескачане. */
+/** СЕК възрастови кохорти.
+ * Юношески лицензи: своята група или една нагоре, без надолу и без прескачане.
+ * Мъже/Жени (99): всички възрасти от клуба със същия пол.
+ */
 
 export const AGE_LADDER = [12, 13, 14, 16, 18, 20, 99];
 
@@ -89,13 +92,17 @@ export function allowedAgeCodes(birthYear, seasonYear) {
   const idx = AGE_LADDER.indexOf(nat);
   const allowed = new Set([nat]);
   if (idx >= 0 && idx + 1 < AGE_LADDER.length) allowed.add(AGE_LADDER[idx + 1]);
+  // Мъже/Жени — всички възрасти.
+  allowed.add(99);
   return allowed;
 }
 
 export function athleteFitsAgeGroup(birthYear, seasonYear, age, ageGroup) {
+  const code = resolveAgeCode(age, ageGroup);
+  // Мъже / Жени: без възрастово ограничение (полът се гледа на сървъра).
+  if (code >= 99) return { ok: true, reason: null };
   const by = Number(birthYear);
   if (!Number.isFinite(by)) return { ok: false, reason: "липсва година на раждане" };
-  const code = resolveAgeCode(age, ageGroup);
   const allowed = allowedAgeCodes(by, seasonYear);
   if (!allowed.has(code)) {
     const nat = naturalAgeCode(by, seasonYear);
@@ -110,12 +117,14 @@ export function athleteFitsAgeGroup(birthYear, seasonYear, age, ageGroup) {
 export function ageRuleHint(seasonYear, age, ageGroup) {
   const y = Number(seasonYear);
   const code = resolveAgeCode(age, ageGroup);
+  const label = ageGroupLabel(code);
+  if (code >= 99) {
+    return `${label}: всички състезатели от клуба със същия пол (без ограничение по възраст).`;
+  }
   const years = [];
   for (let by = y - 50; by <= y; by += 1) {
     if (allowedAgeCodes(by, y).has(code)) years.push(by);
   }
-  const label = ageGroupLabel(code);
-  if (code >= 99) return `${label}: възрастни + Под 20 (една група нагоре).`;
   if (!years.length) return `${label}: няма допустими години на раждане.`;
   const lo = years[0];
   const hi = years[years.length - 1];

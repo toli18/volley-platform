@@ -1,0 +1,1 @@
+import{j as d}from"./index-BkMj5b3_.js";function i({items:n,renderMobileCard:a,children:e,className:r=""}){return n!=null&&n.length?d.jsxs("div",{className:r,children:[d.jsx("div",{className:"md:hidden space-y-3",children:n.map(a)}),d.jsx("div",{className:"hidden md:block",children:e})]}):null}export{i as R};
