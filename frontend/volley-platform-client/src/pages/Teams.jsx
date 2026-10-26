@@ -11,12 +11,11 @@ import CoachSpeedFab from "../components/coachMobile/CoachSpeedFab";
 import { CoachHubPage, MenuGroup } from "../components/coachMobile/CoachMenuParts";
 import { NavIcon } from "../navigation/navIcons";
 import { Button, EmptyState, Input, Modal, OverflowActionSheet } from "../components/ui";
-
-const teamGenderLabel = (gender) => {
-  if (gender === "male") return "Мъжки";
-  if (gender === "female") return "Женски";
-  return "—";
-};
+import {
+  TEAM_GENDER_OPTIONS,
+  teamGenderHubClass,
+  teamGenderLabel,
+} from "../utils/teamGender";
 
 function teamHint(team, { isHeadCoach }) {
   const parts = [
@@ -265,7 +264,7 @@ export default function Teams() {
           teams.map((team) => (
             <li
               key={team.id}
-              className={`teamsHubItem${team.gender === "male" ? " teamsHubItem--male" : team.gender === "female" ? " teamsHubItem--female" : ""}`}
+              className={`teamsHubItem${teamGenderHubClass(team.gender)}`}
             >
               <Link to={teamDetailPath(team.id)} className="coachMobileMenuRow">
                 <span className="coachMobileMenuIconWrap">
@@ -347,8 +346,11 @@ export default function Teams() {
                 onChange={(e) => setTeamForm((p) => ({ ...p, gender: e.target.value }))}
               >
                 <option value="">Избери тип на групата</option>
-                <option value="male">Мъжки</option>
-                <option value="female">Женски</option>
+                {TEAM_GENDER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </Input>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <input
@@ -424,8 +426,11 @@ export default function Teams() {
             onChange={(e) => setEditTeamForm((p) => ({ ...p, gender: e.target.value }))}
           >
             <option value="">Избери тип на групата</option>
-            <option value="male">Мъжки</option>
-            <option value="female">Женски</option>
+            {TEAM_GENDER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </Input>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <input

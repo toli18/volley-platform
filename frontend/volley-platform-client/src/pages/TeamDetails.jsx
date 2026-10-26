@@ -9,18 +9,9 @@ import { useAuth } from "../auth/AuthContext";
 import TeamPortalCoachPanel, { TeamPortalHeroActions, useTeamPortalCoach } from "../components/teamPortal/TeamPortalCoachPanel";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { AMOUNT_INPUT_PLACEHOLDER } from "../utils/currency";
+import { teamGenderLabel, teamGenderSuffix } from "../utils/teamGender";
 
-const genderSuffix = (g) => {
-  if (g === "male") return " · М";
-  if (g === "female") return " · Ж";
-  return "";
-};
-
-const teamGenderLabel = (g) => {
-  if (g === "male") return "Мъжки";
-  if (g === "female") return "Женски";
-  return "—";
-};
+const genderSuffix = teamGenderSuffix;
 
 export default function TeamDetails() {
   const { teamId } = useParams();

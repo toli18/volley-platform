@@ -11398,6 +11398,11 @@ body:has(.publicWatchPage--fs) {
   color: #be185d;
 }
 
+.teamsHubItem--mixed .coachMobileMenuIconWrap {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .teamsHubItemActions {
   display: flex;
   flex-wrap: wrap;

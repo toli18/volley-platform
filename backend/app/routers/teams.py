@@ -155,7 +155,7 @@ def _serialize_team_with_coach(db: Session, team: Team) -> TeamRead:
 
 def _normalize_gender(value) -> str | None:
     raw = str(value or "").strip().lower()
-    if raw in {"male", "female"}:
+    if raw in {"male", "female", "mixed"}:
         return raw
     return None
 
@@ -427,7 +427,8 @@ def replace_team_members(
                 detail="One or more athletes are invalid for this club/coach",
             )
         team_gender = _normalize_gender(getattr(team, "gender", None))
-        if team_gender:
+        # Mixed groups accept boys and girls; single-gender teams still enforce match.
+        if team_gender in {"male", "female"}:
             if (
                 db.query(Athlete)
                 .filter(Athlete.id.in_(added_ids), Athlete.gender != team_gender)
@@ -1320,8 +1321,8 @@ def generate_team_sheet_pdf(
         sheet_date=_parse_sheet_date(payload.sheet_date),
         age_group=(payload.age_group or team.age_group or "").strip(),
         venue_city=(payload.venue_city or club_city or "").strip(),
-        gender_male=str(team.gender or "") == "male",
-        gender_female=str(team.gender or "") == "female",
+        gender_male=str(team.gender or "") in {"male", "mixed"},
+        gender_female=str(team.gender or "") in {"female", "mixed"},
         jersey_color=(payload.jersey_color or "").strip(),
         head_coach=(payload.head_coach or coach_name or "").strip(),
         assistant_1=(payload.assistant_1 or "").strip(),

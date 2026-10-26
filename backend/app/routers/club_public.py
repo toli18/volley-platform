@@ -269,6 +269,8 @@ def _gender_label(g: str | None) -> str | None:
         return "Момичета"
     if key == "male":
         return "Момчета"
+    if key == "mixed":
+        return "Смесени"
     return None
 
 

@@ -4,11 +4,14 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+TeamGender = Literal["male", "female", "mixed"]
+
+
 class TeamCreate(BaseModel):
     name: str
     age_group: Optional[str] = None
     season: Optional[str] = None
-    gender: Literal["male", "female"]
+    gender: TeamGender
     is_active: bool = True
 
 
@@ -16,7 +19,7 @@ class TeamUpdate(BaseModel):
     name: Optional[str] = None
     age_group: Optional[str] = None
     season: Optional[str] = None
-    gender: Optional[Literal["male", "female"]] = None
+    gender: Optional[TeamGender] = None
     is_active: Optional[bool] = None
     public_enrollment_open: Optional[bool] = None
 
@@ -35,7 +38,7 @@ class TeamRead(BaseModel):
     name: str
     age_group: Optional[str] = None
     season: Optional[str] = None
-    gender: Optional[Literal["male", "female"]] = None
+    gender: Optional[TeamGender] = None
     is_active: bool = True
     public_enrollment_open: bool = False
     created_at: Optional[datetime] = None

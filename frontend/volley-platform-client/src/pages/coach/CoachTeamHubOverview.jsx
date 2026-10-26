@@ -34,6 +34,7 @@ function teamMetaLine(team) {
   if (team?.age_group) parts.push(team.age_group);
   if (team?.gender === "male") parts.push("М");
   else if (team?.gender === "female") parts.push("Ж");
+  else if (team?.gender === "mixed") parts.push("См");
   if (team?.season) parts.push(team.season);
   return parts.length ? parts.join(" · ") : null;
 }

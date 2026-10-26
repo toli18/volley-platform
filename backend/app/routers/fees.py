@@ -175,7 +175,8 @@ def _attach_athlete_to_team(db: Session, athlete: Athlete, team_id: int, user: U
         raise HTTPException(status_code=403, detail="Можеш да добавяш само в групи, които водиш")
     team_gender = (team.gender or "").strip().lower() or None
     athlete_gender = (athlete.gender or "").strip().lower() or None
-    if team_gender and athlete_gender and team_gender != athlete_gender:
+    # Mixed groups accept both; single-gender teams still require a match.
+    if team_gender in {"male", "female"} and athlete_gender and team_gender != athlete_gender:
         raise HTTPException(status_code=422, detail="Полът на състезателя не съвпада с типа на групата")
     existing = (
         db.query(TeamMember)
