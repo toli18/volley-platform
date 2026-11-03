@@ -362,6 +362,13 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         if member_ids
         else set()
     )
+    from app.services.carding_form import signed_carding_form_athlete_ids
+
+    signed_local_ids = (
+        signed_carding_form_athlete_ids(db, int(local.club_id), int(year), member_ids)
+        if member_ids
+        else set()
+    )
     teams_map = (
         _season_carded_teams(db, member_ids, int(year), club_id=int(local.club_id)) if member_ids else {}
     )
@@ -381,6 +388,8 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
         docs = athlete_docs_as_dicts(athlete)
         has_photo = athlete.id in photo_ids or bool(athlete.bvf_photo_id)
         has_form = athlete.id in form_ids
+        has_signed_local = int(athlete.id) in signed_local_ids
+        has_form_in_sek = _sek_docs_have_form_03(docs, int(year))
         checklist = _doc_checklist(
             athlete, docs, year, db=db, has_photo=has_photo, has_form=has_form
         )
@@ -415,6 +424,9 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
                 "sek_locked_player": _member_on_signed_sek_license(mem, local),
                 "ready": ready and fits_age,
                 "has_form_03": has_form,
+                "has_signed_form_03_local": has_signed_local,
+                "has_form_03_in_sek": has_form_in_sek,
+                "can_push_form_03": bool(has_signed_local and not has_form_in_sek),
                 "fits_age": fits_age,
                 "age_reason": age_reason,
                 "birth_year": by if by is not None else athlete.birth_year,
@@ -441,7 +453,12 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             "Лицензът в СЕК е заключен. Новите състезатели остават в този списък; "
             "„Запиши в СЕК“ ще отвори допълнителен лиценз само за тях."
             if _card_index_locked_by_sek(local)
-            else None
+            else (
+                "Лицензът в СЕК е отворен (вкл. „върнат за редакция“). "
+                "Добавяй състезатели локално, после „Обнови състава в СЕК“ или „Запиши в СЕК“."
+                if local.bvf_card_index_id
+                else None
+            )
         ),
         "can_submit": _can_submit_card_index(current_user),
         "can_edit": _can_edit_card_index(current_user, local),
@@ -450,8 +467,6 @@ def _detail_payload(db: Session, local: BvfCardIndex, current_user: User) -> dic
             and _can_edit_card_index(current_user, local)
             and local.status not in ("ready_for_head", "signed", "pending_bvf_sign")
             and len(members_out) > 0
-            and form_ok
-            and all_ready
         ),
         "sek_carding_window": {
             "known": carding_open is not None,
@@ -947,87 +962,96 @@ def _carding_form_upload_title(form) -> str:
     return f"{kind} — сезон {form.season_label_snapshot or season_label(form.season_year)}"
 
 
-def _push_roster_carding_forms_to_sek(
-    db: Session, *, local: BvfCardIndex, club: Club, token: str
-) -> list[dict[str, Any]]:
-    """Качва локални PDF Форма 03/А/B в профилите в СЕК (пропуска вече качени)."""
+def _push_one_athlete_carding_form_to_sek(
+    db: Session,
+    *,
+    athlete: Athlete,
+    club: Club,
+    token: str,
+    season_year: int,
+) -> dict[str, Any]:
+    """Качва локална подписана Форма 03/А/B в профила на играча в СЕК."""
     from app.services.carding_form import (
         ensure_carding_form_signatures_persisted,
         get_signed_carding_form,
         read_carding_form_pdf,
     )
 
+    year = int(season_year)
+    base: dict[str, Any] = {
+        "athlete_id": athlete.id,
+        "athlete_name": athlete.athlete_name,
+        "bvf_player_id": athlete.bvf_player_id,
+    }
+    if not athlete.bvf_player_id:
+        return {**base, "status": "error", "detail": "Няма връзка със СЕК"}
+    try:
+        remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
+        if not isinstance(remote, list):
+            remote = []
+        docs = _upsert_doc_mirrors(db, athlete, remote)
+    except HTTPException as exc:
+        return {**base, "status": "error", "detail": str(exc.detail)}
+    except Exception as exc:  # noqa: BLE001
+        return {**base, "status": "error", "detail": str(exc)[:200]}
+
+    if _sek_docs_have_form_03(docs, year):
+        return {**base, "status": "already_in_sek"}
+
+    form = get_signed_carding_form(db, athlete.id, year, club.id)
+    if not form:
+        return {
+            **base,
+            "status": "missing_local_form",
+            "detail": "Няма локална подписана Форма 03",
+        }
+
+    form = ensure_carding_form_signatures_persisted(db, form)
+    pdf = read_carding_form_pdf(form, club=club)
+    if not pdf:
+        return {**base, "status": "error", "detail": "Неуспешно генериране на PDF"}
+
+    title = _carding_form_upload_title(form)
+    data = {
+        "Type": "2",
+        "Description": title,
+        "StartDate": f"{year}-01-01",
+        "EndDate": f"{year + 1}-06-30",
+    }
+    files = {"files": (f"forma03_{athlete.id}_{year}.pdf", pdf, "application/pdf")}
+    try:
+        _bvf_post_multipart(
+            f"/api/players/{int(athlete.bvf_player_id)}/documents",
+            token,
+            data,
+            files,
+        )
+        remote2 = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
+        if isinstance(remote2, list):
+            _upsert_doc_mirrors(db, athlete, remote2)
+        db.expire(athlete, ["bvf_documents"])
+        return {**base, "status": "uploaded", "detail": title}
+    except HTTPException as exc:
+        return {**base, "status": "error", "detail": str(exc.detail)}
+    except Exception as exc:  # noqa: BLE001
+        return {**base, "status": "error", "detail": str(exc)[:200]}
+
+
+def _push_roster_carding_forms_to_sek(
+    db: Session, *, local: BvfCardIndex, club: Club, token: str
+) -> list[dict[str, Any]]:
+    """Качва локални PDF Форма 03/А/B в профилите в СЕК (пропуска вече качени)."""
     year = int(local.year or datetime.utcnow().year)
     results: list[dict[str, Any]] = []
     for mem in local.members or []:
         athlete = mem.athlete
         if not athlete:
             continue
-        base: dict[str, Any] = {
-            "athlete_id": athlete.id,
-            "athlete_name": athlete.athlete_name,
-            "bvf_player_id": athlete.bvf_player_id,
-        }
-        if not athlete.bvf_player_id:
-            results.append({**base, "status": "error", "detail": "Няма връзка със СЕК"})
-            continue
-        try:
-            remote = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
-            if not isinstance(remote, list):
-                remote = []
-            docs = _upsert_doc_mirrors(db, athlete, remote)
-        except HTTPException as exc:
-            results.append({**base, "status": "error", "detail": str(exc.detail)})
-            continue
-        except Exception as exc:  # noqa: BLE001
-            results.append({**base, "status": "error", "detail": str(exc)[:200]})
-            continue
-
-        if _sek_docs_have_form_03(docs, year):
-            results.append({**base, "status": "already_in_sek"})
-            continue
-
-        form = get_signed_carding_form(db, athlete.id, year, club.id)
-        if not form:
-            results.append(
-                {
-                    **base,
-                    "status": "missing_local_form",
-                    "detail": "Няма локална подписана Форма 03",
-                }
+        results.append(
+            _push_one_athlete_carding_form_to_sek(
+                db, athlete=athlete, club=club, token=token, season_year=year
             )
-            continue
-
-        form = ensure_carding_form_signatures_persisted(db, form)
-        pdf = read_carding_form_pdf(form, club=club)
-        if not pdf:
-            results.append({**base, "status": "error", "detail": "Неуспешно генериране на PDF"})
-            continue
-
-        title = _carding_form_upload_title(form)
-        data = {
-            "Type": "2",
-            "Description": title,
-            "StartDate": f"{year}-01-01",
-            "EndDate": f"{year + 1}-06-30",
-        }
-        files = {"files": (f"forma03_{athlete.id}_{year}.pdf", pdf, "application/pdf")}
-        try:
-            _bvf_post_multipart(
-                f"/api/players/{int(athlete.bvf_player_id)}/documents",
-                token,
-                data,
-                files,
-            )
-            remote2 = _bvf_get(f"/api/players/{int(athlete.bvf_player_id)}/documents", token)
-            if isinstance(remote2, list):
-                _upsert_doc_mirrors(db, athlete, remote2)
-            db.expire(athlete, ["bvf_documents"])
-            results.append({**base, "status": "uploaded", "detail": title})
-        except HTTPException as exc:
-            results.append({**base, "status": "error", "detail": str(exc.detail)})
-        except Exception as exc:  # noqa: BLE001
-            results.append({**base, "status": "error", "detail": str(exc)[:200]})
+        )
     return results
 
 
@@ -1257,9 +1281,6 @@ def add_players_to_card_index(
         if not athlete.bvf_player_id:
             errors.append(f"#{aid} няма БФВ id")
             continue
-        if not athlete_has_form_03(athlete, int(season_year), db=db):
-            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
-            continue
         url = f"{BVF_API_BASE}/api/card-indexes/{int(bvf_card_index_id)}/players"
         ok = False
         try:
@@ -1314,7 +1335,7 @@ class SignCardIndexIn(BaseModel):
 def list_eligible_card_index_athletes(
     club_id: int | None = None,
     season_year: int | None = None,
-    require_form_03: bool = True,
+    require_form_03: bool = False,
     local_id: int | None = None,
     age: int | None = None,
     sex: int | None = None,
@@ -1323,7 +1344,7 @@ def list_eligible_card_index_athletes(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
     ),
 ):
-    """Клубни състезатели със СЕК връзка; за картотека — с форма 03 + пол/възраст на отбора."""
+    """Клубни състезатели със СЕК връзка; пол/възраст на отбора; форма 03 по избор (require_form_03)."""
     club = _club_for_any_coach(db, current_user, club_id)
     year = int(season_year or datetime.utcnow().year)
     filter_age = age
@@ -2638,9 +2659,6 @@ def add_players_to_local_card_index(
         if not athlete.bvf_player_id:
             errors.append(f"#{aid} няма БФВ id (не е в СЕК)")
             continue
-        if not athlete_has_form_03(athlete, int(season_year), db=db):
-            errors.append(f"{athlete.athlete_name}: липсва Форма 03 / 03-А за {season_year}")
-            continue
         ok_fit, reason = athlete_can_join_card_index(
             db,
             athlete,
@@ -2669,6 +2687,46 @@ def add_players_to_local_card_index(
         local.status = "building"
     db.commit()
     return {"added": added, "errors": errors, "id": local.id, "status": local.status}
+
+
+class PushMemberForm03In(BaseModel):
+    athlete_id: int
+    bvf_token: Optional[str] = None
+    club_id: Optional[int] = None
+
+
+@router.post("/card-indexes/local/{local_id}/push-form-03")
+def push_member_form_03_to_sek(
+    local_id: int,
+    payload: PushMemberForm03In,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Качва подписана локална Форма 03 в профила на състезателя в СЕК (+ в таблицата)."""
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+    local = _local_card_index(db, club, local_id, with_roster=True)
+    aid = int(payload.athlete_id)
+    mem = next((m for m in (local.members or []) if m.athlete_id == aid), None)
+    if not mem or not mem.athlete:
+        raise HTTPException(status_code=404, detail="Състезателят не е в този картотечен отбор")
+    athlete = mem.athlete
+    year = int(local.year or datetime.utcnow().year)
+    result = _push_one_athlete_carding_form_to_sek(
+        db, athlete=athlete, club=club, token=token, season_year=year
+    )
+    db.commit()
+    status = result.get("status")
+    if status == "uploaded":
+        return {"ok": True, **result}
+    if status == "already_in_sek":
+        return {"ok": True, **result}
+    if status == "missing_local_form":
+        raise HTTPException(status_code=422, detail=result.get("detail") or "Няма подписана форма")
+    raise HTTPException(status_code=502, detail=result.get("detail") or "Неуспешно качване в СЕК")
 
 
 @router.post("/card-indexes/local/{local_id}/remove-players")
@@ -3318,6 +3376,127 @@ def _ensure_sek_season_application_entry(
     }
 
 
+def _sek_player_ids_on_card_index(token: str, card_index_id: int) -> set[int]:
+    raw = _bvf_get_soft(f"/api/card-indexes/{int(card_index_id)}/players", token)
+    ids: set[int] = set()
+    if not isinstance(raw, list):
+        return ids
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        for key in ("playerId", "PlayerId", "id"):
+            val = row.get(key)
+            if val is None:
+                continue
+            try:
+                ids.add(int(val))
+                break
+            except (TypeError, ValueError):
+                continue
+    return ids
+
+
+def _reconcile_members_with_sek_roster(
+    local: BvfCardIndex, *, token: str, card_index_id: int
+) -> int:
+    """Отворен или върнат лиценз: synced=true само ако играчът е реално в СЕК."""
+    cid = int(card_index_id)
+    on_sek = _sek_player_ids_on_card_index(token, cid)
+    reset = 0
+    for mem in local.members or []:
+        pid = mem.bvf_player_id
+        if not pid:
+            if mem.synced:
+                mem.synced = False
+                reset += 1
+            continue
+        if int(pid) in on_sek:
+            mem.synced = True
+            mem.sek_bvf_card_index_id = cid
+        elif mem.synced:
+            mem.synced = False
+            reset += 1
+    return reset
+
+
+def _post_player_to_sek_card_index(
+    token: str,
+    *,
+    card_index_id: int,
+    bvf_player_id: int,
+    year: int | None = None,
+    age: int | None = None,
+    sex: int | None = None,
+) -> tuple[str, str | None]:
+    """Връща (status, detail): added | already | error."""
+    url = f"{BVF_API_BASE}/api/card-indexes/{int(card_index_id)}/players"
+    pid = int(bvf_player_id)
+    with httpx.Client(timeout=BVF_TIMEOUT) as client:
+        res = client.post(
+            url,
+            headers={**_bvf_headers(token), "Content-Type": "application/json"},
+            json={"playerId": pid},
+        )
+        if res.status_code < 400:
+            return "added", None
+        body = (res.text or "").strip()
+        low = body.lower()
+        if res.status_code in (400, 409) and (
+            "already" in low or "exist" in low or "duplicate" in low or "вече" in low
+        ):
+            return "already", None
+        res2 = client.post(
+            url,
+            headers=_bvf_headers(token),
+            data={"playerId": str(pid)},
+        )
+        if res2.status_code < 400:
+            return "added", None
+        body2 = (res2.text or res.text or "").strip()
+        low2 = body2.lower()
+        if res2.status_code in (400, 409) and (
+            "already" in low2 or "exist" in low2 or "duplicate" in low2 or "вече" in low2
+        ):
+            return "already", None
+        if _sek_carding_closed_message(body2 or body):
+            raise _http_sek_carding_closed(
+                body2 or body,
+                year=year,
+                age=age,
+                sex=sex,
+            )
+        return "error", _strip_sek_quotes(body2 or body)[:240] or f"HTTP {res2.status_code}"
+
+
+def _sync_open_sek_license_roster(
+    local: BvfCardIndex,
+    *,
+    db: Session,
+    token: str,
+    card_index_id: int,
+) -> dict[str, Any]:
+    """Сверка + качване на липсващи при отворен/върнат (неподписан) лиценз."""
+    cid = int(card_index_id)
+    reconciled = 0
+    if not _card_index_locked_by_sek(local):
+        reconciled = _reconcile_members_with_sek_roster(local, token=token, card_index_id=cid)
+    summary = _sync_local_members_to_sek_card_index(
+        local, db=db, token=token, card_index_id=cid, only_pending=True
+    )
+    summary["reconciled_unsynced"] = reconciled
+    return summary
+
+
+def _player_sync_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "player_sync": rows,
+        "players_added": len([r for r in rows if r.get("status") == "added"]),
+        "players_already_on_license": len([r for r in rows if r.get("status") == "already"]),
+        "players_failed": len([r for r in rows if r.get("status") == "error"]),
+        "players_skipped": len([r for r in rows if r.get("status") == "skipped"]),
+    }
+
+
 def _sync_local_members_to_sek_card_index(
     local: BvfCardIndex,
     *,
@@ -3325,16 +3504,24 @@ def _sync_local_members_to_sek_card_index(
     token: str,
     card_index_id: int,
     only_pending: bool = False,
-) -> None:
+) -> dict[str, Any]:
     year = int(local.year or datetime.utcnow().year)
     cid = int(card_index_id)
     universal_ids = universal_athlete_ids_for_season(db, club_id=int(local.club_id), season_year=year)
+    rows: list[dict[str, Any]] = []
     for mem in local.members or []:
+        athlete = mem.athlete
+        base: dict[str, Any] = {
+            "athlete_id": mem.athlete_id,
+            "athlete_name": athlete.athlete_name if athlete else None,
+            "bvf_player_id": mem.bvf_player_id,
+        }
         if not mem.bvf_player_id:
+            rows.append({**base, "status": "skipped", "detail": "Няма СЕК id"})
             continue
         if only_pending and not _member_needs_sek_sync(mem, local, cid):
+            rows.append({**base, "status": "skipped", "detail": "Вече маркиран като в СЕК"})
             continue
-        athlete = mem.athlete
         if athlete:
             ok_fit, age_reason = athlete_can_join_card_index(
                 db,
@@ -3355,28 +3542,26 @@ def _sync_local_members_to_sek_card_index(
                         f"{age_reason or 'грешна възрастова група'}"
                     ),
                 )
-        url = f"{BVF_API_BASE}/api/card-indexes/{cid}/players"
         try:
-            with httpx.Client(timeout=BVF_TIMEOUT) as client:
-                res = client.post(
-                    url,
-                    headers={**_bvf_headers(token), "Content-Type": "application/json"},
-                    json={"playerId": int(mem.bvf_player_id)},
-                )
-                if res.status_code < 400:
-                    mem.synced = True
-                    mem.sek_bvf_card_index_id = cid
-                elif _sek_carding_closed_message(res.text):
-                    raise _http_sek_carding_closed(
-                        res.text,
-                        year=local.year,
-                        age=local.age,
-                        sex=local.sex,
-                    )
+            st, detail = _post_player_to_sek_card_index(
+                token,
+                card_index_id=cid,
+                bvf_player_id=int(mem.bvf_player_id),
+                year=int(local.year or year),
+                age=int(local.age) if local.age is not None else None,
+                sex=int(local.sex) if local.sex is not None else None,
+            )
         except HTTPException:
             raise
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            st, detail = "error", str(exc)[:240]
+        if st in ("added", "already"):
+            mem.synced = True
+            mem.sek_bvf_card_index_id = cid
+        rows.append({**base, "status": st, "detail": detail})
+    summary = _player_sync_summary(rows)
+    summary["sek_roster_count"] = len(_sek_player_ids_on_card_index(token, cid))
+    return summary
 
 
 @router.post("/card-indexes/local/{local_id}/submit")
@@ -3396,8 +3581,7 @@ def submit_local_card_index_to_federation(
     club = _club_for_user(db, current_user, payload.club_id)
     local = _local_card_index(db, club, local_id, with_roster=True)
     detail = _detail_payload(db, local, current_user)
-    if not detail["all_ready"]:
-        raise HTTPException(status_code=422, detail="Съставът не е готов (Форма 03 / снимка / ЕГН).")
+    sign_when_ready = bool(detail["all_ready"])
 
     try:
         token = _token_matches_club(payload.bvf_token, club)
@@ -3473,11 +3657,16 @@ def submit_local_card_index_to_federation(
             _push_card_index_staff_to_sek(db, local, club, token)
         except HTTPException:
             pass
-        _sync_local_members_to_sek_card_index(
-            local, db=db, token=token, card_index_id=cid, only_pending=True
+        player_sync = _sync_open_sek_license_roster(
+            local, db=db, token=token, card_index_id=cid
         )
         db.commit()
-        return submit_card_index_to_federation(cid, payload, db, current_user)
+        if sign_when_ready:
+            out = submit_card_index_to_federation(cid, payload, db, current_user)
+            if isinstance(out, dict):
+                out.update(player_sync)
+            return out
+        return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
 
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
@@ -3608,14 +3797,91 @@ def submit_local_card_index_to_federation(
         pass
 
     try:
-        _sync_local_members_to_sek_card_index(
-            local, db=db, token=token, card_index_id=cid, only_pending=True
+        player_sync = _sync_open_sek_license_roster(
+            local, db=db, token=token, card_index_id=cid
         )
     except HTTPException:
         db.commit()
         raise
     db.commit()
-    return submit_card_index_to_federation(cid, payload, db, current_user)
+    if sign_when_ready:
+        out = submit_card_index_to_federation(cid, payload, db, current_user)
+        if isinstance(out, dict):
+            out.update(player_sync)
+        return out
+    return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
+
+
+def _submit_after_roster_sync(
+    local: BvfCardIndex, player_sync: dict[str, Any], *, sign_when_ready: bool
+) -> dict[str, Any]:
+    added = int(player_sync.get("players_added") or 0)
+    already = int(player_sync.get("players_already_on_license") or 0)
+    failed = int(player_sync.get("players_failed") or 0)
+    on_sek = player_sync.get("sek_roster_count")
+    parts = [
+        f"В СЕК на лиценза: {on_sek} състезател(и)" if on_sek is not None else None,
+        f"нови: {added}" if added else None,
+        f"вече бяха: {already}" if already else None,
+    ]
+    msg = "Съставът е синхронизиран с отворения лиценз в СЕК."
+    if parts:
+        msg += " " + ", ".join(p for p in parts if p) + "."
+    if failed:
+        err_names = [
+            f"{r.get('athlete_name')}: {r.get('detail')}"
+            for r in (player_sync.get("player_sync") or [])
+            if r.get("status") == "error"
+        ]
+        msg += f" Неуспешни ({failed}): " + "; ".join(err_names[:4])
+        if len(err_names) > 4:
+            msg += "…"
+    elif not sign_when_ready:
+        msg += (
+            " За заключване: Форма 03 в СЕК (+), снимка и ЕГН за всички, после отново „Запиши в СЕК“."
+        )
+    return {
+        "ok": failed == 0,
+        "synced_only": True,
+        "sign_blocked": not sign_when_ready,
+        "status": local.status,
+        "bvf_card_index_id": local.bvf_card_index_id,
+        "message": msg,
+        **player_sync,
+    }
+
+
+@router.post("/card-indexes/local/{local_id}/sync-sek-roster")
+def sync_local_roster_to_open_sek_license(
+    local_id: int,
+    payload: SignCardIndexIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Качва липсващите в отворен/върнат лиценз в СЕК без подписване."""
+    _require_submit_role(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    token = _token_matches_club(payload.bvf_token, club)
+    local = _local_card_index(db, club, local_id, with_roster=True)
+    if _card_index_locked_by_sek(local):
+        raise HTTPException(
+            status_code=409,
+            detail="Лицензът е заключен в СЕК. Нови състезатели → допълнителен лиценз.",
+        )
+    if not local.bvf_card_index_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Няма свързан лиценз в СЕК. Първо „Запиши в СЕК“ за свързване/създаване.",
+        )
+    remote = _bvf_get_soft(f"/api/card-indexes/{int(local.bvf_card_index_id)}", token)
+    if isinstance(remote, dict) and remote.get("isSigned") is True:
+        raise HTTPException(status_code=409, detail="Лицензът в СЕК е подписан и е заключен.")
+    cid = int(local.bvf_card_index_id)
+    player_sync = _sync_open_sek_license_roster(local, db=db, token=token, card_index_id=cid)
+    db.commit()
+    return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
 
 
 class ClubPhysicalBulkIn(BaseModel):

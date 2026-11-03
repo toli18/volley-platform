@@ -412,7 +412,7 @@ def eligible_athlete_payload(
         "has_form_03": bool(has_form),
         "natural_age": nat,
         "natural_age_label": age_group_label(nat) if nat is not None else None,
-        "eligible_for_roster": bool(athlete.bvf_player_id) and bool(has_form),
+        "eligible_for_roster": bool(athlete.bvf_player_id),
         "is_universal": bool(is_universal),
     }
 

@@ -85,6 +85,38 @@ function teamsCell(m, detail) {
   return labels.join(", ");
 }
 
+function Form03SekCell({ m, isHead, busy, onPush }) {
+  if (m.has_form_03_in_sek || (m.has_form_03 && !m.can_push_form_03)) {
+    return (
+      <span title="Форма 03 е в профила в СЕК">✓</span>
+    );
+  }
+  if (m.can_push_form_03 || m.has_signed_form_03_local) {
+    if (!isHead) {
+      return (
+        <span title="Има подписана форма — главният треньор я качва в СЕК">+</span>
+      );
+    }
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        disabled={busy}
+        title="Качи подписаната Форма 03 в профила в СЕК"
+        onClick={() => onPush(m.athlete_id, m.athlete_name)}
+      >
+        +
+      </Button>
+    );
+  }
+  return (
+    <span title="Няма подписана Форма 03 за сезона" style={{ color: "#b91c1c", fontWeight: 700 }}>
+      −
+    </span>
+  );
+}
+
 export default function CoachBvfCardIndexDetail() {
   const { localId } = useParams();
   const navigate = useNavigate();
@@ -161,7 +193,7 @@ export default function CoachBvfCardIndexDetail() {
     try {
       const elig = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_ELIGIBLE, {
         params: {
-          require_form_03: true,
+          require_form_03: false,
           local_id: Number(localId),
         },
       });
@@ -240,7 +272,10 @@ export default function CoachBvfCardIndexDetail() {
                       bvf_player_number: row.bvf_player_number,
                       synced: false,
                       ready: true,
-                      has_form_03: true,
+                      has_form_03: Boolean(row.has_form_03),
+                      has_signed_form_03_local: Boolean(row.has_form_03),
+                      has_form_03_in_sek: false,
+                      can_push_form_03: Boolean(row.has_form_03),
                       fits_age: true,
                       is_universal: Boolean(row.is_universal),
                       birth_year: row.birth_year,
@@ -349,6 +384,65 @@ export default function CoachBvfCardIndexDetail() {
     }
   };
 
+  const showPlayerSyncToast = (data) => {
+    const failed = Number(data?.players_failed || 0);
+    const msg =
+      data?.message ||
+      `В СЕК: ${data?.sek_roster_count ?? "?"}, добавени ${data?.players_added ?? 0}.`;
+    if (failed > 0) {
+      toast.error(msg);
+    } else {
+      toast.success(msg);
+    }
+  };
+
+  const syncRosterToSek = async () => {
+    if (!detail?.bvf_sek_license_id) {
+      toast.error("Няма свързан лиценз в СЕК. Първо „Запиши в СЕК“.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_SYNC_SEK(localId), {
+        ...tokenBody(token),
+      });
+      showPlayerSyncToast(res.data);
+      await loadAll({ blockPage: false });
+    } catch (err) {
+      toast.error(normalizeError(err, "Синхронизацията с СЕК не успя."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pushForm03ToSek = async (athleteId, name) => {
+    if (
+      !window.confirm(
+        `Качване на подписана Форма 03 в СЕК за ${name || "състезателя"}?\n\nНужен е write API ключ.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_PUSH_FORM_03(localId), {
+        athlete_id: athleteId,
+        ...tokenBody(token),
+      });
+      const st = res.data?.status;
+      if (st === "already_in_sek") {
+        toast.success("Формата вече е в СЕК.");
+      } else {
+        toast.success("Форма 03 е качена в СЕК.");
+      }
+      await loadAll({ blockPage: false });
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно качване на формата в СЕК."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitToBvf = async () => {
     const win =
       detail?.sek_carding_window?.open === false
@@ -390,11 +484,15 @@ export default function CoachBvfCardIndexDetail() {
       const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT(localId), {
         ...tokenBody(token),
       });
-      const up = Number(res.data?.forms_uploaded || 0);
-      const already = Number(res.data?.forms_already_in_sek || 0);
-      toast.success(
-        `Статус: ${res.data?.status || "ok"}. Форми в СЕК: ${up} качени, ${already} вече имаше.`,
-      );
+      if (res.data?.synced_only || res.data?.players_added != null) {
+        showPlayerSyncToast(res.data);
+      } else {
+        const up = Number(res.data?.forms_uploaded || 0);
+        const already = Number(res.data?.forms_already_in_sek || 0);
+        toast.success(
+          `Статус: ${res.data?.status || "ok"}. Форми в СЕК: ${up} качени, ${already} вече имаше.`,
+        );
+      }
       await loadAll({ blockPage: false });
     } catch (err) {
       toast.error(normalizeError(err, "Записът в СЕК не успя. Съставът остава локално."));
@@ -448,6 +546,7 @@ export default function CoachBvfCardIndexDetail() {
                       <th>Отбори</th>
                       <th>БФВ №</th>
                       <th>Форма 03</th>
+                      <th>В СЕК</th>
                       <th>Готов</th>
                       <th>Липси</th>
                       {detail.can_edit ? <th></th> : null}
@@ -462,7 +561,17 @@ export default function CoachBvfCardIndexDetail() {
                         <td data-label="Година">{m.birth_year || "—"}</td>
                         <td data-label="Отбори">{teamsCell(m, detail)}</td>
                         <td data-label="БФВ №">{m.bvf_player_number || m.bvf_player_id}</td>
-                        <td data-label="Форма 03">{m.has_form_03 ? "✓" : "○"}</td>
+                        <td data-label="Форма 03">
+                          <Form03SekCell
+                            m={m}
+                            isHead={isHead}
+                            busy={busy}
+                            onPush={pushForm03ToSek}
+                          />
+                        </td>
+                        <td data-label="В СЕК" title="Качен на този лиценз в db.bvf.bg">
+                          {m.synced ? "✓" : "—"}
+                        </td>
                         <td data-label="Готов">{m.ready ? "✓" : "○"}</td>
                         <td data-label="Липси" style={{ fontSize: 12, color: "#92400e" }}>
                           {memberMissing(m, year, detail)}
@@ -510,7 +619,9 @@ export default function CoachBvfCardIndexDetail() {
                   ageRuleHint(year, detail.age, detail.age_group)}
               </p>
               <p className="uiMuted" style={{ marginTop: 0, fontSize: 13 }}>
-                Към СЕК се праща по-късно от главния треньор. Нужна е и подписана Форма 03 / 03-А / 03-B за {year}.
+                Можеш да добавиш състезатели без подписана форма (−). След подпис от родител: + качва
+                Форма 03/03-А/03-B в СЕК (главен треньор). Преди заключване на лиценза формата трябва
+                да е в профила в СЕК, плюс снимка и ЕГН.
               </p>
 
               <div style={{ position: "relative", maxWidth: 560 }}>
@@ -595,7 +706,7 @@ export default function CoachBvfCardIndexDetail() {
                 </p>
               ) : availableAthletes.length === 0 ? (
                 <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
-                  Няма свободни състезатели за този отбор (пол/възраст + подписана Форма 03).
+                  Няма свободни състезатели за този отбор (пол/възраст и СЕК връзка).
                 </p>
               ) : !searchOpen ? (
                 <p className="uiMuted" style={{ fontSize: 13, marginBottom: 0, marginTop: 12 }}>
@@ -698,11 +809,28 @@ export default function CoachBvfCardIndexDetail() {
                 />
               ) : null}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {detail.bvf_sek_license_id && !detail.is_signed && detail.status !== "signed" ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy || !(detail.members || []).length || sekSubmitBlocked}
+                    onClick={syncRosterToSek}
+                    title="Само качване на липсващите в отворен/върнат лиценз, без подпис"
+                  >
+                    Обнови състава в СЕК
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
-                  disabled={busy || !detail.all_ready || sekSubmitBlocked}
+                  disabled={busy || !(detail.members || []).length || sekSubmitBlocked}
                   onClick={submitToBvf}
-                  title={sekSubmitBlocked ? cardingWindow.message || undefined : undefined}
+                  title={
+                    sekSubmitBlocked
+                      ? cardingWindow.message || undefined
+                      : !detail.all_ready
+                        ? "Записва състава в СЕК; заключване — когато всички са готови (форма в СЕК, снимка, ЕГН)"
+                        : undefined
+                  }
                 >
                   {sekSubmitBlocked
                     ? `Запиши в СЕК (от ${cardingWindow.startLabel || "…"})`

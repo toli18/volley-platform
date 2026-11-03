@@ -315,6 +315,10 @@ export const API_PATHS = {
   BVF_ADMIN_CARD_INDEX_LOCAL_REQUEST: (id) => `/api/bvf-admin/card-indexes/local/${id}/request-head`,
   BVF_ADMIN_CARD_INDEX_LOCAL_REOPEN: (id) => `/api/bvf-admin/card-indexes/local/${id}/reopen`,
   BVF_ADMIN_CARD_INDEX_LOCAL_SUBMIT: (id) => `/api/bvf-admin/card-indexes/local/${id}/submit`,
+  BVF_ADMIN_CARD_INDEX_LOCAL_SYNC_SEK: (id) =>
+    `/api/bvf-admin/card-indexes/local/${id}/sync-sek-roster`,
+  BVF_ADMIN_CARD_INDEX_LOCAL_PUSH_FORM_03: (id) =>
+    `/api/bvf-admin/card-indexes/local/${id}/push-form-03`,
   BVF_ADMIN_CARD_INDEX_LOCAL_DELETE: (id) => `/api/bvf-admin/card-indexes/local/${id}`,
   BVF_ADMIN_UNIVERSAL_PLAYERS: "/api/bvf-admin/universal-players",
   BVF_ADMIN_UNIVERSAL_PLAYERS_SYNC: "/api/bvf-admin/universal-players/sync",
