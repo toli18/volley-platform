@@ -1064,10 +1064,19 @@ def leave_athlete_club(
     note: str | None = Query(default=None, max_length=300),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+        require_role(
+            UserRole.coach,
+            UserRole.club_head_coach,
+            UserRole.federation_admin,
+            UserRole.platform_admin,
+        )
     ),
 ):
-    """Отпис от клуба: скрива от активни списъци, маха от групи/портал. СЕК връзката остава."""
+    """Отпис от клуба: скрива от активни списъци, маха от групи/портал. СЕК връзката остава.
+
+    Всеки треньор с достъп до състезателя може да отпише (не само главният).
+    Достъпът се проверява в `_ensure_athlete_access` (своите / целия клуб за главен).
+    """
     athlete = _ensure_athlete_access(db, athlete_id, current_user)
     if not athlete.is_active:
         return {
