@@ -295,7 +295,7 @@ export default function CoachAthleteProfile() {
   };
 
   const leaveClub = async () => {
-    if (!profile?.athlete_id || !isHeadCoach) return;
+    if (!profile?.athlete_id) return;
     const sekNote = profile.bvf_player_id
       ? " Записът в СЕК остава — при връщане го възстанови или свържи по ЕГН."
       : "";
@@ -417,7 +417,7 @@ export default function CoachAthleteProfile() {
         syncingPhoto={syncingPhoto}
         syncingIdentity={syncingIdentity}
         canManageSek={isHeadCoach}
-        onLeaveClub={isHeadCoach ? leaveClub : undefined}
+        onLeaveClub={leaveClub}
         onRestoreClub={isHeadCoach ? restoreClub : undefined}
         leavingClub={leavingClub}
         restoringClub={restoringClub}

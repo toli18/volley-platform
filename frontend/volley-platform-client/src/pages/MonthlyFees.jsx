@@ -331,10 +331,6 @@ export default function MonthlyFees() {
   };
 
   const removeAthlete = async (athlete) => {
-    if (!isHeadCoach) {
-      toast.error("Само главният треньор може да отписва състезатели.");
-      return;
-    }
     const sekNote = athlete?.bvf_player_id
       ? " Записът в СЕК остава."
       : "";
@@ -854,11 +850,9 @@ export default function MonthlyFees() {
                     >
                       Редактирай
                     </Button>
-                    {isHeadCoach ? (
-                      <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                        Отпиши
-                      </Button>
-                    ) : null}
+                    <Button block variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                      Отпиши
+                    </Button>
                     <Button block variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                       Отчет
                     </Button>
@@ -948,11 +942,9 @@ export default function MonthlyFees() {
                           >
                             Редактирай
                           </Button>
-                          {isHeadCoach ? (
-                            <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
-                              Отпиши
-                            </Button>
-                          ) : null}
+                          <Button variant="danger" size="sm" onClick={() => removeAthlete(a)}>
+                            Отпиши
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => loadAthleteReport(a)}>
                             Отчет
                           </Button>
