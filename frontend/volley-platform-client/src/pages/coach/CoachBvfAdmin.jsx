@@ -179,6 +179,31 @@ export default function CoachBvfAdmin() {
     }
   };
 
+  const fetchIncomingTransfers = async () => {
+    if (!status?.bvf_club_id) {
+      toast.error("Първо запази API ключ (стъпка 1).");
+      return;
+    }
+    if (!permanent) {
+      toast.error("Нужна е постоянна връзка — запази API ключ или свържи с потребител/парола.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.BVF_ADMIN_PLAYERS_FETCH_TRANSFERS, {});
+      setPreview(res.data);
+      setSelected(new Set());
+      setOnlyNew(true);
+      toast.success(
+        `Входящи трансфери в ход: ${res.data.total} състезател(и) (от ${res.data.transfers_in_progress ?? res.data.total} трансфера).`,
+      );
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно зареждане на трансфери от БФВ."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const rows = preview?.players || [];
     const qq = q.trim().toLowerCase();
@@ -423,20 +448,28 @@ export default function CoachBvfAdmin() {
       <Card
         title="2. Зареди състезатели от БФВ"
         actions={
-          <Button type="button" variant="secondary" disabled={busy || !permanent} onClick={fetchPlayers}>
-            Зареди от БФВ
-          </Button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button type="button" variant="secondary" disabled={busy || !permanent} onClick={fetchPlayers}>
+              Клубен списък
+            </Button>
+            <Button type="button" variant="secondary" disabled={busy || !permanent} onClick={fetchIncomingTransfers}>
+              Входящи трансфери
+            </Button>
+          </div>
         }
       >
         <p className="uiMuted" style={{ marginTop: 0 }}>
           {permanent
-            ? "Списъкът идва директно от федерацията през API ключа. Импортират се само отметнатите."
+            ? "Клубен списък = вече приключили трансфер. Входящи трансфери = „Събиране на подписи“ в СЕК — още не са в клубния roster, но можеш да ги импортираш и да им изпратиш заявления."
             : "След запазване на API ключ можеш да заредиш състезателите."}
         </p>
 
         {preview ? (
           <>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {preview.source === "incoming_transfers" ? (
+                <span className="uiBadge uiBadge--warning">Трансфери в ход</span>
+              ) : null}
               <span className="uiBadge">Общо: {preview.total}</span>
               <span className="uiBadge uiBadge--success">В платформата: {preview.already_linked}</span>
               <span className="uiBadge uiBadge--warning">ЕГН match: {preview.egn_matches}</span>
@@ -493,6 +526,7 @@ export default function CoachBvfAdmin() {
                     <th>№</th>
                     <th>Год.</th>
                     <th>Треньор</th>
+                    <th>Трансфер</th>
                     <th>Статус</th>
                   </tr>
                 </thead>
@@ -511,6 +545,17 @@ export default function CoachBvfAdmin() {
                       <td>{r.bvf_player_number || "—"}</td>
                       <td>{r.birthYear || "—"}</td>
                       <td>{r.currentCoach || "—"}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {r.from_club ? (
+                          <>
+                            {r.transfer_type_label || "Трансфер"}
+                            <br />
+                            <span className="uiMuted">от {r.from_club}</span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td>
                         <span
                           className={`uiBadge${
@@ -524,7 +569,7 @@ export default function CoachBvfAdmin() {
                   ))}
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ color: "#64748b" }}>
+                      <td colSpan={7} style={{ color: "#64748b" }}>
                         Няма редове по филтъра.
                       </td>
                     </tr>

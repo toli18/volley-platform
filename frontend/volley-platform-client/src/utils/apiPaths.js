@@ -281,6 +281,7 @@ export const API_PATHS = {
   BVF_ADMIN_LINK_API_KEY: "/api/bvf-admin/link-api-key",
   BVF_ADMIN_UNLINK_CLUB: "/api/bvf-admin/link-club",
   BVF_ADMIN_PLAYERS_FETCH: "/api/bvf-admin/players/fetch",
+  BVF_ADMIN_PLAYERS_FETCH_TRANSFERS: "/api/bvf-admin/players/fetch-transfers",
   BVF_ADMIN_PLAYERS_IMPORT: "/api/bvf-admin/players/import",
   BVF_ADMIN_COACHES_LIST: "/api/bvf-admin/coaches/list",
   BVF_ADMIN_CREATE_FROM_ATHLETE: "/api/bvf-admin/players/create-from-athlete",

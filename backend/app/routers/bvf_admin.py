@@ -406,6 +406,87 @@ class FetchPlayersIn(BaseModel):
     club_id: Optional[int] = None
 
 
+_PLAYER_TRANSFER_TYPE_LABEL: dict[int, str] = {
+    0: "Трансфер",
+    1: "Смяна на клубна принадлежност",
+    2: "Трансфер",
+    3: "Смяна на клубна принадлежност",
+}
+
+
+def _player_transfer_active(tr: dict) -> bool:
+    if tr.get("cancelledAt"):
+        return False
+    if tr.get("completedAt") or tr.get("transferredAt"):
+        return False
+    try:
+        st = int(tr.get("status"))
+        if st in (4, 5):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return True
+
+
+def _sek_player_detail(token: str, player_id: int) -> dict | None:
+    try:
+        row = _bvf_get(f"/api/players/{int(player_id)}", token)
+        return row if isinstance(row, dict) else None
+    except HTTPException:
+        return None
+
+
+def _merge_sek_player_row(base: dict, detail: dict | None) -> dict:
+    if not detail:
+        return base
+    out = dict(base)
+    for key in (
+        "egn",
+        "birthDate",
+        "birthYear",
+        "sex",
+        "firstName",
+        "middleName",
+        "lastName",
+        "number",
+        "nationality",
+        "photoId",
+        "city",
+    ):
+        if detail.get(key) is not None and out.get(key) in (None, ""):
+            out[key] = detail.get(key)
+    if not out.get("id") and detail.get("id") is not None:
+        out["id"] = detail.get("id")
+    return out
+
+
+def _transfer_player_import_row(tr: dict, *, token: str) -> dict | None:
+    player = tr.get("player") if isinstance(tr.get("player"), dict) else {}
+    try:
+        pid = int(tr.get("playerId") or player.get("id"))
+    except (TypeError, ValueError):
+        return None
+    base = _merge_sek_player_row(dict(player), _sek_player_detail(token, pid))
+    base["id"] = pid
+    from_club = tr.get("fromClub") if isinstance(tr.get("fromClub"), dict) else {}
+    ttype = tr.get("type")
+    try:
+        ttype_i = int(ttype) if ttype is not None else None
+    except (TypeError, ValueError):
+        ttype_i = None
+    type_label = _PLAYER_TRANSFER_TYPE_LABEL.get(ttype_i, "Трансфер") if ttype_i is not None else "Трансфер"
+    from_name = str(from_club.get("name") or from_club.get("fullName") or "").strip()
+    base["_transfer_id"] = tr.get("id")
+    base["_transfer_from_club"] = from_name or None
+    base["_transfer_type_label"] = type_label
+    base["_import_notes"] = (
+        f"{type_label} в ход"
+        + (f" от {from_name}" if from_name else "")
+        + " (СЕК). Импортиран от Volley Coach преди приключване."
+    )
+    return base
+
+
 class ImportPlayersIn(BaseModel):
     players: list[dict] = Field(default_factory=list)
     club_id: Optional[int] = None
@@ -693,6 +774,67 @@ def fetch_players(
     return _preview_rows(db, club, remote)
 
 
+@router.post("/players/fetch-transfers")
+def fetch_incoming_transfer_players(
+    payload: FetchPlayersIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
+    ),
+):
+    """Входящи трансфери в ход — състезатели, които още не са в /clubs/{{id}}/players."""
+    from app.services.bvf_auth import resolve_club_bvf_token
+
+    _ensure_head_with_club(current_user)
+    club = _club_for_user(db, current_user, payload.club_id)
+    if not club.bvf_club_id:
+        raise HTTPException(status_code=422, detail="Първо свържи клуба с БФВ")
+    token = resolve_club_bvf_token(club, payload.bvf_token)
+    _assert_cred_matches_club(token, club)
+
+    remote = _bvf_get(f"/api/clubs/{int(club.bvf_club_id)}/transfers", token)
+    if not isinstance(remote, list):
+        raise HTTPException(status_code=502, detail="БФВ transfers response не е списък")
+
+    incoming = [
+        tr
+        for tr in remote
+        if isinstance(tr, dict)
+        and int(tr.get("toClubId") or 0) == int(club.bvf_club_id)
+        and _player_transfer_active(tr)
+    ]
+
+    players_raw: list[dict] = []
+    transfer_meta: dict[int, dict] = {}
+    for tr in incoming:
+        row = _transfer_player_import_row(tr, token=token)
+        if not row:
+            continue
+        try:
+            pid = int(row.get("id"))
+        except (TypeError, ValueError):
+            continue
+        if pid in transfer_meta:
+            continue
+        transfer_meta[pid] = {
+            "transfer_id": tr.get("id"),
+            "from_club": row.get("_transfer_from_club"),
+            "transfer_type_label": row.get("_transfer_type_label"),
+            "transfer_status": tr.get("status"),
+            "is_fully_signed": tr.get("isFullySigned"),
+        }
+        players_raw.append(row)
+
+    preview = _preview_rows(db, club, players_raw)
+    for row in preview.get("players") or []:
+        meta = transfer_meta.get(int(row.get("bvf_player_id") or 0))
+        if meta:
+            row.update(meta)
+    preview["source"] = "incoming_transfers"
+    preview["transfers_in_progress"] = len(incoming)
+    return preview
+
+
 @router.post("/players/import")
 def import_players(
     payload: ImportPlayersIn,
@@ -822,6 +964,7 @@ def import_players(
                 linked += 1
                 continue
 
+        import_notes = (str(raw.get("_import_notes") or "").strip()) or "Импортиран от БФВ картотека"
         athlete = Athlete(
             coach_id=int(assign_coach_id),
             club_id=club.id,
@@ -842,7 +985,7 @@ def import_players(
             bvf_photo_id=photo_id,
             bvf_synced_at=datetime.utcnow(),
             is_active=True,
-            notes="Импортиран от БФВ картотека",
+            notes=import_notes,
         )
         db.add(athlete)
         created += 1
