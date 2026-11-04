@@ -479,10 +479,12 @@ def _transfer_player_import_row(tr: dict, *, token: str) -> dict | None:
     base["_transfer_id"] = tr.get("id")
     base["_transfer_from_club"] = from_name or None
     base["_transfer_type_label"] = type_label
+    from app.services.parent_portal_access import INCOMING_TRANSFER_IMPORT_MARKER
+
     base["_import_notes"] = (
-        f"{type_label} в ход"
+        f"{INCOMING_TRANSFER_IMPORT_MARKER} {type_label} в ход"
         + (f" от {from_name}" if from_name else "")
-        + " (СЕК). Импортиран от Volley Coach преди приключване."
+        + " (СЕК). Импортиран преди приключване на трансфера."
     )
     return base
 
@@ -931,6 +933,11 @@ def import_players(
             existing.bvf_synced_at = datetime.utcnow()
             if existing.club_id is None:
                 existing.club_id = club.id
+            import_notes = (str(raw.get("_import_notes") or "").strip()) or None
+            if import_notes:
+                prev = (existing.notes or "").strip()
+                if import_notes not in prev:
+                    existing.notes = f"{import_notes}\n{prev}".strip() if prev else import_notes
             linked += 1
             continue
 

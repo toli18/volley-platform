@@ -337,6 +337,7 @@ export const API_PATHS = {
   BVF_ADMIN_REQUEST_SEK_TASK: (athleteId) => `/api/bvf-admin/athletes/${athleteId}/request-sek-task`,
   BVF_ADMIN_CLEAR_SEK_TASK: (athleteId) => `/api/bvf-admin/athletes/${athleteId}/clear-sek-task`,
   ATHLETE_DOCUMENTS: (athleteId) => `/api/athletes/${athleteId}/documents`,
+  ATHLETE_PARENT_PORTAL_LINK: (athleteId) => `/api/athletes/${athleteId}/parent-portal-link`,
   ATHLETE_DOCUMENT_CONSENT_PREVIEW: (athleteId, consentId) =>
     `/api/athletes/${athleteId}/documents/membership-consent/${consentId}/preview`,
   ATHLETE_DOCUMENT_CONSENT_REVOKE: (athleteId, consentId) =>

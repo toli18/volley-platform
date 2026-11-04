@@ -15,6 +15,7 @@ from app.models import Athlete, AthleteCardingForm, AthleteClubConsent, Club, Us
 from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
 from app.services.carding_form import (
     athlete_needs_adult_carding_form,
+    athlete_needs_carding_form,
     attach_parent2_canvas_signature,
     carding_form_to_document_dict,
     create_signed_carding_form_03b,
@@ -40,6 +41,12 @@ from app.services.club_membership_consent import (
     read_consent_pdf,
     resolve_club_consent_template,
 )
+from app.services.parent_portal_access import (
+    athlete_from_incoming_transfer_import,
+    create_parent_portal_link,
+    parent_portal_link_status,
+)
+from app.schemas.parent_portal import ParentAccessCreateResponse, ParentAccessStatusResponse
 
 router = APIRouter(prefix="/api/bvf-admin", tags=["BVF Admin — Consent"])
 
@@ -240,13 +247,58 @@ def list_athlete_documents(
                 }
             )
 
+    carding_pending = bool(year and athlete.club_id and athlete_needs_carding_form(db, athlete))
+    incoming_transfer = athlete_from_incoming_transfer_import(athlete)
+
     return {
         "athlete_id": athlete.id,
         "membership_consent_active": active is not None,
+        "incoming_transfer_import": incoming_transfer,
+        "carding_form_pending": carding_pending,
+        "parent_portal_link": parent_portal_link_status(db, athlete),
         "documents": docs,
         "carding_03b": adult,
         "carding_parent2": parent2,
     }
+
+
+@docs_router.get("/{athlete_id}/parent-portal-link", response_model=ParentAccessStatusResponse)
+def get_parent_portal_link_status(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    if not athlete_from_incoming_transfer_import(athlete):
+        raise HTTPException(status_code=404, detail="Няма маркер за входящ трансфер при този състезател")
+    return ParentAccessStatusResponse(**parent_portal_link_status(db, athlete))
+
+
+@docs_router.post("/{athlete_id}/parent-portal-link", response_model=ParentAccessCreateResponse)
+def create_parent_portal_link_for_athlete(
+    athlete_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
+    ),
+):
+    """Линк към родителския портал: клубно заявление + Форма 03 (попълване и подпис)."""
+    athlete = _athlete_for_coach(db, athlete_id, current_user)
+    if not athlete_from_incoming_transfer_import(athlete):
+        raise HTTPException(
+            status_code=409,
+            detail="Линкът е за състезатели, импортирани от „Входящи трансфери“.",
+        )
+    if not athlete.club_id:
+        raise HTTPException(status_code=422, detail="Състезателят няма клуб")
+    payload = create_parent_portal_link(db, athlete, created_by=current_user)
+    return ParentAccessCreateResponse(
+        parent_url=payload["parent_url"],
+        token_preview=payload["token_preview"],
+        expires_at=payload["expires_at"],
+    )
 
 
 @docs_router.get("/{athlete_id}/documents/membership-consent/{consent_id}/preview")

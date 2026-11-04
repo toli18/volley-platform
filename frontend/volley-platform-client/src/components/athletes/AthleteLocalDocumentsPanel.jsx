@@ -31,6 +31,10 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
 
   const [docs, setDocs] = useState([]);
   const [active, setActive] = useState(false);
+  const [incomingTransferImport, setIncomingTransferImport] = useState(false);
+  const [cardingFormPending, setCardingFormPending] = useState(false);
+  const [parentPortalLinkStatus, setParentPortalLinkStatus] = useState(null);
+  const [parentPortalInviteUrl, setParentPortalInviteUrl] = useState("");
   const [carding03b, setCarding03b] = useState(null);
   const [cardingParent2, setCardingParent2] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -54,6 +58,9 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
       const res = await axiosInstance.get(API_PATHS.ATHLETE_DOCUMENTS(athleteId));
       setDocs(res.data?.documents || []);
       setActive(Boolean(res.data?.membership_consent_active));
+      setIncomingTransferImport(Boolean(res.data?.incoming_transfer_import));
+      setCardingFormPending(Boolean(res.data?.carding_form_pending));
+      setParentPortalLinkStatus(res.data?.parent_portal_link || null);
       setCarding03b(res.data?.carding_03b || null);
       setCardingParent2(res.data?.carding_parent2 || null);
     } catch (err) {
@@ -169,6 +176,30 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
     }
   };
 
+  const createParentPortalInvite = async () => {
+    try {
+      setBusy(true);
+      const res = await axiosInstance.post(API_PATHS.ATHLETE_PARENT_PORTAL_LINK(athleteId));
+      const url = res.data?.parent_url || "";
+      setParentPortalInviteUrl(url);
+      if (url && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast?.success("Линкът към родителския портал е копиран (валиден 90 дни).");
+        } catch {
+          toast?.success("Линкът е готов — копирай го ръчно.");
+        }
+      } else {
+        toast?.success("Линкът е готов.");
+      }
+      await load();
+    } catch (err) {
+      toast?.error(normalizeError(err, "Неуспешно създаване на линк."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const createInvite = async () => {
     try {
       setBusy(true);
@@ -267,6 +298,9 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
 
   const needs03b = Boolean(carding03b?.needs_sign);
   const needsParent2 = Boolean(cardingParent2?.needs_sign && cardingParent2?.form_id);
+  const paperworkPending =
+    !active || cardingFormPending || needs03b || needsParent2;
+  const showTransferParentLink = incomingTransferImport && paperworkPending;
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -276,6 +310,44 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
           {active ? "подписано" : "липсва / оттеглено"}
         </strong>
       </p>
+
+      {showTransferParentLink ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 8,
+            padding: 10,
+            borderRadius: 8,
+            background: "rgba(30, 64, 175, 0.06)",
+            border: "1px solid rgba(30, 64, 175, 0.22)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45 }}>
+            <strong>Входящ трансфер.</strong> Изпрати на родителя линк към портала: там попълват и
+            подписват <strong>клубното заявление</strong> и <strong>Форма 03 / 03-А</strong> за
+            картотекиране (редът е автоматичен).
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button type="button" size="sm" disabled={busy} onClick={createParentPortalInvite}>
+              {parentPortalLinkStatus?.has_active_token ? "Нов линк за родител" : "Изпрати линк за родител"}
+            </Button>
+          </div>
+          {parentPortalInviteUrl ? (
+            <p style={{ margin: 0, fontSize: 11, wordBreak: "break-all" }} className="uiMuted">
+              {parentPortalInviteUrl}
+            </p>
+          ) : parentPortalLinkStatus?.has_active_token ? (
+            <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+              Има активен линк (начало{" "}
+              <code>{parentPortalLinkStatus.token_preview || "…"}</code>
+              {parentPortalLinkStatus.expires_at
+                ? `, до ${new Date(parentPortalLinkStatus.expires_at).toLocaleDateString("bg-BG")}`
+                : ""}
+              ). Създай нов, ако родителят го е загубил.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {needs03b && canSign03b ? (
         <div
