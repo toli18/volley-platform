@@ -284,7 +284,7 @@ def create_parent_portal_link_for_athlete(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
     ),
 ):
-    """Линк към родителския портал: клубно заявление + Форма 03 (попълване и подпис)."""
+    """Линк към родителския портал: Форма 03 / 03-А (при входящ трансфер без клубно заявление)."""
     athlete = _athlete_for_coach(db, athlete_id, current_user)
     if not athlete_from_incoming_transfer_import(athlete):
         raise HTTPException(

@@ -99,6 +99,7 @@ from app.services.carding_form import (
     save_carding_signature_png,
     season_label,
 )
+from app.services.parent_portal_access import athlete_from_incoming_transfer_import
 from app.services.parent_portal_notify import (
     clear_fee_markers_for_athlete,
     clear_marker_for_athlete,
@@ -953,6 +954,13 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                 has_signed=True,
                 signed_at=active_consent.signed_at,
                 consent_id=active_consent.id,
+                club_name=club_name,
+            )
+        elif athlete_from_incoming_transfer_import(athlete):
+            consent_status = ParentMembershipConsentStatus(
+                enabled=False,
+                needs_consent=False,
+                has_signed=False,
                 club_name=club_name,
             )
         else:

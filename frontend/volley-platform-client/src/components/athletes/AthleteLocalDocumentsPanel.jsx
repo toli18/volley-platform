@@ -185,7 +185,7 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
       if (url && navigator.clipboard?.writeText) {
         try {
           await navigator.clipboard.writeText(url);
-          toast?.success("Линкът към родителския портал е копиран (валиден 90 дни).");
+          toast?.success("Линк за Форма 03 е копиран (валиден 90 дни).");
         } catch {
           toast?.success("Линкът е готов — копирай го ръчно.");
         }
@@ -298,20 +298,29 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
 
   const needs03b = Boolean(carding03b?.needs_sign);
   const needsParent2 = Boolean(cardingParent2?.needs_sign && cardingParent2?.form_id);
-  const paperworkPending =
-    !active || cardingFormPending || needs03b || needsParent2;
-  const showTransferParentLink = incomingTransferImport && paperworkPending;
+  const transferForm03Pending = cardingFormPending || needsParent2;
+  const transferCardingPending = transferForm03Pending || needs03b;
+  const showTransferForm03Link = incomingTransferImport && transferForm03Pending;
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
-        Клубно заявление:{" "}
-        <strong style={{ color: active ? "#166534" : "#92400e" }}>
-          {active ? "подписано" : "липсва / оттеглено"}
-        </strong>
-      </p>
+      {incomingTransferImport ? (
+        <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+          Клубно заявление:{" "}
+          <strong style={{ color: "#475569" }}>не се изисква</strong> (входящ трансфер в СЕК). Нужна
+          е само <strong>Форма 03 / 03-А</strong>
+          {needs03b ? " или 0-3 B за пълнолетни" : ""}.
+        </p>
+      ) : (
+        <p className="uiMuted" style={{ margin: 0, fontSize: 13 }}>
+          Клубно заявление:{" "}
+          <strong style={{ color: active ? "#166534" : "#92400e" }}>
+            {active ? "подписано" : "липсва / оттеглено"}
+          </strong>
+        </p>
+      )}
 
-      {showTransferParentLink ? (
+      {showTransferForm03Link ? (
         <div
           style={{
             display: "grid",
@@ -323,13 +332,13 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
           }}
         >
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45 }}>
-            <strong>Входящ трансфер.</strong> Изпрати на родителя линк към портала: там попълват и
-            подписват <strong>клубното заявление</strong> и <strong>Форма 03 / 03-А</strong> за
-            картотекиране (редът е автоматичен).
+            <strong>Входящ трансфер.</strong> Линк за родителя: отваря директно{" "}
+            <strong>Форма 03 / 03-А</strong> за попълване и подпис (без клубно заявление).
+            {needsParent2 ? " Ако липсва само родител 2, формата запазва първия подпис." : ""}
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             <Button type="button" size="sm" disabled={busy} onClick={createParentPortalInvite}>
-              {parentPortalLinkStatus?.has_active_token ? "Нов линк за родител" : "Изпрати линк за родител"}
+              {parentPortalLinkStatus?.has_active_token ? "Нов линк Форма 03" : "Изпрати линк Форма 03"}
             </Button>
           </div>
           {parentPortalInviteUrl ? (

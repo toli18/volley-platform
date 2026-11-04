@@ -1,4 +1,4 @@
-"""Magic-link access to the parent portal (club application + Form 03)."""
+"""Magic-link access to the parent portal (Form 03 for incoming transfer imports)."""
 
 from __future__ import annotations
 

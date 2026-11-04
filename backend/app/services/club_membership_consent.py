@@ -232,6 +232,10 @@ def deactivate_expired_or_prior_consents(db: Session, athlete_id: int, club_id: 
 
 def athlete_needs_membership_consent(db: Session, athlete: Athlete) -> bool:
     """Gate когато функцията е включена и няма валидно (до 1 г.) активно заявление."""
+    from app.services.parent_portal_access import athlete_from_incoming_transfer_import
+
+    if athlete_from_incoming_transfer_import(athlete):
+        return False
     if not athlete.club_id:
         return False
     club = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
