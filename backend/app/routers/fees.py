@@ -202,6 +202,22 @@ def _ensure_athlete_access(db: Session, athlete_id: int, user: User) -> Athlete:
     return athlete
 
 
+def _ensure_athlete_club_leave_access(db: Session, athlete_id: int, user: User) -> Athlete:
+    """Отписване: всеки треньор / главен треньор от същия клуб като състезателя."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    role = _role_value(user)
+    if role in (UserRole.federation_admin.value, UserRole.platform_admin.value):
+        return athlete
+    club_id = getattr(user, "club_id", None)
+    if not club_id or int(athlete.club_id or 0) != int(club_id):
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    if role in (UserRole.coach.value, UserRole.club_head_coach.value):
+        return athlete
+    raise HTTPException(status_code=403, detail="Forbidden")
+
+
 def _normalize_header(value: str) -> str:
     return re.sub(r"[\s_\-]+", "", str(value or "").strip().lower())
 
@@ -1074,10 +1090,9 @@ def leave_athlete_club(
 ):
     """Отпис от клуба: скрива от активни списъци, маха от групи/портал. СЕК връзката остава.
 
-    Всеки треньор с достъп до състезателя може да отпише (не само главният).
-    Достъпът се проверява в `_ensure_athlete_access` (своите / целия клуб за главен).
+    Всеки треньор или главен треньор от същия клуб може да отпише всеки състезател на клуба.
     """
-    athlete = _ensure_athlete_access(db, athlete_id, current_user)
+    athlete = _ensure_athlete_club_leave_access(db, athlete_id, current_user)
     if not athlete.is_active:
         return {
             "ok": True,
