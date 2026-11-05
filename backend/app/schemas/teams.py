@@ -199,6 +199,8 @@ class TeamSheetRequest(BaseModel):
     athlete_ids: list[int] = Field(default_factory=list)
     # Само за този PDF — не променя профила.
     jersey_overrides: list[TeamSheetJerseyOverride] = Field(default_factory=list)
+    captain_athlete_id: Optional[int] = None
+    libero_athlete_ids: list[int] = Field(default_factory=list)
 
 
 class TeamAttendanceReportRow(BaseModel):

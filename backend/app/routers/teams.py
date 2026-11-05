@@ -71,6 +71,8 @@ from app.services.team_sheet_pdf import (
     athlete_sheet_name_parts,
     build_team_sheet_pdf,
     format_sheet_date,
+    format_team_jersey_cell,
+    jersey_sort_key,
 )
 
 router = APIRouter()
@@ -1256,6 +1258,19 @@ def generate_team_sheet_pdf(
     if not selected_ids:
         raise HTTPException(status_code=422, detail="Изберете поне един състезател (макс. 14)")
 
+    captain_id = int(payload.captain_athlete_id) if payload.captain_athlete_id is not None else None
+    if captain_id is None or captain_id not in seen:
+        raise HTTPException(status_code=422, detail="Изберете капитан на отбора от избраните състезатели.")
+    libero_ids: list[int] = []
+    for raw_l in payload.libero_athlete_ids or []:
+        lid = int(raw_l)
+        if lid in seen and lid not in libero_ids:
+            libero_ids.append(lid)
+    if len(libero_ids) < 1:
+        raise HTTPException(status_code=422, detail="Изберете поне един либеро (макс. 2).")
+    if len(libero_ids) > 2:
+        raise HTTPException(status_code=422, detail="Можете да изберете най-много два либеро.")
+
     from app.services.athlete_jersey import normalize_jersey_number
 
     override_map: dict[int, int] = {}
@@ -1287,8 +1302,13 @@ def generate_team_sheet_pdf(
 
     anthro = _latest_anthro_map(db, selected_ids)
 
+    ordered_ids = sorted(
+        selected_ids,
+        key=lambda aid: jersey_sort_key(sheet_jerseys.get(int(aid)), int(aid)),
+    )
+
     players: list[TeamSheetPlayerRow] = []
-    for athlete_id in selected_ids:
+    for athlete_id in ordered_ids:
         athlete = members_by_id[athlete_id]
         last_name, first_name = athlete_sheet_name_parts(athlete)
         birth_year = ""
@@ -1303,7 +1323,11 @@ def generate_team_sheet_pdf(
         j = sheet_jerseys.get(int(athlete_id))
         players.append(
             TeamSheetPlayerRow(
-                jersey="" if j is None else str(int(j)),
+                jersey=format_team_jersey_cell(
+                    j,
+                    captain=int(athlete_id) == captain_id,
+                    libero=int(athlete_id) in libero_ids,
+                ),
                 last_name=last_name,
                 first_name=first_name,
                 birth_year=birth_year,

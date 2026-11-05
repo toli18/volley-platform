@@ -334,3 +334,25 @@ def split_athlete_name(full_name: str) -> tuple[str, str]:
 def format_sheet_date(d: Optional[date] = None) -> str:
     value = d or date.today()
     return value.strftime("%d.%m.%Y")
+
+
+def format_team_jersey_cell(jersey: int | None, *, captain: bool = False, libero: bool = False) -> str:
+    """Номер в колона „№ екип“ с K (капитан) и/или L (либеро)."""
+    if jersey is None:
+        return ""
+    base = str(int(jersey))
+    tags: list[str] = []
+    if captain:
+        tags.append("K")
+    if libero:
+        tags.append("L")
+    if not tags:
+        return base
+    return f"{base} {' '.join(tags)}"
+
+
+def jersey_sort_key(jersey: int | None, athlete_id: int) -> tuple[int, int, int]:
+    """Възходящо по номер; без номер — накрая."""
+    if jersey is None:
+        return (1, 999, int(athlete_id))
+    return (0, int(jersey), int(athlete_id))

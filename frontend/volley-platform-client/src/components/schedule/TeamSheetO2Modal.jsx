@@ -42,6 +42,23 @@ function buildJerseyMapFromRoster(roster) {
   return map;
 }
 
+function jerseySortKey(athleteId, jerseyByAthlete) {
+  const parsed = parseJerseyInput(jerseyByAthlete[athleteId]);
+  if (parsed === null || parsed === "invalid") return [1, 999, athleteId];
+  return [0, parsed, athleteId];
+}
+
+function sortRosterByJersey(list, jerseyByAthlete) {
+  return [...list].sort((a, b) => {
+    const ka = jerseySortKey(a.athlete_id, jerseyByAthlete);
+    const kb = jerseySortKey(b.athlete_id, jerseyByAthlete);
+    for (let i = 0; i < 3; i += 1) {
+      if (ka[i] !== kb[i]) return ka[i] - kb[i];
+    }
+    return 0;
+  });
+}
+
 /**
  * Официална бланка О-2 — същата като „Генерирай тимов лист“ в тренировъчната група.
  */
@@ -59,6 +76,8 @@ export default function TeamSheetO2Modal({
   const [sheetStep, setSheetStep] = useState(1);
   const [selectedAthleteIds, setSelectedAthleteIds] = useState([]);
   const [jerseyByAthlete, setJerseyByAthlete] = useState({});
+  const [captainAthleteId, setCaptainAthleteId] = useState(null);
+  const [liberoAthleteIds, setLiberoAthleteIds] = useState([]);
   const [sheetForm, setSheetForm] = useState({
     competition: "",
     venue_city: "",
@@ -89,8 +108,11 @@ export default function TeamSheetO2Modal({
     const preset = Array.isArray(initialAthleteIds)
       ? initialAthleteIds.map(Number).filter(Boolean)
       : rosterNow.map((m) => m.athlete_id);
-    setSelectedAthleteIds(preset.slice(0, TEAM_SHEET_MAX_PLAYERS));
+    const initialIds = preset.slice(0, TEAM_SHEET_MAX_PLAYERS);
+    setSelectedAthleteIds(initialIds);
     setJerseyByAthlete(buildJerseyMapFromRoster(rosterNow));
+    setCaptainAthleteId(initialIds[0] ?? null);
+    setLiberoAthleteIds([]);
     // Reset only when dialog opens — avoid wiping edits on parent re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -101,10 +123,29 @@ export default function TeamSheetO2Modal({
     setSheetStep(1);
   };
 
+  const sortedRoster = useMemo(
+    () => sortRosterByJersey(roster, jerseyByAthlete),
+    [roster, jerseyByAthlete],
+  );
+
+  const selectedSorted = useMemo(
+    () =>
+      sortRosterByJersey(
+        roster.filter((m) => selectedAthleteIds.includes(m.athlete_id)),
+        jerseyByAthlete,
+      ),
+    [roster, selectedAthleteIds, jerseyByAthlete],
+  );
+
   const toggleAthlete = (athleteId) => {
     const id = Number(athleteId);
     if (selectedAthleteIds.includes(id)) {
       setSelectedAthleteIds((prev) => prev.filter((x) => x !== id));
+      if (captainAthleteId === id) {
+        const rest = selectedAthleteIds.filter((x) => x !== id);
+        setCaptainAthleteId(rest[0] ?? null);
+      }
+      setLiberoAthleteIds((prev) => prev.filter((x) => x !== id));
       return;
     }
     if (selectedAthleteIds.length >= TEAM_SHEET_MAX_PLAYERS) {
@@ -112,6 +153,19 @@ export default function TeamSheetO2Modal({
       return;
     }
     setSelectedAthleteIds((prev) => [...prev, id]);
+  };
+
+  const toggleLibero = (athleteId) => {
+    const id = Number(athleteId);
+    if (!selectedAthleteIds.includes(id)) return;
+    setLiberoAthleteIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) {
+        toast.error("Можете да изберете най-много 2 либеро.");
+        return prev;
+      }
+      return [...prev, id];
+    });
   };
 
   const selectAllAthletes = () => {
@@ -168,6 +222,14 @@ export default function TeamSheetO2Modal({
       return;
     }
     if (!validateSelectedJerseys()) return;
+    if (!captainAthleteId || !selectedAthleteIds.includes(Number(captainAthleteId))) {
+      toast.error("Изберете капитан на отбора.");
+      return;
+    }
+    if (liberoAthleteIds.length < 1) {
+      toast.error("Изберете поне един либеро (макс. 2).");
+      return;
+    }
 
     const jersey_overrides = [];
     for (const id of selectedAthleteIds) {
@@ -192,6 +254,8 @@ export default function TeamSheetO2Modal({
           assistant_2: sheetForm.assistant_2.trim() || null,
           athlete_ids: selectedAthleteIds,
           jersey_overrides,
+          captain_athlete_id: Number(captainAthleteId),
+          libero_athlete_ids: liberoAthleteIds.map(Number),
         },
         { responseType: "blob" },
       );
@@ -353,7 +417,7 @@ export default function TeamSheetO2Modal({
                     WebkitOverflowScrolling: "touch",
                   }}
                 >
-                  {roster.map((m) => {
+                  {sortedRoster.map((m) => {
                     const id = m.athlete_id;
                     const checked = selectedAthleteIds.includes(id);
                     return (
@@ -396,8 +460,77 @@ export default function TeamSheetO2Modal({
               )}
             </div>
 
+            {selectedSorted.length > 0 ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  padding: 10,
+                  borderRadius: 10,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                  Капитан (K) и либеро (L) в колона „№ екип“
+                </span>
+                <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Капитан</span>
+                  <select
+                    value={captainAthleteId ?? ""}
+                    disabled={sheetBusy}
+                    onChange={(e) => setCaptainAthleteId(e.target.value ? Number(e.target.value) : null)}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1" }}
+                  >
+                    {selectedSorted.map((m) => (
+                      <option key={m.athlete_id} value={m.athlete_id}>
+                        {parseJerseyInput(jerseyByAthlete[m.athlete_id]) != null &&
+                        parseJerseyInput(jerseyByAthlete[m.athlete_id]) !== "invalid"
+                          ? `№${jerseyByAthlete[m.athlete_id]} · `
+                          : ""}
+                        {m.athlete_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                    Либеро (1 или 2)
+                  </span>
+                  {selectedSorted.map((m) => {
+                    const id = m.athlete_id;
+                    const isLib = liberoAthleteIds.includes(id);
+                    return (
+                      <label
+                        key={`lib-${id}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 14,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isLib}
+                          disabled={sheetBusy}
+                          onChange={() => toggleLibero(id)}
+                        />
+                        <span>
+                          {m.athlete_name}
+                          {isLib ? " · L" : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
-              Номерата идват от профила; промяната тук важи само за този лист (не записва профила).
+              В PDF редът е по номер (възходящо). K = капитан, L = либеро. Номерата от профила; промяната
+              тук важи само за този лист.
             </p>
             <div className="uiModalActions">
               <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
