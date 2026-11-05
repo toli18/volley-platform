@@ -98,6 +98,26 @@ def validate_name_part(label: str, value: Optional[str], *, required: bool = Tru
     return s
 
 
+def athlete_has_form03_link_identity(athlete) -> bool:
+    """ЕГН (10 цифри) + три имена в профила — достатъчно за линк към Форма 03 в родителския портал."""
+    if not getattr(athlete, "club_id", None):
+        return False
+    if not getattr(athlete, "is_active", True):
+        return False
+    egn = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
+    if len(egn) != 10:
+        return False
+    try:
+        require_three_athlete_names(
+            getattr(athlete, "first_name", None),
+            getattr(athlete, "middle_name", None),
+            getattr(athlete, "last_name", None),
+        )
+    except ValueError:
+        return False
+    return True
+
+
 def require_three_athlete_names(
     first_name: Optional[str],
     middle_name: Optional[str],

@@ -33,6 +33,8 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
   const [active, setActive] = useState(false);
   const [incomingTransferImport, setIncomingTransferImport] = useState(false);
   const [cardingFormPending, setCardingFormPending] = useState(false);
+  const [form03LinkEligible, setForm03LinkEligible] = useState(false);
+  const [cardingSeasonOpen, setCardingSeasonOpen] = useState(false);
   const [parentPortalLinkStatus, setParentPortalLinkStatus] = useState(null);
   const [parentPortalInviteUrl, setParentPortalInviteUrl] = useState("");
   const [carding03b, setCarding03b] = useState(null);
@@ -60,6 +62,8 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
       setActive(Boolean(res.data?.membership_consent_active));
       setIncomingTransferImport(Boolean(res.data?.incoming_transfer_import));
       setCardingFormPending(Boolean(res.data?.carding_form_pending));
+      setForm03LinkEligible(Boolean(res.data?.form03_link_eligible));
+      setCardingSeasonOpen(Boolean(res.data?.carding_season_open));
       setParentPortalLinkStatus(res.data?.parent_portal_link || null);
       setCarding03b(res.data?.carding_03b || null);
       setCardingParent2(res.data?.carding_parent2 || null);
@@ -298,9 +302,15 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
 
   const needs03b = Boolean(carding03b?.needs_sign);
   const needsParent2 = Boolean(cardingParent2?.needs_sign && cardingParent2?.form_id);
-  const transferForm03Pending = cardingFormPending || needsParent2;
-  const transferCardingPending = transferForm03Pending || needs03b;
-  const showTransferForm03Link = incomingTransferImport && transferForm03Pending;
+  const hasSignedMinorForm03 = docs.some(
+    (d) =>
+      d.doc_type === "carding_form" &&
+      d.status === "active" &&
+      d.form_kind !== "03b" &&
+      !d.needs_parent2_sign,
+  );
+  const showForm03ParentLink =
+    form03LinkEligible && !needs03b && (!hasSignedMinorForm03 || needsParent2 || cardingFormPending);
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -320,7 +330,14 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
         </p>
       )}
 
-      {showTransferForm03Link ? (
+      {!form03LinkEligible && !needs03b ? (
+        <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+          За линк към Форма 03 попълни в профила <strong>ЕГН</strong> и{" "}
+          <strong>трите имена</strong> (собствено, бащино, фамилия). СЕК връзка не е нужна.
+        </p>
+      ) : null}
+
+      {showForm03ParentLink ? (
         <div
           style={{
             display: "grid",
@@ -332,8 +349,24 @@ export default function AthleteLocalDocumentsPanel({ athleteId, toast }) {
           }}
         >
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45 }}>
-            <strong>Входящ трансфер.</strong> Линк за родителя: отваря директно{" "}
-            <strong>Форма 03 / 03-А</strong> за попълване и подпис (без клубно заявление).
+            {incomingTransferImport ? (
+              <>
+                <strong>Входящ трансфер.</strong> Линк за родителя:{" "}
+                <strong>Форма 03 / 03-А</strong> без клубно заявление.
+              </>
+            ) : (
+              <>
+                Линк за родителя: първо <strong>клубно заявление</strong> (ако липсва), после{" "}
+                <strong>Форма 03 / 03-А</strong>.
+              </>
+            )}
+            {!cardingSeasonOpen ? (
+              <>
+                {" "}
+                Формата за подпис ще се появи, когато главният треньор активира формите за текущия
+                сезон.
+              </>
+            ) : null}
             {needsParent2 ? " Ако липсва само родител 2, формата запазва първия подпис." : ""}
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

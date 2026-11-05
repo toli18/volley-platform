@@ -41,6 +41,7 @@ from app.services.club_membership_consent import (
     read_consent_pdf,
     resolve_club_consent_template,
 )
+from app.services.athlete_identity import athlete_has_form03_link_identity
 from app.services.parent_portal_access import (
     athlete_from_incoming_transfer_import,
     create_parent_portal_link,
@@ -249,12 +250,15 @@ def list_athlete_documents(
 
     carding_pending = bool(year and athlete.club_id and athlete_needs_carding_form(db, athlete))
     incoming_transfer = athlete_from_incoming_transfer_import(athlete)
+    form03_link_eligible = athlete_has_form03_link_identity(athlete)
 
     return {
         "athlete_id": athlete.id,
         "membership_consent_active": active is not None,
         "incoming_transfer_import": incoming_transfer,
         "carding_form_pending": carding_pending,
+        "form03_link_eligible": form03_link_eligible,
+        "carding_season_open": bool(year),
         "parent_portal_link": parent_portal_link_status(db, athlete),
         "documents": docs,
         "carding_03b": adult,
@@ -271,8 +275,11 @@ def get_parent_portal_link_status(
     ),
 ):
     athlete = _athlete_for_coach(db, athlete_id, current_user)
-    if not athlete_from_incoming_transfer_import(athlete):
-        raise HTTPException(status_code=404, detail="Няма маркер за входящ трансфер при този състезател")
+    if not athlete_has_form03_link_identity(athlete):
+        raise HTTPException(
+            status_code=404,
+            detail="Линкът е за състезатели с ЕГН и три имена (собствено, бащино, фамилия) в профила.",
+        )
     return ParentAccessStatusResponse(**parent_portal_link_status(db, athlete))
 
 
@@ -284,12 +291,12 @@ def create_parent_portal_link_for_athlete(
         require_role(UserRole.coach, UserRole.club_head_coach, UserRole.federation_admin, UserRole.platform_admin)
     ),
 ):
-    """Линк към родителския портал: Форма 03 / 03-А (при входящ трансфер без клубно заявление)."""
+    """Линк към родителския портал: клубно заявление (ако трябва) + Форма 03 / 03-А."""
     athlete = _athlete_for_coach(db, athlete_id, current_user)
-    if not athlete_from_incoming_transfer_import(athlete):
+    if not athlete_has_form03_link_identity(athlete):
         raise HTTPException(
-            status_code=409,
-            detail="Линкът е за състезатели, импортирани от „Входящи трансфери“.",
+            status_code=422,
+            detail="Попълни ЕГН и трите имена на състезателя в профила, преди да изпратиш линк.",
         )
     if not athlete.club_id:
         raise HTTPException(status_code=422, detail="Състезателят няма клуб")
