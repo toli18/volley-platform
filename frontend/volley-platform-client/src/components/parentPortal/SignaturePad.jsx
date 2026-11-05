@@ -14,13 +14,16 @@ export default function SignaturePad({
   disabled = false,
   onChange,
   height = 140,
+  /** Optional controlled PNG data URL — restored after remount / canvas resize */
+  value = null,
 }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
+  const lastDataUrlRef = useRef(null);
+  const lastLayoutWidthRef = useRef(0);
   const [hasInk, setHasInk] = useState(false);
 
-  const paintBg = (canvas) => {
-    const ctx = canvas.getContext("2d");
+  const paintBg = (ctx, canvas) => {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = 2.2;
@@ -29,45 +32,126 @@ export default function SignaturePad({
     ctx.strokeStyle = "#0f172a";
   };
 
+  const drawStoredImage = (canvas, dataUrl) =>
+    new Promise((resolve) => {
+      if (!dataUrl) {
+        resolve(false);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvas.getContext("2d");
+        paintBg(ctx, canvas);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(true);
+      };
+      img.onerror = () => resolve(false);
+      img.src = dataUrl;
+    });
+
   const emit = (ink) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
     const blank = !ink || isBlankDataUrl(dataUrl);
-    onChange?.(blank ? null : dataUrl);
+    if (blank) {
+      lastDataUrlRef.current = null;
+      onChange?.(null);
+      return;
+    }
+    lastDataUrlRef.current = dataUrl;
+    onChange?.(dataUrl);
   };
 
   const clear = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    paintBg(canvas);
+    const ctx = canvas.getContext("2d");
+    paintBg(ctx, canvas);
+    lastDataUrlRef.current = null;
     setHasInk(false);
     onChange?.(null);
   };
 
+  const layoutCanvas = async () => {
+    const canvas = canvasRef.current;
+    const parent = canvas?.parentElement;
+    if (!canvas || !parent) return;
+
+    const w = Math.max(260, Math.floor(parent.clientWidth || 320));
+    if (Math.abs(w - lastLayoutWidthRef.current) < 2 && canvas.width > 0) {
+      return;
+    }
+    lastLayoutWidthRef.current = w;
+
+    const stored = lastDataUrlRef.current;
+    canvas.width = w;
+    canvas.height = height;
+
+    if (stored && !isBlankDataUrl(stored)) {
+      const ok = await drawStoredImage(canvas, stored);
+      setHasInk(ok);
+      if (ok) {
+        lastDataUrlRef.current = canvas.toDataURL("image/png");
+      }
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    paintBg(ctx, canvas);
+    setHasInk(false);
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return undefined;
-    const fit = () => {
-      const parent = canvas.parentElement;
-      const w = Math.max(260, Math.floor(parent?.clientWidth || 320));
-      canvas.width = w;
-      canvas.height = height;
-      paintBg(canvas);
-      setHasInk(false);
-      onChange?.(null);
+    const parent = canvas?.parentElement;
+    if (!canvas || !parent) return undefined;
+
+    let debounceId = 0;
+    const scheduleLayout = () => {
+      window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(() => {
+        layoutCanvas();
+      }, 180);
     };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-    // Intentionally reset pad on size change / mount
+
+    layoutCanvas();
+
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleLayout) : null;
+    ro?.observe(parent);
+
+    const onOrientation = () => scheduleLayout();
+    window.addEventListener("orientationchange", onOrientation);
+
+    return () => {
+      window.clearTimeout(debounceId);
+      ro?.disconnect();
+      window.removeEventListener("orientationchange", onOrientation);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [height]);
+
+  useEffect(() => {
+    if (value && !isBlankDataUrl(value)) {
+      lastDataUrlRef.current = value;
+      const canvas = canvasRef.current;
+      if (canvas && canvas.width > 0) {
+        drawStoredImage(canvas, value).then((ok) => setHasInk(ok));
+      } else {
+        setHasInk(true);
+      }
+      return;
+    }
+    if (value === null && lastDataUrlRef.current === null) {
+      setHasInk(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, height]);
 
   const pos = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const src = e.touches?.[0] || e;
+    const src = e.touches?.[0] || e.changedTouches?.[0] || e;
     return {
       x: ((src.clientX - rect.left) / rect.width) * canvas.width,
       y: ((src.clientY - rect.top) / rect.height) * canvas.height,
@@ -103,6 +187,13 @@ export default function SignaturePad({
     emit(true);
   };
 
+  const cancelStroke = (e) => {
+    if (!drawing.current) return;
+    e?.preventDefault?.();
+    drawing.current = false;
+    emit(true);
+  };
+
   return (
     <div className="signaturePad">
       <div className="signaturePadHead">
@@ -125,6 +216,7 @@ export default function SignaturePad({
         onTouchStart={start}
         onTouchMove={move}
         onTouchEnd={end}
+        onTouchCancel={cancelStroke}
       />
       <p className="signaturePadHint">Подпишете с пръст или мишка в полето.</p>
     </div>

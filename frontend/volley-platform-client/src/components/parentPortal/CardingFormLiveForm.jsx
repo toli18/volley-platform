@@ -280,6 +280,7 @@ export default function CardingFormLiveForm({
           label="Екранен подпис — състезател"
           required
           disabled={busy}
+          value={sigAthlete}
           onChange={setSigAthlete}
         />
       ) : null}
@@ -288,6 +289,7 @@ export default function CardingFormLiveForm({
         label="Екранен подпис — родител 1"
         required
         disabled={busy}
+        value={sigParent1}
         onChange={setSigParent1}
       />
 
@@ -295,6 +297,7 @@ export default function CardingFormLiveForm({
         label="Екранен подпис — родител 2"
         required
         disabled={busy}
+        value={sigParent2}
         onChange={setSigParent2}
       />
 

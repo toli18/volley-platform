@@ -56,7 +56,13 @@ export default function ParentCardingParent2Gate({ isSession, token, profile, on
             {cf.club_name ? ` · ${cf.club_name}` : ""}
           </p>
         ) : null}
-        <SignaturePad label={`Екранен подпис — ${parent2Name}`} required disabled={busy} onChange={setSig} />
+        <SignaturePad
+          label={`Екранен подпис — ${parent2Name}`}
+          required
+          disabled={busy}
+          value={sig}
+          onChange={setSig}
+        />
         {error ? <p style={{ color: "#b91c1c", margin: 0, fontSize: 13 }}>{error}</p> : null}
         <Button type="submit" disabled={busy}>
           {busy ? "Запис…" : "Добави подпис на родител 2"}

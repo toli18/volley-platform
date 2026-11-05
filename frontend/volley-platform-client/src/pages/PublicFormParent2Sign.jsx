@@ -126,6 +126,7 @@ export default function PublicFormParent2Sign() {
             label={`Подпис — ${meta?.parent2_full_name || "родител 2"}`}
             required
             disabled={busy}
+            value={sig}
             onChange={setSig}
           />
           {error ? <p style={{ color: "#b91c1c", margin: 0, fontSize: 13 }}>{error}</p> : null}

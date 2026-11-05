@@ -154,7 +154,7 @@ export default function PublicForm03bSign() {
             <input type="checkbox" checked={rules} onChange={(e) => setRules(e.target.checked)} disabled={busy} />
             <span>Потвърждавам приемането на правилата на БФВ</span>
           </label>
-          <SignaturePad label="Подпис на състезателя" required disabled={busy} onChange={setSig} />
+          <SignaturePad label="Подпис на състезателя" required disabled={busy} value={sig} onChange={setSig} />
           {error ? <p style={{ color: "#b91c1c", margin: 0, fontSize: 13 }}>{error}</p> : null}
           <Button type="submit" disabled={busy}>
             {busy ? "Запис…" : "Подпиши"}
