@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, Input, Modal } from "../ui";
 import SignaturePad from "../parentPortal/SignaturePad";
@@ -8,14 +8,19 @@ import { normalizeError } from "../../utils/normalizeError";
 
 const KIT_KEY = "kit";
 
-function emptyIssueForm(seasonDefault) {
+function defaultSignerName(role, athleteName, parentName) {
+  if (role === "parent") return String(parentName || "").trim();
+  return String(athleteName || "").trim();
+}
+
+function emptyIssueForm(seasonDefault, athleteName, parentName) {
   return {
     season: seasonDefault || "",
     kitQty: 1,
     extraItems: [],
     notes: "",
     signerRole: "athlete",
-    signerName: "",
+    signerName: defaultSignerName("athlete", athleteName, parentName),
   };
 }
 
@@ -56,11 +61,12 @@ export default function AthleteEquipmentProtocolPanel({
   const [issueOpen, setIssueOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
-  const [form, setForm] = useState(() => emptyIssueForm(""));
+  const [form, setForm] = useState(() => emptyIssueForm("", athleteName, parentName));
   const [sigRecipient, setSigRecipient] = useState(null);
   const [sigCoach, setSigCoach] = useState(null);
   const [returnNotes, setReturnNotes] = useState("");
   const [formError, setFormError] = useState("");
+  const signingRef = useRef(false);
 
   const openIssued = useMemo(
     () => (protocols || []).filter((p) => p.status === "issued"),
@@ -86,10 +92,11 @@ export default function AthleteEquipmentProtocolPanel({
   }, [athleteId]);
 
   const openIssue = () => {
-    setForm(emptyIssueForm(seasonDefault));
+    setForm(emptyIssueForm(seasonDefault, athleteName, parentName));
     setSigRecipient(null);
     setSigCoach(null);
     setFormError("");
+    signingRef.current = false;
     setIssueOpen(true);
   };
 
@@ -99,7 +106,30 @@ export default function AthleteEquipmentProtocolPanel({
     setSigRecipient(null);
     setSigCoach(null);
     setFormError("");
+    signingRef.current = false;
     setReturnOpen(true);
+  };
+
+  const onSigRecipient = (dataUrl) => {
+    signingRef.current = Boolean(dataUrl);
+    setSigRecipient(dataUrl);
+  };
+
+  const onSigCoach = (dataUrl) => {
+    signingRef.current = Boolean(dataUrl);
+    setSigCoach(dataUrl);
+  };
+
+  const forceCloseIssue = () => {
+    if (busy) return;
+    signingRef.current = false;
+    setIssueOpen(false);
+  };
+
+  const forceCloseReturn = () => {
+    if (busy) return;
+    signingRef.current = false;
+    setReturnOpen(false);
   };
 
   const addExtraItem = () => {
@@ -263,8 +293,8 @@ export default function AthleteEquipmentProtocolPanel({
 
       <Modal
         open={issueOpen}
-        onClose={busy ? undefined : () => setIssueOpen(false)}
-        dismissable={!busy}
+        onClose={forceCloseIssue}
+        dismissable={false}
         title="Предаване на екипировка"
         size="wide"
       >
@@ -366,7 +396,14 @@ export default function AthleteEquipmentProtocolPanel({
             <select
               className="uiInput"
               value={form.signerRole}
-              onChange={(e) => setForm((f) => ({ ...f, signerRole: e.target.value }))}
+              onChange={(e) => {
+                const role = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  signerRole: role,
+                  signerName: defaultSignerName(role, athleteName, parentName),
+                }));
+              }}
             >
               <option value="athlete">Състезател</option>
               <option value="parent">Родител</option>
@@ -406,9 +443,16 @@ export default function AthleteEquipmentProtocolPanel({
             label={form.signerRole === "parent" ? "Подпис на родител" : "Подпис на състезател"}
             required
             disabled={busy}
-            onChange={setSigRecipient}
+            value={sigRecipient}
+            onChange={onSigRecipient}
           />
-          <SignaturePad label="Подпис на треньора" required disabled={busy} onChange={setSigCoach} />
+          <SignaturePad
+            label="Подпис на треньора"
+            required
+            disabled={busy}
+            value={sigCoach}
+            onChange={onSigCoach}
+          />
 
           {formError ? (
             <p style={{ color: "var(--danger, #b91c1c)", margin: 0, fontSize: 13 }}>{formError}</p>
@@ -417,7 +461,7 @@ export default function AthleteEquipmentProtocolPanel({
             <Button type="button" disabled={busy} onClick={submitIssue}>
               {busy ? "Запис…" : "Запиши с подписи"}
             </Button>
-            <Button type="button" variant="secondary" disabled={busy} onClick={() => setIssueOpen(false)}>
+            <Button type="button" variant="secondary" disabled={busy} onClick={forceCloseIssue}>
               Отказ
             </Button>
           </div>
@@ -426,8 +470,8 @@ export default function AthleteEquipmentProtocolPanel({
 
       <Modal
         open={returnOpen}
-        onClose={busy ? undefined : () => setReturnOpen(false)}
-        dismissable={!busy}
+        onClose={forceCloseReturn}
+        dismissable={false}
         title="Връщане на екипировка"
         size="wide"
       >
@@ -448,8 +492,20 @@ export default function AthleteEquipmentProtocolPanel({
               placeholder="По желание"
             />
           </label>
-          <SignaturePad label="Подпис на получателя" required disabled={busy} onChange={setSigRecipient} />
-          <SignaturePad label="Подпис на треньора" required disabled={busy} onChange={setSigCoach} />
+          <SignaturePad
+            label="Подпис на получателя"
+            required
+            disabled={busy}
+            value={sigRecipient}
+            onChange={onSigRecipient}
+          />
+          <SignaturePad
+            label="Подпис на треньора"
+            required
+            disabled={busy}
+            value={sigCoach}
+            onChange={onSigCoach}
+          />
           {formError ? (
             <p style={{ color: "var(--danger, #b91c1c)", margin: 0, fontSize: 13 }}>{formError}</p>
           ) : null}
@@ -457,7 +513,7 @@ export default function AthleteEquipmentProtocolPanel({
             <Button type="button" disabled={busy} onClick={submitReturn}>
               {busy ? "Запис…" : "Потвърди връщане"}
             </Button>
-            <Button type="button" variant="secondary" disabled={busy} onClick={() => setReturnOpen(false)}>
+            <Button type="button" variant="secondary" disabled={busy} onClick={forceCloseReturn}>
               Отказ
             </Button>
           </div>

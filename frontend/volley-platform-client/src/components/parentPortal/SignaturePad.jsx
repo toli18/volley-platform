@@ -212,7 +212,12 @@ export default function SignaturePad({
         onMouseDown={start}
         onMouseMove={move}
         onMouseUp={end}
-        onMouseLeave={end}
+        onMouseLeave={(e) => {
+          // Не прекъсвай щриха при леко излизане към скрол/съседни контроли.
+          const next = e.relatedTarget;
+          if (next && canvasRef.current?.parentElement?.contains(next)) return;
+          end(e);
+        }}
         onTouchStart={start}
         onTouchMove={move}
         onTouchEnd={end}
