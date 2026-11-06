@@ -3512,16 +3512,27 @@ def _sync_local_members_to_sek_card_index(
     rows: list[dict[str, Any]] = []
     for mem in local.members or []:
         athlete = mem.athlete
+        # Членството понякога има празен bvf_player_id, макар профилът вече да е свързан със СЕК.
+        apid = int(athlete.bvf_player_id) if athlete and getattr(athlete, "bvf_player_id", None) else None
+        if apid and not mem.bvf_player_id:
+            mem.bvf_player_id = apid
+        eff_pid = int(mem.bvf_player_id) if mem.bvf_player_id else None
         base: dict[str, Any] = {
             "athlete_id": mem.athlete_id,
             "athlete_name": athlete.athlete_name if athlete else None,
-            "bvf_player_id": mem.bvf_player_id,
+            "bvf_player_id": eff_pid,
         }
-        if not mem.bvf_player_id:
-            rows.append({**base, "status": "skipped", "detail": "Няма СЕК id"})
+        if not eff_pid:
+            rows.append(
+                {
+                    **base,
+                    "status": "skipped",
+                    "detail": "Няма СЕК id за играч (профилът няма БФВ id — свържи по ЕГН или „Създай в СЕК“).",
+                }
+            )
             continue
         if only_pending and on_sek is not None:
-            pid = int(mem.bvf_player_id)
+            pid = int(eff_pid)
             if pid in on_sek:
                 rows.append({**base, "status": "skipped", "detail": "Вече в състава на лиценза в СЕК"})
                 continue
@@ -3553,7 +3564,7 @@ def _sync_local_members_to_sek_card_index(
             st, detail = _post_player_to_sek_card_index(
                 token,
                 card_index_id=cid,
-                bvf_player_id=int(mem.bvf_player_id),
+                bvf_player_id=int(eff_pid),
                 year=int(local.year or year),
                 age=int(local.age) if local.age is not None else None,
                 sex=int(local.sex) if local.sex is not None else None,

@@ -386,11 +386,29 @@ export default function CoachBvfCardIndexDetail() {
 
   const showPlayerSyncToast = (data) => {
     const failed = Number(data?.players_failed || 0);
+    const skipped = Number(data?.players_skipped || 0);
+    const syncRows = Array.isArray(data?.player_sync) ? data.player_sync : [];
+    const noSekId = syncRows.filter(
+      (r) =>
+        r?.status === "skipped" &&
+        String(r?.detail || "").includes("Няма СЕК id"),
+    );
     const msg =
       data?.message ||
       `В СЕК: ${data?.sek_roster_count ?? "?"}, добавени ${data?.players_added ?? 0}.`;
     if (failed > 0) {
       toast.error(msg);
+    } else if (noSekId.length) {
+      const names = noSekId
+        .map((r) => r?.athlete_name || `#${r?.athlete_id}`)
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(", ");
+      toast.error(
+        `${msg} Не са изпратени към лиценза (няма БФВ id в профила): ${names}${noSekId.length > 4 ? "…" : ""}. Отвори профила → СЕК → „Свържи по ЕГН“ или „Създай в СЕК“.`,
+      );
+    } else if (skipped > 0 && (data?.players_added ?? 0) === 0) {
+      toast.error(`${msg} Провери съобщението за пропуснати редове (player_sync).`);
     } else {
       toast.success(msg);
     }
