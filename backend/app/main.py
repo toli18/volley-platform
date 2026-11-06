@@ -139,6 +139,26 @@ if (WEB_DIR / "assets").is_dir():
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="spa-assets")
 
 
+@app.api_route("/bfvb-logo.png", methods=["GET", "HEAD"])
+def spa_bfvb_logo():
+    """PNG is optional in lean builds; serve SVG placeholder to avoid log noise and broken refs."""
+    for candidate in (WEB_DIR / "bfvb-logo.png", WEB_DIR / "vite.svg"):
+        if candidate.is_file():
+            media_type = "image/png" if candidate.suffix.lower() == ".png" else "image/svg+xml"
+            return FileResponse(candidate, media_type=media_type)
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
+@app.api_route("/presentation/logo.png", methods=["GET", "HEAD"])
+def spa_presentation_logo():
+    """HTML in /presentation references logo.png; lean copy may omit it."""
+    for candidate in (WEB_DIR / "presentation" / "logo.png", WEB_DIR / "vite.svg"):
+        if candidate.is_file():
+            media_type = "image/png" if candidate.suffix.lower() == ".png" else "image/svg+xml"
+            return FileResponse(candidate, media_type=media_type)
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
 @app.api_route("/healthz", methods=["GET", "HEAD"])
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def healthz():
