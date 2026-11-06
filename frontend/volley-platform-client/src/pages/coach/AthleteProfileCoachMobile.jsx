@@ -730,6 +730,28 @@ export default function AthleteProfileCoachMobile({
                 ) : null}
               </section>
             ) : null}
+
+            <section className="athleteProfileCard">
+              <button
+                type="button"
+                className="athleteProfileCollapseHead"
+                onClick={() => setEquipmentOpen((v) => !v)}
+              >
+                <span>Екипировка (протокол)</span>
+                <span aria-hidden>{equipmentOpen ? "▾" : "▸"}</span>
+              </button>
+              {equipmentOpen ? (
+                <div className="athleteProfileCollapseBody">
+                  <AthleteEquipmentProtocolPanel
+                    athleteId={profile.athlete_id}
+                    athleteName={profile.athlete_name}
+                    parentName={profile.parent_name}
+                    toast={toast}
+                    onChanged={onEquipmentChanged}
+                  />
+                </div>
+              ) : null}
+            </section>
           </div>
         ) : null}
 
@@ -874,28 +896,6 @@ export default function AthleteProfileCoachMobile({
                 </>
               );
             })()}
-
-            <section className="athleteProfileCard">
-              <button
-                type="button"
-                className="athleteProfileCollapseHead"
-                onClick={() => setEquipmentOpen((v) => !v)}
-              >
-                <span>Екипировка (протокол)</span>
-                <span aria-hidden>{equipmentOpen ? "▾" : "▸"}</span>
-              </button>
-              {equipmentOpen ? (
-                <div className="athleteProfileCollapseBody">
-                  <AthleteEquipmentProtocolPanel
-                    athleteId={profile.athlete_id}
-                    athleteName={profile.athlete_name}
-                    parentName={profile.parent_name}
-                    toast={toast}
-                    onChanged={onEquipmentChanged}
-                  />
-                </div>
-              ) : null}
-            </section>
 
             <section className="athleteProfileCard">
               <button
