@@ -3507,6 +3507,7 @@ def _sync_local_members_to_sek_card_index(
 ) -> dict[str, Any]:
     year = int(local.year or datetime.utcnow().year)
     cid = int(card_index_id)
+    on_sek: set[int] | None = _sek_player_ids_on_card_index(token, cid) if only_pending else None
     universal_ids = universal_athlete_ids_for_season(db, club_id=int(local.club_id), season_year=year)
     rows: list[dict[str, Any]] = []
     for mem in local.members or []:
@@ -3519,7 +3520,13 @@ def _sync_local_members_to_sek_card_index(
         if not mem.bvf_player_id:
             rows.append({**base, "status": "skipped", "detail": "Няма СЕК id"})
             continue
-        if only_pending and not _member_needs_sek_sync(mem, local, cid):
+        if only_pending and on_sek is not None:
+            pid = int(mem.bvf_player_id)
+            if pid in on_sek:
+                rows.append({**base, "status": "skipped", "detail": "Вече в състава на лиценза в СЕК"})
+                continue
+            # Иначе: липсва в СЕК — винаги опитай POST, дори локално да е „synced“.
+        elif only_pending and not _member_needs_sek_sync(mem, local, cid):
             rows.append({**base, "status": "skipped", "detail": "Вече маркиран като в СЕК"})
             continue
         if athlete:
