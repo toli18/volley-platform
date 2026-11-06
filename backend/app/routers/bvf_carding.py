@@ -3666,7 +3666,9 @@ def submit_local_card_index_to_federation(
             if isinstance(out, dict):
                 out.update(player_sync)
             return out
-        return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
+        return _submit_after_roster_sync(
+            db, local, club, token, player_sync, sign_when_ready=False
+        )
 
     if not club.bvf_club_id:
         raise HTTPException(status_code=422, detail="Клубът няма БФВ id")
@@ -3809,11 +3811,19 @@ def submit_local_card_index_to_federation(
         if isinstance(out, dict):
             out.update(player_sync)
         return out
-    return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
+    return _submit_after_roster_sync(
+        db, local, club, token, player_sync, sign_when_ready=False
+    )
 
 
 def _submit_after_roster_sync(
-    local: BvfCardIndex, player_sync: dict[str, Any], *, sign_when_ready: bool
+    db: Session,
+    local: BvfCardIndex,
+    club: Club,
+    token: str,
+    player_sync: dict[str, Any],
+    *,
+    sign_when_ready: bool,
 ) -> dict[str, Any]:
     added = int(player_sync.get("players_added") or 0)
     already = int(player_sync.get("players_already_on_license") or 0)
@@ -3827,6 +3837,33 @@ def _submit_after_roster_sync(
     msg = "Съставът е синхронизиран с отворения лиценз в СЕК."
     if parts:
         msg += " " + ", ".join(p for p in parts if p) + "."
+
+    form_summary: dict[str, Any] | None = None
+    form_uploads: list[dict[str, Any]] = []
+    if failed == 0 and not sign_when_ready:
+        try:
+            form_uploads = _push_roster_carding_forms_to_sek(db, local=local, club=club, token=token)
+            form_summary = _form_upload_summary(form_uploads)
+            db.commit()
+        except Exception as exc:  # noqa: BLE001
+            msg += f" Форми: неуспешен опит за качване ({str(exc)[:120]})."
+        else:
+            if form_summary:
+                fu = int(form_summary.get("forms_uploaded") or 0)
+                fa = int(form_summary.get("forms_already_in_sek") or 0)
+                ff = int(form_summary.get("forms_failed") or 0)
+                if fu or fa or ff:
+                    msg += f" Форми в СЕК: {fu} качени, {fa} вече имаха."
+                    if ff:
+                        failed_details = [
+                            f"{r.get('athlete_name')}: {r.get('detail') or r.get('status')}"
+                            for r in form_uploads
+                            if r.get("status") in ("error", "missing_local_form")
+                        ]
+                        msg += f" Грешки при форми ({ff}): " + "; ".join(failed_details[:3])
+                        if len(failed_details) > 3:
+                            msg += "…"
+
     if failed:
         err_names = [
             f"{r.get('athlete_name')}: {r.get('detail')}"
@@ -3836,11 +3873,11 @@ def _submit_after_roster_sync(
         msg += f" Неуспешни ({failed}): " + "; ".join(err_names[:4])
         if len(err_names) > 4:
             msg += "…"
-    elif not sign_when_ready:
+    elif not sign_when_ready and form_summary is None:
         msg += (
             " За заключване: Форма 03 в СЕК (+), снимка и ЕГН за всички, после отново „Запиши в СЕК“."
         )
-    return {
+    out: dict[str, Any] = {
         "ok": failed == 0,
         "synced_only": True,
         "sign_blocked": not sign_when_ready,
@@ -3849,6 +3886,10 @@ def _submit_after_roster_sync(
         "message": msg,
         **player_sync,
     }
+    if form_summary is not None:
+        out["form_uploads"] = form_uploads
+        out.update(form_summary)
+    return out
 
 
 @router.post("/card-indexes/local/{local_id}/sync-sek-roster")
@@ -3881,7 +3922,9 @@ def sync_local_roster_to_open_sek_license(
     cid = int(local.bvf_card_index_id)
     player_sync = _sync_open_sek_license_roster(local, db=db, token=token, card_index_id=cid)
     db.commit()
-    return _submit_after_roster_sync(local, player_sync, sign_when_ready=False)
+    return _submit_after_roster_sync(
+        db, local, club, token, player_sync, sign_when_ready=False
+    )
 
 
 class ClubPhysicalBulkIn(BaseModel):
