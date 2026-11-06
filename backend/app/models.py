@@ -1599,6 +1599,47 @@ class ClubInvoice(Base):
     athlete = relationship("Athlete")
 
 
+class AthleteEquipmentProtocol(Base):
+    """Приемо-предавателен протокол за състезателна екипировка."""
+
+    __tablename__ = "athlete_equipment_protocols"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False, index=True)
+    coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    return_coach_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    number = Column(String(32), nullable=True)
+    season = Column(String(16), nullable=False, index=True)
+    status = Column(String(16), nullable=False, default="issued", index=True)  # issued | returned
+
+    issued_at = Column(Date, nullable=False)
+    returned_at = Column(Date, nullable=True)
+    city = Column(String(120), nullable=True)
+    notes = Column(Text, nullable=True)
+
+    items = Column(JSON, nullable=False, default=list)
+
+    athlete_name_snapshot = Column(String(255), nullable=True)
+    club_name_snapshot = Column(String(255), nullable=True)
+    coach_name_snapshot = Column(String(255), nullable=True)
+    return_coach_name_snapshot = Column(String(255), nullable=True)
+
+    recipient_signer_role = Column(String(16), nullable=False, default="athlete")  # athlete | parent
+    recipient_signer_name = Column(String(255), nullable=True)
+    signature_recipient_data = Column(LargeBinary, nullable=True)
+    signature_coach_data = Column(LargeBinary, nullable=True)
+    signature_return_recipient_data = Column(LargeBinary, nullable=True)
+    signature_return_coach_data = Column(LargeBinary, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    club = relationship("Club")
+    athlete = relationship("Athlete")
+
+
 # =========================
 # Methodical Assessment Layer v1
 # Дефинирани в отделен модул за по-малък diff; импортирани тук, за да се

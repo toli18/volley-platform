@@ -187,6 +187,11 @@ export const API_PATHS = {
   PUBLIC_MATCH_LIVE_SUB: (token) => `/api/public/match-live/${token}/sub`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
   TEAM_ATHLETE_PHOTO: (athleteId) => `/api/teams/athletes/${athleteId}/photo`,
+  ATHLETE_EQUIPMENT_PROTOCOLS: (athleteId) => `/api/teams/athletes/${athleteId}/equipment-protocols`,
+  ATHLETE_EQUIPMENT_PROTOCOL_RETURN: (athleteId, protocolId) =>
+    `/api/teams/athletes/${athleteId}/equipment-protocols/${protocolId}/return`,
+  ATHLETE_EQUIPMENT_PROTOCOL_PDF: (athleteId, protocolId) =>
+    `/api/teams/athletes/${athleteId}/equipment-protocols/${protocolId}/pdf`,
   PARENT_AUTH_LOGIN: "/api/parent-auth/login",
   ATHLETE_ROOM_AUTH_LOGIN: "/api/athlete-room-auth/login",
   ATHLETE_ROOM_ME: "/api/athlete-room/me",

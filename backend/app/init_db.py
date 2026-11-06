@@ -307,6 +307,57 @@ def _init_db_impl() -> None:
                 conn.execute(text("CREATE INDEX IF NOT EXISTS ix_club_invoices_athlete_id ON club_invoices (athlete_id)"))
                 conn.execute(
                     text(
+                        """
+                        CREATE TABLE IF NOT EXISTS athlete_equipment_protocols (
+                            id SERIAL PRIMARY KEY,
+                            club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+                            athlete_id INTEGER NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+                            coach_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            return_coach_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            number VARCHAR(32),
+                            season VARCHAR(16) NOT NULL,
+                            status VARCHAR(16) NOT NULL DEFAULT 'issued',
+                            issued_at DATE NOT NULL,
+                            returned_at DATE,
+                            city VARCHAR(120),
+                            notes TEXT,
+                            items JSONB NOT NULL DEFAULT '[]'::jsonb,
+                            athlete_name_snapshot VARCHAR(255),
+                            club_name_snapshot VARCHAR(255),
+                            coach_name_snapshot VARCHAR(255),
+                            return_coach_name_snapshot VARCHAR(255),
+                            recipient_signer_role VARCHAR(16) NOT NULL DEFAULT 'athlete',
+                            recipient_signer_name VARCHAR(255),
+                            signature_recipient_data BYTEA,
+                            signature_coach_data BYTEA,
+                            signature_return_recipient_data BYTEA,
+                            signature_return_coach_data BYTEA,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_athlete_equipment_protocols_club_id "
+                        "ON athlete_equipment_protocols (club_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_athlete_equipment_protocols_athlete_id "
+                        "ON athlete_equipment_protocols (athlete_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_athlete_equipment_protocols_status "
+                        "ON athlete_equipment_protocols (status)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS uq_club_halls_club_bvf "
                         "ON club_halls (club_id, bvf_hall_id) "
                         "WHERE bvf_hall_id IS NOT NULL"

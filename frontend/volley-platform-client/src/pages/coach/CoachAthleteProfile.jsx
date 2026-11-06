@@ -425,6 +425,7 @@ export default function CoachAthleteProfile() {
         deleting={deleting}
         onSaveFeeExempt={isHeadCoach ? saveFeeExempt : undefined}
         savingFeeExempt={savingFeeExempt}
+        onEquipmentChanged={reloadProfile}
       />
       {isHeadCoach ? (
         <>

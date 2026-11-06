@@ -9,6 +9,7 @@ import AthletePortraitPhotoButton from "../../components/athletes/AthletePortrai
 import AthleteTestsPanel from "../../components/athletes/AthleteTestsPanel";
 import BvfDocumentsPanel from "../../components/athletes/BvfDocumentsPanel";
 import AthleteLocalDocumentsPanel from "../../components/athletes/AthleteLocalDocumentsPanel";
+import AthleteEquipmentProtocolPanel from "../../components/athletes/AthleteEquipmentProtocolPanel";
 import useAthletePhoto from "../../hooks/useAthletePhoto";
 import { parentLoginPath } from "../../utils/parentAuth";
 import { athleteGenderMissing } from "../../utils/athleteIdentity";
@@ -30,10 +31,12 @@ const HISTORY_FILTERS_ALL = [
   { id: "all", label: "Всички" },
   { id: "attendance", label: "Присъствие" },
   { id: "payment", label: "Плащания", monthlyFeesOnly: true },
+  { id: "equipment", label: "Екипировка" },
   { id: "system", label: "Система" },
 ];
 
 const SYSTEM_KINDS = new Set(["created", "profile_update", "team_join"]);
+const EQUIPMENT_KINDS = new Set(["equipment_issue", "equipment_return"]);
 
 const currentMonthKey = () => {
   const d = new Date();
@@ -288,6 +291,7 @@ export default function AthleteProfileCoachMobile({
   deleting = false,
   onSaveFeeExempt,
   savingFeeExempt = false,
+  onEquipmentChanged,
 }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -308,6 +312,7 @@ export default function AthleteProfileCoachMobile({
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [localDocsOpen, setLocalDocsOpen] = useState(true);
+  const [equipmentOpen, setEquipmentOpen] = useState(true);
   const [showAllAttendance, setShowAllAttendance] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historyLimit, setHistoryLimit] = useState(15);
@@ -351,6 +356,7 @@ export default function AthleteProfileCoachMobile({
     if (historyFilter === "all") return list;
     if (historyFilter === "attendance") return list.filter((e) => e.kind === "attendance");
     if (historyFilter === "payment") return list.filter((e) => e.kind === "payment");
+    if (historyFilter === "equipment") return list.filter((e) => EQUIPMENT_KINDS.has(e.kind));
     return list.filter((e) => SYSTEM_KINDS.has(e.kind));
   }, [profile.timeline, historyFilter, showFees]);
 
@@ -868,6 +874,28 @@ export default function AthleteProfileCoachMobile({
                 </>
               );
             })()}
+
+            <section className="athleteProfileCard">
+              <button
+                type="button"
+                className="athleteProfileCollapseHead"
+                onClick={() => setEquipmentOpen((v) => !v)}
+              >
+                <span>Екипировка (протокол)</span>
+                <span aria-hidden>{equipmentOpen ? "▾" : "▸"}</span>
+              </button>
+              {equipmentOpen ? (
+                <div className="athleteProfileCollapseBody">
+                  <AthleteEquipmentProtocolPanel
+                    athleteId={profile.athlete_id}
+                    athleteName={profile.athlete_name}
+                    parentName={profile.parent_name}
+                    toast={toast}
+                    onChanged={onEquipmentChanged}
+                  />
+                </div>
+              ) : null}
+            </section>
 
             <section className="athleteProfileCard">
               <button

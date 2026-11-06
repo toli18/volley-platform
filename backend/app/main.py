@@ -46,6 +46,7 @@ from app.routers.club_consent import router as club_consent_router
 from app.routers.public_carding_03b import router as public_carding_03b_router
 from app.routers.public_carding_parent2 import router as public_carding_parent2_router
 from app.routers.club_office_docs import router as club_office_docs_router
+from app.routers.equipment_protocols import router as equipment_protocols_router
 from app.routers.school_excuse import club_router as school_excuse_club_router
 from app.routers.school_excuse import parent_router as school_excuse_parent_router
 from app.routers import articles
@@ -124,6 +125,7 @@ app.include_router(athlete_docs_router)
 app.include_router(public_carding_03b_router)
 app.include_router(public_carding_parent2_router)
 app.include_router(club_office_docs_router)
+app.include_router(equipment_protocols_router)
 app.include_router(school_excuse_club_router)
 app.include_router(school_excuse_parent_router)
 app.include_router(pilot_requests_router, prefix="/api", tags=["Pilot"])

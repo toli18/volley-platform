@@ -1086,6 +1086,40 @@ def athlete_profile(
             }
         )
 
+    from app.models import AthleteEquipmentProtocol
+    from app.services.equipment_protocol import STATUS_RETURNED, items_summary
+
+    equipment_rows = (
+        db.query(AthleteEquipmentProtocol)
+        .filter(AthleteEquipmentProtocol.athlete_id == athlete.id)
+        .order_by(AthleteEquipmentProtocol.issued_at.desc())
+        .limit(40)
+        .all()
+    )
+    for eq in equipment_rows:
+        detail = items_summary(eq.items)
+        if eq.season:
+            detail = f"{eq.season} · {detail}" if detail else eq.season
+        raw_timeline.append(
+            {
+                "at": _dt_from_calendar_date(eq.issued_at) if eq.issued_at else (eq.created_at or datetime.utcnow()),
+                "kind": "equipment_issue",
+                "label": "Предадена екипировка",
+                "detail": detail or None,
+                "actor_name": eq.coach_name_snapshot,
+            }
+        )
+        if eq.status == STATUS_RETURNED and eq.returned_at:
+            raw_timeline.append(
+                {
+                    "at": _dt_from_calendar_date(eq.returned_at),
+                    "kind": "equipment_return",
+                    "label": "Върната екипировка",
+                    "detail": detail or None,
+                    "actor_name": eq.return_coach_name_snapshot,
+                }
+            )
+
     raw_timeline.sort(key=lambda row: row["at"], reverse=True)
     timeline = [AthleteTimelineEvent(**row) for row in raw_timeline[:100]]
 
