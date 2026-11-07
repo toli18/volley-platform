@@ -14,6 +14,7 @@ def _empty_counts() -> dict[str, int]:
         "attack_zero": 0,
         "attack_err": 0,
         "aces": 0,
+        "serve_in": 0,
         "serve_err": 0,
         "blocks": 0,
         "digs": 0,
@@ -32,6 +33,7 @@ ACTION_FIELD = {
     MatchStatAction.attack_zero: "attack_zero",
     MatchStatAction.attack_error: "attack_err",
     MatchStatAction.ace: "aces",
+    MatchStatAction.serve_in: "serve_in",
     MatchStatAction.error: "serve_err",
     MatchStatAction.block: "blocks",
     MatchStatAction.dig: "digs",
@@ -62,6 +64,7 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     attack_zero = int(counts.get("attack_zero", 0))
     attack_err = int(counts.get("attack_err", 0))
     aces = int(counts.get("aces", 0))
+    serve_in = int(counts.get("serve_in", 0))
     serve_err = int(counts.get("serve_err", 0))
     blocks = int(counts.get("blocks", 0))
     digs = int(counts.get("digs", 0))
@@ -91,6 +94,8 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"{attack_err} гр. атака")
     if aces:
         summary_bits.append(f"{aces} ас")
+    if serve_in:
+        summary_bits.append(f"{serve_in} серв 0")
     if serve_err:
         summary_bits.append(f"{serve_err} гр. сервис")
     if blocks:

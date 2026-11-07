@@ -30,6 +30,7 @@ const EMPTY_ROW = () => ({
   attack_zero: 0,
   attack_err: 0,
   aces: 0,
+  serve_in: 0,
   serve_err: 0,
   blocks: 0,
   digs: 0,
@@ -91,6 +92,9 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
       case "ace":
         row.aces += 1;
         break;
+      case "serve_in":
+        row.serve_in += 1;
+        break;
       case "error":
         row.serve_err += 1;
         break;
@@ -130,6 +134,7 @@ function rowSummary(row) {
   if (row.attack_zero) bits.push(`${row.attack_zero} атака 0`);
   if (row.attack_err) bits.push(`${row.attack_err} гр. атака`);
   if (row.aces) bits.push(`${row.aces} ас`);
+  if (row.serve_in) bits.push(`${row.serve_in} серв 0`);
   if (row.serve_err) bits.push(`${row.serve_err} гр. сервис`);
   if (row.blocks) bits.push(`${row.blocks} блок`);
   if (row.digs) bits.push(`${row.digs} защита`);
@@ -347,7 +352,8 @@ export default function CoachMatchLive() {
   const recordStat = (action) => {
     let athleteId = selectedId;
     let serverPlayer = null;
-    if (action === "ace" || action === "error") {
+    const isServeTerminal = action === "ace" || action === "error" || action === "serve_in";
+    if (isServeTerminal) {
       serverPlayer = (state?.court || []).find((s) => Number(s.zone) === 1) || null;
       if (serverPlayer?.athlete_id) {
         athleteId = serverPlayer.athlete_id;
@@ -363,7 +369,7 @@ export default function CoachMatchLive() {
       athlete_id: athleteId || null,
       apply_score: actionAffectsScore(action),
     };
-    const showAceToast = action === "ace" || action === "error";
+    const showServeToast = isServeTerminal;
     const affectsScore = actionAffectsScore(action);
     setSelectedId(null);
     run(
@@ -377,7 +383,13 @@ export default function CoachMatchLive() {
         queueItem: { kind: "stat", body },
       },
     ).then((data) => {
-      if (showAceToast && data) toast.success(formatServerToast(serverPlayer));
+      if (!data) return;
+      if (showServeToast) toast.success(formatServerToast(serverPlayer));
+      if (action === "serve_in") {
+        // Рали след сервис в игра: махаме Ас/Гр.Серв до следващата точка.
+        setPhaseOverride("base");
+        load("base").catch(() => {});
+      }
     });
   };
 
@@ -868,6 +880,7 @@ export default function CoachMatchLive() {
                     <th title="Атака 0 (продължава)">Ат0</th>
                     <th title="Грешки атака">Ат−</th>
                     <th title="Асове">Ас</th>
+                    <th title="Сервис в игра (продължава)">Ср0</th>
                     <th title="Грешки сервис">Ср−</th>
                     <th title="Блок">Бл</th>
                     <th title="Защита">Защ</th>
@@ -889,6 +902,7 @@ export default function CoachMatchLive() {
                       <td>{row.attack_zero || "·"}</td>
                       <td>{row.attack_err || "·"}</td>
                       <td>{row.aces || "·"}</td>
+                      <td>{row.serve_in || "·"}</td>
                       <td>{row.serve_err || "·"}</td>
                       <td>{row.blocks || "·"}</td>
                       <td>{row.digs || "·"}</td>

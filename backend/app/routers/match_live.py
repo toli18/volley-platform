@@ -996,6 +996,7 @@ def match_report(
                     "attack_zero",
                     "attack_err",
                     "aces",
+                    "serve_in",
                     "serve_err",
                     "blocks",
                     "digs",

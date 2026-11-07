@@ -154,6 +154,7 @@ class MatchDetailRead(MatchRead):
 MatchStatActionLiteral = Literal[
     "kill",
     "ace",
+    "serve_in",
     "block",
     "attack_error",
     "attack_zero",
@@ -305,6 +306,7 @@ class MatchAthleteStatsRead(BaseModel):
     attack_zero: int = 0
     attack_err: int = 0
     aces: int = 0
+    serve_in: int = 0
     serve_err: int = 0
     blocks: int = 0
     digs: int = 0

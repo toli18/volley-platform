@@ -20,7 +20,7 @@ POINT_FOR_OPP = {
     MatchStatAction.team_error,
     MatchStatAction.indiv_error,
 }
-# pass / dig / attack_zero — качество или опит без край на раллито
+# pass / dig / attack_zero / serve_in - качество или опит без край на раллито
 NO_POINT_ACTIONS = {
     MatchStatAction.dig,
     MatchStatAction.pass_0,
@@ -29,6 +29,7 @@ NO_POINT_ACTIONS = {
     MatchStatAction.pass_3,
     MatchStatAction.free_ball,
     MatchStatAction.attack_zero,
+    MatchStatAction.serve_in,
 }
 
 

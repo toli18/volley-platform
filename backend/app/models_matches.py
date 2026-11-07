@@ -146,9 +146,10 @@ class MatchSetStatus(str, Enum):
 class MatchStatAction(str, Enum):
     kill = "kill"
     ace = "ace"
+    serve_in = "serve_in"  # сервис в игра / раллито продължава - без точка
     block = "block"
     attack_error = "attack_error"
-    attack_zero = "attack_zero"  # атака извадена / раллито продължава — без точка
+    attack_zero = "attack_zero"  # атака извадена / раллито продължава - без точка
     error = "error"
     dig = "dig"
     pass_0 = "pass_0"

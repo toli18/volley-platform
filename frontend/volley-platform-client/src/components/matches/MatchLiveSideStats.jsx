@@ -7,6 +7,7 @@ export const MATCH_STAT_SIDE_LEFT = [
   { action: "attack_zero", label: "Атака0", tone: "neutral", ctx: "always" },
   { action: "attack_error", label: "Атака−", tone: "bad", ctx: "always" },
   { action: "ace", label: "Ас", tone: "good", ctx: "serve" },
+  { action: "serve_in", label: "Серв0", tone: "neutral", ctx: "serve" },
   { action: "error", label: "Гр.Серв", tone: "bad", ctx: "serve" },
   { action: "block", label: "Блок+", tone: "good", ctx: "always" },
   { action: "opp_error", label: "Гр.OPP", tone: "good", ctx: "always" },
@@ -26,6 +27,7 @@ export const MATCH_ACTION_LABEL = {
   kill: "Атака+",
   attack_zero: "Атака 0 (продължава)",
   ace: "Ас",
+  serve_in: "Сервис в игра (продължава)",
   block: "Блок+",
   attack_error: "Атака−",
   error: "Грешка сервис",
@@ -78,7 +80,8 @@ function SideCol({ items, side, disabled, phase, onStat, extraTop = null, requir
       {items.map((it) => {
         const ctxOk = actionEnabledForPhase(it.ctx, phase);
         const needsPlayer =
-          requirePlayer && !["opp_error", "ace", "error", "our_point", "opp_point"].includes(it.action);
+          requirePlayer &&
+          !["opp_error", "ace", "serve_in", "error", "our_point", "opp_point"].includes(it.action);
         const isOff = disabled || !ctxOk || needsPlayer;
         return (
           <button

@@ -193,7 +193,8 @@ export default function PublicMatchWatch() {
   const recordStat = (action) => {
     let athleteId = selectedId;
     let serverPlayer = null;
-    if (action === "ace" || action === "error") {
+    const isServeTerminal = action === "ace" || action === "error" || action === "serve_in";
+    if (isServeTerminal) {
       serverPlayer = (state?.court || []).find((s) => Number(s.zone) === 1) || null;
       if (serverPlayer?.athlete_id) {
         athleteId = serverPlayer.athlete_id;
@@ -210,13 +211,17 @@ export default function PublicMatchWatch() {
       athlete_id: athleteId || null,
       apply_score: affectsScore,
     };
-    const showAceToast = action === "ace" || action === "error";
     setSelectedId(null);
     run(
       async () => (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_STAT(token), body)).data,
       { resetPhase: affectsScore, queueItem: { kind: "stat", body } },
     ).then((data) => {
-      if (showAceToast && data) toast.success(formatServerToast(serverPlayer));
+      if (!data) return;
+      if (isServeTerminal) toast.success(formatServerToast(serverPlayer));
+      if (action === "serve_in") {
+        setPhaseOverride("base");
+        load("base").catch(() => {});
+      }
     });
   };
 
