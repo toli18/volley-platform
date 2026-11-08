@@ -800,6 +800,14 @@ export default function CoachMatchLive() {
           >
             Отчет
           </button>
+          <button
+            type="button"
+            className="matchLiveNext"
+            style={{ marginLeft: 10 }}
+            onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/video`)}
+          >
+            Видео
+          </button>
         </div>
       ) : null}
 

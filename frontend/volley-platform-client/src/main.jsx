@@ -76,6 +76,7 @@ const CoachMatches = React.lazy(() => import("./pages/coach/CoachMatches.jsx"));
 const CoachMatchSetup = React.lazy(() => import("./pages/coach/CoachMatchSetup.jsx"));
 const CoachMatchLive = React.lazy(() => import("./pages/coach/CoachMatchLive.jsx"));
 const CoachMatchReport = React.lazy(() => import("./pages/coach/CoachMatchReport.jsx"));
+const CoachMatchVideoCoding = React.lazy(() => import("./pages/coach/CoachMatchVideoCoding.jsx"));
 const CoachCompetitions = React.lazy(() => import("./pages/coach/CoachCompetitions.jsx"));
 const CoachEnrollments = React.lazy(() => import("./pages/coach/CoachEnrollments.jsx"));
 const PublicClubPage = React.lazy(() => import("./pages/PublicClubPage.jsx"));
@@ -222,6 +223,7 @@ const router = createBrowserRouter([
               { path: "teams/:teamId/matches/:matchId", element: <CoachMatchSetup /> },
               { path: "teams/:teamId/matches/:matchId/live", element: <CoachMatchLive /> },
               { path: "teams/:teamId/matches/:matchId/report", element: <CoachMatchReport /> },
+              { path: "teams/:teamId/matches/:matchId/video", element: <CoachMatchVideoCoding /> },
               { path: "attendance", element: <CoachAttendanceTeams /> },
               { path: "schedule", element: <CoachSchedule /> },
               { path: "competitions", element: <CoachCompetitions /> },

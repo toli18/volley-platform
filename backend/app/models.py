@@ -1671,4 +1671,5 @@ from .models_matches import (  # noqa: E402,F401
     MatchStatAction,
     MatchSet,
     MatchStatEvent,
+    MatchVideoCodingProposal,
 )

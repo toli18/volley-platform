@@ -95,6 +95,8 @@ class Match(Base):
     live_share_token = Column(String(64), nullable=True, unique=True, index=True)
     # {"{rotation}:{phase}": {"1": {"x":..,"y":..}, ...}}
     live_court_positions = Column(JSON, nullable=True)
+    # Линк към видео за post-match coding (YouTube / файл)
+    video_url = Column(String(1024), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -208,5 +210,31 @@ class MatchStatEvent(Base):
     # При substitution: athlete_id = излиза, related_athlete_id = влиза
     related_athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
     undone = Column(Integer, nullable=False, default=0)
+    # Секунди от началото на видеото (post-match / video coding)
+    video_offset_sec = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class MatchVideoCodingProposal(Base):
+    """Предложение за действие от видео (ръчно или AI) - чака одобрение."""
+
+    __tablename__ = "match_video_coding_proposals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False, index=True)
+    set_id = Column(Integer, ForeignKey("match_sets.id", ondelete="SET NULL"), nullable=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(
+        SqlEnum(MatchStatAction, native_enum=False, length=24, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    video_offset_sec = Column(Integer, nullable=False, default=0)
+    status = Column(String(16), nullable=False, default="pending", index=True)  # pending|approved|rejected
+    source = Column(String(16), nullable=False, default="manual")  # manual|ai
+    note = Column(String(255), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_event_id = Column(Integer, ForeignKey("match_stat_events.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
+    reviewed_at = Column(DateTime, nullable=True)

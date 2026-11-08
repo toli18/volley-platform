@@ -123,6 +123,7 @@ def _to_match_read(db: Session, match: Match) -> MatchRead:
         format=fmt,  # type: ignore[arg-type]
         status=match.status.value if isinstance(match.status, MatchStatus) else str(match.status),
         notes=match.notes,
+        video_url=getattr(match, "video_url", None),
         roster_count=_roster_count(db, match.id),
         has_lineup=_has_lineup(db, match.id),
         created_at=match.created_at,
@@ -349,6 +350,9 @@ def update_match(
         match.format = _format_value(data["format"])
     if "notes" in data:
         match.notes = (data["notes"] or "").strip() or None
+    if "video_url" in data:
+        raw = (data["video_url"] or "").strip() if data["video_url"] is not None else ""
+        match.video_url = raw or None
     if "status" in data and data["status"] is not None:
         match.status = _status_value(data["status"])
     db.commit()

@@ -179,6 +179,14 @@ export const API_PATHS = {
     `/api/teams/${teamId}/matches/${matchId}/live/positions`,
   TEAM_MATCH_LIVE_SUB: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/sub`,
   TEAM_MATCH_REPORT: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/report`,
+  TEAM_MATCH_VIDEO_CODING: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/video-coding`,
+  TEAM_MATCH_VIDEO_CODING_URL: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/video-coding/url`,
+  TEAM_MATCH_VIDEO_CODING_PROPOSALS: (teamId, matchId) =>
+    `/api/teams/${teamId}/matches/${matchId}/video-coding/proposals`,
+  TEAM_MATCH_VIDEO_CODING_APPROVE: (teamId, matchId, proposalId) =>
+    `/api/teams/${teamId}/matches/${matchId}/video-coding/proposals/${proposalId}/approve`,
+  TEAM_MATCH_VIDEO_CODING_REJECT: (teamId, matchId, proposalId) =>
+    `/api/teams/${teamId}/matches/${matchId}/video-coding/proposals/${proposalId}/reject`,
   PUBLIC_MATCH_LIVE: (token) => `/api/public/match-live/${token}`,
   PUBLIC_MATCH_LIVE_SCORE: (token) => `/api/public/match-live/${token}/score`,
   PUBLIC_MATCH_LIVE_STAT: (token) => `/api/public/match-live/${token}/stat`,

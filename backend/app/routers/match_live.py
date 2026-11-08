@@ -1122,4 +1122,5 @@ def match_report(
         substitutions=[MatchSubHistoryRead(**row) for row in match_subs],
         insights=insights,
         event_count=len(events),
+        video_url=getattr(match, "video_url", None),
     )

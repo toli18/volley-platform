@@ -31,6 +31,7 @@ class MatchUpdate(BaseModel):
     format: Optional[MatchFormatLiteral] = None
     notes: Optional[str] = None
     status: Optional[MatchStatusLiteral] = None
+    video_url: Optional[str] = None
 
 
 class MatchRosterPlayerIn(BaseModel):
@@ -139,6 +140,7 @@ class MatchRead(BaseModel):
     format: MatchFormatLiteral = "bo5"
     status: MatchStatusLiteral
     notes: Optional[str] = None
+    video_url: Optional[str] = None
     roster_count: int = 0
     has_lineup: bool = False
     created_at: Optional[datetime] = None
@@ -399,3 +401,72 @@ class MatchReportRead(BaseModel):
     substitutions: list[MatchSubHistoryRead] = Field(default_factory=list)
     insights: list[str] = Field(default_factory=list)
     event_count: int = 0
+    video_url: Optional[str] = None
+
+
+MatchVideoCodingActionLiteral = Literal[
+    "kill",
+    "ace",
+    "serve_in",
+    "block",
+    "attack_error",
+    "attack_zero",
+    "error",
+    "dig",
+    "pass_1",
+    "pass_2",
+    "pass_3",
+    "pass_error",
+    "opp_error",
+    "indiv_error",
+]
+
+
+class MatchVideoUrlPut(BaseModel):
+    video_url: Optional[str] = None
+
+
+class MatchVideoCodingProposalCreate(BaseModel):
+    action: MatchVideoCodingActionLiteral
+    athlete_id: Optional[int] = None
+    set_id: Optional[int] = None
+    video_offset_sec: int = Field(default=0, ge=0, le=86400)
+    note: Optional[str] = Field(default=None, max_length=255)
+
+
+class MatchVideoCodingProposalRead(BaseModel):
+    id: int
+    match_id: int
+    set_id: Optional[int] = None
+    set_number: Optional[int] = None
+    athlete_id: Optional[int] = None
+    athlete_name: Optional[str] = None
+    jersey_number: Optional[int] = None
+    action: MatchVideoCodingActionLiteral
+    video_offset_sec: int = 0
+    status: Literal["pending", "approved", "rejected"]
+    source: Literal["manual", "ai"] = "manual"
+    note: Optional[str] = None
+    approved_event_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+
+
+class MatchVideoCodingSetOption(BaseModel):
+    id: int
+    set_number: int
+    our_score: int = 0
+    opp_score: int = 0
+    status: str = "finished"
+
+
+class MatchVideoCodingStateRead(BaseModel):
+    match_id: int
+    team_id: int
+    opponent_name: Optional[str] = None
+    status: MatchStatusLiteral
+    video_url: Optional[str] = None
+    roster: list[MatchRosterPlayerRead] = Field(default_factory=list)
+    sets: list[MatchVideoCodingSetOption] = Field(default_factory=list)
+    proposals: list[MatchVideoCodingProposalRead] = Field(default_factory=list)
+    pending_count: int = 0

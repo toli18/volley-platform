@@ -701,6 +701,16 @@ export default function CoachMatchSetup() {
                 Отчет / статистика
               </Button>
             ) : null}
+            {match.status === "finished" || match.status === "live" ? (
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => navigate(`/coach/teams/${teamIdNum}/matches/${matchIdNum}/video`)}
+                style={{ marginBottom: 8 }}
+              >
+                Видео coding
+              </Button>
+            ) : null}
             <Button variant="secondary" disabled={busy} onClick={() => navigate(`/coach/teams/${teamIdNum}/matches`)}>
               Към списъка с мачове
             </Button>

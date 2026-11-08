@@ -482,6 +482,55 @@ def _init_db_impl() -> None:
                 conn.execute(
                     text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_court_positions JSON")
                 )
+                conn.execute(
+                    text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS video_url VARCHAR(1024)")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE match_stat_events "
+                        "ADD COLUMN IF NOT EXISTS video_offset_sec INTEGER"
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS match_video_coding_proposals (
+                            id SERIAL PRIMARY KEY,
+                            match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                            set_id INTEGER REFERENCES match_sets(id) ON DELETE SET NULL,
+                            athlete_id INTEGER REFERENCES athletes(id) ON DELETE SET NULL,
+                            action VARCHAR(24) NOT NULL,
+                            video_offset_sec INTEGER NOT NULL DEFAULT 0,
+                            status VARCHAR(16) NOT NULL DEFAULT 'pending',
+                            source VARCHAR(16) NOT NULL DEFAULT 'manual',
+                            note VARCHAR(255),
+                            created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                            approved_event_id INTEGER REFERENCES match_stat_events(id) ON DELETE SET NULL,
+                            created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+                            reviewed_at TIMESTAMP
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_match_video_coding_proposals_match_id "
+                        "ON match_video_coding_proposals (match_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_match_video_coding_proposals_status "
+                        "ON match_video_coding_proposals (status)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_match_video_coding_proposals_created_at "
+                        "ON match_video_coding_proposals (created_at)"
+                    )
+                )
                 conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS competition_id INTEGER"))
                 try:
                     conn.execute(

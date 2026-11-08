@@ -281,6 +281,9 @@ export default function CoachMatchReport() {
           <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}`} className="matchReportLinkBtn">
             Настройки
           </Link>
+          <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}/video`} className="matchReportLinkBtn">
+            Видео coding
+          </Link>
           {report.status !== "finished" ? (
             <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}/live`} className="matchReportLinkBtn matchReportLinkBtn--live">
               Live
