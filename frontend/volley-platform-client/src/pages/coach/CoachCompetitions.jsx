@@ -307,6 +307,8 @@ export default function CoachCompetitions() {
       const status = String(res.data?.status || "");
       if (status === "live") {
         navigate(`/coach/teams/${teamId}/matches/${matchId}/live`);
+      } else if (status === "finished") {
+        navigate(`/coach/teams/${teamId}/matches/${matchId}/report`);
       } else {
         navigate(`/coach/teams/${teamId}/matches/${matchId}`);
       }
@@ -477,16 +479,14 @@ export default function CoachCompetitions() {
                   Класиране
                 </Button>
               ) : null}
-              {row.date === todayKey() ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={openingMatchId === row.id}
-                  onClick={() => openMatchStats(row)}
-                >
-                  {openingMatchId === row.id ? "Отваряне…" : "Статистика на мача"}
-                </Button>
-              ) : null}
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={openingMatchId === row.id}
+                onClick={() => openMatchStats(row)}
+              >
+                {openingMatchId === row.id ? "Отваряне…" : "Статистика на мача"}
+              </Button>
               <Link to="/coach/schedule" className="uiMuted" style={{ fontSize: 12, textAlign: "center" }}>
                 В календара
               </Link>
@@ -599,16 +599,14 @@ export default function CoachCompetitions() {
               >
                 Генерирай тимов лист
               </button>
-              {rosterEvent.date === todayKey() ? (
-                <button
-                  type="button"
-                  className="matchLiveUndo"
-                  disabled={openingMatchId === rosterEvent.id}
-                  onClick={() => openMatchStats(rosterEvent)}
-                >
-                  {openingMatchId === rosterEvent.id ? "Отваряне…" : "Статистика"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="matchLiveUndo"
+                disabled={openingMatchId === rosterEvent.id}
+                onClick={() => openMatchStats(rosterEvent)}
+              >
+                {openingMatchId === rosterEvent.id ? "Отваряне…" : "Статистика"}
+              </button>
               {(roster.can_edit_roster ?? rosterEvent.can_edit_roster) && !roster.locked ? (
                 <button type="button" className="matchLiveNext" disabled={savingRoster} onClick={saveRoster}>
                   {savingRoster ? "Запис…" : "Запиши състава"}
