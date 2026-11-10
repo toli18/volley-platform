@@ -2,41 +2,158 @@ import { useMemo, useState } from "react";
 
 import { positionShort, shortPlayerName } from "../../utils/matchPositions";
 
-export const MATCH_STAT_SIDE_LEFT = [
-  { action: "kill", label: "Атака+", tone: "good", ctx: "always" },
-  { action: "attack_zero", label: "Атака0", tone: "neutral", ctx: "always" },
-  { action: "attack_error", label: "Атака−", tone: "bad", ctx: "always" },
-  { action: "ace", label: "Ас", tone: "good", ctx: "serve" },
-  { action: "serve_in", label: "Серв0", tone: "neutral", ctx: "serve" },
-  { action: "error", label: "Гр.Серв", tone: "bad", ctx: "serve" },
-  { action: "block", label: "Блок+", tone: "good", ctx: "always" },
-  { action: "opp_error", label: "Гр.OPP", tone: "good", ctx: "always" },
-  // Избери играч → мрежа / улавяне / двойно / линия / друга индивидуална грешка
-  { action: "indiv_error", label: "Гр.Инд", tone: "bad", ctx: "always" },
+/**
+ * Категория → опции (# / + / − / гр.).
+ * action без options = директен бутон (едно натискане).
+ */
+export const MATCH_STAT_GROUPS_LEFT = [
+  {
+    id: "attack",
+    label: "Атака",
+    ctx: "always",
+    requirePlayer: true,
+    options: [
+      { action: "kill", label: "#", tone: "good" },
+      { action: "attack_zero", label: "0", tone: "neutral" },
+      { action: "attack_error", label: "−", tone: "bad" },
+    ],
+  },
+  {
+    id: "serve",
+    label: "Сервис",
+    ctx: "serve",
+    requirePlayer: false,
+    options: [
+      { action: "ace", label: "#", tone: "good" },
+      { action: "serve_in", label: "0", tone: "neutral" },
+      { action: "error", label: "Гр", tone: "bad" },
+    ],
+  },
+  {
+    id: "block",
+    label: "Блок",
+    ctx: "always",
+    requirePlayer: true,
+    options: [
+      { action: "block", label: "#", tone: "good" },
+      { action: "block_touch", label: "0", tone: "neutral" },
+      { action: "block_error", label: "−", tone: "bad" },
+    ],
+  },
+  {
+    id: "opp_attack",
+    label: "Ат.OPP",
+    ctx: "always",
+    requirePlayer: false,
+    action: "opp_point",
+    tone: "bad",
+  },
+  {
+    id: "opp_error",
+    label: "Гр.OPP",
+    ctx: "always",
+    requirePlayer: false,
+    action: "opp_error",
+    tone: "good",
+  },
+  {
+    id: "indiv_error",
+    label: "Гр.Инд",
+    ctx: "always",
+    requirePlayer: true,
+    action: "indiv_error",
+    tone: "bad",
+  },
 ];
 
-export const MATCH_STAT_SIDE_RIGHT = [
-  { action: "dig", label: "Защита", tone: "neutral", ctx: "always" },
-  { action: "pass_3", label: "#", tone: "good", ctx: "receive" },
-  { action: "pass_2", label: "+", tone: "good", ctx: "receive" },
-  { action: "pass_1", label: "−", tone: "neutral", ctx: "receive" },
-  { action: "pass_error", label: "Гр.Пос", tone: "bad", ctx: "receive" },
+export const MATCH_STAT_GROUPS_RIGHT = [
+  {
+    id: "pass",
+    label: "Поср.",
+    ctx: "receive",
+    requirePlayer: true,
+    options: [
+      { action: "pass_3", label: "#", tone: "good" },
+      { action: "pass_2", label: "+", tone: "good" },
+      { action: "pass_1", label: "−", tone: "neutral" },
+      { action: "pass_error", label: "Гр", tone: "bad" },
+    ],
+  },
+  {
+    id: "set",
+    label: "Вдиг.",
+    ctx: "always",
+    requirePlayer: true,
+    options: [
+      { action: "set_hash", label: "#", tone: "good" },
+      { action: "set_plus", label: "+", tone: "good" },
+      { action: "set_minus", label: "−", tone: "neutral" },
+      { action: "set_error", label: "Гр", tone: "bad" },
+    ],
+  },
+  {
+    id: "dig",
+    label: "Защита",
+    ctx: "always",
+    requirePlayer: true,
+    options: [
+      { action: "dig_plus", label: "+", tone: "good" },
+      { action: "dig_zero", label: "0", tone: "neutral" },
+      { action: "dig_minus", label: "−", tone: "neutral" },
+    ],
+  },
+  {
+    id: "free_ball",
+    label: "Free",
+    ctx: "always",
+    requirePlayer: true,
+    action: "free_ball",
+    tone: "neutral",
+  },
 ];
+
+/** Плосък списък за video coding / обратна съвместимост. */
+function flattenGroups(groups) {
+  const out = [];
+  for (const g of groups) {
+    if (g.options?.length) {
+      for (const opt of g.options) {
+        out.push({ action: opt.action, label: `${g.label} ${opt.label}`, tone: opt.tone, ctx: g.ctx });
+      }
+    } else if (g.action) {
+      out.push({ action: g.action, label: g.label, tone: g.tone || "neutral", ctx: g.ctx });
+    }
+  }
+  return out;
+}
+
+export const MATCH_STAT_SIDE_LEFT = flattenGroups(MATCH_STAT_GROUPS_LEFT);
+export const MATCH_STAT_SIDE_RIGHT = flattenGroups(MATCH_STAT_GROUPS_RIGHT);
 
 export const MATCH_ACTION_LABEL = {
-  kill: "Атака+",
-  attack_zero: "Атака 0 (продължава)",
-  ace: "Ас",
-  serve_in: "Сервис в игра (продължава)",
-  block: "Блок+",
-  attack_error: "Атака−",
+  kill: "Атака #",
+  attack_zero: "Атака 0",
+  attack_error: "Атака −",
+  ace: "Ас #",
+  serve_in: "Сервис 0",
   error: "Грешка сервис",
+  block: "Блок #",
+  block_touch: "Блок touch / 0",
+  block_error: "Блок −",
   dig: "Защита",
+  dig_plus: "Защита +",
+  dig_zero: "Защита 0",
+  dig_minus: "Защита −",
+  set_hash: "Вдигане #",
+  set_plus: "Вдигане +",
+  set_minus: "Вдигане −",
+  set_error: "Грешка вдигане",
   pass_1: "Пос. −",
   pass_2: "Пос. +",
   pass_3: "Пос. #",
   pass_error: "Грешка поср.",
-  opp_point: "Точка за противника (атака / блок-аут)",
+  free_ball: "Free ball",
+  opp_point: "Атака / точка на противника",
   our_point: "Точка НИЕ",
   opp_error: "Грешка на противника",
   team_error: "Отборна грешка",
@@ -57,6 +174,8 @@ export const SCORE_ACTIONS = new Set([
   "opp_point",
   "team_error",
   "indiv_error",
+  "block_error",
+  "set_error",
 ]);
 
 /** Посрещане #/+/- и защита — само статистика, без точка и без ротация. */
@@ -73,35 +192,101 @@ export function actionEnabledForPhase(ctx, phase) {
   return true;
 }
 
-function SideCol({ items, side, disabled, phase, onStat, extraTop = null, requirePlayer = false }) {
+const NO_PLAYER_ACTIONS = new Set([
+  "opp_error",
+  "opp_point",
+  "ace",
+  "serve_in",
+  "error",
+  "our_point",
+]);
+
+function SideCol({
+  groups,
+  side,
+  disabled,
+  phase,
+  onStat,
+  extraTop = null,
+  requirePlayer = false,
+  openGroupId,
+  onToggleGroup,
+}) {
   return (
     <div className={`matchLiveSideCol matchLiveSideCol--${side}`} role="group" aria-label={`Статистика ${side}`}>
       {extraTop}
-      {items.map((it) => {
-        const ctxOk = actionEnabledForPhase(it.ctx, phase);
-        const needsPlayer =
-          requirePlayer &&
-          !["opp_error", "ace", "serve_in", "error", "our_point", "opp_point"].includes(it.action);
-        const isOff = disabled || !ctxOk || needsPlayer;
+      {groups.map((g) => {
+        const ctxOk = actionEnabledForPhase(g.ctx, phase);
+        const groupNeedsPlayer = Boolean(g.requirePlayer) && requirePlayer;
+        const isOpen = openGroupId === g.id;
+        const hasOptions = Array.isArray(g.options) && g.options.length > 0;
+
+        if (!hasOptions) {
+          const action = g.action;
+          const needsPlayer = requirePlayer && !NO_PLAYER_ACTIONS.has(action);
+          const isOff = disabled || !ctxOk || needsPlayer;
+          return (
+            <button
+              key={g.id}
+              type="button"
+              className={`matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--${g.tone || "neutral"}${
+                ctxOk ? "" : " is-ctxOff"
+              }`}
+              disabled={isOff}
+              onClick={() => onStat?.(action)}
+              title={
+                needsPlayer
+                  ? "Първо избери състезател от корта"
+                  : ctxOk
+                    ? MATCH_ACTION_LABEL[action] || g.label
+                    : `${MATCH_ACTION_LABEL[action] || g.label} (не за тази фаза)`
+              }
+            >
+              {g.label}
+            </button>
+          );
+        }
+
+        const isOff = disabled || !ctxOk || groupNeedsPlayer;
         return (
-          <button
-            key={it.action}
-            type="button"
-            className={`matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--${it.tone}${
-              it.label.length <= 2 ? " matchLiveStatBtn--sym" : ""
-            }${ctxOk ? "" : " is-ctxOff"}`}
-            disabled={isOff}
-            onClick={() => onStat?.(it.action)}
-            title={
-              needsPlayer
-                ? "Първо избери състезател от корта (червено)"
-                : ctxOk
-                  ? MATCH_ACTION_LABEL[it.action] || it.label
-                  : `${MATCH_ACTION_LABEL[it.action] || it.label} (не за тази фаза)`
-            }
-          >
-            {it.label}
-          </button>
+          <div key={g.id} className={`matchLiveStatGroup${isOpen ? " is-open" : ""}`}>
+            <button
+              type="button"
+              className={`matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--group${ctxOk ? "" : " is-ctxOff"}${
+                isOpen ? " is-open" : ""
+              }`}
+              disabled={isOff}
+              onClick={() => onToggleGroup?.(isOpen ? null : g.id)}
+              title={
+                groupNeedsPlayer
+                  ? "Първо избери състезател от корта"
+                  : ctxOk
+                    ? g.label
+                    : `${g.label} (не за тази фаза)`
+              }
+            >
+              {g.label}
+            </button>
+            {isOpen ? (
+              <div className="matchLiveStatOptions" role="group" aria-label={`${g.label} опции`}>
+                {g.options.map((opt) => (
+                  <button
+                    key={opt.action}
+                    type="button"
+                    className={`matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--${opt.tone} matchLiveStatBtn--sym`}
+                    disabled={disabled}
+                    onClick={() => {
+                      onToggleGroup?.(null);
+                      onStat?.(opt.action);
+                    }}
+                    title={MATCH_ACTION_LABEL[opt.action] || opt.label}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -113,14 +298,7 @@ function findCourtRole(court = [], ...roles) {
   return (court || []).find((p) => want.has(String(p?.role || "").toUpperCase())) || null;
 }
 
-function DoubleSubDrawer({
-  open,
-  onClose,
-  court = [],
-  bench = [],
-  busy,
-  onConfirm,
-}) {
+function DoubleSubDrawer({ open, onClose, court = [], bench = [], busy, onConfirm }) {
   const [setterInId, setSetterInId] = useState("");
   const [oppositeInId, setOppositeInId] = useState("");
 
@@ -242,15 +420,7 @@ function DoubleSubDrawer({
   );
 }
 
-function SubDrawer({
-  open,
-  onClose,
-  selected,
-  bench = [],
-  liberoId = null,
-  busy,
-  onConfirm,
-}) {
+function SubDrawer({ open, onClose, selected, bench = [], liberoId = null, busy, onConfirm }) {
   const [inId, setInId] = useState(null);
 
   const selectedIsLibero =
@@ -349,9 +519,10 @@ export default function MatchLiveSideStats({
 }) {
   const [subOpen, setSubOpen] = useState(false);
   const [doubleOpen, setDoubleOpen] = useState(false);
+  const [openGroupId, setOpenGroupId] = useState(null);
 
-  const leftItems = useMemo(() => MATCH_STAT_SIDE_LEFT, []);
-  const rightItems = useMemo(() => MATCH_STAT_SIDE_RIGHT, []);
+  const leftGroups = useMemo(() => MATCH_STAT_GROUPS_LEFT, []);
+  const rightGroups = useMemo(() => MATCH_STAT_GROUPS_RIGHT, []);
   const doubleActive = Boolean(doubleSub?.active);
 
   const subBtn = onSub ? (
@@ -403,12 +574,14 @@ export default function MatchLiveSideStats({
   return (
     <div className="matchLiveCourtRow">
       <SideCol
-        items={leftItems}
+        groups={leftGroups}
         side="left"
         disabled={disabled}
         phase={phase}
         onStat={onStat}
         requirePlayer={!selected}
+        openGroupId={openGroupId}
+        onToggleGroup={setOpenGroupId}
       />
       <div className="matchLiveCourtMain">
         <div className={`matchLiveSelected matchLiveSideSelected${selected ? " is-picked" : ""}`}>
@@ -451,12 +624,14 @@ export default function MatchLiveSideStats({
         </div>
       </div>
       <SideCol
-        items={rightItems}
+        groups={rightGroups}
         side="right"
         disabled={disabled}
         phase={phase}
         onStat={onStat}
         requirePlayer={!selected}
+        openGroupId={openGroupId}
+        onToggleGroup={setOpenGroupId}
         extraTop={
           <>
             {subBtn}

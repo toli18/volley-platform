@@ -36,12 +36,22 @@ ACTION_FIELD = {
     MatchStatAction.serve_in: "serve_in",
     MatchStatAction.error: "serve_err",
     MatchStatAction.block: "blocks",
+    MatchStatAction.block_touch: "blocks",  # touch брои като блоков опит в box score
+    MatchStatAction.block_error: "indiv_err",
     MatchStatAction.dig: "digs",
+    MatchStatAction.dig_plus: "digs",
+    MatchStatAction.dig_zero: "digs",
+    MatchStatAction.dig_minus: "digs",
+    MatchStatAction.free_ball: "digs",
     MatchStatAction.pass_3: "pass_hash",
     MatchStatAction.pass_2: "pass_plus",
     MatchStatAction.pass_1: "pass_minus",
     MatchStatAction.pass_error: "pass_err",
     MatchStatAction.pass_0: "pass_err",
+    MatchStatAction.set_hash: "pass_hash",  # временно в pass колони до отделен set box
+    MatchStatAction.set_plus: "pass_plus",
+    MatchStatAction.set_minus: "pass_minus",
+    MatchStatAction.set_error: "indiv_err",
     MatchStatAction.team_error: "indiv_err",  # legacy → същата колона
     MatchStatAction.indiv_error: "indiv_err",
     MatchStatAction.substitution: "subs",

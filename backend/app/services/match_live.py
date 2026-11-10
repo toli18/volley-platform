@@ -19,10 +19,15 @@ POINT_FOR_OPP = {
     MatchStatAction.opp_point,
     MatchStatAction.team_error,
     MatchStatAction.indiv_error,
+    MatchStatAction.block_error,
+    MatchStatAction.set_error,
 }
-# pass / dig / attack_zero / serve_in - качество или опит без край на раллито
+# pass / dig / attack_zero / serve_in / set / block_touch - качество без край на раллито
 NO_POINT_ACTIONS = {
     MatchStatAction.dig,
+    MatchStatAction.dig_plus,
+    MatchStatAction.dig_zero,
+    MatchStatAction.dig_minus,
     MatchStatAction.pass_0,
     MatchStatAction.pass_1,
     MatchStatAction.pass_2,
@@ -30,6 +35,10 @@ NO_POINT_ACTIONS = {
     MatchStatAction.free_ball,
     MatchStatAction.attack_zero,
     MatchStatAction.serve_in,
+    MatchStatAction.block_touch,
+    MatchStatAction.set_hash,
+    MatchStatAction.set_plus,
+    MatchStatAction.set_minus,
 }
 
 

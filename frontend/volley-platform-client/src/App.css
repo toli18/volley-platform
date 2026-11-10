@@ -10628,6 +10628,25 @@ body:has(.publicWatchPage--fs) {
   flex: 0 0 auto;
   min-height: 36px !important;
 }
+.matchLiveStatGroup {
+  display: grid;
+  gap: 4px;
+}
+.matchLiveStatOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.matchLiveStatBtn--group {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+}
+.matchLiveStatBtn--group.is-open {
+  background: #0f766e;
+  border-color: #5eead4;
+  color: #ecfdf5;
+}
 .matchLiveStatBtn--sub {
   background: #1e3a5f;
   color: #e2e8f0;

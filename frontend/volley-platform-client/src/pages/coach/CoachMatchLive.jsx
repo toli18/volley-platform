@@ -99,18 +99,26 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
         row.serve_err += 1;
         break;
       case "block":
+      case "block_touch":
         row.blocks += 1;
         break;
       case "dig":
+      case "dig_plus":
+      case "dig_zero":
+      case "dig_minus":
+      case "free_ball":
         row.digs += 1;
         break;
       case "pass_3":
+      case "set_hash":
         row.pass_hash += 1;
         break;
       case "pass_2":
+      case "set_plus":
         row.pass_plus += 1;
         break;
       case "pass_1":
+      case "set_minus":
         row.pass_minus += 1;
         break;
       case "pass_error":
@@ -118,6 +126,8 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
         break;
       case "indiv_error":
       case "team_error":
+      case "block_error":
+      case "set_error":
         row.indiv_err = (row.indiv_err || 0) + 1;
         break;
       default:
