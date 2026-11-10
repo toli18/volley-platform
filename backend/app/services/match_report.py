@@ -22,6 +22,10 @@ def _empty_counts() -> dict[str, int]:
         "pass_plus": 0,
         "pass_minus": 0,
         "pass_err": 0,
+        "set_hash": 0,
+        "set_plus": 0,
+        "set_minus": 0,
+        "set_err": 0,
         "team_err": 0,
         "indiv_err": 0,
         "subs": 0,
@@ -48,10 +52,10 @@ ACTION_FIELD = {
     MatchStatAction.pass_1: "pass_minus",
     MatchStatAction.pass_error: "pass_err",
     MatchStatAction.pass_0: "pass_err",
-    MatchStatAction.set_hash: "pass_hash",  # временно в pass колони до отделен set box
-    MatchStatAction.set_plus: "pass_plus",
-    MatchStatAction.set_minus: "pass_minus",
-    MatchStatAction.set_error: "indiv_err",
+    MatchStatAction.set_hash: "set_hash",
+    MatchStatAction.set_plus: "set_plus",
+    MatchStatAction.set_minus: "set_minus",
+    MatchStatAction.set_error: "set_err",
     MatchStatAction.team_error: "indiv_err",  # legacy → същата колона
     MatchStatAction.indiv_error: "indiv_err",
     MatchStatAction.substitution: "subs",
@@ -82,6 +86,10 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_plus = int(counts.get("pass_plus", 0))
     pass_minus = int(counts.get("pass_minus", 0))
     pass_err = int(counts.get("pass_err", 0))
+    set_hash = int(counts.get("set_hash", 0))
+    set_plus = int(counts.get("set_plus", 0))
+    set_minus = int(counts.get("set_minus", 0))
+    set_err = int(counts.get("set_err", 0))
     team_err = int(counts.get("team_err", 0))
     indiv_err = int(counts.get("indiv_err", 0)) + team_err
 
@@ -92,8 +100,12 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     pass_points = pass_hash * 3 + pass_plus * 2 + pass_minus * 1
     pass_avg = round(pass_points / pass_total, 2) if pass_total else None
 
+    set_total = set_hash + set_plus + set_minus + set_err
+    set_points = set_hash * 3 + set_plus * 2 + set_minus * 1
+    set_avg = round(set_points / set_total, 2) if set_total else None
+
     points = kills + aces + blocks
-    errors = attack_err + serve_err + pass_err + indiv_err
+    errors = attack_err + serve_err + pass_err + set_err + indiv_err
 
     summary_bits: list[str] = []
     if kills:
@@ -118,6 +130,10 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"поср. #{pass_hash}/+{pass_plus}/−{pass_minus}/гр{pass_err}")
         if pass_avg is not None:
             summary_bits.append(f"ср. поср. {pass_avg}")
+    if set_total:
+        summary_bits.append(f"вдиг. #{set_hash}/+{set_plus}/−{set_minus}/гр{set_err}")
+        if set_avg is not None:
+            summary_bits.append(f"ср. вдиг. {set_avg}")
     subs = int(counts.get("subs", 0))
     if subs:
         summary_bits.append(f"{subs} смени")
@@ -126,10 +142,16 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         "attack_zero": attack_zero,
         "team_err": team_err,
         "indiv_err": indiv_err,
+        "set_hash": set_hash,
+        "set_plus": set_plus,
+        "set_minus": set_minus,
+        "set_err": set_err,
         "attack_attempts": attack_att,
         "attack_pct": attack_pct,
         "pass_total": pass_total,
         "pass_avg": pass_avg,
+        "set_total": set_total,
+        "set_avg": set_avg,
         "points": points,
         "errors": errors,
         "summary": " · ".join(summary_bits) if summary_bits else "няма записи",
@@ -211,6 +233,14 @@ def build_insights(athletes: list[dict[str, Any]], *, sets_won_us: int, sets_won
         lines.append(
             f"Най-добро посрещане: #{best.get('jersey_number')} {best.get('athlete_name') or ''} "
             f"(ср. {best['pass_avg']} от {best['pass_total']})"
+        )
+
+    setters = [a for a in athletes if int(a.get("set_total") or 0) >= 3 and a.get("set_avg") is not None]
+    if setters:
+        best_set = max(setters, key=lambda a: float(a["set_avg"]))
+        lines.append(
+            f"Най-добро вдигане: #{best_set.get('jersey_number')} {best_set.get('athlete_name') or ''} "
+            f"(ср. {best_set['set_avg']} от {best_set['set_total']})"
         )
 
     with_err = [a for a in athletes if int(a.get("errors") or 0) > 0]

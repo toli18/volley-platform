@@ -163,11 +163,16 @@ function StatTable({ rows }) {
             <th title="Грешки сервис">Ср−</th>
             <th title="Блок">Бл</th>
             <th title="Защита">Защ</th>
-            <th title="Посрещане #">#</th>
-            <th title="Посрещане +">+</th>
-            <th title="Посрещане −">−</th>
-            <th title="Грешка посрещане">П−</th>
+            <th title="Посрещане #">П#</th>
+            <th title="Посрещане +">П+</th>
+            <th title="Посрещане −">П−</th>
+            <th title="Грешка посрещане">Пгр</th>
             <th title="Средно посрещане">Поср</th>
+            <th title="Вдигане #">В#</th>
+            <th title="Вдигане +">В+</th>
+            <th title="Вдигане −">В−</th>
+            <th title="Грешка вдигане">Вгр</th>
+            <th title="Средно вдигане">Вдиг</th>
             <th title="Индивидуална грешка (мрежа, улавяне…)">Инд−</th>
             <th>Гр</th>
             <th>Разтълкуване</th>
@@ -193,6 +198,11 @@ function StatTable({ rows }) {
               <td>{cell(row.pass_minus)}</td>
               <td>{cell(row.pass_err)}</td>
               <td>{row.pass_avg != null ? row.pass_avg : "·"}</td>
+              <td>{cell(row.set_hash)}</td>
+              <td>{cell(row.set_plus)}</td>
+              <td>{cell(row.set_minus)}</td>
+              <td>{cell(row.set_err)}</td>
+              <td>{row.set_avg != null ? row.set_avg : "·"}</td>
               <td>{cell(row.indiv_err)}</td>
               <td>{cell(row.errors)}</td>
               <td className="matchLiveStatTableSum">{row.summary || "—"}</td>

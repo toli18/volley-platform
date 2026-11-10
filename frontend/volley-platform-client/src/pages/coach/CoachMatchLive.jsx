@@ -38,6 +38,10 @@ const EMPTY_ROW = () => ({
   pass_plus: 0,
   pass_minus: 0,
   pass_err: 0,
+  set_hash: 0,
+  set_plus: 0,
+  set_minus: 0,
+  set_err: 0,
   indiv_err: 0,
 });
 
@@ -110,24 +114,32 @@ function buildStatTable({ roster = [], court = [], libero = null, events = [] })
         row.digs += 1;
         break;
       case "pass_3":
-      case "set_hash":
         row.pass_hash += 1;
         break;
       case "pass_2":
-      case "set_plus":
         row.pass_plus += 1;
         break;
       case "pass_1":
-      case "set_minus":
         row.pass_minus += 1;
         break;
       case "pass_error":
         row.pass_err += 1;
         break;
+      case "set_hash":
+        row.set_hash = (row.set_hash || 0) + 1;
+        break;
+      case "set_plus":
+        row.set_plus = (row.set_plus || 0) + 1;
+        break;
+      case "set_minus":
+        row.set_minus = (row.set_minus || 0) + 1;
+        break;
+      case "set_error":
+        row.set_err = (row.set_err || 0) + 1;
+        break;
       case "indiv_error":
       case "team_error":
       case "block_error":
-      case "set_error":
         row.indiv_err = (row.indiv_err || 0) + 1;
         break;
       default:
@@ -152,6 +164,10 @@ function rowSummary(row) {
   const passTotal = row.pass_hash + row.pass_plus + row.pass_minus + row.pass_err;
   if (passTotal) {
     bits.push(`поср. #${row.pass_hash}/+${row.pass_plus}/−${row.pass_minus}/гр${row.pass_err}`);
+  }
+  const setTotal = (row.set_hash || 0) + (row.set_plus || 0) + (row.set_minus || 0) + (row.set_err || 0);
+  if (setTotal) {
+    bits.push(`вдиг. #${row.set_hash || 0}/+${row.set_plus || 0}/−${row.set_minus || 0}/гр${row.set_err || 0}`);
   }
   return bits.length ? bits.join(" · ") : "няма записи";
 }
@@ -906,7 +922,7 @@ export default function CoachMatchLive() {
               <div>
                 <strong>Статистика на мача</strong>
                 <div className="matchLiveStatsLegend">
-                  Атака + / 0 / − · Гр.Инд = мрежа / улавяне / двойно / линия · # + − посрещане
+                  Атака + / 0 / − · П# П+ П− посрещане · В# В+ В− вдигане · Инд− = мрежа / улавяне / двойно
                 </div>
               </div>
               <button type="button" className="matchLiveStatsClose" onClick={() => setStatsOpen(false)}>
@@ -929,10 +945,14 @@ export default function CoachMatchLive() {
                     <th title="Грешки сервис">Ср−</th>
                     <th title="Блок">Бл</th>
                     <th title="Защита">Защ</th>
-                    <th title="Посрещане #">#</th>
-                    <th title="Посрещане +">+</th>
-                    <th title="Посрещане −">−</th>
-                    <th title="Грешка посрещане">П−</th>
+                    <th title="Посрещане #">П#</th>
+                    <th title="Посрещане +">П+</th>
+                    <th title="Посрещане −">П−</th>
+                    <th title="Грешка посрещане">Пгр</th>
+                    <th title="Вдигане #">В#</th>
+                    <th title="Вдигане +">В+</th>
+                    <th title="Вдигане −">В−</th>
+                    <th title="Грешка вдигане">Вгр</th>
                     <th title="Отборна / индивидуална грешка">Инд−</th>
                     <th>Разтълкуване</th>
                   </tr>
@@ -955,6 +975,10 @@ export default function CoachMatchLive() {
                       <td>{row.pass_plus || "·"}</td>
                       <td>{row.pass_minus || "·"}</td>
                       <td>{row.pass_err || "·"}</td>
+                      <td>{row.set_hash || "·"}</td>
+                      <td>{row.set_plus || "·"}</td>
+                      <td>{row.set_minus || "·"}</td>
+                      <td>{row.set_err || "·"}</td>
                       <td>{row.indiv_err || "·"}</td>
                       <td className="matchLiveStatTableSum">{rowSummary(row)}</td>
                     </tr>
