@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.roles import require_role
-from app.models import Athlete, User, UserRole
+from app.models import Athlete, Team, User, UserRole
 from app.models_matches import (
     Match,
     MatchFormat,
@@ -1090,6 +1090,8 @@ def match_report(
     """Full-match box score + short insights from all non-undone events."""
     _ensure_team_owner(db, team_id, current_user)
     match = _get_match(db, team_id, match_id)
+    team = db.query(Team).filter(Team.id == team_id).first()
+    team_name = (team.name if team else None) or None
 
     roster_rows = (
         db.query(MatchRosterPlayer, Athlete)
@@ -1277,6 +1279,7 @@ def match_report(
     return MatchReportRead(
         match_id=match.id,
         team_id=match.team_id,
+        team_name=team_name,
         opponent_name=match.opponent_name,
         match_date=match.match_date,
         venue=match.venue,

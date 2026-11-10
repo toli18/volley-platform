@@ -224,7 +224,7 @@ def build_insights(athletes: list[dict[str, Any]], *, sets_won_us: int, sets_won
         top = max(with_points, key=lambda a: int(a["points"]))
         lines.append(
             f"Най-много точки: #{top.get('jersey_number')} {top.get('athlete_name') or ''} "
-            f"({top['points']} — атака/ас/блок)"
+            f"({top['points']}, атака/ас/блок)"
         )
 
     receivers = [a for a in athletes if int(a.get("pass_total") or 0) >= 3 and a.get("pass_avg") is not None]
@@ -256,7 +256,7 @@ def build_insights(athletes: list[dict[str, Any]], *, sets_won_us: int, sets_won
         best_att = max(attackers, key=lambda a: float(a["attack_pct"]))
         lines.append(
             f"Най-ефективна атака: #{best_att.get('jersey_number')} {best_att.get('athlete_name') or ''} "
-            f"({best_att['attack_pct']}% — {best_att['kills']}/{best_att['attack_attempts']})"
+            f"({best_att['attack_pct']}%, {best_att['kills']}/{best_att['attack_attempts']})"
         )
 
     if len(lines) == 1:
@@ -373,16 +373,16 @@ def enrich_insights_with_side_out(lines: list[str], analysis: dict[str, Any]) ->
     so = analysis.get("side_out") or {}
     if so.get("side_out_attempts"):
         pct = so.get("side_out_pct")
-        pct_s = f"{pct}%" if pct is not None else "—"
+        pct_s = f"{pct}%" if pct is not None else "·"
         lines.append(
-            f"Side-out: {so['side_out_won']}/{so['side_out_attempts']} ({pct_s}) — "
+            f"Side-out: {so['side_out_won']}/{so['side_out_attempts']} ({pct_s}), "
             f"точки при посрещане"
         )
     if so.get("break_attempts"):
         pct = so.get("break_pct")
-        pct_s = f"{pct}%" if pct is not None else "—"
+        pct_s = f"{pct}%" if pct is not None else "·"
         lines.append(
-            f"Break-point: {so['break_won']}/{so['break_attempts']} ({pct_s}) — "
+            f"Break-point: {so['break_won']}/{so['break_attempts']} ({pct_s}), "
             f"точки при наш сервис"
         )
 

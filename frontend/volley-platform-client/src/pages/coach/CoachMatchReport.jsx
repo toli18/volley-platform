@@ -4,18 +4,21 @@ import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { MATCH_FORMATS, MATCH_STATUS_LABEL, positionShort, shortPlayerName } from "../../utils/matchPositions";
+import {
+  attackEffPct,
+  buildInsightChips,
+  fmtCell,
+  fmtDiff,
+  fmtPct,
+  num,
+  passPerfPct,
+  passPosPct,
+  serveTotal,
+  sumAthletes,
+} from "../../utils/matchReportMetrics";
+import { openMatchReportPdf } from "../../utils/matchReportPdf";
 import { EmptyState } from "../../components/ui";
 import { normalizeError } from "../../utils/normalizeError";
-
-function cell(v) {
-  if (v == null || v === "" || v === 0) return "·";
-  return v;
-}
-
-function pctLabel(v) {
-  if (v == null) return "—";
-  return `${v}%`;
-}
 
 function SideOutCards({ sideOut }) {
   if (!sideOut) return null;
@@ -29,15 +32,15 @@ function SideOutCards({ sideOut }) {
         <strong>
           {sideOut.side_out_won || 0}/{sideOut.side_out_attempts || 0}
         </strong>
-        <span className="matchReportSideOutPct">{pctLabel(sideOut.side_out_pct)}</span>
+        <span className="matchReportSideOutPct">{fmtPct(sideOut.side_out_pct)}</span>
         <span className="matchReportSideOutHint">точки при посрещане</span>
       </div>
       <div className="matchReportSideOutCard">
-        <span className="matchReportSideOutLabel">Break-point</span>
+        <span className="matchReportSideOutLabel">Break Point</span>
         <strong>
           {sideOut.break_won || 0}/{sideOut.break_attempts || 0}
         </strong>
-        <span className="matchReportSideOutPct">{pctLabel(sideOut.break_pct)}</span>
+        <span className="matchReportSideOutPct">{fmtPct(sideOut.break_pct)}</span>
         <span className="matchReportSideOutHint">точки при наш сервис</span>
       </div>
       <div className="matchReportSideOutCard">
@@ -45,81 +48,55 @@ function SideOutCards({ sideOut }) {
         <strong>
           {sideOut.points_for || 0}:{sideOut.points_against || 0}
         </strong>
-        <span className="matchReportSideOutPct">
-          {(sideOut.points_for || 0) - (sideOut.points_against || 0) >= 0 ? "+" : ""}
-          {(sideOut.points_for || 0) - (sideOut.points_against || 0)}
-        </span>
+        <span className="matchReportSideOutPct">{fmtDiff(num(sideOut.points_for) - num(sideOut.points_against))}</span>
         <span className="matchReportSideOutHint">за нас : противник</span>
       </div>
     </div>
   );
 }
 
-function RotationTable({ rows }) {
+function RotationStrip({ rows }) {
   if (!rows?.length) return null;
   return (
     <div className="matchReportRotation">
-      <h3>По ротация</h3>
-      <div className="matchReportTableWrap">
-        <table className="matchLiveStatTable matchReportTable">
-          <thead>
-            <tr>
-              <th>R</th>
-              <th title="Точки за нас">За нас</th>
-              <th title="Точки против">Срещу</th>
-              <th title="Разлика">Diff</th>
-              <th title="Side-out">SO</th>
-              <th title="Side-out %">SO%</th>
-              <th title="Break-point">BP</th>
-              <th title="Break-point %">BP%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.rotation} className={row.point_diff > 0 ? "is-good" : row.point_diff < 0 ? "is-bad" : ""}>
-                <td>
-                  <strong>R{row.rotation}</strong>
-                </td>
-                <td>{cell(row.points_for)}</td>
-                <td>{cell(row.points_against)}</td>
-                <td>
-                  {row.point_diff > 0 ? "+" : ""}
-                  {row.point_diff}
-                </td>
-                <td>
-                  {row.side_out_won || 0}/{row.side_out_attempts || 0}
-                </td>
-                <td>{pctLabel(row.side_out_pct)}</td>
-                <td>
-                  {row.break_won || 0}/{row.break_attempts || 0}
-                </td>
-                <td>{pctLabel(row.break_pct)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="matchReportSectionHead">
+        <h3>Ротации</h3>
+        <span className="matchReportSectionHint">разлика точки за/срещу</span>
+      </div>
+      <div className="matchReportRotStrip">
+        {rows.map((row) => {
+          const diff = num(row.point_diff);
+          const tone = diff > 0 ? "is-good" : diff < 0 ? "is-bad" : "";
+          return (
+            <div key={row.rotation} className={`matchReportRotCell ${tone}`}>
+              <span className="matchReportRotLab">R{row.rotation}</span>
+              <strong>{fmtDiff(diff)}</strong>
+              <span className="matchReportRotPts">
+                {row.points_for || 0}:{row.points_against || 0}
+              </span>
+              <span className="matchReportRotSo">
+                SO {fmtPct(row.side_out_pct)} · BP {fmtPct(row.break_pct)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function playerLabel(jersey, name) {
-  const short = shortPlayerName(name) || name || "—";
+  const short = shortPlayerName(name) || name || "·";
   return jersey ? `#${jersey} ${short}` : short;
 }
 
 function SubstitutionsList({ rows, showSet = true }) {
-  if (!rows?.length) {
-    return (
-      <div className="matchReportSubs">
-        <h3>Смени</h3>
-        <p className="coachMobileMuted">Няма записани смени.</p>
-      </div>
-    );
-  }
+  if (!rows?.length) return null;
   return (
-    <div className="matchReportSubs">
-      <h3>Смени ({rows.length})</h3>
+    <details className="matchReportSubs" open={rows.length <= 12}>
+      <summary>
+        Смени <strong>({rows.length})</strong>
+      </summary>
       <ol className="matchReportSubsList">
         {rows.map((row) => (
           <li key={row.id || `${row.set_number}-${row.out_athlete_id}-${row.in_athlete_id}-${row.our_score}`}>
@@ -138,7 +115,7 @@ function SubstitutionsList({ rows, showSet = true }) {
           </li>
         ))}
       </ol>
-    </div>
+    </details>
   );
 }
 
@@ -146,68 +123,106 @@ function StatTable({ rows }) {
   if (!rows?.length) {
     return <p className="coachMobileMuted">Няма записи за този изглед.</p>;
   }
+  const totals = sumAthletes(rows);
+
+  const renderPlayer = (row, key) => (
+    <tr key={key}>
+      <td>{fmtCell(row.jersey_number)}</td>
+      <td className="matchLiveStatTableName">{shortPlayerName(row.athlete_name) || row.athlete_name}</td>
+      <td>{positionShort(row.position)}</td>
+      <td className="matchReportColStrong">{fmtCell(row.points)}</td>
+      <td>{fmtCell(serveTotal(row))}</td>
+      <td>{fmtCell(row.serve_err)}</td>
+      <td>{fmtCell(row.aces)}</td>
+      <td>{fmtCell(row.pass_total)}</td>
+      <td>{fmtCell(row.pass_err)}</td>
+      <td>{fmtPct(passPosPct(row))}</td>
+      <td>{fmtPct(passPerfPct(row))}</td>
+      <td>{row.pass_avg != null ? row.pass_avg : "·"}</td>
+      <td>{fmtCell(row.attack_attempts)}</td>
+      <td>{fmtCell(row.attack_err)}</td>
+      <td>{fmtCell(row.kills)}</td>
+      <td>{fmtPct(row.attack_pct)}</td>
+      <td>{fmtPct(attackEffPct(row))}</td>
+      <td>{fmtCell(row.blocks)}</td>
+      <td>{fmtCell(row.set_total)}</td>
+      <td>{fmtCell(row.set_hash)}</td>
+      <td>{fmtCell(row.set_plus)}</td>
+      <td>{fmtCell(row.set_minus)}</td>
+      <td>{row.set_avg != null ? row.set_avg : "·"}</td>
+      <td>{fmtCell(row.errors)}</td>
+    </tr>
+  );
+
   return (
     <div className="matchReportTableWrap">
-      <table className="matchLiveStatTable matchReportTable">
+      <table className="matchLiveStatTable matchReportTable matchReportBox">
         <thead>
+          <tr className="matchReportGroupRow">
+            <th colSpan={3} />
+            <th>Тч</th>
+            <th colSpan={3}>Сервис</th>
+            <th colSpan={5}>Посрещане</th>
+            <th colSpan={5}>Атака</th>
+            <th>Бл</th>
+            <th colSpan={5}>Вдигане</th>
+            <th>Гр</th>
+          </tr>
           <tr>
             <th>#</th>
             <th>Име</th>
             <th>Поз</th>
-            <th title="Точки (атака+ас+блок)">Тч</th>
-            <th title="Точки атака">Ат+</th>
-            <th title="Атака 0 (продължава)">Ат0</th>
-            <th title="Грешки атака">Ат−</th>
-            <th title="% атака (точки / опити)">Ат%</th>
+            <th title="Точки (атака + ас + блок)">Tot</th>
+            <th title="Общо сервирания">Tot</th>
+            <th title="Грешки сервис">Err</th>
             <th title="Асове">Ас</th>
-            <th title="Грешки сервис">Ср−</th>
-            <th title="Блок">Бл</th>
-            <th title="Защита">Защ</th>
-            <th title="Посрещане #">П#</th>
-            <th title="Посрещане +">П+</th>
-            <th title="Посрещане −">П−</th>
-            <th title="Грешка посрещане">Пгр</th>
-            <th title="Средно посрещане">Поср</th>
-            <th title="Вдигане #">В#</th>
-            <th title="Вдигане +">В+</th>
-            <th title="Вдигане −">В−</th>
-            <th title="Грешка вдигане">Вгр</th>
-            <th title="Средно вдигане">Вдиг</th>
-            <th title="Индивидуална грешка (мрежа, улавяне…)">Инд−</th>
-            <th>Гр</th>
-            <th>Разтълкуване</th>
+            <th title="Общо посрещания">Tot</th>
+            <th title="Грешки посрещане">Err</th>
+            <th title="Позитивно (# + +)">Pos%</th>
+            <th title="Перфектно (#)">Prf%</th>
+            <th title="Средно посрещане">Ср</th>
+            <th title="Опити атака">Tot</th>
+            <th title="Грешки атака">Err</th>
+            <th title="Точки атака">Pt</th>
+            <th title="% точки / опити">Pt%</th>
+            <th title="Ефективност (точки − грешки) / опити">Eff%</th>
+            <th title="Блок точки">Pt</th>
+            <th title="Общо вдигания">Tot</th>
+            <th title="Вдигане #">#</th>
+            <th title="Вдигане +">+</th>
+            <th title="Вдигане −">−</th>
+            <th title="Средно вдигане">Ср</th>
+            <th title="Общо грешки">Tot</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.athlete_id}>
-              <td>{row.jersey_number}</td>
-              <td className="matchLiveStatTableName">{shortPlayerName(row.athlete_name) || row.athlete_name}</td>
-              <td>{positionShort(row.position)}</td>
-              <td>{cell(row.points)}</td>
-              <td>{cell(row.kills)}</td>
-              <td>{cell(row.attack_zero)}</td>
-              <td>{cell(row.attack_err)}</td>
-              <td>{row.attack_pct != null ? `${row.attack_pct}%` : "·"}</td>
-              <td>{cell(row.aces)}</td>
-              <td>{cell(row.serve_err)}</td>
-              <td>{cell(row.blocks)}</td>
-              <td>{cell(row.digs)}</td>
-              <td>{cell(row.pass_hash)}</td>
-              <td>{cell(row.pass_plus)}</td>
-              <td>{cell(row.pass_minus)}</td>
-              <td>{cell(row.pass_err)}</td>
-              <td>{row.pass_avg != null ? row.pass_avg : "·"}</td>
-              <td>{cell(row.set_hash)}</td>
-              <td>{cell(row.set_plus)}</td>
-              <td>{cell(row.set_minus)}</td>
-              <td>{cell(row.set_err)}</td>
-              <td>{row.set_avg != null ? row.set_avg : "·"}</td>
-              <td>{cell(row.indiv_err)}</td>
-              <td>{cell(row.errors)}</td>
-              <td className="matchLiveStatTableSum">{row.summary || "—"}</td>
-            </tr>
-          ))}
+          {rows.map((row) => renderPlayer(row, row.athlete_id))}
+          <tr className="matchReportTotalsRow">
+            <td colSpan={3}>
+              <strong>Общо отбор</strong>
+            </td>
+            <td className="matchReportColStrong">{fmtCell(totals.points)}</td>
+            <td>{fmtCell(serveTotal(totals))}</td>
+            <td>{fmtCell(totals.serve_err)}</td>
+            <td>{fmtCell(totals.aces)}</td>
+            <td>{fmtCell(totals.pass_total)}</td>
+            <td>{fmtCell(totals.pass_err)}</td>
+            <td>{fmtPct(passPosPct(totals))}</td>
+            <td>{fmtPct(passPerfPct(totals))}</td>
+            <td>{totals.pass_avg != null ? totals.pass_avg : "·"}</td>
+            <td>{fmtCell(totals.attack_attempts)}</td>
+            <td>{fmtCell(totals.attack_err)}</td>
+            <td>{fmtCell(totals.kills)}</td>
+            <td>{fmtPct(totals.attack_pct)}</td>
+            <td>{fmtPct(attackEffPct(totals))}</td>
+            <td>{fmtCell(totals.blocks)}</td>
+            <td>{fmtCell(totals.set_total)}</td>
+            <td>{fmtCell(totals.set_hash)}</td>
+            <td>{fmtCell(totals.set_plus)}</td>
+            <td>{fmtCell(totals.set_minus)}</td>
+            <td>{totals.set_avg != null ? totals.set_avg : "·"}</td>
+            <td>{fmtCell(totals.errors)}</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -265,13 +280,25 @@ export default function CoachMatchReport() {
   const sideOut = tab === "all" ? report?.side_out : activeSet?.side_out;
   const byRotation = tab === "all" ? report?.by_rotation : activeSet?.by_rotation;
   const substitutions = tab === "all" ? report?.substitutions : activeSet?.substitutions;
+  const scopeLabel = tab === "all" ? "Целият мач" : `Гейм ${activeSet?.set_number || ""}`;
+
+  const chips = useMemo(
+    () => (report ? buildInsightChips(report, { sideOut, byRotation }) : []),
+    [report, sideOut, byRotation]
+  );
 
   if (loading) return <p className="coachMobileMuted">Зареждане на отчет...</p>;
   if (error) return <EmptyState title="Грешка" description={error} />;
   if (!report) return null;
 
   const wonLabel =
-    report.match_won_by === "us" ? "Победа" : report.match_won_by === "opp" ? "Загуба" : MATCH_STATUS_LABEL[report.status] || report.status;
+    report.match_won_by === "us"
+      ? "Победа"
+      : report.match_won_by === "opp"
+        ? "Загуба"
+        : MATCH_STATUS_LABEL[report.status] || report.status;
+
+  const teamTitle = report.team_name || "Наш отбор";
 
   return (
     <section className="matchReportPage">
@@ -280,19 +307,40 @@ export default function CoachMatchReport() {
           ← Мачове
         </Link>
         <div className="matchReportMeta">
-          <h2>vs {report.opponent_name || "противник"}</h2>
-          <p>
-            {formatLabel} · {report.sets_won_us}:{report.sets_won_opp} · {wonLabel} · {report.system}
+          <p className="matchReportBrand">Volley Platform · Tabellino</p>
+          <h2>
+            {teamTitle} <span className="matchReportVs">vs</span> {report.opponent_name || "противник"}
+          </h2>
+          <p className="matchReportScoreLine">
+            <strong>
+              {report.sets_won_us}:{report.sets_won_opp}
+            </strong>{" "}
+            · {wonLabel} · {formatLabel} · {report.system}
             {report.match_date ? ` · ${report.match_date}` : ""}
             {report.venue ? ` · ${report.venue}` : ""}
           </p>
         </div>
         <div className="matchReportTopActions">
+          <button
+            type="button"
+            className="matchReportLinkBtn matchReportLinkBtn--pdf"
+            onClick={() =>
+              openMatchReportPdf({
+                report,
+                athletes: rows,
+                sideOut,
+                byRotation,
+                scopeLabel,
+              })
+            }
+          >
+            PDF
+          </button>
           <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}`} className="matchReportLinkBtn">
             Настройки
           </Link>
           <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}/video`} className="matchReportLinkBtn">
-            Видео coding
+            Видео
           </Link>
           {report.status !== "finished" ? (
             <Link to={`/coach/teams/${teamIdNum}/matches/${matchIdNum}/live`} className="matchReportLinkBtn matchReportLinkBtn--live">
@@ -303,7 +351,7 @@ export default function CoachMatchReport() {
       </div>
 
       {(report.sets || []).length > 0 ? (
-        <div className="matchLiveSetStrip" aria-label="Резултат по геймове">
+        <div className="matchLiveSetStrip matchReportSetStrip" aria-label="Резултат по геймове">
           {(report.sets || []).map((s) => (
             <span key={s.set_number} className={s.status === "finished" ? "is-done" : "is-live"}>
               G{s.set_number} {s.our_score}:{s.opp_score}
@@ -312,15 +360,30 @@ export default function CoachMatchReport() {
         </div>
       ) : null}
 
-      <div className="matchReportInsights">
-        <h3>Изводи</h3>
-        <ul>
-          {(report.insights || []).map((line) => (
-            <li key={line}>{line}</li>
+      {chips.length ? (
+        <div className="matchReportChips" aria-label="Бързи изводи">
+          {chips.map((c) => (
+            <div key={c.id} className={`matchReportChip matchReportChip--${c.tone || "neutral"}`}>
+              <span className="matchReportChipLabel">{c.label}</span>
+              <strong>{c.value}</strong>
+              {c.sub ? <span className="matchReportChipSub">{c.sub}</span> : null}
+            </div>
           ))}
-        </ul>
-        <p className="matchReportEventCount">{report.event_count || 0} записани действия</p>
-      </div>
+        </div>
+      ) : null}
+
+      {(report.insights || []).length ? (
+        <details className="matchReportInsights">
+          <summary>
+            Изводи <span className="matchReportEventCount">· {report.event_count || 0} записа</span>
+          </summary>
+          <ul>
+            {(report.insights || []).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       <div className="matchReportTabs" role="tablist" aria-label="Филтър по гейм">
         <button
@@ -347,11 +410,15 @@ export default function CoachMatchReport() {
       </div>
 
       <SideOutCards sideOut={sideOut} />
-      <RotationTable rows={byRotation} />
-      <SubstitutionsList rows={substitutions || []} showSet={tab === "all"} />
+      <RotationStrip rows={byRotation} />
 
-      <h3 className="matchReportPlayersTitle">По състезател</h3>
+      <div className="matchReportSectionHead">
+        <h3 className="matchReportPlayersTitle">По състезател</h3>
+        <span className="matchReportSectionHint">Pos% = # + + · Prf% = # · Eff% = (Pt − Err) / Tot</span>
+      </div>
       <StatTable rows={rows} />
+
+      <SubstitutionsList rows={substitutions || []} showSet={tab === "all"} />
     </section>
   );
 }

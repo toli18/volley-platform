@@ -418,6 +418,7 @@ class MatchSetStatsRead(BaseModel):
 class MatchReportRead(BaseModel):
     match_id: int
     team_id: int
+    team_name: Optional[str] = None
     opponent_name: Optional[str] = None
     match_date: Optional[date] = None
     venue: Optional[str] = None
