@@ -1,1 +1,0 @@
-import{j as n,af as t}from"./index-CLF6gZMt.js";import{C as o,M as e,a as s}from"./CoachMenuParts-f2RqkFyj.js";function i(){return n.jsx(o,{title:"Моето съдържание",subtitle:"Лични упражнения и статии на едно място",children:n.jsx(e,{title:"Моето",children:t.map(a=>n.jsx(s,{to:a.to,label:a.label,hint:a.hint,accent:a.accent,icon:a.icon},a.id))})})}export{i as default};

@@ -49,6 +49,18 @@ export function fmtDiff(v) {
   return String(n);
 }
 
+export function blockTotal(row) {
+  const explicit = num(row.block_total);
+  if (explicit) return explicit;
+  return num(row.blocks) + num(row.block_touch) + num(row.block_err);
+}
+
+export function digTotal(row) {
+  const explicit = num(row.digs);
+  if (explicit) return explicit;
+  return num(row.dig_plus) + num(row.dig_zero) + num(row.dig_minus);
+}
+
 const SUM_KEYS = [
   "points",
   "kills",
@@ -59,7 +71,13 @@ const SUM_KEYS = [
   "serve_in",
   "serve_err",
   "blocks",
+  "block_touch",
+  "block_err",
+  "block_total",
   "digs",
+  "dig_plus",
+  "dig_zero",
+  "dig_minus",
   "pass_hash",
   "pass_plus",
   "pass_minus",
@@ -82,6 +100,8 @@ export function sumAthletes(rows = []) {
   tot.attack_pct = tot.attack_attempts
     ? round1((tot.kills / tot.attack_attempts) * 100)
     : null;
+  if (!tot.digs) tot.digs = tot.dig_plus + tot.dig_zero + tot.dig_minus;
+  if (!tot.block_total) tot.block_total = tot.blocks + tot.block_touch + tot.block_err;
   if (tot.pass_total) {
     const pts = tot.pass_hash * 3 + tot.pass_plus * 2 + tot.pass_minus;
     tot.pass_avg = round1(pts / tot.pass_total);
@@ -155,6 +175,17 @@ export function buildInsightChips(report, { sideOut, byRotation } = {}) {
       value: `#${top.jersey_number || "·"}`,
       sub: `${top.points} т.`,
       tone: "accent",
+    });
+  }
+
+  const oppErr = num(report?.opp_errors);
+  if (oppErr > 0) {
+    chips.push({
+      id: "oppErr",
+      label: "Гр. противник",
+      value: String(oppErr),
+      sub: num(report?.opp_points) > 0 ? `атака ${report.opp_points}` : "за нас",
+      tone: "good",
     });
   }
 

@@ -3,6 +3,8 @@
 import { MATCH_FORMATS, MATCH_STATUS_LABEL, positionShort, shortPlayerName } from "./matchPositions";
 import {
   attackEffPct,
+  blockTotal,
+  digTotal,
   fmtDiff,
   num,
   passPerfPct,
@@ -48,7 +50,13 @@ function playerRowsHtml(rows) {
         <td class="num">${cell(row.kills)}</td>
         <td class="num">${pct(row.attack_pct)}</td>
         <td class="num">${pct(attackEffPct(row))}</td>
+        <td class="num">${cell(blockTotal(row))}</td>
         <td class="num">${cell(row.blocks)}</td>
+        <td class="num">${cell(row.block_err)}</td>
+        <td class="num">${cell(digTotal(row))}</td>
+        <td class="num">${cell(row.dig_plus)}</td>
+        <td class="num">${cell(row.dig_zero)}</td>
+        <td class="num">${cell(row.dig_minus)}</td>
         <td class="num">${cell(row.set_total)}</td>
         <td class="num">${cell(row.set_hash)}</td>
         <td class="num">${cell(row.set_plus)}</td>
@@ -77,7 +85,13 @@ function totalsRowHtml(tot) {
     <td class="num">${cell(tot.kills)}</td>
     <td class="num">${pct(tot.attack_pct)}</td>
     <td class="num">${pct(attackEffPct(tot))}</td>
+    <td class="num">${cell(blockTotal(tot))}</td>
     <td class="num">${cell(tot.blocks)}</td>
+    <td class="num">${cell(tot.block_err)}</td>
+    <td class="num">${cell(digTotal(tot))}</td>
+    <td class="num">${cell(tot.dig_plus)}</td>
+    <td class="num">${cell(tot.dig_zero)}</td>
+    <td class="num">${cell(tot.dig_minus)}</td>
     <td class="num">${cell(tot.set_total)}</td>
     <td class="num">${cell(tot.set_hash)}</td>
     <td class="num">${cell(tot.set_plus)}</td>
@@ -197,6 +211,8 @@ export function openMatchReportPdf({
     <div><span>Side-out</span><strong>${esc(so.side_out_won || 0)}/${esc(so.side_out_attempts || 0)} ${so.side_out_pct != null ? esc(`(${so.side_out_pct}%)`) : ""}</strong></div>
     <div><span>Break-point</span><strong>${esc(so.break_won || 0)}/${esc(so.break_attempts || 0)} ${so.break_pct != null ? esc(`(${so.break_pct}%)`) : ""}</strong></div>
     <div><span>Точки</span><strong>${esc(so.points_for || 0)}:${esc(so.points_against || 0)} (${esc(fmtDiff(num(so.points_for) - num(so.points_against)))})</strong></div>
+    <div><span>Гр. противник</span><strong>${esc(report?.opp_errors || 0)}</strong></div>
+    <div><span>Атака противник</span><strong>${esc(report?.opp_points || 0)}</strong></div>
     <div><span>Записи</span><strong>${esc(report?.event_count || 0)}</strong></div>
   </div>
 
@@ -211,7 +227,8 @@ export function openMatchReportPdf({
         <th colspan="3">Сервис</th>
         <th colspan="5">Посрещане</th>
         <th colspan="5">Атака</th>
-        <th>Бл</th>
+        <th colspan="3">Блок</th>
+        <th colspan="4">Защита</th>
         <th colspan="5">Вдигане</th>
         <th>Гр</th>
       </tr>
@@ -221,7 +238,8 @@ export function openMatchReportPdf({
         <th>Tot</th><th>Err</th><th>Ас</th>
         <th>Tot</th><th>Err</th><th>Pos%</th><th>Prf%</th><th>Ср</th>
         <th>Tot</th><th>Err</th><th>Pt</th><th>Pt%</th><th>Eff%</th>
-        <th>Pt</th>
+        <th>Tot</th><th>Pt</th><th>Err</th>
+        <th>Tot</th><th>+</th><th>0</th><th>−</th>
         <th>Tot</th><th>#</th><th>+</th><th>−</th><th>Ср</th>
         <th>Tot</th>
       </tr>

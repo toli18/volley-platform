@@ -16,8 +16,12 @@ def _empty_counts() -> dict[str, int]:
         "aces": 0,
         "serve_in": 0,
         "serve_err": 0,
-        "blocks": 0,
-        "digs": 0,
+        "blocks": 0,  # блок точки
+        "block_touch": 0,
+        "block_err": 0,
+        "dig_plus": 0,
+        "dig_zero": 0,
+        "dig_minus": 0,
         "pass_hash": 0,
         "pass_plus": 0,
         "pass_minus": 0,
@@ -40,13 +44,13 @@ ACTION_FIELD = {
     MatchStatAction.serve_in: "serve_in",
     MatchStatAction.error: "serve_err",
     MatchStatAction.block: "blocks",
-    MatchStatAction.block_touch: "blocks",  # touch брои като блоков опит в box score
-    MatchStatAction.block_error: "indiv_err",
-    MatchStatAction.dig: "digs",
-    MatchStatAction.dig_plus: "digs",
-    MatchStatAction.dig_zero: "digs",
-    MatchStatAction.dig_minus: "digs",
-    MatchStatAction.free_ball: "digs",
+    MatchStatAction.block_touch: "block_touch",
+    MatchStatAction.block_error: "block_err",
+    MatchStatAction.dig: "dig_zero",
+    MatchStatAction.dig_plus: "dig_plus",
+    MatchStatAction.dig_zero: "dig_zero",
+    MatchStatAction.dig_minus: "dig_minus",
+    MatchStatAction.free_ball: "dig_plus",
     MatchStatAction.pass_3: "pass_hash",
     MatchStatAction.pass_2: "pass_plus",
     MatchStatAction.pass_1: "pass_minus",
@@ -60,6 +64,31 @@ ACTION_FIELD = {
     MatchStatAction.indiv_error: "indiv_err",
     MatchStatAction.substitution: "subs",
 }
+
+
+def count_team_actions(events: list[Any]) -> dict[str, int]:
+    """Отборни действия без състезател: гр. противник, точки противник/наши."""
+    opp_errors = opp_points = our_points = 0
+    for ev in events:
+        action = getattr(ev, "action", None)
+        if action is None and isinstance(ev, dict):
+            action = ev.get("action")
+        if isinstance(action, str):
+            try:
+                action = MatchStatAction(action)
+            except ValueError:
+                continue
+        if action == MatchStatAction.opp_error:
+            opp_errors += 1
+        elif action == MatchStatAction.opp_point:
+            opp_points += 1
+        elif action == MatchStatAction.our_point:
+            our_points += 1
+    return {
+        "opp_errors": opp_errors,
+        "opp_points": opp_points,
+        "our_points": our_points,
+    }
 
 
 def apply_action(counts: dict[str, int], action: MatchStatAction | str) -> None:
@@ -81,7 +110,13 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     serve_in = int(counts.get("serve_in", 0))
     serve_err = int(counts.get("serve_err", 0))
     blocks = int(counts.get("blocks", 0))
-    digs = int(counts.get("digs", 0))
+    block_touch = int(counts.get("block_touch", 0))
+    block_err = int(counts.get("block_err", 0))
+    dig_plus = int(counts.get("dig_plus", 0))
+    dig_zero = int(counts.get("dig_zero", 0))
+    dig_minus = int(counts.get("dig_minus", 0))
+    # legacy digs field if older rows still pass it
+    digs_legacy = int(counts.get("digs", 0))
     pass_hash = int(counts.get("pass_hash", 0))
     pass_plus = int(counts.get("pass_plus", 0))
     pass_minus = int(counts.get("pass_minus", 0))
@@ -92,6 +127,12 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     set_err = int(counts.get("set_err", 0))
     team_err = int(counts.get("team_err", 0))
     indiv_err = int(counts.get("indiv_err", 0)) + team_err
+
+    digs = dig_plus + dig_zero + dig_minus
+    if digs == 0 and digs_legacy:
+        digs = digs_legacy
+        dig_zero = digs_legacy
+    block_total = blocks + block_touch + block_err
 
     attack_att = kills + attack_zero + attack_err
     attack_pct = round((kills / attack_att) * 100, 1) if attack_att else None
@@ -105,7 +146,7 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
     set_avg = round(set_points / set_total, 2) if set_total else None
 
     points = kills + aces + blocks
-    errors = attack_err + serve_err + pass_err + set_err + indiv_err
+    errors = attack_err + serve_err + pass_err + set_err + block_err + indiv_err
 
     summary_bits: list[str] = []
     if kills:
@@ -120,10 +161,10 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         summary_bits.append(f"{serve_in} серв 0")
     if serve_err:
         summary_bits.append(f"{serve_err} гр. сервис")
-    if blocks:
-        summary_bits.append(f"{blocks} блок")
+    if block_total:
+        summary_bits.append(f"блок {blocks}п/{block_touch}т/{block_err}гр")
     if digs:
-        summary_bits.append(f"{digs} защита")
+        summary_bits.append(f"защ. +{dig_plus}/0{dig_zero}/−{dig_minus}")
     if indiv_err:
         summary_bits.append(f"{indiv_err} гр. индив.")
     if pass_total:
@@ -142,6 +183,13 @@ def derive_metrics(counts: dict[str, int]) -> dict[str, Any]:
         "attack_zero": attack_zero,
         "team_err": team_err,
         "indiv_err": indiv_err,
+        "block_touch": block_touch,
+        "block_err": block_err,
+        "block_total": block_total,
+        "dig_plus": dig_plus,
+        "dig_zero": dig_zero,
+        "dig_minus": dig_minus,
+        "digs": digs,
         "set_hash": set_hash,
         "set_plus": set_plus,
         "set_minus": set_minus,
@@ -241,6 +289,14 @@ def build_insights(athletes: list[dict[str, Any]], *, sets_won_us: int, sets_won
         lines.append(
             f"Най-добро вдигане: #{best_set.get('jersey_number')} {best_set.get('athlete_name') or ''} "
             f"(ср. {best_set['set_avg']} от {best_set['set_total']})"
+        )
+
+    diggers = [a for a in athletes if int(a.get("digs") or 0) >= 3]
+    if diggers:
+        best_dig = max(diggers, key=lambda a: int(a.get("digs") or 0))
+        lines.append(
+            f"Най-много защита: #{best_dig.get('jersey_number')} {best_dig.get('athlete_name') or ''} "
+            f"({best_dig['digs']})"
         )
 
     with_err = [a for a in athletes if int(a.get("errors") or 0) > 0]
@@ -369,7 +425,12 @@ def analyze_side_out_and_rotations(
     }
 
 
-def enrich_insights_with_side_out(lines: list[str], analysis: dict[str, Any]) -> list[str]:
+def enrich_insights_with_side_out(
+    lines: list[str],
+    analysis: dict[str, Any],
+    *,
+    team_actions: dict[str, int] | None = None,
+) -> list[str]:
     so = analysis.get("side_out") or {}
     if so.get("side_out_attempts"):
         pct = so.get("side_out_pct")
@@ -385,6 +446,12 @@ def enrich_insights_with_side_out(lines: list[str], analysis: dict[str, Any]) ->
             f"Break-point: {so['break_won']}/{so['break_attempts']} ({pct_s}), "
             f"точки при наш сервис"
         )
+
+    ta = team_actions or {}
+    if int(ta.get("opp_errors") or 0) > 0:
+        lines.append(f"Грешки на противника: {ta['opp_errors']}")
+    if int(ta.get("opp_points") or 0) > 0:
+        lines.append(f"Точки от атака на противника: {ta['opp_points']}")
 
     rotations = analysis.get("by_rotation") or []
     with_diff = [r for r in rotations if (r.get("points_for") or 0) + (r.get("points_against") or 0) >= 2]

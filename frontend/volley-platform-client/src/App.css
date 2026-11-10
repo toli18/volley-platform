@@ -11191,7 +11191,7 @@ body:has(.publicWatchPage--fs) {
   min-width: 980px;
 }
 .matchReportPage .matchReportBox {
-  min-width: 1100px;
+  min-width: 1280px;
   border-collapse: collapse;
 }
 .matchReportPage .matchLiveStatTable th,

@@ -339,7 +339,13 @@ class MatchAthleteStatsRead(BaseModel):
     serve_in: int = 0
     serve_err: int = 0
     blocks: int = 0
+    block_touch: int = 0
+    block_err: int = 0
+    block_total: int = 0
     digs: int = 0
+    dig_plus: int = 0
+    dig_zero: int = 0
+    dig_minus: int = 0
     pass_hash: int = 0
     pass_plus: int = 0
     pass_minus: int = 0
@@ -413,6 +419,8 @@ class MatchSetStatsRead(BaseModel):
     side_out: Optional[MatchSideOutRead] = None
     by_rotation: list[MatchRotationStatsRead] = Field(default_factory=list)
     substitutions: list[MatchSubHistoryRead] = Field(default_factory=list)
+    opp_errors: int = 0
+    opp_points: int = 0
 
 
 class MatchReportRead(BaseModel):
@@ -437,6 +445,8 @@ class MatchReportRead(BaseModel):
     insights: list[str] = Field(default_factory=list)
     event_count: int = 0
     video_url: Optional[str] = None
+    opp_errors: int = 0
+    opp_points: int = 0
 
 
 MatchVideoCodingActionLiteral = Literal[

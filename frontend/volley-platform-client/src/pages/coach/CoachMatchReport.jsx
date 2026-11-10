@@ -6,7 +6,9 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { MATCH_FORMATS, MATCH_STATUS_LABEL, positionShort, shortPlayerName } from "../../utils/matchPositions";
 import {
   attackEffPct,
+  blockTotal,
   buildInsightChips,
+  digTotal,
   fmtCell,
   fmtDiff,
   fmtPct,
@@ -144,7 +146,13 @@ function StatTable({ rows }) {
       <td>{fmtCell(row.kills)}</td>
       <td>{fmtPct(row.attack_pct)}</td>
       <td>{fmtPct(attackEffPct(row))}</td>
+      <td>{fmtCell(blockTotal(row))}</td>
       <td>{fmtCell(row.blocks)}</td>
+      <td>{fmtCell(row.block_err)}</td>
+      <td>{fmtCell(digTotal(row))}</td>
+      <td>{fmtCell(row.dig_plus)}</td>
+      <td>{fmtCell(row.dig_zero)}</td>
+      <td>{fmtCell(row.dig_minus)}</td>
       <td>{fmtCell(row.set_total)}</td>
       <td>{fmtCell(row.set_hash)}</td>
       <td>{fmtCell(row.set_plus)}</td>
@@ -164,7 +172,8 @@ function StatTable({ rows }) {
             <th colSpan={3}>Сервис</th>
             <th colSpan={5}>Посрещане</th>
             <th colSpan={5}>Атака</th>
-            <th>Бл</th>
+            <th colSpan={3}>Блок</th>
+            <th colSpan={4}>Защита</th>
             <th colSpan={5}>Вдигане</th>
             <th>Гр</th>
           </tr>
@@ -186,7 +195,13 @@ function StatTable({ rows }) {
             <th title="Точки атака">Pt</th>
             <th title="% точки / опити">Pt%</th>
             <th title="Ефективност (точки − грешки) / опити">Eff%</th>
+            <th title="Общо блок (точки + touch + грешки)">Tot</th>
             <th title="Блок точки">Pt</th>
+            <th title="Грешки блок">Err</th>
+            <th title="Общо защита">Tot</th>
+            <th title="Защита +">+</th>
+            <th title="Защита 0">0</th>
+            <th title="Защита −">−</th>
             <th title="Общо вдигания">Tot</th>
             <th title="Вдигане #">#</th>
             <th title="Вдигане +">+</th>
@@ -215,7 +230,13 @@ function StatTable({ rows }) {
             <td>{fmtCell(totals.kills)}</td>
             <td>{fmtPct(totals.attack_pct)}</td>
             <td>{fmtPct(attackEffPct(totals))}</td>
+            <td>{fmtCell(blockTotal(totals))}</td>
             <td>{fmtCell(totals.blocks)}</td>
+            <td>{fmtCell(totals.block_err)}</td>
+            <td>{fmtCell(digTotal(totals))}</td>
+            <td>{fmtCell(totals.dig_plus)}</td>
+            <td>{fmtCell(totals.dig_zero)}</td>
+            <td>{fmtCell(totals.dig_minus)}</td>
             <td>{fmtCell(totals.set_total)}</td>
             <td>{fmtCell(totals.set_hash)}</td>
             <td>{fmtCell(totals.set_plus)}</td>
@@ -282,9 +303,20 @@ export default function CoachMatchReport() {
   const substitutions = tab === "all" ? report?.substitutions : activeSet?.substitutions;
   const scopeLabel = tab === "all" ? "Целият мач" : `Гейм ${activeSet?.set_number || ""}`;
 
+  const scopedReport = useMemo(() => {
+    if (!report) return null;
+    if (tab === "all") return report;
+    return {
+      ...report,
+      athletes: activeSet?.athletes || [],
+      opp_errors: activeSet?.opp_errors ?? 0,
+      opp_points: activeSet?.opp_points ?? 0,
+    };
+  }, [report, tab, activeSet]);
+
   const chips = useMemo(
-    () => (report ? buildInsightChips(report, { sideOut, byRotation }) : []),
-    [report, sideOut, byRotation]
+    () => (scopedReport ? buildInsightChips(scopedReport, { sideOut, byRotation }) : []),
+    [scopedReport, sideOut, byRotation]
   );
 
   if (loading) return <p className="coachMobileMuted">Зареждане на отчет...</p>;
@@ -326,7 +358,7 @@ export default function CoachMatchReport() {
             className="matchReportLinkBtn matchReportLinkBtn--pdf"
             onClick={() =>
               openMatchReportPdf({
-                report,
+                report: scopedReport || report,
                 athletes: rows,
                 sideOut,
                 byRotation,
@@ -414,7 +446,14 @@ export default function CoachMatchReport() {
 
       <div className="matchReportSectionHead">
         <h3 className="matchReportPlayersTitle">По състезател</h3>
-        <span className="matchReportSectionHint">Pos% = # + + · Prf% = # · Eff% = (Pt − Err) / Tot</span>
+        <span className="matchReportSectionHint">
+          Блок Tot = Pt + touch + Err · Защита +/0/− · Pos% = # + + · Eff% = (Pt − Err) / Tot
+          {tab === "all" && report.opp_errors
+            ? ` · Гр. противник: ${report.opp_errors}`
+            : activeSet?.opp_errors
+              ? ` · Гр. противник: ${activeSet.opp_errors}`
+              : ""}
+        </span>
       </div>
       <StatTable rows={rows} />
 

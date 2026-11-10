@@ -1173,11 +1173,20 @@ def match_report(
                     "serve_in",
                     "serve_err",
                     "blocks",
+                    "block_touch",
+                    "block_err",
                     "digs",
+                    "dig_plus",
+                    "dig_zero",
+                    "dig_minus",
                     "pass_hash",
                     "pass_plus",
                     "pass_minus",
                     "pass_err",
+                    "set_hash",
+                    "set_plus",
+                    "set_minus",
+                    "set_err",
                     "team_err",
                     "indiv_err",
                     "subs",
@@ -1229,6 +1238,7 @@ def match_report(
             set_number_by_set_id=set_number_by_id,
             default_set_number=int(s.set_number),
         )
+        set_team = match_report_svc.count_team_actions(set_events)
         by_set.append(
             MatchSetStatsRead(
                 set_number=int(s.set_number),
@@ -1239,6 +1249,8 @@ def match_report(
                 side_out=MatchSideOutRead(**so),
                 by_rotation=[MatchRotationStatsRead(**row) for row in analysis["by_rotation"]],
                 substitutions=[MatchSubHistoryRead(**row) for row in set_subs],
+                opp_errors=int(set_team.get("opp_errors") or 0),
+                opp_points=int(set_team.get("opp_points") or 0),
             )
         )
 
@@ -1263,13 +1275,16 @@ def match_report(
     )
 
     match_analysis = {"side_out": match_side, "by_rotation": [r.model_dump() for r in match_by_rotation]}
+    team_actions = match_report_svc.count_team_actions(events)
 
     insights = match_report_svc.build_insights(
         athletes_raw,
         sets_won_us=sets_won_us,
         sets_won_opp=sets_won_opp,
     )
-    insights = match_report_svc.enrich_insights_with_side_out(insights, match_analysis)
+    insights = match_report_svc.enrich_insights_with_side_out(
+        insights, match_analysis, team_actions=team_actions
+    )
     if match_subs:
         insights.append(f"Смени: {len(match_subs)}")
 
@@ -1298,4 +1313,6 @@ def match_report(
         insights=insights,
         event_count=len(events),
         video_url=getattr(match, "video_url", None),
+        opp_errors=int(team_actions.get("opp_errors") or 0),
+        opp_points=int(team_actions.get("opp_points") or 0),
     )
