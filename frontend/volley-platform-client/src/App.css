@@ -9451,23 +9451,24 @@ button.matchChipSlot:not(:disabled) {
 
 .matchLiveCourtRow {
   display: grid;
-  grid-template-columns: minmax(72px, 88px) minmax(0, 1fr) minmax(72px, 88px);
-  gap: 8px;
+  grid-template-columns: minmax(96px, 120px) minmax(0, 1fr) minmax(96px, 120px);
+  gap: 10px;
   align-items: stretch;
 }
 .matchLiveSideCol {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   justify-content: flex-start;
 }
 .matchLiveSideBtn {
   width: 100%;
-  min-height: 40px;
-  padding: 6px 4px !important;
-  font-size: 11px !important;
-  line-height: 1.15;
+  min-height: 48px;
+  padding: 10px 6px !important;
+  font-size: 13px !important;
+  line-height: 1.2;
   white-space: normal;
+  border-radius: 10px !important;
 }
 .matchLiveCourtMain {
   min-width: 0;
@@ -9617,8 +9618,9 @@ body:has(.publicWatchPage--fs) {
 .publicWatchPage--fs .matchLiveCourtRow {
   flex: 1 1 auto;
   min-height: 0;
-  gap: 4px;
+  gap: 8px;
   align-items: stretch;
+  grid-template-columns: minmax(92px, 118px) minmax(0, 1fr) minmax(92px, 118px);
 }
 .matchLivePage--fs .matchLiveCourtMain,
 .publicWatchPage--fs .matchLiveCourtMain {
@@ -9636,15 +9638,17 @@ body:has(.publicWatchPage--fs) {
 }
 .matchLivePage--fs .matchLiveSideCol,
 .publicWatchPage--fs .matchLiveSideCol {
-  gap: 4px;
-  justify-content: space-between;
+  gap: 6px;
+  justify-content: flex-start;
+  overflow: auto;
+  min-height: 0;
 }
 .matchLivePage--fs .matchLiveSideBtn,
 .publicWatchPage--fs .matchLiveSideBtn {
-  min-height: 0;
-  flex: 1 1 0;
-  font-size: 10px !important;
-  padding: 3px 2px !important;
+  min-height: 44px;
+  flex: 0 0 auto;
+  font-size: 13px !important;
+  padding: 9px 5px !important;
 }
 .matchLiveHud {
   display: grid;
@@ -9765,13 +9769,13 @@ body:has(.publicWatchPage--fs) {
 
 @media (max-width: 900px) {
   .matchLiveCourtRow {
-    grid-template-columns: 56px minmax(0, 1fr) 56px;
-    gap: 4px;
+    grid-template-columns: minmax(72px, 88px) minmax(0, 1fr) minmax(72px, 88px);
+    gap: 6px;
   }
   .matchLiveSideBtn {
-    min-height: 34px;
-    font-size: 10px !important;
-    padding: 4px 2px !important;
+    min-height: 42px;
+    font-size: 12px !important;
+    padding: 8px 3px !important;
   }
 
   .matchLiveBtnFull {
@@ -10002,8 +10006,14 @@ body:has(.publicWatchPage--fs) {
   }
   .matchLivePage--fs .matchLiveCourtRow,
   .publicWatchPage--fs .matchLiveCourtRow {
-    grid-template-columns: 52px minmax(0, 1fr) 52px;
-    gap: 4px;
+    grid-template-columns: minmax(76px, 96px) minmax(0, 1fr) minmax(76px, 96px);
+    gap: 6px;
+  }
+  .matchLivePage--fs .matchLiveSideBtn,
+  .publicWatchPage--fs .matchLiveSideBtn {
+    min-height: 40px;
+    font-size: 12px !important;
+    padding: 8px 3px !important;
   }
   .matchLivePage--fs .matchChipSlot--abs,
   .publicWatchPage--fs .matchChipSlot--abs {
@@ -10022,13 +10032,13 @@ body:has(.publicWatchPage--fs) {
 /* Tablets (~iPad → ~20"): desktop-like live layout */
 @media (min-width: 901px) and (max-width: 1600px) {
   .matchLiveCourtRow {
-    grid-template-columns: minmax(80px, 104px) minmax(0, 1fr) minmax(80px, 104px);
-    gap: 10px;
+    grid-template-columns: minmax(100px, 128px) minmax(0, 1fr) minmax(100px, 128px);
+    gap: 12px;
   }
   .matchLiveSideBtn {
-    min-height: 44px;
-    font-size: 12px !important;
-    padding: 7px 5px !important;
+    min-height: 52px;
+    font-size: 14px !important;
+    padding: 10px 6px !important;
   }
   .matchLivePage--fs .matchLiveTopActionsDanger {
     gap: 16px;
@@ -10630,17 +10640,24 @@ body:has(.publicWatchPage--fs) {
 }
 .matchLiveStatGroup {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 .matchLiveStatOptions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.matchLiveStatOptions .matchLiveSideBtn {
+  min-height: 48px !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
 }
 .matchLiveStatBtn--group {
   background: #1e293b;
   color: #e2e8f0;
   border: 1px solid #475569;
+  min-height: 50px !important;
+  font-size: 14px !important;
 }
 .matchLiveStatBtn--group.is-open {
   background: #0f766e;
@@ -10692,8 +10709,9 @@ body:has(.publicWatchPage--fs) {
   flex: 0 0 auto;
 }
 .matchLiveStatBtn--sym {
-  min-width: 36px;
-  font-size: 15px;
+  min-width: 44px;
+  min-height: 48px;
+  font-size: 18px;
   font-weight: 900;
   letter-spacing: 0;
 }
