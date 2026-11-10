@@ -10635,6 +10635,29 @@ body:has(.publicWatchPage--fs) {
   min-height: 36px !important;
   border: 1px solid #3b82f6;
 }
+.matchLiveStatBtn--doubleSub {
+  background: #1e3a5f;
+  color: #e2e8f0;
+  flex: 0 0 auto;
+  min-height: 36px !important;
+  border: 1px solid #64748b;
+  font-size: 11px;
+  line-height: 1.15;
+}
+.matchLiveStatBtn--doubleSub.is-active {
+  background: #c2410c;
+  border-color: #fb923c;
+  color: #fff7ed;
+}
+.matchLiveDoubleSelect {
+  width: 100%;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  font-size: 14px;
+}
 .matchLiveStatBtn.is-ctxOff {
   opacity: 0.28;
   filter: grayscale(0.6);
@@ -10643,7 +10666,9 @@ body:has(.publicWatchPage--fs) {
 .matchLivePage--fs .matchLiveStatBtn--stats,
 .publicWatchPage--fs .matchLiveStatBtn--stats,
 .matchLivePage--fs .matchLiveStatBtn--sub,
-.publicWatchPage--fs .matchLiveStatBtn--sub {
+.publicWatchPage--fs .matchLiveStatBtn--sub,
+.matchLivePage--fs .matchLiveStatBtn--doubleSub,
+.publicWatchPage--fs .matchLiveStatBtn--doubleSub {
   min-height: 0;
   flex: 0 0 auto;
 }

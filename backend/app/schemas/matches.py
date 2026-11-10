@@ -117,6 +117,23 @@ class MatchLiveSubIn(BaseModel):
     in_athlete_id: int
 
 
+class MatchLiveDoubleSubOpenIn(BaseModel):
+    """Двойна смяна 5-1: нов Р на мястото на Д, нов Д на мястото на Р."""
+
+    setter_in_athlete_id: int
+    opposite_in_athlete_id: int
+
+
+class MatchLiveDoubleSubRead(BaseModel):
+    active: bool = False
+    starter_setter_id: Optional[int] = None
+    starter_opposite_id: Optional[int] = None
+    reserve_setter_id: Optional[int] = None
+    reserve_opposite_id: Optional[int] = None
+    starter_setter_name: Optional[str] = None
+    starter_opposite_name: Optional[str] = None
+
+
 class MatchLineupRead(BaseModel):
     slots: list[MatchCourtPlayerRead] = Field(default_factory=list)
     libero: Optional[MatchCourtPlayerRead] = None
@@ -253,6 +270,7 @@ class MatchLiveStateRead(BaseModel):
     off_court: list[MatchBenchPlayerRead] = Field(default_factory=list)
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     can_undo: bool = False
+    double_sub: Optional[MatchLiveDoubleSubRead] = None
 
 
 class MatchLivePhaseIn(BaseModel):
@@ -297,6 +315,7 @@ class MatchPublicLiveRead(BaseModel):
     recent_events: list[MatchLiveEventRead] = Field(default_factory=list)
     expired: bool = False
     input_locked: bool = False
+    double_sub: Optional[MatchLiveDoubleSubRead] = None
 
 
 class MatchAthleteStatsRead(BaseModel):

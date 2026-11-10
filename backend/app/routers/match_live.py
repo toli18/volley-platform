@@ -27,6 +27,8 @@ from app.schemas.matches import (
     MatchAthleteStatsRead,
     MatchBenchPlayerRead,
     MatchCourtPlayerRead,
+    MatchLiveDoubleSubOpenIn,
+    MatchLiveDoubleSubRead,
     MatchLiveEventRead,
     MatchLiveLockIn,
     MatchLivePositionsIn,
@@ -386,7 +388,50 @@ def _state(db: Session, match: Match, *, phase_override: str | None = None) -> M
         off_court=off_court,
         recent_events=events,
         can_undo=can_undo,
+        double_sub=_double_sub_read(db, match),
     )
+
+
+def _double_sub_read(db: Session, match: Match) -> MatchLiveDoubleSubRead:
+    blob = getattr(match, "live_double_sub", None) or {}
+    if not isinstance(blob, dict) or not blob.get("active"):
+        return MatchLiveDoubleSubRead(active=False)
+    starter_s = int(blob["starter_setter_id"]) if blob.get("starter_setter_id") else None
+    starter_o = int(blob["starter_opposite_id"]) if blob.get("starter_opposite_id") else None
+    reserve_s = int(blob["reserve_setter_id"]) if blob.get("reserve_setter_id") else None
+    reserve_o = int(blob["reserve_opposite_id"]) if blob.get("reserve_opposite_id") else None
+    names = _athlete_names(db, [i for i in (starter_s, starter_o, reserve_s, reserve_o) if i])
+    return MatchLiveDoubleSubRead(
+        active=True,
+        starter_setter_id=starter_s,
+        starter_opposite_id=starter_o,
+        reserve_setter_id=reserve_s,
+        reserve_opposite_id=reserve_o,
+        starter_setter_name=names.get(starter_s) if starter_s else None,
+        starter_opposite_name=names.get(starter_o) if starter_o else None,
+    )
+
+
+def _find_court_role(court: list[MatchCourtPlayerRead], *roles: str) -> MatchCourtPlayerRead | None:
+    want = {r.upper() for r in roles}
+    for p in court:
+        role = str(getattr(p, "role", None) or "").upper()
+        if role in want:
+            return p
+    return None
+
+
+def _set_roster_position(db: Session, match_id: int, athlete_id: int, position: MatchPosition) -> str | None:
+    row = (
+        db.query(MatchRosterPlayer)
+        .filter(MatchRosterPlayer.match_id == match_id, MatchRosterPlayer.athlete_id == athlete_id)
+        .first()
+    )
+    if not row:
+        return None
+    prev = row.position.value if isinstance(row.position, MatchPosition) else str(row.position or "")
+    row.position = position
+    return prev or None
 
 
 def _clear_share_token(match: Match) -> None:
@@ -889,6 +934,132 @@ def live_sub(
     return _state(db, match)
 
 
+def apply_double_sub_open(
+    db: Session,
+    match: Match,
+    *,
+    setter_in_athlete_id: int,
+    opposite_in_athlete_id: int,
+) -> None:
+    """Двойна смяна 5-1: резервен Р ↔ титулярен Д, резервен Д ↔ титулярен Р."""
+    mset = _active_set(db, match.id)
+    if not mset or mset.status != MatchSetStatus.in_progress:
+        raise HTTPException(status_code=422, detail="Няма активен гейм")
+
+    system = match.system.value if isinstance(match.system, MatchSystem) else str(match.system)
+    if system != "5-1":
+        raise HTTPException(status_code=422, detail="Двойната смяна е налична само при схема 5-1")
+
+    blob = getattr(match, "live_double_sub", None) or {}
+    if isinstance(blob, dict) and blob.get("active"):
+        raise HTTPException(status_code=422, detail="Двойната смяна вече е активна - затвори я първо")
+
+    phase = match_systems.phase_from_serve(bool(mset.we_serve))
+    court, _ = _court_for_rotation(db, match, int(mset.rotation), phase=phase)
+    starter_setter = _find_court_role(court, "A")
+    starter_opposite = _find_court_role(court, "O")
+    if not starter_setter or not starter_opposite:
+        raise HTTPException(status_code=422, detail="На корта трябва да има разпределител (Р) и диагонал (Д)")
+
+    setter_in = int(setter_in_athlete_id)
+    opposite_in = int(opposite_in_athlete_id)
+    if setter_in == opposite_in:
+        raise HTTPException(status_code=422, detail="Избери двама различни резервни играчи")
+
+    starter_s_id = int(starter_setter.athlete_id)
+    starter_o_id = int(starter_opposite.athlete_id)
+    if setter_in in (starter_s_id, starter_o_id) or opposite_in in (starter_s_id, starter_o_id):
+        raise HTTPException(status_code=422, detail="Резервите трябва да са извън шестицата")
+
+    prev_setter_pos = _set_roster_position(db, match.id, setter_in, MatchPosition.S)
+    prev_opp_pos = _set_roster_position(db, match.id, opposite_in, MatchPosition.OPP)
+
+    apply_live_substitution(db, match, out_athlete_id=starter_o_id, in_athlete_id=setter_in)
+    apply_live_substitution(db, match, out_athlete_id=starter_s_id, in_athlete_id=opposite_in)
+
+    match.live_double_sub = {
+        "active": True,
+        "starter_setter_id": starter_s_id,
+        "starter_opposite_id": starter_o_id,
+        "reserve_setter_id": setter_in,
+        "reserve_opposite_id": opposite_in,
+        "reserve_setter_prev_position": prev_setter_pos,
+        "reserve_opposite_prev_position": prev_opp_pos,
+    }
+
+
+def apply_double_sub_close(db: Session, match: Match) -> None:
+    """Затваря двойната смяна: титулярите Р и Д се връщат."""
+    mset = _active_set(db, match.id)
+    if not mset or mset.status != MatchSetStatus.in_progress:
+        raise HTTPException(status_code=422, detail="Няма активен гейм")
+
+    blob = getattr(match, "live_double_sub", None) or {}
+    if not isinstance(blob, dict) or not blob.get("active"):
+        raise HTTPException(status_code=422, detail="Няма активна двойна смяна")
+
+    starter_s_id = int(blob["starter_setter_id"])
+    starter_o_id = int(blob["starter_opposite_id"])
+    reserve_s_id = int(blob["reserve_setter_id"])
+    reserve_o_id = int(blob["reserve_opposite_id"])
+
+    apply_live_substitution(db, match, out_athlete_id=reserve_s_id, in_athlete_id=starter_o_id)
+    apply_live_substitution(db, match, out_athlete_id=reserve_o_id, in_athlete_id=starter_s_id)
+
+    prev_s = blob.get("reserve_setter_prev_position")
+    prev_o = blob.get("reserve_opposite_prev_position")
+    if prev_s:
+        try:
+            _set_roster_position(db, match.id, reserve_s_id, MatchPosition(str(prev_s)))
+        except ValueError:
+            pass
+    if prev_o:
+        try:
+            _set_roster_position(db, match.id, reserve_o_id, MatchPosition(str(prev_o)))
+        except ValueError:
+            pass
+
+    match.live_double_sub = None
+
+
+@router.post("/{match_id}/live/double-sub", response_model=MatchLiveStateRead)
+def live_double_sub_open(
+    team_id: int,
+    match_id: int,
+    payload: MatchLiveDoubleSubOpenIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    _assert_writable(match)
+    apply_double_sub_open(
+        db,
+        match,
+        setter_in_athlete_id=payload.setter_in_athlete_id,
+        opposite_in_athlete_id=payload.opposite_in_athlete_id,
+    )
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
+@router.post("/{match_id}/live/double-sub/close", response_model=MatchLiveStateRead)
+def live_double_sub_close(
+    team_id: int,
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*COACH_ROLES)),
+):
+    _ensure_team_owner(db, team_id, current_user)
+    match = _get_match(db, team_id, match_id)
+    _assert_writable(match)
+    apply_double_sub_close(db, match)
+    db.commit()
+    db.refresh(match)
+    return _state(db, match)
+
+
 @router.post("/{match_id}/live/finish", response_model=MatchLiveStateRead)
 def live_finish(
     team_id: int,
@@ -902,6 +1073,7 @@ def live_finish(
     if active:
         active.status = MatchSetStatus.finished
     match.status = MatchStatus.finished
+    match.live_double_sub = None
     _clear_share_token(match)
     db.commit()
     db.refresh(match)

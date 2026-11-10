@@ -178,6 +178,9 @@ export const API_PATHS = {
   TEAM_MATCH_LIVE_POSITIONS: (teamId, matchId) =>
     `/api/teams/${teamId}/matches/${matchId}/live/positions`,
   TEAM_MATCH_LIVE_SUB: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/sub`,
+  TEAM_MATCH_LIVE_DOUBLE_SUB: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/live/double-sub`,
+  TEAM_MATCH_LIVE_DOUBLE_SUB_CLOSE: (teamId, matchId) =>
+    `/api/teams/${teamId}/matches/${matchId}/live/double-sub/close`,
   TEAM_MATCH_REPORT: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/report`,
   TEAM_MATCH_VIDEO_CODING: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/video-coding`,
   TEAM_MATCH_VIDEO_CODING_URL: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/video-coding/url`,
@@ -193,6 +196,8 @@ export const API_PATHS = {
   PUBLIC_MATCH_LIVE_UNDO: (token) => `/api/public/match-live/${token}/undo`,
   PUBLIC_MATCH_LIVE_POSITIONS: (token) => `/api/public/match-live/${token}/positions`,
   PUBLIC_MATCH_LIVE_SUB: (token) => `/api/public/match-live/${token}/sub`,
+  PUBLIC_MATCH_LIVE_DOUBLE_SUB: (token) => `/api/public/match-live/${token}/double-sub`,
+  PUBLIC_MATCH_LIVE_DOUBLE_SUB_CLOSE: (token) => `/api/public/match-live/${token}/double-sub/close`,
   TEAM_ATHLETE_PROFILE: (athleteId) => `/api/teams/athletes/${athleteId}/profile`,
   TEAM_ATHLETE_PHOTO: (athleteId) => `/api/teams/athletes/${athleteId}/photo`,
   ATHLETE_EQUIPMENT_PROTOCOLS: (athleteId) => `/api/teams/athletes/${athleteId}/equipment-protocols`,

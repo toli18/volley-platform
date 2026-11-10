@@ -1,0 +1,1 @@
+import{j as n,af as t}from"./index-3JR1V0Yj.js";import{C as o,M as e,a as s}from"./CoachMenuParts-B_S_f5D_.js";function i(){return n.jsx(o,{title:"Моето съдържание",subtitle:"Лични упражнения и статии на едно място",children:n.jsx(e,{title:"Моето",children:t.map(a=>n.jsx(s,{to:a.to,label:a.label,hint:a.hint,accent:a.accent,icon:a.icon},a.id))})})}export{i as default};

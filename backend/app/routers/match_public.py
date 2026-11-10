@@ -17,6 +17,7 @@ from app.models_matches import (
 )
 from app.routers import match_live as live
 from app.schemas.matches import (
+    MatchLiveDoubleSubOpenIn,
     MatchLivePositionsIn,
     MatchLiveScoreIn,
     MatchLiveStatIn,
@@ -67,6 +68,7 @@ def _to_public(full) -> MatchPublicLiveRead:
         recent_events=full.recent_events[:40],
         expired=False,
         input_locked=bool(getattr(full, "input_locked", False)),
+        double_sub=getattr(full, "double_sub", None),
     )
 
 
@@ -274,6 +276,35 @@ def public_sub(token: str, payload: MatchLiveSubIn, db: Session = Depends(get_db
     if not mset:
         raise HTTPException(status_code=422, detail="Няма активен гейм")
     live.apply_live_substitution(db, match, out_athlete_id=payload.out_athlete_id, in_athlete_id=payload.in_athlete_id)
+    db.commit()
+    db.refresh(match)
+    return _to_public(live._state(db, match))
+
+
+@router.post("/{token}/double-sub", response_model=MatchPublicLiveRead)
+def public_double_sub_open(token: str, payload: MatchLiveDoubleSubOpenIn, db: Session = Depends(get_db)):
+    match = _match_by_token(db, token)
+    _assert_public_writable(match)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    live.apply_double_sub_open(
+        db,
+        match,
+        setter_in_athlete_id=payload.setter_in_athlete_id,
+        opposite_in_athlete_id=payload.opposite_in_athlete_id,
+    )
+    db.commit()
+    db.refresh(match)
+    return _to_public(live._state(db, match))
+
+
+@router.post("/{token}/double-sub/close", response_model=MatchPublicLiveRead)
+def public_double_sub_close(token: str, db: Session = Depends(get_db)):
+    match = _match_by_token(db, token)
+    _assert_public_writable(match)
+    if match.status == MatchStatus.finished:
+        raise HTTPException(status_code=422, detail="Мачът е приключен")
+    live.apply_double_sub_close(db, match)
     db.commit()
     db.refresh(match)
     return _to_public(live._state(db, match))

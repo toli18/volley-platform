@@ -108,6 +108,140 @@ function SideCol({ items, side, disabled, phase, onStat, extraTop = null, requir
   );
 }
 
+function findCourtRole(court = [], ...roles) {
+  const want = new Set(roles.map((r) => String(r).toUpperCase()));
+  return (court || []).find((p) => want.has(String(p?.role || "").toUpperCase())) || null;
+}
+
+function DoubleSubDrawer({
+  open,
+  onClose,
+  court = [],
+  bench = [],
+  busy,
+  onConfirm,
+}) {
+  const [setterInId, setSetterInId] = useState("");
+  const [oppositeInId, setOppositeInId] = useState("");
+
+  const starterSetter = findCourtRole(court, "A");
+  const starterOpposite = findCourtRole(court, "O");
+
+  const setterBench = useMemo(() => {
+    const rows = [...(bench || [])];
+    rows.sort((a, b) => {
+      const aS = String(a.position || "").toUpperCase() === "S" ? 0 : 1;
+      const bS = String(b.position || "").toUpperCase() === "S" ? 0 : 1;
+      if (aS !== bS) return aS - bS;
+      return (a.jersey_number || 0) - (b.jersey_number || 0);
+    });
+    return rows;
+  }, [bench]);
+
+  const oppositeBench = useMemo(() => {
+    const rows = [...(bench || [])];
+    rows.sort((a, b) => {
+      const aO = String(a.position || "").toUpperCase() === "OPP" ? 0 : 1;
+      const bO = String(b.position || "").toUpperCase() === "OPP" ? 0 : 1;
+      if (aO !== bO) return aO - bO;
+      return (a.jersey_number || 0) - (b.jersey_number || 0);
+    });
+    return rows;
+  }, [bench]);
+
+  if (!open) return null;
+
+  const canConfirm =
+    starterSetter &&
+    starterOpposite &&
+    setterInId &&
+    oppositeInId &&
+    Number(setterInId) !== Number(oppositeInId);
+
+  return (
+    <div className="matchLiveSubOverlay" role="dialog" aria-modal="true" aria-label="Двойна смяна">
+      <button type="button" className="matchLiveSubBackdrop" aria-label="Затвори" onClick={onClose} />
+      <div className="matchLiveSubDrawer">
+        <div className="matchLiveSubHead">
+          <strong>Двойна смяна</strong>
+          <button type="button" className="matchLiveStatsClose" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        {starterSetter && starterOpposite ? (
+          <p className="matchLiveSubHint">
+            Двойна смяна: смяна на{" "}
+            <strong>
+              #{starterSetter.jersey_number} {shortPlayerName(starterSetter.athlete_name)} (Р)
+            </strong>{" "}
+            и{" "}
+            <strong>
+              #{starterOpposite.jersey_number} {shortPlayerName(starterOpposite.athlete_name)} (Д)
+            </strong>
+            . Новият Р влиза на мястото на Д, новият Д на мястото на Р.
+          </p>
+        ) : (
+          <p className="matchLiveSubEmpty">На корта няма ясни Р и Д (схема 5-1).</p>
+        )}
+
+        <div className="matchLiveSubSection">
+          <label className="matchLiveSubLabel" htmlFor="double-sub-setter">
+            Нов разпределител (резерва)
+          </label>
+          <select
+            id="double-sub-setter"
+            className="matchLiveDoubleSelect"
+            value={setterInId}
+            disabled={busy || !starterSetter}
+            onChange={(e) => setSetterInId(e.target.value)}
+          >
+            <option value="">Избери…</option>
+            {setterBench.map((p) => (
+              <option key={`ds-s-${p.athlete_id}`} value={p.athlete_id}>
+                #{p.jersey_number} {shortPlayerName(p.athlete_name)} · {positionShort(p.position)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="matchLiveSubSection">
+          <label className="matchLiveSubLabel" htmlFor="double-sub-opp">
+            Нов диагонал (резерва)
+          </label>
+          <select
+            id="double-sub-opp"
+            className="matchLiveDoubleSelect"
+            value={oppositeInId}
+            disabled={busy || !starterOpposite}
+            onChange={(e) => setOppositeInId(e.target.value)}
+          >
+            <option value="">Избери…</option>
+            {oppositeBench.map((p) => (
+              <option key={`ds-o-${p.athlete_id}`} value={p.athlete_id}>
+                #{p.jersey_number} {shortPlayerName(p.athlete_name)} · {positionShort(p.position)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="matchLiveSubActions">
+          <button type="button" className="matchLiveUndo" disabled={busy} onClick={onClose}>
+            Отказ
+          </button>
+          <button
+            type="button"
+            className="matchLiveNext"
+            disabled={busy || !canConfirm}
+            onClick={() => onConfirm?.(Number(setterInId), Number(oppositeInId))}
+          >
+            Потвърди двойна смяна
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SubDrawer({
   open,
   onClose,
@@ -203,6 +337,10 @@ export default function MatchLiveSideStats({
   onStat,
   onOpenStats = null,
   onSub = null,
+  onDoubleSub = null,
+  onCloseDoubleSub = null,
+  doubleSub = null,
+  court = [],
   bench = [],
   liberoId = null,
   busy = false,
@@ -210,9 +348,11 @@ export default function MatchLiveSideStats({
   children,
 }) {
   const [subOpen, setSubOpen] = useState(false);
+  const [doubleOpen, setDoubleOpen] = useState(false);
 
   const leftItems = useMemo(() => MATCH_STAT_SIDE_LEFT, []);
   const rightItems = useMemo(() => MATCH_STAT_SIDE_RIGHT, []);
+  const doubleActive = Boolean(doubleSub?.active);
 
   const subBtn = onSub ? (
     <button
@@ -225,6 +365,29 @@ export default function MatchLiveSideStats({
       Смяна
     </button>
   ) : null;
+
+  const doubleSubBtn =
+    onDoubleSub || onCloseDoubleSub ? (
+      <button
+        type="button"
+        className={`matchLiveStatBtn matchLiveSideBtn matchLiveStatBtn--doubleSub${doubleActive ? " is-active" : ""}`}
+        disabled={disabled || busy || (doubleActive ? !onCloseDoubleSub : !onDoubleSub)}
+        onClick={() => {
+          if (doubleActive) {
+            onCloseDoubleSub?.();
+            return;
+          }
+          setDoubleOpen(true);
+        }}
+        title={
+          doubleActive
+            ? "Връща титулярните Р и Д на местата на заместниците"
+            : "Двойна смяна Р ↔ Д (5-1)"
+        }
+      >
+        {doubleActive ? "Затвори дв." : "Дв.смяна"}
+      </button>
+    ) : null;
 
   const statsBtn = onOpenStats ? (
     <button
@@ -297,6 +460,7 @@ export default function MatchLiveSideStats({
         extraTop={
           <>
             {subBtn}
+            {doubleSubBtn}
             {statsBtn}
           </>
         }
@@ -313,6 +477,20 @@ export default function MatchLiveSideStats({
           onConfirm={(outId, inId) => {
             setSubOpen(false);
             onSub(outId, inId);
+          }}
+        />
+      ) : null}
+      {onDoubleSub ? (
+        <DoubleSubDrawer
+          key={doubleOpen ? "open" : "closed"}
+          open={doubleOpen}
+          onClose={() => setDoubleOpen(false)}
+          court={court}
+          bench={bench}
+          busy={busy}
+          onConfirm={(setterInId, oppositeInId) => {
+            setDoubleOpen(false);
+            onDoubleSub(setterInId, oppositeInId);
           }}
         />
       ) : null}

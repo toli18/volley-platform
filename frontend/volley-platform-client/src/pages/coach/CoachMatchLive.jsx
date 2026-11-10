@@ -830,6 +830,33 @@ export default function CoachMatchLive() {
                   return res.data;
                 })
         }
+        onDoubleSub={
+          viewOnly || String(state.system || "") !== "5-1"
+            ? null
+            : (setterInId, oppositeInId) =>
+                run(async () => {
+                  const res = await axiosInstance.post(API_PATHS.TEAM_MATCH_LIVE_DOUBLE_SUB(teamIdNum, matchIdNum), {
+                    setter_in_athlete_id: setterInId,
+                    opposite_in_athlete_id: oppositeInId,
+                  });
+                  toast.success("Двойната смяна е записана.");
+                  return res.data;
+                })
+        }
+        onCloseDoubleSub={
+          viewOnly || !state.double_sub?.active
+            ? null
+            : () =>
+                run(async () => {
+                  const res = await axiosInstance.post(
+                    API_PATHS.TEAM_MATCH_LIVE_DOUBLE_SUB_CLOSE(teamIdNum, matchIdNum)
+                  );
+                  toast.success("Двойната смяна е затворена.");
+                  return res.data;
+                })
+        }
+        doubleSub={state.double_sub || null}
+        court={state.court || []}
         bench={state.bench || []}
         liberoId={state.libero?.athlete_id || null}
         busy={busy}

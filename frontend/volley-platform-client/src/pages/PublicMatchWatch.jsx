@@ -384,6 +384,33 @@ export default function PublicMatchWatch() {
             return data;
           })
         }
+        onDoubleSub={
+          String(state.system || "") !== "5-1"
+            ? null
+            : (setterInId, oppositeInId) =>
+                run(async () => {
+                  const data = (
+                    await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_DOUBLE_SUB(token), {
+                      setter_in_athlete_id: setterInId,
+                      opposite_in_athlete_id: oppositeInId,
+                    })
+                  ).data;
+                  toast.success("Двойната смяна е записана.");
+                  return data;
+                })
+        }
+        onCloseDoubleSub={
+          !state.double_sub?.active
+            ? null
+            : () =>
+                run(async () => {
+                  const data = (await axiosInstance.post(API_PATHS.PUBLIC_MATCH_LIVE_DOUBLE_SUB_CLOSE(token))).data;
+                  toast.success("Двойната смяна е затворена.");
+                  return data;
+                })
+        }
+        doubleSub={state.double_sub || null}
+        court={state.court || []}
         bench={state.bench || []}
         liberoId={state.libero?.athlete_id || null}
         busy={busy}

@@ -483,6 +483,9 @@ def _init_db_impl() -> None:
                     text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_court_positions JSON")
                 )
                 conn.execute(
+                    text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS live_double_sub JSON")
+                )
+                conn.execute(
                     text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS video_url VARCHAR(1024)")
                 )
                 conn.execute(

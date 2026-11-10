@@ -95,6 +95,8 @@ class Match(Base):
     live_share_token = Column(String(64), nullable=True, unique=True, index=True)
     # {"{rotation}:{phase}": {"1": {"x":..,"y":..}, ...}}
     live_court_positions = Column(JSON, nullable=True)
+    # Активна двойна смяна Р↔Д (5-1): starter/reserve ids + предишни позиции
+    live_double_sub = Column(JSON, nullable=True)
     # Линк към видео за post-match coding (YouTube / файл)
     video_url = Column(String(1024), nullable=True)
 
