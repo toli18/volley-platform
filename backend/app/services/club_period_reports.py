@@ -659,14 +659,14 @@ def build_sport_pack(
     assessments = _assessments_block(db, team_ids=team_ids, from_d=from_d, to_d=to_d)
     attendance = _attendance_block(db, team_ids=team_ids, from_date=from_s, to_date=to_s)
 
-    # Red flags: low attendance athletes who also played matches / tests
+    # Short action signals only; detailed lists live in attendance / matches sections.
     flags = []
-    for row in attendance.get("low_attendance") or []:
+    low_n = len(attendance.get("low_attendance") or [])
+    if low_n:
         flags.append(
             {
                 "type": "attendance",
-                "label": f"Ниско присъствие: {row['athlete_name']} ({row['attendance_pct']}%)",
-                "athlete_id": row["athlete_id"],
+                "label": f"Ниско присъствие (<70%): {low_n} състезатели",
             }
         )
     if assessments.get("declined_count"):
@@ -676,12 +676,24 @@ def build_sport_pack(
                 "label": f"Спад в development score: {assessments['declined_count']} състезатели",
             }
         )
-    for m in matches.get("items") or []:
-        if m.get("status") in ("finished", MatchStatus.finished.value) and int(m.get("event_count") or 0) == 0:
+    no_stats = [
+        m
+        for m in (matches.get("items") or [])
+        if m.get("status") in ("finished", MatchStatus.finished.value)
+        and int(m.get("event_count") or 0) == 0
+    ]
+    if no_stats:
+        flags.append(
+            {
+                "type": "match_stats",
+                "label": f"Завършени мачове без статистика: {len(no_stats)}",
+            }
+        )
+        for m in no_stats[:6]:
             flags.append(
                 {
                     "type": "match_stats",
-                    "label": f"Без статистика: {m['team_name']} vs {m['opponent_name'] or '—'}",
+                    "label": f"Без статистика: {m['team_name']} vs {m['opponent_name'] or '·'}",
                     "match_id": m["match_id"],
                 }
             )
@@ -714,6 +726,8 @@ def build_sport_pack(
         "assessments": assessments,
         "attendance": {
             "sessions_count": attendance["sessions_count"],
+            "sessions_with_attendance": attendance.get("sessions_with_attendance", 0),
+            "sessions_without_attendance": attendance.get("sessions_without_attendance", 0),
             "attendance_pct": attendance["attendance_pct"],
             "by_team": attendance["by_team"],
             "low_attendance": attendance["low_attendance"],
