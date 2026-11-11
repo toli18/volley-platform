@@ -538,7 +538,7 @@ def club_period_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
-    """Месечен пакет: треньор (A) / клуб (B) / спортен (C)."""
+    """Месечен пакет: треньор (A) / клуб (B) / спортен (C). Deploy marker 2026-11-12."""
     return _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
 
 

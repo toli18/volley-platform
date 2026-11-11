@@ -380,7 +380,12 @@ export default function CoachClubDocuments() {
       setReport(res.data || null);
     } catch (err) {
       setReport(null);
-      toast.error(normalizeError(err, "Неуспешно генериране на отчета."));
+      const status = err?.response?.status;
+      toast.error(
+        status === 404
+          ? "API за отчети още не е качено на сървъра. Изчакай deploy на Railway и пробвай пак."
+          : normalizeError(err, "Неуспешно генериране на отчета.")
+      );
     } finally {
       setReportBusy(false);
     }
@@ -406,7 +411,12 @@ export default function CoachClubDocuments() {
         );
       }
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешен експорт."));
+      const status = err?.response?.status;
+      toast.error(
+        status === 404
+          ? "API за отчети още не е качено на сървъра. Изчакай deploy на Railway и пробвай пак."
+          : normalizeError(err, "Неуспешен експорт.")
+      );
     }
   };
 
