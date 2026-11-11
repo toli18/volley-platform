@@ -45,6 +45,13 @@ function fmtPct(v) {
   return `${v}%`;
 }
 
+function fmtMoney(v) {
+  if (v == null || v === "") return "·";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString("bg-BG", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 function SummaryGrid({ items }) {
   if (!items?.length) return null;
   return (
@@ -818,9 +825,25 @@ export default function CoachClubDocuments() {
                         { label: "Отбори", value: report.summary?.teams ?? 0 },
                         { label: "Състезатели", value: report.summary?.athletes ?? report.summary?.coaches ?? 0 },
                         { label: "Сесии", value: report.summary?.sessions ?? 0 },
+                        {
+                          label: "С присъствие",
+                          value: report.summary?.sessions_with_attendance ?? 0,
+                        },
+                        {
+                          label: "Без присъствие",
+                          value: report.summary?.sessions_without_attendance ?? 0,
+                        },
                         { label: "Присъствие", value: fmtPct(report.summary?.attendance_pct) },
                         { label: "Такси %", value: fmtPct(report.summary?.fees_collection_pct) },
-                        { label: "Длъжници", value: report.summary?.unpaid ?? 0 },
+                        {
+                          label: "Събрани такси",
+                          value: fmtMoney(
+                            report.summary?.fees_collected_amount ?? report.summary?.total_paid_amount
+                          ),
+                        },
+                        { label: "Платени", value: report.summary?.fees_paid ?? 0 },
+                        { label: "Длъжници", value: report.summary?.fees_unpaid ?? report.summary?.unpaid ?? 0 },
+                        { label: "Освободени", value: report.summary?.fees_exempt ?? 0 },
                         { label: "Мачове", value: report.summary?.matches_finished ?? 0 },
                         { label: "Победи", value: report.summary?.match_wins ?? 0 },
                       ]
@@ -885,6 +908,20 @@ export default function CoachClubDocuments() {
                 </div>
               ) : null}
 
+              {report.fees?.exempt_athletes?.length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>Освободени от такса ({report.fees.exempt})</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.fees.exempt_athletes.slice(0, 20).map((a) => (
+                      <li key={a.athlete_id}>
+                        {a.athlete_name}
+                        {a.reason ? ` · ${a.reason}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {report.attendance?.low_attendance?.length ? (
                 <div style={{ marginBottom: 12 }}>
                   <strong>Ниско присъствие (&lt;70%)</strong>
@@ -904,7 +941,7 @@ export default function CoachClubDocuments() {
                   <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                     {report.matches.items.slice(0, 15).map((m) => (
                       <li key={m.match_id}>
-                        {m.match_date} · {m.team_name} vs {m.opponent_name || "—"} · {m.sets_won_us}:{m.sets_won_opp}
+                        {m.match_date} · {m.team_name} vs {m.opponent_name || "·"} · {m.sets_won_us}:{m.sets_won_opp}
                         {m.event_count ? ` · ${m.event_count} съб.` : " · без стат."}
                       </li>
                     ))}

@@ -90,6 +90,8 @@ def _attendance_block(
     if not team_ids:
         return {
             "sessions_count": 0,
+            "sessions_with_attendance": 0,
+            "sessions_without_attendance": 0,
             "present": 0,
             "late": 0,
             "absent": 0,
@@ -117,10 +119,12 @@ def _attendance_block(
     counts = {"present": 0, "late": 0, "absent": 0, "excused": 0}
     by_team_counts: dict[int, dict[str, int]] = {}
     athlete_marks: dict[int, dict[str, int]] = {}
+    sessions_with_marks: set[int] = set()
 
     if session_ids:
         rows = (
             db.query(
+                AttendanceRecord.session_id,
                 AttendanceRecord.athlete_id,
                 AttendanceRecord.status,
                 TeamSession.team_id,
@@ -129,10 +133,11 @@ def _attendance_block(
             .filter(AttendanceRecord.session_id.in_(session_ids))
             .all()
         )
-        for aid, status, tid in rows:
+        for sid, aid, status, tid in rows:
             key = str(status or "").strip().lower()
             if key not in counts:
                 continue
+            sessions_with_marks.add(int(sid))
             counts[key] += 1
             tc = by_team_counts.setdefault(
                 int(tid), {"present": 0, "late": 0, "absent": 0, "excused": 0, "marked": 0}
@@ -193,8 +198,11 @@ def _attendance_block(
             )
     low.sort(key=lambda x: (x["attendance_pct"] if x["attendance_pct"] is not None else 999, x["athlete_name"]))
 
+    with_marks = len(sessions_with_marks)
     return {
         "sessions_count": len(sessions),
+        "sessions_with_attendance": with_marks,
+        "sessions_without_attendance": max(0, len(sessions) - with_marks),
         "present": counts["present"],
         "late": counts["late"],
         "absent": counts["absent"],
@@ -517,7 +525,14 @@ def build_coach_pack(
             "teams": len(teams),
             "athletes": len(athletes),
             "sessions": attendance["sessions_count"],
+            "sessions_with_attendance": attendance["sessions_with_attendance"],
+            "sessions_without_attendance": attendance["sessions_without_attendance"],
             "attendance_pct": attendance["attendance_pct"],
+            "fees_billable": fees["billable"],
+            "fees_paid": fees["paid"],
+            "fees_unpaid": fees["unpaid"],
+            "fees_exempt": fees["exempt"],
+            "fees_collected_amount": fees["total_paid_amount"],
             "fees_collection_pct": fees["collection_pct"],
             "unpaid": fees["unpaid"],
             "matches_finished": matches["finished"],
@@ -600,7 +615,14 @@ def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any
             "teams": len(teams),
             "athletes": len(athletes),
             "sessions": attendance["sessions_count"],
+            "sessions_with_attendance": attendance["sessions_with_attendance"],
+            "sessions_without_attendance": attendance["sessions_without_attendance"],
             "attendance_pct": attendance["attendance_pct"],
+            "fees_billable": fees["billable"],
+            "fees_paid": fees["paid"],
+            "fees_unpaid": fees["unpaid"],
+            "fees_exempt": fees["exempt"],
+            "fees_collected_amount": fees["total_paid_amount"],
             "fees_collection_pct": fees["collection_pct"],
             "unpaid": fees["unpaid"],
             "total_paid_amount": fees["total_paid_amount"],
@@ -769,16 +791,25 @@ def report_to_pdf_lines(report: dict[str, Any]) -> list[str]:
         lines.append("")
         lines.append(
             f"ТАКСИ: платени {fees.get('paid')}/{fees.get('billable')} "
-            f"({fees.get('collection_pct')}%), сума {fees.get('total_paid_amount')}"
+            f"({fees.get('collection_pct')}%), събрани {fees.get('total_paid_amount')}, "
+            f"освободени {fees.get('exempt')}"
         )
         for row in (fees.get("unpaid_athletes") or [])[:40]:
             lines.append(f"  длъжник: {row.get('athlete_name')}")
+        for row in (fees.get("exempt_athletes") or [])[:40]:
+            reason = row.get("reason") or ""
+            lines.append(
+                f"  освободен: {row.get('athlete_name')}"
+                + (f" ({reason})" if reason else "")
+            )
 
     att = report.get("attendance")
     if att:
         lines.append("")
         lines.append(
-            f"ПРИСЪСТВИЕ: сесии {att.get('sessions_count')}, "
+            f"ПРИСЪСТВИЕ: сесии {att.get('sessions_count')} "
+            f"(с прис. {att.get('sessions_with_attendance')}, "
+            f"без {att.get('sessions_without_attendance')}), "
             f"% {att.get('attendance_pct')}, "
             f"П {att.get('present')} / З {att.get('late')} / О {att.get('absent')} / И {att.get('excused')}"
         )
