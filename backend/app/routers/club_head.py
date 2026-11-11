@@ -1,6 +1,6 @@
 from datetime import datetime
 from io import BytesIO
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -20,6 +20,11 @@ from app.services.club_membership_consent import (
     DEFAULT_FEE_CURRENCY,
     DEFAULT_FEE_DUE_DAY,
     resolve_club_fee_settings,
+)
+from app.services.club_period_reports import (
+    build_period_report,
+    report_to_pdf_lines,
+    report_to_xlsx_rows,
 )
 from app.services.fee_exemption import (
     DEFAULT_FEE_AGE_EXEMPT_MIN,
@@ -497,3 +502,94 @@ def export_club_attendance_pdf(
     pdf = _club_pdf("Отчет: присъствие (клуб)", lines)
     fname = f"klub_prisastvie_{from_date}_{to_date}.pdf"
     return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+def _period_report_or_400(
+    db: Session,
+    current_user: User,
+    *,
+    pack: str,
+    month: str,
+    coach_id: int | None,
+) -> dict:
+    _ensure_head_with_club(current_user)
+    club = db.query(Club).filter(Club.id == current_user.club_id).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Клубът не е намерен")
+    if pack not in ("coach", "club", "sport"):
+        raise HTTPException(status_code=422, detail="pack трябва да е coach | club | sport")
+    try:
+        return build_period_report(
+            db,
+            club=club,
+            pack=pack,  # type: ignore[arg-type]
+            month_key=month,
+            coach_id=coach_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/club/reports/period")
+def club_period_report(
+    pack: Literal["coach", "club", "sport"] = Query(...),
+    month: str = Query(..., description="YYYY-MM"),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    """Месечен пакет: треньор (A) / клуб (B) / спортен (C)."""
+    return _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
+
+
+@router.get("/club/reports/period.pdf")
+def club_period_report_pdf(
+    pack: Literal["coach", "club", "sport"] = Query(...),
+    month: str = Query(..., description="YYYY-MM"),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    report = _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
+    lines = report_to_pdf_lines(report)
+    title = str(report.get("title") or "Месечен отчет")
+    pdf = _club_pdf(title, lines)
+    fname = f"otchet_{pack}_{month}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.get("/club/reports/period.xlsx")
+def club_period_report_xlsx(
+    pack: Literal["coach", "club", "sport"] = Query(...),
+    month: str = Query(..., description="YYYY-MM"),
+    coach_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.club_head_coach)),
+):
+    report = _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
+    sheets = report_to_xlsx_rows(report)
+    wb = Workbook()
+    first = True
+    for name, rows in sheets.items():
+        ws = wb.active if first else wb.create_sheet()
+        first = False
+        ws.title = str(name)[:31]
+        for row in rows:
+            ws.append(list(row))
+    if first:
+        ws = wb.active
+        ws.title = "Празно"
+        ws.append(["Няма данни"])
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    fname = f"otchet_{pack}_{month}.xlsx"
+    return Response(
+        content=bio.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

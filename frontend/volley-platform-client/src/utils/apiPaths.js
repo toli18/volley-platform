@@ -292,6 +292,9 @@ export const API_PATHS = {
   CLUB_REPORT_FEES_PDF: "/api/club/reports/fees.pdf",
   CLUB_REPORT_ATTENDANCE_XLSX: "/api/club/reports/attendance.xlsx",
   CLUB_REPORT_ATTENDANCE_PDF: "/api/club/reports/attendance.pdf",
+  CLUB_REPORT_PERIOD: "/api/club/reports/period",
+  CLUB_REPORT_PERIOD_PDF: "/api/club/reports/period.pdf",
+  CLUB_REPORT_PERIOD_XLSX: "/api/club/reports/period.xlsx",
 
   // BVF Administration (federation carding link + selective import)
   BVF_ADMIN_STATUS: "/api/bvf-admin/status",

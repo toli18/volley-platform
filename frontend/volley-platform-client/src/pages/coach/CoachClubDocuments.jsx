@@ -18,11 +18,62 @@ function fmtDate(value) {
   return `${d}.${m}.${y}`;
 }
 
-async function openPdf(path) {
-  const res = await axiosInstance.get(path, { responseType: "blob" });
+async function openPdf(path, params) {
+  const res = await axiosInstance.get(path, { responseType: "blob", params });
   const url = URL.createObjectURL(res.data);
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function downloadBlob(path, filename, params) {
+  const res = await axiosInstance.get(path, { responseType: "blob", params });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function fmtPct(v) {
+  if (v == null || v === "") return "·";
+  return `${v}%`;
+}
+
+function SummaryGrid({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+        gap: 8,
+        marginBottom: 12,
+      }}
+    >
+      {items.map((it) => (
+        <div
+          key={it.label}
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: 12,
+            padding: "10px 12px",
+            background: "#fff",
+          }}
+        >
+          <div className="coachMobileMuted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            {it.label}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{it.value}</div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function emptyInvoiceItems() {
@@ -200,6 +251,13 @@ export default function CoachClubDocuments() {
     event_title: "",
   });
 
+  const [reportPack, setReportPack] = useState("club");
+  const [reportMonth, setReportMonth] = useState(currentMonthKey);
+  const [reportCoachId, setReportCoachId] = useState("");
+  const [reportCoaches, setReportCoaches] = useState([]);
+  const [report, setReport] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
+
   const setHallCalendarMonth = (year, month) => {
     const y = Number(year) || new Date().getFullYear();
     const m = Number(month) || new Date().getMonth() + 1;
@@ -282,6 +340,75 @@ export default function CoachClubDocuments() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadReportCoaches = useCallback(async () => {
+    try {
+      const month = reportMonth || currentMonthKey();
+      const [y, m] = month.split("-").map(Number);
+      const last = new Date(y, m, 0).getDate();
+      const mm = String(m).padStart(2, "0");
+      const res = await axiosInstance.get(API_PATHS.CLUB_OVERVIEW, {
+        params: {
+          month_key: month,
+          from_date: `${y}-${mm}-01`,
+          to_date: `${y}-${mm}-${String(last).padStart(2, "0")}`,
+        },
+      });
+      setReportCoaches(res.data?.coaches || []);
+    } catch {
+      setReportCoaches([]);
+    }
+  }, [reportMonth]);
+
+  useEffect(() => {
+    if (tab !== "reports") return;
+    loadReportCoaches();
+  }, [tab, loadReportCoaches]);
+
+  const loadPeriodReport = useCallback(async () => {
+    if (reportPack === "coach" && !reportCoachId) {
+      toast.error("Избери треньор за пакет А.");
+      return;
+    }
+    setReportBusy(true);
+    try {
+      const params = { pack: reportPack, month: reportMonth };
+      if (reportCoachId && (reportPack === "coach" || reportPack === "sport")) {
+        params.coach_id = Number(reportCoachId);
+      }
+      const res = await axiosInstance.get(API_PATHS.CLUB_REPORT_PERIOD, { params });
+      setReport(res.data || null);
+    } catch (err) {
+      setReport(null);
+      toast.error(normalizeError(err, "Неуспешно генериране на отчета."));
+    } finally {
+      setReportBusy(false);
+    }
+  }, [reportPack, reportMonth, reportCoachId, toast]);
+
+  const exportPeriodReport = async (kind) => {
+    if (reportPack === "coach" && !reportCoachId) {
+      toast.error("Избери треньор за пакет А.");
+      return;
+    }
+    const params = { pack: reportPack, month: reportMonth };
+    if (reportCoachId && (reportPack === "coach" || reportPack === "sport")) {
+      params.coach_id = Number(reportCoachId);
+    }
+    try {
+      if (kind === "pdf") {
+        await openPdf(API_PATHS.CLUB_REPORT_PERIOD_PDF, params);
+      } else {
+        await downloadBlob(
+          API_PATHS.CLUB_REPORT_PERIOD_XLSX,
+          `otchet_${reportPack}_${reportMonth}.xlsx`,
+          params
+        );
+      }
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен експорт."));
+    }
+  };
 
   const loadInsurance = useCallback(async () => {
     setInsBusy(true);
@@ -560,14 +687,15 @@ export default function CoachClubDocuments() {
         <span className="feesCoachHeadBadge">{notes.length + invoices.length}</span>
       </header>
       <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-        Служебни бележки, фактури и списък за застраховка.
+        Служебни бележки, фактури, застраховка и месечни отчети за треньор/клуб/спорт.
         {showTroyanHall ? " За Троян — и месечно заявление за зала." : ""}
-        {" "}Бележките и фактурите се отварят като PDF за печат.
+        {" "}Бележките, фактурите и отчетите се отварят като PDF.
         {defaults?.club_full_name ? ` Издател: ${defaults.club_full_name}.` : ""}
       </p>
 
       <div className="coachMobileSubNav" style={{ marginBottom: 12 }}>
         {[
+          { id: "reports", label: "Отчети" },
           { id: "notes", label: `Бележки (${notes.length})` },
           { id: "invoices", label: `Фактури (${invoices.length})` },
           { id: "insurance", label: `Застраховки${insurance?.count != null ? ` (${insurance.count})` : ""}` },
@@ -585,6 +713,220 @@ export default function CoachClubDocuments() {
           </button>
         ))}
       </div>
+
+      {tab === "reports" ? (
+        <section className="uiCard" style={{ padding: 14, marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Месечни отчети</h3>
+          <p className="coachMobileMuted" style={{ marginTop: 0 }}>
+            Пакет А: треньор · Пакет Б: клуб · Пакет В: спортен (мачове + тестове). Периодът е един месец.
+          </p>
+
+          <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+            <div className="coachMobileSubNav">
+              {[
+                { id: "coach", label: "А · Треньор" },
+                { id: "club", label: "Б · Клуб" },
+                { id: "sport", label: "В · Спортен" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`coachMobileSubNavBtn${reportPack === p.id ? " is-active" : ""}`}
+                  onClick={() => {
+                    setReportPack(p.id);
+                    setReport(null);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <Input
+              label="Месец"
+              type="month"
+              value={reportMonth}
+              onChange={(e) => {
+                setReportMonth(e.target.value);
+                setReport(null);
+              }}
+            />
+
+            {reportPack === "coach" || reportPack === "sport" ? (
+              <label className="uiField">
+                <span className="uiFieldLabel">
+                  {reportPack === "coach" ? "Треньор (задължително)" : "Треньор (опционален филтър)"}
+                </span>
+                <select
+                  className="uiControl"
+                  value={reportCoachId}
+                  onChange={(e) => {
+                    setReportCoachId(e.target.value);
+                    setReport(null);
+                  }}
+                >
+                  <option value="">{reportPack === "coach" ? "Избери…" : "Всички треньори"}</option>
+                  {reportCoaches.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.email || `#${c.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button type="button" disabled={reportBusy} onClick={loadPeriodReport}>
+                {reportBusy ? "Генериране…" : "Генерирай"}
+              </Button>
+              <Button type="button" variant="secondary" disabled={reportBusy} onClick={() => exportPeriodReport("pdf")}>
+                PDF
+              </Button>
+              <Button type="button" variant="secondary" disabled={reportBusy} onClick={() => exportPeriodReport("xlsx")}>
+                Excel
+              </Button>
+            </div>
+          </div>
+
+          {report ? (
+            <>
+              <h4 style={{ marginBottom: 8 }}>{report.title}</h4>
+              <SummaryGrid
+                items={
+                  report.pack === "sport"
+                    ? [
+                        { label: "Мачове", value: report.summary?.matches_finished ?? 0 },
+                        { label: "Победи", value: report.summary?.match_wins ?? 0 },
+                        { label: "Загуби", value: report.summary?.match_losses ?? 0 },
+                        { label: "Със стат.", value: report.summary?.matches_with_stats ?? 0 },
+                        { label: "Тест сесии", value: report.summary?.assessment_sessions ?? 0 },
+                        { label: "Тествани", value: report.summary?.athletes_tested ?? 0 },
+                        { label: "Ср. score", value: report.summary?.avg_development_score ?? "·" },
+                        { label: "Присъствие", value: fmtPct(report.summary?.attendance_pct) },
+                      ]
+                    : [
+                        { label: "Отбори", value: report.summary?.teams ?? 0 },
+                        { label: "Състезатели", value: report.summary?.athletes ?? report.summary?.coaches ?? 0 },
+                        { label: "Сесии", value: report.summary?.sessions ?? 0 },
+                        { label: "Присъствие", value: fmtPct(report.summary?.attendance_pct) },
+                        { label: "Такси %", value: fmtPct(report.summary?.fees_collection_pct) },
+                        { label: "Длъжници", value: report.summary?.unpaid ?? 0 },
+                        { label: "Мачове", value: report.summary?.matches_finished ?? 0 },
+                        { label: "Победи", value: report.summary?.match_wins ?? 0 },
+                      ]
+                }
+              />
+
+              {(report.actions || []).length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>За действие</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.actions.map((a) => (
+                      <li key={a}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {report.coaches?.length ? (
+                <div style={{ overflow: "auto", marginBottom: 12 }}>
+                  <strong>Сравнение треньори</strong>
+                  <table className="matchLiveStatTable" style={{ marginTop: 8, minWidth: 640 }}>
+                    <thead>
+                      <tr>
+                        <th>Треньор</th>
+                        <th>Отб.</th>
+                        <th>Съст.</th>
+                        <th>Сесии</th>
+                        <th>Прис.%</th>
+                        <th>Такси%</th>
+                        <th>Дълг</th>
+                        <th>Мачове</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.coaches.map((c) => (
+                        <tr key={c.coach_id}>
+                          <td>{c.coach_name}</td>
+                          <td>{c.teams}</td>
+                          <td>{c.athletes}</td>
+                          <td>{c.sessions}</td>
+                          <td>{fmtPct(c.attendance_pct)}</td>
+                          <td>{fmtPct(c.fees_collection_pct)}</td>
+                          <td>{c.fees_unpaid}</td>
+                          <td>
+                            {c.matches_finished} / П{c.match_wins}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {report.fees?.unpaid_athletes?.length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>Длъжници ({report.fees.unpaid})</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.fees.unpaid_athletes.slice(0, 20).map((a) => (
+                      <li key={a.athlete_id}>{a.athlete_name}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {report.attendance?.low_attendance?.length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>Ниско присъствие (&lt;70%)</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.attendance.low_attendance.slice(0, 15).map((a) => (
+                      <li key={a.athlete_id}>
+                        {a.athlete_name}: {fmtPct(a.attendance_pct)} ({a.marked} записа)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {report.matches?.items?.length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>Мачове през месеца</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.matches.items.slice(0, 15).map((m) => (
+                      <li key={m.match_id}>
+                        {m.match_date} · {m.team_name} vs {m.opponent_name || "—"} · {m.sets_won_us}:{m.sets_won_opp}
+                        {m.event_count ? ` · ${m.event_count} съб.` : " · без стат."}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {report.assessments?.sessions?.length ? (
+                <div style={{ marginBottom: 12 }}>
+                  <strong>Тестови сесии</strong>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {report.assessments.sessions.slice(0, 12).map((s) => (
+                      <li key={s.session_id}>
+                        {s.conducted_on || "—"} · {s.team_name} · {s.status}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {report.missing_data ? (
+                <p className="coachMobileMuted" style={{ marginBottom: 0 }}>
+                  Липсващи данни: без ЕГН {report.missing_data.no_egn_count}, без родител{" "}
+                  {report.missing_data.no_parent_count}, без BVF {report.missing_data.no_bvf_count}.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="coachMobileMuted">{reportBusy ? "Генериране…" : "Избери пакет и месец, после „Генерирай“."}</p>
+          )}
+        </section>
+      ) : null}
 
       {tab === "notes" ? (
         <>
