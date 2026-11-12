@@ -246,8 +246,427 @@ function SimpleTable({ columns, rows, initial = 8, rowKey }) {
   );
 }
 
-function PeriodReportView({ report }) {
+function scrollToReportSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, remindBusy }) {
+  const [feesTab, setFeesTab] = useState("unpaid");
+  const [feesQuery, setFeesQuery] = useState("");
   if (!report) return null;
+
+  const s = report.summary || {};
+  const att = report.attendance || {};
+  const fees = report.fees || {};
+  const matches = report.matches || {};
+  const missing = report.missing_data || {};
+  const teamId = teamFilter ? Number(teamFilter) : null;
+  const coachId = coachFilter ? Number(coachFilter) : null;
+
+  const coaches = (report.coaches || []).filter((c) => (coachId ? Number(c.coach_id) === coachId : true));
+  const byTeam = (att.by_team || []).filter((r) => {
+    if (teamId && Number(r.team_id) !== teamId) return false;
+    if (coachId && Number(r.coach_id) !== coachId) return false;
+    return true;
+  });
+  const matchItems = (matches.items || []).filter((m) => {
+    if (teamId && Number(m.team_id) !== teamId) return false;
+    if (coachId) {
+      const team = (report.teams || []).find((t) => Number(t.id) === Number(m.team_id));
+      if (team && Number(team.coach_id) !== coachId) return false;
+      if (!team) return true;
+    }
+    return true;
+  });
+  const filterFeeRow = (row) => {
+    if (teamId && Number(row.team_id) !== teamId) return false;
+    if (coachId && Number(row.coach_id) !== coachId) return false;
+    const q = feesQuery.trim().toLowerCase();
+    if (q && !(row.athlete_name || "").toLowerCase().includes(q)) return false;
+    return true;
+  };
+  const unpaidRows = (fees.unpaid_athletes || []).filter(filterFeeRow);
+  const paidRows = (fees.paid_athletes || []).filter(filterFeeRow);
+  const exemptRows = (fees.exempt_athletes || []).filter(filterFeeRow);
+  const lowRows = (att.low_attendance || []).filter((r) => {
+    if (teamId && Number(r.team_id) !== teamId) return false;
+    if (coachId && Number(r.coach_id) !== coachId) return false;
+    return true;
+  });
+
+  const athletesTotal = Number(s.athletes || 0);
+  const collected = Number(fees.total_paid_amount ?? s.fees_collected_amount ?? 0);
+  const expected = Number(fees.expected_amount ?? s.fees_expected_amount ?? 0);
+  const present = Number(att.present || 0);
+  const late = Number(att.late || 0);
+  const absent = Number(att.absent || 0);
+  const excused = Number(att.excused || 0);
+  const egnOk =
+    athletesTotal > 0
+      ? Math.round(((athletesTotal - Number(missing.no_egn_count || 0)) / athletesTotal) * 1000) / 10
+      : null;
+  const official = Number(matches.official ?? s.matches_official ?? 0);
+  const control = Number(matches.control ?? s.matches_control ?? 0);
+  const finished = Number(matches.finished ?? s.matches_finished ?? 0);
+  const wins = Number(matches.wins ?? s.match_wins ?? 0);
+  const enrollments = Number(s.enrollments || report.enrollments?.count || 0);
+
+  const feeTabRows = feesTab === "paid" ? paidRows : feesTab === "exempt" ? exemptRows : unpaidRows;
+
+  return (
+    <div className="periodReport">
+      <h4 style={{ marginBottom: 6 }}>{report.title}</h4>
+      <p className="periodReportIntro">
+        Управленски преглед: сравнение между треньори и общо състояние на клуба.
+      </p>
+
+      <div className="periodReportKpi4">
+        <div className="periodReportKpiCard">
+          <div className="periodReportKpiCardTop">
+            <DonutChart value={s.attendance_pct} label="Присъствие" color={toneColor(pctTone(s.attendance_pct))} />
+            <div>
+              <div className="periodReportKpiCardTitle">Присъствие</div>
+              <div className="periodReportKpiCardValue">{fmtPct(s.attendance_pct)}</div>
+            </div>
+          </div>
+          <div className="periodReportKpiCardMeta">
+            Присъствали: {present + late} · Отсъствали: {absent + excused}
+            <br />
+            Сесии: {s.sessions ?? 0} (с присъствие {s.sessions_with_attendance ?? 0})
+          </div>
+        </div>
+
+        <div className="periodReportKpiCard">
+          <div className="periodReportKpiCardTop">
+            <DonutChart
+              value={s.fees_collection_pct}
+              label="Събираемост"
+              color={toneColor(pctTone(s.fees_collection_pct))}
+            />
+            <div>
+              <div className="periodReportKpiCardTitle">Финанси и такси</div>
+              <div className="periodReportKpiCardValue">{fmtPct(s.fees_collection_pct)}</div>
+            </div>
+          </div>
+          <div className="periodReportKpiCardMeta">
+            {fmtMoney(collected)} / {fmtMoney(expected)}
+            <br />
+            Платени {fees.paid ?? 0} · Длъжници {fees.unpaid ?? 0} · Освободени {fees.exempt ?? 0}
+          </div>
+        </div>
+
+        <div className="periodReportKpiCard">
+          <div className="periodReportKpiCardTop">
+            <DonutChart value={egnOk} label="ЕГН" color={toneColor(pctTone(egnOk))} />
+            <div>
+              <div className="periodReportKpiCardTitle">Състав и данни</div>
+              <div className="periodReportKpiCardValue">{s.athletes ?? 0}</div>
+            </div>
+          </div>
+          <div className="periodReportKpiCardMeta">
+            Отбори {s.teams ?? 0} · Треньори {s.coaches ?? 0}
+            <br />
+            Попълнени ЕГН: {fmtPct(egnOk)}
+          </div>
+        </div>
+
+        <div className="periodReportKpiCard">
+          <div className="periodReportKpiCardTop">
+            <DonutChart
+              value={finished > 0 ? Math.round((wins / finished) * 1000) / 10 : null}
+              label="Победи"
+              color={toneColor(pctTone(finished > 0 ? (wins / finished) * 100 : null))}
+            />
+            <div>
+              <div className="periodReportKpiCardTitle">Състезателна дейност</div>
+              <div className="periodReportKpiCardValue">{finished}</div>
+            </div>
+          </div>
+          <div className="periodReportKpiCardMeta">
+            Официални {official} · Контроли {control}
+            <br />
+            Победи {wins}
+          </div>
+        </div>
+      </div>
+
+      <div className="periodReportAttention" id="pr-attention">
+        <div className="periodReportAttentionCol">
+          <h5>Изисква внимание</h5>
+          <button type="button" className="periodReportAttentionBtn" onClick={() => scrollToReportSection("pr-fees")}>
+            <span>Длъжници</span>
+            <span>{fees.unpaid ?? 0}</span>
+          </button>
+          <button
+            type="button"
+            className="periodReportAttentionBtn"
+            onClick={() => scrollToReportSection("pr-low-att")}
+          >
+            <span>Ниско присъствие (&lt;70%)</span>
+            <span>{(att.low_attendance || []).length}</span>
+          </button>
+          <button
+            type="button"
+            className="periodReportAttentionBtn"
+            onClick={() => scrollToReportSection("pr-enrollments")}
+          >
+            <span>Нови заявки</span>
+            <span>{enrollments}</span>
+          </button>
+        </div>
+        <div className="periodReportAttentionCol">
+          <h5>Липсващи данни</h5>
+          <button type="button" className="periodReportAttentionBtn" onClick={() => scrollToReportSection("pr-missing")}>
+            <span>Без ЕГН</span>
+            <span>{missing.no_egn_count ?? 0}</span>
+          </button>
+          <button type="button" className="periodReportAttentionBtn" onClick={() => scrollToReportSection("pr-missing")}>
+            <span>Непълнолетни без родител</span>
+            <span>{missing.no_parent_count ?? 0}</span>
+          </button>
+          <button type="button" className="periodReportAttentionBtn" onClick={() => scrollToReportSection("pr-missing")}>
+            <span>Без картотека в БФВ</span>
+            <span>{missing.no_bvf_count ?? 0}</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="pr-coaches">
+        <ReportSection title="Сравнение треньори" count={coaches.length} defaultOpen>
+          <SimpleTable
+            initial={12}
+            rowKey={(c) => c.coach_id}
+            rows={coaches}
+            columns={[
+              { label: "Треньор", key: "coach_name" },
+              { label: "Отб.", key: "teams" },
+              { label: "Съст.", key: "athletes" },
+              { label: "Сесии", key: "sessions" },
+              {
+                label: "Прис.%",
+                render: (c) => <StatusPill value={fmtPct(c.attendance_pct)} tone={pctTone(c.attendance_pct)} />,
+              },
+              {
+                label: "Такси%",
+                render: (c) => (
+                  <StatusPill value={fmtPct(c.fees_collection_pct)} tone={pctTone(c.fees_collection_pct)} />
+                ),
+              },
+              {
+                label: "Очаквани / Събрани",
+                render: (c) =>
+                  `${fmtMoney(c.fees_expected_amount ?? 0)} / ${fmtMoney(c.fees_collected_amount ?? 0)}`,
+              },
+              { label: "Дълг", key: "fees_unpaid" },
+              {
+                label: "Мачове",
+                render: (c) => `${c.matches_finished} / Поб. ${c.match_wins}`,
+              },
+            ]}
+          />
+        </ReportSection>
+      </div>
+
+      <div id="pr-by-team">
+        <ReportSection title="Присъствие по отбори" count={byTeam.length} defaultOpen>
+          <SimpleTable
+            initial={12}
+            rowKey={(r) => r.team_id}
+            rows={byTeam}
+            columns={[
+              { label: "Отбор", key: "team_name" },
+              { label: "Треньор", muted: true, render: (r) => r.coach_name || "·" },
+              { label: "Състезатели", key: "athlete_count" },
+              { label: "Сесии", key: "sessions_count" },
+              {
+                label: "%",
+                render: (r) =>
+                  Number(r.sessions_count) === 0 ? (
+                    <span className="periodReportEmptySessions">Няма тренировки</span>
+                  ) : (
+                    <StatusPill value={fmtPct(r.attendance_pct)} tone={pctTone(r.attendance_pct)} />
+                  ),
+              },
+              { label: "Присъствали", key: "present" },
+              { label: "Закъснели", key: "late" },
+              { label: "Отсъствали", key: "absent" },
+              { label: "Извинени", key: "excused" },
+            ]}
+          />
+        </ReportSection>
+      </div>
+
+      <div id="pr-fees">
+        <ReportSection title="Такси подробно" count={`${fees.paid ?? 0}/${fees.billable ?? 0}`} defaultOpen>
+          <p className="periodReportNote">
+            Събрани {fmtMoney(collected)} от очаквани {fmtMoney(expected)}
+            {fees.fee_unit_amount != null ? ` · такса ${fmtMoney(fees.fee_unit_amount)}` : ""}
+          </p>
+          <div className="periodReportTabs">
+            {[
+              { id: "unpaid", label: `Длъжници (${unpaidRows.length})` },
+              { id: "paid", label: `Платили (${paidRows.length})` },
+              { id: "exempt", label: `Освободени (${exemptRows.length})` },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`periodReportTab${feesTab === t.id ? " is-active" : ""}`}
+                onClick={() => setFeesTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="periodReportSearch">
+            <Input
+              label="Търси по име"
+              value={feesQuery}
+              onChange={(e) => setFeesQuery(e.target.value)}
+              placeholder="Име на състезател…"
+            />
+          </div>
+          {feesTab === "unpaid" ? (
+            <div style={{ marginBottom: 8 }}>
+              <Button type="button" variant="secondary" disabled={remindBusy || !unpaidRows.length} onClick={onRemindUnpaid}>
+                {remindBusy ? "Изпращане…" : "Изпрати напомняния"}
+              </Button>
+            </div>
+          ) : null}
+          <SimpleTable
+            initial={12}
+            rowKey={(a) => a.athlete_id}
+            rows={feeTabRows}
+            columns={[
+              { label: "Състезател", key: "athlete_name" },
+              { label: "Отбор", muted: true, render: (a) => a.team_name || "·" },
+              {
+                label: "Дължима сума",
+                render: (a) => fmtMoney(a.amount_due ?? a.amount ?? 0),
+              },
+              {
+                label: "Статус / Причина",
+                muted: true,
+                render: (a) =>
+                  feesTab === "exempt"
+                    ? fmtExemptReason(a.reason)
+                    : feesTab === "paid"
+                      ? `Платил · ${fmtMoney(a.amount)}`
+                      : "Длъжник",
+              },
+              {
+                label: "Действие",
+                render: (a) =>
+                  feesTab === "unpaid" ? (
+                    <Button type="button" variant="secondary" disabled={remindBusy} onClick={onRemindUnpaid}>
+                      Напомняне
+                    </Button>
+                  ) : (
+                    "·"
+                  ),
+              },
+            ]}
+          />
+        </ReportSection>
+      </div>
+
+      <div className="periodReportSplit2">
+        <div id="pr-low-att">
+          <ReportSection title="Ниско присъствие (<70%)" count={lowRows.length} defaultOpen>
+            <SimpleTable
+              initial={10}
+              rowKey={(a) => a.athlete_id}
+              rows={lowRows}
+              columns={[
+                { label: "Състезател", key: "athlete_name" },
+                { label: "Отбор", muted: true, render: (a) => a.team_name || "·" },
+                {
+                  label: "%",
+                  render: (a) => <StatusPill value={fmtPct(a.attendance_pct)} tone={pctTone(a.attendance_pct)} />,
+                },
+                { label: "Записи", key: "marked" },
+              ]}
+            />
+          </ReportSection>
+        </div>
+        <div id="pr-matches">
+          <ReportSection title="Мачове през месеца" count={matchItems.length} defaultOpen>
+            <SimpleTable
+              initial={10}
+              rowKey={(m) => m.match_id}
+              rows={matchItems}
+              columns={[
+                { label: "Дата", render: (m) => fmtDate(m.match_date) || m.match_date },
+                { label: "Отбор", key: "team_name" },
+                { label: "Срещу", muted: true, render: (m) => m.opponent_name || "·" },
+                {
+                  label: "Вид",
+                  muted: true,
+                  render: (m) => (m.kind === "official" ? "Официален" : "Контрола"),
+                },
+                {
+                  label: "Резултат",
+                  render: (m) => `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`,
+                },
+                {
+                  label: "Статистика",
+                  render: (m) =>
+                    m.event_count ? (
+                      <StatusPill value={`${m.event_count} записани действия`} tone="good" />
+                    ) : (
+                      <StatusPill value="Няма статистика" tone="bad" />
+                    ),
+                },
+              ]}
+            />
+          </ReportSection>
+        </div>
+      </div>
+
+      <div id="pr-enrollments">
+        <ReportSection title="Нови заявки за записване" count={enrollments} defaultOpen={false}>
+          <p className="periodReportNote">
+            {enrollments
+              ? `Нови заявки през месеца: ${enrollments}.`
+              : "Няма нови заявки за записване през месеца."}
+          </p>
+        </ReportSection>
+      </div>
+
+      <div id="pr-missing">
+        <ReportSection title="Липсващи данни" defaultOpen={false}>
+          <SummaryGrid
+            items={[
+              { label: "Без ЕГН", value: missing.no_egn_count ?? 0 },
+              { label: "Без родител (за лица под 18 г.)", value: missing.no_parent_count ?? 0 },
+              { label: "Без картотека (БФВ)", value: missing.no_bvf_count ?? 0 },
+              {
+                label: "ЕГН покритие",
+                value: fmtPct(egnOk),
+                hint: athletesTotal ? `от ${athletesTotal} състезатели` : undefined,
+              },
+            ]}
+          />
+        </ReportSection>
+      </div>
+    </div>
+  );
+}
+
+function PeriodReportView({ report, teamFilter, coachFilter, onRemindUnpaid, remindBusy }) {
+  if (!report) return null;
+  if (report.pack === "club") {
+    return (
+      <ClubPackReportView
+        report={report}
+        teamFilter={teamFilter}
+        coachFilter={coachFilter}
+        onRemindUnpaid={onRemindUnpaid}
+        remindBusy={remindBusy}
+      />
+    );
+  }
   const pack = report.pack;
   const s = report.summary || {};
   const att = report.attendance || {};
@@ -843,9 +1262,12 @@ export default function CoachClubDocuments() {
   const [reportPack, setReportPack] = useState("club");
   const [reportMonth, setReportMonth] = useState(currentMonthKey);
   const [reportCoachId, setReportCoachId] = useState("");
+  const [reportTeamId, setReportTeamId] = useState("");
+  const [reportClubCoachId, setReportClubCoachId] = useState("");
   const [reportCoaches, setReportCoaches] = useState([]);
   const [report, setReport] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
+  const [reportRemindBusy, setReportRemindBusy] = useState(false);
 
   const setHallCalendarMonth = (year, month) => {
     const y = Number(year) || new Date().getFullYear();
@@ -980,7 +1402,7 @@ export default function CoachClubDocuments() {
     }
   }, [reportPack, reportMonth, reportCoachId, toast]);
 
-  const exportPeriodReport = async (kind) => {
+  const exportPeriodReport = async (kind, variant = "management") => {
     if (reportPack === "coach" && !reportCoachId) {
       toast.error("Избери треньор за пакет А.");
       return;
@@ -988,6 +1410,9 @@ export default function CoachClubDocuments() {
     const params = { pack: reportPack, month: reportMonth };
     if (reportCoachId && (reportPack === "coach" || reportPack === "sport")) {
       params.coach_id = Number(reportCoachId);
+    }
+    if (kind === "pdf" && reportPack === "club") {
+      params.variant = variant;
     }
     try {
       if (kind === "pdf") {
@@ -1006,6 +1431,24 @@ export default function CoachClubDocuments() {
           ? "API за отчети още не е качено на сървъра. Изчакай deploy на Railway и пробвай пак."
           : normalizeError(err, "Неуспешен експорт.")
       );
+    }
+  };
+
+  const remindUnpaidFees = async () => {
+    setReportRemindBusy(true);
+    try {
+      const res = await axiosInstance.post(API_PATHS.FEES_REMIND_UNPAID, null, {
+        params: {
+          month_key: reportMonth,
+          ...(reportClubCoachId ? { coach_id: Number(reportClubCoachId) } : {}),
+        },
+      });
+      const notified = res.data?.notified ?? res.data?.sent ?? 0;
+      toast.success(notified ? `Изпратени напомняния: ${notified}` : "Няма длъжници с push за напомняне.");
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно изпращане на напомняния."));
+    } finally {
+      setReportRemindBusy(false);
     }
   };
 
@@ -1320,7 +1763,7 @@ export default function CoachClubDocuments() {
             Пакет А: треньор · Пакет Б: клуб · Пакет В: спортен (мачове + тестове). Периодът е един месец.
           </p>
 
-          <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+          <div className={reportPack === "club" ? "periodReportSticky" : undefined} style={reportPack === "club" ? undefined : { display: "grid", gap: 10, marginBottom: 12 }}>
             <div className="coachMobileSubNav">
               {[
                 { id: "coach", label: "А · Треньор" },
@@ -1334,6 +1777,8 @@ export default function CoachClubDocuments() {
                   onClick={() => {
                     setReportPack(p.id);
                     setReport(null);
+                    setReportTeamId("");
+                    setReportClubCoachId("");
                   }}
                 >
                   {p.label}
@@ -1341,46 +1786,104 @@ export default function CoachClubDocuments() {
               ))}
             </div>
 
-            <Input
-              label="Месец"
-              type="month"
-              value={reportMonth}
-              onChange={(e) => {
-                setReportMonth(e.target.value);
-                setReport(null);
-              }}
-            />
+            <div className={reportPack === "club" ? "periodReportStickyRow" : undefined} style={reportPack === "club" ? undefined : { display: "grid", gap: 10 }}>
+              <Input
+                label="Месец"
+                type="month"
+                value={reportMonth}
+                onChange={(e) => {
+                  setReportMonth(e.target.value);
+                  setReport(null);
+                }}
+              />
 
-            {reportPack === "coach" || reportPack === "sport" ? (
-              <label className="uiField">
-                <span className="uiFieldLabel">
-                  {reportPack === "coach" ? "Треньор (задължително)" : "Треньор (опционален филтър)"}
-                </span>
-                <select
-                  className="uiControl"
-                  value={reportCoachId}
-                  onChange={(e) => {
-                    setReportCoachId(e.target.value);
-                    setReport(null);
-                  }}
-                >
-                  <option value="">{reportPack === "coach" ? "Избери…" : "Всички треньори"}</option>
-                  {reportCoaches.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name || c.email || `#${c.id}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+              {reportPack === "club" ? (
+                <>
+                  <label className="uiField">
+                    <span className="uiFieldLabel">Отбор</span>
+                    <select
+                      className="uiControl"
+                      value={reportTeamId}
+                      onChange={(e) => setReportTeamId(e.target.value)}
+                    >
+                      <option value="">Всички отбори</option>
+                      {(report?.teams || []).map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="uiField">
+                    <span className="uiFieldLabel">Треньор</span>
+                    <select
+                      className="uiControl"
+                      value={reportClubCoachId}
+                      onChange={(e) => setReportClubCoachId(e.target.value)}
+                    >
+                      <option value="">Всички треньори</option>
+                      {(report?.coaches || reportCoaches).map((c) => (
+                        <option key={c.coach_id || c.id} value={c.coach_id || c.id}>
+                          {c.coach_name || c.name || c.email || `#${c.coach_id || c.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+
+              {reportPack === "coach" || reportPack === "sport" ? (
+                <label className="uiField">
+                  <span className="uiFieldLabel">
+                    {reportPack === "coach" ? "Треньор (задължително)" : "Треньор (опционален филтър)"}
+                  </span>
+                  <select
+                    className="uiControl"
+                    value={reportCoachId}
+                    onChange={(e) => {
+                      setReportCoachId(e.target.value);
+                      setReport(null);
+                    }}
+                  >
+                    <option value="">{reportPack === "coach" ? "Избери…" : "Всички треньори"}</option>
+                    {reportCoaches.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.email || `#${c.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <Button type="button" disabled={reportBusy} onClick={loadPeriodReport}>
                 {reportBusy ? "Генериране…" : "Генерирай"}
               </Button>
-              <Button type="button" variant="secondary" disabled={reportBusy} onClick={() => exportPeriodReport("pdf")}>
-                PDF
-              </Button>
+              {reportPack === "club" ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={reportBusy}
+                    onClick={() => exportPeriodReport("pdf", "management")}
+                  >
+                    PDF Управленски
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={reportBusy}
+                    onClick={() => exportPeriodReport("pdf", "municipality")}
+                  >
+                    PDF За Община
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="secondary" disabled={reportBusy} onClick={() => exportPeriodReport("pdf")}>
+                  PDF
+                </Button>
+              )}
               <Button type="button" variant="secondary" disabled={reportBusy} onClick={() => exportPeriodReport("xlsx")}>
                 Excel
               </Button>
@@ -1388,7 +1891,13 @@ export default function CoachClubDocuments() {
           </div>
 
           {report ? (
-            <PeriodReportView report={report} />
+            <PeriodReportView
+              report={report}
+              teamFilter={reportTeamId}
+              coachFilter={reportPack === "club" ? reportClubCoachId : reportCoachId}
+              onRemindUnpaid={remindUnpaidFees}
+              remindBusy={reportRemindBusy}
+            />
           ) : (
             <p className="coachMobileMuted">{reportBusy ? "Генериране…" : "Избери пакет и месец, после „Генерирай“."}</p>
           )}

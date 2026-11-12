@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
+
 from app.models import (
     Athlete,
     AthletePayment,
@@ -14,6 +16,7 @@ from app.models import (
     Club,
     ClubEnrollmentRequest,
     Team,
+    TeamMember,
     TeamSession,
     Training,
     User,
@@ -21,6 +24,7 @@ from app.models import (
 )
 from app.models_assessment import AssessmentResult, AssessmentSession, DevelopmentScore
 from app.models_matches import Match, MatchSet, MatchStatus, MatchStatEvent
+from app.services.club_membership_consent import DEFAULT_FEE_AMOUNT
 from app.services.fee_exemption import athlete_birth_year, athlete_fee_exempt_for_month
 from app.services.match_live import count_sets_won, is_match_won
 
@@ -152,15 +156,37 @@ def _attendance_block(
 
     marked = sum(counts.values())
     attended = counts["present"] + counts["late"]
-    team_name = {t.id: t.name for t in db.query(Team).filter(Team.id.in_(team_ids)).all()}
+    teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+    team_name = {t.id: t.name for t in teams}
+    team_coach_id = {t.id: int(t.coach_id) for t in teams if t.coach_id is not None}
+    coach_ids = list({cid for cid in team_coach_id.values()})
+    coach_name = {}
+    if coach_ids:
+        coach_name = {
+            u.id: (u.name or u.email or "")
+            for u in db.query(User).filter(User.id.in_(coach_ids)).all()
+        }
+    member_counts = {
+        int(tid): int(cnt)
+        for tid, cnt in (
+            db.query(TeamMember.team_id, func.count(TeamMember.id))
+            .filter(TeamMember.team_id.in_(team_ids))
+            .group_by(TeamMember.team_id)
+            .all()
+        )
+    }
     by_team = []
     for tid in team_ids:
         tc = by_team_counts.get(tid, {"present": 0, "late": 0, "absent": 0, "excused": 0, "marked": 0})
         att = tc["present"] + tc["late"]
+        cid = team_coach_id.get(tid)
         by_team.append(
             {
                 "team_id": tid,
                 "team_name": team_name.get(tid, ""),
+                "coach_id": cid,
+                "coach_name": coach_name.get(cid, "") if cid is not None else "",
+                "athlete_count": member_counts.get(tid, 0),
                 "sessions_count": sessions_by_team.get(tid, 0),
                 "present": tc["present"],
                 "late": tc["late"],
@@ -177,6 +203,7 @@ def _attendance_block(
             a.id: a.athlete_name
             for a in db.query(Athlete).filter(Athlete.id.in_(athlete_ids)).all()
         }
+    team_info = _athlete_team_info(db, athlete_ids=athlete_ids, team_ids=team_ids)
     low = []
     for aid, am in athlete_marks.items():
         if am["marked"] < 3:
@@ -184,10 +211,14 @@ def _attendance_block(
         att = am["present"] + am["late"]
         pct = _pct(att, am["marked"])
         if pct is not None and pct < 70:
+            info = team_info.get(int(aid)) or {}
             low.append(
                 {
                     "athlete_id": aid,
                     "athlete_name": names.get(aid, ""),
+                    "team_id": info.get("team_id"),
+                    "team_name": info.get("team_name") or "",
+                    "coach_id": info.get("coach_id"),
                     "marked": am["marked"],
                     "present": am["present"],
                     "late": am["late"],
@@ -214,6 +245,42 @@ def _attendance_block(
     }
 
 
+def _club_fee_unit(club: Club | None) -> float:
+    if club is None:
+        return float(DEFAULT_FEE_AMOUNT)
+    return float(getattr(club, "membership_consent_fee_amount", None) or DEFAULT_FEE_AMOUNT)
+
+
+def _athlete_team_info(
+    db: Session,
+    *,
+    athlete_ids: list[int],
+    team_ids: list[int] | None = None,
+) -> dict[int, dict[str, Any]]:
+    """Primary team per athlete (first membership), optionally scoped to team_ids."""
+    if not athlete_ids:
+        return {}
+    q = (
+        db.query(TeamMember.athlete_id, Team.id, Team.name, Team.coach_id)
+        .join(Team, Team.id == TeamMember.team_id)
+        .filter(TeamMember.athlete_id.in_(athlete_ids))
+    )
+    if team_ids:
+        q = q.filter(TeamMember.team_id.in_(team_ids))
+    rows = q.order_by(TeamMember.athlete_id.asc(), TeamMember.id.asc()).all()
+    out: dict[int, dict[str, Any]] = {}
+    for aid, tid, tname, cid in rows:
+        i_aid = int(aid)
+        if i_aid in out:
+            continue
+        out[i_aid] = {
+            "team_id": int(tid),
+            "team_name": tname or "",
+            "coach_id": int(cid) if cid is not None else None,
+        }
+    return out
+
+
 def _fees_block(
     db: Session,
     *,
@@ -221,13 +288,23 @@ def _fees_block(
     athletes: list[Athlete],
     month_key: str,
 ) -> dict[str, Any]:
+    fee_unit = _club_fee_unit(club)
     billable = []
     exempt = []
     for a in athletes:
         is_ex, reason = athlete_fee_exempt_for_month(a, club, month_key)
         if is_ex:
             reason_s = reason.value if hasattr(reason, "value") else (str(reason) if reason else "")
-            exempt.append({"athlete_id": a.id, "athlete_name": a.athlete_name, "reason": reason_s})
+            exempt.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "reason": reason_s,
+                    "coach_id": a.coach_id,
+                    "amount_due": 0.0,
+                    "status": "exempt",
+                }
+            )
         else:
             billable.append(a)
 
@@ -244,23 +321,56 @@ def _fees_block(
         paid_map = {p.athlete_id: p for p in payments}
 
     unpaid = []
+    paid_rows = []
     total_paid = 0.0
     for a in billable:
         p = paid_map.get(a.id)
         if p:
-            total_paid += float(p.amount or 0)
+            amt = float(p.amount or 0)
+            total_paid += amt
+            paid_rows.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "coach_id": a.coach_id,
+                    "amount": round(amt, 2),
+                    "amount_due": round(fee_unit, 2),
+                    "status": "paid",
+                }
+            )
         else:
-            unpaid.append({"athlete_id": a.id, "athlete_name": a.athlete_name, "coach_id": a.coach_id})
+            unpaid.append(
+                {
+                    "athlete_id": a.id,
+                    "athlete_name": a.athlete_name,
+                    "coach_id": a.coach_id,
+                    "amount_due": round(fee_unit, 2),
+                    "status": "unpaid",
+                }
+            )
 
+    team_info = _athlete_team_info(
+        db,
+        athlete_ids=[a["athlete_id"] for a in unpaid + paid_rows + exempt],
+    )
+    for row in unpaid + paid_rows + exempt:
+        info = team_info.get(int(row["athlete_id"])) or {}
+        row["team_id"] = info.get("team_id")
+        row["team_name"] = info.get("team_name") or ""
+
+    expected = round(fee_unit * len(billable), 2)
     return {
         "month_key": month_key,
         "billable": len(billable),
         "paid": len(paid_map),
         "unpaid": len(unpaid),
         "exempt": len(exempt),
+        "fee_unit_amount": round(fee_unit, 2),
+        "expected_amount": expected,
         "total_paid_amount": round(total_paid, 2),
         "collection_pct": _pct(len(paid_map), len(billable)),
         "unpaid_athletes": unpaid[:80],
+        "paid_athletes": paid_rows[:80],
         "exempt_athletes": exempt[:40],
     }
 
@@ -347,7 +457,16 @@ def _matches_block(
     to_d: date,
 ) -> dict[str, Any]:
     if not team_ids:
-        return {"count": 0, "finished": 0, "wins": 0, "losses": 0, "with_stats": 0, "items": []}
+        return {
+            "count": 0,
+            "finished": 0,
+            "wins": 0,
+            "losses": 0,
+            "with_stats": 0,
+            "official": 0,
+            "control": 0,
+            "items": [],
+        }
 
     matches = (
         db.query(Match)
@@ -362,6 +481,7 @@ def _matches_block(
     team_name = {t.id: t.name for t in db.query(Team).filter(Team.id.in_(team_ids)).all()}
     items = []
     wins = losses = finished = with_stats = 0
+    official = control = 0
     for m in matches:
         status = m.status.value if hasattr(m.status, "value") else str(m.status)
         sets = db.query(MatchSet).filter(MatchSet.match_id == m.id).order_by(MatchSet.set_number.asc()).all()
@@ -373,6 +493,11 @@ def _matches_block(
                 wins += 1
             elif won_by == "opp":
                 losses += 1
+        kind = "official" if getattr(m, "competition_id", None) else "control"
+        if kind == "official":
+            official += 1
+        else:
+            control += 1
         ev_count = (
             db.query(MatchStatEvent)
             .filter(MatchStatEvent.match_id == m.id, MatchStatEvent.undone == 0)
@@ -388,6 +513,7 @@ def _matches_block(
                 "opponent_name": m.opponent_name or "",
                 "match_date": m.match_date.isoformat() if m.match_date else None,
                 "status": status,
+                "kind": kind,
                 "sets_won_us": us,
                 "sets_won_opp": opp,
                 "won_by": won_by,
@@ -400,6 +526,8 @@ def _matches_block(
         "wins": wins,
         "losses": losses,
         "with_stats": with_stats,
+        "official": official,
+        "control": control,
         "items": items,
     }
 
@@ -609,6 +737,8 @@ def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any
                 "fees_paid": c_fees["paid"],
                 "fees_unpaid": c_fees["unpaid"],
                 "fees_collection_pct": c_fees["collection_pct"],
+                "fees_collected_amount": c_fees["total_paid_amount"],
+                "fees_expected_amount": c_fees.get("expected_amount", 0),
                 "matches_finished": c_matches["finished"],
                 "match_wins": c_matches["wins"],
             }
@@ -645,15 +775,28 @@ def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any
             "fees_unpaid": fees["unpaid"],
             "fees_exempt": fees["exempt"],
             "fees_collected_amount": fees["total_paid_amount"],
+            "fees_expected_amount": fees.get("expected_amount", 0),
+            "fees_unit_amount": fees.get("fee_unit_amount", 0),
             "fees_collection_pct": fees["collection_pct"],
             "unpaid": fees["unpaid"],
             "total_paid_amount": fees["total_paid_amount"],
             "matches_finished": matches["finished"],
             "match_wins": matches["wins"],
+            "matches_official": matches.get("official", 0),
+            "matches_control": matches.get("control", 0),
             "assessments": assessments["sessions_count"],
             "enrollments": enrollments["count"],
             "trainings_created": trainings["count"],
         },
+        "teams": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "age_group": t.age_group or "",
+                "coach_id": t.coach_id,
+            }
+            for t in teams
+        ],
         "coaches": coach_rows,
         "attendance": attendance,
         "fees": fees,
