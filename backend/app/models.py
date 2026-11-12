@@ -1267,7 +1267,8 @@ class ClubCompetitionEvent(Base):
     roster_locked_at = Column(DateTime, nullable=True)
 
     # RIS (ris.bgvolley.dev) official calendar link
-    ris_game_id = Column(Integer, nullable=True, unique=True, index=True)
+    # Unique per club: home and away clubs may both import the same RIS game.
+    ris_game_id = Column(Integer, nullable=True, index=True)
     ris_championship_id = Column(Integer, nullable=True, index=True)
     ris_match_number = Column(Integer, nullable=True)
     ris_stream_url = Column(String(500), nullable=True)
@@ -1287,6 +1288,7 @@ class ClubCompetitionEvent(Base):
 
     __table_args__ = (
         Index("ix_competition_club_date", "club_id", "date"),
+        UniqueConstraint("club_id", "ris_game_id", name="uq_competition_club_ris_game"),
     )
 
 

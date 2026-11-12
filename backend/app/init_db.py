@@ -575,11 +575,24 @@ def _init_db_impl() -> None:
                             "ADD COLUMN IF NOT EXISTS ris_synced_at TIMESTAMP"
                         )
                     )
+                    # Old global unique blocked home+away clubs from importing the same match.
+                    conn.execute(
+                        text(
+                            "DROP INDEX IF EXISTS ix_club_competition_events_ris_game_id"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS "
+                            "ix_club_competition_events_ris_game_id "
+                            "ON club_competition_events (ris_game_id)"
+                        )
+                    )
                     conn.execute(
                         text(
                             "CREATE UNIQUE INDEX IF NOT EXISTS "
-                            "ix_club_competition_events_ris_game_id "
-                            "ON club_competition_events (ris_game_id)"
+                            "uq_competition_club_ris_game "
+                            "ON club_competition_events (club_id, ris_game_id)"
                         )
                     )
                     conn.execute(
