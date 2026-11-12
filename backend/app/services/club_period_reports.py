@@ -21,7 +21,7 @@ from app.models import (
 )
 from app.models_assessment import AssessmentResult, AssessmentSession, DevelopmentScore
 from app.models_matches import Match, MatchSet, MatchStatus, MatchStatEvent
-from app.services.fee_exemption import athlete_fee_exempt_for_month
+from app.services.fee_exemption import athlete_birth_year, athlete_fee_exempt_for_month
 from app.services.match_live import count_sets_won, is_match_won
 
 PackLiteral = Literal["coach", "club", "sport"]
@@ -265,15 +265,37 @@ def _fees_block(
     }
 
 
+def _athlete_age_years(athlete: Athlete, *, today: date | None = None) -> int | None:
+    """Approximate age in full years; None when birth year/date is missing."""
+    ref = today or date.today()
+    bd = getattr(athlete, "birth_date", None)
+    if bd is not None and getattr(bd, "year", None):
+        years = int(ref.year) - int(bd.year)
+        if (ref.month, ref.day) < (int(bd.month), int(bd.day)):
+            years -= 1
+        return years
+    by = athlete_birth_year(athlete)
+    if by is None:
+        return None
+    return int(ref.year) - int(by)
+
+
 def _missing_data(athletes: list[Athlete]) -> dict[str, Any]:
     no_egn = []
     no_parent = []
     no_bvf = []
+    today = date.today()
     for a in athletes:
         if not (a.egn or "").strip():
             no_egn.append({"athlete_id": a.id, "athlete_name": a.athlete_name})
-        if not (a.parent_name or "").strip() and not (getattr(a, "parent_phone", None) or "").strip():
-            no_parent.append({"athlete_id": a.id, "athlete_name": a.athlete_name})
+        missing_parent = not (a.parent_name or "").strip() and not (
+            getattr(a, "parent_phone", None) or ""
+        ).strip()
+        if missing_parent:
+            age = _athlete_age_years(a, today=today)
+            # Under 18 only when age is known; unknown age keeps previous behavior.
+            if age is None or age < 18:
+                no_parent.append({"athlete_id": a.id, "athlete_name": a.athlete_name})
         if not getattr(a, "bvf_player_id", None):
             no_bvf.append({"athlete_id": a.id, "athlete_name": a.athlete_name})
     return {

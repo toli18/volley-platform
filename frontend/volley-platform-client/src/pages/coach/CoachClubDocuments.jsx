@@ -42,14 +42,28 @@ function currentMonthKey() {
 
 function fmtPct(v) {
   if (v == null || v === "") return "·";
-  return `${v}%`;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return `${v}%`;
+  return `${n.toLocaleString("bg-BG", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
 function fmtMoney(v) {
   if (v == null || v === "") return "·";
   const n = Number(v);
   if (!Number.isFinite(n)) return String(v);
-  return n.toLocaleString("bg-BG", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return `${n.toLocaleString("bg-BG", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €`;
+}
+
+function fmtExemptReason(reason) {
+  const key = String(reason || "").trim().toLowerCase();
+  if (key === "age") return "Възрастова група (освободен по възраст)";
+  if (key === "manual") return "Освободен от администратор / треньор";
+  if (!key) return "·";
+  return String(reason);
+}
+
+function fmtAttendanceBreakdown({ present = 0, late = 0, absent = 0, excused = 0 } = {}) {
+  return `Присъствали: ${present} · Закъснели: ${late} · Отсъствали: ${absent} · Извинени: ${excused}`;
 }
 
 function pctTone(pct) {
@@ -80,7 +94,9 @@ function DonutChart({ value, max = 100, color, label, size = 96, track = "#e2e8f
     value == null || value === ""
       ? "·"
       : Number.isFinite(n)
-        ? `${Math.round(n)}${max === 100 ? "%" : ""}`
+        ? max === 100
+          ? fmtPct(n)
+          : String(Math.round(n))
         : String(value);
   return (
     <svg className="periodReportDonut" width={size} height={size} viewBox="0 0 96 96" aria-label={label || text}>
@@ -276,18 +292,22 @@ function PeriodReportView({ report }) {
   const attendanceBand =
     pack === "sport"
       ? [
-          { label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "от маркирани записи" },
-          { label: "Маркирани", value: marked || "·", hint: "общо статуси" },
+          { label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "от отбелязани записи" },
+          { label: "Отбелязани", value: marked || "·", hint: "общо статуси" },
         ]
       : [
           {
             label: "Сесии",
             value: s.sessions ?? 0,
-            hint: `с прис. ${s.sessions_with_attendance ?? 0} · без ${s.sessions_without_attendance ?? 0}`,
+            hint: `с присъствие ${s.sessions_with_attendance ?? 0} · без ${s.sessions_without_attendance ?? 0}`,
           },
-          { label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "present+late / маркирани" },
-          { label: "Присъствали", value: present + late, hint: `П ${present} · З ${late}` },
-          { label: "Отсъствия", value: absent + excused, hint: `О ${absent} · И ${excused}` },
+          {
+            label: "Присъствие",
+            value: fmtPct(s.attendance_pct),
+            hint: "Присъствали и закъснели спрямо отбелязани",
+          },
+          { label: "Присъствали", value: present + late, hint: `Присъствали: ${present} · Закъснели: ${late}` },
+          { label: "Отсъствия", value: absent + excused, hint: `Отсъствали: ${absent} · Извинени: ${excused}` },
         ];
 
   const feesBand =
@@ -336,16 +356,16 @@ function PeriodReportView({ report }) {
     charts.push({
       key: "att",
       label: "Присъствие",
-      hint: "present + late спрямо маркирани",
+      hint: "Присъствали и закъснели спрямо отбелязани",
       node: <DonutChart value={s.attendance_pct} label="Присъствие" color={toneColor(pctTone(s.attendance_pct))} />,
     });
     charts.push({
       key: "fees",
       label: "Събираемост",
-      hint: `${paid} платени · ${unpaid} дълг · ${exempt} осв.`,
+      hint: `${paid} платени · ${unpaid} длъжници · ${exempt} освободени`,
       node: (
         <SegmentDonut
-          center={s.fees_collection_pct != null ? `${Math.round(Number(s.fees_collection_pct))}%` : "·"}
+          center={s.fees_collection_pct != null ? fmtPct(s.fees_collection_pct) : "·"}
           label="Такси"
           segments={[
             { label: "Платени", value: paid, color: "#15803d" },
@@ -359,16 +379,16 @@ function PeriodReportView({ report }) {
       charts.push({
         key: "marks",
         label: "Статуси",
-        hint: `П ${present} · З ${late} · О ${absent} · И ${excused}`,
+        hint: fmtAttendanceBreakdown({ present, late, absent, excused }),
         node: (
           <SegmentDonut
             center={String(marked)}
             label="Статуси"
             segments={[
-              { label: "П", value: present, color: "#15803d" },
-              { label: "З", value: late, color: "#b45309" },
-              { label: "О", value: absent, color: "#b91c1c" },
-              { label: "И", value: excused, color: "#1d4ed8" },
+              { label: "Присъствали", value: present, color: "#15803d" },
+              { label: "Закъснели", value: late, color: "#b45309" },
+              { label: "Отсъствали", value: absent, color: "#b91c1c" },
+              { label: "Извинени", value: excused, color: "#1d4ed8" },
             ]}
           />
         ),
@@ -516,7 +536,7 @@ function PeriodReportView({ report }) {
                 rows={report.fees.exempt_athletes}
                 columns={[
                   { label: "Състезател", key: "athlete_name" },
-                  { label: "Причина", muted: true, render: (a) => a.reason || "·" },
+                  { label: "Причина", muted: true, render: (a) => fmtExemptReason(a.reason) },
                 ]}
               />
             </div>
@@ -537,10 +557,10 @@ function PeriodReportView({ report }) {
                 label: "%",
                 render: (r) => <StatusPill value={fmtPct(r.attendance_pct)} tone={pctTone(r.attendance_pct)} />,
               },
-              { label: "П", key: "present" },
-              { label: "З", key: "late" },
-              { label: "О", key: "absent" },
-              { label: "И", key: "excused" },
+              { label: "Присъствали", key: "present" },
+              { label: "Закъснели", key: "late" },
+              { label: "Отсъствали", key: "absent" },
+              { label: "Извинени", key: "excused" },
             ]}
           />
         </ReportSection>
@@ -564,9 +584,15 @@ function PeriodReportView({ report }) {
               },
               { label: "Записи", key: "marked" },
               {
-                label: "П/З/О/И",
+                label: "Разбивка",
                 muted: true,
-                render: (a) => `${a.present}/${a.late}/${a.absent}/${a.excused}`,
+                render: (a) =>
+                  fmtAttendanceBreakdown({
+                    present: a.present,
+                    late: a.late,
+                    absent: a.absent,
+                    excused: a.excused,
+                  }),
               },
             ]}
           />
@@ -588,12 +614,12 @@ function PeriodReportView({ report }) {
                 render: (m) => `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`,
               },
               {
-                label: "Стат.",
+                label: "Статистика",
                 render: (m) =>
                   m.event_count ? (
-                    <StatusPill value={`${m.event_count} съб.`} tone="good" />
+                    <StatusPill value={`${m.event_count} записани действия`} tone="good" />
                   ) : (
-                    <StatusPill value="без" tone="bad" />
+                    <StatusPill value="Няма статистика" tone="bad" />
                   ),
               },
             ]}
@@ -621,8 +647,11 @@ function PeriodReportView({ report }) {
           <SummaryGrid
             items={[
               { label: "Без ЕГН", value: report.missing_data.no_egn_count ?? 0 },
-              { label: "Без родител", value: report.missing_data.no_parent_count ?? 0 },
-              { label: "Без BVF", value: report.missing_data.no_bvf_count ?? 0 },
+              {
+                label: "Без родител (за лица под 18 г.)",
+                value: report.missing_data.no_parent_count ?? 0,
+              },
+              { label: "Без картотека (БФВ)", value: report.missing_data.no_bvf_count ?? 0 },
               {
                 label: "ЕГН покритие",
                 value: fmtPct(egnOk),
