@@ -510,6 +510,7 @@ def _period_report_or_400(
     *,
     pack: str,
     month: str,
+    month_to: str | None,
     coach_id: int | None,
 ) -> dict:
     _ensure_head_with_club(current_user)
@@ -524,6 +525,7 @@ def _period_report_or_400(
             club=club,
             pack=pack,  # type: ignore[arg-type]
             month_key=month,
+            month_to=month_to,
             coach_id=coach_id,
         )
     except ValueError as exc:
@@ -533,28 +535,39 @@ def _period_report_or_400(
 @router.get("/club/reports/period")
 def club_period_report(
     pack: Literal["coach", "club", "sport"] = Query(...),
-    month: str = Query(..., description="YYYY-MM"),
+    month: str = Query(..., description="YYYY-MM (начало на периода)"),
+    month_to: str | None = Query(default=None, description="YYYY-MM (край; по подразбиране = month)"),
     coach_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
-    """Месечен пакет: треньор (A) / клуб (B) / спортен (C). Deploy marker 2026-11-12."""
-    return _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
+    """Месечен/периоден пакет: треньор (A) / клуб (B) / спортен (C)."""
+    return _period_report_or_400(
+        db, current_user, pack=pack, month=month, month_to=month_to, coach_id=coach_id
+    )
 
 
 @router.get("/club/reports/period.pdf")
 def club_period_report_pdf(
     pack: Literal["coach", "club", "sport"] = Query(...),
     month: str = Query(..., description="YYYY-MM"),
+    month_to: str | None = Query(default=None),
     coach_id: int | None = Query(default=None),
+    variant: Literal["management", "municipality"] = Query(default="management"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
-    report = _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
-    lines = report_to_pdf_lines(report)
+    report = _period_report_or_400(
+        db, current_user, pack=pack, month=month, month_to=month_to, coach_id=coach_id
+    )
+    lines = report_to_pdf_lines(report, variant=variant)
     title = str(report.get("title") or "Месечен отчет")
+    if variant == "municipality":
+        title = f"Общински отчет · {report.get('club_name') or ''}"
     pdf = _club_pdf(title, lines)
-    fname = f"otchet_{pack}_{month}.pdf"
+    suffix = "obshtina" if variant == "municipality" else "upravlenski"
+    end = month_to or month
+    fname = f"otchet_{pack}_{suffix}_{month}_{end}.pdf"
     return Response(
         content=pdf,
         media_type="application/pdf",
@@ -566,11 +579,14 @@ def club_period_report_pdf(
 def club_period_report_xlsx(
     pack: Literal["coach", "club", "sport"] = Query(...),
     month: str = Query(..., description="YYYY-MM"),
+    month_to: str | None = Query(default=None),
     coach_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.club_head_coach)),
 ):
-    report = _period_report_or_400(db, current_user, pack=pack, month=month, coach_id=coach_id)
+    report = _period_report_or_400(
+        db, current_user, pack=pack, month=month, month_to=month_to, coach_id=coach_id
+    )
     sheets = report_to_xlsx_rows(report)
     wb = Workbook()
     first = True
@@ -587,7 +603,8 @@ def club_period_report_xlsx(
     bio = BytesIO()
     wb.save(bio)
     bio.seek(0)
-    fname = f"otchet_{pack}_{month}.xlsx"
+    end = month_to or month
+    fname = f"otchet_{pack}_{month}_{end}.xlsx"
     return Response(
         content=bio.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

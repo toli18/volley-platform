@@ -40,6 +40,12 @@ function currentMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function addMonthsKey(monthKey, delta) {
+  const [y, m] = String(monthKey || currentMonthKey()).split("-").map(Number);
+  const d = new Date(y, (m || 1) - 1 + Number(delta || 0), 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function fmtPct(v) {
   if (v == null || v === "") return "·";
   const n = Number(v);
@@ -255,6 +261,7 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
   const [feesTab, setFeesTab] = useState("unpaid");
   const [feesQuery, setFeesQuery] = useState("");
   if (!report) return null;
+  const isCoachPack = report.pack === "coach";
 
   const s = report.summary || {};
   const att = report.attendance || {};
@@ -318,7 +325,9 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
     <div className="periodReport">
       <h4 style={{ marginBottom: 6 }}>{report.title}</h4>
       <p className="periodReportIntro">
-        Управленски преглед: сравнение между треньори и общо състояние на клуба.
+        {isCoachPack
+          ? `Оперативен преглед за треньора${report.coach?.name ? ` · ${report.coach.name}` : ""}. Период: ${report.month_key}${report.month_to && report.month_to !== report.month_key ? ` - ${report.month_to}` : ""}.`
+          : `Управленски преглед на клуба. Период: ${report.month_key}${report.month_to && report.month_to !== report.month_key ? ` - ${report.month_to}` : ""}.`}
       </p>
 
       <div className="periodReportKpi4">
@@ -365,7 +374,8 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
             </div>
           </div>
           <div className="periodReportKpiCardMeta">
-            Отбори {s.teams ?? 0} · Треньори {s.coaches ?? 0}
+            Отбори {s.teams ?? 0}
+            {!isCoachPack ? ` · Треньори ${s.coaches ?? 0}` : ""}
             <br />
             Попълнени ЕГН: {fmtPct(egnOk)}
           </div>
@@ -406,14 +416,16 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
             <span>Ниско присъствие (&lt;70%)</span>
             <span>{(att.low_attendance || []).length}</span>
           </button>
-          <button
-            type="button"
-            className="periodReportAttentionBtn"
-            onClick={() => scrollToReportSection("pr-enrollments")}
-          >
-            <span>Нови заявки</span>
-            <span>{enrollments}</span>
-          </button>
+          {!isCoachPack ? (
+            <button
+              type="button"
+              className="periodReportAttentionBtn"
+              onClick={() => scrollToReportSection("pr-enrollments")}
+            >
+              <span>Нови заявки</span>
+              <span>{enrollments}</span>
+            </button>
+          ) : null}
         </div>
         <div className="periodReportAttentionCol">
           <h5>Липсващи данни</h5>
@@ -432,41 +444,43 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
         </div>
       </div>
 
-      <div id="pr-coaches">
-        <ReportSection title="Сравнение треньори" count={coaches.length} defaultOpen>
-          <SimpleTable
-            initial={12}
-            rowKey={(c) => c.coach_id}
-            rows={coaches}
-            columns={[
-              { label: "Треньор", key: "coach_name" },
-              { label: "Отб.", key: "teams" },
-              { label: "Съст.", key: "athletes" },
-              { label: "Сесии", key: "sessions" },
-              {
-                label: "Прис.%",
-                render: (c) => <StatusPill value={fmtPct(c.attendance_pct)} tone={pctTone(c.attendance_pct)} />,
-              },
-              {
-                label: "Такси%",
-                render: (c) => (
-                  <StatusPill value={fmtPct(c.fees_collection_pct)} tone={pctTone(c.fees_collection_pct)} />
-                ),
-              },
-              {
-                label: "Очаквани / Събрани",
-                render: (c) =>
-                  `${fmtMoney(c.fees_expected_amount ?? 0)} / ${fmtMoney(c.fees_collected_amount ?? 0)}`,
-              },
-              { label: "Дълг", key: "fees_unpaid" },
-              {
-                label: "Мачове",
-                render: (c) => `${c.matches_finished} / Поб. ${c.match_wins}`,
-              },
-            ]}
-          />
-        </ReportSection>
-      </div>
+      {!isCoachPack && coaches.length ? (
+        <div id="pr-coaches">
+          <ReportSection title="Сравнение треньори" count={coaches.length} defaultOpen>
+            <SimpleTable
+              initial={12}
+              rowKey={(c) => c.coach_id}
+              rows={coaches}
+              columns={[
+                { label: "Треньор", key: "coach_name" },
+                { label: "Отб.", key: "teams" },
+                { label: "Съст.", key: "athletes" },
+                { label: "Сесии", key: "sessions" },
+                {
+                  label: "Прис.%",
+                  render: (c) => <StatusPill value={fmtPct(c.attendance_pct)} tone={pctTone(c.attendance_pct)} />,
+                },
+                {
+                  label: "Такси%",
+                  render: (c) => (
+                    <StatusPill value={fmtPct(c.fees_collection_pct)} tone={pctTone(c.fees_collection_pct)} />
+                  ),
+                },
+                {
+                  label: "Очаквани / Събрани",
+                  render: (c) =>
+                    `${fmtMoney(c.fees_expected_amount ?? 0)} / ${fmtMoney(c.fees_collected_amount ?? 0)}`,
+                },
+                { label: "Дълг", key: "fees_unpaid" },
+                {
+                  label: "Мачове",
+                  render: (c) => `${c.matches_finished} / Поб. ${c.match_wins}`,
+                },
+              ]}
+            />
+          </ReportSection>
+        </div>
+      ) : null}
 
       <div id="pr-by-team">
         <ReportSection title="Присъствие по отбори" count={byTeam.length} defaultOpen>
@@ -624,15 +638,17 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
         </div>
       </div>
 
-      <div id="pr-enrollments">
-        <ReportSection title="Нови заявки за записване" count={enrollments} defaultOpen={false}>
-          <p className="periodReportNote">
-            {enrollments
-              ? `Нови заявки през месеца: ${enrollments}.`
-              : "Няма нови заявки за записване през месеца."}
-          </p>
-        </ReportSection>
-      </div>
+      {!isCoachPack ? (
+        <div id="pr-enrollments">
+          <ReportSection title="Нови заявки за записване" count={enrollments} defaultOpen={false}>
+            <p className="periodReportNote">
+              {enrollments
+                ? `Нови заявки през месеца: ${enrollments}.`
+                : "Няма нови заявки за записване през месеца."}
+            </p>
+          </ReportSection>
+        </div>
+      ) : null}
 
       <div id="pr-missing">
         <ReportSection title="Липсващи данни" defaultOpen={false}>
@@ -656,7 +672,7 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
 
 function PeriodReportView({ report, teamFilter, coachFilter, onRemindUnpaid, remindBusy }) {
   if (!report) return null;
-  if (report.pack === "club") {
+  if (report.pack === "club" || report.pack === "coach") {
     return (
       <ClubPackReportView
         report={report}
@@ -1261,6 +1277,8 @@ export default function CoachClubDocuments() {
 
   const [reportPack, setReportPack] = useState("club");
   const [reportMonth, setReportMonth] = useState(currentMonthKey);
+  const [reportMonthTo, setReportMonthTo] = useState(currentMonthKey);
+  const [reportPeriodPreset, setReportPeriodPreset] = useState("1");
   const [reportCoachId, setReportCoachId] = useState("");
   const [reportTeamId, setReportTeamId] = useState("");
   const [reportClubCoachId, setReportClubCoachId] = useState("");
@@ -1268,6 +1286,12 @@ export default function CoachClubDocuments() {
   const [report, setReport] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportRemindBusy, setReportRemindBusy] = useState(false);
+
+  const applyReportPeriodPreset = (preset, fromMonth = reportMonth) => {
+    setReportPeriodPreset(preset);
+    if (preset === "1") setReportMonthTo(fromMonth);
+    else if (preset === "3") setReportMonthTo(addMonthsKey(fromMonth, 2));
+  };
 
   const setHallCalendarMonth = (year, month) => {
     const y = Number(year) || new Date().getFullYear();
@@ -1384,6 +1408,7 @@ export default function CoachClubDocuments() {
     setReportBusy(true);
     try {
       const params = { pack: reportPack, month: reportMonth };
+      if (reportMonthTo && reportMonthTo !== reportMonth) params.month_to = reportMonthTo;
       if (reportCoachId && (reportPack === "coach" || reportPack === "sport")) {
         params.coach_id = Number(reportCoachId);
       }
@@ -1400,7 +1425,7 @@ export default function CoachClubDocuments() {
     } finally {
       setReportBusy(false);
     }
-  }, [reportPack, reportMonth, reportCoachId, toast]);
+  }, [reportPack, reportMonth, reportMonthTo, reportCoachId, toast]);
 
   const exportPeriodReport = async (kind, variant = "management") => {
     if (reportPack === "coach" && !reportCoachId) {
@@ -1408,10 +1433,11 @@ export default function CoachClubDocuments() {
       return;
     }
     const params = { pack: reportPack, month: reportMonth };
+    if (reportMonthTo && reportMonthTo !== reportMonth) params.month_to = reportMonthTo;
     if (reportCoachId && (reportPack === "coach" || reportPack === "sport")) {
       params.coach_id = Number(reportCoachId);
     }
-    if (kind === "pdf" && reportPack === "club") {
+    if (kind === "pdf" && (reportPack === "club" || reportPack === "coach")) {
       params.variant = variant;
     }
     try {
@@ -1437,10 +1463,12 @@ export default function CoachClubDocuments() {
   const remindUnpaidFees = async () => {
     setReportRemindBusy(true);
     try {
+      const coachForRemind =
+        reportPack === "coach" ? reportCoachId : reportPack === "club" ? reportClubCoachId : "";
       const res = await axiosInstance.post(API_PATHS.FEES_REMIND_UNPAID, null, {
         params: {
-          month_key: reportMonth,
-          ...(reportClubCoachId ? { coach_id: Number(reportClubCoachId) } : {}),
+          month_key: reportMonthTo || reportMonth,
+          ...(coachForRemind ? { coach_id: Number(coachForRemind) } : {}),
         },
       });
       const notified = res.data?.notified ?? res.data?.sent ?? 0;
@@ -1760,10 +1788,13 @@ export default function CoachClubDocuments() {
         <section className="uiCard" style={{ padding: 14, marginBottom: 16 }}>
           <h3 style={{ marginTop: 0 }}>Месечни отчети</h3>
           <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-            Пакет А: треньор · Пакет Б: клуб · Пакет В: спортен (мачове + тестове). Периодът е един месец.
+            Пакет А: треньор · Пакет Б: клуб · Пакет В: спортен (мачове + тестове). Избери 1 месец, 3 месеца или период по избор.
           </p>
 
-          <div className={reportPack === "club" ? "periodReportSticky" : undefined} style={reportPack === "club" ? undefined : { display: "grid", gap: 10, marginBottom: 12 }}>
+          <div
+            className={reportPack === "club" || reportPack === "coach" ? "periodReportSticky" : undefined}
+            style={reportPack === "club" || reportPack === "coach" ? undefined : { display: "grid", gap: 10, marginBottom: 12 }}
+          >
             <div className="coachMobileSubNav">
               {[
                 { id: "coach", label: "А · Треньор" },
@@ -1786,50 +1817,78 @@ export default function CoachClubDocuments() {
               ))}
             </div>
 
-            <div className={reportPack === "club" ? "periodReportStickyRow" : undefined} style={reportPack === "club" ? undefined : { display: "grid", gap: 10 }}>
+            <div
+              className={reportPack === "club" || reportPack === "coach" ? "periodReportStickyRow" : undefined}
+              style={reportPack === "club" || reportPack === "coach" ? undefined : { display: "grid", gap: 10 }}
+            >
               <Input
-                label="Месец"
+                label="От месец"
                 type="month"
                 value={reportMonth}
                 onChange={(e) => {
-                  setReportMonth(e.target.value);
+                  const v = e.target.value;
+                  setReportMonth(v);
+                  applyReportPeriodPreset(reportPeriodPreset, v);
                   setReport(null);
                 }}
               />
+              <Input
+                label="До месец"
+                type="month"
+                value={reportMonthTo}
+                onChange={(e) => {
+                  setReportPeriodPreset("custom");
+                  setReportMonthTo(e.target.value);
+                  setReport(null);
+                }}
+              />
+              <label className="uiField">
+                <span className="uiFieldLabel">Период</span>
+                <select
+                  className="uiControl"
+                  value={reportPeriodPreset}
+                  onChange={(e) => {
+                    const p = e.target.value;
+                    applyReportPeriodPreset(p, reportMonth);
+                    setReport(null);
+                  }}
+                >
+                  <option value="1">1 месец</option>
+                  <option value="3">3 месеца</option>
+                  <option value="custom">По избор</option>
+                </select>
+              </label>
+
+              {reportPack === "club" || reportPack === "coach" ? (
+                <label className="uiField">
+                  <span className="uiFieldLabel">Отбор</span>
+                  <select className="uiControl" value={reportTeamId} onChange={(e) => setReportTeamId(e.target.value)}>
+                    <option value="">Всички отбори</option>
+                    {(report?.teams || []).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
 
               {reportPack === "club" ? (
-                <>
-                  <label className="uiField">
-                    <span className="uiFieldLabel">Отбор</span>
-                    <select
-                      className="uiControl"
-                      value={reportTeamId}
-                      onChange={(e) => setReportTeamId(e.target.value)}
-                    >
-                      <option value="">Всички отбори</option>
-                      {(report?.teams || []).map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="uiField">
-                    <span className="uiFieldLabel">Треньор</span>
-                    <select
-                      className="uiControl"
-                      value={reportClubCoachId}
-                      onChange={(e) => setReportClubCoachId(e.target.value)}
-                    >
-                      <option value="">Всички треньори</option>
-                      {(report?.coaches || reportCoaches).map((c) => (
-                        <option key={c.coach_id || c.id} value={c.coach_id || c.id}>
-                          {c.coach_name || c.name || c.email || `#${c.coach_id || c.id}`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
+                <label className="uiField">
+                  <span className="uiFieldLabel">Треньор</span>
+                  <select
+                    className="uiControl"
+                    value={reportClubCoachId}
+                    onChange={(e) => setReportClubCoachId(e.target.value)}
+                  >
+                    <option value="">Всички треньори</option>
+                    {(report?.coaches || reportCoaches).map((c) => (
+                      <option key={c.coach_id || c.id} value={c.coach_id || c.id}>
+                        {c.coach_name || c.name || c.email || `#${c.coach_id || c.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
 
               {reportPack === "coach" || reportPack === "sport" ? (
@@ -1860,7 +1919,7 @@ export default function CoachClubDocuments() {
               <Button type="button" disabled={reportBusy} onClick={loadPeriodReport}>
                 {reportBusy ? "Генериране…" : "Генерирай"}
               </Button>
-              {reportPack === "club" ? (
+              {reportPack === "club" || reportPack === "coach" ? (
                 <>
                   <Button
                     type="button"
@@ -1894,7 +1953,7 @@ export default function CoachClubDocuments() {
             <PeriodReportView
               report={report}
               teamFilter={reportTeamId}
-              coachFilter={reportPack === "club" ? reportClubCoachId : reportCoachId}
+              coachFilter={reportPack === "club" ? reportClubCoachId : ""}
               onRemindUnpaid={remindUnpaidFees}
               remindBusy={reportRemindBusy}
             />

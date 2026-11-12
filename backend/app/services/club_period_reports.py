@@ -52,6 +52,35 @@ def month_date_bounds(month_key: str) -> tuple[str, str, date, date]:
     return from_d.isoformat(), to_d.isoformat(), from_d, to_d
 
 
+def iter_month_keys(month_from: str, month_to: str | None = None) -> list[str]:
+    start = parse_month_key(month_from)
+    end = parse_month_key(month_to or month_from)
+    if end < start:
+        start, end = end, start
+    y, m = int(start[:4]), int(start[5:7])
+    ey, em = int(end[:4]), int(end[5:7])
+    out: list[str] = []
+    while (y, m) <= (ey, em):
+        out.append(f"{y:04d}-{m:02d}")
+        if len(out) > 36:
+            raise ValueError("Периодът не може да е над 36 месеца")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return out
+
+
+def period_date_bounds(
+    month_from: str,
+    month_to: str | None = None,
+) -> tuple[str, str, date, date, list[str]]:
+    keys = iter_month_keys(month_from, month_to)
+    from_s, _, from_d, _ = month_date_bounds(keys[0])
+    _, to_s, _, to_d = month_date_bounds(keys[-1])
+    return from_s, to_s, from_d, to_d, keys
+
+
 def _pct(part: int, whole: int) -> float | None:
     if whole <= 0:
         return None
@@ -286,66 +315,98 @@ def _fees_block(
     *,
     club: Club | None,
     athletes: list[Athlete],
-    month_key: str,
+    month_key: str | None = None,
+    month_keys: list[str] | None = None,
 ) -> dict[str, Any]:
+    keys = list(month_keys or [])
+    if not keys:
+        keys = [parse_month_key(month_key or "")]
+    else:
+        keys = [parse_month_key(k) for k in keys]
     fee_unit = _club_fee_unit(club)
-    billable = []
-    exempt = []
+    n_months = len(keys)
+
+    # Per athlete: months due / paid / exempt in the period.
+    unpaid: list[dict[str, Any]] = []
+    paid_rows: list[dict[str, Any]] = []
+    exempt: list[dict[str, Any]] = []
+    billable_slots = 0
+    paid_slots = 0
+    total_paid = 0.0
+
+    athlete_ids = [a.id for a in athletes]
+    payments_by_athlete: dict[int, dict[str, AthletePayment]] = {}
+    if athlete_ids:
+        pay_rows = (
+            db.query(AthletePayment)
+            .filter(
+                AthletePayment.athlete_id.in_(athlete_ids),
+                AthletePayment.month_key.in_(keys),
+            )
+            .all()
+        )
+        for p in pay_rows:
+            payments_by_athlete.setdefault(int(p.athlete_id), {})[str(p.month_key)] = p
+
     for a in athletes:
-        is_ex, reason = athlete_fee_exempt_for_month(a, club, month_key)
-        if is_ex:
-            reason_s = reason.value if hasattr(reason, "value") else (str(reason) if reason else "")
+        due_months: list[str] = []
+        paid_months: list[str] = []
+        exempt_months: list[str] = []
+        reason_last = ""
+        amount_sum = 0.0
+        for mk in keys:
+            is_ex, reason = athlete_fee_exempt_for_month(a, club, mk)
+            if is_ex:
+                exempt_months.append(mk)
+                reason_last = reason.value if hasattr(reason, "value") else (str(reason) if reason else "")
+                continue
+            due_months.append(mk)
+            p = (payments_by_athlete.get(int(a.id)) or {}).get(mk)
+            if p:
+                paid_months.append(mk)
+                amount_sum += float(p.amount or 0)
+        if due_months:
+            billable_slots += len(due_months)
+            paid_slots += len(paid_months)
+            total_paid += amount_sum
+            amount_due = round(fee_unit * len(due_months), 2)
+            missing = [m for m in due_months if m not in paid_months]
+            if missing:
+                unpaid.append(
+                    {
+                        "athlete_id": a.id,
+                        "athlete_name": a.athlete_name,
+                        "coach_id": a.coach_id,
+                        "amount_due": amount_due,
+                        "amount_paid": round(amount_sum, 2),
+                        "months_due": len(due_months),
+                        "months_paid": len(paid_months),
+                        "months_missing": missing,
+                        "status": "unpaid",
+                    }
+                )
+            else:
+                paid_rows.append(
+                    {
+                        "athlete_id": a.id,
+                        "athlete_name": a.athlete_name,
+                        "coach_id": a.coach_id,
+                        "amount": round(amount_sum, 2),
+                        "amount_due": amount_due,
+                        "months_due": len(due_months),
+                        "months_paid": len(paid_months),
+                        "status": "paid",
+                    }
+                )
+        elif exempt_months:
             exempt.append(
                 {
                     "athlete_id": a.id,
                     "athlete_name": a.athlete_name,
-                    "reason": reason_s,
+                    "reason": reason_last,
                     "coach_id": a.coach_id,
                     "amount_due": 0.0,
                     "status": "exempt",
-                }
-            )
-        else:
-            billable.append(a)
-
-    paid_map: dict[int, AthletePayment] = {}
-    if billable:
-        payments = (
-            db.query(AthletePayment)
-            .filter(
-                AthletePayment.athlete_id.in_([a.id for a in billable]),
-                AthletePayment.month_key == month_key,
-            )
-            .all()
-        )
-        paid_map = {p.athlete_id: p for p in payments}
-
-    unpaid = []
-    paid_rows = []
-    total_paid = 0.0
-    for a in billable:
-        p = paid_map.get(a.id)
-        if p:
-            amt = float(p.amount or 0)
-            total_paid += amt
-            paid_rows.append(
-                {
-                    "athlete_id": a.id,
-                    "athlete_name": a.athlete_name,
-                    "coach_id": a.coach_id,
-                    "amount": round(amt, 2),
-                    "amount_due": round(fee_unit, 2),
-                    "status": "paid",
-                }
-            )
-        else:
-            unpaid.append(
-                {
-                    "athlete_id": a.id,
-                    "athlete_name": a.athlete_name,
-                    "coach_id": a.coach_id,
-                    "amount_due": round(fee_unit, 2),
-                    "status": "unpaid",
                 }
             )
 
@@ -358,17 +419,21 @@ def _fees_block(
         row["team_id"] = info.get("team_id")
         row["team_name"] = info.get("team_name") or ""
 
-    expected = round(fee_unit * len(billable), 2)
+    expected = round(fee_unit * billable_slots, 2)
     return {
-        "month_key": month_key,
-        "billable": len(billable),
-        "paid": len(paid_map),
+        "month_key": keys[0] if n_months == 1 else f"{keys[0]}…{keys[-1]}",
+        "month_keys": keys,
+        "months_count": n_months,
+        "billable": billable_slots if n_months > 1 else len(paid_rows) + len(unpaid),
+        "paid": paid_slots if n_months > 1 else len(paid_rows),
         "unpaid": len(unpaid),
         "exempt": len(exempt),
         "fee_unit_amount": round(fee_unit, 2),
         "expected_amount": expected,
         "total_paid_amount": round(total_paid, 2),
-        "collection_pct": _pct(len(paid_map), len(billable)),
+        "collection_pct": _pct(paid_slots, billable_slots)
+        if n_months > 1
+        else _pct(len(paid_rows), len(paid_rows) + len(unpaid)),
         "unpaid_athletes": unpaid[:80],
         "paid_athletes": paid_rows[:80],
         "exempt_athletes": exempt[:40],
@@ -638,13 +703,14 @@ def build_coach_pack(
     club: Club,
     coach: User,
     month_key: str,
+    month_to: str | None = None,
 ) -> dict[str, Any]:
-    from_s, to_s, from_d, to_d = month_date_bounds(month_key)
+    from_s, to_s, from_d, to_d, month_keys = period_date_bounds(month_key, month_to)
     teams = _teams_for_scope(db, club.id, coach.id)
     athletes = _athletes_for_scope(db, club.id, coach.id)
     team_ids = [t.id for t in teams]
     attendance = _attendance_block(db, team_ids=team_ids, from_date=from_s, to_date=to_s)
-    fees = _fees_block(db, club=club, athletes=athletes, month_key=month_key)
+    fees = _fees_block(db, club=club, athletes=athletes, month_keys=month_keys)
     missing = _missing_data(athletes)
     trainings = _trainings_block(db, club_id=club.id, coach_id=coach.id, from_d=from_d, to_d=to_d)
     matches = _matches_block(db, team_ids=team_ids, from_d=from_d, to_d=to_d)
@@ -665,7 +731,9 @@ def build_coach_pack(
     return {
         "pack": "coach",
         "title": f"Отчет треньор · {coach.name or coach.email}",
-        "month_key": month_key,
+        "month_key": month_keys[0],
+        "month_to": month_keys[-1],
+        "month_keys": month_keys,
         "from_date": from_s,
         "to_date": to_s,
         "club_id": club.id,
@@ -674,6 +742,7 @@ def build_coach_pack(
         "summary": {
             "teams": len(teams),
             "athletes": len(athletes),
+            "coaches": 1,
             "sessions": attendance["sessions_count"],
             "sessions_with_attendance": attendance["sessions_with_attendance"],
             "sessions_without_attendance": attendance["sessions_without_attendance"],
@@ -683,14 +752,27 @@ def build_coach_pack(
             "fees_unpaid": fees["unpaid"],
             "fees_exempt": fees["exempt"],
             "fees_collected_amount": fees["total_paid_amount"],
+            "fees_expected_amount": fees.get("expected_amount", 0),
+            "fees_unit_amount": fees.get("fee_unit_amount", 0),
             "fees_collection_pct": fees["collection_pct"],
             "unpaid": fees["unpaid"],
             "matches_finished": matches["finished"],
             "match_wins": matches["wins"],
+            "matches_official": matches.get("official", 0),
+            "matches_control": matches.get("control", 0),
             "assessments": assessments["sessions_count"],
             "trainings_created": trainings["count"],
+            "enrollments": 0,
         },
-        "teams": [{"id": t.id, "name": t.name, "age_group": t.age_group or ""} for t in teams],
+        "teams": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "age_group": t.age_group or "",
+                "coach_id": t.coach_id,
+            }
+            for t in teams
+        ],
         "attendance": attendance,
         "fees": fees,
         "missing_data": missing,
@@ -702,15 +784,21 @@ def build_coach_pack(
     }
 
 
-def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any]:
-    from_s, to_s, from_d, to_d = month_date_bounds(month_key)
+def build_club_pack(
+    db: Session,
+    *,
+    club: Club,
+    month_key: str,
+    month_to: str | None = None,
+) -> dict[str, Any]:
+    from_s, to_s, from_d, to_d, month_keys = period_date_bounds(month_key, month_to)
     coaches = _club_coaches(db, club.id)
     teams = _teams_for_scope(db, club.id, None)
     athletes = _athletes_for_scope(db, club.id, None)
     team_ids = [t.id for t in teams]
 
     attendance = _attendance_block(db, team_ids=team_ids, from_date=from_s, to_date=to_s)
-    fees = _fees_block(db, club=club, athletes=athletes, month_key=month_key)
+    fees = _fees_block(db, club=club, athletes=athletes, month_keys=month_keys)
     missing = _missing_data(athletes)
     trainings = _trainings_block(db, club_id=club.id, coach_id=None, from_d=from_d, to_d=to_d)
     matches = _matches_block(db, team_ids=team_ids, from_d=from_d, to_d=to_d)
@@ -723,7 +811,7 @@ def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any
         c_teams = [t for t in teams if t.coach_id == c.id]
         c_team_ids = [t.id for t in c_teams]
         c_att = _attendance_block(db, team_ids=c_team_ids, from_date=from_s, to_date=to_s)
-        c_fees = _fees_block(db, club=club, athletes=c_athletes, month_key=month_key)
+        c_fees = _fees_block(db, club=club, athletes=c_athletes, month_keys=month_keys)
         c_matches = _matches_block(db, team_ids=c_team_ids, from_d=from_d, to_d=to_d)
         coach_rows.append(
             {
@@ -757,7 +845,9 @@ def build_club_pack(db: Session, *, club: Club, month_key: str) -> dict[str, Any
     return {
         "pack": "club",
         "title": f"Отчет клуб · {club.name}",
-        "month_key": month_key,
+        "month_key": month_keys[0],
+        "month_to": month_keys[-1],
+        "month_keys": month_keys,
         "from_date": from_s,
         "to_date": to_s,
         "club_id": club.id,
@@ -815,9 +905,10 @@ def build_sport_pack(
     *,
     club: Club,
     month_key: str,
+    month_to: str | None = None,
     coach_id: int | None = None,
 ) -> dict[str, Any]:
-    from_s, to_s, from_d, to_d = month_date_bounds(month_key)
+    from_s, to_s, from_d, to_d, month_keys = period_date_bounds(month_key, month_to)
     teams = _teams_for_scope(db, club.id, coach_id)
     team_ids = [t.id for t in teams]
     matches = _matches_block(db, team_ids=team_ids, from_d=from_d, to_d=to_d)
@@ -867,7 +958,9 @@ def build_sport_pack(
         "pack": "sport",
         "title": "Спортен отчет"
         + (f" · филтър треньор #{coach_id}" if coach_id else f" · {club.name}"),
-        "month_key": month_key,
+        "month_key": month_keys[0],
+        "month_to": month_keys[-1],
+        "month_keys": month_keys,
         "from_date": from_s,
         "to_date": to_s,
         "club_id": club.id,
@@ -909,9 +1002,11 @@ def build_period_report(
     club: Club,
     pack: PackLiteral,
     month_key: str,
+    month_to: str | None = None,
     coach_id: int | None = None,
 ) -> dict[str, Any]:
     mk = parse_month_key(month_key)
+    mt = parse_month_key(month_to) if month_to else None
     if pack == "coach":
         if not coach_id:
             raise ValueError("За пакет „треньор“ е нужен coach_id")
@@ -926,9 +1021,9 @@ def build_period_report(
         )
         if not coach:
             raise ValueError("Треньорът не е намерен в клуба")
-        return build_coach_pack(db, club=club, coach=coach, month_key=mk)
+        return build_coach_pack(db, club=club, coach=coach, month_key=mk, month_to=mt)
     if pack == "club":
-        return build_club_pack(db, club=club, month_key=mk)
+        return build_club_pack(db, club=club, month_key=mk, month_to=mt)
     if pack == "sport":
         if coach_id:
             ok = (
@@ -942,30 +1037,103 @@ def build_period_report(
             )
             if not ok:
                 raise ValueError("Треньорът не е намерен в клуба")
-        return build_sport_pack(db, club=club, month_key=mk, coach_id=coach_id)
+        return build_sport_pack(db, club=club, month_key=mk, month_to=mt, coach_id=coach_id)
     raise ValueError("Невалиден пакет")
 
 
-def report_to_pdf_lines(report: dict[str, Any]) -> list[str]:
-    lines: list[str] = [
-        f"Период: {report.get('month_key')} ({report.get('from_date')} – {report.get('to_date')})",
-        f"Клуб: {report.get('club_name') or ''}",
-        f"Генериран: {report.get('generated_at') or ''}",
+def _period_label(report: dict[str, Any]) -> str:
+    mk = report.get("month_key") or ""
+    mt = report.get("month_to") or mk
+    if mt and mt != mk:
+        return f"{mk} до {mt}"
+    return str(mk)
+
+
+def report_to_pdf_lines(report: dict[str, Any], *, variant: str = "management") -> list[str]:
+    """variant: management | municipality."""
+    summary = report.get("summary") or {}
+    fees = report.get("fees") or {}
+    att = report.get("attendance") or {}
+    matches = report.get("matches") or {}
+    missing = report.get("missing_data") or {}
+    club_name = report.get("club_name") or ""
+    period = _period_label(report)
+    generated = report.get("generated_at") or ""
+
+    if variant == "municipality":
+        # Aggregates only: no debtor/EGN personal lists.
+        age_counts: dict[str, int] = {}
+        for t in report.get("teams") or []:
+            ag = (t.get("age_group") or "Без група").strip() or "Без група"
+            # Prefer athlete_count from by_team when available.
+            age_counts[ag] = age_counts.get(ag, 0)
+        for row in att.get("by_team") or []:
+            team = next((t for t in (report.get("teams") or []) if t.get("id") == row.get("team_id")), None)
+            ag = ((team or {}).get("age_group") or "Без група").strip() or "Без група"
+            age_counts[ag] = age_counts.get(ag, 0) + int(row.get("athlete_count") or 0)
+        if not age_counts and summary.get("athletes"):
+            age_counts["Общо"] = int(summary.get("athletes") or 0)
+
+        lines: list[str] = [
+            f"Клуб: {club_name}",
+            f"Период: {period} ({report.get('from_date')} - {report.get('to_date')})",
+            f"Дата на генериране: {generated}",
+            "",
+            "ОБЩИНСКИ ОБОБЩЕН ОТЧЕТ (без лични данни)",
+            "",
+            f"Състезатели (общо): {summary.get('athletes')}",
+            f"Отбори: {summary.get('teams')}",
+            f"Треньори: {summary.get('coaches')}",
+            f"Проведени сесии/тренировки: {att.get('sessions_count') or summary.get('sessions')}",
+            f"Присъствие: {att.get('attendance_pct') if att else summary.get('attendance_pct')}%",
+            f"Мачове: {matches.get('count') or summary.get('matches_finished')} "
+            f"(официални {matches.get('official') or summary.get('matches_official')}, "
+            f"контроли {matches.get('control') or summary.get('matches_control')})",
+            f"Победи: {matches.get('wins') or summary.get('match_wins')}",
+            "",
+            "ДЕЦА / СЪСТАВ ПО ВЪЗРАСТОВИ ГРУПИ",
+        ]
+        for ag, cnt in sorted(age_counts.items(), key=lambda x: x[0]):
+            lines.append(f"  {ag}: {cnt}")
+        lines.extend(
+            [
+                "",
+                "РЕЗУЛТАТИ ОТ МАЧОВЕ (обобщение)",
+            ]
+        )
+        for m in (matches.get("items") or [])[:40]:
+            lines.append(
+                f"  {m.get('match_date')} {m.get('team_name')} vs {m.get('opponent_name') or '·'} "
+                f"{m.get('sets_won_us')}:{m.get('sets_won_opp')}"
+            )
+        lines.extend(["", "Подпис / печат:", "", "______________________________"])
+        return lines
+
+    # management
+    lines = [
+        f"Клуб: {club_name}",
+        f"Период: {period} ({report.get('from_date')} - {report.get('to_date')})",
+        f"Дата на генериране: {generated}",
+        f"Отчет: {report.get('title') or ''}",
+        "",
+        "УПРАВЛЕНСКИ ОТЧЕТ",
         "",
         "ОБОБЩЕНИЕ",
+        f"  Отбори: {summary.get('teams')}",
+        f"  Състезатели: {summary.get('athletes')}",
+        f"  Треньори: {summary.get('coaches')}",
+        f"  Сесии: {summary.get('sessions')}",
+        f"  Присъствие %: {summary.get('attendance_pct')}",
+        f"  Събрани такси: {fees.get('total_paid_amount') or summary.get('fees_collected_amount')}",
+        f"  Очаквани такси: {fees.get('expected_amount') or summary.get('fees_expected_amount')}",
+        f"  Събираемост %: {fees.get('collection_pct') or summary.get('fees_collection_pct')}",
+        f"  Длъжници: {fees.get('unpaid') or summary.get('fees_unpaid')}",
+        f"  Освободени: {fees.get('exempt') or summary.get('fees_exempt')}",
+        f"  Мачове: {summary.get('matches_finished')} (победи {summary.get('match_wins')})",
     ]
-    summary = report.get("summary") or {}
-    for k, v in summary.items():
-        lines.append(f"  {k}: {v}")
+    for a in report.get("actions") or []:
+        lines.append(f"  За действие: {a}")
 
-    actions = report.get("actions") or []
-    if actions:
-        lines.append("")
-        lines.append("ЗА ДЕЙСТВИЕ")
-        for a in actions:
-            lines.append(f"  · {a}")
-
-    fees = report.get("fees")
     if fees:
         lines.append("")
         lines.append(
@@ -974,23 +1142,19 @@ def report_to_pdf_lines(report: dict[str, Any]) -> list[str]:
             f"освободени {fees.get('exempt')}"
         )
         for row in (fees.get("unpaid_athletes") or [])[:40]:
-            lines.append(f"  длъжник: {row.get('athlete_name')}")
-        for row in (fees.get("exempt_athletes") or [])[:40]:
-            reason = row.get("reason") or ""
             lines.append(
-                f"  освободен: {row.get('athlete_name')}"
-                + (f" ({reason})" if reason else "")
+                f"  длъжник: {row.get('athlete_name')} · {row.get('team_name') or ''} · "
+                f"{row.get('amount_due')}"
             )
+        for row in (fees.get("exempt_athletes") or [])[:40]:
+            lines.append(f"  освободен: {row.get('athlete_name')} ({row.get('reason') or ''})")
 
-    att = report.get("attendance")
     if att:
         lines.append("")
         lines.append(
-            f"ПРИСЪСТВИЕ: сесии {att.get('sessions_count')} "
-            f"(с прис. {att.get('sessions_with_attendance')}, "
-            f"без {att.get('sessions_without_attendance')}), "
-            f"% {att.get('attendance_pct')}, "
-            f"П {att.get('present')} / З {att.get('late')} / О {att.get('absent')} / И {att.get('excused')}"
+            f"ПРИСЪСТВИЕ: сесии {att.get('sessions_count')}, % {att.get('attendance_pct')}, "
+            f"присъствали {att.get('present')} · закъснели {att.get('late')} · "
+            f"отсъствали {att.get('absent')} · извинени {att.get('excused')}"
         )
         for row in (att.get("low_attendance") or [])[:25]:
             lines.append(
@@ -998,169 +1162,193 @@ def report_to_pdf_lines(report: dict[str, Any]) -> list[str]:
                 f"({row.get('marked')} записа)"
             )
 
-    coaches = report.get("coaches")
-    if coaches:
-        lines.append("")
-        lines.append("ТРЕНЬОРИ")
-        for c in coaches:
-            lines.append(
-                f"  {c.get('coach_name')}: отбори {c.get('teams')}, съст. {c.get('athletes')}, "
-                f"прис. {c.get('attendance_pct')}%, такси {c.get('fees_collection_pct')}%, "
-                f"мачове {c.get('matches_finished')} (П {c.get('match_wins')})"
-            )
+    for c in report.get("coaches") or []:
+        lines.append(
+            f"  треньор {c.get('coach_name')}: отб. {c.get('teams')}, съст. {c.get('athletes')}, "
+            f"прис. {c.get('attendance_pct')}%, такси {c.get('fees_collection_pct')}%, "
+            f"очаквани/събрани {c.get('fees_expected_amount')}/{c.get('fees_collected_amount')}"
+        )
 
-    matches = report.get("matches")
     if matches:
         lines.append("")
         lines.append(
             f"МАЧОВЕ: {matches.get('count')} · завършени {matches.get('finished')} · "
-            f"П {matches.get('wins')} / З {matches.get('losses')} · със стат. {matches.get('with_stats')}"
+            f"П {matches.get('wins')} / З {matches.get('losses')}"
         )
         for m in (matches.get("items") or [])[:40]:
             lines.append(
                 f"  {m.get('match_date')} {m.get('team_name')} vs {m.get('opponent_name')} "
-                f"{m.get('sets_won_us')}:{m.get('sets_won_opp')} · {m.get('status')} · "
-                f"съб. {m.get('event_count')}"
+                f"{m.get('sets_won_us')}:{m.get('sets_won_opp')}"
             )
 
-    assessments = report.get("assessments")
-    if assessments:
-        lines.append("")
-        lines.append(
-            f"ТЕСТОВЕ: сесии {assessments.get('sessions_count')}, "
-            f"тествани {assessments.get('athletes_tested')}, "
-            f"ср. score {assessments.get('avg_development_score')}, "
-            f"+{assessments.get('improved_count')} / −{assessments.get('declined_count')}"
-        )
-
-    missing = report.get("missing_data")
     if missing:
         lines.append("")
         lines.append(
             f"ЛИПСВАЩИ ДАННИ: без ЕГН {missing.get('no_egn_count')}, "
-            f"без родител {missing.get('no_parent_count')}, без BVF {missing.get('no_bvf_count')}"
+            f"без родител (под 18) {missing.get('no_parent_count')}, "
+            f"без картотека БФВ {missing.get('no_bvf_count')}"
         )
 
+    lines.extend(
+        [
+            "",
+            "Място за подпис и печат:",
+            "",
+            "Подпис: _________________________     Печат: _________________________",
+            "",
+            "Име / длъжност: _______________________________________________",
+        ]
+    )
     return lines
 
 
 def report_to_xlsx_rows(report: dict[str, Any]) -> dict[str, list[list[Any]]]:
-    """Sheet name -> rows (first row header)."""
-    sheets: dict[str, list[list[Any]]] = {}
+    """4 sheets with numeric cells where possible."""
     summary = report.get("summary") or {}
-    sheets["Обобщение"] = [["Ключ", "Стойност"], *[[k, v] for k, v in summary.items()]]
-    sheets["Обобщение"].extend([["title", report.get("title")], ["month", report.get("month_key")]])
-
-    if report.get("actions"):
-        sheets["Действия"] = [["Действие"], *[[a] for a in report["actions"]]]
-
-    if report.get("coaches"):
-        sheets["Треньори"] = [
-            [
-                "Треньор",
-                "Роля",
-                "Отбори",
-                "Състезатели",
-                "Сесии",
-                "Присъствие %",
-                "Такси %",
-                "Неплатили",
-                "Мачове",
-                "Победи",
-            ]
-        ]
-        for c in report["coaches"]:
-            sheets["Треньори"].append(
-                [
-                    c.get("coach_name"),
-                    c.get("role"),
-                    c.get("teams"),
-                    c.get("athletes"),
-                    c.get("sessions"),
-                    c.get("attendance_pct"),
-                    c.get("fees_collection_pct"),
-                    c.get("fees_unpaid"),
-                    c.get("matches_finished"),
-                    c.get("match_wins"),
-                ]
-            )
-
     fees = report.get("fees") or {}
-    if fees.get("unpaid_athletes"):
-        sheets["Длъжници"] = [["Състезател", "athlete_id"]]
-        for r in fees["unpaid_athletes"]:
-            sheets["Длъжници"].append([r.get("athlete_name"), r.get("athlete_id")])
-
     att = report.get("attendance") or {}
-    if att.get("by_team"):
-        sheets["Присъствие отбори"] = [
-            ["Отбор", "Сесии", "П", "З", "О", "И", "%"],
-        ]
-        for r in att["by_team"]:
-            sheets["Присъствие отбори"].append(
-                [
-                    r.get("team_name"),
-                    r.get("sessions_count"),
-                    r.get("present"),
-                    r.get("late"),
-                    r.get("absent"),
-                    r.get("excused"),
-                    r.get("attendance_pct"),
-                ]
-            )
-    if att.get("low_attendance"):
-        sheets["Ниско присъствие"] = [["Състезател", "%", "Записи", "П", "З", "О", "И"]]
-        for r in att["low_attendance"]:
-            sheets["Ниско присъствие"].append(
-                [
-                    r.get("athlete_name"),
-                    r.get("attendance_pct"),
-                    r.get("marked"),
-                    r.get("present"),
-                    r.get("late"),
-                    r.get("absent"),
-                    r.get("excused"),
-                ]
-            )
-
-    matches = report.get("matches") or {}
-    if matches.get("items"):
-        sheets["Мачове"] = [
-            ["Дата", "Отбор", "Противник", "Резултат", "Статус", "Събития", "Победител"],
-        ]
-        for m in matches["items"]:
-            sheets["Мачове"].append(
-                [
-                    m.get("match_date"),
-                    m.get("team_name"),
-                    m.get("opponent_name"),
-                    f"{m.get('sets_won_us')}:{m.get('sets_won_opp')}",
-                    m.get("status"),
-                    m.get("event_count"),
-                    m.get("won_by") or "",
-                ]
-            )
-
-    assessments = report.get("assessments") or {}
-    if assessments.get("sessions"):
-        sheets["Тестове"] = [["Дата", "Отбор", "Статус", "window_id", "session_id"]]
-        for s in assessments["sessions"]:
-            sheets["Тестове"].append(
-                [
-                    s.get("conducted_on"),
-                    s.get("team_name"),
-                    s.get("status"),
-                    s.get("window_id"),
-                    s.get("session_id"),
-                ]
-            )
-
     missing = report.get("missing_data") or {}
-    if missing.get("no_egn") or missing.get("no_parent"):
-        sheets["Липсващи данни"] = [["Тип", "Състезател", "athlete_id"]]
-        for r in missing.get("no_egn") or []:
-            sheets["Липсващи данни"].append(["без ЕГН", r.get("athlete_name"), r.get("athlete_id")])
-        for r in missing.get("no_parent") or []:
-            sheets["Липсващи данни"].append(["без родител", r.get("athlete_name"), r.get("athlete_id")])
+    sheets: dict[str, list[list[Any]]] = {}
+
+    # Sheet 1
+    obob: list[list[Any]] = [
+        ["Поле", "Стойност"],
+        ["Клуб", report.get("club_name") or ""],
+        ["Период от", report.get("month_key") or ""],
+        ["Период до", report.get("month_to") or report.get("month_key") or ""],
+        ["Отбори", int(summary.get("teams") or 0)],
+        ["Състезатели", int(summary.get("athletes") or 0)],
+        ["Треньори", int(summary.get("coaches") or 0)],
+        ["Сесии", int(summary.get("sessions") or 0)],
+        ["Присъствие %", float(summary["attendance_pct"]) if summary.get("attendance_pct") is not None else None],
+        ["Събрани такси", float(fees.get("total_paid_amount") or summary.get("fees_collected_amount") or 0)],
+        ["Очаквани такси", float(fees.get("expected_amount") or summary.get("fees_expected_amount") or 0)],
+        ["Събираемост %", float(fees["collection_pct"]) if fees.get("collection_pct") is not None else None],
+        ["Длъжници", int(fees.get("unpaid") or 0)],
+        ["Освободени", int(fees.get("exempt") or 0)],
+        ["Мачове", int(summary.get("matches_finished") or 0)],
+        ["Победи", int(summary.get("match_wins") or 0)],
+    ]
+    obob.append([])
+    obob.append(["Треньор", "Отбори", "Състезатели", "Сесии", "Присъствие %", "Такси %", "Очаквани", "Събрани", "Дълг"])
+    for c in report.get("coaches") or []:
+        obob.append(
+            [
+                c.get("coach_name") or "",
+                int(c.get("teams") or 0),
+                int(c.get("athletes") or 0),
+                int(c.get("sessions") or 0),
+                float(c["attendance_pct"]) if c.get("attendance_pct") is not None else None,
+                float(c["fees_collection_pct"]) if c.get("fees_collection_pct") is not None else None,
+                float(c.get("fees_expected_amount") or 0),
+                float(c.get("fees_collected_amount") or 0),
+                int(c.get("fees_unpaid") or 0),
+            ]
+        )
+    obob.append([])
+    obob.append(["Отбор", "Треньор", "Състезатели", "Сесии", "Присъствие %"])
+    for r in att.get("by_team") or []:
+        obob.append(
+            [
+                r.get("team_name") or "",
+                r.get("coach_name") or "",
+                int(r.get("athlete_count") or 0),
+                int(r.get("sessions_count") or 0),
+                float(r["attendance_pct"]) if r.get("attendance_pct") is not None else None,
+            ]
+        )
+    sheets["Обобщение"] = obob
+
+    # Sheet 2 fees
+    fee_sheet: list[list[Any]] = [
+        ["Състезател", "Отбор", "Статус", "Дължима сума", "Платена сума", "Причина", "Месеци липсващи"]
+    ]
+    for r in fees.get("unpaid_athletes") or []:
+        fee_sheet.append(
+            [
+                r.get("athlete_name") or "",
+                r.get("team_name") or "",
+                "Длъжник",
+                float(r.get("amount_due") or 0),
+                float(r.get("amount_paid") or 0),
+                "",
+                ",".join(r.get("months_missing") or []),
+            ]
+        )
+    for r in fees.get("paid_athletes") or []:
+        fee_sheet.append(
+            [
+                r.get("athlete_name") or "",
+                r.get("team_name") or "",
+                "Платил",
+                float(r.get("amount_due") or 0),
+                float(r.get("amount") or 0),
+                "",
+                "",
+            ]
+        )
+    for r in fees.get("exempt_athletes") or []:
+        fee_sheet.append(
+            [
+                r.get("athlete_name") or "",
+                r.get("team_name") or "",
+                "Освободен",
+                0.0,
+                0.0,
+                r.get("reason") or "",
+                "",
+            ]
+        )
+    sheets["Такси и плащания"] = fee_sheet
+
+    # Sheet 3 attendance
+    att_sheet: list[list[Any]] = [
+        ["Отбор", "Треньор", "Сесии", "Присъствали", "Закъснели", "Отсъствали", "Извинени", "Присъствие %"]
+    ]
+    for r in att.get("by_team") or []:
+        att_sheet.append(
+            [
+                r.get("team_name") or "",
+                r.get("coach_name") or "",
+                int(r.get("sessions_count") or 0),
+                int(r.get("present") or 0),
+                int(r.get("late") or 0),
+                int(r.get("absent") or 0),
+                int(r.get("excused") or 0),
+                float(r["attendance_pct"]) if r.get("attendance_pct") is not None else None,
+            ]
+        )
+    att_sheet.append([])
+    att_sheet.append(["Ниско присъствие", "Отбор", "%", "Записи", "П", "З", "О", "И"])
+    for r in att.get("low_attendance") or []:
+        att_sheet.append(
+            [
+                r.get("athlete_name") or "",
+                r.get("team_name") or "",
+                float(r["attendance_pct"]) if r.get("attendance_pct") is not None else None,
+                int(r.get("marked") or 0),
+                int(r.get("present") or 0),
+                int(r.get("late") or 0),
+                int(r.get("absent") or 0),
+                int(r.get("excused") or 0),
+            ]
+        )
+    sheets["Присъствия"] = att_sheet
+
+    # Sheet 4 missing / card indexes
+    miss_sheet: list[list[Any]] = [["Тип", "Състезател", "athlete_id"]]
+    for r in missing.get("no_egn") or []:
+        miss_sheet.append(["Без ЕГН", r.get("athlete_name") or "", int(r.get("athlete_id") or 0)])
+    for r in missing.get("no_parent") or []:
+        miss_sheet.append(
+            ["Без родител (под 18 г.)", r.get("athlete_name") or "", int(r.get("athlete_id") or 0)]
+        )
+    for r in missing.get("no_bvf") or []:
+        miss_sheet.append(["Без картотека (БФВ)", r.get("athlete_name") or "", int(r.get("athlete_id") or 0)])
+    miss_sheet.append([])
+    miss_sheet.append(["Брой без ЕГН", int(missing.get("no_egn_count") or 0)])
+    miss_sheet.append(["Брой без родител", int(missing.get("no_parent_count") or 0)])
+    miss_sheet.append(["Брой без БФВ", int(missing.get("no_bvf_count") or 0)])
+    sheets["Картотеки и липсващи данни"] = miss_sheet
 
     return sheets
