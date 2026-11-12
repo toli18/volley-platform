@@ -11225,6 +11225,256 @@ body:has(.publicWatchPage--fs) {
   color: #64748b;
 }
 
+/* Monthly period reports (Documents) – light theme, not live-match dark table */
+.periodReport {
+  --pr-ink: #0f172a;
+  --pr-muted: #475569;
+  --pr-line: #cbd5e1;
+  --pr-soft: #f1f5f9;
+  --pr-good: #15803d;
+  --pr-warn: #b45309;
+  --pr-bad: #b91c1c;
+  --pr-teal: #0f766e;
+  --pr-blue: #1d4ed8;
+  color: var(--pr-ink);
+}
+.periodReportIntro {
+  margin: 0 0 14px;
+  color: var(--pr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.periodReportCharts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.periodReportDonutCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border: 1px solid var(--pr-line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+.periodReportDonutCardLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pr-muted);
+  text-align: center;
+}
+.periodReportDonutCardHint {
+  font-size: 11px;
+  color: var(--pr-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.periodReportDonut {
+  width: 96px;
+  height: 96px;
+}
+.periodReportDonutText {
+  font-size: 18px;
+  font-weight: 800;
+  fill: var(--pr-ink);
+}
+.periodReportKpiBand {
+  margin-bottom: 14px;
+}
+.periodReportKpiBandTitle {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pr-muted);
+}
+.periodReportKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+.periodReportKpi {
+  border: 1px solid var(--pr-line);
+  border-radius: 12px;
+  padding: 10px 11px;
+  background: #fff;
+}
+.periodReportKpiLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pr-muted);
+}
+.periodReportKpiValue {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--pr-ink);
+  line-height: 1.15;
+}
+.periodReportKpiHint {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--pr-muted);
+}
+.periodReportSection {
+  border: 1px solid var(--pr-line);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.periodReportSectionHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 0;
+  background: linear-gradient(180deg, #eef2f7 0%, #e2e8f0 100%);
+  cursor: pointer;
+  text-align: left;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--pr-ink);
+}
+.periodReportSectionCount {
+  margin-left: 8px;
+  font-weight: 700;
+  color: var(--pr-muted);
+}
+.periodReportSectionBody {
+  padding: 10px 12px 12px;
+  background: #fff;
+}
+.periodReportActions {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--pr-ink);
+}
+.periodReportActions li {
+  margin-bottom: 5px;
+}
+.periodReportLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--pr-muted);
+}
+.periodReportLegendDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.periodReportTableWrap {
+  overflow: auto;
+  border: 1px solid var(--pr-line);
+  border-radius: 10px;
+  background: #fff;
+}
+.periodReportTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--pr-ink);
+}
+.periodReportTable th,
+.periodReportTable td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: middle;
+}
+.periodReportTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.periodReportTable tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+.periodReportTable tbody tr:nth-child(even) {
+  background: #f1f5f9;
+}
+.periodReportTable tbody tr:hover {
+  background: #e2e8f0;
+}
+.periodReportTable td {
+  color: #0f172a;
+  font-weight: 600;
+}
+.periodReportTable .is-muted {
+  color: #475569;
+  font-weight: 500;
+}
+.periodReportPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.periodReportPill--good {
+  background: #dcfce7;
+  color: #166534;
+}
+.periodReportPill--warn {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.periodReportPill--bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.periodReportPill--info {
+  background: #ccfbf1;
+  color: #115e59;
+}
+.periodReportMoreBtn {
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0;
+  color: var(--pr-teal);
+  text-decoration: underline;
+}
+.periodReportSubTitle {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pr-ink);
+}
+.periodReportNote {
+  margin: 0 0 10px;
+  color: var(--pr-muted);
+  font-size: 13px;
+}
+
 .matchVideoUrlRow {
   display: grid;
   gap: 10px;

@@ -52,35 +52,103 @@ function fmtMoney(v) {
   return n.toLocaleString("bg-BG", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
+function pctTone(pct) {
+  if (pct == null || pct === "") return "warn";
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return "warn";
+  if (n >= 80) return "good";
+  if (n >= 60) return "warn";
+  return "bad";
+}
+
+function toneColor(tone) {
+  if (tone === "good") return "#15803d";
+  if (tone === "bad") return "#b91c1c";
+  if (tone === "teal") return "#0f766e";
+  if (tone === "blue") return "#1d4ed8";
+  return "#b45309";
+}
+
+function DonutChart({ value, max = 100, color, label, size = 96, track = "#e2e8f0" }) {
+  const n = Number(value);
+  const safeMax = Number(max) > 0 ? Number(max) : 100;
+  const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, (n / safeMax) * 100)) : 0;
+  const r = 36;
+  const c = 2 * Math.PI * r;
+  const dash = (pct / 100) * c;
+  const text =
+    value == null || value === ""
+      ? "·"
+      : Number.isFinite(n)
+        ? `${Math.round(n)}${max === 100 ? "%" : ""}`
+        : String(value);
+  return (
+    <svg className="periodReportDonut" width={size} height={size} viewBox="0 0 96 96" aria-label={label || text}>
+      <circle cx="48" cy="48" r={r} fill="none" stroke={track} strokeWidth="10" />
+      <circle
+        cx="48"
+        cy="48"
+        r={r}
+        fill="none"
+        stroke={color || toneColor(pctTone(pct))}
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${c - dash}`}
+        transform="rotate(-90 48 48)"
+      />
+      <text x="48" y="52" textAnchor="middle" className="periodReportDonutText">
+        {text}
+      </text>
+    </svg>
+  );
+}
+
+function SegmentDonut({ segments, center, label, size = 96 }) {
+  const parts = (segments || []).filter((s) => Number(s.value) > 0);
+  const total = parts.reduce((acc, s) => acc + Number(s.value || 0), 0);
+  const r = 36;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <svg className="periodReportDonut" width={size} height={size} viewBox="0 0 96 96" aria-label={label || center}>
+      <circle cx="48" cy="48" r={r} fill="none" stroke="#e2e8f0" strokeWidth="10" />
+      {total > 0
+        ? parts.map((s) => {
+            const len = (Number(s.value) / total) * c;
+            const el = (
+              <circle
+                key={s.label}
+                cx="48"
+                cy="48"
+                r={r}
+                fill="none"
+                stroke={s.color}
+                strokeWidth="10"
+                strokeDasharray={`${len} ${c - len}`}
+                strokeDashoffset={-offset}
+                transform="rotate(-90 48 48)"
+              />
+            );
+            offset += len;
+            return el;
+          })
+        : null}
+      <text x="48" y="52" textAnchor="middle" className="periodReportDonutText">
+        {center}
+      </text>
+    </svg>
+  );
+}
+
 function SummaryGrid({ items }) {
   if (!items?.length) return null;
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-        gap: 8,
-      }}
-    >
+    <div className="periodReportKpiGrid">
       {items.map((it) => (
-        <div
-          key={it.label}
-          style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: 10,
-            padding: "8px 10px",
-            background: "#fff",
-          }}
-        >
-          <div className="coachMobileMuted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
-            {it.label}
-          </div>
-          <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.2 }}>{it.value}</div>
-          {it.hint ? (
-            <div className="coachMobileMuted" style={{ fontSize: 11, marginTop: 2 }}>
-              {it.hint}
-            </div>
-          ) : null}
+        <div key={it.label} className="periodReportKpi">
+          <div className="periodReportKpiLabel">{it.label}</div>
+          <div className="periodReportKpiValue">{it.value}</div>
+          {it.hint ? <div className="periodReportKpiHint">{it.hint}</div> : null}
         </div>
       ))}
     </div>
@@ -90,13 +158,8 @@ function SummaryGrid({ items }) {
 function KpiBand({ title, items }) {
   if (!items?.length) return null;
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div
-        className="coachMobileMuted"
-        style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.04em" }}
-      >
-        {title}
-      </div>
+    <div className="periodReportKpiBand">
+      <div className="periodReportKpiBandTitle">{title}</div>
       <SummaryGrid items={items} />
     </div>
   );
@@ -105,46 +168,15 @@ function KpiBand({ title, items }) {
 function ReportSection({ title, count, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div
-      style={{
-        border: "1px solid #e2e8f0",
-        borderRadius: 12,
-        marginBottom: 10,
-        background: "#fff",
-        overflow: "hidden",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          padding: "10px 12px",
-          border: 0,
-          background: "#f8fafc",
-          cursor: "pointer",
-          textAlign: "left",
-          fontWeight: 800,
-          fontSize: 14,
-        }}
-      >
+    <div className="periodReportSection">
+      <button type="button" className="periodReportSectionHead" onClick={() => setOpen((v) => !v)}>
         <span>
           {title}
-          {count != null ? (
-            <span className="coachMobileMuted" style={{ fontWeight: 700, marginLeft: 8 }}>
-              ({count})
-            </span>
-          ) : null}
+          {count != null ? <span className="periodReportSectionCount">({count})</span> : null}
         </span>
-        <span className="coachMobileMuted" style={{ fontWeight: 700 }}>
-          {open ? "▾" : "▸"}
-        </span>
+        <span className="periodReportSectionCount">{open ? "▾" : "▸"}</span>
       </button>
-      {open ? <div style={{ padding: "8px 12px 12px" }}>{children}</div> : null}
+      {open ? <div className="periodReportSectionBody">{children}</div> : null}
     </div>
   );
 }
@@ -155,33 +187,24 @@ function useExpandedRows(rows, initial = 8) {
   const visible = showAll ? list : list.slice(0, initial);
   const toggle =
     list.length > initial ? (
-      <button
-        type="button"
-        className="coachMobileMuted"
-        onClick={() => setShowAll((v) => !v)}
-        style={{
-          marginTop: 8,
-          border: 0,
-          background: "transparent",
-          cursor: "pointer",
-          fontWeight: 700,
-          padding: 0,
-          textDecoration: "underline",
-        }}
-      >
+      <button type="button" className="periodReportMoreBtn" onClick={() => setShowAll((v) => !v)}>
         {showAll ? "Скрий" : `Покажи всички (${list.length})`}
       </button>
     ) : null;
   return { list, visible, toggle };
 }
 
+function StatusPill({ value, tone }) {
+  return <span className={`periodReportPill periodReportPill--${tone || "info"}`}>{value}</span>;
+}
+
 function SimpleTable({ columns, rows, initial = 8, rowKey }) {
   const { list, visible, toggle } = useExpandedRows(rows, initial);
-  if (!list.length) return <p className="coachMobileMuted" style={{ margin: 0 }}>Няма записи.</p>;
+  if (!list.length) return <p className="periodReportNote">Няма записи.</p>;
   return (
     <div>
-      <div style={{ overflow: "auto" }}>
-        <table className="matchLiveStatTable" style={{ minWidth: 420, marginTop: 0 }}>
+      <div className="periodReportTableWrap">
+        <table className="periodReportTable" style={{ minWidth: 420 }}>
           <thead>
             <tr>
               {columns.map((c) => (
@@ -193,7 +216,9 @@ function SimpleTable({ columns, rows, initial = 8, rowKey }) {
             {visible.map((row, idx) => (
               <tr key={rowKey ? rowKey(row) : idx}>
                 {columns.map((c) => (
-                  <td key={c.key || c.label}>{c.render ? c.render(row) : row[c.key]}</td>
+                  <td key={c.key || c.label} className={c.muted ? "is-muted" : undefined}>
+                    {c.render ? c.render(row) : row[c.key]}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -209,6 +234,32 @@ function PeriodReportView({ report }) {
   if (!report) return null;
   const pack = report.pack;
   const s = report.summary || {};
+  const att = report.attendance || {};
+  const fees = report.fees || {};
+  const matches = report.matches || {};
+  const athletesTotal = Number(s.athletes || 0);
+  const paid = Number(fees.paid ?? s.fees_paid ?? 0);
+  const unpaid = Number(fees.unpaid ?? s.fees_unpaid ?? s.unpaid ?? 0);
+  const exempt = Number(fees.exempt ?? s.fees_exempt ?? 0);
+  const billable = Number(fees.billable ?? s.fees_billable ?? paid + unpaid);
+  const collected = Number(fees.total_paid_amount ?? s.fees_collected_amount ?? s.total_paid_amount ?? 0);
+  const avgPaid = paid > 0 ? collected / paid : null;
+  const finished = Number(matches.finished ?? s.matches_finished ?? 0);
+  const wins = Number(matches.wins ?? s.match_wins ?? 0);
+  const losses = Number(matches.losses ?? s.match_losses ?? 0);
+  const withStats = Number(matches.with_stats ?? s.matches_with_stats ?? 0);
+  const winPct = finished > 0 ? Math.round((wins / finished) * 1000) / 10 : null;
+  const statsPct = finished > 0 ? Math.round((withStats / finished) * 1000) / 10 : null;
+  const marked = Number(att.marked_total || 0);
+  const present = Number(att.present || 0);
+  const late = Number(att.late || 0);
+  const absent = Number(att.absent || 0);
+  const excused = Number(att.excused || 0);
+  const missing = report.missing_data || {};
+  const egnOk =
+    athletesTotal > 0
+      ? Math.round(((athletesTotal - Number(missing.no_egn_count || 0)) / athletesTotal) * 1000) / 10
+      : null;
 
   const peopleBand =
     pack === "sport"
@@ -217,11 +268,17 @@ function PeriodReportView({ report }) {
           { label: "Отбори", value: s.teams ?? 0 },
           { label: "Състезатели", value: s.athletes ?? 0 },
           ...(pack === "club" ? [{ label: "Треньори", value: s.coaches ?? 0 }] : []),
+          ...(s.trainings_created != null
+            ? [{ label: "Нови тренировки", value: s.trainings_created, hint: "създадени през месеца" }]
+            : []),
         ];
 
   const attendanceBand =
     pack === "sport"
-      ? [{ label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "от маркирани записи" }]
+      ? [
+          { label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "от маркирани записи" },
+          { label: "Маркирани", value: marked || "·", hint: "общо статуси" },
+        ]
       : [
           {
             label: "Сесии",
@@ -229,6 +286,8 @@ function PeriodReportView({ report }) {
             hint: `с прис. ${s.sessions_with_attendance ?? 0} · без ${s.sessions_without_attendance ?? 0}`,
           },
           { label: "Присъствие", value: fmtPct(s.attendance_pct), hint: "present+late / маркирани" },
+          { label: "Присъствали", value: present + late, hint: `П ${present} · З ${late}` },
+          { label: "Отсъствия", value: absent + excused, hint: `О ${absent} · И ${excused}` },
         ];
 
   const feesBand =
@@ -237,25 +296,25 @@ function PeriodReportView({ report }) {
       : [
           {
             label: "Събрани",
-            value: fmtMoney(s.fees_collected_amount ?? s.total_paid_amount),
-            hint: `${s.fees_paid ?? 0} платени`,
+            value: fmtMoney(collected),
+            hint: avgPaid != null ? `средно ${fmtMoney(avgPaid)} / платил` : `${paid} платени`,
           },
-          { label: "Събираемост", value: fmtPct(s.fees_collection_pct) },
-          { label: "Длъжници", value: s.fees_unpaid ?? s.unpaid ?? 0 },
-          { label: "Освободени", value: s.fees_exempt ?? 0 },
+          { label: "Събираемост", value: fmtPct(s.fees_collection_pct), hint: `${paid}/${billable} дължими` },
+          { label: "Длъжници", value: unpaid },
+          { label: "Освободени", value: exempt },
         ];
 
   const matchBand =
     pack === "sport"
       ? [
-          { label: "Мачове", value: s.matches_finished ?? s.matches ?? 0 },
-          { label: "Победи", value: s.match_wins ?? 0 },
-          { label: "Загуби", value: s.match_losses ?? 0 },
-          { label: "Със стат.", value: s.matches_with_stats ?? 0 },
+          { label: "Мачове", value: finished || s.matches || 0 },
+          { label: "Победи", value: wins },
+          { label: "Загуби", value: losses },
+          { label: "Със стат.", value: withStats, hint: statsPct != null ? `${fmtPct(statsPct)} покритие` : undefined },
         ]
       : [
-          { label: "Мачове", value: s.matches_finished ?? 0 },
-          { label: "Победи", value: s.match_wins ?? 0 },
+          { label: "Мачове", value: finished },
+          { label: "Победи", value: wins, hint: winPct != null ? `${fmtPct(winPct)} успеваемост` : undefined },
         ];
 
   const testBand =
@@ -272,17 +331,100 @@ function PeriodReportView({ report }) {
       : null;
 
   const actionItems = (report.actions || []).filter(Boolean);
+  const charts = [];
+  if (pack !== "sport") {
+    charts.push({
+      key: "att",
+      label: "Присъствие",
+      hint: "present + late спрямо маркирани",
+      node: <DonutChart value={s.attendance_pct} label="Присъствие" color={toneColor(pctTone(s.attendance_pct))} />,
+    });
+    charts.push({
+      key: "fees",
+      label: "Събираемост",
+      hint: `${paid} платени · ${unpaid} дълг · ${exempt} осв.`,
+      node: (
+        <SegmentDonut
+          center={s.fees_collection_pct != null ? `${Math.round(Number(s.fees_collection_pct))}%` : "·"}
+          label="Такси"
+          segments={[
+            { label: "Платени", value: paid, color: "#15803d" },
+            { label: "Длъжници", value: unpaid, color: "#b91c1c" },
+            { label: "Освободени", value: exempt, color: "#0f766e" },
+          ]}
+        />
+      ),
+    });
+    if (marked > 0) {
+      charts.push({
+        key: "marks",
+        label: "Статуси",
+        hint: `П ${present} · З ${late} · О ${absent} · И ${excused}`,
+        node: (
+          <SegmentDonut
+            center={String(marked)}
+            label="Статуси"
+            segments={[
+              { label: "П", value: present, color: "#15803d" },
+              { label: "З", value: late, color: "#b45309" },
+              { label: "О", value: absent, color: "#b91c1c" },
+              { label: "И", value: excused, color: "#1d4ed8" },
+            ]}
+          />
+        ),
+      });
+    }
+    if (egnOk != null) {
+      charts.push({
+        key: "egn",
+        label: "ЕГН покритие",
+        hint: `${athletesTotal - Number(missing.no_egn_count || 0)} / ${athletesTotal}`,
+        node: <DonutChart value={egnOk} label="ЕГН" color={toneColor(pctTone(egnOk))} />,
+      });
+    }
+  } else {
+    charts.push({
+      key: "att",
+      label: "Присъствие",
+      hint: "сигнал от тренировки",
+      node: <DonutChart value={s.attendance_pct} label="Присъствие" color={toneColor(pctTone(s.attendance_pct))} />,
+    });
+    charts.push({
+      key: "win",
+      label: "Победи",
+      hint: finished ? `${wins}/${finished} завършени` : "няма мачове",
+      node: <DonutChart value={winPct} label="Победи" color={toneColor(pctTone(winPct))} />,
+    });
+    charts.push({
+      key: "stats",
+      label: "Статистика",
+      hint: finished ? `${withStats}/${finished} със събития` : "·",
+      node: <DonutChart value={statsPct} label="Статистика" color={toneColor(pctTone(statsPct))} />,
+    });
+  }
 
   return (
-    <>
-      <h4 style={{ marginBottom: 8 }}>{report.title}</h4>
-      <p className="coachMobileMuted" style={{ marginTop: 0, marginBottom: 12 }}>
+    <div className="periodReport">
+      <h4 style={{ marginBottom: 6 }}>{report.title}</h4>
+      <p className="periodReportIntro">
         {pack === "coach"
           ? "Оперативен преглед: такси, присъствие и липсващи данни за избрания треньор."
           : pack === "club"
             ? "Управленски преглед: сравнение между треньори и общо състояние на клуба."
             : "Спортен преглед: мачове, статистика и тестове. Присъствието е само като сигнал."}
       </p>
+
+      {charts.length ? (
+        <div className="periodReportCharts">
+          {charts.map((ch) => (
+            <div key={ch.key} className="periodReportDonutCard">
+              {ch.node}
+              <div className="periodReportDonutCardLabel">{ch.label}</div>
+              {ch.hint ? <div className="periodReportDonutCardHint">{ch.hint}</div> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {peopleBand ? <KpiBand title="Хора" items={peopleBand} /> : null}
       <KpiBand title="Присъствие" items={attendanceBand} />
@@ -292,11 +434,9 @@ function PeriodReportView({ report }) {
 
       {actionItems.length ? (
         <ReportSection title="За действие" count={actionItems.length} defaultOpen>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+          <ul className="periodReportActions">
             {actionItems.map((a) => (
-              <li key={a} style={{ marginBottom: 4 }}>
-                {a}
-              </li>
+              <li key={a}>{a}</li>
             ))}
           </ul>
         </ReportSection>
@@ -304,54 +444,59 @@ function PeriodReportView({ report }) {
 
       {report.coaches?.length ? (
         <ReportSection title="Сравнение треньори" count={report.coaches.length} defaultOpen>
-          <div style={{ overflow: "auto" }}>
-            <table className="matchLiveStatTable" style={{ minWidth: 640, marginTop: 0 }}>
-              <thead>
-                <tr>
-                  <th>Треньор</th>
-                  <th>Отб.</th>
-                  <th>Съст.</th>
-                  <th>Сесии</th>
-                  <th>Прис.%</th>
-                  <th>Такси%</th>
-                  <th>Дълг</th>
-                  <th>Мачове</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.coaches.map((c) => (
-                  <tr key={c.coach_id}>
-                    <td>{c.coach_name}</td>
-                    <td>{c.teams}</td>
-                    <td>{c.athletes}</td>
-                    <td>{c.sessions}</td>
-                    <td>{fmtPct(c.attendance_pct)}</td>
-                    <td>{fmtPct(c.fees_collection_pct)}</td>
-                    <td>{c.fees_unpaid}</td>
-                    <td>
-                      {c.matches_finished} / П{c.match_wins}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SimpleTable
+            initial={12}
+            rowKey={(c) => c.coach_id}
+            rows={report.coaches}
+            columns={[
+              { label: "Треньор", key: "coach_name" },
+              { label: "Отб.", key: "teams" },
+              { label: "Съст.", key: "athletes" },
+              { label: "Сесии", key: "sessions" },
+              {
+                label: "Прис.%",
+                render: (c) => <StatusPill value={fmtPct(c.attendance_pct)} tone={pctTone(c.attendance_pct)} />,
+              },
+              {
+                label: "Такси%",
+                render: (c) => (
+                  <StatusPill value={fmtPct(c.fees_collection_pct)} tone={pctTone(c.fees_collection_pct)} />
+                ),
+              },
+              { label: "Дълг", key: "fees_unpaid" },
+              {
+                label: "Мачове",
+                render: (c) => `${c.matches_finished} / П${c.match_wins}`,
+              },
+            ]}
+          />
         </ReportSection>
       ) : null}
 
       {pack !== "sport" && report.fees ? (
-        <ReportSection
-          title="Такси подробно"
-          count={`${report.fees.paid ?? 0}/${report.fees.billable ?? 0}`}
-          defaultOpen={Boolean(report.fees.unpaid)}
-        >
-          <p className="coachMobileMuted" style={{ marginTop: 0 }}>
-            Събрани {fmtMoney(report.fees.total_paid_amount)} · платени {report.fees.paid} · длъжници{" "}
-            {report.fees.unpaid} · освободени {report.fees.exempt}
+        <ReportSection title="Такси подробно" count={`${paid}/${billable}`} defaultOpen={Boolean(unpaid)}>
+          <p className="periodReportNote">
+            Събрани {fmtMoney(collected)}
+            {avgPaid != null ? ` · средно ${fmtMoney(avgPaid)} на платил` : ""} · платени {paid} · длъжници {unpaid} ·
+            освободени {exempt}
           </p>
+          <div className="periodReportLegend">
+            <span>
+              <i className="periodReportLegendDot" style={{ background: "#15803d" }} />
+              Платени
+            </span>
+            <span>
+              <i className="periodReportLegendDot" style={{ background: "#b91c1c" }} />
+              Длъжници
+            </span>
+            <span>
+              <i className="periodReportLegendDot" style={{ background: "#0f766e" }} />
+              Освободени
+            </span>
+          </div>
           {report.fees.unpaid_athletes?.length ? (
             <>
-              <strong style={{ display: "block", marginBottom: 6 }}>Длъжници</strong>
+              <strong className="periodReportSubTitle">Длъжници</strong>
               <SimpleTable
                 initial={10}
                 rowKey={(a) => a.athlete_id}
@@ -360,18 +505,18 @@ function PeriodReportView({ report }) {
               />
             </>
           ) : (
-            <p className="coachMobileMuted">Няма длъжници за месеца.</p>
+            <p className="periodReportNote">Няма длъжници за месеца.</p>
           )}
           {report.fees.exempt_athletes?.length ? (
             <div style={{ marginTop: 12 }}>
-              <strong style={{ display: "block", marginBottom: 6 }}>Освободени</strong>
+              <strong className="periodReportSubTitle">Освободени</strong>
               <SimpleTable
                 initial={8}
                 rowKey={(a) => a.athlete_id}
                 rows={report.fees.exempt_athletes}
                 columns={[
                   { label: "Състезател", key: "athlete_name" },
-                  { label: "Причина", render: (a) => a.reason || "·" },
+                  { label: "Причина", muted: true, render: (a) => a.reason || "·" },
                 ]}
               />
             </div>
@@ -388,7 +533,10 @@ function PeriodReportView({ report }) {
             columns={[
               { label: "Отбор", key: "team_name" },
               { label: "Сесии", key: "sessions_count" },
-              { label: "%", render: (r) => fmtPct(r.attendance_pct) },
+              {
+                label: "%",
+                render: (r) => <StatusPill value={fmtPct(r.attendance_pct)} tone={pctTone(r.attendance_pct)} />,
+              },
               { label: "П", key: "present" },
               { label: "З", key: "late" },
               { label: "О", key: "absent" },
@@ -410,20 +558,23 @@ function PeriodReportView({ report }) {
             rows={report.attendance.low_attendance}
             columns={[
               { label: "Състезател", key: "athlete_name" },
-              { label: "%", render: (a) => fmtPct(a.attendance_pct) },
+              {
+                label: "%",
+                render: (a) => <StatusPill value={fmtPct(a.attendance_pct)} tone={pctTone(a.attendance_pct)} />,
+              },
               { label: "Записи", key: "marked" },
-              { label: "П/З/О/И", render: (a) => `${a.present}/${a.late}/${a.absent}/${a.excused}` },
+              {
+                label: "П/З/О/И",
+                muted: true,
+                render: (a) => `${a.present}/${a.late}/${a.absent}/${a.excused}`,
+              },
             ]}
           />
         </ReportSection>
       ) : null}
 
       {report.matches?.items?.length ? (
-        <ReportSection
-          title="Мачове през месеца"
-          count={report.matches.items.length}
-          defaultOpen={pack === "sport"}
-        >
+        <ReportSection title="Мачове през месеца" count={report.matches.items.length} defaultOpen={pack === "sport"}>
           <SimpleTable
             initial={12}
             rowKey={(m) => m.match_id}
@@ -431,14 +582,19 @@ function PeriodReportView({ report }) {
             columns={[
               { label: "Дата", render: (m) => fmtDate(m.match_date) || m.match_date },
               { label: "Отбор", key: "team_name" },
-              { label: "Срещу", render: (m) => m.opponent_name || "·" },
+              { label: "Срещу", muted: true, render: (m) => m.opponent_name || "·" },
               {
                 label: "Резултат",
                 render: (m) => `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`,
               },
               {
                 label: "Стат.",
-                render: (m) => (m.event_count ? `${m.event_count} съб.` : "без"),
+                render: (m) =>
+                  m.event_count ? (
+                    <StatusPill value={`${m.event_count} съб.`} tone="good" />
+                  ) : (
+                    <StatusPill value="без" tone="bad" />
+                  ),
               },
             ]}
           />
@@ -467,11 +623,16 @@ function PeriodReportView({ report }) {
               { label: "Без ЕГН", value: report.missing_data.no_egn_count ?? 0 },
               { label: "Без родител", value: report.missing_data.no_parent_count ?? 0 },
               { label: "Без BVF", value: report.missing_data.no_bvf_count ?? 0 },
+              {
+                label: "ЕГН покритие",
+                value: fmtPct(egnOk),
+                hint: athletesTotal ? `от ${athletesTotal} състезатели` : undefined,
+              },
             ]}
           />
         </ReportSection>
       ) : null}
-    </>
+    </div>
   );
 }
 
