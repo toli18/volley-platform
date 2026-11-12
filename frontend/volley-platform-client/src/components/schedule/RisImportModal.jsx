@@ -116,15 +116,23 @@ export default function RisImportModal({
           end_time: g?.end_time || null,
         };
       });
-      const res = await axiosInstance.post(API_PATHS.RIS_IMPORT_GAMES, { items });
+      const res = await axiosInstance.post(
+        API_PATHS.RIS_IMPORT_GAMES,
+        { items, from_date: fromDate, to_date: toDate },
+        { timeout: 55000 },
+      );
       const created = res.data?.created_count || 0;
       const skipped = res.data?.skipped_count || 0;
       const errs = res.data?.error_count || 0;
+      const errRows = Array.isArray(res.data?.errors) ? res.data.errors : [];
       if (created) toast.success(`Импортирани: ${created}`);
       if (skipped) toast.info(`Пропуснати (вече има): ${skipped}`);
-      if (errs) toast.error(`Грешки при импорт: ${errs}`);
+      if (errs) {
+        const first = errRows[0]?.error ? `: ${errRows[0].error}` : "";
+        toast.error(`Грешки при импорт: ${errs}${first}`);
+      }
       onImported?.(res.data);
-      onClose?.();
+      if (created || skipped) onClose?.();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешен импорт."));
     } finally {

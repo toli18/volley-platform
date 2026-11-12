@@ -7,13 +7,14 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.competition_kinds import is_valid_competition_kind
 from app.database import get_db
 from app.dependencies.roles import require_role
 from app.models import BvfCardIndex, Club, ClubCompetitionEvent, Team, User, UserRole
-from app.routers.bvf_admin import _club_for_user, _ensure_head_with_club
+from app.routers.bvf_admin import _club_for_user
 from app.services.ris_client import (
     RisApiError,
     current_season_year,
@@ -44,7 +45,6 @@ from app.services.schedule_competitions import can_manage_team
 router = APIRouter(prefix="/api/ris", tags=["RIS Calendar"])
 
 _COACH_ROLES = (UserRole.coach, UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
-_HEAD_ROLES = (UserRole.club_head_coach, UserRole.platform_admin, UserRole.federation_admin)
 
 
 def _require_bvf_club(club: Club) -> int:
@@ -78,6 +78,9 @@ class RisImportItem(BaseModel):
 
 class RisImportIn(BaseModel):
     season: Optional[int] = None
+    # Same window as club-games: reuses RIS list cache and avoids N x get_game (Railway ~60s silent cut).
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
     items: list[RisImportItem] = Field(default_factory=list, min_length=1)
 
 
@@ -256,12 +259,14 @@ def ris_club_games(
 def ris_import_games(
     payload: RisImportIn,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(*_HEAD_ROLES)),
+    current_user: User = Depends(require_role(*_COACH_ROLES)),
 ):
-    _ensure_head_with_club(current_user)
     club = _club_for_user(db, current_user)
     bvf_club_id = _require_bvf_club(club)
     club_id = int(club.id)
+
+    if len(payload.items) > 40:
+        raise HTTPException(status_code=422, detail="Максимум 40 мача наведнъж. Импортирай на партиди.")
 
     try:
         year = int(payload.season) if payload.season else current_season_year()
@@ -272,7 +277,36 @@ def ris_import_games(
     skipped: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
-    # Prefetch games once for the date span of requested ids (fetch individually — safer).
+    # Prefetch via the same list endpoint as the modal (usually cache hit <1s).
+    game_by_id: dict[int, dict] = {}
+    d0 = (payload.from_date or "").strip() or None
+    d1 = (payload.to_date or "").strip() or None
+    if d0 and d1:
+        try:
+            d0 = _parse_ymd(d0, "from")
+            d1 = _parse_ymd(d1, "to")
+            listed = list_games(
+                year,
+                club_id=bvf_club_id,
+                date_from=d0,
+                date_to=d1,
+                page=1,
+                page_size=100,
+                sort="asc",
+            )
+            for g in listed:
+                if isinstance(g, dict) and g.get("id") is not None:
+                    game_by_id[int(g["id"])] = g
+        except RisApiError:
+            game_by_id = {}
+
+    card_indexes = (
+        db.query(BvfCardIndex)
+        .filter(BvfCardIndex.club_id == club_id)
+        .order_by(BvfCardIndex.year.desc(), BvfCardIndex.age.asc())
+        .all()
+    )
+
     for item in payload.items:
         gid = int(item.ris_game_id)
         existing = (
@@ -287,11 +321,15 @@ def ris_import_games(
             skipped.append({"ris_game_id": gid, "competition_id": int(existing.id), "reason": "already_imported"})
             continue
 
-        try:
-            game = get_game(gid)
-        except RisApiError as exc:
-            errors.append({"ris_game_id": gid, "error": exc.message})
-            continue
+        game = game_by_id.get(gid)
+        if not game:
+            try:
+                game = get_game(gid)
+                if game and game.get("id") is not None:
+                    game_by_id[gid] = game
+            except RisApiError as exc:
+                errors.append({"ris_game_id": gid, "error": exc.message})
+                continue
         if not game or game.get("id") is None:
             errors.append({"ris_game_id": gid, "error": "Мачът не е намерен в RIS"})
             continue
@@ -321,9 +359,7 @@ def ris_import_games(
                 continue
             card_index_id = int(ci.id)
         else:
-            # Soft suggest
-            cis = db.query(BvfCardIndex).filter(BvfCardIndex.club_id == club_id).all()
-            card_index_id = suggest_card_index_id(cis, game)
+            card_index_id = suggest_card_index_id(card_indexes, game)
 
         beg_date = (game.get("begDate") or "").strip()
         if not beg_date:
@@ -378,8 +414,28 @@ def ris_import_games(
             ris_stream_url=stream_url_of(game),
             ris_synced_at=datetime.utcnow(),
         )
-        db.add(event)
-        db.flush()
+        try:
+            with db.begin_nested():
+                db.add(event)
+                db.flush()
+        except IntegrityError:
+            existing = (
+                db.query(ClubCompetitionEvent)
+                .filter(ClubCompetitionEvent.ris_game_id == gid)
+                .first()
+            )
+            if existing and int(existing.club_id) == club_id:
+                skipped.append(
+                    {"ris_game_id": gid, "competition_id": int(existing.id), "reason": "already_imported"}
+                )
+            else:
+                errors.append(
+                    {
+                        "ris_game_id": gid,
+                        "error": "Този БФВ мач вече е импортиран в друг клуб или има конфликт в базата.",
+                    }
+                )
+            continue
         created.append(
             {
                 "ris_game_id": gid,
@@ -391,6 +447,7 @@ def ris_import_games(
         )
 
     db.commit()
+
     return {
         "season_year": year,
         "created_count": len(created),
