@@ -9152,11 +9152,19 @@ button.matchChipSlot:not(:disabled) {
   max-width: 100%;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #075985;
+  background: #e2e8f0;
+  color: #334155;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.3;
+}
+.risImportAge.is-girls {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.risImportAge.is-boys {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 .risImportChamp {
   display: block;

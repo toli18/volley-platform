@@ -26,6 +26,19 @@ function ageGroupDisplay(g) {
   return short;
 }
 
+/** "girls" | "boys" | "" for age-pill color */
+function ageGroupSex(g) {
+  if (g?.sex_hint === 1 || g?.sex_hint === "1") return "girls";
+  if (g?.sex_hint === 0 || g?.sex_hint === "0") return "boys";
+  const short = String(g?.age_group_short || "").trim().toLowerCase();
+  if (short.startsWith("w") || short === "women") return "girls";
+  if (short.startsWith("m") || short === "men") return "boys";
+  const name = String(g?.age_group_name || "").toLowerCase();
+  if (/момичет|жени|girl|women/.test(name)) return "girls";
+  if (/момчет|мъже|boy|men/.test(name)) return "boys";
+  return "";
+}
+
 function championshipDisplay(g) {
   return (
     String(g?.championship_label || "").trim() ||
@@ -230,6 +243,7 @@ export default function RisImportModal({
             const checked = selected.has(id);
             const disabled = Boolean(g.already_imported || g.has_placeholders);
             const ageLabel = ageGroupDisplay(g);
+            const ageSex = ageGroupSex(g);
             const champLabel = championshipDisplay(g);
             const subBits = [
               g.round_label || null,
@@ -251,7 +265,13 @@ export default function RisImportModal({
                 <span className="risImportRowText">
                   {ageLabel || champLabel ? (
                     <span className="risImportMeta">
-                      {ageLabel ? <span className="risImportAge">{ageLabel}</span> : null}
+                      {ageLabel ? (
+                        <span
+                          className={`risImportAge${ageSex === "girls" ? " is-girls" : ageSex === "boys" ? " is-boys" : ""}`}
+                        >
+                          {ageLabel}
+                        </span>
+                      ) : null}
                       {champLabel ? <span className="risImportChamp">{champLabel}</span> : null}
                     </span>
                   ) : null}
