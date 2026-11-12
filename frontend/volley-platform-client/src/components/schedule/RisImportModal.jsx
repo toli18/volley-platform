@@ -8,7 +8,30 @@ import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
 
 function kindLabel(kind) {
-  return competitionKindLabel(kind) || kind || "—";
+  return competitionKindLabel(kind) || kind || "-";
+}
+
+function ageGroupDisplay(g) {
+  const name = String(g?.age_group_name || "").trim();
+  if (name) return name;
+  const short = String(g?.age_group_short || "").trim().toLowerCase();
+  if (!short) return "";
+  if (short === "men" || short === "m") return "Мъже";
+  if (short === "women" || short === "w") return "Жени";
+  const m = short.match(/^([mw])u(\d{1,2})$/);
+  if (m) {
+    const who = m[1] === "m" ? "Момчета" : "Момичета";
+    return `${who} под ${m[2]} г.`;
+  }
+  return short;
+}
+
+function championshipDisplay(g) {
+  return (
+    String(g?.championship_label || "").trim() ||
+    String(g?.competition_name || "").trim() ||
+    kindLabel(g?.competition_kind)
+  );
 }
 
 export default function RisImportModal({
@@ -206,6 +229,13 @@ export default function RisImportModal({
             const id = Number(g.ris_game_id);
             const checked = selected.has(id);
             const disabled = Boolean(g.already_imported || g.has_placeholders);
+            const ageLabel = ageGroupDisplay(g);
+            const champLabel = championshipDisplay(g);
+            const subBits = [
+              g.round_label || null,
+              g.match_number ? `мач №${g.match_number}` : null,
+              g.competition_name && g.competition_name !== champLabel ? g.competition_name : null,
+            ].filter(Boolean);
             return (
               <button
                 key={id}
@@ -219,28 +249,26 @@ export default function RisImportModal({
                   {checked ? "✓" : ""}
                 </span>
                 <span className="risImportRowText">
+                  {ageLabel || champLabel ? (
+                    <span className="risImportMeta">
+                      {ageLabel ? <span className="risImportAge">{ageLabel}</span> : null}
+                      {champLabel ? <span className="risImportChamp">{champLabel}</span> : null}
+                    </span>
+                  ) : null}
                   <strong>
                     {g.date} · {g.start_time}
                     {g.time_placeholder ? " (час уточни)" : ""}
+                    {` · vs ${g.opponent_name || "-"}`}
                   </strong>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>
-                    vs {g.opponent_name || "—"} · {kindLabel(g.competition_kind)}
-                    {g.match_number ? ` · №${g.match_number}` : ""}
+                  <span className="risImportSub">
+                    {subBits.join(" · ") || kindLabel(g.competition_kind)}
                   </span>
-                  <span style={{ fontSize: 13 }}>{g.location}</span>
-                  {g.championship_label ? (
-                    <span style={{ fontSize: 12, color: "#64748b" }}>
-                      {g.championship_label}
-                      {g.age_group_short ? ` · ${g.age_group_short}` : ""}
-                    </span>
-                  ) : null}
+                  {g.location ? <span className="risImportSub">{g.location}</span> : null}
                   {g.already_imported ? (
-                    <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>Вече импортиран</span>
+                    <span className="risImportFlag is-ok">Вече импортиран</span>
                   ) : null}
                   {g.has_placeholders ? (
-                    <span style={{ fontSize: 12, color: "#b45309", fontWeight: 700 }}>
-                      Отборът още не е определен в БФВ
-                    </span>
+                    <span className="risImportFlag is-warn">Отборът още не е определен в БФВ</span>
                   ) : null}
                 </span>
               </button>

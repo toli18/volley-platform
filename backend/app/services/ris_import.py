@@ -163,8 +163,11 @@ def summarize_game_for_club(game: dict, bvf_club_id: int, *, already_imported: b
     home = game.get("homeTeam") if isinstance(game.get("homeTeam"), dict) else {}
     away = game.get("awayTeam") if isinstance(game.get("awayTeam"), dict) else {}
     champ = game.get("championship") if isinstance(game.get("championship"), dict) else {}
+    ag = champ.get("ageGroup") if isinstance(champ.get("ageGroup"), dict) else {}
     comp = game.get("competition") if isinstance(game.get("competition"), dict) else {}
     placeholders = is_placeholder_side(home) or is_placeholder_side(away)
+    age_name = (ag.get("name") or "").strip() or None
+    champ_label = (champ.get("label") or champ.get("name") or "").strip() or None
     return {
         "ris_game_id": int(game["id"]),
         "match_number": match_number_of(game),
@@ -179,8 +182,9 @@ def summarize_game_for_club(game: dict, bvf_club_id: int, *, already_imported: b
         "status": game.get("status"),
         "round_label": game.get("roundLabel"),
         "championship_id": championship_id_of(game),
-        "championship_label": (champ.get("label") or champ.get("name") or None),
-        "competition_name": (comp.get("name") or None),
+        "championship_label": champ_label,
+        "competition_name": (comp.get("name") or "").strip() or None,
+        "age_group_name": age_name,
         "age_group_short": short,
         "age_hint": age,
         "sex_hint": sex,
