@@ -29,6 +29,7 @@ from app.services.ris_client import (
 )
 from app.services.ris_import import (
     add_hours,
+    apply_ris_result_to_event,
     apply_ris_schedule_to_event,
     competition_kind_from_game,
     hall_location,
@@ -539,6 +540,7 @@ def ris_import_games(
             ris_stream_url=stream_url_of(game),
             ris_synced_at=datetime.utcnow(),
         )
+        apply_ris_result_to_event(event, game, bvf_club_id)
         try:
             with db.begin_nested():
                 db.add(event)

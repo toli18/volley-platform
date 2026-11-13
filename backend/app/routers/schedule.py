@@ -22,6 +22,7 @@ from app.schemas.competitions import (
     CompetitionEventCreate,
     CompetitionEventRead,
     CompetitionEventUpdate,
+    CompetitionResultUpdate,
     CompetitionRosterRead,
     CompetitionRosterSaveIn,
 )
@@ -742,6 +743,14 @@ def _competition_to_read(
         ),
         ris_stream_url=(getattr(event, "ris_stream_url", None) or None),
         ris_synced_at=getattr(event, "ris_synced_at", None),
+        result_our_sets=(
+            int(event.result_our_sets) if getattr(event, "result_our_sets", None) is not None else None
+        ),
+        result_opp_sets=(
+            int(event.result_opp_sets) if getattr(event, "result_opp_sets", None) is not None else None
+        ),
+        result_source=(getattr(event, "result_source", None) or None),
+        result_synced_at=getattr(event, "result_synced_at", None),
     )
 
 
@@ -1011,6 +1020,41 @@ def save_competition_roster(
         can_edit_roster=bool(can_roster and not locked),
         **summary,
     )
+
+
+@router.put("/schedule/competitions/{event_id}/result", response_model=CompetitionEventRead)
+def update_competition_result(
+    event_id: int,
+    payload: CompetitionResultUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.coach, UserRole.club_head_coach)),
+):
+    """Save a reported final set score (manual). Overrides RIS-sourced result when provided."""
+    club_id = _ensure_club(current_user)
+    event = (
+        db.query(ClubCompetitionEvent)
+        .filter(ClubCompetitionEvent.id == int(event_id), ClubCompetitionEvent.club_id == club_id)
+        .first()
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Състезанието не е намерено")
+    if not can_edit_roster(db, current_user, event, _is_head_coach(current_user)):
+        raise HTTPException(status_code=403, detail="Нямате право да записвате резултат за този отбор")
+
+    our = int(payload.our_sets)
+    opp = int(payload.opp_sets)
+    if our == 0 and opp == 0:
+        raise HTTPException(status_code=422, detail="Въведи реален резултат (не 0:0)")
+    if our == opp:
+        raise HTTPException(status_code=422, detail="Резултатът не може да е равен (сетове)")
+
+    event.result_our_sets = our
+    event.result_opp_sets = opp
+    event.result_source = "manual"
+    event.result_synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(event)
+    return _competition_to_read(db, event, current_user=current_user)
 
 
 @router.post("/schedule/competitions/{event_id}/open-match")

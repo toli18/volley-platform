@@ -154,10 +154,72 @@ def match_number_of(game: dict) -> int | None:
         return None
 
 
+def _parse_set_score(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    if n < 0 or n > 5:
+        return None
+    return n
+
+
+def final_sets_for_club(game: dict, bvf_club_id: int) -> tuple[int, int] | None:
+    """Map RIS finalScoreA/B to (our_sets, opp_sets) for the club. None if not played."""
+    score_a = _parse_set_score(game.get("finalScoreA"))
+    score_b = _parse_set_score(game.get("finalScoreB"))
+    if score_a is None or score_b is None:
+        return None
+    if score_a == 0 and score_b == 0:
+        return None
+    if score_a == score_b:
+        return None
+    _, we_home = opponent_for_club(game, bvf_club_id)
+    if we_home:
+        return score_a, score_b
+    return score_b, score_a
+
+
+def apply_ris_result_to_event(event: Any, game: dict, bvf_club_id: int) -> list[str]:
+    """Fill reported result from RIS when empty or previously filled from RIS.
+
+    Never overwrites a manual result. Does not touch live Match statistics.
+    """
+    scored = final_sets_for_club(game, bvf_club_id)
+    if scored is None:
+        return []
+
+    source = (getattr(event, "result_source", None) or "").strip().lower() or None
+    our_existing = getattr(event, "result_our_sets", None)
+    opp_existing = getattr(event, "result_opp_sets", None)
+    has_result = our_existing is not None and opp_existing is not None
+    if has_result and source == "manual":
+        return []
+
+    our_sets, opp_sets = scored
+    changed: list[str] = []
+    if our_existing != our_sets:
+        event.result_our_sets = our_sets
+        changed.append("result_our_sets")
+    if opp_existing != opp_sets:
+        event.result_opp_sets = opp_sets
+        changed.append("result_opp_sets")
+    if source != "ris":
+        event.result_source = "ris"
+        changed.append("result_source")
+    if changed:
+        event.result_synced_at = datetime.utcnow()
+        changed.append("result_synced_at")
+    return changed
+
+
 def apply_ris_schedule_to_event(event: Any, game: dict, bvf_club_id: int) -> list[str]:
     """Update club competition fields that are owned by the official BVF/RIS calendar.
 
     Does not touch coach notes, team, coach, roster, or card index.
+    Also applies RIS final result when available (unless manual).
     Returns list of changed field names.
     """
     changed: list[str] = []
@@ -218,6 +280,7 @@ def apply_ris_schedule_to_event(event: Any, game: dict, bvf_club_id: int) -> lis
         changed.append("is_cancelled")
 
     event.ris_synced_at = datetime.utcnow()
+    changed.extend(apply_ris_result_to_event(event, game, bvf_club_id))
     return changed
 
 

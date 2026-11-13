@@ -1274,6 +1274,13 @@ class ClubCompetitionEvent(Base):
     ris_stream_url = Column(String(500), nullable=True)
     ris_synced_at = Column(DateTime, nullable=True)
 
+    # Reported final result (sets won). Separate from live Match statistics.
+    # result_source: ris | manual
+    result_our_sets = Column(Integer, nullable=True)
+    result_opp_sets = Column(Integer, nullable=True)
+    result_source = Column(String(16), nullable=True)
+    result_synced_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

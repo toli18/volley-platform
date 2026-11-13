@@ -405,6 +405,7 @@ export const API_PATHS = {
   SCHEDULE_COMPETITION_DELETE: (eventId) => `/api/schedule/competitions/${eventId}`,
   SCHEDULE_COMPETITION_ROSTER: (eventId) => `/api/schedule/competitions/${eventId}/roster`,
   SCHEDULE_COMPETITION_OPEN_MATCH: (eventId) => `/api/schedule/competitions/${eventId}/open-match`,
+  SCHEDULE_COMPETITION_RESULT: (eventId) => `/api/schedule/competitions/${eventId}/result`,
 
   // RIS (BVF official calendar)
   RIS_STATUS: "/api/ris/status",

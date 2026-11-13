@@ -66,6 +66,15 @@ class CompetitionEventRead(CompetitionEventBase):
     ris_match_number: Optional[int] = None
     ris_stream_url: Optional[str] = None
     ris_synced_at: Optional[datetime] = None
+    result_our_sets: Optional[int] = None
+    result_opp_sets: Optional[int] = None
+    result_source: Optional[str] = None  # ris | manual
+    result_synced_at: Optional[datetime] = None
+
+
+class CompetitionResultUpdate(BaseModel):
+    our_sets: int = Field(..., ge=0, le=5)
+    opp_sets: int = Field(..., ge=0, le=5)
 
 
 class CompetitionRosterSaveIn(BaseModel):

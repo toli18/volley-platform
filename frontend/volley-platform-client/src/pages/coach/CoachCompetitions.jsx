@@ -77,7 +77,25 @@ function statusLabel(row) {
   if (row.roster_locked || row.roster_status === "locked") return "Заключен състав";
   if (row.roster_status === "confirmed") return "Състав готов";
   if (row.needs_roster || row.roster_status === "pending") return "Чака тимов лист";
-  return row.roster_status || "—";
+  return row.roster_status || "-";
+}
+
+function hasReportedResult(row) {
+  return row?.result_our_sets != null && row?.result_opp_sets != null;
+}
+
+function resultLabel(row) {
+  if (!hasReportedResult(row)) return null;
+  const score = `${row.result_our_sets}:${row.result_opp_sets}`;
+  const src = String(row.result_source || "").toLowerCase();
+  if (src === "ris") return `${score} · от БФВ`;
+  if (src === "manual") return `${score} · ръчно`;
+  return score;
+}
+
+function isPastCompetition(row, today = todayKey()) {
+  const d = String(row?.date || "");
+  return Boolean(d) && d < today;
 }
 
 export default function CoachCompetitions() {
@@ -110,9 +128,15 @@ export default function CoachCompetitions() {
   const [standingsOpen, setStandingsOpen] = useState(false);
   const [standingsChampId, setStandingsChampId] = useState(null);
   const [standingsHint, setStandingsHint] = useState("");
+  const [resultEvent, setResultEvent] = useState(null);
+  const [resultOur, setResultOur] = useState("3");
+  const [resultOpp, setResultOpp] = useState("0");
+  const [savingResult, setSavingResult] = useState(false);
+  const [syncingResults, setSyncingResults] = useState(false);
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
+  const today = useMemo(() => todayKey(), []);
 
   const applyPreset = (presetId) => {
     setPeriodPreset(presetId);
@@ -319,6 +343,69 @@ export default function CoachCompetitions() {
     }
   };
 
+  const openResultEditor = (event) => {
+    setResultEvent(event);
+    setResultOur(hasReportedResult(event) ? String(event.result_our_sets) : "3");
+    setResultOpp(hasReportedResult(event) ? String(event.result_opp_sets) : "0");
+  };
+
+  const saveResult = async () => {
+    if (!resultEvent) return;
+    const our = Number(resultOur);
+    const opp = Number(resultOpp);
+    if (!Number.isInteger(our) || !Number.isInteger(opp) || our < 0 || opp < 0 || our > 5 || opp > 5) {
+      toast.error("Сетовете трябва да са цели числа от 0 до 5.");
+      return;
+    }
+    if (our === 0 && opp === 0) {
+      toast.error("Въведи реален резултат (не 0:0).");
+      return;
+    }
+    if (our === opp) {
+      toast.error("Резултатът не може да е равен.");
+      return;
+    }
+    setSavingResult(true);
+    try {
+      const res = await axiosInstance.put(API_PATHS.SCHEDULE_COMPETITION_RESULT(resultEvent.id), {
+        our_sets: our,
+        opp_sets: opp,
+      });
+      toast.success("Резултатът е записан.");
+      setResultEvent(null);
+      if (res.data?.id) {
+        setRows((prev) => prev.map((r) => (Number(r.id) === Number(res.data.id) ? { ...r, ...res.data } : r)));
+      } else {
+        await load();
+      }
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешен запис на резултата."));
+    } finally {
+      setSavingResult(false);
+    }
+  };
+
+  const syncRisResults = async () => {
+    setSyncingResults(true);
+    try {
+      const res = await axiosInstance.post(API_PATHS.RIS_SYNC_IMPORTED, {
+        from_date: fromDate,
+        to_date: toDate,
+      });
+      const updated = Number(res.data?.updated_count || 0);
+      toast.success(
+        updated > 0
+          ? `Обновени ${updated} срещи от БФВ (график/резултати).`
+          : "Няма нови промени от БФВ за периода.",
+      );
+      await load();
+    } catch (err) {
+      toast.error(normalizeError(err, "Неуспешно обновяване от БФВ."));
+    } finally {
+      setSyncingResults(false);
+    }
+  };
+
   const openOfficialSheet = async (event, rosterData = null) => {
     try {
       let data = rosterData;
@@ -379,16 +466,21 @@ export default function CoachCompetitions() {
 
       <div className="competitionsToolbar">
         <span className="competitionsToolbarLabel">{rangeLabel}</span>
-        {isHeadCoachUser ? (
-          <div className="competitionsToolbarActions">
-            <Button size="sm" variant="secondary" onClick={() => setRisOpen(true)}>
-              От БФВ календар
-            </Button>
-            <Button size="sm" onClick={openCreate}>
-              Ново състезание
-            </Button>
-          </div>
-        ) : null}
+        <div className="competitionsToolbarActions">
+          <Button size="sm" variant="secondary" onClick={syncRisResults} disabled={syncingResults || busy}>
+            {syncingResults ? "Обновяване…" : "Обнови от БФВ"}
+          </Button>
+          {isHeadCoachUser ? (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setRisOpen(true)}>
+                От БФВ календар
+              </Button>
+              <Button size="sm" onClick={openCreate}>
+                Ново състезание
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {periodPreset === "custom" ? (
@@ -454,6 +546,15 @@ export default function CoachCompetitions() {
                   ? ` · ${row.roster_selected_count} в листа`
                   : ""}
               </div>
+              {hasReportedResult(row) ? (
+                <div style={{ marginTop: 4, fontWeight: 700, color: "#0c6a47" }}>
+                  Резултат: {resultLabel(row)}
+                </div>
+              ) : isPastCompetition(row, today) ? (
+                <div className="coachMobileMuted" style={{ marginTop: 4 }}>
+                  {row.ris_game_id ? "Няма резултат от БФВ още" : "Няма въведен резултат"}
+                </div>
+              ) : null}
             </div>
             <div className="feesAthleteCardCompactActions feesAthleteCardCompactActions--stack" style={{ display: "grid", gap: 6 }}>
               <Button size="sm" variant={row.needs_roster ? undefined : "secondary"} onClick={() => openRoster(row)}>
@@ -477,6 +578,11 @@ export default function CoachCompetitions() {
                   }}
                 >
                   Класиране
+                </Button>
+              ) : null}
+              {(isPastCompetition(row, today) || hasReportedResult(row) || !row.ris_game_id) ? (
+                <Button size="sm" variant="secondary" onClick={() => openResultEditor(row)}>
+                  {hasReportedResult(row) ? "Редактирай резултат" : "Въведи резултат"}
                 </Button>
               ) : null}
               <Button
@@ -532,6 +638,65 @@ export default function CoachCompetitions() {
         titleHint={standingsHint}
       />
 
+      {resultEvent ? (
+        <div className="matchLiveSubOverlay" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="matchLiveSubBackdrop"
+            aria-label="Затвори"
+            onClick={() => setResultEvent(null)}
+          />
+          <div className="matchLiveSubDrawer" style={{ maxHeight: "min(70dvh, 420px)", overflow: "auto" }}>
+            <div className="matchLiveSubHead">
+              <strong>
+                Резултат · {resultEvent.date}
+                {resultEvent.opponent_name ? ` vs ${resultEvent.opponent_name}` : ""}
+              </strong>
+              <button type="button" className="matchLiveStatsClose" onClick={() => setResultEvent(null)}>
+                ✕
+              </button>
+            </div>
+            <p className="matchLiveSubHint">
+              Сетове: ние : противник
+              {resultEvent.ris_game_id
+                ? " · ръчната корекция отменя автоматичния БФВ резултат"
+                : ""}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "end", padding: "8px 4px" }}>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Ние</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={resultOur}
+                  onChange={(e) => setResultOur(e.target.value)}
+                />
+              </label>
+              <span style={{ fontWeight: 700, paddingBottom: 10 }}>:</span>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Противник</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={resultOpp}
+                  onChange={(e) => setResultOpp(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="matchLiveSubActions">
+              <button type="button" className="matchLiveUndo" onClick={() => setResultEvent(null)}>
+                Затвори
+              </button>
+              <button type="button" className="matchLiveNext" disabled={savingResult} onClick={saveResult}>
+                {savingResult ? "Запис…" : "Запиши"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {rosterEvent && roster ? (
         <div className="matchLiveSubOverlay" role="dialog" aria-modal="true">
           <button type="button" className="matchLiveSubBackdrop" aria-label="Затвори" onClick={() => setRosterEvent(null)} />
@@ -555,7 +720,7 @@ export default function CoachCompetitions() {
               </p>
             ) : roster.can_edit_roster !== false && rosterEvent.can_edit_roster ? (
               <p className="matchLiveSubHint" style={{ marginTop: 0 }}>
-                Докосни име — добавя/маха от листа (✓ = избран).
+                Докосни име: добавя/маха от листа (✓ = избран).
               </p>
             ) : !rosterEvent.can_edit_roster ? (
               <p className="matchLiveSubHint" style={{ color: "#fbbf24", marginTop: 0 }}>
@@ -577,7 +742,7 @@ export default function CoachCompetitions() {
                     aria-pressed={picked}
                   >
                     <span aria-hidden style={{ width: 18, flexShrink: 0 }}>
-                      {picked ? "✓" : "—"}
+                      {picked ? "✓" : "-"}
                     </span>
                     {c.jersey_number != null ? `#${c.jersey_number} ` : ""}
                     {c.name}
