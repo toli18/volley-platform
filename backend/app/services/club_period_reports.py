@@ -14,6 +14,7 @@ from app.models import (
     AthletePayment,
     AttendanceRecord,
     Club,
+    ClubCompetitionEvent,
     ClubEnrollmentRequest,
     Team,
     TeamMember,
@@ -538,6 +539,27 @@ def _trainings_block(
     }
 
 
+def resolve_match_report_score(
+    *,
+    live_us: int,
+    live_opp: int,
+    competition_event: Any | None,
+) -> tuple[int, int, str | None]:
+    """Pick set score for period reports: live MatchSets, else competition result."""
+    us_i = int(live_us or 0)
+    opp_i = int(live_opp or 0)
+    if us_i or opp_i:
+        return us_i, opp_i, "live"
+    if competition_event is None:
+        return 0, 0, None
+    our = getattr(competition_event, "result_our_sets", None)
+    opp = getattr(competition_event, "result_opp_sets", None)
+    if our is None or opp is None:
+        return 0, 0, None
+    src = getattr(competition_event, "result_source", None) or "reported"
+    return int(our), int(opp), str(src)
+
+
 def _matches_block(
     db: Session,
     *,
@@ -568,15 +590,44 @@ def _matches_block(
         .all()
     )
     team_name = {t.id: t.name for t in db.query(Team).filter(Team.id.in_(team_ids)).all()}
+    comp_ids = [
+        int(m.competition_id)
+        for m in matches
+        if getattr(m, "competition_id", None) is not None
+    ]
+    comps_by_id: dict[int, ClubCompetitionEvent] = {}
+    if comp_ids:
+        for ev in (
+            db.query(ClubCompetitionEvent)
+            .filter(ClubCompetitionEvent.id.in_(comp_ids))
+            .all()
+        ):
+            comps_by_id[int(ev.id)] = ev
+
     items = []
     wins = losses = finished = with_stats = 0
     official = control = 0
     for m in matches:
         status = m.status.value if hasattr(m.status, "value") else str(m.status)
         sets = db.query(MatchSet).filter(MatchSet.match_id == m.id).order_by(MatchSet.set_number.asc()).all()
-        us, opp = count_sets_won(sets)
-        won_by = is_match_won(us, opp, m.format) if status == MatchStatus.finished.value or status == "finished" else None
-        if status in (MatchStatus.finished.value, "finished"):
+        live_us, live_opp = count_sets_won(sets)
+        ev = (
+            comps_by_id.get(int(m.competition_id))
+            if getattr(m, "competition_id", None)
+            else None
+        )
+        us, opp, score_source = resolve_match_report_score(
+            live_us=live_us,
+            live_opp=live_opp,
+            competition_event=ev,
+        )
+
+        match_finished = status in (MatchStatus.finished.value, "finished")
+        # Count as finished for W/L when live ended OR a reported set score exists.
+        has_reported_score = bool(score_source and score_source != "live" and (us or opp))
+        is_done = match_finished or has_reported_score
+        won_by = is_match_won(us, opp, m.format) if is_done else None
+        if is_done:
             finished += 1
             if won_by == "us":
                 wins += 1
@@ -606,6 +657,7 @@ def _matches_block(
                 "sets_won_us": us,
                 "sets_won_opp": opp,
                 "won_by": won_by,
+                "score_source": score_source,
                 "event_count": int(ev_count),
             }
         )

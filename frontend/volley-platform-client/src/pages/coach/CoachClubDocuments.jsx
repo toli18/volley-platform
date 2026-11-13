@@ -621,7 +621,10 @@ function ClubPackReportView({ report, teamFilter, coachFilter, onRemindUnpaid, r
                 },
                 {
                   label: "Резултат",
-                  render: (m) => `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`,
+                  render: (m) =>
+                    m.score_source || m.sets_won_us || m.sets_won_opp
+                      ? `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`
+                      : "·",
                 },
                 {
                   label: "Статистика",
@@ -1046,7 +1049,10 @@ function PeriodReportView({ report, teamFilter, coachFilter, onRemindUnpaid, rem
               { label: "Срещу", muted: true, render: (m) => m.opponent_name || "·" },
               {
                 label: "Резултат",
-                render: (m) => `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`,
+                render: (m) =>
+                  m.score_source || m.sets_won_us || m.sets_won_opp
+                    ? `${m.sets_won_us ?? 0}:${m.sets_won_opp ?? 0}`
+                    : "·",
               },
               {
                 label: "Статистика",
