@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
@@ -13,7 +13,8 @@ import { useToast } from "../../components/ToastProvider";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel } from "../../utils/competitionKinds";
 import { competitionRosterAction } from "../../utils/competitionRosterPriority";
 import { normalizeCardIndexes } from "../../utils/competitionFormHelpers";
-import { Button, Input } from "../../components/ui";
+import { Button, Input, OverflowActionSheet } from "../../components/ui";
+import { formatVenueLocation } from "../../utils/coachDashboardFormat";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -28,11 +29,14 @@ function monthEndKey(year, monthIndex) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
 }
 
-/** from = начало на текущия месец; to = край на месеца след +monthsAhead (вкл. текущия). */
+/** from = начало на месеца преди monthsAhead-1; to = край на текущия + (monthsAhead-1). */
 function forwardMonthsRange(monthsAhead = 2) {
   const now = new Date();
-  const from = monthStartKey(now);
-  const end = new Date(now.getFullYear(), now.getMonth() + Math.max(0, monthsAhead - 1), 1);
+  const span = Math.max(1, monthsAhead);
+  // Include previous months so „Минали“ has results without custom period.
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - (span - 1), 1);
+  const from = monthStartKey(fromDate);
+  const end = new Date(now.getFullYear(), now.getMonth() + (span - 1), 1);
   const to = monthEndKey(end.getFullYear(), end.getMonth());
   return { from, to };
 }
@@ -98,6 +102,63 @@ function isPastCompetition(row, today = todayKey()) {
   return Boolean(d) && d < today;
 }
 
+function hasRosterSheet(row) {
+  const count = Number(row?.roster_selected_count || 0);
+  if (count > 0) return true;
+  const status = String(row?.roster_status || "").toLowerCase();
+  return status === "confirmed" || status === "locked" || Boolean(row?.roster_locked);
+}
+
+function competitionCardTone(row, today = todayKey()) {
+  if (isPastCompetition(row, today) || hasReportedResult(row)) return "played";
+  if (!hasRosterSheet(row) || row?.needs_roster || competitionRosterAction(row) === "generate") {
+    return "missing";
+  }
+  return "ready";
+}
+
+function competitionCardTitle(row) {
+  const team = row.carded_team_label || row.team_name || `Група #${row.team_id}`;
+  const opp = row.opponent_name ? `vs ${row.opponent_name}` : "без противник";
+  if (hasReportedResult(row)) {
+    return `${team} ${row.result_our_sets}:${row.result_opp_sets} ${opp}`;
+  }
+  return `${team} ${opp}`;
+}
+
+function competitionCardMeta(row) {
+  const date = String(row?.date || "");
+  let dateBit = date;
+  try {
+    if (date) {
+      dateBit = new Date(`${date}T12:00:00`).toLocaleDateString("bg-BG", {
+        day: "numeric",
+        month: "short",
+      });
+    }
+  } catch {
+    /* keep iso */
+  }
+  const time =
+    row?.start_time && row?.end_time
+      ? `${row.start_time}–${row.end_time}`
+      : row?.start_time || "";
+  const loc = row?.location ? formatVenueLocation(row.location) : "";
+  return [dateBit, time, loc].filter(Boolean).join(" · ");
+}
+
+function sortCompetitionsChrono(list, { descending = false } = {}) {
+  const rows = Array.isArray(list) ? [...list] : [];
+  rows.sort((a, b) => {
+    const d = String(a?.date || "").localeCompare(String(b?.date || ""));
+    if (d !== 0) return descending ? -d : d;
+    const t = String(a?.start_time || "").localeCompare(String(b?.start_time || ""));
+    if (t !== 0) return descending ? -t : t;
+    return Number(a?.id || 0) - Number(b?.id || 0);
+  });
+  return rows;
+}
+
 export default function CoachCompetitions() {
   const toast = useToast();
   const navigate = useNavigate();
@@ -109,6 +170,8 @@ export default function CoachCompetitions() {
   const [fromDate, setFromDate] = useState(defaultRange.from);
   const [toDate, setToDate] = useState(defaultRange.to);
   const [filter, setFilter] = useState("all");
+  const [listTab, setListTab] = useState("upcoming");
+  const [teamFilter, setTeamFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [openingMatchId, setOpeningMatchId] = useState(null);
@@ -137,6 +200,62 @@ export default function CoachCompetitions() {
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
   const today = useMemo(() => todayKey(), []);
+
+  const teamFilterOptions = useMemo(() => {
+    const byKey = new Map();
+    for (const t of teams || []) {
+      byKey.set(`t:${t.id}`, {
+        value: `t:${t.id}`,
+        label: t.name || `Група #${t.id}`,
+        teamId: Number(t.id),
+        ageKey: null,
+      });
+    }
+    for (const row of rows || []) {
+      const age = String(row.carded_team_label || "").trim();
+      if (age) {
+        const key = `a:${age.toLowerCase()}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, { value: key, label: age, teamId: null, ageKey: age.toLowerCase() });
+        }
+      }
+      if (row.team_id != null && !byKey.has(`t:${row.team_id}`)) {
+        byKey.set(`t:${row.team_id}`, {
+          value: `t:${row.team_id}`,
+          label: row.team_name || `Група #${row.team_id}`,
+          teamId: Number(row.team_id),
+          ageKey: null,
+        });
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, "bg"));
+  }, [teams, rows]);
+
+  const visibleRows = useMemo(() => {
+    const opt = teamFilterOptions.find((o) => o.value === teamFilter);
+    const list = (rows || []).filter((row) => {
+      const past = isPastCompetition(row, today);
+      if (listTab === "upcoming" && past) return false;
+      if (listTab === "past" && !past) return false;
+      if (opt?.teamId != null && Number(row.team_id) !== Number(opt.teamId)) return false;
+      if (opt?.ageKey) {
+        const age = String(row.carded_team_label || "").trim().toLowerCase();
+        if (age !== opt.ageKey) return false;
+      }
+      return true;
+    });
+    return sortCompetitionsChrono(list, { descending: listTab === "past" });
+  }, [rows, listTab, teamFilter, teamFilterOptions, today]);
+
+  const tabCounts = useMemo(() => {
+    let upcoming = 0;
+    let past = 0;
+    for (const row of rows || []) {
+      if (isPastCompetition(row, today)) past += 1;
+      else upcoming += 1;
+    }
+    return { upcoming, past };
+  }, [rows, today]);
 
   const applyPreset = (presetId) => {
     setPeriodPreset(presetId);
@@ -448,8 +567,63 @@ export default function CoachCompetitions() {
     <div className="coachMobilePage">
       <header className="feesCoachHead">
         <h2 className="feesCoachHeadTitle">Състезания</h2>
-        <span className="feesCoachHeadBadge">{rows.length}</span>
+        <span className="feesCoachHeadBadge">{visibleRows.length}</span>
       </header>
+
+      <div className="coachMobileSubNav competitionsListTabs" role="tablist" aria-label="Период на списъка">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listTab === "upcoming"}
+          className={`coachMobileSubNavBtn${listTab === "upcoming" ? " is-active" : ""}`}
+          onClick={() => setListTab("upcoming")}
+        >
+          Предстоящи ({tabCounts.upcoming})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listTab === "past"}
+          className={`coachMobileSubNavBtn${listTab === "past" ? " is-active" : ""}`}
+          onClick={() => setListTab("past")}
+        >
+          Минали (с резултат) ({tabCounts.past})
+        </button>
+      </div>
+
+      <div className="competitionsListFilters">
+        <label className="competitionsTeamFilter">
+          <span className="competitionsTeamFilterLabel">Отбор / възраст</span>
+          <select
+            className="competitionsTeamFilterSelect"
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+          >
+            <option value="all">Всички</option>
+            {teamFilterOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="coachMobileSubNav competitionsScopeNav">
+          {[
+            { id: "all", label: "Всички" },
+            { id: "mine", label: "Моите" },
+            { id: "needs_roster", label: "Чака лист" },
+          ].map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`coachMobileSubNavBtn${filter === f.id ? " is-active" : ""}`}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="coachMobileSubNav" style={{ marginBottom: 8 }}>
         {PERIOD_PRESETS.map((p) => (
@@ -499,106 +673,118 @@ export default function CoachCompetitions() {
         </div>
       ) : null}
 
-      <div className="coachMobileSubNav" style={{ marginBottom: 12 }}>
-        {[
-          { id: "all", label: "Всички" },
-          { id: "mine", label: "Моите" },
-          { id: "needs_roster", label: "Чака лист" },
-        ].map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className={`coachMobileSubNavBtn${filter === f.id ? " is-active" : ""}`}
-            onClick={() => setFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
       {busy ? <p className="coachMobileMuted">Зареждане…</p> : null}
       {!busy && rows.length === 0 ? (
         <p className="coachMobileMuted">Няма състезания за този период.</p>
       ) : null}
+      {!busy && rows.length > 0 && visibleRows.length === 0 ? (
+        <p className="coachMobileMuted">
+          {listTab === "past"
+            ? "Няма минали срещи за избрания филтър."
+            : "Няма предстоящи срещи за избрания филтър."}
+        </p>
+      ) : null}
 
-      <ul className="feesAthleteList" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {rows.map((row) => (
-          <li key={row.id} className="feesAthleteCardCompact" style={{ marginBottom: 8 }}>
-            <div className="feesAthleteCardCompactMain">
-              <strong>
-                {row.date} · {row.start_time}–{row.end_time}
-              </strong>
-              <div className="coachMobileMuted">
-                {row.competition_kind_label || row.competition_kind}
-                {row.opponent_name ? ` · vs ${row.opponent_name}` : " · без противник"}
-                {row.ris_game_id
-                  ? ` · БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
-                  : ""}
-              </div>
-              <div className="coachMobileMuted">{row.location}</div>
-              <div>
-                {row.team_name || `Група #${row.team_id}`}
-                {row.carded_team_label ? ` · ${row.carded_team_label}` : ""}
-              </div>
-              <div className="coachMobileMuted">
-                {statusLabel(row)}
-                {row.roster_selected_count
-                  ? ` · ${row.roster_selected_count} в листа`
-                  : ""}
-              </div>
-              {hasReportedResult(row) ? (
-                <div style={{ marginTop: 4, fontWeight: 700, color: "#0c6a47" }}>
-                  Резултат: {resultLabel(row)}
+      <ul className="competitionsList" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        {visibleRows.map((row) => {
+          const tone = competitionCardTone(row, today);
+          const rosterReady = hasRosterSheet(row);
+          const rosterCount = Number(row.roster_selected_count || 0);
+          const kindBit = row.competition_kind_label || row.competition_kind;
+          const overflowActions = [
+            {
+              key: "match",
+              label: openingMatchId === row.id ? "Отваряне…" : "Към мача",
+              disabled: openingMatchId === row.id,
+              onClick: () => openMatchStats(row),
+            },
+            {
+              key: "sheet",
+              label: "Генерирай бланка О-2",
+              onClick: () => openOfficialSheet(row),
+            },
+            isPastCompetition(row, today) || hasReportedResult(row) || !row.ris_game_id
+              ? {
+                  key: "result",
+                  label: hasReportedResult(row) ? "Редактирай резултат" : "Въведи резултат",
+                  onClick: () => openResultEditor(row),
+                }
+              : null,
+            {
+              key: "calendar",
+              label: "В календара",
+              onClick: () => navigate("/coach/schedule"),
+            },
+          ].filter(Boolean);
+
+          return (
+            <li key={row.id} className={`compListCard compListCard--${tone}`}>
+              <div className="compListCardBody">
+                <div className="compListCardTitle">{competitionCardTitle(row)}</div>
+                <div className="compListCardMeta">{competitionCardMeta(row)}</div>
+                <div className="compListCardSub">
+                  {[
+                    kindBit,
+                    row.team_name && row.carded_team_label ? row.team_name : null,
+                    row.ris_game_id
+                      ? `БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
+                      : null,
+                    statusLabel(row),
+                    rosterCount ? `${rosterCount} в листа` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
-              ) : isPastCompetition(row, today) ? (
-                <div className="coachMobileMuted" style={{ marginTop: 4 }}>
-                  {row.ris_game_id ? "Няма резултат от БФВ още" : "Няма въведен резултат"}
-                </div>
-              ) : null}
-            </div>
-            <div className="feesAthleteCardCompactActions feesAthleteCardCompactActions--stack" style={{ display: "grid", gap: 6 }}>
-              <Button size="sm" variant={row.needs_roster ? undefined : "secondary"} onClick={() => openRoster(row)}>
-                Тимов лист
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => openOfficialSheet(row)}>
-                Генерирай тимов лист
-              </Button>
-              {row.ris_championship_id ? (
+                {hasReportedResult(row) ? (
+                  <div className="compListCardResult">{resultLabel(row)}</div>
+                ) : isPastCompetition(row, today) ? (
+                  <div className="compListCardResult compListCardResult--missing">
+                    {row.ris_game_id ? "Няма резултат от БФВ още" : "Няма въведен резултат"}
+                  </div>
+                ) : null}
+              </div>
+              <div className="compListCardActions">
                 <Button
                   size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setStandingsChampId(Number(row.ris_championship_id));
-                    setStandingsHint(
-                      [row.competition_kind_label || row.competition_kind, row.carded_team_label]
-                        .filter(Boolean)
-                        .join(" · "),
-                    );
-                    setStandingsOpen(true);
-                  }}
+                  className={
+                    rosterReady ? "compListBtn compListBtn--ready" : "compListBtn compListBtn--missing"
+                  }
+                  onClick={() => openRoster(row)}
                 >
-                  Класиране
+                  {rosterReady
+                    ? `Тимов лист${rosterCount ? ` (${rosterCount})` : ""}`
+                    : "Генерирай тимов лист"}
                 </Button>
-              ) : null}
-              {(isPastCompetition(row, today) || hasReportedResult(row) || !row.ris_game_id) ? (
-                <Button size="sm" variant="secondary" onClick={() => openResultEditor(row)}>
-                  {hasReportedResult(row) ? "Редактирай резултат" : "Въведи резултат"}
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={openingMatchId === row.id}
-                onClick={() => openMatchStats(row)}
-              >
-                {openingMatchId === row.id ? "Отваряне…" : "Статистика на мача"}
-              </Button>
-              <Link to="/coach/schedule" className="uiMuted" style={{ fontSize: 12, textAlign: "center" }}>
-                В календара
-              </Link>
-            </div>
-          </li>
-        ))}
+                <div className="compListCardSecondary">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={openingMatchId === row.id}
+                    onClick={() => openMatchStats(row)}
+                  >
+                    {openingMatchId === row.id ? "…" : "Статистика"}
+                  </Button>
+                  {row.ris_championship_id ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setStandingsChampId(Number(row.ris_championship_id));
+                        setStandingsHint(
+                          [kindBit, row.carded_team_label].filter(Boolean).join(" · "),
+                        );
+                        setStandingsOpen(true);
+                      }}
+                    >
+                      Класиране
+                    </Button>
+                  ) : null}
+                  <OverflowActionSheet label="Още действия" actions={overflowActions} />
+                </div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       <CompetitionEventModal

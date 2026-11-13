@@ -9181,6 +9181,129 @@ button.matchChipSlot:not(:disabled) {
   min-width: min(140px, 38vw);
 }
 
+/* Coach competitions — compact list cards */
+.competitionsListTabs {
+  margin-bottom: 10px;
+}
+.competitionsListFilters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.competitionsTeamFilter {
+  display: grid;
+  gap: 4px;
+}
+.competitionsTeamFilterLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+.competitionsTeamFilterSelect {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.competitionsScopeNav {
+  margin-bottom: 0;
+}
+.competitionsList {
+  display: grid;
+  gap: 8px;
+}
+.compListCard {
+  display: grid;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  border-left-width: 4px;
+  border-left-style: solid;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.compListCard--missing {
+  border-left-color: #ea580c;
+}
+.compListCard--ready {
+  border-left-color: #16a34a;
+}
+.compListCard--played {
+  border-left-color: #94a3b8;
+}
+.compListCardTitle {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+}
+.compListCardMeta {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.35;
+}
+.compListCardSub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+.compListCardResult {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0c6a47;
+}
+.compListCardResult--missing {
+  color: #94a3b8;
+  font-weight: 600;
+}
+.compListCardActions {
+  display: grid;
+  gap: 8px;
+}
+.compListCardSecondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.compListBtn.uiButton {
+  width: 100%;
+  min-height: 40px;
+  font-weight: 700;
+}
+.compListCard .compListBtn--missing.uiButton,
+.compListCard .compListBtn--missing.uiButton--primary {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+.compListCard .compListBtn--missing.uiButton:hover:not(:disabled),
+.compListCard .compListBtn--missing.uiButton--primary:hover:not(:disabled) {
+  background: #c2410c;
+  border-color: #c2410c;
+}
+.compListCard .compListBtn--ready.uiButton,
+.compListCard .compListBtn--ready.uiButton--primary {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+.compListCard .compListBtn--ready.uiButton:hover:not(:disabled),
+.compListCard .compListBtn--ready.uiButton--primary:hover:not(:disabled) {
+  background: #166534;
+  border-color: #166534;
+}
+
 /* Coach competitions — phone-friendly toolbar (not parentPortalScheduleNav) */
 .competitionsToolbar {
   display: flex;
