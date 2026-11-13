@@ -29,6 +29,7 @@ from app.services.ris_client import (
 )
 from app.services.ris_import import (
     add_hours,
+    apply_ris_schedule_to_event,
     competition_kind_from_game,
     hall_location,
     match_number_of,
@@ -252,6 +253,130 @@ def ris_club_games(
         "to": d1,
         "count": len(out),
         "games": out,
+    }
+
+
+class RisSyncIn(BaseModel):
+    season: Optional[int] = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+
+
+@router.post("/sync-imported")
+def ris_sync_imported(
+    payload: RisSyncIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_COACH_ROLES)),
+):
+    """Pull date/time/hall/opponent from RIS into already imported club events."""
+    club = _club_for_user(db, current_user)
+    bvf_club_id = _require_bvf_club(club)
+    club_id = int(club.id)
+
+    try:
+        year = int(payload.season) if payload.season else current_season_year()
+    except RisApiError as exc:
+        raise http_error_from_ris(exc) from exc
+
+    if not (payload.from_date or "").strip() or not (payload.to_date or "").strip():
+        raise HTTPException(status_code=422, detail="from_date и to_date са задължителни (YYYY-MM-DD)")
+    d0 = _parse_ymd(payload.from_date, "from")
+    d1 = _parse_ymd(payload.to_date, "to")
+    if d1 < d0:
+        raise HTTPException(status_code=422, detail="to must be >= from")
+
+    game_by_id: dict[int, dict] = {}
+    try:
+        listed = list_games(
+            year,
+            club_id=bvf_club_id,
+            date_from=d0,
+            date_to=d1,
+            page=1,
+            page_size=100,
+            sort="asc",
+        )
+        for g in listed:
+            if isinstance(g, dict) and g.get("id") is not None:
+                game_by_id[int(g["id"])] = g
+    except RisApiError as exc:
+        raise http_error_from_ris(exc) from exc
+
+    # Local imports in the window (covers matches whose RIS date moved away).
+    events = (
+        db.query(ClubCompetitionEvent)
+        .filter(
+            ClubCompetitionEvent.club_id == club_id,
+            ClubCompetitionEvent.ris_game_id.isnot(None),
+            ClubCompetitionEvent.date >= d0,
+            ClubCompetitionEvent.date <= d1,
+        )
+        .all()
+    )
+    by_ris: dict[int, ClubCompetitionEvent] = {}
+    for ev in events:
+        try:
+            by_ris[int(ev.ris_game_id)] = ev
+        except (TypeError, ValueError):
+            continue
+
+    # Also include imports that appear in the RIS window even if local date differs.
+    for gid in game_by_id:
+        if gid in by_ris:
+            continue
+        ev = (
+            db.query(ClubCompetitionEvent)
+            .filter(
+                ClubCompetitionEvent.club_id == club_id,
+                ClubCompetitionEvent.ris_game_id == gid,
+            )
+            .first()
+        )
+        if ev:
+            by_ris[gid] = ev
+
+    updated: list[dict[str, Any]] = []
+    unchanged = 0
+    errors: list[dict[str, Any]] = []
+
+    for gid, ev in by_ris.items():
+        game = game_by_id.get(gid)
+        if not game:
+            try:
+                game = get_game(gid)
+            except RisApiError as exc:
+                errors.append({"ris_game_id": gid, "competition_id": int(ev.id), "error": exc.message})
+                continue
+        if not game or game.get("id") is None:
+            errors.append({"ris_game_id": gid, "competition_id": int(ev.id), "error": "Мачът не е намерен в RIS"})
+            continue
+        fields = apply_ris_schedule_to_event(ev, game, bvf_club_id)
+        if fields:
+            updated.append(
+                {
+                    "ris_game_id": gid,
+                    "competition_id": int(ev.id),
+                    "changed_fields": fields,
+                    "date": ev.date,
+                    "start_time": ev.start_time,
+                    "location": ev.location,
+                    "opponent_name": ev.opponent_name,
+                }
+            )
+        else:
+            unchanged += 1
+
+    db.commit()
+    return {
+        "season_year": year,
+        "from": d0,
+        "to": d1,
+        "checked_count": len(by_ris),
+        "updated_count": len(updated),
+        "unchanged_count": unchanged,
+        "error_count": len(errors),
+        "updated": updated,
+        "errors": errors,
     }
 
 

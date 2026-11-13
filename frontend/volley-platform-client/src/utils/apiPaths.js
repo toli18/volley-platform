@@ -410,6 +410,7 @@ export const API_PATHS = {
   RIS_STATUS: "/api/ris/status",
   RIS_CLUB_GAMES: "/api/ris/club-games",
   RIS_IMPORT_GAMES: "/api/ris/import-games",
+  RIS_SYNC_IMPORTED: "/api/ris/sync-imported",
   RIS_GAME_DETAIL: (gameId) => `/api/ris/games/${gameId}`,
   RIS_CHAMPIONSHIP: (id) => `/api/ris/championships/${id}`,
 

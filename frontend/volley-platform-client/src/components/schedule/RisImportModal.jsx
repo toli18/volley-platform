@@ -61,12 +61,38 @@ export default function RisImportModal({
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [status, setStatus] = useState(null);
   const [games, setGames] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
   const [teamId, setTeamId] = useState("");
   const [coachId, setCoachId] = useState(defaultCoachId ? String(defaultCoachId) : "");
   const [cardIndexId, setCardIndexId] = useState("");
+
+  const syncImported = async ({ quiet = false } = {}) => {
+    if (!fromDate || !toDate) return 0;
+    setSyncing(true);
+    try {
+      const res = await axiosInstance.post(
+        API_PATHS.RIS_SYNC_IMPORTED,
+        { from_date: fromDate, to_date: toDate },
+        { timeout: 55000 },
+      );
+      const n = Number(res.data?.updated_count || 0);
+      if (n > 0) {
+        toast.success(`Обновени от БФВ: ${n} мач${n === 1 ? "" : "а"} (дата/час/зала/съперник).`);
+        onImported?.(res.data);
+      } else if (!quiet) {
+        toast.info("Няма промени в импортираните мачове спрямо БФВ.");
+      }
+      return n;
+    } catch (err) {
+      if (!quiet) toast.error(normalizeError(err, "Неуспешно обновяване от БФВ."));
+      return 0;
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -87,6 +113,10 @@ export default function RisImportModal({
         if (cancelled) return;
         setStatus(st.data || null);
         setGames(Array.isArray(gamesRes.data?.games) ? gamesRes.data.games : []);
+        // Auto-pull schedule changes for already imported matches.
+        if (st.data?.linked) {
+          await syncImported({ quiet: true });
+        }
       } catch (err) {
         if (!cancelled) {
           toast.error(normalizeError(err, "Неуспешно зареждане от БФВ календар."));
@@ -180,7 +210,7 @@ export default function RisImportModal({
     <Modal
       open={open}
       onClose={onClose}
-      dismissable={!importing}
+      dismissable={!importing && !syncing}
       title="От БФВ календар"
       size="wide"
     >
@@ -229,6 +259,14 @@ export default function RisImportModal({
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setSelected(new Set())} disabled={!selected.size}>
             Изчисти
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => syncImported({ quiet: false })}
+            disabled={loading || syncing || importing || !status?.linked}
+          >
+            {syncing ? "Обновяване…" : "Опресни импортираните"}
           </Button>
         </div>
 

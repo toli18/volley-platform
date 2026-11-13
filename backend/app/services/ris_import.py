@@ -154,6 +154,73 @@ def match_number_of(game: dict) -> int | None:
         return None
 
 
+def apply_ris_schedule_to_event(event: Any, game: dict, bvf_club_id: int) -> list[str]:
+    """Update club competition fields that are owned by the official BVF/RIS calendar.
+
+    Does not touch coach notes, team, coach, roster, or card index.
+    Returns list of changed field names.
+    """
+    changed: list[str] = []
+    beg_date = (game.get("begDate") or "").strip()
+    if beg_date and str(getattr(event, "date", "") or "") != beg_date:
+        event.date = beg_date
+        changed.append("date")
+
+    beg_raw = game.get("begTime")
+    if time_is_placeholder(beg_raw):
+        start = "10:00"
+    else:
+        start = parse_beg_time(beg_raw)
+    end = add_hours(start, 2)
+    if str(getattr(event, "start_time", "") or "") != start:
+        event.start_time = start
+        changed.append("start_time")
+    if str(getattr(event, "end_time", "") or "") != end:
+        event.end_time = end
+        changed.append("end_time")
+
+    location = hall_location(game)
+    if str(getattr(event, "location", "") or "") != location:
+        event.location = location
+        changed.append("location")
+
+    opponent, _ = opponent_for_club(game, bvf_club_id)
+    opp = (opponent or "").strip() or None
+    if (getattr(event, "opponent_name", None) or None) != opp:
+        event.opponent_name = opp
+        changed.append("opponent_name")
+
+    kind = competition_kind_from_game(game)
+    if kind and str(getattr(event, "competition_kind", "") or "") != kind:
+        event.competition_kind = kind
+        changed.append("competition_kind")
+
+    champ_id = championship_id_of(game)
+    if (getattr(event, "ris_championship_id", None) or None) != champ_id:
+        event.ris_championship_id = champ_id
+        changed.append("ris_championship_id")
+
+    mn = match_number_of(game)
+    if (getattr(event, "ris_match_number", None) or None) != mn:
+        event.ris_match_number = mn
+        changed.append("ris_match_number")
+
+    stream = stream_url_of(game)
+    if (getattr(event, "ris_stream_url", None) or None) != stream:
+        event.ris_stream_url = stream
+        changed.append("ris_stream_url")
+
+    status = str(game.get("status") or "").strip().lower()
+    postponed = bool(game.get("postponed"))
+    should_cancel = postponed or status in ("cancelled", "canceled")
+    if should_cancel and not bool(getattr(event, "is_cancelled", False)):
+        event.is_cancelled = True
+        changed.append("is_cancelled")
+
+    event.ris_synced_at = datetime.utcnow()
+    return changed
+
+
 def summarize_game_for_club(game: dict, bvf_club_id: int, *, already_imported: bool = False) -> dict[str, Any]:
     opponent, we_home = opponent_for_club(game, bvf_club_id)
     beg_raw = game.get("begTime")
