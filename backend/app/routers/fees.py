@@ -48,6 +48,7 @@ from app.schemas.fees import (
     FeeReminderResponse,
 )
 from app.services.parent_push import notify_athlete
+from app.services.athlete_stats_window import month_in_athlete_history
 from app.services.fee_exemption import (
     apply_manual_fee_exempt,
     athlete_fee_exempt_for_month,
@@ -543,7 +544,8 @@ def fees_month_summary(
     billable = [
         a
         for a in athletes
-        if not athlete_fee_exempt_for_month(
+        if month_in_athlete_history(a, month_key)
+        and not athlete_fee_exempt_for_month(
             a, clubs.get(int(a.club_id)) if a.club_id else None, month_key
         )[0]
     ]
@@ -628,7 +630,8 @@ def remind_unpaid_fees(
     athletes = [
         a
         for a in athletes
-        if not athlete_fee_exempt_for_month(
+        if month_in_athlete_history(a, month_key)
+        and not athlete_fee_exempt_for_month(
             a, clubs.get(int(a.club_id)) if a.club_id else None, month_key
         )[0]
     ]
@@ -1268,8 +1271,25 @@ def athlete_monthly_report(
     rows: list[MonthStatusRow] = []
     total_paid = 0.0
     for month in months:
-        exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
         p = by_month.get(month)
+        # Преди създаване/импорт в клуба — не се брои като дълг (освен реално плащане).
+        if not month_in_athlete_history(athlete, month):
+            if p:
+                total_paid += float(p.amount or 0)
+                rows.append(
+                    MonthStatusRow(
+                        month_key=month,
+                        paid=True,
+                        amount=float(p.amount),
+                        payment_id=p.id,
+                        paid_at=p.paid_at,
+                        exempt=False,
+                    )
+                )
+            else:
+                rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
+            continue
+        exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
         if exempt and not p:
             rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
             continue
@@ -1340,8 +1360,25 @@ def period_report(
         unpaid_count = 0
         total_paid = 0.0
         for month in months:
-            exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
             p = by_pair.get((athlete.id, month))
+            if not month_in_athlete_history(athlete, month):
+                if p:
+                    paid_count += 1
+                    total_paid += float(p.amount or 0)
+                    month_rows.append(
+                        MonthStatusRow(
+                            month_key=month,
+                            paid=True,
+                            amount=float(p.amount),
+                            payment_id=p.id,
+                            paid_at=p.paid_at,
+                            exempt=False,
+                        )
+                    )
+                else:
+                    month_rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
+                continue
+            exempt, _ = athlete_fee_exempt_for_month(athlete, club, month)
             if exempt and not p:
                 month_rows.append(MonthStatusRow(month_key=month, paid=True, exempt=True))
                 continue

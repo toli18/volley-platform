@@ -833,8 +833,16 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     last_attendance = _build_parent_attendance_list(db, athlete.id, team_ids, attendance_since, attendance_to)
     attendance_summary = _attendance_summary_from_rows([r for r in last_attendance if r.date <= today_s])
 
-    mk = _month_window(12)
-    pay_rows = db.query(AthletePayment).filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk)).all()
+    from app.services.athlete_stats_window import month_in_athlete_history
+
+    mk = [k for k in _month_window(12) if month_in_athlete_history(athlete, k)]
+    pay_rows = (
+        db.query(AthletePayment)
+        .filter(AthletePayment.athlete_id == athlete.id, AthletePayment.month_key.in_(mk))
+        .all()
+        if mk
+        else []
+    )
     pay_map = {p.month_key: p for p in pay_rows}
     monthly_payments = [
         ParentPaymentRow(
@@ -885,8 +893,9 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
     fees_on = club_monthly_fees_enabled(club_row)
     from app.services.fee_exemption import athlete_fee_exempt_for_month
 
+    in_history_this_month = month_in_athlete_history(athlete, this_month)
     fee_exempt, _ = athlete_fee_exempt_for_month(athlete, club_row, this_month) if fees_on else (False, None)
-    fees_visible = fees_on and not fee_exempt
+    fees_visible = fees_on and not fee_exempt and in_history_this_month
     fee_cfg = resolve_club_fee_settings(club_row) if club_row else {
         "fee_due_day": PARENT_FEE_DUE_DAY,
         "fee_amount": 0,

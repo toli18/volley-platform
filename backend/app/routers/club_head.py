@@ -26,6 +26,7 @@ from app.services.club_period_reports import (
     report_to_pdf_lines,
     report_to_xlsx_rows,
 )
+from app.services.athlete_stats_window import month_in_athlete_history
 from app.services.fee_exemption import (
     DEFAULT_FEE_AGE_EXEMPT_MIN,
     apply_club_age_exempt_settings,
@@ -170,7 +171,12 @@ def club_fees_summary(
         if current_user.club_id
         else None
     )
-    billable = [a for a in athletes if not athlete_fee_exempt_for_month(a, club, month_key)[0]]
+    billable = [
+        a
+        for a in athletes
+        if month_in_athlete_history(a, month_key)
+        and not athlete_fee_exempt_for_month(a, club, month_key)[0]
+    ]
     athlete_ids = [a.id for a in billable]
     paid_ids = set()
     total_paid = 0.0
@@ -183,7 +189,8 @@ def club_fees_summary(
         for p in payments:
             paid_ids.add(p.athlete_id)
             total_paid += float(p.amount or 0)
-    exempt_count = max(0, len(athletes) - len(billable))
+    in_history = [a for a in athletes if month_in_athlete_history(a, month_key)]
+    exempt_count = max(0, len(in_history) - len(billable))
     return {
         "month_key": month_key,
         "total_athletes": len(billable),
@@ -217,9 +224,24 @@ def club_attendance_summary(
     if not session_ids:
         return {"from_date": from_date, "to_date": to_date, "sessions_count": 0, "present": 0, "late": 0, "absent": 0, "excused": 0}
 
-    records = db.query(AttendanceRecord.status).filter(AttendanceRecord.session_id.in_(session_ids)).all()
+    from app.services.athlete_stats_window import date_in_athlete_history
+
+    rows = (
+        db.query(AttendanceRecord.status, AttendanceRecord.athlete_id, TeamSession.date)
+        .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
+        .filter(AttendanceRecord.session_id.in_(session_ids))
+        .all()
+    )
+    aid_list = sorted({int(aid) for _, aid, _ in rows})
+    athletes_by_id = {
+        int(a.id): a
+        for a in (db.query(Athlete).filter(Athlete.id.in_(aid_list)).all() if aid_list else [])
+    }
     counts = {"present": 0, "late": 0, "absent": 0, "excused": 0}
-    for (status,) in records:
+    for status, aid, sdate in rows:
+        athlete = athletes_by_id.get(int(aid))
+        if athlete is not None and not date_in_athlete_history(athlete, sdate):
+            continue
         key = str(status or "").strip().lower()
         if key in counts:
             counts[key] += 1
@@ -346,12 +368,18 @@ def _club_fees_export_rows(
     for athlete, coach_name in athletes:
         for m in months:
             p = by_pair.get((athlete.id, m))
+            if p:
+                paid_label = "да"
+            elif not month_in_athlete_history(athlete, m):
+                paid_label = "н/п"
+            else:
+                paid_label = "не"
             out.append(
                 {
                     "athlete_name": athlete.athlete_name,
                     "coach_name": coach_name or "",
                     "month_key": m,
-                    "paid": "да" if p else "не",
+                    "paid": paid_label,
                     "amount": float(p.amount) if p else "",
                     "paid_at": p.paid_at.strftime("%d.%m.%Y %H:%M") if p and p.paid_at else "",
                 }

@@ -48,6 +48,7 @@ from app.schemas.teams import (
     TeamMemberUpdate,
 )
 from app.services.athlete_birth import resolve_place_of_birth
+from app.services.athlete_stats_window import date_in_athlete_history, month_in_athlete_history
 
 
 def _bvf_missing(athlete: Athlete) -> list[str]:
@@ -682,6 +683,7 @@ def team_attendance_report(
         athlete.id: {
             "athlete_id": athlete.id,
             "athlete_name": athlete.athlete_name,
+            "athlete": athlete,
             "present": 0,
             "late": 0,
             "absent": 0,
@@ -700,7 +702,8 @@ def team_attendance_report(
         )
         .all()
     )
-    session_ids = [s.id for s in sessions]
+    session_by_id = {s.id: s for s in sessions}
+    session_ids = list(session_by_id.keys())
     records = []
     if session_ids:
         records = db.query(AttendanceRecord).filter(AttendanceRecord.session_id.in_(session_ids)).all()
@@ -708,6 +711,9 @@ def team_attendance_report(
     for rec in records:
         row = member_map.get(rec.athlete_id)
         if not row:
+            continue
+        session = session_by_id.get(rec.session_id)
+        if session is not None and not date_in_athlete_history(row["athlete"], session.date):
             continue
         st = str(rec.status or "").strip().lower()
         if st not in ATTENDANCE_STATUSES:
@@ -787,10 +793,20 @@ def team_attendance_matrix(
     cells: list[TeamAttendanceMatrixCell] = []
     if sessions:
         session_ids = [s.id for s in sessions]
+        session_by_id = {s.id: s for s in sessions}
+        athlete_by_id = {athlete.id: athlete for _, athlete in members}
         records = db.query(AttendanceRecord).filter(AttendanceRecord.session_id.in_(session_ids)).all()
         for rec in records:
             st = str(rec.status or "").strip().lower()
             if st not in ATTENDANCE_STATUSES:
+                continue
+            athlete = athlete_by_id.get(rec.athlete_id)
+            session = session_by_id.get(rec.session_id)
+            if (
+                athlete is not None
+                and session is not None
+                and not date_in_athlete_history(athlete, session.date)
+            ):
                 continue
             cells.append(
                 TeamAttendanceMatrixCell(
@@ -948,7 +964,7 @@ def athlete_profile(
     )
     teams = [row[0] for row in team_rows]
 
-    attendance_rows = (
+    attendance_rows_raw = (
         db.query(AttendanceRecord.status, TeamSession.date, Team.name)
         .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
         .join(Team, Team.id == TeamSession.team_id)
@@ -957,9 +973,14 @@ def athlete_profile(
             Team.club_id == current_user.club_id if _is_head_coach(current_user) else Team.coach_id == current_user.id,
         )
         .order_by(TeamSession.date.desc())
-        .limit(50)
+        .limit(80)
         .all()
     )
+    attendance_rows = [
+        (status, day, team_name)
+        for status, day, team_name in attendance_rows_raw
+        if date_in_athlete_history(athlete, day)
+    ][:50]
     present = sum(1 for s, _, _ in attendance_rows if s == "present")
     late = sum(1 for s, _, _ in attendance_rows if s == "late")
     absent = sum(1 for s, _, _ in attendance_rows if s == "absent")
@@ -967,7 +988,9 @@ def athlete_profile(
     total = len(attendance_rows)
     attendance_rate = round(((present + late) / total * 100.0), 1) if total else 0.0
 
-    month_window = _recent_month_keys(12)
+    month_window = [
+        mk for mk in _recent_month_keys(12) if month_in_athlete_history(athlete, mk)
+    ]
     payments_in_window = (
         db.query(AthletePayment)
         .filter(
@@ -975,7 +998,7 @@ def athlete_profile(
             AthletePayment.month_key.in_(month_window),
         )
         .all()
-    )
+    ) if month_window else []
     pay_by_month = {p.month_key: p for p in payments_in_window}
     payer_ids = {p.coach_id for p in payments_in_window}
     payer_lookup = dict(db.query(User.id, User.name).filter(User.id.in_(payer_ids)).all()) if payer_ids else {}

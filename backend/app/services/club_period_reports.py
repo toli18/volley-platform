@@ -155,18 +155,29 @@ def _attendance_block(
     sessions_with_marks: set[int] = set()
 
     if session_ids:
+        from app.services.athlete_stats_window import date_in_athlete_history
+
         rows = (
             db.query(
                 AttendanceRecord.session_id,
                 AttendanceRecord.athlete_id,
                 AttendanceRecord.status,
                 TeamSession.team_id,
+                TeamSession.date,
             )
             .join(TeamSession, TeamSession.id == AttendanceRecord.session_id)
             .filter(AttendanceRecord.session_id.in_(session_ids))
             .all()
         )
-        for sid, aid, status, tid in rows:
+        aid_list = sorted({int(aid) for _, aid, _, _, _ in rows})
+        athletes_by_id = {
+            int(a.id): a
+            for a in (db.query(Athlete).filter(Athlete.id.in_(aid_list)).all() if aid_list else [])
+        }
+        for sid, aid, status, tid, sdate in rows:
+            athlete = athletes_by_id.get(int(aid))
+            if athlete is not None and not date_in_athlete_history(athlete, sdate):
+                continue
             key = str(status or "").strip().lower()
             if key not in counts:
                 continue
@@ -348,6 +359,8 @@ def _fees_block(
         for p in pay_rows:
             payments_by_athlete.setdefault(int(p.athlete_id), {})[str(p.month_key)] = p
 
+    from app.services.athlete_stats_window import month_in_athlete_history
+
     for a in athletes:
         due_months: list[str] = []
         paid_months: list[str] = []
@@ -355,6 +368,17 @@ def _fees_block(
         reason_last = ""
         amount_sum = 0.0
         for mk in keys:
+            # Преди създаване/импорт в клуба — извън задължението (не се брои длъжник).
+            if not month_in_athlete_history(a, mk):
+                p_early = (payments_by_athlete.get(int(a.id)) or {}).get(mk)
+                if p_early:
+                    paid_months.append(mk)
+                    amount_sum += float(p_early.amount or 0)
+                    due_months.append(mk)
+                else:
+                    exempt_months.append(mk)
+                    reason_last = "before_club_history"
+                continue
             is_ex, reason = athlete_fee_exempt_for_month(a, club, mk)
             if is_ex:
                 exempt_months.append(mk)
