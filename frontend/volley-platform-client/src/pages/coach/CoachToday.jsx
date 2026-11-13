@@ -451,7 +451,7 @@ export default function CoachToday() {
       {!loading && !error && !tabLoading && activeTab === "today" && rosterAlerts.length > 0 ? (
         <section className="coachMobileAbsenceBox coachMobileRosterBox" aria-label="Тимов лист за състезания">
           <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush coachMobileAbsenceTitle">
-            Състезания — действие
+            Състезания - действие
             <span className="coachMobileAbsenceCount">{rosterAlerts.length}</span>
           </h2>
           <ul className="coachMobileAbsenceList">
@@ -460,9 +460,9 @@ export default function CoachToday() {
                 key={alert.id}
                 className={`coachMobileAbsenceItem${alert.tone === "danger" ? " coachMobileRosterItem--danger" : " coachMobileRosterItem--warn"}`}
               >
-                <Link to={alert.to} className="coachMobileAbsenceLink">
+                <Link to={alert.to} className="coachMobileAbsenceLink" style={{ display: "grid", gap: 2 }}>
                   <strong>{alert.text}</strong>
-                  {alert.meta ? <span className="coachMobileMuted"> · {alert.meta}</span> : null}
+                  {alert.meta ? <span className="coachMobileMuted" style={{ fontSize: 12 }}>{alert.meta}</span> : null}
                 </Link>
               </li>
             ))}
@@ -604,15 +604,22 @@ export default function CoachToday() {
             {dash.topDrills.length === 0 ? (
               <p className="coachMobileMuted" style={{ margin: 0 }}>Все още няма статистика.</p>
             ) : (
-              <div style={{ display: "grid", gap: 6 }}>
-                {dash.topDrills.map((d, idx) => (
-                  <div key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <span>
-                      {idx + 1}. {d.title}
-                    </span>
-                    <span className="uiBadge">{d.count} пъти</span>
-                  </div>
-                ))}
+              <div style={{ display: "grid", gap: 10 }}>
+                {dash.topDrills.map((d, idx) => {
+                  const maxCount = Math.max(...dash.topDrills.map((x) => Number(x.count) || 0), 1);
+                  const pct = Math.round(((Number(d.count) || 0) / maxCount) * 100);
+                  return (
+                    <div key={d.id} className="coachDashProgressRow">
+                      <div className="coachDashProgressRowTop">
+                        <span className="coachDashProgressLabel">{idx + 1}. {d.title}</span>
+                        <span className="uiBadge">{d.count} пъти</span>
+                      </div>
+                      <div className="coachDashProgressTrack" aria-hidden>
+                        <div className="coachDashProgressFill coachDashProgressFill--brand" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </SectionCard>
@@ -718,45 +725,67 @@ export default function CoachToday() {
           ) : null}
 
           <SectionCard title="Малка статистика за месеца">
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span className="uiBadge">Създадени тренировки: {dash.monthlyStats.trainingsCreated}</span>
-              <span className="uiBadge uiBadge--success">Използвани упражнения: {dash.monthlyStats.drillsUsed}</span>
+            <div className="coachDashKpiGrid">
+              <div className="coachDashKpiCell">
+                <div className="coachDashKpiValue">{dash.monthlyStats.trainingsCreated}</div>
+                <div className="coachDashKpiLabel">Създадени тренировки</div>
+              </div>
+              <div className="coachDashKpiCell">
+                <div className="coachDashKpiValue">{dash.monthlyStats.drillsUsed}</div>
+                <div className="coachDashKpiLabel">Използвани упражнения</div>
+              </div>
             </div>
           </SectionCard>
 
-          <SectionCard title={`Присъствие — последни ${dash.attendanceRank.sessionLimit || 10} тренировки`}>
+          <SectionCard title={`Присъствие - последни ${dash.attendanceRank.sessionLimit || 10} тренировки`}>
             {!dash.attendanceRank.top?.length && !dash.attendanceRank.bottom?.length ? (
               <p className="coachMobileMuted" style={{ margin: 0 }}>Няма данни за присъствие.</p>
             ) : (
               <div style={{ display: "grid", gap: 14 }}>
                 <div>
-                  <div style={{ fontWeight: 800, marginBottom: 8, color: "#166534" }}>Топ 3 най-редовни</div>
+                  <div style={{ fontWeight: 800, marginBottom: 10, color: "#166534" }}>Топ 3 най-редовни</div>
                   {dash.attendanceRank.top.length === 0 ? (
                     <p className="coachMobileMuted" style={{ margin: 0 }}>Няма данни</p>
                   ) : (
-                    <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                    <div style={{ display: "grid", gap: 10 }}>
                       {dash.attendanceRank.top.map((a) => (
-                        <li key={`top-${a.athlete_id}`}>
-                          <strong>{a.athlete_name}</strong>{" "}
-                          <span className="uiBadge uiBadge--success">{a.label}</span>
-                        </li>
+                        <div key={`top-${a.athlete_id}`} className="coachDashProgressRow">
+                          <div className="coachDashProgressRowTop">
+                            <span className="coachDashProgressLabel">{a.athlete_name}</span>
+                            <span className="uiBadge uiBadge--success">{a.label}</span>
+                          </div>
+                          <div className="coachDashProgressTrack" aria-hidden>
+                            <div
+                              className="coachDashProgressFill coachDashProgressFill--success"
+                              style={{ width: `${Math.round((Number(a.ratio) || 0) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
                       ))}
-                    </ol>
+                    </div>
                   )}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, marginBottom: 8, color: "#9f1239" }}>Топ 3 най-нередовни</div>
+                  <div style={{ fontWeight: 800, marginBottom: 10, color: "#9f1239" }}>Топ 3 най-нередовни</div>
                   {dash.attendanceRank.bottom.length === 0 ? (
                     <p className="coachMobileMuted" style={{ margin: 0 }}>Няма данни</p>
                   ) : (
-                    <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                    <div style={{ display: "grid", gap: 10 }}>
                       {dash.attendanceRank.bottom.map((a) => (
-                        <li key={`bot-${a.athlete_id}`}>
-                          <strong>{a.athlete_name}</strong>{" "}
-                          <span className="uiBadge uiBadge--danger">{a.label}</span>
-                        </li>
+                        <div key={`bot-${a.athlete_id}`} className="coachDashProgressRow">
+                          <div className="coachDashProgressRowTop">
+                            <span className="coachDashProgressLabel">{a.athlete_name}</span>
+                            <span className="uiBadge uiBadge--danger">{a.label}</span>
+                          </div>
+                          <div className="coachDashProgressTrack" aria-hidden>
+                            <div
+                              className="coachDashProgressFill coachDashProgressFill--danger"
+                              style={{ width: `${Math.round((Number(a.ratio) || 0) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
                       ))}
-                    </ol>
+                    </div>
                   )}
                 </div>
               </div>

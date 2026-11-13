@@ -6,6 +6,7 @@ export default function Card({
   as = "section",
   title,
   subtitle,
+  icon = null,
   actions,
   tone = "default",
   padded = true,
@@ -20,7 +21,12 @@ export default function Card({
       {(title || subtitle || actions) && (
         <div className="uiCardHeader">
           <div className="uiCardTitleWrap">
-            {title ? <h3 className="uiCardTitle">{title}</h3> : null}
+            {title ? (
+              <h3 className="uiCardTitle">
+                {icon ? <span className="uiCardTitleIcon">{icon}</span> : null}
+                <span>{title}</span>
+              </h3>
+            ) : null}
             {subtitle ? <p className="uiCardSubtitle">{subtitle}</p> : null}
           </div>
           {actions}

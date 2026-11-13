@@ -25,6 +25,15 @@ import {
   writeHeadStatsScope,
 } from "../utils/loadCoachDashboardData";
 import { teamColorsForId } from "../utils/teamColors";
+import {
+  NavIconBell,
+  NavIconCalendar,
+  NavIconClipboardCheck,
+  NavIconDrill,
+  NavIconEuro,
+  NavIconTarget,
+  NavIconTraining,
+} from "../navigation/navIcons";
 
 const ROSTER_PREVIEW_LIMIT = 5;
 const OVERDUE_PREVIEW_LIMIT = 5;
@@ -32,14 +41,24 @@ const ABSENCE_PREVIEW_LIMIT = 4;
 
 const formatDate = (value) => formatDashboardDateTime(value);
 
-const cardLinkStyle = {
-  border: "1px solid #e2e8f0",
-  borderRadius: 10,
-  padding: 10,
-  textDecoration: "none",
-  color: "#0f172a",
-  cursor: "pointer",
-};
+function DashProgressRow({ label, badge, ratio = 0, tone = "brand" }) {
+  const pct = Math.max(0, Math.min(100, Math.round(Number(ratio) * 100) || 0));
+  return (
+    <div className="coachDashProgressRow">
+      <div className="coachDashProgressRowTop">
+        <span className="coachDashProgressLabel" title={label}>
+          {label}
+        </span>
+        <span className={`uiBadge${tone === "success" ? " uiBadge--success" : tone === "danger" ? " uiBadge--danger" : ""}`}>
+          {badge}
+        </span>
+      </div>
+      <div className="coachDashProgressTrack" aria-hidden>
+        <div className={`coachDashProgressFill coachDashProgressFill--${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 const dashboardScheduleAttendanceTo = (it) => {
   const title =
@@ -242,7 +261,7 @@ export default function Home() {
     <div className="uiPage">
       <PageHero
         title="Табло на треньора"
-        subtitle="Днес: извинения, график, тимови листове и бързи действия. Съдържание и статистика — в съседните раздели."
+        subtitle="Днес: извинения, график, тимови листове и бързи действия. Съдържание и статистика са в съседните раздели."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button as={Link} to="/coach-board">
@@ -335,9 +354,12 @@ export default function Home() {
         <p style={{ marginBottom: 12, color: "#64748b" }}>Зареждане на раздела...</p>
       ) : null}
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      <div className="coachDashGrid">
       {activeTab === "today" && absenceNotices.length > 0 ? (
-        <Card title={`Извинения (${absenceNotices.length})`}>
+        <Card
+          title={`Извинения (${absenceNotices.length})`}
+          icon={<NavIconClipboardCheck size={18} />}
+        >
           <div style={{ display: "grid", gap: 8 }}>
             {visibleAbsences.map((n) => (
               <Link
@@ -347,7 +369,8 @@ export default function Home() {
                     ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}`
                     : "/coach/teams"
                 }
-                style={{ ...cardLinkStyle, display: "block", background: "#fffbeb", borderColor: "#fcd34d" }}
+                className="coachDashInteractive"
+                style={{ display: "block", background: "#fffbeb", borderColor: "#fcd34d" }}
               >
                 <div style={{ fontWeight: 700, color: "#92400e" }}>{n.athlete_name}</div>
                 <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
@@ -369,8 +392,8 @@ export default function Home() {
       ) : null}
 
       {activeTab === "today" && programWeek ? (
-        <Card title="Програмна седмица">
-          <Link to="/coach/program-week" style={{ ...cardLinkStyle, display: "block" }}>
+        <Card title="Програмна седмица" icon={<NavIconTraining size={18} />}>
+          <Link to="/coach/program-week" className="coachDashInteractive" style={{ display: "block" }}>
             <div style={{ fontWeight: 800, color: "#1e40af" }}>
               Мезо {programWeek.meso_index}/{programWeek.total_mesos}
               {programWeek.week_theme
@@ -388,14 +411,17 @@ export default function Home() {
       ) : null}
 
       {activeTab === "today" && rosterAlerts.length > 0 ? (
-        <Card title={`Състезания — действие (${rosterAlerts.length})`}>
+        <Card
+          title={`Състезания - действие (${rosterAlerts.length})`}
+          icon={<NavIconTarget size={18} />}
+        >
           <div style={{ display: "grid", gap: 8 }}>
             {visibleRosterAlerts.map((alert) => (
               <Link
                 key={alert.id}
                 to={alert.to}
+                className="coachDashInteractive"
                 style={{
-                  ...cardLinkStyle,
                   display: "block",
                   background: alert.tone === "danger" ? "#fef2f2" : "#fffbeb",
                   borderColor: alert.tone === "danger" ? "#fecaca" : "#fcd34d",
@@ -405,7 +431,9 @@ export default function Home() {
                   {alert.text}
                 </div>
                 {alert.meta ? (
-                  <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>{alert.meta}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#64748b", lineHeight: 1.35 }}>
+                    {alert.meta}
+                  </div>
                 ) : null}
               </Link>
             ))}
@@ -420,6 +448,7 @@ export default function Home() {
       {activeTab === "today" && (
       <Card
         title="График за следващите 7 дни"
+        icon={<NavIconCalendar size={18} />}
         actions={
           <Button as={Link} to="/coach/schedule" variant="secondary" size="sm">
             Пълен график
@@ -458,9 +487,8 @@ export default function Home() {
               return (
                 <div
                   key={key}
-                  className="coachDashScheduleCard"
+                  className="coachDashScheduleCard coachDashInteractive"
                   style={{
-                    ...cardLinkStyle,
                     display: "grid",
                     gap: 8,
                     background: isComp
@@ -474,6 +502,7 @@ export default function Home() {
                         : "#fcd34d"
                       : "#e2e8f0",
                     overflow: "hidden",
+                    cursor: "default",
                   }}
                 >
                   <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
@@ -530,6 +559,7 @@ export default function Home() {
       <>
       <Card
         title="Твоите последни 5 тренировки"
+        icon={<NavIconTraining size={18} />}
         actions={
           <Button as={Link} to="/my-trainings" variant="secondary" size="sm">
             Към тренировките
@@ -543,10 +573,10 @@ export default function Home() {
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {lastTrainings.map((t) => (
-              <Link key={t.id} to={`/trainings/${t.id}`} style={cardLinkStyle}>
+              <Link key={t.id} to={`/trainings/${t.id}`} className="coachDashInteractive">
                 <div style={{ fontWeight: 700 }}>{t.title || `Тренировка #${t.id}`}</div>
                 <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
-                  {formatDate(t.created_at)} • {String(t.status || "—")}
+                  {formatDate(t.created_at)} · {String(t.status || "-")}
                 </div>
               </Link>
             ))}
@@ -556,6 +586,7 @@ export default function Home() {
 
       <Card
         title="Най-често използвани упражнения"
+        icon={<NavIconDrill size={18} />}
         actions={
           <Button as={Link} to="/my-drills" variant="secondary" size="sm">
             Към упражненията
@@ -567,15 +598,19 @@ export default function Home() {
         ) : topDrills.length === 0 ? (
           <EmptyState title="Все още няма статистика" description="Запази поне една тренировка с упражнения." />
         ) : (
-          <div style={{ display: "grid", gap: 6 }}>
-            {topDrills.map((d, idx) => (
-              <div key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <span>
-                  {idx + 1}. {d.title}
-                </span>
-                <span className="uiBadge">{d.count} пъти</span>
-              </div>
-            ))}
+          <div style={{ display: "grid", gap: 10 }}>
+            {topDrills.map((d, idx) => {
+              const maxCount = Math.max(...topDrills.map((x) => Number(x.count) || 0), 1);
+              return (
+                <DashProgressRow
+                  key={d.id}
+                  label={`${idx + 1}. ${d.title}`}
+                  badge={`${d.count} пъти`}
+                  ratio={(Number(d.count) || 0) / maxCount}
+                  tone="brand"
+                />
+              );
+            })}
           </div>
         )}
       </Card>
@@ -601,7 +636,12 @@ export default function Home() {
             ) : (
               <div style={{ display: "grid", gap: 8 }}>
                 {returnedArticles.map((a) => (
-                  <Link key={a.id} to={`/articles/${a.id}/edit`} style={{ ...cardLinkStyle, border: "1px solid #f4caca", background: "#fff7f7" }}>
+                  <Link
+                    key={a.id}
+                    to={`/articles/${a.id}/edit`}
+                    className="coachDashInteractive"
+                    style={{ borderColor: "#f4caca", background: "#fff7f7" }}
+                  >
                     <div style={{ fontWeight: 700 }}>{a.title || `Статия #${a.id}`}</div>
                     <div style={{ marginTop: 4, color: "#7f1d1d", fontSize: 13 }}>Обновена: {formatDate(a.updated_at || a.created_at)}</div>
                   </Link>
@@ -617,6 +657,7 @@ export default function Home() {
       {activeTab === "today" && (
       <Card
         title="Последни известия"
+        icon={<NavIconBell size={18} />}
         actions={
           <Button as={Link} to="/forum" variant="secondary" size="sm">
             Форум
@@ -633,13 +674,7 @@ export default function Home() {
               <Link
                 key={item.id}
                 to={item.to}
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 10,
-                  padding: 10,
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
+                className="coachDashInteractive"
               >
                 <div style={{ fontWeight: 700 }}>{item.text}</div>
                 <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
@@ -678,20 +713,27 @@ export default function Home() {
         </Card>
       ) : null}
 
-      <Card
-        title="Малка статистика за месеца"
-      >
+      <Card title="Малка статистика за месеца" icon={<NavIconDrill size={18} />}>
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
         ) : (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span className="uiBadge">Създадени тренировки: {monthlyStats.trainingsCreated}</span>
-            <span className="uiBadge uiBadge--success">Използвани упражнения: {monthlyStats.drillsUsed}</span>
+          <div className="coachDashKpiGrid">
+            <div className="coachDashKpiCell">
+              <div className="coachDashKpiValue">{monthlyStats.trainingsCreated}</div>
+              <div className="coachDashKpiLabel">Създадени тренировки</div>
+            </div>
+            <div className="coachDashKpiCell">
+              <div className="coachDashKpiValue">{monthlyStats.drillsUsed}</div>
+              <div className="coachDashKpiLabel">Използвани упражнения</div>
+            </div>
           </div>
         )}
       </Card>
 
-      <Card title={`Присъствие — последни ${attendanceRank.sessionLimit || 10} тренировки`}>
+      <Card
+        title={`Присъствие - последни ${attendanceRank.sessionLimit || 10} тренировки`}
+        icon={<NavIconClipboardCheck size={18} />}
+      >
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
         ) : !attendanceRank.top?.length && !attendanceRank.bottom?.length ? (
@@ -709,33 +751,39 @@ export default function Home() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 800, marginBottom: 8, color: "#166534" }}>Топ 3 най-редовни</div>
+              <div style={{ fontWeight: 800, marginBottom: 10, color: "#166534" }}>Топ 3 най-редовни</div>
               {attendanceRank.top.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма данни</p>
               ) : (
-                <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gap: 10 }}>
                   {attendanceRank.top.map((a) => (
-                    <li key={`top-${a.athlete_id}`}>
-                      <strong>{a.athlete_name}</strong>{" "}
-                      <span className="uiBadge uiBadge--success">{a.label}</span>
-                    </li>
+                    <DashProgressRow
+                      key={`top-${a.athlete_id}`}
+                      label={a.athlete_name}
+                      badge={a.label}
+                      ratio={a.ratio}
+                      tone="success"
+                    />
                   ))}
-                </ol>
+                </div>
               )}
             </div>
             <div>
-              <div style={{ fontWeight: 800, marginBottom: 8, color: "#9f1239" }}>Топ 3 най-нередовни</div>
+              <div style={{ fontWeight: 800, marginBottom: 10, color: "#9f1239" }}>Топ 3 най-нередовни</div>
               {attendanceRank.bottom.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма данни</p>
               ) : (
-                <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gap: 10 }}>
                   {attendanceRank.bottom.map((a) => (
-                    <li key={`bot-${a.athlete_id}`}>
-                      <strong>{a.athlete_name}</strong>{" "}
-                      <span className="uiBadge uiBadge--danger">{a.label}</span>
-                    </li>
+                    <DashProgressRow
+                      key={`bot-${a.athlete_id}`}
+                      label={a.athlete_name}
+                      badge={a.label}
+                      ratio={a.ratio}
+                      tone="danger"
+                    />
                   ))}
-                </ol>
+                </div>
               )}
             </div>
           </div>
@@ -750,6 +798,7 @@ export default function Home() {
         <>
       <Card
         title={`Дължими такси (${monthKey})`}
+        icon={<NavIconEuro size={18} />}
         actions={
           <Button as={Link} to="/coach/fees" variant="secondary" size="sm">
             Отвори Месечни Такси
@@ -837,7 +886,7 @@ export default function Home() {
           </div>
         )}
         <p style={{ marginTop: 12, color: "#64748b", fontSize: 12 }}>
-          Падеж: 10-о число на месеца. „Над 10 дни“ е само за текущия месец; „над 2 такси“ — последните 3 месеца
+          Падеж: 10-о число на месеца. „Над 10 дни“ е само за текущия месец; „над 2 такси“ покрива последните 3 месеца
           {isHeadCoach ? (headTeamScope === "mine" ? " · моите отбори" : " · всички отбори") : ""}.
         </p>
       </Card>
@@ -875,7 +924,7 @@ export default function Home() {
               <Link
                 key={post.id}
                 to={`/forum/${post.id}`}
-                style={cardLinkStyle}
+                className="coachDashInteractive"
               >
                 <div style={{ fontWeight: 700 }}>
                   {post.is_pinned ? "📌 " : ""}
@@ -909,7 +958,7 @@ export default function Home() {
               <Link
                 key={article.id}
                 to={`/articles/${article.id}`}
-                style={cardLinkStyle}
+                className="coachDashInteractive"
               >
                 <div style={{ fontWeight: 700 }}>{article.title || `Статия #${article.id}`}</div>
                 <div style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>

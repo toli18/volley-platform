@@ -39,6 +39,12 @@ export function competitionRosterPath(competitionId) {
   return `/coach/competitions?roster=${encodeURIComponent(competitionId)}`;
 }
 
+function capitalizeBg(word) {
+  const s = String(word || "").trim();
+  if (!s) return "";
+  return s.charAt(0).toLocaleUpperCase("bg-BG") + s.slice(1);
+}
+
 export function buildCompetitionRosterAlerts(scheduleItems, todayIso = new Date().toISOString().slice(0, 10)) {
   const alerts = [];
   for (const item of scheduleItems || []) {
@@ -46,32 +52,40 @@ export function buildCompetitionRosterAlerts(scheduleItems, todayIso = new Date(
     const action = competitionRosterAction(item, todayIso);
     if (!action || !item.competition_id) continue;
     const days = item.days_until != null ? Number(item.days_until) : daysUntilIso(item.date, todayIso);
-    const when =
+    const whenRaw =
       days === 0 ? "днес" : days === 1 ? "утре" : days != null ? `след ${days} дни` : item.date;
+    const when = capitalizeBg(whenRaw);
+    const time = String(item.start_time || "").trim();
+    const timeBit = time ? `${time} ч.` : "";
     const label = item.competition_kind_label || "Състезание";
     const team = item.carded_team_label || item.team_name || "";
     const loc = item.location ? formatVenueLocation(item.location) : "";
+    const eventLine = [label, team, loc].filter(Boolean).join(" · ");
     if (action === "generate") {
+      const headline = [when, timeBit].filter(Boolean).join(" · ") + " - Липсва тимов лист";
       alerts.push({
         id: `roster-gen-${item.competition_id}`,
         kind: "roster_generate",
         tone: "danger",
         competition_id: item.competition_id,
         date: item.date,
-        text: `Генерирай тимов лист: ${label}${team ? ` · ${team}` : ""} (${when})`,
-        meta: loc ? `${item.date} · ${loc}` : item.date,
+        start_time: time || null,
+        text: headline,
+        meta: eventLine,
         to: competitionRosterPath(item.competition_id),
       });
     } else {
       const count = item.roster_count != null ? `${item.roster_count} в листа` : "състав готов";
+      const headline = [when, timeBit].filter(Boolean).join(" · ") + " - Провери тимовия лист";
       alerts.push({
         id: `roster-rev-${item.competition_id}`,
         kind: "roster_review",
         tone: "warn",
         competition_id: item.competition_id,
         date: item.date,
-        text: `Провери тимовия лист: ${label}${team ? ` · ${team}` : ""} (${when})`,
-        meta: `${count}${loc ? ` · ${loc}` : ""}`,
+        start_time: time || null,
+        text: headline,
+        meta: [eventLine, count].filter(Boolean).join(" · "),
         to: competitionRosterPath(item.competition_id),
       });
     }

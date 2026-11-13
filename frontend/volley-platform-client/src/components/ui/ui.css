@@ -74,6 +74,17 @@
   margin: 0;
   font-size: 18px;
   line-height: 1.25;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uiCardTitleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #64748b;
 }
 
 .uiCardSubtitle {
@@ -255,6 +266,10 @@
   color: var(--badge-text);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .uiBadge--success {

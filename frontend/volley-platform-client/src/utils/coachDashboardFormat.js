@@ -6,8 +6,38 @@ const BAD_DRILL_TITLES = new Set([
   "set your own skip",
 ]);
 
+function stripSettlementPrefix(s) {
+  return String(s || "")
+    .replace(/^(гр\.|град|с\.|село)\s+/i, "")
+    .replace(/[„“"']/g, "")
+    .trim();
+}
+
+function isStreetPart(part) {
+  return /^(ул\.|улица|бул\.|булевард|пл\.|№|no\.?)/i.test(part);
+}
+
+function isHallPart(part) {
+  const bare = stripSettlementPrefix(part);
+  // Note: JS \\b is ASCII-only; use explicit separators for Cyrillic club prefixes.
+  return (
+    /зала|спорт|комплекс|арена|stadium|hall|плувен|басейн/i.test(bare) ||
+    /^(ск|вс|вк|нса)(\s|\.|$)/i.test(bare)
+  );
+}
+
+function isSettlementPart(part) {
+  if (isStreetPart(part) || isHallPart(part)) return false;
+  if (/^(гр\.|с\.)/i.test(part)) return true;
+  const bare = stripSettlementPrefix(part);
+  if (!bare || bare.length > 40) return false;
+  if (/\d/.test(bare)) return false;
+  return bare.split(/\s+/).length <= 3;
+}
+
 /**
- * Премахва повторения на града в адрес/зала.
+ * Форматира зала/адрес. „гр.“ само пред населено място, никога пред зала.
+ * „СК Георги Бенковски, Тетевен“ → „СК Георги Бенковски, гр. Тетевен“
  * „Троян, Троян, ул. Първомайска“ → „гр. Троян, ул. Първомайска“
  */
 export function formatVenueLocation(raw) {
@@ -18,30 +48,34 @@ export function formatVenueLocation(raw) {
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
-  if (parts.length <= 1) return text;
-
-  const norm = (s) =>
-    s
-      .toLowerCase()
-      .replace(/^(гр\.|град|с\.|село)\s+/i, "")
-      .replace(/[„“"']/g, "")
-      .trim();
+  if (!parts.length) return "";
 
   const out = [];
-  const seenCities = new Set();
-  for (const part of parts) {
-    const n = norm(part);
-    const looksLikeStreet = /^(ул\.|улица|бул\.|булевард|пл\.|№|no\.?)/i.test(part);
-    const looksLikeHall = /зала|ск\b|спорт/i.test(part);
-    if (!looksLikeStreet && !looksLikeHall && seenCities.has(n)) continue;
-    if (!looksLikeStreet && !looksLikeHall && n) seenCities.add(n);
+  const seenSettlements = new Set();
 
-    if (out.length === 0 && !looksLikeStreet && !looksLikeHall && !/^(гр\.|с\.)/i.test(part)) {
-      out.push(`гр. ${part.replace(/^(град)\s+/i, "")}`);
-    } else {
-      out.push(part);
+  for (const part of parts) {
+    if (isHallPart(part) || isStreetPart(part)) {
+      // Strip mistaken settlement prefix on halls (e.g. "гр. СК ...").
+      out.push(
+        isHallPart(part) && /^(гр\.|град|с\.|село)\s+/i.test(part)
+          ? stripSettlementPrefix(part)
+          : part,
+      );
+      continue;
     }
+
+    if (isSettlementPart(part)) {
+      const bare = stripSettlementPrefix(part);
+      const key = bare.toLowerCase();
+      if (!key || seenSettlements.has(key)) continue;
+      seenSettlements.add(key);
+      out.push(`гр. ${bare}`);
+      continue;
+    }
+
+    out.push(part);
   }
+
   return out.join(", ");
 }
 
@@ -62,14 +96,14 @@ export function sortScheduleByDateTime(items, { rosterPriority = null } = {}) {
 
 /** Безопасно форматиране на дата/час (date-only не става 02:00). */
 export function formatDashboardDateTime(value) {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   const raw = String(value);
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [y, m, d] = raw.split("-");
     return `${d}.${m}.${y}`;
   }
   const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("bg-BG");
 }
 
@@ -81,7 +115,7 @@ export function sanitizeDrillTitle(title, fallbackId) {
   return t;
 }
 
-/** Известия за колоната „Последни известия“ — без празни и без roster/absence дубли. */
+/** Известия за колоната „Последни известия“ - без празни и без roster/absence дубли. */
 export function filterFeedNotifications(items) {
   return (Array.isArray(items) ? items : []).filter((item) => {
     if (!item) return false;
