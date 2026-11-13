@@ -226,10 +226,6 @@ export default function TeamSheetO2Modal({
       toast.error("Изберете капитан на отбора.");
       return;
     }
-    if (liberoAthleteIds.length < 1) {
-      toast.error("Изберете поне един либеро (макс. 2).");
-      return;
-    }
 
     const jersey_overrides = [];
     for (const id of selectedAthleteIds) {
@@ -495,7 +491,7 @@ export default function TeamSheetO2Modal({
                 </label>
                 <div style={{ display: "grid", gap: 6 }}>
                   <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-                    Либеро (1 или 2)
+                    Либеро (по избор, макс. 2)
                   </span>
                   {selectedSorted.map((m) => {
                     const id = m.athlete_id;
@@ -529,8 +525,8 @@ export default function TeamSheetO2Modal({
             ) : null}
 
             <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
-              В PDF редът е по номер (възходящо). K = капитан, L = либеро. Номерата от профила; промяната
-              тук важи само за този лист.
+              В PDF редът е по номер (възходящо). K = капитан, L = либеро (ако има). Номерата от
+              профила; промяната тук важи само за този лист.
             </p>
             <div className="uiModalActions">
               <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>

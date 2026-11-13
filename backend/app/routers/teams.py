@@ -1300,8 +1300,6 @@ def generate_team_sheet_pdf(
         lid = int(raw_l)
         if lid in seen and lid not in libero_ids:
             libero_ids.append(lid)
-    if len(libero_ids) < 1:
-        raise HTTPException(status_code=422, detail="Изберете поне един либеро (макс. 2).")
     if len(libero_ids) > 2:
         raise HTTPException(status_code=422, detail="Можете да изберете най-много два либеро.")
 
