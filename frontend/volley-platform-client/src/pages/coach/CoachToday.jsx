@@ -34,7 +34,7 @@ const OVERDUE_PREVIEW_LIMIT = 5;
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 function formatDateBg(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(`${iso}T12:00:00`).toLocaleDateString("bg-BG", {
       weekday: "long",
@@ -152,7 +152,7 @@ function TabBadge({ value, tone }) {
 }
 
 function formatShortDateBg(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const [y, m, d] = String(iso).split("-");
   return `${d}.${m}.${y}`;
 }

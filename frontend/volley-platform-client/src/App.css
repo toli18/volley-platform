@@ -25,21 +25,27 @@
 
 .loginIntroGlow {
   position: absolute;
-  width: 90vmin;
-  height: 90vmin;
+  width: min(90vw, 90vh, 520px);
+  height: min(90vw, 90vh, 520px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 60%);
-  filter: blur(8px);
+  /* Avoid CSS filter blur: some Android/iOS WebViews glitch or clip the splash. */
   animation: loginIntroPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .loginIntroLogo {
   position: relative;
+  display: block;
   width: min(70vw, 420px);
-  max-height: 70vh;
+  height: auto;
+  max-width: 70vw;
+  max-height: min(70vh, 70dvh, 420px);
   object-fit: contain;
   border-radius: 24px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  -webkit-user-drag: none;
+  user-select: none;
   animation:
     loginIntroLogoIn 1400ms cubic-bezier(0.16, 1, 0.3, 1) both,
     loginIntroLogoFloat 3.6s ease-in-out 1400ms infinite;

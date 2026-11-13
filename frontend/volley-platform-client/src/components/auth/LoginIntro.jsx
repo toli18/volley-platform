@@ -29,7 +29,24 @@ export default function LoginIntro({ visibleMs = DEFAULT_VISIBLE_MS, fadeMs = DE
       style={leaving ? { animationDuration: `${fadeMs}ms` } : undefined}
     >
       <div className="loginIntroGlow" aria-hidden />
-      <img src="/bvf-splash.png" alt="Българска федерация по волейбол" className="loginIntroLogo" />
+      <img
+        src="/bvf-splash.png"
+        alt="Българска федерация по волейбол"
+        className="loginIntroLogo"
+        width={420}
+        height={420}
+        decoding="async"
+        fetchPriority="high"
+        onError={(e) => {
+          const img = e.currentTarget;
+          if (img.dataset.fallback === "1") {
+            img.style.visibility = "hidden";
+            return;
+          }
+          img.dataset.fallback = "1";
+          img.src = "/bfvb-logo.png";
+        }}
+      />
     </div>
   );
 }

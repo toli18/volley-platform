@@ -153,6 +153,20 @@ def spa_bfvb_logo():
     raise HTTPException(status_code=404, detail="Not Found")
 
 
+@app.api_route("/bvf-splash.png", methods=["GET", "HEAD"])
+def spa_bvf_splash():
+    """Login splash used by Capacitor/WebView shells; fall back so the intro never 404s."""
+    for candidate in (WEB_DIR / "bvf-splash.png", WEB_DIR / "bfvb-logo.png", WEB_DIR / "vite.svg"):
+        if candidate.is_file():
+            media_type = "image/png" if candidate.suffix.lower() == ".png" else "image/svg+xml"
+            return FileResponse(
+                candidate,
+                media_type=media_type,
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
 @app.api_route("/presentation/logo.png", methods=["GET", "HEAD"])
 def spa_presentation_logo():
     """HTML in /presentation references logo.png; lean copy may omit it."""
