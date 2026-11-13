@@ -19,9 +19,17 @@ import {
   writeHeadStatsScope,
 } from "../../utils/loadCoachDashboardData";
 import { teamColorsForId } from "../../utils/teamColors";
+import {
+  filterFeedNotifications,
+  formatDashboardDateTime,
+  formatVenueLocation,
+  sortScheduleByDateTime,
+} from "../../utils/coachDashboardFormat";
 import { Button, EmptyState, Modal } from "../../components/ui";
 
 const ABSENCE_PREVIEW_LIMIT = 4;
+const ROSTER_PREVIEW_LIMIT = 5;
+const OVERDUE_PREVIEW_LIMIT = 5;
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -39,9 +47,7 @@ function formatDateBg(iso) {
 }
 
 function formatDateTime(value) {
-  const date = new Date(value || "");
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("bg-BG");
+  return formatDashboardDateTime(value);
 }
 
 function attendancePath(it) {
@@ -79,7 +85,7 @@ function EventCard({ item, onAttendance, programTheme, isToday = false }) {
       <p className="coachMobileEventDate">{formatDateBg(item.date)}</p>
       <p className="coachMobileMuted">
         {item.start_time} – {item.end_time}
-        {item.location ? ` · ${item.location}` : ""}
+        {item.location ? ` · ${formatVenueLocation(item.location)}` : ""}
       </p>
       {!isComp && programTheme?.theme ? (
         <p style={{ margin: "2px 0 6px", fontWeight: 600, fontSize: 13, color: "#2563eb" }}>
@@ -91,12 +97,6 @@ function EventCard({ item, onAttendance, programTheme, isToday = false }) {
       ) : null}
       {isComp && rosterAction === "generate" ? (
         <p className="coachMobileRosterHint coachMobileRosterHint--danger">Няма тимов лист — генерирай до мача.</p>
-      ) : null}
-      {isComp && rosterAction === "review" ? (
-        <p className="coachMobileRosterHint coachMobileRosterHint--warn">
-          Провери тимовия лист
-          {item.roster_count != null ? ` (${item.roster_count})` : ""}.
-        </p>
       ) : null}
       {!isComp && item.team_id ? (
         <Button type="button" size="sm" className="coachMobileEventActionBtn" onClick={() => onAttendance(item)}>
@@ -113,7 +113,7 @@ function EventCard({ item, onAttendance, programTheme, isToday = false }) {
           {rosterAction === "generate"
             ? "Генерирай тимов лист"
             : rosterAction === "review"
-              ? "Провери тимовия лист"
+              ? `Провери тимовия лист${item.roster_count != null ? ` (${item.roster_count})` : ""}`
               : "Тимов лист"}
         </Button>
       ) : null}
@@ -224,6 +224,8 @@ export default function CoachToday() {
   const [loadedSections, setLoadedSections] = useState({});
   const [dash, setDash] = useState(() => ({ ...EMPTY_DASHBOARD, monthKey: currentMonthKey() }));
   const [absencesModalOpen, setAbsencesModalOpen] = useState(false);
+  const [rosterExpanded, setRosterExpanded] = useState(false);
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
 
   const role = String(user?.role || "").toLowerCase();
   const isHeadCoach = role === "club_head_coach";
@@ -345,14 +347,9 @@ export default function CoachToday() {
     const horizon = new Date();
     horizon.setDate(horizon.getDate() + 6);
     const horizonKey = horizon.toISOString().slice(0, 10);
-    const sorted = [...(dash.scheduleItems || [])].sort((a, b) => {
-      const aPri = competitionRosterAction(a) === "generate" ? 0 : competitionRosterAction(a) === "review" ? 1 : 2;
-      const bPri = competitionRosterAction(b) === "generate" ? 0 : competitionRosterAction(b) === "review" ? 1 : 2;
-      if (aPri !== bPri && a.date === b.date) return aPri - bPri;
-      const d = String(a.date).localeCompare(String(b.date));
-      if (d !== 0) return d;
-      if (aPri !== bPri) return aPri - bPri;
-      return String(a.start_time || "").localeCompare(String(b.start_time || ""));
+    const sorted = sortScheduleByDateTime(dash.scheduleItems || [], {
+      rosterPriority: (it) =>
+        competitionRosterAction(it) === "generate" ? 0 : competitionRosterAction(it) === "review" ? 1 : 2,
     });
     return {
       todayItems: sorted.filter((i) => i.date === today),
@@ -361,16 +358,16 @@ export default function CoachToday() {
   }, [dash.scheduleItems, today]);
 
   const rosterAlerts = dash.rosterAlerts || [];
+  const visibleRosterAlerts = rosterExpanded ? rosterAlerts : rosterAlerts.slice(0, ROSTER_PREVIEW_LIMIT);
   const greeting = user?.name || user?.email || "Треньор";
-  const todayBadge = (dash.activityItems.length || 0) || null;
+  const feedNotifications = filterFeedNotifications(dash.activityItems);
+  const absenceNotices = dash.absenceNotices || [];
+  const todayBadge = rosterAlerts.length || absenceNotices.length || null;
   const monthlyFeesEnabled = user?.monthly_fees_enabled !== false;
-  const statsBadge = monthlyFeesEnabled ? dash.feesSummary.unpaid || null : null;
   const programTc = programWeek?.team_id ? teamColorsForId(programWeek.team_id) : null;
   const trainingsHref = "/coach/trainings";
-  const absenceNotices = dash.absenceNotices || [];
-  const nonAbsenceActivity = (dash.activityItems || []).filter(
-    (item) => item.kind !== "absence" && item.kind !== "roster_generate" && item.kind !== "roster_review",
-  );
+  const overdueList = dash.feeOverdue?.overTwo || [];
+  const visibleOverdue = overdueExpanded ? overdueList : overdueList.slice(0, OVERDUE_PREVIEW_LIMIT);
 
   const openScheduleItem = (item) => {
     if (isCompetitionEvent(item) && item.competition_id) {
@@ -387,7 +384,34 @@ export default function CoachToday() {
       </p>
       <p className="coachMobileMuted coachMobileGreetingSub">{formatDateBg(today)}</p>
 
-      {!loading && absenceNotices.length > 0 ? (
+      <div className="coachMobileDashTabs" role="tablist" aria-label="Раздели на таблото">
+        {[
+          { id: "today", label: "Днес", badge: todayBadge, tone: "teal" },
+          { id: "content", label: "Съдържание", badge: null, tone: "teal" },
+          { id: "stats", label: "Статистика", badge: null, tone: "teal" },
+        ].map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`coachMobileDashTab${active ? " is-active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+              <TabBadge value={tab.badge} tone={tab.tone} />
+            </button>
+          );
+        })}
+      </div>
+
+      {loading ? <p className="coachMobileMuted">Зареждане...</p> : null}
+      {!loading && tabLoading ? <p className="coachMobileMuted">Зареждане на раздела...</p> : null}
+      {error ? <EmptyState title="Грешка" description={error} /> : null}
+
+      {!loading && !error && !tabLoading && activeTab === "today" && absenceNotices.length > 0 ? (
         <section className="coachMobileAbsenceBox coachMobileAbsenceBox--compact" aria-label="Извинения от родители">
           <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush coachMobileAbsenceTitle">
             Извинения
@@ -424,14 +448,14 @@ export default function CoachToday() {
         </Button>
       </Modal>
 
-      {!loading && rosterAlerts.length > 0 ? (
+      {!loading && !error && !tabLoading && activeTab === "today" && rosterAlerts.length > 0 ? (
         <section className="coachMobileAbsenceBox coachMobileRosterBox" aria-label="Тимов лист за състезания">
           <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush coachMobileAbsenceTitle">
             Състезания — действие
             <span className="coachMobileAbsenceCount">{rosterAlerts.length}</span>
           </h2>
           <ul className="coachMobileAbsenceList">
-            {rosterAlerts.map((alert) => (
+            {visibleRosterAlerts.map((alert) => (
               <li
                 key={alert.id}
                 className={`coachMobileAbsenceItem${alert.tone === "danger" ? " coachMobileRosterItem--danger" : " coachMobileRosterItem--warn"}`}
@@ -443,35 +467,19 @@ export default function CoachToday() {
               </li>
             ))}
           </ul>
+          {rosterAlerts.length > ROSTER_PREVIEW_LIMIT ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="coachMobileAbsenceMoreBtn"
+              onClick={() => setRosterExpanded((v) => !v)}
+            >
+              {rosterExpanded ? "Свий" : `Виж всички (${rosterAlerts.length})`}
+            </Button>
+          ) : null}
         </section>
       ) : null}
-
-      <div className="coachMobileDashTabs" role="tablist" aria-label="Раздели на таблото">
-        {[
-          { id: "today", label: "Днес", badge: todayBadge, tone: "teal" },
-          { id: "content", label: "Съдържание", badge: null, tone: "teal" },
-          { id: "stats", label: "Статистика", badge: statsBadge, tone: "red" },
-        ].map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`coachMobileDashTab${active ? " is-active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-              <TabBadge value={tab.badge} tone={tab.tone} />
-            </button>
-          );
-        })}
-      </div>
-
-      {loading ? <p className="coachMobileMuted">Зареждане...</p> : null}
-      {!loading && tabLoading ? <p className="coachMobileMuted">Зареждане на раздела...</p> : null}
-      {error ? <EmptyState title="Грешка" description={error} /> : null}
 
       {!loading && !error && !tabLoading && activeTab === "today" ? (
         <>
@@ -545,10 +553,10 @@ export default function CoachToday() {
               </Link>
             }
           >
-            {nonAbsenceActivity.length === 0 ? (
+            {feedNotifications.length === 0 ? (
               <p className="coachMobileMuted" style={{ margin: 0 }}>Няма нови известия.</p>
             ) : (
-              nonAbsenceActivity.map((item) => (
+              feedNotifications.map((item) => (
                 <ListLink
                   key={item.id}
                   to={item.to}
@@ -792,7 +800,10 @@ export default function CoachToday() {
                   <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
                     {dash.feeOverdue.late10.map((a) => (
                       <li key={`l10-${a.athlete_id}`}>
-                        <strong>{a.athlete_name}</strong>{" "}
+                        <strong>{a.athlete_name}</strong>
+                        {a.team_name ? (
+                          <span className="coachMobileMuted"> · {a.team_name}</span>
+                        ) : null}{" "}
                         <span className="uiBadge uiBadge--warning">{a.days_overdue} дни</span>
                       </li>
                     ))}
@@ -801,17 +812,33 @@ export default function CoachToday() {
               </div>
               <div>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>Над 2 неплатени такси (последни 3 месеца)</div>
-                {dash.feeOverdue.overTwo.length === 0 ? (
+                {overdueList.length === 0 ? (
                   <p className="coachMobileMuted" style={{ margin: 0 }}>Няма</p>
                 ) : (
+                  <>
                   <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                    {dash.feeOverdue.overTwo.map((a) => (
+                    {visibleOverdue.map((a) => (
                       <li key={`o2-${a.athlete_id}`}>
-                        <strong>{a.athlete_name}</strong>{" "}
+                        <strong>{a.athlete_name}</strong>
+                        {a.team_name ? (
+                          <span className="coachMobileMuted"> · {a.team_name}</span>
+                        ) : null}{" "}
                         <span className="uiBadge uiBadge--danger">{a.unpaid_months} такси</span>
                       </li>
                     ))}
                   </ul>
+                  {overdueList.length > OVERDUE_PREVIEW_LIMIT ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      style={{ marginTop: 8 }}
+                      onClick={() => setOverdueExpanded((v) => !v)}
+                    >
+                      {overdueExpanded ? "Свий" : `Виж всички (${overdueList.length})`}
+                    </Button>
+                  ) : null}
+                  </>
                 )}
               </div>
             </div>

@@ -6,6 +6,7 @@ import {
   feesLookbackFromMonth,
   loadCoachAttendanceRegularity,
 } from "./coachDashboardStats";
+import { sanitizeDrillTitle, sortScheduleByDateTime } from "./coachDashboardFormat";
 import { buildCompetitionRosterAlerts } from "./competitionRosterPriority";
 import { normalizePlan } from "./trainingPlanNormalize";
 
@@ -121,21 +122,26 @@ async function loadTodaySection({ isHeadCoach, myCoachId, scopeMine }) {
 
   const forumNotifications =
     notificationsRes.status === "fulfilled" && Array.isArray(notificationsRes.value.data?.items)
-      ? notificationsRes.value.data.items.map((n) => ({
-          id: `forum-${n.id}`,
-          text: n.message,
-          at: n.created_at,
-          to: `/forum/${n.post_id}`,
-        }))
+      ? notificationsRes.value.data.items
+          .map((n) => ({
+            id: `forum-${n.id}`,
+            kind: "forum",
+            text: String(n.message || "").trim(),
+            at: n.created_at,
+            to: `/forum/${n.post_id}`,
+          }))
+          .filter((n) => n.text)
       : [];
 
-  const scheduleList =
+  const scheduleListRaw =
     scheduleRes.status === "fulfilled" && Array.isArray(scheduleRes.value.data?.items)
       ? scheduleRes.value.data.items
       : [];
+  const scheduleList = sortScheduleByDateTime(scheduleListRaw);
 
   const rosterAlertRows = buildCompetitionRosterAlerts(scheduleList);
-  const rosterAlerts = rosterAlertRows.map((a) => ({
+  // Roster/absence остават в отделни секции; в „известия“ само форум (+ други non-roster).
+  const rosterAsActivity = rosterAlertRows.map((a) => ({
     id: a.id,
     kind: a.kind,
     text: a.text,
@@ -147,7 +153,7 @@ async function loadTodaySection({ isHeadCoach, myCoachId, scopeMine }) {
     absenceNotices: absenceList,
     scheduleItems: scheduleList.slice(0, isHeadCoach ? 64 : 32),
     rosterAlerts: rosterAlertRows,
-    activityItems: [...absenceAlerts, ...rosterAlerts, ...forumNotifications]
+    activityItems: [...absenceAlerts, ...rosterAsActivity, ...forumNotifications]
       .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
       .slice(0, 16),
   };
@@ -208,7 +214,11 @@ async function loadContentSection() {
   const topDrills = Array.from(drillCountMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([id, count]) => ({ id, count, title: drillNameMap.get(id) || `Упражнение #${id}` }));
+    .map(([id, count]) => ({
+      id,
+      count,
+      title: sanitizeDrillTitle(drillNameMap.get(id), id),
+    }));
 
   const localDraft = loadDraft(createDraftKey());
   const hasLocalDraft = hasMeaningfulDraft(localDraft);
@@ -284,25 +294,48 @@ async function loadStatsSection({
   };
   if (scopeMine && myCoachId) feesParams.coach_id = myCoachId;
 
+  const monthSummaryParams = { month_key: monthKey };
+  if (scopeMine && myCoachId) monthSummaryParams.coach_id = myCoachId;
+  else if (!isHeadCoach && myCoachId) monthSummaryParams.coach_id = myCoachId;
+
   const tasks = [
     axiosInstance.get(API_PATHS.FEES_PERIOD_REPORT, { params: feesParams }),
     axiosInstance.get(API_PATHS.TEAMS_LIST),
+    axiosInstance.get(API_PATHS.FEES_MONTH_SUMMARY, { params: monthSummaryParams }),
+    axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST, {
+      params: scopeMine && myCoachId ? { coach_id: myCoachId } : {},
+    }),
   ];
   if (includeTrainingStats) {
     tasks.push(axiosInstance.get(API_PATHS.TRAININGS_LIST_MY));
   }
 
   const results = await Promise.allSettled(tasks);
-  const [feesRes, teamsRes, trainingsRes] = results;
+  const [feesRes, teamsRes, monthSummaryRes, athletesRes, trainingsRes] = results;
 
   const feesRows =
     feesRes.status === "fulfilled" && Array.isArray(feesRes.value.data?.rows)
       ? feesRes.value.data.rows
       : [];
-  const unpaid = feesRows.filter((row) => {
-    const month = Array.isArray(row.months) ? row.months.find((m) => m?.month_key === monthKey) : null;
-    return month ? !month.paid : false;
-  }).length;
+
+  const monthSummary =
+    monthSummaryRes.status === "fulfilled" && monthSummaryRes.value.data
+      ? monthSummaryRes.value.data
+      : null;
+
+  const teamByAthleteId = new Map();
+  const athletesList =
+    athletesRes.status === "fulfilled" && Array.isArray(athletesRes.value.data)
+      ? athletesRes.value.data
+      : athletesRes.status === "fulfilled" && Array.isArray(athletesRes.value.data?.items)
+        ? athletesRes.value.data.items
+        : [];
+  for (const a of athletesList) {
+    const id = Number(a?.id ?? a?.athlete_id);
+    if (!Number.isFinite(id)) continue;
+    const names = Array.isArray(a?.team_names) ? a.team_names : a?.team_name ? [a.team_name] : [];
+    if (names.length) teamByAthleteId.set(id, names);
+  }
 
   let teamList =
     teamsRes.status === "fulfilled" && Array.isArray(teamsRes.value.data) ? teamsRes.value.data : [];
@@ -320,11 +353,11 @@ async function loadStatsSection({
 
   const partial = {
     feesSummary: {
-      total: feesRows.length,
-      paid: Math.max(0, feesRows.length - unpaid),
-      unpaid,
+      total: Number(monthSummary?.athlete_count ?? monthSummary?.total_athletes ?? 0),
+      paid: Number(monthSummary?.paid_count ?? monthSummary?.paid_athletes ?? 0),
+      unpaid: Number(monthSummary?.unpaid_count ?? monthSummary?.unpaid_athletes ?? 0),
     },
-    feeOverdue: buildFeeOverdueLists(feesRows),
+    feeOverdue: buildFeeOverdueLists(feesRows, { teamByAthleteId }),
     attendanceRank,
   };
 

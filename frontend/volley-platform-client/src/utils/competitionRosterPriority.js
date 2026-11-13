@@ -1,5 +1,7 @@
 /** Правила за приоритет на тимов лист спрямо мача (синхрон с backend). */
 
+import { formatVenueLocation } from "./coachDashboardFormat";
+
 export const ROSTER_GENERATE_WITHIN_DAYS = 10;
 export const ROSTER_REVIEW_WITHIN_DAYS = 5;
 
@@ -48,6 +50,7 @@ export function buildCompetitionRosterAlerts(scheduleItems, todayIso = new Date(
       days === 0 ? "днес" : days === 1 ? "утре" : days != null ? `след ${days} дни` : item.date;
     const label = item.competition_kind_label || "Състезание";
     const team = item.carded_team_label || item.team_name || "";
+    const loc = item.location ? formatVenueLocation(item.location) : "";
     if (action === "generate") {
       alerts.push({
         id: `roster-gen-${item.competition_id}`,
@@ -56,7 +59,7 @@ export function buildCompetitionRosterAlerts(scheduleItems, todayIso = new Date(
         competition_id: item.competition_id,
         date: item.date,
         text: `Генерирай тимов лист: ${label}${team ? ` · ${team}` : ""} (${when})`,
-        meta: item.location ? `${item.date} · ${item.location}` : item.date,
+        meta: loc ? `${item.date} · ${loc}` : item.date,
         to: competitionRosterPath(item.competition_id),
       });
     } else {
@@ -68,7 +71,7 @@ export function buildCompetitionRosterAlerts(scheduleItems, todayIso = new Date(
         competition_id: item.competition_id,
         date: item.date,
         text: `Провери тимовия лист: ${label}${team ? ` · ${team}` : ""} (${when})`,
-        meta: `${count}${item.location ? ` · ${item.location}` : ""}`,
+        meta: `${count}${loc ? ` · ${loc}` : ""}`,
         to: competitionRosterPath(item.competition_id),
       });
     }

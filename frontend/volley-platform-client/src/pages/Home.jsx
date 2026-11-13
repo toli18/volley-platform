@@ -9,6 +9,14 @@ import {
 } from "../utils/competitionRosterPriority";
 import CoachMethodAssignments from "../components/coach/CoachMethodAssignments";
 import Drills from "./Drills";
+import axiosInstance from "../utils/apiClient";
+import { API_PATHS } from "../utils/apiPaths";
+import {
+  filterFeedNotifications,
+  formatDashboardDateTime,
+  formatVenueLocation,
+  sortScheduleByDateTime,
+} from "../utils/coachDashboardFormat";
 import {
   currentMonthKey,
   loadCoachDashboardData,
@@ -18,11 +26,11 @@ import {
 } from "../utils/loadCoachDashboardData";
 import { teamColorsForId } from "../utils/teamColors";
 
-const formatDate = (value) => {
-  const date = new Date(value || "");
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("bg-BG");
-};
+const ROSTER_PREVIEW_LIMIT = 5;
+const OVERDUE_PREVIEW_LIMIT = 5;
+const ABSENCE_PREVIEW_LIMIT = 4;
+
+const formatDate = (value) => formatDashboardDateTime(value);
 
 const cardLinkStyle = {
   border: "1px solid #e2e8f0",
@@ -56,12 +64,17 @@ export default function Home() {
   const [monthlyStats, setMonthlyStats] = useState({ trainingsCreated: 0, drillsUsed: 0 });
   const [scheduleItems, setScheduleItems] = useState([]);
   const [rosterAlerts, setRosterAlerts] = useState([]);
+  const [absenceNotices, setAbsenceNotices] = useState([]);
+  const [programWeek, setProgramWeek] = useState(null);
   const [attendanceRank, setAttendanceRank] = useState({ top: [], bottom: [], sessionLimit: 10 });
   const [feeOverdue, setFeeOverdue] = useState({ late10: [], overTwo: [] });
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("today");
   const [headTeamScope, setHeadTeamScope] = useState("all");
   const [loadedSections, setLoadedSections] = useState({});
+  const [rosterExpanded, setRosterExpanded] = useState(false);
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
+  const [absencesExpanded, setAbsencesExpanded] = useState(false);
 
   const role = String(user?.role || "").toLowerCase();
   const showCoachDashboard = role === "coach" || role === "club_head_coach";
@@ -84,8 +97,33 @@ export default function Home() {
     setMonthlyStats((prev) => partial.monthlyStats ?? prev);
     setScheduleItems((prev) => partial.scheduleItems ?? prev);
     setRosterAlerts((prev) => partial.rosterAlerts ?? prev);
+    setAbsenceNotices((prev) => partial.absenceNotices ?? prev);
     setAttendanceRank((prev) => partial.attendanceRank ?? prev);
   };
+
+  const feedNotifications = useMemo(
+    () => filterFeedNotifications(activityItems),
+    [activityItems],
+  );
+
+  const sortedSchedule = useMemo(
+    () =>
+      sortScheduleByDateTime(scheduleItems, {
+        rosterPriority: (it) =>
+          competitionRosterAction(it) === "generate" ? 0 : competitionRosterAction(it) === "review" ? 1 : 2,
+      }),
+    [scheduleItems],
+  );
+
+  const visibleRosterAlerts = rosterExpanded
+    ? rosterAlerts
+    : rosterAlerts.slice(0, ROSTER_PREVIEW_LIMIT);
+  const visibleOverdue = overdueExpanded
+    ? feeOverdue.overTwo
+    : feeOverdue.overTwo.slice(0, OVERDUE_PREVIEW_LIMIT);
+  const visibleAbsences = absencesExpanded
+    ? absenceNotices
+    : absenceNotices.slice(0, ABSENCE_PREVIEW_LIMIT);
 
   useEffect(() => {
     if (!user?.id || !isHeadCoach) return;
@@ -146,6 +184,24 @@ export default function Home() {
   }, [monthKey, showCoachDashboard, user?.id, isHeadCoach, headTeamScope]);
 
   useEffect(() => {
+    if (!showCoachDashboard) return undefined;
+    let active = true;
+    axiosInstance
+      .get(API_PATHS.NATIONAL_METHOD_PROGRAM_WEEK, { params: { week_offset: 0 } })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.has_program) setProgramWeek(res.data);
+        else setProgramWeek(null);
+      })
+      .catch(() => {
+        if (active) setProgramWeek(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [showCoachDashboard]);
+
+  useEffect(() => {
     if (!showCoachDashboard || activeTab === "today" || loadedSections[activeTab] || loading) {
       return undefined;
     }
@@ -185,8 +241,8 @@ export default function Home() {
   return (
     <div className="uiPage">
       <PageHero
-        title="Coach Dashboard"
-        subtitle="Най-важното за днес: месечни такси, нови теми във форума и последни статии."
+        title="Табло на треньора"
+        subtitle="Днес: извинения, график, тимови листове и бързи действия. Съдържание и статистика — в съседните раздели."
         actions={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button as={Link} to="/coach-board">
@@ -218,9 +274,13 @@ export default function Home() {
         }}
       >
         {[
-          { id: "today", label: "Днес", badge: activityItems.length || null },
+          {
+            id: "today",
+            label: "Днес",
+            badge: rosterAlerts.length || absenceNotices.length || null,
+          },
           { id: "content", label: "Съдържание", badge: null },
-          { id: "stats", label: "Статистика", badge: monthlyFeesEnabled ? feesSummary.unpaid || null : null },
+          { id: "stats", label: "Статистика", badge: null },
         ].map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -260,7 +320,7 @@ export default function Home() {
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#fff",
-                    background: tab.id === "stats" ? "#dc2626" : "#0f766e",
+                    background: "#0f766e",
                   }}
                 >
                   {tab.badge}
@@ -276,10 +336,61 @@ export default function Home() {
       ) : null}
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      {activeTab === "today" && absenceNotices.length > 0 ? (
+        <Card title={`Извинения (${absenceNotices.length})`}>
+          <div style={{ display: "grid", gap: 8 }}>
+            {visibleAbsences.map((n) => (
+              <Link
+                key={n.id}
+                to={
+                  n.team_id
+                    ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}`
+                    : "/coach/teams"
+                }
+                style={{ ...cardLinkStyle, display: "block", background: "#fffbeb", borderColor: "#fcd34d" }}
+              >
+                <div style={{ fontWeight: 700, color: "#92400e" }}>{n.athlete_name}</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
+                  {n.end_date && n.end_date !== n.notice_date
+                    ? `${n.notice_date} – ${n.end_date}`
+                    : n.notice_date}
+                  {n.team_name ? ` · ${n.team_name}` : ""}
+                  {n.note ? ` (${n.note})` : ""}
+                </div>
+              </Link>
+            ))}
+            {absenceNotices.length > ABSENCE_PREVIEW_LIMIT ? (
+              <Button type="button" size="sm" variant="secondary" onClick={() => setAbsencesExpanded((v) => !v)}>
+                {absencesExpanded ? "Свий" : `Виж всички (${absenceNotices.length})`}
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
+      {activeTab === "today" && programWeek ? (
+        <Card title="Програмна седмица">
+          <Link to="/coach/program-week" style={{ ...cardLinkStyle, display: "block" }}>
+            <div style={{ fontWeight: 800, color: "#1e40af" }}>
+              Мезо {programWeek.meso_index}/{programWeek.total_mesos}
+              {programWeek.week_theme
+                ? ` · ${programWeek.week_theme}`
+                : programWeek.meso_theme
+                  ? ` · ${programWeek.meso_theme}`
+                  : ""}
+            </div>
+            <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
+              {programWeek.team_name ? `${programWeek.team_name} · ` : ""}
+              Седмица {programWeek.week_in_meso} от {programWeek.weeks_per_meso} · виж програмата →
+            </div>
+          </Link>
+        </Card>
+      ) : null}
+
       {activeTab === "today" && rosterAlerts.length > 0 ? (
         <Card title={`Състезания — действие (${rosterAlerts.length})`}>
           <div style={{ display: "grid", gap: 8 }}>
-            {rosterAlerts.map((alert) => (
+            {visibleRosterAlerts.map((alert) => (
               <Link
                 key={alert.id}
                 to={alert.to}
@@ -298,6 +409,11 @@ export default function Home() {
                 ) : null}
               </Link>
             ))}
+            {rosterAlerts.length > ROSTER_PREVIEW_LIMIT ? (
+              <Button type="button" size="sm" variant="secondary" onClick={() => setRosterExpanded((v) => !v)}>
+                {rosterExpanded ? "Свий" : `Виж всички (${rosterAlerts.length})`}
+              </Button>
+            ) : null}
           </div>
         </Card>
       ) : null}
@@ -312,7 +428,7 @@ export default function Home() {
       >
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
-        ) : scheduleItems.length === 0 ? (
+        ) : sortedSchedule.length === 0 ? (
           <EmptyState
             title="Няма планирани тренировки"
             description={
@@ -323,7 +439,7 @@ export default function Home() {
           />
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {scheduleItems
+            {sortedSchedule
               .filter((it) => {
                 const horizon = new Date();
                 horizon.setDate(horizon.getDate() + 6);
@@ -335,10 +451,33 @@ export default function Home() {
               const tc = teamColorsForId(it.team_id);
               const rosterAction = isComp ? competitionRosterAction(it) : null;
               const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
-              const row = (
-                <>
+              const loc = it.location ? formatVenueLocation(it.location) : "";
+              const key = isComp
+                ? `comp-${it.competition_id}-${it.date}-${idx}`
+                : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
+              return (
+                <div
+                  key={key}
+                  className="coachDashScheduleCard"
+                  style={{
+                    ...cardLinkStyle,
+                    display: "grid",
+                    gap: 8,
+                    background: isComp
+                      ? rosterAction === "generate"
+                        ? "#fef2f2"
+                        : "#fffbeb"
+                      : "#fff",
+                    borderColor: isComp
+                      ? rosterAction === "generate"
+                        ? "#fecaca"
+                        : "#fcd34d"
+                      : "#e2e8f0",
+                    overflow: "hidden",
+                  }}
+                >
                   <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
-                  <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
                     <span
                       style={{
                         fontWeight: 800,
@@ -352,47 +491,32 @@ export default function Home() {
                     </span>
                     <span style={{ color: "#64748b", fontSize: 13 }}>
                       {isComp && it.team_name ? `${it.team_name} · ` : ""}
-                      {it.location ? `· ${it.location}` : ""}
+                      {loc ? `· ${loc}` : ""}
                     </span>
                   </div>
-                  {rosterAction === "generate" ? (
-                    <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#991b1b" }}>
-                      Генерирай тимов лист →
-                    </div>
+                  {!isComp && it.team_id ? (
+                    <Button as={Link} to={dashboardScheduleAttendanceTo(it)} size="sm">
+                      Провери присъствие
+                    </Button>
                   ) : null}
-                  {rosterAction === "review" ? (
-                    <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#92400e" }}>
-                      Провери тимовия лист →
-                    </div>
+                  {isComp && it.competition_id ? (
+                    <Button
+                      as={Link}
+                      to={competitionRosterPath(it.competition_id)}
+                      size="sm"
+                      variant={rosterAction === "generate" ? undefined : "secondary"}
+                    >
+                      {rosterAction === "generate"
+                        ? "Генерирай тимов лист"
+                        : rosterAction === "review"
+                          ? `Провери тимовия лист${it.roster_count != null ? ` (${it.roster_count})` : ""}`
+                          : "Тимов лист"}
+                    </Button>
                   ) : null}
-                </>
-              );
-              const key = isComp
-                ? `comp-${it.competition_id}-${it.date}-${idx}`
-                : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
-              if (isComp) {
-                return (
-                  <Link
-                    key={key}
-                    to={competitionRosterPath(it.competition_id)}
-                    style={{
-                      ...cardLinkStyle,
-                      display: "block",
-                      background: rosterAction === "generate" ? "#fef2f2" : "#fffbeb",
-                      borderColor: rosterAction === "generate" ? "#fecaca" : "#fcd34d",
-                    }}
-                  >
-                    {row}
-                  </Link>
-                );
-              }
-              return (
-                <Link key={key} to={dashboardScheduleAttendanceTo(it)} style={{ ...cardLinkStyle, display: "block" }}>
-                  {row}
-                </Link>
+                </div>
               );
             })}
-            {scheduleItems.length > 8 && (
+            {sortedSchedule.length > 8 && (
               <Link to="/coach/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
                 + още в пълния график →
               </Link>
@@ -501,28 +625,26 @@ export default function Home() {
       >
         {loading ? (
           <p style={{ marginTop: 10 }}>Зареждане...</p>
-        ) : activityItems.length === 0 ? (
+        ) : feedNotifications.length === 0 ? (
           <EmptyState title="Няма нови известия" description="Ще виждаш тук форум активност и промени по статии/упражнения." />
         ) : (
           <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
-            {activityItems.map((item) => {
-              const isAbsence = item.kind === "absence";
-              return (
-                <Link
-                  key={item.id}
-                  to={item.to}
-                  style={{
-                    border: `1px solid ${isAbsence ? "#fcd34d" : "#e2e8f0"}`,
-                    borderRadius: 10,
-                    padding: 10,
-                    background: isAbsence ? "#fffbeb" : undefined,
-                  }}
-                >
-                  <div style={{ fontWeight: 700, color: isAbsence ? "#92400e" : undefined }}>{item.text}</div>
-                  <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
-                </Link>
-              );
-            })}
+            {feedNotifications.map((item) => (
+              <Link
+                key={item.id}
+                to={item.to}
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 10,
+                  padding: 10,
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{item.text}</div>
+                <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
+              </Link>
+            ))}
           </div>
         )}
       </Card>
@@ -671,7 +793,10 @@ export default function Home() {
                 <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
                   {feeOverdue.late10.map((a) => (
                     <li key={`l10-${a.athlete_id}`}>
-                      <strong>{a.athlete_name}</strong>{" "}
+                      <strong>{a.athlete_name}</strong>
+                      {a.team_name ? (
+                        <span style={{ color: "#64748b", fontSize: 13 }}> · {a.team_name}</span>
+                      ) : null}{" "}
                       <span className="uiBadge uiBadge--warning">{a.days_overdue} дни</span>
                     </li>
                   ))}
@@ -683,14 +808,30 @@ export default function Home() {
               {feeOverdue.overTwo.length === 0 ? (
                 <p style={{ color: "#64748b", margin: 0 }}>Няма</p>
               ) : (
+                <>
                 <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                  {feeOverdue.overTwo.map((a) => (
+                  {visibleOverdue.map((a) => (
                     <li key={`o2-${a.athlete_id}`}>
-                      <strong>{a.athlete_name}</strong>{" "}
+                      <strong>{a.athlete_name}</strong>
+                      {a.team_name ? (
+                        <span style={{ color: "#64748b", fontSize: 13 }}> · {a.team_name}</span>
+                      ) : null}{" "}
                       <span className="uiBadge uiBadge--danger">{a.unpaid_months} такси</span>
                     </li>
                   ))}
                 </ul>
+                {feeOverdue.overTwo.length > OVERDUE_PREVIEW_LIMIT ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setOverdueExpanded((v) => !v)}
+                  >
+                    {overdueExpanded ? "Свий" : `Виж всички (${feeOverdue.overTwo.length})`}
+                  </Button>
+                ) : null}
+                </>
               )}
             </div>
           </div>
@@ -707,7 +848,15 @@ export default function Home() {
       )}
 
       {activeTab === "content" && (
-      <>
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        }}
+        className="coachDashContentBottomRow"
+      >
       <Card
         title="Последни теми във форума"
         actions={
@@ -771,7 +920,7 @@ export default function Home() {
           </div>
         )}
       </Card>
-      </>
+      </div>
       )}
       </div>
     </div>

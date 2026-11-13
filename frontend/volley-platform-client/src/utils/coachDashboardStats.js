@@ -124,17 +124,20 @@ export function feeDaysOverdue(monthKey, now = new Date()) {
  * - закъснели с повече от 10 дни — само текущия месец (падеж = 10-о число)
  * - над 2 неплатени такси — месеци с изтекъл падеж в целия подаден период (обикновено 3 мес.)
  */
-export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
-  const late10 = [];
-  const overTwo = [];
+export function buildFeeOverdueLists(periodRows, { now = new Date(), teamByAthleteId = null } = {}) {
+  const late10Map = new Map();
+  const overTwoMap = new Map();
   const currentMonth = currentMonthKey(now);
 
   for (const row of Array.isArray(periodRows) ? periodRows : []) {
+    const athleteId = Number(row?.athlete_id);
+    if (!Number.isFinite(athleteId)) continue;
+
     const unpaidPastDue = [];
     let currentMonthDays = 0;
 
     for (const m of Array.isArray(row.months) ? row.months : []) {
-      if (!m || m.paid) continue;
+      if (!m || m.paid || m.exempt) continue;
       const days = feeDaysOverdue(m.month_key, now);
       if (days <= 0) continue;
       unpaidPastDue.push({ month_key: m.month_key, days });
@@ -144,29 +147,43 @@ export function buildFeeOverdueLists(periodRows, { now = new Date() } = {}) {
 
     unpaidPastDue.sort((a, b) => b.days - a.days);
 
+    const teams = Array.isArray(row.team_names)
+      ? row.team_names
+      : teamByAthleteId?.get?.(athleteId) || [];
+    const teamLabel = Array.isArray(teams) && teams.length ? String(teams[0] || "") : "";
+
     const entry = {
-      athlete_id: row.athlete_id,
-      athlete_name: row.athlete_name || `Състезател #${row.athlete_id}`,
+      athlete_id: athleteId,
+      athlete_name: row.athlete_name || `Състезател #${athleteId}`,
+      team_name: teamLabel || row.team_name || "",
       unpaid_months: unpaidPastDue.length,
       days_overdue: currentMonthDays || unpaidPastDue[0].days,
       worst_month: currentMonthDays ? currentMonth : unpaidPastDue[0].month_key,
     };
 
     if (currentMonthDays > 10) {
-      late10.push({
-        ...entry,
-        days_overdue: currentMonthDays,
-        worst_month: currentMonth,
-      });
+      const prev = late10Map.get(athleteId);
+      if (!prev || entry.days_overdue > prev.days_overdue) {
+        late10Map.set(athleteId, {
+          ...entry,
+          days_overdue: currentMonthDays,
+          worst_month: currentMonth,
+        });
+      }
     }
-    if (unpaidPastDue.length > 2) overTwo.push(entry);
+    if (unpaidPastDue.length > 2) {
+      const prev = overTwoMap.get(athleteId);
+      if (!prev || entry.unpaid_months > prev.unpaid_months) {
+        overTwoMap.set(athleteId, entry);
+      }
+    }
   }
 
   const byDaysDesc = (a, b) => b.days_overdue - a.days_overdue || String(a.athlete_name).localeCompare(String(b.athlete_name), "bg");
   const byUnpaidDesc = (a, b) => b.unpaid_months - a.unpaid_months || byDaysDesc(a, b);
 
-  late10.sort(byDaysDesc);
-  overTwo.sort(byUnpaidDesc);
+  const late10 = Array.from(late10Map.values()).sort(byDaysDesc);
+  const overTwo = Array.from(overTwoMap.values()).sort(byUnpaidDesc);
 
   return { late10, overTwo };
 }
