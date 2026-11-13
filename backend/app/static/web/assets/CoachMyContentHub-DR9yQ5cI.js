@@ -1,0 +1,1 @@
+import{j as n,am as t}from"./index-BP2swqo3.js";import{C as o,M as e,a as s}from"./CoachMenuParts-tywk1-Zr.js";function i(){return n.jsx(o,{title:"Моето съдържание",subtitle:"Лични упражнения и статии на едно място",children:n.jsx(e,{title:"Моето",children:t.map(a=>n.jsx(s,{to:a.to,label:a.label,hint:a.hint,accent:a.accent,icon:a.icon},a.id))})})}export{i as default};
