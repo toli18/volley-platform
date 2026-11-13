@@ -354,207 +354,241 @@ export default function Home() {
         <p style={{ marginBottom: 12, color: "#64748b" }}>Зареждане на раздела...</p>
       ) : null}
 
-      <div className="coachDashGrid">
-      {activeTab === "today" && absenceNotices.length > 0 ? (
-        <Card
-          title={`Извинения (${absenceNotices.length})`}
-          icon={<NavIconClipboardCheck size={18} />}
-        >
-          <div style={{ display: "grid", gap: 8 }}>
-            {visibleAbsences.map((n) => (
-              <Link
-                key={n.id}
-                to={
-                  n.team_id
-                    ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}`
-                    : "/coach/teams"
-                }
-                className="coachDashInteractive"
-                style={{ display: "block", background: "#fffbeb", borderColor: "#fcd34d" }}
-              >
-                <div style={{ fontWeight: 700, color: "#92400e" }}>{n.athlete_name}</div>
-                <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
-                  {n.end_date && n.end_date !== n.notice_date
-                    ? `${n.notice_date} – ${n.end_date}`
-                    : n.notice_date}
-                  {n.team_name ? ` · ${n.team_name}` : ""}
-                  {n.note ? ` (${n.note})` : ""}
-                </div>
-              </Link>
-            ))}
-            {absenceNotices.length > ABSENCE_PREVIEW_LIMIT ? (
-              <Button type="button" size="sm" variant="secondary" onClick={() => setAbsencesExpanded((v) => !v)}>
-                {absencesExpanded ? "Свий" : `Виж всички (${absenceNotices.length})`}
-              </Button>
-            ) : null}
-          </div>
-        </Card>
-      ) : null}
-
-      {activeTab === "today" && programWeek ? (
-        <Card title="Програмна седмица" icon={<NavIconTraining size={18} />}>
-          <Link to="/coach/program-week" className="coachDashInteractive" style={{ display: "block" }}>
-            <div style={{ fontWeight: 800, color: "#1e40af" }}>
-              Мезо {programWeek.meso_index}/{programWeek.total_mesos}
-              {programWeek.week_theme
-                ? ` · ${programWeek.week_theme}`
-                : programWeek.meso_theme
-                  ? ` · ${programWeek.meso_theme}`
-                  : ""}
-            </div>
-            <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
-              {programWeek.team_name ? `${programWeek.team_name} · ` : ""}
-              Седмица {programWeek.week_in_meso} от {programWeek.weeks_per_meso} · виж програмата →
-            </div>
-          </Link>
-        </Card>
-      ) : null}
-
-      {activeTab === "today" && rosterAlerts.length > 0 ? (
-        <Card
-          title={`Състезания - действие (${rosterAlerts.length})`}
-          icon={<NavIconTarget size={18} />}
-        >
-          <div style={{ display: "grid", gap: 8 }}>
-            {visibleRosterAlerts.map((alert) => (
-              <Link
-                key={alert.id}
-                to={alert.to}
-                className="coachDashInteractive"
-                style={{
-                  display: "block",
-                  background: alert.tone === "danger" ? "#fef2f2" : "#fffbeb",
-                  borderColor: alert.tone === "danger" ? "#fecaca" : "#fcd34d",
-                }}
-              >
-                <div style={{ fontWeight: 700, color: alert.tone === "danger" ? "#991b1b" : "#92400e" }}>
-                  {alert.text}
-                </div>
-                {alert.meta ? (
-                  <div style={{ marginTop: 4, fontSize: 12, color: "#64748b", lineHeight: 1.35 }}>
-                    {alert.meta}
-                  </div>
+      {activeTab === "today" ? (
+      <div className="coachDashTodayLayout">
+        <div className="coachDashTodayCol">
+          {absenceNotices.length > 0 ? (
+            <Card
+              title={`Извинения (${absenceNotices.length})`}
+              icon={<NavIconClipboardCheck size={18} />}
+            >
+              <div style={{ display: "grid", gap: 8 }}>
+                {visibleAbsences.map((n) => (
+                  <Link
+                    key={n.id}
+                    to={
+                      n.team_id
+                        ? `/teams/${n.team_id}/attendance?date=${encodeURIComponent(n.notice_date)}`
+                        : "/coach/teams"
+                    }
+                    className="coachDashInteractive"
+                    style={{ display: "block", background: "#fffbeb", borderColor: "#fcd34d" }}
+                  >
+                    <div style={{ fontWeight: 700, color: "#92400e" }}>{n.athlete_name}</div>
+                    <div style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
+                      {n.end_date && n.end_date !== n.notice_date
+                        ? `${n.notice_date} – ${n.end_date}`
+                        : n.notice_date}
+                      {n.team_name ? ` · ${n.team_name}` : ""}
+                      {n.note ? ` (${n.note})` : ""}
+                    </div>
+                  </Link>
+                ))}
+                {absenceNotices.length > ABSENCE_PREVIEW_LIMIT ? (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setAbsencesExpanded((v) => !v)}>
+                    {absencesExpanded ? "Свий" : `Виж всички (${absenceNotices.length})`}
+                  </Button>
                 ) : null}
-              </Link>
-            ))}
-            {rosterAlerts.length > ROSTER_PREVIEW_LIMIT ? (
-              <Button type="button" size="sm" variant="secondary" onClick={() => setRosterExpanded((v) => !v)}>
-                {rosterExpanded ? "Свий" : `Виж всички (${rosterAlerts.length})`}
+              </div>
+            </Card>
+          ) : null}
+
+          <Card
+            title="Последни известия"
+            icon={<NavIconBell size={18} />}
+            actions={
+              <Button as={Link} to="/forum" variant="secondary" size="sm">
+                Форум
               </Button>
-            ) : null}
-          </div>
-        </Card>
-      ) : null}
-      {activeTab === "today" && (
-      <Card
-        title="График за следващите 7 дни"
-        icon={<NavIconCalendar size={18} />}
-        actions={
-          <Button as={Link} to="/coach/schedule" variant="secondary" size="sm">
-            Пълен график
-          </Button>
-        }
-      >
-        {loading ? (
-          <p style={{ marginTop: 10 }}>Зареждане...</p>
-        ) : sortedSchedule.length === 0 ? (
-          <EmptyState
-            title="Няма планирани тренировки"
-            description={
-              isHeadCoach
-                ? "Няма записи в графика на клуба за следващите 7 дни."
-                : "Няма записи в графика за теб за следващите 7 дни. Провери пълния график на клуба от бутона по-горе."
             }
-          />
-        ) : (
-          <div style={{ display: "grid", gap: 8 }}>
-            {sortedSchedule
-              .filter((it) => {
-                const horizon = new Date();
-                horizon.setDate(horizon.getDate() + 6);
-                return String(it.date) <= horizon.toISOString().slice(0, 10);
-              })
-              .slice(0, 8)
-              .map((it, idx) => {
-              const isComp = isCompetitionEvent(it);
-              const tc = teamColorsForId(it.team_id);
-              const rosterAction = isComp ? competitionRosterAction(it) : null;
-              const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
-              const loc = it.location ? formatVenueLocation(it.location) : "";
-              const key = isComp
-                ? `comp-${it.competition_id}-${it.date}-${idx}`
-                : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
-              return (
-                <div
-                  key={key}
-                  className="coachDashScheduleCard coachDashInteractive"
-                  style={{
-                    display: "grid",
-                    gap: 8,
-                    background: isComp
-                      ? rosterAction === "generate"
-                        ? "#fef2f2"
-                        : "#fffbeb"
-                      : "#fff",
-                    borderColor: isComp
-                      ? rosterAction === "generate"
-                        ? "#fecaca"
-                        : "#fcd34d"
-                      : "#e2e8f0",
-                    overflow: "hidden",
-                    cursor: "default",
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
-                    <span
+          >
+            {loading ? (
+              <p style={{ marginTop: 10 }}>Зареждане...</p>
+            ) : feedNotifications.length === 0 ? (
+              <EmptyState title="Няма нови известия" description="Ще виждаш тук форум активност и промени по статии/упражнения." />
+            ) : (
+              <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+                {feedNotifications.map((item) => (
+                  <Link key={item.id} to={item.to} className="coachDashInteractive">
+                    <div style={{ fontWeight: 700 }}>{item.text}</div>
+                    <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="coachDashTodayCol">
+          {programWeek ? (
+            <Card title="Програмна седмица" icon={<NavIconTraining size={18} />}>
+              <Link to="/coach/program-week" className="coachDashInteractive" style={{ display: "block" }}>
+                <div style={{ fontWeight: 800, color: "#1e40af" }}>
+                  Мезо {programWeek.meso_index}/{programWeek.total_mesos}
+                  {programWeek.week_theme
+                    ? ` · ${programWeek.week_theme}`
+                    : programWeek.meso_theme
+                      ? ` · ${programWeek.meso_theme}`
+                      : ""}
+                </div>
+                <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
+                  {programWeek.team_name ? `${programWeek.team_name} · ` : ""}
+                  Седмица {programWeek.week_in_meso} от {programWeek.weeks_per_meso} · виж програмата →
+                </div>
+              </Link>
+            </Card>
+          ) : null}
+
+          {rosterAlerts.length > 0 ? (
+            <Card
+              title={`Състезания - действие (${rosterAlerts.length})`}
+              icon={<NavIconTarget size={18} />}
+            >
+              <div style={{ display: "grid", gap: 8 }}>
+                {visibleRosterAlerts.map((alert) => (
+                  <Link
+                    key={alert.id}
+                    to={alert.to}
+                    className="coachDashInteractive"
+                    style={{
+                      display: "block",
+                      background: alert.tone === "danger" ? "#fef2f2" : "#fffbeb",
+                      borderColor: alert.tone === "danger" ? "#fecaca" : "#fcd34d",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: alert.tone === "danger" ? "#991b1b" : "#92400e" }}>
+                      {alert.text}
+                    </div>
+                    {alert.meta ? (
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#64748b", lineHeight: 1.35 }}>
+                        {alert.meta}
+                      </div>
+                    ) : null}
+                  </Link>
+                ))}
+                {rosterAlerts.length > ROSTER_PREVIEW_LIMIT ? (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setRosterExpanded((v) => !v)}>
+                    {rosterExpanded ? "Свий" : `Виж всички (${rosterAlerts.length})`}
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+
+        <div className="coachDashTodayCol">
+          <Card
+            title="График за следващите 7 дни"
+            icon={<NavIconCalendar size={18} />}
+            actions={
+              <Button as={Link} to="/coach/schedule" variant="secondary" size="sm">
+                Пълен график
+              </Button>
+            }
+          >
+            {loading ? (
+              <p style={{ marginTop: 10 }}>Зареждане...</p>
+            ) : sortedSchedule.length === 0 ? (
+              <EmptyState
+                title="Няма планирани тренировки"
+                description={
+                  isHeadCoach
+                    ? "Няма записи в графика на клуба за следващите 7 дни."
+                    : "Няма записи в графика за теб за следващите 7 дни. Провери пълния график на клуба от бутона по-горе."
+                }
+              />
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {sortedSchedule
+                  .filter((it) => {
+                    const horizon = new Date();
+                    horizon.setDate(horizon.getDate() + 6);
+                    return String(it.date) <= horizon.toISOString().slice(0, 10);
+                  })
+                  .slice(0, 8)
+                  .map((it, idx) => {
+                  const isComp = isCompetitionEvent(it);
+                  const tc = teamColorsForId(it.team_id);
+                  const rosterAction = isComp ? competitionRosterAction(it) : null;
+                  const teamLabel = isComp ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`;
+                  const loc = it.location ? formatVenueLocation(it.location) : "";
+                  const key = isComp
+                    ? `comp-${it.competition_id}-${it.date}-${idx}`
+                    : `rule-${it.rule_id}-${it.date}-${it.start_time}-${idx}`;
+                  return (
+                    <div
+                      key={key}
+                      className="coachDashScheduleCard coachDashInteractive"
                       style={{
-                        fontWeight: 800,
-                        fontSize: 16,
-                        color: isComp ? (rosterAction === "generate" ? "#991b1b" : "#9a3412") : tc.text,
-                        borderLeft: `3px solid ${isComp ? (rosterAction === "generate" ? "#dc2626" : "#f59e0b") : tc.border}`,
-                        paddingLeft: 8,
+                        display: "grid",
+                        gap: 8,
+                        background: isComp
+                          ? rosterAction === "generate"
+                            ? "#fef2f2"
+                            : "#fffbeb"
+                          : "#fff",
+                        borderColor: isComp
+                          ? rosterAction === "generate"
+                            ? "#fecaca"
+                            : "#fcd34d"
+                          : "#e2e8f0",
+                        overflow: "hidden",
+                        cursor: "default",
                       }}
                     >
-                      {teamLabel}
-                    </span>
-                    <span style={{ color: "#64748b", fontSize: 13 }}>
-                      {isComp && it.team_name ? `${it.team_name} · ` : ""}
-                      {loc ? `· ${loc}` : ""}
-                    </span>
-                  </div>
-                  {!isComp && it.team_id ? (
-                    <Button as={Link} to={dashboardScheduleAttendanceTo(it)} size="sm">
-                      Провери присъствие
-                    </Button>
-                  ) : null}
-                  {isComp && it.competition_id ? (
-                    <Button
-                      as={Link}
-                      to={competitionRosterPath(it.competition_id)}
-                      size="sm"
-                      variant={rosterAction === "generate" ? undefined : "secondary"}
-                    >
-                      {rosterAction === "generate"
-                        ? "Генерирай тимов лист"
-                        : rosterAction === "review"
-                          ? `Провери тимовия лист${it.roster_count != null ? ` (${it.roster_count})` : ""}`
-                          : "Тимов лист"}
-                    </Button>
-                  ) : null}
-                </div>
-              );
-            })}
-            {sortedSchedule.length > 8 && (
-              <Link to="/coach/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                + още в пълния график →
-              </Link>
+                      <div style={{ fontWeight: 700 }}>{it.date} · {it.start_time}–{it.end_time}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 8px", lineHeight: 1.4 }}>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: 16,
+                            color: isComp ? (rosterAction === "generate" ? "#991b1b" : "#9a3412") : tc.text,
+                            borderLeft: `3px solid ${isComp ? (rosterAction === "generate" ? "#dc2626" : "#f59e0b") : tc.border}`,
+                            paddingLeft: 8,
+                          }}
+                        >
+                          {teamLabel}
+                        </span>
+                        <span style={{ color: "#64748b", fontSize: 13 }}>
+                          {isComp && it.team_name ? `${it.team_name} · ` : ""}
+                          {loc ? `· ${loc}` : ""}
+                        </span>
+                      </div>
+                      {!isComp && it.team_id ? (
+                        <Button as={Link} to={dashboardScheduleAttendanceTo(it)} size="sm">
+                          Провери присъствие
+                        </Button>
+                      ) : null}
+                      {isComp && it.competition_id ? (
+                        <Button
+                          as={Link}
+                          to={competitionRosterPath(it.competition_id)}
+                          size="sm"
+                          variant={rosterAction === "generate" ? undefined : "secondary"}
+                        >
+                          {rosterAction === "generate"
+                            ? "Генерирай тимов лист"
+                            : rosterAction === "review"
+                              ? `Провери тимовия лист${it.roster_count != null ? ` (${it.roster_count})` : ""}`
+                              : "Тимов лист"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {sortedSchedule.length > 8 && (
+                  <Link to="/coach/schedule" style={{ marginTop: 2, color: "#0f766e", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                    + още в пълния график →
+                  </Link>
+                )}
+              </div>
             )}
-          </div>
-        )}
-      </Card>
-      )}
+          </Card>
+        </div>
+      </div>
+      ) : null}
 
+      <div className="coachDashGrid">
       {activeTab === "content" && (
       <>
       <Card
@@ -652,38 +686,6 @@ export default function Home() {
         )}
       </Card>
       </>
-      )}
-
-      {activeTab === "today" && (
-      <Card
-        title="Последни известия"
-        icon={<NavIconBell size={18} />}
-        actions={
-          <Button as={Link} to="/forum" variant="secondary" size="sm">
-            Форум
-          </Button>
-        }
-      >
-        {loading ? (
-          <p style={{ marginTop: 10 }}>Зареждане...</p>
-        ) : feedNotifications.length === 0 ? (
-          <EmptyState title="Няма нови известия" description="Ще виждаш тук форум активност и промени по статии/упражнения." />
-        ) : (
-          <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
-            {feedNotifications.map((item) => (
-              <Link
-                key={item.id}
-                to={item.to}
-                className="coachDashInteractive"
-              >
-                <div style={{ fontWeight: 700 }}>{item.text}</div>
-                <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>{formatDate(item.at)}</div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Card>
-
       )}
 
       {activeTab === "stats" && (

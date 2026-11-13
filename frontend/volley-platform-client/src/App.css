@@ -7661,6 +7661,26 @@
   align-items: start;
 }
 
+.coachDashTodayLayout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.coachDashTodayCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .coachDashTodayLayout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .coachDashInteractive {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
