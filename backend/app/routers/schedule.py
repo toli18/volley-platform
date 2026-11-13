@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,6 +12,7 @@ from app.competition_kinds import competition_kind_label, is_valid_competition_k
 from app.models import (
     Athlete,
     ClubCompetitionEvent,
+    CompetitionRosterAthlete,
     Team,
     TeamMember,
     TrainingScheduleException,
@@ -678,6 +680,18 @@ def _validate_competition_times(start_time: str, end_time: str) -> None:
         raise HTTPException(status_code=422, detail="end_time must be after start_time")
 
 
+def _competition_roster_counts(db: Session, event_ids: list[int]) -> dict[int, int]:
+    if not event_ids:
+        return {}
+    rows = (
+        db.query(CompetitionRosterAthlete.competition_id, func.count())
+        .filter(CompetitionRosterAthlete.competition_id.in_(event_ids))
+        .group_by(CompetitionRosterAthlete.competition_id)
+        .all()
+    )
+    return {int(cid): int(cnt) for cid, cnt in rows}
+
+
 def _competition_to_read(
     db: Session,
     event: ClubCompetitionEvent,
@@ -807,7 +821,45 @@ def list_competition_events(
     comp_ids = [int(o.competition_id) for o in occ if o.competition_id]
     events = db.query(ClubCompetitionEvent).filter(ClubCompetitionEvent.id.in_(comp_ids)).all()
     by_id = {int(e.id): e for e in events}
-    out = [_competition_to_read(db, by_id[cid], current_user=current_user) for cid in comp_ids if cid in by_id]
+    # Preserve occurrence order; skip duplicate competition ids.
+    seen_ids: set[int] = set()
+    ordered_events: list[ClubCompetitionEvent] = []
+    for cid in comp_ids:
+        if cid in seen_ids or cid not in by_id:
+            continue
+        seen_ids.add(cid)
+        ordered_events.append(by_id[cid])
+
+    # Prefer one row per RIS game (keep richest roster / confirmed sheet).
+    roster_counts = _competition_roster_counts(db, [int(e.id) for e in ordered_events])
+
+    def _ris_rank(ev: ClubCompetitionEvent) -> tuple:
+        status = str(getattr(ev, "roster_status", "") or "").lower()
+        ready = 1 if status in ("confirmed", "locked") or bool(getattr(ev, "roster_locked", False)) else 0
+        result = (
+            1
+            if getattr(ev, "result_our_sets", None) is not None
+            and getattr(ev, "result_opp_sets", None) is not None
+            else 0
+        )
+        return (ready, result, int(roster_counts.get(int(ev.id), 0)), -int(ev.id))
+
+    best_by_ris: dict[int, ClubCompetitionEvent] = {}
+    no_ris: list[ClubCompetitionEvent] = []
+    for ev in ordered_events:
+        gid = getattr(ev, "ris_game_id", None)
+        if gid is None:
+            no_ris.append(ev)
+            continue
+        prev = best_by_ris.get(int(gid))
+        if prev is None or _ris_rank(ev) > _ris_rank(prev):
+            best_by_ris[int(gid)] = ev
+    keep_ids = {int(e.id) for e in best_by_ris.values()} | {int(e.id) for e in no_ris}
+    out = [
+        _competition_to_read(db, ev, current_user=current_user)
+        for ev in ordered_events
+        if int(ev.id) in keep_ids
+    ]
     if needs_roster:
         out = [r for r in out if r.needs_roster or r.roster_status == "pending"]
     return out

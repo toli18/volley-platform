@@ -120,10 +120,16 @@ function competitionCardTone(row, today = todayKey()) {
 function competitionCardTitle(row) {
   const team = row.carded_team_label || row.team_name || `Група #${row.team_id}`;
   const opp = row.opponent_name ? `vs ${row.opponent_name}` : "без противник";
-  if (hasReportedResult(row)) {
-    return `${team} ${row.result_our_sets}:${row.result_opp_sets} ${opp}`;
-  }
   return `${team} ${opp}`;
+}
+
+function resultBadgeTone(row) {
+  if (!hasReportedResult(row)) return null;
+  const our = Number(row.result_our_sets);
+  const opp = Number(row.result_opp_sets);
+  if (our > opp) return "win";
+  if (our < opp) return "loss";
+  return "draw";
 }
 
 function competitionCardMeta(row) {
@@ -157,6 +163,46 @@ function sortCompetitionsChrono(list, { descending = false } = {}) {
     return Number(a?.id || 0) - Number(b?.id || 0);
   });
   return rows;
+}
+
+function competitionDedupeKey(row) {
+  if (row?.ris_game_id != null && row.ris_game_id !== "") {
+    return `ris:${row.ris_game_id}`;
+  }
+  const date = String(row?.date || "").trim();
+  const start = String(row?.start_time || "").trim();
+  const opp = String(row?.opponent_name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  const card =
+    row?.card_index_id != null
+      ? `ci:${row.card_index_id}`
+      : `age:${String(row?.carded_team_label || "")
+          .trim()
+          .toLowerCase()}`;
+  return `fx:${date}|${start}|${opp}|${card}`;
+}
+
+function competitionDedupeScore(row) {
+  const roster = Number(row?.roster_selected_count || 0);
+  const ready = hasRosterSheet(row) ? 1000 : 0;
+  const result = hasReportedResult(row) ? 500 : 0;
+  // Prefer richer roster / confirmed sheet; stable tie-break by lower id.
+  return ready + result + roster * 10 - Number(row?.id || 0) / 1e9;
+}
+
+/** Collapse duplicate fixtures (same RIS game or same date/time/opponent/card). */
+function dedupeCompetitionRows(list) {
+  const best = new Map();
+  for (const row of list || []) {
+    const key = competitionDedupeKey(row);
+    const prev = best.get(key);
+    if (!prev || competitionDedupeScore(row) > competitionDedupeScore(prev)) {
+      best.set(key, row);
+    }
+  }
+  return [...best.values()];
 }
 
 export default function CoachCompetitions() {
@@ -231,9 +277,11 @@ export default function CoachCompetitions() {
     return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, "bg"));
   }, [teams, rows]);
 
+  const uniqueRows = useMemo(() => dedupeCompetitionRows(rows), [rows]);
+
   const visibleRows = useMemo(() => {
     const opt = teamFilterOptions.find((o) => o.value === teamFilter);
-    const list = (rows || []).filter((row) => {
+    const list = uniqueRows.filter((row) => {
       const past = isPastCompetition(row, today);
       if (listTab === "upcoming" && past) return false;
       if (listTab === "past" && !past) return false;
@@ -245,17 +293,17 @@ export default function CoachCompetitions() {
       return true;
     });
     return sortCompetitionsChrono(list, { descending: listTab === "past" });
-  }, [rows, listTab, teamFilter, teamFilterOptions, today]);
+  }, [uniqueRows, listTab, teamFilter, teamFilterOptions, today]);
 
   const tabCounts = useMemo(() => {
     let upcoming = 0;
     let past = 0;
-    for (const row of rows || []) {
+    for (const row of uniqueRows) {
       if (isPastCompetition(row, today)) past += 1;
       else upcoming += 1;
     }
     return { upcoming, past };
-  }, [rows, today]);
+  }, [uniqueRows, today]);
 
   const applyPreset = (presetId) => {
     setPeriodPreset(presetId);
@@ -717,10 +765,22 @@ export default function CoachCompetitions() {
             },
           ].filter(Boolean);
 
+          const badgeTone = resultBadgeTone(row);
+
           return (
             <li key={row.id} className={`compListCard compListCard--${tone}`}>
               <div className="compListCardBody">
-                <div className="compListCardTitle">{competitionCardTitle(row)}</div>
+                <div className="compListCardTitleRow">
+                  <div className="compListCardTitle">{competitionCardTitle(row)}</div>
+                  {badgeTone ? (
+                    <span
+                      className={`compListScoreBadge compListScoreBadge--${badgeTone}`}
+                      title={resultLabel(row) || undefined}
+                    >
+                      {row.result_our_sets}:{row.result_opp_sets}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="compListCardMeta">{competitionCardMeta(row)}</div>
                 <div className="compListCardSub">
                   {[
@@ -731,30 +791,17 @@ export default function CoachCompetitions() {
                       : null,
                     statusLabel(row),
                     rosterCount ? `${rosterCount} в листа` : null,
+                    !badgeTone && isPastCompetition(row, today)
+                      ? row.ris_game_id
+                        ? "Няма резултат от БФВ още"
+                        : "Няма въведен резултат"
+                      : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                {hasReportedResult(row) ? (
-                  <div className="compListCardResult">{resultLabel(row)}</div>
-                ) : isPastCompetition(row, today) ? (
-                  <div className="compListCardResult compListCardResult--missing">
-                    {row.ris_game_id ? "Няма резултат от БФВ още" : "Няма въведен резултат"}
-                  </div>
-                ) : null}
               </div>
               <div className="compListCardActions">
-                <Button
-                  size="sm"
-                  className={
-                    rosterReady ? "compListBtn compListBtn--ready" : "compListBtn compListBtn--missing"
-                  }
-                  onClick={() => openRoster(row)}
-                >
-                  {rosterReady
-                    ? `Тимов лист${rosterCount ? ` (${rosterCount})` : ""}`
-                    : "Генерирай тимов лист"}
-                </Button>
                 <div className="compListCardSecondary">
                   <Button
                     size="sm"
@@ -781,6 +828,19 @@ export default function CoachCompetitions() {
                   ) : null}
                   <OverflowActionSheet label="Още действия" actions={overflowActions} />
                 </div>
+                <Button
+                  size="sm"
+                  className={
+                    rosterReady
+                      ? "compListBtn compListBtn--ready"
+                      : "compListBtn compListBtn--missing"
+                  }
+                  onClick={() => openRoster(row)}
+                >
+                  {rosterReady
+                    ? `Тимов лист${rosterCount ? ` (${rosterCount})` : ""}`
+                    : "Генерирай тимов лист"}
+                </Button>
               </div>
             </li>
           );
