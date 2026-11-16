@@ -176,7 +176,7 @@ def _post_exists(db, title: str) -> ForumPost | None:
     )
 
 
-def _attach_static_files(db, post: ForumPost, user: User, filenames: list[str]) -> None:
+def _attach_static_files(db, post: ForumPost, user: SimpleNamespace, filenames: list[str]) -> None:
     static_base = _static_dir()
     for name in filenames:
         path = static_base / name
@@ -203,48 +203,61 @@ def _attach_static_files(db, post: ForumPost, user: User, filenames: list[str]) 
         )
 
 
+def seed_forum_federation_topics(db, *, dry_run: bool = False) -> int:
+    """Idempotent: create pinned forum topics when static PDFs are present. Returns new topic count."""
+    static_base = _static_dir()
+    if not static_base.is_dir() or not any(static_base.iterdir()):
+        print("ℹ️ Forum materials seed skipped (no static/forum-materials)")
+        return 0
+
+    admin = _find_admin(db)
+    if not admin:
+        print("⚠️ Forum materials seed skipped (no admin user)")
+        return 0
+
+    created = 0
+    for spec in TOPICS:
+        title = spec["title"]
+        existing = _post_exists(db, title)
+        if existing:
+            print(f"exists: [{existing.id}] {title}")
+            if not dry_run:
+                _attach_static_files(db, existing, admin, spec.get("attachments") or [])
+            continue
+        if dry_run:
+            print(f"would create: {title}")
+            created += 1
+            continue
+
+        post = ForumPost(
+            title=title,
+            content=spec["content"].strip(),
+            category=spec.get("category"),
+            tags=_normalize_tags(spec.get("tags")),
+            author_id=admin.id,
+            is_pinned=bool(spec.get("is_pinned")),
+            is_locked=False,
+        )
+        db.add(post)
+        db.commit()
+        db.refresh(post)
+        db.add(ForumPostSubscription(post_id=post.id, user_id=admin.id))
+        db.commit()
+        _attach_static_files(db, post, admin, spec.get("attachments") or [])
+        print(f"created: [{post.id}] {title}")
+        created += 1
+
+    if created:
+        print(f"✅ Forum federation topics: {created} new (author={admin.email})")
+    else:
+        print("ℹ️ Forum federation topics already up to date")
+    return created
+
+
 def seed_topics(dry_run: bool) -> int:
     db = SessionLocal()
     try:
-        admin = _find_admin(db)
-        if not admin:
-            print("ERROR: no federation_admin or platform_admin user in database")
-            return 1
-
-        created = 0
-        for spec in TOPICS:
-            title = spec["title"]
-            existing = _post_exists(db, title)
-            if existing:
-                print(f"exists: [{existing.id}] {title}")
-                if not dry_run:
-                    _attach_static_files(db, existing, admin, spec.get("attachments") or [])
-                continue
-            if dry_run:
-                print(f"would create: {title}")
-                created += 1
-                continue
-
-            post = ForumPost(
-                title=title,
-                content=spec["content"].strip(),
-                category=spec.get("category"),
-                tags=_normalize_tags(spec.get("tags")),
-                author_id=admin.id,
-                is_pinned=bool(spec.get("is_pinned")),
-                is_locked=False,
-            )
-            db.add(post)
-            db.commit()
-            db.refresh(post)
-            db.add(ForumPostSubscription(post_id=post.id, user_id=admin.id))
-            db.commit()
-            _attach_static_files(db, post, admin, spec.get("attachments") or [])
-            print(f"created: [{post.id}] {title}")
-            created += 1
-
-        print(f"done; new_topics={created}, author={admin.email} ({admin.name})")
-        return 0
+        return seed_forum_federation_topics(db, dry_run=dry_run)
     finally:
         db.close()
 
