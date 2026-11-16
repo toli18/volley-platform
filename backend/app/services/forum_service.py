@@ -264,6 +264,7 @@ def add_post_media(
         ".pptx",
         ".xlsx",
         ".zip",
+        ".rtf",
     }
     if ext not in allowed_ext:
         raise HTTPException(status_code=400, detail="Unsupported file type")
