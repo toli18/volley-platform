@@ -8,7 +8,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
-from app.database import engine
+from app.database import SessionLocal, engine
 from app.settings import settings
 
 
@@ -52,6 +52,20 @@ def main() -> int:
         return 1
 
     print("✅ Alembic upgrade head")
+
+    # Once per deploy (before uvicorn workers): lightweight forum topic seed.
+    db = SessionLocal()
+    try:
+        from app.scripts.seed_forum_federation_materials import seed_forum_federation_topics
+
+        n = seed_forum_federation_topics(db, attach_files=False)
+        print(f"✅ Forum federation topics seed: {n} new")
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        print(f"⚠️ Forum federation topics seed failed: {exc}", file=sys.stderr)
+    finally:
+        db.close()
+
     return 0
 
 

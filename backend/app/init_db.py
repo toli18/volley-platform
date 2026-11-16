@@ -1348,14 +1348,6 @@ def _init_db_impl() -> None:
         # Admin (идемпотентно)
         seed_platform_admin(db)
 
-        try:
-            from app.scripts.seed_forum_federation_materials import seed_forum_federation_topics
-
-            seed_forum_federation_topics(db)
-        except Exception as exc:  # noqa: BLE001
-            db.rollback()
-            print(f"⚠️ Forum federation topics seed skipped: {exc}")
-
         # Clubs seed само ако таблицата е празна
         if not _table_has_rows(db, Club):
             seed_clubs(db)

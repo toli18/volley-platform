@@ -203,7 +203,7 @@ def _attach_static_files(db, post: ForumPost, user: SimpleNamespace, filenames: 
         )
 
 
-def seed_forum_federation_topics(db, *, dry_run: bool = False) -> int:
+def seed_forum_federation_topics(db, *, dry_run: bool = False, attach_files: bool = True) -> int:
     """Idempotent: create pinned forum topics when static PDFs are present. Returns new topic count."""
     static_base = _static_dir()
     if not static_base.is_dir() or not any(static_base.iterdir()):
@@ -221,7 +221,7 @@ def seed_forum_federation_topics(db, *, dry_run: bool = False) -> int:
         existing = _post_exists(db, title)
         if existing:
             print(f"exists: [{existing.id}] {title}")
-            if not dry_run:
+            if not dry_run and attach_files:
                 _attach_static_files(db, existing, admin, spec.get("attachments") or [])
             continue
         if dry_run:
@@ -243,7 +243,8 @@ def seed_forum_federation_topics(db, *, dry_run: bool = False) -> int:
         db.refresh(post)
         db.add(ForumPostSubscription(post_id=post.id, user_id=admin.id))
         db.commit()
-        _attach_static_files(db, post, admin, spec.get("attachments") or [])
+        if attach_files:
+            _attach_static_files(db, post, admin, spec.get("attachments") or [])
         print(f"created: [{post.id}] {title}")
         created += 1
 
@@ -254,16 +255,13 @@ def seed_forum_federation_topics(db, *, dry_run: bool = False) -> int:
     return created
 
 
-def seed_topics(dry_run: bool) -> int:
-    db = SessionLocal()
-    try:
-        return seed_forum_federation_topics(db, dry_run=dry_run)
-    finally:
-        db.close()
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--no-attach",
+        action="store_true",
+        help="Only create posts with /static/forum-materials/ links (no upload copies)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--sources",
@@ -286,7 +284,21 @@ def main() -> int:
             if not args.dry_run:
                 print("WARN: continuing; some downloads may be broken until files are copied")
 
-    return seed_topics(args.dry_run)
+    if args.dry_run:
+        db = SessionLocal()
+        try:
+            return 0 if seed_forum_federation_topics(db, dry_run=True, attach_files=not args.no_attach) >= 0 else 1
+        finally:
+            db.close()
+    return seed_topics_cli(attach_files=not args.no_attach)
+
+
+def seed_topics_cli(*, attach_files: bool) -> int:
+    db = SessionLocal()
+    try:
+        return 0 if seed_forum_federation_topics(db, dry_run=False, attach_files=attach_files) >= 0 else 1
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
