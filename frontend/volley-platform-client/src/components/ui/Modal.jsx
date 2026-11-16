@@ -22,9 +22,19 @@ const FOCUSABLE_SELECTOR = [
  *  - onClose: () => void
  *  - title: string (rendered as the dialog label)
  *  - size: "" | "compact" | "wide"
- *  - dismissable: boolean (default true) — when false, Escape/overlay won't close
+ *  - dismissable: boolean (default true) - when false, Escape/overlay won't close
+ *  - showClose: boolean - optional top-right ✕ when dismissable
  */
-export default function Modal({ open, onClose, title, size = "", dismissable = true, className = "", children }) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  size = "",
+  dismissable = true,
+  showClose = false,
+  className = "",
+  children,
+}) {
   const dialogRef = useRef(null);
   const lastActiveRef = useRef(null);
   const autoId = useId();
@@ -101,10 +111,26 @@ export default function Modal({ open, onClose, title, size = "", dismissable = t
         onClick={(e) => e.stopPropagation()}
         className={cx("uiModal", size === "compact" && "uiModal--compact", size === "wide" && "uiModal--wide", className)}
       >
-        {title ? (
-          <h3 className="uiModalTitle" id={titleId}>
-            {title}
-          </h3>
+        {title || (showClose && dismissable) ? (
+          <div className="uiModalHeader">
+            {title ? (
+              <h3 className="uiModalTitle" id={titleId}>
+                {title}
+              </h3>
+            ) : (
+              <span className="uiModalTitle" id={titleId} />
+            )}
+            {showClose && dismissable ? (
+              <button
+                type="button"
+                className="uiModalClose"
+                aria-label="Затвори"
+                onClick={() => onClose?.()}
+              >
+                ✕
+              </button>
+            ) : null}
+          </div>
         ) : null}
         {children}
       </section>

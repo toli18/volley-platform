@@ -369,8 +369,42 @@
   width: min(520px, 96vw);
 }
 
+.uiModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .uiModalTitle {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.uiModalClose {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  margin: -4px -4px 0 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.uiModalClose:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 .uiModalActions {

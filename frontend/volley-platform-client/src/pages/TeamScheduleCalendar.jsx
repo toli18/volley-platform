@@ -258,6 +258,21 @@ export default function TeamScheduleCalendar() {
   const calendarCells = useMemo(() => buildCalendarCells(monthKey), [monthKey]);
   const selectedDayItems = selectedDate ? (itemsByDate.get(selectedDate) || []) : [];
 
+  const legendTeams = useMemo(() => {
+    const seen = new Map();
+    for (const it of visibleItems) {
+      if (isCompetitionEvent(it) || it.is_cancelled) continue;
+      const tid = Number(it.team_id || 0);
+      if (!tid || seen.has(tid)) continue;
+      seen.set(tid, {
+        id: tid,
+        name: it.team_name || `Отбор #${tid}`,
+        color: teamColorFor(tid),
+      });
+    }
+    return [...seen.values()].slice(0, 8);
+  }, [visibleItems]);
+
   const scheduleListSorted = useMemo(() => {
     return [...visibleItems].sort((a, b) => {
       const c = String(a.date).localeCompare(String(b.date));
@@ -844,7 +859,8 @@ export default function TeamScheduleCalendar() {
       <Modal
         open={Boolean(selectedDate) && calendarView === "grid" && !isCalendarShell}
         onClose={() => setSelectedDate("")}
-        dismissable={!busy}
+        dismissable
+        showClose
         title={formatSelectedDayTitle()}
         className="teamScheduleDayModal"
       >
@@ -896,7 +912,7 @@ export default function TeamScheduleCalendar() {
                       {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
                       {titleCaseLocation(it.location)}
                     </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                    <div className="teamScheduleDayModalEventActions">
                       {renderEventActionRow(it)}
                     </div>
                   </article>
@@ -904,9 +920,6 @@ export default function TeamScheduleCalendar() {
               })}
             </div>
           )}
-          <div className="uiModalActions">
-            <Button variant="secondary" onClick={() => setSelectedDate("")}>Затвори</Button>
-          </div>
         </div>
       </Modal>
 
@@ -1222,9 +1235,25 @@ export default function TeamScheduleCalendar() {
         ) : (
           <div ref={calendarWrapRef} className="teamScheduleCalendarWrap" style={{ display: "grid", gap: 10 }}>
             <div className="teamScheduleLegend" aria-label="Легенда на събитията">
-              <span className="teamScheduleLegendItem">
-                <span className="teamScheduleLegendSwatch is-training" aria-hidden /> Тренировки
-              </span>
+              {legendTeams.length ? (
+                legendTeams.map((t) => (
+                  <span key={t.id} className="teamScheduleLegendItem">
+                    <span
+                      className="teamScheduleLegendSwatch"
+                      style={{
+                        background: t.color.bg,
+                        borderColor: t.color.border,
+                      }}
+                      aria-hidden
+                    />
+                    {t.name}
+                  </span>
+                ))
+              ) : (
+                <span className="teamScheduleLegendItem">
+                  <span className="teamScheduleLegendSwatch is-training" aria-hidden /> Тренировки
+                </span>
+              )}
               <span className="teamScheduleLegendItem">
                 <span className="teamScheduleLegendSwatch is-official" aria-hidden /> Официални мачове
               </span>
@@ -1235,7 +1264,7 @@ export default function TeamScheduleCalendar() {
                 <span className="teamScheduleLegendSwatch is-cancelled" aria-hidden /> Отменени
               </span>
             </div>
-            <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+            <div className="teamScheduleCalendarCols">
               {dayNames.map((name, i) => (
                 <div
                   key={name}
@@ -1245,7 +1274,7 @@ export default function TeamScheduleCalendar() {
                 </div>
               ))}
             </div>
-            <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
+            <div className="teamScheduleCalendarCols">
               {calendarCells.map((cell, idx) => {
                 const weekday = idx % 7;
                 const isWeekend = weekday >= 5;
