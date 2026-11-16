@@ -113,6 +113,47 @@ const occurrenceKey = (it, i) =>
     ? `comp-${it.competition_id}-${it.date}-${i}`
     : `rule-${it.rule_id}-${it.date}-${it.start_time}-${i}`;
 
+/** Title-case for hall labels (avoids ALL-CAPS / mixed casing in the grid). */
+const titleCaseLocation = (value) => {
+  const raw = String(value || "").trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  return raw
+    .toLocaleLowerCase("bg-BG")
+    .replace(/(^|[\s\-\/(,„"'])(\S)/g, (_, sep, ch) => sep + ch.toLocaleUpperCase("bg-BG"));
+};
+
+/** City-only snippet for compact month cells; full address stays in the day modal. */
+const cityFromLocation = (location) => {
+  const raw = String(location || "").trim();
+  if (!raw) return "";
+  let head = raw.split(",")[0].trim();
+  head = head.replace(/^(гр\.|град)\s+/i, "").trim();
+  if (/^зала\b/i.test(head)) {
+    const rest = head.replace(/^зала\s+/i, "").trim();
+    if (rest) head = rest;
+  }
+  return titleCaseLocation(head);
+};
+
+const gridEventTitle = (it) => {
+  if (isCompetitionEvent(it)) {
+    return it.opponent_name ? `vs ${it.opponent_name}` : competitionKindLabel(it);
+  }
+  return it.team_name || `Отбор #${it.team_id}`;
+};
+
+const competitionGridStyle = (it) => {
+  const kind = String(it?.competition_kind || "");
+  if (kind === "control" || kind === "friendly") {
+    return {
+      border: "1px solid #fbbf24",
+      background: "linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%)",
+      color: "#92400e",
+    };
+  }
+  return competitionBlockStyle;
+};
+
 const KIND_FILTER_STORAGE_KEY = "coachScheduleKindFilter";
 
 function readStoredKindFilter() {
@@ -353,19 +394,6 @@ export default function TeamScheduleCalendar() {
     if (isCalendarShell && calendarView === "grid") setCalendarView("list");
   }, [isCalendarShell, calendarView]);
 
-  useEffect(() => {
-    if (!selectedDate) return undefined;
-    const onDocPointerDown = (event) => {
-      const root = calendarWrapRef.current;
-      if (!root) return;
-      if (!root.contains(event.target)) {
-        setSelectedDate("");
-      }
-    };
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [selectedDate]);
-
   const openEdit = async (it) => {
     setEditOcc(it);
     setEditRuleMeta(null);
@@ -397,6 +425,7 @@ export default function TeamScheduleCalendar() {
   };
 
   const openAddForDate = (date) => {
+    setSelectedDate("");
     setAddForm((p) => ({ ...p, date }));
     setAddOpen(true);
   };
@@ -677,6 +706,7 @@ export default function TeamScheduleCalendar() {
       toast.error("Само главният треньор създава състезания. Тимовият лист е в меню Състезания.");
       return;
     }
+    setSelectedDate("");
     setCompEditId(null);
     setCompForm(defaultCompetitionForm(date, isHeadCoach ? "" : currentUserId));
     setCompOpen(true);
@@ -794,8 +824,92 @@ export default function TeamScheduleCalendar() {
     );
   };
 
+  const formatSelectedDayTitle = () => {
+    if (!selectedDate) return "Действия за деня";
+    try {
+      const label = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("bg-BG", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      return `Действия за ${label}`;
+    } catch {
+      return `Действия за ${selectedDate}`;
+    }
+  };
+
   const scheduleModals = (
     <>
+      <Modal
+        open={Boolean(selectedDate) && calendarView === "grid" && !isCalendarShell}
+        onClose={() => setSelectedDate("")}
+        dismissable={!busy}
+        title={formatSelectedDayTitle()}
+        className="teamScheduleDayModal"
+      >
+        <div className="teamScheduleDayModalBody">
+          <div className="teamScheduleDayModalActions">
+            <Button size="sm" onClick={() => openAddForDate(selectedDate)}>+ Тренировка</Button>
+            {isHeadCoach ? (
+              <Button size="sm" variant="secondary" onClick={() => openCompetitionForDate(selectedDate)}>
+                + Състезание
+              </Button>
+            ) : null}
+          </div>
+          {selectedDayItems.length === 0 ? (
+            <p className="uiHint" style={{ margin: 0 }}>Няма събития в този ден.</p>
+          ) : (
+            <div className="teamScheduleDayModalList">
+              {selectedDayItems.map((it, i) => {
+                const cancelled = Boolean(it.is_cancelled);
+                return (
+                  <article
+                    key={occurrenceKey(it, i)}
+                    className={cancelled && !isCompetitionEvent(it) ? "trainingAdjustCard trainingAdjustCard--cancelled" : undefined}
+                    style={{
+                      border: isCompetitionEvent(it) ? "1px solid #f59e0b" : "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      padding: 10,
+                      background: isCompetitionEvent(it) ? "#fffbeb" : cancelled ? undefined : "#fff",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 13 }} className={cancelled ? "trainingAdjustStruck" : undefined}>
+                      {it.start_time} - {it.end_time}
+                      {cancelled ? " · Отменена" : ""}
+                    </div>
+                    <div style={{ color: "#5b6f85", fontSize: 13, marginTop: 4 }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "1px 6px",
+                          borderRadius: 999,
+                          border: `1px solid ${teamColorFor(it.team_id).border}`,
+                          background: teamColorFor(it.team_id).bg,
+                          color: teamColorFor(it.team_id).text,
+                          marginRight: 6,
+                        }}
+                      >
+                        {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
+                      </span>
+                      {isCompetitionEvent(it) && it.opponent_name ? `vs ${it.opponent_name} · ` : ""}
+                      {isCompetitionEvent(it) ? `${it.team_name || ""} · ` : ""}
+                      {titleCaseLocation(it.location)}
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                      {renderEventActionRow(it)}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+          <div className="uiModalActions">
+            <Button variant="secondary" onClick={() => setSelectedDate("")}>Затвори</Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -1107,22 +1221,49 @@ export default function TeamScheduleCalendar() {
           <EmptyState title="Няма календар за показване" description="Избери валиден месец." />
         ) : (
           <div ref={calendarWrapRef} className="teamScheduleCalendarWrap" style={{ display: "grid", gap: 10 }}>
+            <div className="teamScheduleLegend" aria-label="Легенда на събитията">
+              <span className="teamScheduleLegendItem">
+                <span className="teamScheduleLegendSwatch is-training" aria-hidden /> Тренировки
+              </span>
+              <span className="teamScheduleLegendItem">
+                <span className="teamScheduleLegendSwatch is-official" aria-hidden /> Официални мачове
+              </span>
+              <span className="teamScheduleLegendItem">
+                <span className="teamScheduleLegendSwatch is-control" aria-hidden /> Контроли
+              </span>
+              <span className="teamScheduleLegendItem">
+                <span className="teamScheduleLegendSwatch is-cancelled" aria-hidden /> Отменени
+              </span>
+            </div>
             <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
-              {dayNames.map((name) => (
-                <div key={name} style={{ fontWeight: 700, color: "#39516d", fontSize: 13, textAlign: "center" }}>
+              {dayNames.map((name, i) => (
+                <div
+                  key={name}
+                  className={`teamScheduleWeekdayHead${i >= 5 ? " is-weekend" : ""}`}
+                >
                   {name}
                 </div>
               ))}
             </div>
             <div className="teamScheduleCalendarCols" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(110px, 1fr))", gap: 8 }}>
               {calendarCells.map((cell, idx) => {
+                const weekday = idx % 7;
+                const isWeekend = weekday >= 5;
                 if (!cell.isCurrentMonth) {
-                  return <div key={`empty-${idx}`} style={{ minHeight: 110, borderRadius: 10, background: "#f5f7fb" }} />;
+                  return (
+                    <div
+                      key={`empty-${idx}`}
+                      className={`teamScheduleDayCell is-empty${isWeekend ? " is-weekend" : ""}`}
+                    />
+                  );
                 }
                 const dayItems = itemsByDate.get(cell.date) || [];
+                const isToday = cell.date === todayKey();
+                const isSelected = selectedDate === cell.date;
                 return (
                   <div
                     key={cell.date}
+                    className={`teamScheduleDayCell${isWeekend ? " is-weekend" : ""}${isToday ? " is-today" : ""}${isSelected ? " is-selected" : ""}`}
                     onClick={() => setSelectedDate(cell.date)}
                     role="button"
                     tabIndex={0}
@@ -1132,137 +1273,80 @@ export default function TeamScheduleCalendar() {
                         setSelectedDate(cell.date);
                       }
                     }}
-                    style={{
-                      position: "relative",
-                      minHeight: 110,
-                      borderRadius: 10,
-                      border: selectedDate === cell.date ? "2px solid #0b8f69" : "1px solid #dbe6f3",
-                      background: "#fff",
-                      textAlign: "left",
-                      padding: 8,
-                      cursor: "pointer",
-                    }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <strong>{cell.day}</strong>
-                      <span style={{ fontSize: 11, color: "#6b7f96" }}>{dayItems.length || ""}</span>
-                    </div>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      {dayItems.slice(0, 2).map((it, i) => {
-                        const cancelled = Boolean(it.is_cancelled);
-                        return (
-                        <Link
-                          key={occurrenceKey(it, i)}
-                          to={isCompetitionEvent(it) ? "#" : occurrenceAttendanceTo(it)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isCompetitionEvent(it)) {
-                              e.preventDefault();
-                              if (canEditItem(it)) openCompetitionEdit(it);
-                            }
-                          }}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          className={cancelled ? "trainingAdjustStruck" : undefined}
-                          style={
-                            isCompetitionEvent(it)
-                              ? { ...competitionBlockStyle, display: "block", fontSize: 11, lineHeight: 1.2, borderRadius: 6, padding: "2px 4px", textDecoration: "none" }
-                              : {
-                                  display: "block",
-                                  fontSize: 11,
-                                  lineHeight: 1.2,
-                                  borderRadius: 6,
-                                  border: `1px solid ${teamColorFor(it.team_id).border}`,
-                                  background: teamColorFor(it.team_id).bg,
-                                  color: teamColorFor(it.team_id).text,
-                                  padding: "2px 4px",
-                                  textDecoration: cancelled ? "line-through" : "none",
-                                  opacity: cancelled ? 0.72 : 1,
-                                }
-                          }
-                        >
-                          <div>{it.start_time} {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `#${it.team_id}`}{cancelled ? " (отм.)" : ""}</div>
-                          {isCompetitionEvent(it) && it.opponent_name ? (
-                            <div style={{ opacity: 0.95, fontWeight: 700 }}>vs {it.opponent_name}</div>
-                          ) : null}
-                          <div style={{ opacity: 0.9 }}>{it.location}</div>
-                        </Link>
-                        );
-                      })}
-                      {dayItems.length > 2 ? <div style={{ fontSize: 11, color: "#0f766e" }}>+{dayItems.length - 2} още</div> : null}
-                    </div>
-                    {selectedDate === cell.date ? (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="teamScheduleDayPopover"
-                        style={{
-                          position: "absolute",
-                          top: "calc(100% + 6px)",
-                          left: 0,
-                          zIndex: 20,
-                          width: "min(360px, 92vw)",
-                          border: "1px solid #cbd8e6",
-                          borderRadius: 10,
-                          background: "#ffffff",
-                          boxShadow: "0 10px 26px rgba(15,23,42,0.18)",
-                          padding: 10,
+                    <div className="teamScheduleDayHead">
+                      <span className={`teamScheduleDayNum${isToday ? " is-today" : ""}`}>{cell.day}</span>
+                      <span className="teamScheduleDayCount">{dayItems.length || ""}</span>
+                      <button
+                        type="button"
+                        className="teamScheduleDayAdd"
+                        aria-label={`Добави събитие за ${cell.date}`}
+                        title="Добави"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDate(cell.date);
                         }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                          <strong style={{ fontSize: 13 }}>Действия за {cell.date}</strong>
-                          <Button size="sm" variant="secondary" onClick={() => setSelectedDate("")}>Затвори</Button>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                          <Button size="sm" onClick={() => openAddForDate(cell.date)}>Тренировка</Button>
-                          <Button size="sm" variant="secondary" onClick={() => openCompetitionForDate(cell.date)}>Състезание</Button>
-                        </div>
-                        {selectedDayItems.length === 0 ? (
-                          <div style={{ fontSize: 12, color: "#64748b" }}>Няма събития в този ден.</div>
-                        ) : (
-                          <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                            {selectedDayItems.map((it, i) => {
-                              const cancelled = Boolean(it.is_cancelled);
-                              return (
-                              <article
-                                key={occurrenceKey(it, i)}
-                                className={cancelled && !isCompetitionEvent(it) ? "trainingAdjustCard trainingAdjustCard--cancelled" : undefined}
-                                style={{
-                                  border: isCompetitionEvent(it) ? "1px solid #f59e0b" : "1px solid #e2e8f0",
-                                  borderRadius: 8,
-                                  padding: 8,
-                                  background: isCompetitionEvent(it) ? "#fffbeb" : cancelled ? undefined : "#fff",
-                                }}
-                              >
-                                <div style={{ fontWeight: 700, fontSize: 12 }} className={cancelled ? "trainingAdjustStruck" : undefined}>
-                                  {it.start_time} - {it.end_time}
-                                  {cancelled ? " · Отменена" : ""}
-                                </div>
-                                <div style={{ color: "#5b6f85", fontSize: 12, marginTop: 2 }}>
-                                  <span
-                                    style={{
-                                      display: "inline-block",
-                                      padding: "1px 6px",
-                                      borderRadius: 999,
-                                      border: `1px solid ${teamColorFor(it.team_id).border}`,
-                                      background: teamColorFor(it.team_id).bg,
-                                      color: teamColorFor(it.team_id).text,
-                                      marginRight: 6,
-                                    }}
-                                  >
-                                    {isCompetitionEvent(it) ? competitionKindLabel(it) : it.team_name || `Отбор #${it.team_id}`}
-                                  </span>
-                                  {isCompetitionEvent(it) && it.opponent_name ? `vs ${it.opponent_name} · ` : ""}
-                                  {it.location}
-                                </div>
-                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                                  {renderEventActionRow(it)}
-                                </div>
-                              </article>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
+                        +
+                      </button>
+                    </div>
+                    <div className="teamScheduleDayEvents">
+                      {dayItems.slice(0, 2).map((it, i) => {
+                        const cancelled = Boolean(it.is_cancelled);
+                        const city = cityFromLocation(it.location);
+                        const style = isCompetitionEvent(it)
+                          ? {
+                              ...competitionGridStyle(it),
+                              display: "block",
+                              fontSize: 11,
+                              lineHeight: 1.2,
+                              borderRadius: 6,
+                              padding: "2px 4px",
+                              textDecoration: cancelled ? "line-through" : "none",
+                              opacity: cancelled ? 0.72 : 1,
+                            }
+                          : {
+                              display: "block",
+                              fontSize: 11,
+                              lineHeight: 1.2,
+                              borderRadius: 6,
+                              border: `1px solid ${teamColorFor(it.team_id).border}`,
+                              background: teamColorFor(it.team_id).bg,
+                              color: teamColorFor(it.team_id).text,
+                              padding: "2px 4px",
+                              textDecoration: cancelled ? "line-through" : "none",
+                              opacity: cancelled ? 0.72 : 1,
+                            };
+                        return (
+                          <Link
+                            key={occurrenceKey(it, i)}
+                            to={isCompetitionEvent(it) ? "#" : occurrenceAttendanceTo(it)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isCompetitionEvent(it)) {
+                                e.preventDefault();
+                                if (canEditItem(it)) openCompetitionEdit(it);
+                              }
+                            }}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            className={cancelled ? "trainingAdjustStruck" : undefined}
+                            style={style}
+                            title={[it.start_time, gridEventTitle(it), titleCaseLocation(it.location)]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          >
+                            <div className="teamScheduleChipLine">
+                              <strong>{it.start_time}</strong> {gridEventTitle(it)}
+                              {cancelled ? " (отм.)" : ""}
+                            </div>
+                            {city ? <div className="teamScheduleChipCity">{city}</div> : null}
+                          </Link>
+                        );
+                      })}
+                      {dayItems.length > 2 ? (
+                        <div className="teamScheduleDayMore">+{dayItems.length - 2} още</div>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}

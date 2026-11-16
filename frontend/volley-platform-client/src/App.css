@@ -3165,8 +3165,228 @@
   min-width: 760px;
 }
 
-.teamScheduleDayPopover {
-  max-width: 92vw;
+.teamScheduleLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  font-size: 12px;
+  color: #475569;
+  padding: 2px 2px 4px;
+}
+
+.teamScheduleLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.teamScheduleLegendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.teamScheduleLegendSwatch.is-training {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+.teamScheduleLegendSwatch.is-official {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #f59e0b;
+}
+
+.teamScheduleLegendSwatch.is-control {
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fbbf24;
+}
+
+.teamScheduleLegendSwatch.is-cancelled {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  position: relative;
+}
+
+.teamScheduleLegendSwatch.is-cancelled::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 50%;
+  border-top: 1.5px solid #64748b;
+  transform: translateY(-50%) rotate(-20deg);
+}
+
+.teamScheduleWeekdayHead {
+  font-weight: 700;
+  color: #39516d;
+  font-size: 13px;
+  text-align: center;
+}
+
+.teamScheduleWeekdayHead.is-weekend {
+  color: #64748b;
+}
+
+.teamScheduleDayCell {
+  position: relative;
+  min-height: 110px;
+  border-radius: 10px;
+  border: 1px solid #dbe6f3;
+  background: #fff;
+  text-align: left;
+  padding: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.teamScheduleDayCell.is-empty {
+  min-height: 110px;
+  border-radius: 10px;
+  background: #f5f7fb;
+  border: none;
+  cursor: default;
+  padding: 0;
+}
+
+.teamScheduleDayCell.is-weekend,
+.teamScheduleDayCell.is-empty.is-weekend {
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.teamScheduleDayCell.is-empty.is-weekend {
+  background: #f1f5f9;
+}
+
+.teamScheduleDayCell.is-today {
+  box-shadow: inset 0 0 0 1px rgba(11, 143, 105, 0.25);
+}
+
+.teamScheduleDayCell.is-selected {
+  border-color: #0b8f69;
+  box-shadow: 0 0 0 1px #0b8f69;
+}
+
+.teamScheduleDayHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.teamScheduleDayNum {
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.teamScheduleDayNum.is-today {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #0b8f69;
+  color: #fff;
+}
+
+.teamScheduleDayCount {
+  font-size: 11px;
+  color: #6b7f96;
+  margin-right: auto;
+}
+
+.teamScheduleDayAdd {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b8f69;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+
+.teamScheduleDayAdd:hover {
+  background: #ecfdf5;
+  border-color: #0b8f69;
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .teamScheduleDayAdd {
+    opacity: 0;
+  }
+
+  .teamScheduleDayCell:hover .teamScheduleDayAdd,
+  .teamScheduleDayCell:focus-within .teamScheduleDayAdd {
+    opacity: 1;
+  }
+}
+
+.teamScheduleDayEvents {
+  display: grid;
+  gap: 4px;
+}
+
+.teamScheduleChipLine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamScheduleChipCity {
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamScheduleDayMore {
+  font-size: 11px;
+  color: #0f766e;
+}
+
+.teamScheduleDayModal.uiModal {
+  width: min(28rem, calc(100vw - 24px));
+  max-width: 28rem;
+}
+
+.teamScheduleDayModalBody {
+  display: grid;
+  gap: 12px;
+}
+
+.teamScheduleDayModalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teamScheduleDayModalActions .uiButton {
+  min-width: 9rem;
+  justify-content: center;
+}
+
+.teamScheduleDayModalList {
+  display: grid;
+  gap: 8px;
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .parentPortalTableWrap {
@@ -5514,20 +5734,8 @@
     min-width: 700px;
   }
 
-  /* Центриран модал над viewport — иначе popover-ът е absolute в скролваща се мрежа и се изрязва */
-  .teamScheduleDayPopover {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translate(-50%, -50%);
-    width: min(360px, calc(100vw - 24px)) !important;
-    max-width: none !important;
-    max-height: min(480px, 72vh);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    z-index: 900 !important;
-    box-sizing: border-box;
+  .teamScheduleDayModalActions .uiButton {
+    flex: 1 1 8rem;
   }
 
   .athleteParentAccessActions .uiButton {
