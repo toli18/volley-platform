@@ -405,10 +405,6 @@ export default function TeamScheduleCalendar() {
     if (calendarView === "list") setSelectedDate("");
   }, [calendarView]);
 
-  useEffect(() => {
-    if (isCalendarShell && calendarView === "grid") setCalendarView("list");
-  }, [isCalendarShell, calendarView]);
-
   const openEdit = async (it) => {
     setEditOcc(it);
     setEditRuleMeta(null);
@@ -857,7 +853,7 @@ export default function TeamScheduleCalendar() {
   const scheduleModals = (
     <>
       <Modal
-        open={Boolean(selectedDate) && calendarView === "grid" && !isCalendarShell}
+        open={Boolean(selectedDate) && calendarView === "grid"}
         onClose={() => setSelectedDate("")}
         dismissable
         showClose
@@ -1043,32 +1039,121 @@ export default function TeamScheduleCalendar() {
     </>
   );
 
+  const dayDotColors = (dayItems) =>
+    dayItems.slice(0, 4).map((it) => {
+      if (it.is_cancelled) return { bg: "#cbd5e1", border: "#94a3b8" };
+      if (isCompetitionEvent(it)) {
+        const kind = String(it.competition_kind || "");
+        return kind === "control" || kind === "friendly"
+          ? { bg: "#fef3c7", border: "#fbbf24" }
+          : { bg: "#ffedd5", border: "#f59e0b" };
+      }
+      return teamColorFor(it.team_id);
+    });
+
   if (isCalendarShell) {
     return (
       <div className="calendarShell">
-        <div className="calendarShellToolbar">
-          <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, -1))} aria-label="Предишен месец">
-            ‹
-          </button>
-          <div className="calendarShellMonth">
-            <strong>{formatMonthLabel(monthKey)}</strong>
-            <span className="calendarShellMonthCount">{scheduleListSorted.length} събития</span>
+        <div className="calendarShellTop">
+          <div className="calendarShellToolbar">
+            <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, -1))} aria-label="Предишен месец">
+              ‹
+            </button>
+            <div className="calendarShellMonth">
+              <strong>{formatMonthLabel(monthKey)}</strong>
+              <span className="calendarShellMonthCount">{scheduleListSorted.length} събития</span>
+            </div>
+            <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, 1))} aria-label="Следващ месец">
+              ›
+            </button>
+            <button
+              type="button"
+              className={`calendarShellFilterBtn${activeFilterCount ? " is-active" : ""}`}
+              onClick={() => setFiltersOpen(true)}
+            >
+              Филтри{activeFilterCount ? ` (${activeFilterCount})` : ""}
+            </button>
           </div>
-          <button type="button" className="calendarShellNavBtn" onClick={() => setMonthKey((k) => shiftMonthKey(k, 1))} aria-label="Следващ месец">
-            ›
-          </button>
-          <button
-            type="button"
-            className={`calendarShellFilterBtn${activeFilterCount ? " is-active" : ""}`}
-            onClick={() => setFiltersOpen(true)}
-          >
-            Филтри{activeFilterCount ? ` (${activeFilterCount})` : ""}
-          </button>
+
+          <div className="calendarShellViewToggle" role="group" aria-label="Изглед на графика">
+            <button
+              type="button"
+              className={`calendarShellViewBtn${calendarView === "list" ? " is-active" : ""}`}
+              onClick={() => setCalendarView("list")}
+            >
+              Списък
+            </button>
+            <button
+              type="button"
+              className={`calendarShellViewBtn${calendarView === "grid" ? " is-active" : ""}`}
+              onClick={() => setCalendarView("grid")}
+            >
+              Мрежа
+            </button>
+          </div>
         </div>
 
         <div className="calendarShellBody">
           {busy ? (
             <p className="calendarShellLoading">Зареждане...</p>
+          ) : calendarView === "grid" ? (
+            calendarCells.length === 0 ? (
+              <EmptyState title="Няма календар за показване" description="Избери валиден месец." />
+            ) : (
+              <div className="calendarShellMonthGrid">
+                <div className="calendarShellMonthHead">
+                  {dayNames.map((name, i) => (
+                    <div key={name} className={`calendarShellMonthDow${i >= 5 ? " is-weekend" : ""}`}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+                <div className="calendarShellMonthCells">
+                  {calendarCells.map((cell, idx) => {
+                    const weekday = idx % 7;
+                    const isWeekend = weekday >= 5;
+                    if (!cell.isCurrentMonth) {
+                      return (
+                        <div
+                          key={`empty-${idx}`}
+                          className={`calendarShellMonthCell is-empty${isWeekend ? " is-weekend" : ""}`}
+                        />
+                      );
+                    }
+                    const dayItems = itemsByDate.get(cell.date) || [];
+                    const isToday = cell.date === todayKey();
+                    const isSelected = selectedDate === cell.date;
+                    const dots = dayDotColors(dayItems);
+                    return (
+                      <button
+                        key={cell.date}
+                        type="button"
+                        className={`calendarShellMonthCell${isWeekend ? " is-weekend" : ""}${isToday ? " is-today" : ""}${isSelected ? " is-selected" : ""}${dayItems.length ? " has-events" : ""}`}
+                        onClick={() => setSelectedDate(cell.date)}
+                      >
+                        <span className={`calendarShellMonthDayNum${isToday ? " is-today" : ""}`}>{cell.day}</span>
+                        {dayItems.length ? (
+                          <span className="calendarShellMonthDots" aria-label={`${dayItems.length} събития`}>
+                            {dots.map((c, i) => (
+                              <span
+                                key={`${cell.date}-dot-${i}`}
+                                className="calendarShellMonthDot"
+                                style={{ background: c.bg, borderColor: c.border }}
+                              />
+                            ))}
+                            {dayItems.length > dots.length ? (
+                              <span className="calendarShellMonthMore">+{dayItems.length - dots.length}</span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="calendarShellMonthDots is-empty" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )
           ) : scheduleListSorted.length === 0 ? (
             <EmptyState title="Няма записи" description="Няма тренировки в графика за този месец с текущите филтри." />
           ) : (

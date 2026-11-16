@@ -2945,17 +2945,159 @@
   width: calc(100% + 28px);
 }
 
+.calendarShellTop {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 .calendarShellToolbar {
   display: grid;
   grid-template-columns: 40px 1fr 40px auto;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 10px 14px 6px;
   background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 2;
+}
+
+.calendarShellViewToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 14px 10px;
+  background: #fff;
+}
+
+.calendarShellViewBtn {
+  min-height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calendarShellViewBtn.is-active {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #0f4d3a;
+}
+
+.calendarShellMonthGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.calendarShellMonthHead,
+.calendarShellMonthCells {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.calendarShellMonthDow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  padding: 2px 0;
+}
+
+.calendarShellMonthDow.is-weekend {
+  color: #94a3b8;
+}
+
+.calendarShellMonthCell {
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px 4px 4px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+  align-content: start;
+  justify-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.calendarShellMonthCell.is-empty {
+  background: #f8fafc;
+  border-color: transparent;
+  cursor: default;
+  min-height: 54px;
+}
+
+.calendarShellMonthCell.is-weekend {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.calendarShellMonthCell.is-empty.is-weekend {
+  background: #f1f5f9;
+}
+
+.calendarShellMonthCell.is-today {
+  box-shadow: inset 0 0 0 1px rgba(11, 143, 105, 0.28);
+}
+
+.calendarShellMonthCell.is-selected {
+  border-color: #0b8f69;
+  box-shadow: 0 0 0 1px #0b8f69;
+}
+
+.calendarShellMonthCell.has-events {
+  background: #fff;
+}
+
+.calendarShellMonthDayNum {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.calendarShellMonthDayNum.is-today {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #0b8f69;
+  color: #fff;
+}
+
+.calendarShellMonthDots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  align-items: center;
+  min-height: 12px;
+}
+
+.calendarShellMonthDots.is-empty {
+  min-height: 12px;
+}
+
+.calendarShellMonthDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.calendarShellMonthMore {
+  font-size: 9px;
+  font-weight: 700;
+  color: #0f766e;
+  line-height: 1;
 }
 
 .calendarShellMonth {
