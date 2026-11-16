@@ -27,6 +27,22 @@ def _current_revision() -> str | None:
         return conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1")).scalar()
 
 
+def _seed_forum_topics() -> None:
+    # Once per deploy (before uvicorn workers): lightweight forum topic seed.
+    db = SessionLocal()
+    try:
+        from app.scripts.seed_forum_federation_materials import seed_forum_federation_topics
+
+        n = seed_forum_federation_topics(db, attach_files=False)
+        print(f"✅ Forum federation topics seed: {n} new")
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        print(f"⚠️ Forum federation topics seed failed: {exc}", file=sys.stderr)
+        raise
+    finally:
+        db.close()
+
+
 def main() -> int:
     cfg = _alembic_config()
     insp = inspect(engine)
@@ -47,25 +63,15 @@ def main() -> int:
             print(f"⚠️ Alembic upgrade hit existing tables — stamp {head} and retry once")
             command.stamp(cfg, head)
             command.upgrade(cfg, "head")
-            return 0
-        print(f"❌ Alembic upgrade failed: {exc}", file=sys.stderr)
-        return 1
+        else:
+            print(f"❌ Alembic upgrade failed: {exc}", file=sys.stderr)
+            return 1
 
     print("✅ Alembic upgrade head")
-
-    # Once per deploy (before uvicorn workers): lightweight forum topic seed.
-    db = SessionLocal()
     try:
-        from app.scripts.seed_forum_federation_materials import seed_forum_federation_topics
-
-        n = seed_forum_federation_topics(db, attach_files=False)
-        print(f"✅ Forum federation topics seed: {n} new")
-    except Exception as exc:  # noqa: BLE001
-        db.rollback()
-        print(f"⚠️ Forum federation topics seed failed: {exc}", file=sys.stderr)
-    finally:
-        db.close()
-
+        _seed_forum_topics()
+    except Exception:
+        pass
     return 0
 
 

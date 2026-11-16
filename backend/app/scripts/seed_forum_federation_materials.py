@@ -150,30 +150,22 @@ def _find_admin(db) -> SimpleNamespace | None:
     row = db.execute(
         text(
             """
-            SELECT id, email, name, role FROM users
-            WHERE role IN ('federation_admin', 'platform_admin')
-            ORDER BY CASE role WHEN 'federation_admin' THEN 0 ELSE 1 END
+            SELECT id, email, name, role::text AS role FROM users
+            WHERE role::text IN ('federation_admin', 'platform_admin')
+            ORDER BY CASE role::text WHEN 'federation_admin' THEN 0 ELSE 1 END
             LIMIT 1
             """
         )
     ).first()
     if not row:
         return None
-    role = UserRole.federation_admin if row.role == "federation_admin" else UserRole.platform_admin
+    role_str = str(row.role).split(".")[-1] if row.role is not None else ""
+    role = UserRole.federation_admin if role_str == "federation_admin" else UserRole.platform_admin
     return SimpleNamespace(id=row.id, email=row.email, name=row.name, role=role)
 
 
 def _post_exists(db, title: str) -> ForumPost | None:
-    row = db.query(ForumPost).filter(ForumPost.title == title).first()
-    if row:
-        return row
-    return (
-        db.query(ForumPost)
-        .filter(ForumPost.tags.isnot(None))
-        .filter(ForumPost.tags.contains([SEED_TAG]))
-        .filter(ForumPost.title == title)
-        .first()
-    )
+    return db.query(ForumPost).filter(ForumPost.title == title).first()
 
 
 def _attach_static_files(db, post: ForumPost, user: SimpleNamespace, filenames: list[str]) -> None:
