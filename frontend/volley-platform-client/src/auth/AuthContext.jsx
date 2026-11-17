@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await axiosInstance.get("/auth/me");
+      // Avoid infinite "Проверка на сесията…" when the API is slow/unreachable (e.g. Vercel mirror → Railway).
+      const res = await axiosInstance.get("/auth/me", { timeout: 15000 });
       const me = res.data;
       setUser(me);
       setUserState(me);
