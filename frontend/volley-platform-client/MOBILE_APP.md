@@ -3,7 +3,7 @@
 Уеб линковете **остават непроменени**. App-ът е допълнение за **всички клубове**.
 
 - Име: **Volley Coach BUL** (лого БФВ)
-- Вход: https://volley-platform-bul.vercel.app/app  
+- Вход: https://volley-platform-production.up.railway.app/app  
   - Треньор → `/login`  
   - Родител → `/parent/login`  
   - Състезател → `/room/login`

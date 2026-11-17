@@ -110,14 +110,12 @@ public class MainActivity extends AppCompatActivity {
         if (prefs.getBoolean(KEY_FAILOVER_ONCE, false)) {
             return;
         }
-        String target;
-        if (failedUrl != null && failedUrl.startsWith(PRIMARY_ORIGIN)) {
-            target = swapOrigin(failedUrl, MIRROR_ORIGIN);
-        } else if (failedUrl != null
+        // Do not send users to the Vercel mirror: it can hang on "Проверка на сесията…".
+        // One automatic retry against Railway /app (or remap a stored mirror URL).
+        String target = START_URL;
+        if (failedUrl != null
             && (failedUrl.startsWith(MIRROR_ORIGIN) || failedUrl.startsWith(LEGACY_MIRROR_ORIGIN))) {
             target = swapOrigin(failedUrl, PRIMARY_ORIGIN);
-        } else {
-            target = START_URL;
         }
         failoverArmed = false;
         prefs.edit().putBoolean(KEY_FAILOVER_ONCE, true).apply();

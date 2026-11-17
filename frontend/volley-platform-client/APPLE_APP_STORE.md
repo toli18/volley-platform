@@ -9,9 +9,9 @@
 - Display name: **Volley Coach BUL**
 - Икона: БФВ (в `Assets.xcassets/AppIcon.appiconset`)
 - App-ът отваря живия сайт чрез Capacitor `server.url`:  
-  `https://volley-platform-bul.vercel.app/app`  
+  `https://volley-platform-production.up.railway.app/app`  
   (треньор / родител / състезател — бутони на екрана)
-- Маркетинг версия в Xcode: **1.2.0** (build 2) — можеш да я качиш при първия upload
+- Маркетинг версия в Xcode: **1.2.3** (build 5)
 
 Уеб линковете остават; това е допълнителен начин за вход от iPhone.
 
