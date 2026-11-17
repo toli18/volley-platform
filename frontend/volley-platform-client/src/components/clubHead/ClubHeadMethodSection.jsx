@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { Button, Card, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui";
+import { Button, Card, EmptyState, Input, OverflowActionSheet, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui";
 import { useToast } from "../ToastProvider";
+import DrillMultiSelect from "./DrillMultiSelect";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -43,7 +44,7 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
     cycle_id: "",
     week_ref: "",
     due_date: "",
-    drill_ids: "",
+    drills: [],
   });
 
   const load = useCallback(async () => {
@@ -143,9 +144,8 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
       toast.error("Изберете треньори и заглавие");
       return;
     }
-    const drillIds = (assignForm.drill_ids || "")
-      .split(",")
-      .map((x) => parseInt(x.trim(), 10))
+    const drillIds = (assignForm.drills || [])
+      .map((d) => Number(d.id))
       .filter((n) => Number.isFinite(n));
     try {
       await axiosInstance.post(API_PATHS.CLUB_METHOD_ASSIGNMENTS, {
@@ -165,7 +165,7 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
         cycle_id: "",
         week_ref: "",
         due_date: "",
-        drill_ids: "",
+        drills: [],
       });
       load();
     } catch (e) {
@@ -359,45 +359,84 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {instances.map((i) => (
-                <TableRow key={i.id}>
-                  <TableCell>{i.team_name}</TableCell>
-                  <TableCell>{i.start_date}</TableCell>
-                  <TableCell>
-                    {i.position && i.position.meso_index
-                      ? `Мезо ${i.position.meso_index}/${i.position.total_mesos}` +
-                        (i.position.started && !i.position.completed
-                          ? ` · седм. ${i.position.week_in_meso}`
-                          : "")
-                      : "—"}
-                  </TableCell>
-                  <TableCell>{STATUS_LABELS[i.status] || i.status}</TableCell>
-                  <TableCell>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {i.status === "active" ? (
-                        <>
-                          <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "paused" })}>
-                            Пауза
-                          </Button>
-                          <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "completed" })}>
-                            Приключи
-                          </Button>
-                        </>
-                      ) : (
-                        <Button size="sm" variant="secondary" onClick={() => updateInstance(i.id, { status: "active" })}>
-                          Възобнови
+              {instances.map((i) => {
+                const mesoIndex = Number(i.position?.meso_index) || 0;
+                const totalMesos = Number(i.position?.total_mesos) || 0;
+                const progressPct =
+                  totalMesos > 0 ? Math.max(0, Math.min(100, Math.round((mesoIndex / totalMesos) * 100))) : 0;
+                const positionLabel =
+                  i.position && i.position.meso_index
+                    ? `Мезо ${i.position.meso_index}/${i.position.total_mesos}` +
+                      (i.position.started && !i.position.completed
+                        ? ` · седм. ${i.position.week_in_meso}`
+                        : "")
+                    : "—";
+                const overflowActions =
+                  i.status === "active"
+                    ? [
+                        {
+                          key: "pause",
+                          label: "Пауза",
+                          onClick: () => updateInstance(i.id, { status: "paused" }),
+                        },
+                        {
+                          key: "complete",
+                          label: "Приключи",
+                          onClick: () => updateInstance(i.id, { status: "completed" }),
+                        },
+                        {
+                          key: "remove",
+                          label: "Смени/махни",
+                          variant: "danger",
+                          onClick: () => removeInstance(i),
+                        },
+                      ]
+                    : [
+                        {
+                          key: "resume",
+                          label: "Възобнови",
+                          onClick: () => updateInstance(i.id, { status: "active" }),
+                        },
+                        {
+                          key: "remove",
+                          label: "Смени/махни",
+                          variant: "danger",
+                          onClick: () => removeInstance(i),
+                        },
+                      ];
+                return (
+                  <TableRow key={i.id}>
+                    <TableCell>{i.team_name}</TableCell>
+                    <TableCell>{i.start_date}</TableCell>
+                    <TableCell>
+                      <div className="clubHeadProgressCell">
+                        <span>{positionLabel}</span>
+                        {totalMesos > 0 ? (
+                          <div
+                            className="clubHeadProgressTrack"
+                            role="progressbar"
+                            aria-valuenow={progressPct}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`Напредък ${progressPct}%`}
+                          >
+                            <div className="clubHeadProgressFill" style={{ width: `${progressPct}%` }} />
+                          </div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>{STATUS_LABELS[i.status] || i.status}</TableCell>
+                    <TableCell>
+                      <div className="clubHeadMethodActions">
+                        <Button as={Link} to={`/coach/program-week?team_id=${i.team_id}`} size="sm" variant="secondary">
+                          Програмна седмица
                         </Button>
-                      )}
-                      <Button as={Link} to={`/coach/program-week?team_id=${i.team_id}`} size="sm" variant="secondary">
-                        Програмна седмица
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => removeInstance(i)}>
-                        Смени/махни
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <OverflowActionSheet label="Още действия" actions={overflowActions} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -486,17 +525,21 @@ export default function ClubHeadMethodSection({ teams = [], coaches = [] }) {
             value={assignForm.due_date}
             onChange={(e) => setAssignForm((f) => ({ ...f, due_date: e.target.value }))}
           />
-          <Input
-            placeholder="ID на упражнения (разделени със запетая)"
-            value={assignForm.drill_ids}
-            onChange={(e) => setAssignForm((f) => ({ ...f, drill_ids: e.target.value }))}
-          />
+          <div>
+            <div className="uiFieldLabel" style={{ marginBottom: 6 }}>
+              Упражнения
+            </div>
+            <DrillMultiSelect
+              value={assignForm.drills}
+              onChange={(drills) => setAssignForm((f) => ({ ...f, drills }))}
+            />
+          </div>
           <Button onClick={createAssignments}>Изпрати задачи</Button>
         </div>
       </Card>
 
       <Card style={{ padding: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Огледало — методични задачи</h3>
+        <h3 style={{ marginTop: 0 }}>Изпратени методични задачи</h3>
         {assignments.length === 0 ? (
           <EmptyState title="Няма задачи" />
         ) : (

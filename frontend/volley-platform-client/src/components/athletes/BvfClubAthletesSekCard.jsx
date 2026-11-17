@@ -4,10 +4,49 @@ import { Link } from "react-router-dom";
 import BvfCreateAthleteModal from "./BvfCreateAthleteModal";
 import BvfLinkByEgnModal from "./BvfLinkByEgnModal";
 import useClubBvfLink from "../../hooks/useClubBvfLink";
-import { Button, Card, EmptyState, Input } from "../ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  OverflowActionSheet,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+
+const PAGE_SIZE = 25;
+
+const DATA_INDICATORS = [
+  {
+    key: "name",
+    short: "Име",
+    title: "Име (собствено / бащино / фамилия)",
+    missingAny: ["собствено име", "бащино име", "фамилия"],
+  },
+  { key: "egn", short: "ЕГН", title: "ЕГН", missingAny: ["ЕГН"] },
+  { key: "dob", short: "ДР", title: "Дата на раждане", missingAny: ["дата на раждане"] },
+  { key: "city", short: "Град", title: "Град", missingAny: ["град"] },
+  { key: "sex", short: "Пол", title: "Пол", missingAny: ["пол"] },
+];
+
+const CHECKLIST_ITEMS = [
+  "собствено име",
+  "бащино име",
+  "фамилия",
+  "ЕГН",
+  "дата на раждане",
+  "град",
+  "националност",
+  "пол",
+  "снимка",
+];
 
 function readinessLabel(r) {
   switch (r) {
@@ -28,24 +67,35 @@ function readinessLabel(r) {
   }
 }
 
-const CHECKLIST_ITEMS = [
-  "собствено име",
-  "бащино име",
-  "фамилия",
-  "ЕГН",
-  "дата на раждане",
-  "град",
-  "националност",
-  "пол",
-  "снимка",
-];
-
 function form03Label(seasonYear) {
   const y = seasonYear != null ? Number(seasonYear) : null;
   if (y && !Number.isNaN(y)) {
     return `Заявление Форма 03 · сезон ${y}/${y + 1}`;
   }
   return "Заявление Форма 03";
+}
+
+function form03Short(seasonYear) {
+  const y = seasonYear != null ? Number(seasonYear) : null;
+  if (y && !Number.isNaN(y)) return `${y}/${y + 1}`;
+  return "Форма 03";
+}
+
+function missingSet(row) {
+  return new Set(row?.missing || []);
+}
+
+function hasPhoto(row) {
+  if (row?.in_sek) return true;
+  if (row?.has_photo === true) return true;
+  if (row?.readiness === "ready_create") return true;
+  return !(row?.missing || []).some((m) => String(m).toLowerCase().includes("снимка"));
+}
+
+function hasMissingData(row) {
+  if (row?.in_sek) return false;
+  const miss = missingSet(row);
+  return DATA_INDICATORS.some((ind) => ind.missingAny.some((m) => miss.has(m)));
 }
 
 function Form03Row({ hasForm03, seasonYear }) {
@@ -66,7 +116,7 @@ function SekChecklist({ missing, inSek, hasForm03, seasonYear }) {
           <Form03Row hasForm03={hasForm03} seasonYear={seasonYear} />
         </ul>
         <p className="sekAthleteCardOk" style={{ margin: "8px 0 0", fontSize: 12 }}>
-          Свързан със СЕК — не се търсят липсващи данни или документи за регистрация.
+          Свързан със СЕК - не се търсят липсващи данни или документи за регистрация.
         </p>
       </>
     );
@@ -86,6 +136,73 @@ function SekChecklist({ missing, inSek, hasForm03, seasonYear }) {
       <Form03Row hasForm03={hasForm03} seasonYear={seasonYear} />
     </ul>
   );
+}
+
+function DataIndicators({ row }) {
+  if (row.in_sek) {
+    return <span className="sekMatrixMuted">В СЕК</span>;
+  }
+  const miss = missingSet(row);
+  return (
+    <div className="sekMatrixIndicators" role="list">
+      {DATA_INDICATORS.map((ind) => {
+        const ok = !ind.missingAny.some((m) => miss.has(m));
+        return (
+          <span
+            key={ind.key}
+            role="listitem"
+            className={`sekMatrixInd${ok ? " is-ok" : " is-bad"}`}
+            title={ok ? `${ind.title}: попълнено` : `${ind.title}: липсва`}
+          >
+            <span className="sekMatrixIndMark" aria-hidden>
+              {ok ? "✓" : "✗"}
+            </span>
+            <span className="sekMatrixIndLabel">{ind.short}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function PhotoBadge({ row }) {
+  if (row.in_sek) {
+    return <span className="sekMatrixPhoto is-ok">✓ Има</span>;
+  }
+  const ok = hasPhoto(row);
+  return ok ? (
+    <span className="sekMatrixPhoto is-ok">✓ Има</span>
+  ) : (
+    <span className="sekMatrixPhoto is-missing" title="Липсва локална снимка">
+      ✗ Липсва
+    </span>
+  );
+}
+
+function Form03Badge({ row, seasonYear }) {
+  const ok = Boolean(row.has_form_03);
+  const label = form03Short(row.season_year ?? seasonYear);
+  return (
+    <span
+      className={`sekMatrixForm03${ok ? " is-ok" : " is-missing"}`}
+      title={form03Label(row.season_year ?? seasonYear)}
+    >
+      {ok ? `✓ ${label}` : `✗ ${label}`}
+    </span>
+  );
+}
+
+function primaryAction(row) {
+  if (row.in_sek) {
+    return { kind: "profile", label: "Профил / документи" };
+  }
+  if (row.can_link) {
+    return { kind: "link", label: "Свържи по ЕГН" };
+  }
+  if (row.can_create) {
+    return { kind: "create", label: "Създай в СЕК" };
+  }
+  return { kind: "create", label: "Създай в СЕК", disabled: true };
 }
 
 /**
@@ -109,8 +226,10 @@ export default function BvfClubAthletesSekCard({
   const [board, setBoard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
-  const [subTab, setSubTab] = useState("missing"); // missing | in_sek | all
+  const [subTab, setSubTab] = useState("missing"); // missing | in_sek | all | ready | no_photo | need_data
   const [q, setQ] = useState("");
+  const [viewMode, setViewMode] = useState("table");
+  const [page, setPage] = useState(1);
   const [linkTarget, setLinkTarget] = useState(null);
   const [createTarget, setCreateTarget] = useState(null);
 
@@ -136,6 +255,9 @@ export default function BvfClubAthletesSekCard({
     const inSek = board?.in_sek || [];
     if (subTab === "in_sek") return inSek;
     if (subTab === "missing") return missing;
+    if (subTab === "ready") return missing.filter((r) => r.readiness === "ready_create" || r.can_create);
+    if (subTab === "no_photo") return missing.filter((r) => !hasPhoto(r));
+    if (subTab === "need_data") return missing.filter((r) => hasMissingData(r));
     return [...missing, ...inSek];
   }, [board, subTab]);
 
@@ -151,6 +273,17 @@ export default function BvfClubAthletesSekCard({
       return hay.includes(needle);
     });
   }, [allRows, coachFilter, q, searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [subTab, coachFilter, q, searchQuery, board?.counts?.total]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, pageCount);
+  const pagedRows = useMemo(() => {
+    const start = (pageSafe - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, pageSafe]);
 
   const resolveAthlete = (row) => {
     if (!athletesLookup) return { id: row.athlete_id, athlete_name: row.athlete_name, coach_id: row.coach_id };
@@ -180,16 +313,209 @@ export default function BvfClubAthletesSekCard({
 
   const counts = board?.counts || {};
   const seasonYear = board?.season_year ?? null;
+  const missingPool = board?.missing_sek || [];
+  const readyCount =
+    counts.ready_create ?? missingPool.filter((r) => r.readiness === "ready_create" || r.can_create).length;
+  const noPhotoCount = missingPool.filter((r) => !hasPhoto(r)).length;
+  const needDataCount = missingPool.filter((r) => hasMissingData(r)).length;
+
+  const filterChip = (id, label, active) => (
+    <button
+      key={id}
+      type="button"
+      className={`sekFilterChip${active ? " is-active" : ""}`}
+      onClick={() => setSubTab(id)}
+    >
+      {label}
+    </button>
+  );
+
+  const renderPrimary = (r) => {
+    const primary = primaryAction(r);
+    if (primary.kind === "profile") {
+      return (
+        <Button as={Link} to={`/coach/athletes/${r.athlete_id}?tab=bvf`} size="sm" variant="secondary">
+          {primary.label}
+        </Button>
+      );
+    }
+    if (primary.kind === "link") {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          disabled={!r.can_link || !permanent || busyId === r.athlete_id}
+          onClick={() => setLinkTarget(r)}
+          title={!r.can_link ? "Нужен е ЕГН (10 цифри)" : undefined}
+        >
+          {primary.label}
+        </Button>
+      );
+    }
+    return (
+      <Button
+        type="button"
+        size="sm"
+        disabled={primary.disabled || !r.can_create || !permanent || busyId === r.athlete_id}
+        onClick={() => setCreateTarget(r)}
+        title={!r.can_create ? "Нужни са пълни данни и локална снимка" : undefined}
+      >
+        {primary.label}
+      </Button>
+    );
+  };
+
+  const overflowActionsFor = (r) => {
+    const primary = primaryAction(r);
+    const actions = [];
+    if (!r.in_sek) {
+      if (primary.kind !== "link" && r.can_link) {
+        actions.push({
+          key: "link",
+          label: "Свържи по ЕГН",
+          disabled: !permanent || busyId === r.athlete_id,
+          onClick: () => setLinkTarget(r),
+        });
+      }
+      if (primary.kind !== "create" && r.can_create) {
+        actions.push({
+          key: "create",
+          label: "Създай в СЕК",
+          disabled: !permanent || busyId === r.athlete_id,
+          onClick: () => setCreateTarget(r),
+        });
+      }
+      if (!r.can_create) {
+        actions.push({
+          key: "notify",
+          label: busyId === r.athlete_id ? "Изпращане…" : "Съобщи на треньора",
+          disabled: busyId === r.athlete_id,
+          onClick: () => requestTask(r.athlete_id),
+        });
+      }
+    }
+    if (onPay) {
+      actions.push({
+        key: "pay",
+        label: "Плати",
+        onClick: () => onPay(resolveAthlete(r)),
+      });
+    }
+    if (onTransfer) {
+      actions.push({
+        key: "transfer",
+        label: "Прехвърли",
+        onClick: () => onTransfer(resolveAthlete(r)),
+      });
+    }
+    return actions;
+  };
+
+  const renderCard = (r) => (
+    <article key={r.athlete_id} className={`sekAthleteCard${r.in_sek ? " sekAthleteCard--linked" : ""}`}>
+      <div className="sekAthleteCardHead">
+        <div style={{ minWidth: 0 }}>
+          <Link to={`/coach/athletes/${r.athlete_id}?tab=bvf`} className="sekAthleteCardName">
+            {r.athlete_name}
+          </Link>
+          <div className="uiMuted" style={{ fontSize: 12 }}>
+            {r.coach_name || "—"}
+            {r.bvf_player_number ? ` · № ${r.bvf_player_number}` : ""}
+          </div>
+        </div>
+        <span
+          className={`uiBadge${
+            r.in_sek
+              ? " uiBadge--success"
+              : r.can_create
+                ? " uiBadge--success"
+                : r.readiness === "ready_create_need_photo"
+                  ? " uiBadge--warning"
+                  : ""
+          }`}
+        >
+          {readinessLabel(r.readiness)}
+        </span>
+      </div>
+
+      <SekChecklist
+        missing={r.missing}
+        inSek={r.in_sek}
+        hasForm03={r.has_form_03}
+        seasonYear={r.season_year ?? seasonYear}
+      />
+
+      {r.sek_task_code && !r.in_sek ? (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b45309" }}>
+          Задача към треньора: {r.sek_task_detail || r.sek_task_code}
+        </p>
+      ) : null}
+
+      <div className="sekAthleteCardActions">
+        {renderPrimary(r)}
+        <OverflowActionSheet label="Още действия" actions={overflowActionsFor(r)} />
+      </div>
+    </article>
+  );
+
+  const renderTable = () => (
+    <div className="sekMatrixScroll">
+      <Table className="sekMatrixTable">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Състезател</TableHead>
+            <TableHead>Данни</TableHead>
+            <TableHead>Снимка</TableHead>
+            <TableHead>Форма 03</TableHead>
+            <TableHead>Действия</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pagedRows.map((r) => (
+            <TableRow key={r.athlete_id} className={r.in_sek ? "sekMatrixRow--linked" : undefined}>
+              <TableCell>
+                <div className="sekMatrixAthlete">
+                  <Link to={`/coach/athletes/${r.athlete_id}?tab=bvf`} className="sekAthleteCardName">
+                    {r.athlete_name}
+                  </Link>
+                  <div className="sekMatrixSub">
+                    {r.coach_name || "—"}
+                    {r.bvf_player_number ? ` · № ${r.bvf_player_number}` : ""}
+                  </div>
+                  {r.sek_task_code && !r.in_sek ? (
+                    <div className="sekMatrixTaskHint">{r.sek_task_detail || r.sek_task_code}</div>
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell>
+                <DataIndicators row={r} />
+              </TableCell>
+              <TableCell>
+                <PhotoBadge row={r} />
+              </TableCell>
+              <TableCell>
+                <Form03Badge row={r} seasonYear={seasonYear} />
+              </TableCell>
+              <TableCell>
+                <div className="sekMatrixActions">
+                  {renderPrimary(r)}
+                  <OverflowActionSheet label="Още действия" actions={overflowActionsFor(r)} />
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 
   return (
     <>
       <Card title={title}>
         {!compact ? (
           <p className="uiMuted" style={{ marginTop: 0, fontSize: 13, lineHeight: 1.45 }}>
-            Чеклист за готовност към СЕК. За текущия сезон всяка карта показва ✓ или — за{" "}
-            <strong>Форма 03</strong>. Ако състезателят е свързан — не се търсят други липсващи данни за
-            регистрация. Първо <strong>Свържи по ЕГН</strong>, иначе <strong>Създай в СЕК</strong> при пълни данни +
-            снимка.
+            Чеклист за готовност към СЕК. Първо <strong>Свържи по ЕГН</strong>, иначе{" "}
+            <strong>Създай в СЕК</strong> при пълни данни + снимка. Форма 03 е за текущия сезон.
           </p>
         ) : null}
 
@@ -199,35 +525,35 @@ export default function BvfClubAthletesSekCard({
           </p>
         ) : null}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-          <button
-            type="button"
-            className={`uiButton${subTab === "missing" ? "" : " uiButton--secondary"}`}
-            style={{ fontSize: 13 }}
-            onClick={() => setSubTab("missing")}
-          >
-            Липсват в СЕК ({counts.missing_sek ?? 0})
-          </button>
-          <button
-            type="button"
-            className={`uiButton${subTab === "in_sek" ? "" : " uiButton--secondary"}`}
-            style={{ fontSize: 13 }}
-            onClick={() => setSubTab("in_sek")}
-          >
-            В СЕК ({counts.in_sek ?? 0})
-          </button>
-          <button
-            type="button"
-            className={`uiButton${subTab === "all" ? "" : " uiButton--secondary"}`}
-            style={{ fontSize: 13 }}
-            onClick={() => setSubTab("all")}
-          >
-            Всички ({counts.total ?? 0})
-          </button>
-          <Button type="button" size="sm" variant="secondary" disabled={loading} onClick={load}>
-            {loading ? "Зареждане…" : "Обнови"}
-          </Button>
-          <span className="uiBadge">Готови: {counts.ready_create ?? 0}</span>
+        <div className="sekBoardToolbar">
+          <div className="sekFilterChips">
+            {filterChip("missing", `Липсват в СЕК (${counts.missing_sek ?? 0})`, subTab === "missing")}
+            {filterChip("in_sek", `В СЕК (${counts.in_sek ?? 0})`, subTab === "in_sek")}
+            {filterChip("all", `Всички (${counts.total ?? 0})`, subTab === "all")}
+            {filterChip("ready", `Готови: ${readyCount}`, subTab === "ready")}
+            {filterChip("no_photo", `Без снимка (${noPhotoCount})`, subTab === "no_photo")}
+            {filterChip("need_data", `Липсващи данни (${needDataCount})`, subTab === "need_data")}
+            <Button type="button" size="sm" variant="secondary" disabled={loading} onClick={load}>
+              {loading ? "Зареждане…" : "Обнови"}
+            </Button>
+          </div>
+
+          <div className="sekViewToggle" role="group" aria-label="Изглед">
+            <button
+              type="button"
+              className={`sekViewBtn${viewMode === "table" ? " is-active" : ""}`}
+              onClick={() => setViewMode("table")}
+            >
+              Таблица
+            </button>
+            <button
+              type="button"
+              className={`sekViewBtn${viewMode === "cards" ? " is-active" : ""}`}
+              onClick={() => setViewMode("cards")}
+            >
+              Карти
+            </button>
+          </div>
         </div>
 
         {searchQuery == null ? (
@@ -245,103 +571,40 @@ export default function BvfClubAthletesSekCard({
             description="Промени филтъра или търсенето."
           />
         ) : (
-          <div className="sekAthleteCardGrid">
-            {rows.map((r) => (
-              <article
-                key={r.athlete_id}
-                className={`sekAthleteCard${r.in_sek ? " sekAthleteCard--linked" : ""}`}
-              >
-                <div className="sekAthleteCardHead">
-                  <div style={{ minWidth: 0 }}>
-                    <Link to={`/coach/athletes/${r.athlete_id}?tab=bvf`} className="sekAthleteCardName">
-                      {r.athlete_name}
-                    </Link>
-                    <div className="uiMuted" style={{ fontSize: 12 }}>
-                      {r.coach_name || "—"}
-                      {r.bvf_player_number ? ` · № ${r.bvf_player_number}` : ""}
-                    </div>
-                  </div>
-                  <span
-                    className={`uiBadge${
-                      r.in_sek
-                        ? " uiBadge--success"
-                        : r.can_create
-                          ? " uiBadge--success"
-                          : r.readiness === "ready_create_need_photo"
-                            ? " uiBadge--warning"
-                            : ""
-                    }`}
-                  >
-                    {readinessLabel(r.readiness)}
-                  </span>
-                </div>
+          <>
+            {viewMode === "table" ? (
+              renderTable()
+            ) : (
+              <div className="sekAthleteCardGrid">{pagedRows.map((r) => renderCard(r))}</div>
+            )}
 
-                <SekChecklist
-                  missing={r.missing}
-                  inSek={r.in_sek}
-                  hasForm03={r.has_form_03}
-                  seasonYear={r.season_year ?? seasonYear}
-                />
-
-                {r.sek_task_code && !r.in_sek ? (
-                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b45309" }}>
-                    Задача към треньора: {r.sek_task_detail || r.sek_task_code}
-                  </p>
-                ) : null}
-
-                <div className="sekAthleteCardActions">
-                  {r.in_sek ? (
-                    <Button as={Link} to={`/coach/athletes/${r.athlete_id}?tab=bvf`} size="sm" variant="secondary">
-                      Профил / документи
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!r.can_link || !permanent || busyId === r.athlete_id}
-                        onClick={() => setLinkTarget(r)}
-                        title={!r.can_link ? "Нужен е ЕГН (10 цифри)" : undefined}
-                      >
-                        Свържи по ЕГН
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={!r.can_create || !permanent || busyId === r.athlete_id}
-                        onClick={() => setCreateTarget(r)}
-                        title={!r.can_create ? "Нужни са пълни данни и локална снимка" : undefined}
-                      >
-                        Създай в СЕК
-                      </Button>
-                      {!r.can_create ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          disabled={busyId === r.athlete_id}
-                          onClick={() => requestTask(r.athlete_id)}
-                        >
-                          {busyId === r.athlete_id ? "…" : "Съобщи на треньора"}
-                        </Button>
-                      ) : null}
-                    </>
-                  )}
-                  {onPay ? (
-                    <Button type="button" size="sm" variant="secondary" onClick={() => onPay(resolveAthlete(r))}>
-                      Плати
-                    </Button>
-                  ) : null}
-                  {onTransfer ? (
-                    <Button type="button" size="sm" variant="secondary" onClick={() => onTransfer(resolveAthlete(r))}>
-                      Прехвърли
-                    </Button>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-          </div>
+            <div className="sekPager">
+              <span>
+                {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, rows.length)} от {rows.length}
+              </span>
+              <div className="sekPagerBtns">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pageSafe <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Назад
+                </Button>
+                <span className="sekPagerPage">
+                  {pageSafe}/{pageCount}
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pageSafe >= pageCount}
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                >
+                  Напред
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </Card>
 

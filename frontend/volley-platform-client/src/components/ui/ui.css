@@ -1042,6 +1042,345 @@
   }
 }
 
+.clubHeadKpiGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.clubHeadKpiViz {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.clubHeadKpiViz--bars {
+  display: block;
+}
+
+.clubHeadDonut {
+  flex-shrink: 0;
+}
+
+.clubHeadDonutCenter {
+  font-size: 13px;
+  font-weight: 800;
+  fill: #0f172a;
+}
+
+.clubHeadDonutSub {
+  font-size: 10px;
+  font-weight: 600;
+  fill: #64748b;
+}
+
+.clubHeadKpiLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.clubHeadKpiSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.clubHeadBars {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.clubHeadBarsPct {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f4d3a;
+}
+
+.clubHeadBarRow {
+  display: grid;
+  gap: 4px;
+}
+
+.clubHeadBarMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.clubHeadBarValue {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.clubHeadBarTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.clubHeadBarFill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 0;
+  transition: width 0.25s ease;
+}
+
+.clubHeadKpiPeriod {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.clubHeadExportMonths {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 480px) {
+  .clubHeadExportMonths {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clubHeadRulesFilters {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: 14px;
+}
+
+.clubHeadTableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.clubHeadToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.clubHeadToggleTrack {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  transition: background 0.15s ease;
+}
+
+.clubHeadToggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.clubHeadToggle.is-on {
+  color: #0f4d3a;
+}
+
+.clubHeadToggle.is-on .clubHeadToggleTrack {
+  background: #0b8f69;
+}
+
+.clubHeadToggle.is-on .clubHeadToggleKnob {
+  transform: translateX(18px);
+}
+
+.clubHeadToggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.clubHeadIconActions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.clubHeadIconBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clubHeadIconBtn:hover {
+  background: #f8fafc;
+}
+
+.clubHeadIconBtn--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff5f5;
+}
+
+.clubHeadIconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clubHeadPager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.clubHeadPagerBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clubHeadPagerPage {
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+.clubHeadProgressCell {
+  display: grid;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.clubHeadProgressTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.clubHeadProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0b8f69, #34d399);
+}
+
+.clubHeadMethodActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.clubHeadDrillSelect {
+  display: grid;
+  gap: 8px;
+}
+
+.clubHeadDrillChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clubHeadDrillChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bbf7d0;
+  background: #ecfdf5;
+  color: #0f4d3a;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clubHeadDrillSearchWrap {
+  position: relative;
+}
+
+.clubHeadDrillDropdown {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.clubHeadDrillDropdownEmpty {
+  padding: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.clubHeadDrillOption {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.clubHeadDrillOption:hover {
+  background: #f8fafc;
+}
+
+.clubHeadDrillOption strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.clubHeadDrillOption span {
+  font-size: 11px;
+  color: #64748b;
+}
+
 .feesFormActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2120,6 +2459,210 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
+  align-items: center;
+}
+
+.sekBoardToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sekFilterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.sekFilterChip {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sekFilterChip.is-active {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #0f4d3a;
+}
+
+.sekViewToggle {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.sekViewBtn {
+  min-height: 32px;
+  min-width: 72px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sekViewBtn.is-active {
+  background: #ecfdf5;
+  color: #0f4d3a;
+}
+
+.sekMatrixScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sekMatrixTable {
+  min-width: 720px;
+}
+
+.sekMatrixAthlete {
+  min-width: 160px;
+}
+
+.sekMatrixSub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.sekMatrixTaskHint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #b45309;
+  font-weight: 600;
+}
+
+.sekMatrixMuted {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.sekMatrixIndicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sekMatrixInd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sekMatrixInd.is-ok {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.sekMatrixInd.is-bad {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.sekMatrixIndMark {
+  font-size: 10px;
+}
+
+.sekMatrixPhoto,
+.sekMatrixForm03 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sekMatrixPhoto.is-ok,
+.sekMatrixForm03.is-ok {
+  color: #166534;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+}
+
+.sekMatrixPhoto.is-missing,
+.sekMatrixForm03.is-missing {
+  color: #c2410c;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.sekMatrixActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sekMatrixRow--linked td {
+  background: #f8fffb;
+}
+
+.sekPager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.sekPagerBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sekPagerPage {
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .sekBoardToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sekViewToggle {
+    width: 100%;
+  }
+
+  .sekViewBtn {
+    width: 100%;
+  }
 }
 
 .athleteProfileInlineActions {

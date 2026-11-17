@@ -16,11 +16,11 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import CompetitionEventModal from "../components/schedule/CompetitionEventModal";
 import ClubHeadMethodSection from "../components/clubHead/ClubHeadMethodSection";
-import PlatformBrandBlock from "../components/shared/PlatformBrandBlock";
+import { AttendanceBarsCard, FeesDonutCard } from "../components/clubHead/ClubHeadKpiCharts";
 import BvfClubAthletesSekCard from "../components/athletes/BvfClubAthletesSekCard";
 import { Button, Card, EmptyState, Input, Modal, PageHero, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui";
 import { normalizeError } from "../utils/normalizeError";
-import { AMOUNT_INPUT_PLACEHOLDER, formatMoney } from "../utils/currency";
+import { AMOUNT_INPUT_PLACEHOLDER } from "../utils/currency";
 import { COMPETITION_KIND_OPTIONS, competitionKindLabel, isCompetitionEvent } from "../utils/competitionKinds";
 
 const nowMonth = () => {
@@ -108,6 +108,12 @@ export default function ClubHeadDashboard() {
   const [scheduleCoachFilter, setScheduleCoachFilter] = useState("");
   const [scheduleTeamFilter, setScheduleTeamFilter] = useState("");
   const [scheduleLocationFilter, setScheduleLocationFilter] = useState("");
+  const [rulesTeamFilter, setRulesTeamFilter] = useState("");
+  const [rulesWeekdayFilter, setRulesWeekdayFilter] = useState("");
+  const [rulesCoachFilter, setRulesCoachFilter] = useState("");
+  const [rulesStatusFilter, setRulesStatusFilter] = useState("active");
+  const [rulesPage, setRulesPage] = useState(1);
+  const RULES_PAGE_SIZE = 25;
   const [scheduleForm, setScheduleForm] = useState({
     team_id: "",
     coach_id: "",
@@ -395,6 +401,51 @@ export default function ClubHeadDashboard() {
     }
   };
 
+  const toggleScheduleRuleActive = async (r) => {
+    const payload = {
+      team_id: Number(r.team_id),
+      coach_id: Number(r.coach_id),
+      location: String(r.location || "").trim(),
+      weekday: Number(r.weekday),
+      start_time: r.start_time,
+      end_time: r.end_time,
+      effective_from: r.effective_from,
+      effective_to: r.effective_to || null,
+      is_active: !Boolean(r.is_active),
+    };
+    try {
+      setBusy(true);
+      await axiosInstance.put(API_PATHS.SCHEDULE_RULE_UPDATE(r.id), payload);
+      toast.success(payload.is_active ? "Правилото е активирано." : "Правилото е деактивирано.");
+      await loadSchedule();
+    } catch (err) {
+      toast.error(normalizeError(err, "Грешка при промяна на статуса."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const filteredScheduleRules = useMemo(() => {
+    return (scheduleRules || []).filter((r) => {
+      if (rulesTeamFilter && Number(r.team_id) !== Number(rulesTeamFilter)) return false;
+      if (rulesWeekdayFilter !== "" && Number(r.weekday) !== Number(rulesWeekdayFilter)) return false;
+      if (rulesCoachFilter && Number(r.coach_id) !== Number(rulesCoachFilter)) return false;
+      if (rulesStatusFilter === "active" && !r.is_active) return false;
+      return true;
+    });
+  }, [scheduleRules, rulesTeamFilter, rulesWeekdayFilter, rulesCoachFilter, rulesStatusFilter]);
+
+  const rulesPageCount = Math.max(1, Math.ceil(filteredScheduleRules.length / RULES_PAGE_SIZE));
+  const rulesPageSafe = Math.min(rulesPage, rulesPageCount);
+  const pagedScheduleRules = useMemo(() => {
+    const start = (rulesPageSafe - 1) * RULES_PAGE_SIZE;
+    return filteredScheduleRules.slice(start, start + RULES_PAGE_SIZE);
+  }, [filteredScheduleRules, rulesPageSafe, RULES_PAGE_SIZE]);
+
+  useEffect(() => {
+    setRulesPage(1);
+  }, [rulesTeamFilter, rulesWeekdayFilter, rulesCoachFilter, rulesStatusFilter, scheduleRules.length]);
+
   const saveCompetition = async () => {
     if (!compForm.team_id || !compForm.coach_id || !compForm.location.trim()) {
       toast.error("Попълни отбор, треньор и място.");
@@ -499,11 +550,6 @@ export default function ClubHeadDashboard() {
 
   return (
     <div className="uiPage">
-      <header className="portalShellHeader portalShellHeader--embedded">
-        <div className="portalShellHeaderInner">
-          <PlatformBrandBlock subtitle="Главен треньор" />
-        </div>
-      </header>
       <PageHero
         title="Клубен панел"
         subtitle="Преглед → състезатели → задачи → график → методика."
@@ -543,29 +589,15 @@ export default function ClubHeadDashboard() {
             </div>
           </Card>
 
-          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+          <div className="clubHeadKpiGrid">
             {monthlyFeesEnabled ? (
-            <Card title="Месечни такси">
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span className="uiBadge">Общо: {overview?.fees?.total_athletes || 0}</span>
-                <span className="uiBadge uiBadge--success">Платили: {overview?.fees?.paid_athletes || 0}</span>
-                <span className="uiBadge uiBadge--danger">Неплатили: {overview?.fees?.unpaid_athletes || 0}</span>
-                <span className="uiBadge uiBadge--info">Сума: {formatMoney(overview?.fees?.total_paid_amount)}</span>
-              </div>
-            </Card>
+              <Card title="Месечни такси">
+                <FeesDonutCard fees={overview?.fees} />
+              </Card>
             ) : null}
 
             <Card title="Присъствие за период">
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span className="uiBadge">Тренировки: {overview?.attendance?.sessions_count || 0}</span>
-                <span className="uiBadge uiBadge--success">Присъства: {overview?.attendance?.present || 0}</span>
-                <span className="uiBadge uiBadge--warning">Закъсня: {overview?.attendance?.late || 0}</span>
-                <span className="uiBadge uiBadge--danger">Отсъства: {overview?.attendance?.absent || 0}</span>
-                <span className="uiBadge uiBadge--secondary">Извинен: {overview?.attendance?.excused || 0}</span>
-              </div>
-              <p style={{ margin: "10px 0 0", color: "#64748b", fontSize: 13 }}>
-                Период: {period.from_date} – {period.to_date}
-              </p>
+              <AttendanceBarsCard attendance={overview?.attendance} period={period} />
             </Card>
           </div>
 
@@ -578,8 +610,20 @@ export default function ClubHeadDashboard() {
                 <strong style={{ fontSize: 13 }}>Месечни такси</strong>
                 {monthlyFeesEnabled ? (
                   <>
-                    <Input type="month" value={expFeesFrom} onChange={(e) => setExpFeesFrom(e.target.value)} />
-                    <Input type="month" value={expFeesTo} onChange={(e) => setExpFeesTo(e.target.value)} />
+                    <div className="clubHeadExportMonths">
+                      <Input
+                        type="month"
+                        label="От месец"
+                        value={expFeesFrom}
+                        onChange={(e) => setExpFeesFrom(e.target.value)}
+                      />
+                      <Input
+                        type="month"
+                        label="До месец"
+                        value={expFeesTo}
+                        onChange={(e) => setExpFeesTo(e.target.value)}
+                      />
+                    </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       <Button
                         size="sm"
@@ -605,7 +649,7 @@ export default function ClubHeadDashboard() {
                   </>
                 ) : (
                   <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-                    Изключени — Профил на клуба → Такси
+                    Изключени - Профил на клуба → Такси
                   </p>
                 )}
               </div>
@@ -993,44 +1037,165 @@ export default function ClubHeadDashboard() {
           </Card>
 
           <Card title="Правила (редакция/изтриване)">
+            <div className="clubHeadRulesFilters">
+              <Input
+                as="select"
+                label="Отбор"
+                value={rulesTeamFilter}
+                onChange={(e) => setRulesTeamFilter(e.target.value)}
+              >
+                <option value="">Всички отбори</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </Input>
+              <Input
+                as="select"
+                label="Ден"
+                value={rulesWeekdayFilter}
+                onChange={(e) => setRulesWeekdayFilter(e.target.value)}
+              >
+                <option value="">Всички дни</option>
+                <option value="0">Понеделник</option>
+                <option value="1">Вторник</option>
+                <option value="2">Сряда</option>
+                <option value="3">Четвъртък</option>
+                <option value="4">Петък</option>
+                <option value="5">Събота</option>
+                <option value="6">Неделя</option>
+              </Input>
+              <Input
+                as="select"
+                label="Треньор"
+                value={rulesCoachFilter}
+                onChange={(e) => setRulesCoachFilter(e.target.value)}
+              >
+                <option value="">Всички треньори</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </Input>
+              <Input
+                as="select"
+                label="Статус"
+                value={rulesStatusFilter}
+                onChange={(e) => setRulesStatusFilter(e.target.value)}
+              >
+                <option value="active">Активни</option>
+                <option value="all">Всички</option>
+              </Input>
+            </div>
+
             {scheduleRules.length === 0 ? (
               <EmptyState title="Няма правила" description="Създай първото правило за графика." />
+            ) : filteredScheduleRules.length === 0 ? (
+              <EmptyState title="Няма резултати" description="Промени филтрите над таблицата." />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ден</TableHead>
-                    <TableHead>Час</TableHead>
-                    <TableHead>Зала</TableHead>
-                    <TableHead>Отбор</TableHead>
-                    <TableHead>Треньор</TableHead>
-                    <TableHead>Период</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead>Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scheduleRules.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>{weekdayLabel(r.weekday)}</TableCell>
-                      <TableCell>{r.start_time}–{r.end_time}</TableCell>
-                      <TableCell>{r.location}</TableCell>
-                      <TableCell>{teams.find((t) => Number(t.id) === Number(r.team_id))?.name || `#${r.team_id}`}</TableCell>
-                      <TableCell>{coaches.find((c) => Number(c.id) === Number(r.coach_id))?.name || `#${r.coach_id}`}</TableCell>
-                      <TableCell>{r.effective_from} → {r.effective_to || "без край"}</TableCell>
-                      <TableCell>
-                        <span className={`uiBadge ${r.is_active ? "uiBadge--success" : "uiBadge--danger"}`}>{r.is_active ? "Активно" : "Неактивно"}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Button size="sm" variant="secondary" onClick={() => editScheduleRule(r)}>Редактирай</Button>
-                          <Button size="sm" variant="danger" onClick={() => deleteScheduleRule(r.id)} disabled={busy}>Изтрий</Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <>
+                <div className="clubHeadTableScroll">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ден</TableHead>
+                        <TableHead>Час</TableHead>
+                        <TableHead>Зала</TableHead>
+                        <TableHead>Отбор</TableHead>
+                        <TableHead>Треньор</TableHead>
+                        <TableHead>Период</TableHead>
+                        <TableHead>Статус</TableHead>
+                        <TableHead>Действия</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagedScheduleRules.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell>{weekdayLabel(r.weekday)}</TableCell>
+                          <TableCell>{r.start_time}–{r.end_time}</TableCell>
+                          <TableCell>{r.location}</TableCell>
+                          <TableCell>{teams.find((t) => Number(t.id) === Number(r.team_id))?.name || `#${r.team_id}`}</TableCell>
+                          <TableCell>{coaches.find((c) => Number(c.id) === Number(r.coach_id))?.name || `#${r.coach_id}`}</TableCell>
+                          <TableCell>{r.effective_from} → {r.effective_to || "без край"}</TableCell>
+                          <TableCell>
+                            <button
+                              type="button"
+                              className={`clubHeadToggle${r.is_active ? " is-on" : ""}`}
+                              role="switch"
+                              aria-checked={Boolean(r.is_active)}
+                              aria-label={r.is_active ? "Активна" : "Неактивна"}
+                              disabled={busy}
+                              onClick={() => toggleScheduleRuleActive(r)}
+                            >
+                              <span className="clubHeadToggleTrack" aria-hidden>
+                                <span className="clubHeadToggleKnob" />
+                              </span>
+                              <span className="clubHeadToggleText">{r.is_active ? "Активна" : "Неактивна"}</span>
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="clubHeadIconActions">
+                              <button
+                                type="button"
+                                className="clubHeadIconBtn"
+                                aria-label="Редакция"
+                                title="Редакция"
+                                onClick={() => editScheduleRule(r)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                  <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                                  <path d="M13.5 6.5l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className="clubHeadIconBtn clubHeadIconBtn--danger"
+                                aria-label="Изтрий"
+                                title="Изтрий"
+                                disabled={busy}
+                                onClick={() => deleteScheduleRule(r.id)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                  <path d="M5 7h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                  <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                  <path d="M7 7l1 13h8l1-13M9 7V5h6v2" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                                </svg>
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="clubHeadPager">
+                  <span>
+                    {(rulesPageSafe - 1) * RULES_PAGE_SIZE + 1}
+                    –
+                    {Math.min(rulesPageSafe * RULES_PAGE_SIZE, filteredScheduleRules.length)}
+                    {" "}от {filteredScheduleRules.length}
+                  </span>
+                  <div className="clubHeadPagerBtns">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={rulesPageSafe <= 1}
+                      onClick={() => setRulesPage((p) => Math.max(1, p - 1))}
+                    >
+                      Назад
+                    </Button>
+                    <span className="clubHeadPagerPage">
+                      {rulesPageSafe}/{rulesPageCount}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={rulesPageSafe >= rulesPageCount}
+                      onClick={() => setRulesPage((p) => Math.min(rulesPageCount, p + 1))}
+                    >
+                      Напред
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </Card>
         </>
