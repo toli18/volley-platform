@@ -200,10 +200,8 @@ export default function CoachAssistantChat({
 
   return (
     <div className="aiGenPanel coachAssistChat">
-      <div className="coachAssistStatus">
-        {status?.geminiAvailable
-          ? `Режим: Gemini (${status.model || "flash"}) + локална методика`
-          : "Режим: локална методика (без Gemini ключ)"}
+      <div className="coachAssistStatus" title={status?.geminiAvailable ? `Модел: ${status.model || "flash"}` : "Локален методичен режим"}>
+        Методичен режим: Учебник БФВ + Годишна програма на отбора
       </div>
 
       <div className="coachAssistTeamBar">

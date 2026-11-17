@@ -1123,50 +1123,77 @@ export default function AIGenerator() {
         </div>
       ) : null}
 
-      {programLink.sessionDate || searchParams.get("date") ? (
-        <div className="aiGenBvfBanner" role="note">
-          <strong>Избрана дата за запис</strong>
-          <span>
-            {programLink.dayTheme ? (
-              <>
-                <b>{programLink.dayTheme}</b>
-                <br />
-              </>
-            ) : null}
-            {programLink.dayFocus?.length ? (
-              <>
-                Фокус: {programLink.dayFocus.join(", ")}
-                <br />
-              </>
-            ) : null}
-            След „Запази“ тренировката се закача към групата за{" "}
-            {searchParams.get("date") || programLink.sessionDate} (присъствие / програмна седмица).
-          </span>
-        </div>
-      ) : null}
-
-      {bvfMethodHint?.principles?.length || bvfMethodHint?.textbook ? (
-        <div className="aiGenBvfBanner" role="note">
-          <strong>Методически конспект (от учебника на БФВ)</strong>
-          <span>
-            {bvfMethodHint.textbook?.title
-              ? `Учебник: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""}`
-              : bvfMethodHint.day?.label
-                ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week?.week} · ${bvfMethodHint.day.label}: ${bvfMethodHint.day.theme || ""}`
-                : bvfMethodHint.week?.theme
-                  ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
-                  : `Възраст ${bvfMethodHint.age_band}`}
-            {" · "}
-            AI използва учебника и методиката при генериране.
-            {cycleParams.textbookSlug ? (
-              <>
-                {" "}
-                <Link to={`/textbook/${cycleParams.textbookSlug}`}>← Конспект в учебника</Link>
-              </>
-            ) : null}
-          </span>
-        </div>
-      ) : null}
+      {(() => {
+        const hasDateBanner = Boolean(programLink.sessionDate || searchParams.get("date"));
+        const hasMethodBanner = Boolean(bvfMethodHint?.principles?.length || bvfMethodHint?.textbook);
+        if (!hasDateBanner && !hasMethodBanner) return null;
+        const dateLabel = searchParams.get("date") || programLink.sessionDate || "";
+        const methodSummary = bvfMethodHint?.textbook?.title
+          ? `${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""}`
+          : bvfMethodHint?.day?.label
+            ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint?.week?.week} · ${bvfMethodHint.day.label}`
+            : bvfMethodHint?.week?.theme
+              ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint?.week?.week}: ${bvfMethodHint.week.theme}`
+              : bvfMethodHint?.age_band
+                ? `Възраст ${bvfMethodHint.age_band}`
+                : "Методика БФВ";
+        const stripTitle = [
+          hasDateBanner ? `Дата: ${dateLabel}` : null,
+          hasMethodBanner ? methodSummary : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <details className="aiGenContextStrip" open={activeTab !== "assistant"}>
+            <summary>{stripTitle || "Контекст за запис и конспект"}</summary>
+            <div className="aiGenContextStripBody">
+              {hasDateBanner ? (
+                <div className="aiGenContextStripBlock">
+                  <strong>Избрана дата за запис</strong>
+                  <span>
+                    {programLink.dayTheme ? (
+                      <>
+                        <b>{programLink.dayTheme}</b>
+                        <br />
+                      </>
+                    ) : null}
+                    {programLink.dayFocus?.length ? (
+                      <>
+                        Фокус: {programLink.dayFocus.join(", ")}
+                        <br />
+                      </>
+                    ) : null}
+                    След „Запази“ тренировката се закача към групата за {dateLabel} (присъствие /
+                    програмна седмица).
+                  </span>
+                </div>
+              ) : null}
+              {hasMethodBanner ? (
+                <div className="aiGenContextStripBlock">
+                  <strong>Методически конспект (от учебника на БФВ)</strong>
+                  <span>
+                    {bvfMethodHint.textbook?.title
+                      ? `Учебник: ${bvfMethodHint.textbook.title}${bvfMethodHint.textbook.session_code ? ` (${bvfMethodHint.textbook.session_code})` : ""}`
+                      : bvfMethodHint.day?.label
+                        ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week?.week} · ${bvfMethodHint.day.label}: ${bvfMethodHint.day.theme || ""}`
+                        : bvfMethodHint.week?.theme
+                          ? `Седмица ${cycleParams.cycleWeek || bvfMethodHint.week.week}: ${bvfMethodHint.week.theme}`
+                          : `Възраст ${bvfMethodHint.age_band}`}
+                    {" · "}
+                    AI използва учебника и методиката при генериране.
+                    {cycleParams.textbookSlug ? (
+                      <>
+                        {" "}
+                        <Link to={`/textbook/${cycleParams.textbookSlug}`}>← Конспект в учебника</Link>
+                      </>
+                    ) : null}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </details>
+        );
+      })()}
 
       {err ? <div className="aiGenError">{String(err)}</div> : null}
       {savedTraining?.id ? (
@@ -1541,7 +1568,7 @@ export default function AIGenerator() {
             </>
           ) : (
             <>
-              <span>Планът е готов — прегледай, избери дата и запази към групата.</span>
+              <span>Планът е готов: прегледай, избери дата и запази към групата.</span>
               <div className="coachAssistPlanReadyActions">
                 <button type="button" className="aiGenBtn aiGenBtn--primary" onClick={() => setActiveTab("plan")}>
                   Към плана
