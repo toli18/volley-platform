@@ -2484,6 +2484,72 @@
   margin-bottom: 8px;
 }
 
+.aiGenPlanRow--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .aiGenPlanRow--compact {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.aiGenPlanRowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.aiGenNationalBadge {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 1px 7px;
+  line-height: 1.4;
+}
+
+.aiGenDrillDesc {
+  margin-top: 4px;
+}
+
+.aiGenDrillDescText {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.aiGenDrillDescText.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.aiGenDescMore {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .aiGenPlanRowHead {
   display: flex;
   flex-direction: column;
@@ -2505,6 +2571,7 @@
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .aiGenMoveLabel {

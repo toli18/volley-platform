@@ -33,7 +33,16 @@ export function defaultToBgLabel(raw) {
   return translated.join(", ");
 }
 
-export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel }) {
+function blockActualMinutes(block) {
+  const drills = block?.drills || [];
+  const textDrills = block?.textDrills || [];
+  return (
+    drills.reduce((sum, d) => sum + (Number(d.minutes) || 0), 0) +
+    textDrills.reduce((sum, td) => sum + (Number(td.minutes) || 0), 0)
+  );
+}
+
+export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel, planBlocks = [] }) {
   if (!sessionReview) return null;
   const rec = sessionReview.recommended || {};
   const week = sessionReview.week || {};
@@ -41,6 +50,9 @@ export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel 
   const tb = sessionReview.textbook || {};
   const timeline = sessionReview.timeline || [];
   const blockGuide = sessionReview.blockGuide || [];
+  const actualByType = Object.fromEntries(
+    (planBlocks || []).map((b) => [b.blockType, blockActualMinutes(b)])
+  );
 
   return (
     <div className="aiGenSessionReview" role="region" aria-label="Контекст на тренировката">
@@ -51,20 +63,20 @@ export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel 
       <div className="aiGenSessionReviewGrid">
         <div className="aiGenSessionReviewItem">
           <span className="aiGenSessionReviewLabel">Основен фокус</span>
-          <strong>{toBgLabel(rec.mainFocus) || "—"}</strong>
+          <strong>{toBgLabel(rec.mainFocus) || "-"}</strong>
         </div>
         <div className="aiGenSessionReviewItem">
           <span className="aiGenSessionReviewLabel">Вторичен фокус</span>
-          <strong>{toBgLabel(rec.secondaryFocus) || "—"}</strong>
+          <strong>{toBgLabel(rec.secondaryFocus) || "-"}</strong>
         </div>
         <div className="aiGenSessionReviewItem">
           <span className="aiGenSessionReviewLabel">Период</span>
-          <strong>{rec.periodLabel || "—"}</strong>
+          <strong>{rec.periodLabel || "-"}</strong>
         </div>
         <div className="aiGenSessionReviewItem">
           <span className="aiGenSessionReviewLabel">Натоварване / интензитет</span>
           <strong>
-            {rec.load || week.load || "—"}
+            {rec.load || week.load || "-"}
             {rec.intensityLabel ? ` → ${rec.intensityLabel}` : ""}
           </strong>
         </div>
@@ -73,7 +85,7 @@ export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel 
         <p className="aiGenSessionReviewDay">
           {day.label ? `${day.label}` : week.week ? `Седмица ${week.week}` : ""}
           {day.theme || week.theme ? ` · ${day.theme || week.theme}` : ""}
-          {day.session_goal ? ` — ${day.session_goal}` : ""}
+          {day.session_goal ? ` · ${day.session_goal}` : ""}
         </p>
       ) : null}
       {tb.session_code || tb.title ? (
@@ -104,7 +116,9 @@ export function SessionReviewCard({ sessionReview, toBgLabel = defaultToBgLabel 
               <div key={g.blockType} className="aiGenBlockGuideCard">
                 <div className="aiGenBlockGuideHead">
                   <strong>{g.blockType}</strong>
-                  <span>{g.targetMinutes} мин</span>
+                  <span>
+                    {actualByType[g.blockType] != null ? actualByType[g.blockType] : g.targetMinutes} мин
+                  </span>
                 </div>
                 {g.goal ? <p className="aiGenBlockGuideGoal">{g.goal}</p> : null}
                 {(g.segments || []).length ? (

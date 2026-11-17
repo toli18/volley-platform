@@ -1,6 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import AiGenDrillCard from "./AiGenDrillCard";
-import { BlockMethodContext, SessionReviewCard } from "./SessionReviewCard";
+import { SessionReviewCard } from "./SessionReviewCard";
+
+function formatClock(totalMin) {
+  const m = Math.max(0, Math.round(Number(totalMin) || 0));
+  const hh = String(Math.floor(m / 60)).padStart(2, "0");
+  const mm = String(m % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function intensityBgLabel(value) {
+  const v = String(value || "").toLowerCase();
+  if (v === "low" || v === "ниска") return "Ниска";
+  if (v === "high" || v === "висока") return "Висока";
+  if (v === "medium" || v === "средна") return "Средна";
+  return "Средна";
+}
+
+function coveragePct(ratio) {
+  const n = Number(ratio);
+  if (!Number.isFinite(n)) return null;
+  const pct = n <= 1 ? Math.round(n * 100) : Math.round(n);
+  return Math.max(0, Math.min(100, pct));
+}
+
+function drillBodyText(d) {
+  return String(d?.instructions || d?.description || d?.setup || "").trim();
+}
+
+function isNationalWhy(whyList) {
+  return (whyList || []).some((w) => /национално упражнение бфв/i.test(String(w || "")));
+}
+
+function DrillDesc({ text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  const long = text.length > 110;
+  return (
+    <div className="aiGenDrillDesc">
+      <p className={`aiGenDrillDescText${open ? " is-open" : ""}`}>{text}</p>
+      {long ? (
+        <button type="button" className="aiGenDescMore" onClick={() => setOpen((v) => !v)}>
+          {open ? "Скрий" : "Виж още"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function FocusPickerSheet({ open, title, value, options, toBgLabel, matchSkillQuery, onClose, onSelect }) {
   const [q, setQ] = useState("");
@@ -463,13 +509,50 @@ export function AIGeneratorPlanPanel({
   }
 
   const planLines = trainingPlanText ? String(trainingPlanText).split("\n") : [];
+  const totalMinutes = Number(result?.session?.totalMinutes ?? result?.totalMinutes ?? 0) || 0;
+  const cover = coveragePct(result?.session?.checks?.primaryFocusRatio ?? result?.checks?.primaryFocusRatio);
+  const intensityLabel = intensityBgLabel(
+    result?.session?.checks?.intensityLabel ||
+      result?.intensityTarget ||
+      result?.session?.intensityTarget ||
+      "medium"
+  );
+
+  let clockCursor = 0;
+  const blocksWithClock = planBlocks.map((b) => {
+    const drills = b.drills || [];
+    const textDrills = b.textDrills || [];
+    const actualMinutes =
+      drills.reduce((sum, d) => sum + (Number(d.minutes) || 0), 0) +
+      textDrills.reduce((sum, td) => sum + (Number(td.minutes) || 0), 0);
+    const rows = [];
+    textDrills.forEach((td, tidx) => {
+      const mins = Number(td.minutes) || 0;
+      const startMin = clockCursor;
+      const endMin = clockCursor + mins;
+      clockCursor = endMin;
+      rows.push({ kind: "text", key: `${b.blockType}-text-${tidx}`, td, start: startMin, end: endMin, mins });
+    });
+    drills.forEach((d, idx) => {
+      const mins = Number(d.minutes) || 0;
+      const startMin = clockCursor;
+      const endMin = clockCursor + mins;
+      clockCursor = endMin;
+      rows.push({ kind: "drill", key: `${b.blockType}-${d.drillId}-${idx}`, d, idx, start: startMin, end: endMin, mins });
+    });
+    return { ...b, actualMinutes, rows };
+  });
 
   return (
     <section className="aiGenPanel" ref={planRef}>
       <div className="aiGenPlanToolbar">
-        <SessionReviewCard sessionReview={sessionReview} toBgLabel={toBgLabel || ((x) => x)} />
+        <SessionReviewCard
+          sessionReview={sessionReview}
+          toBgLabel={toBgLabel || ((x) => x)}
+          planBlocks={planBlocks}
+        />
         <button type="button" className="aiGenBtn aiGenBtn--ghost aiGenPrintBtn" onClick={() => window.print()}>
-          🖨 Печат
+          Печат
         </button>
       </div>
       <p className="aiGenHint">Редактирай реда, премахвай или премести упражнения. Добавяй нови от „База упражнения“.</p>
@@ -483,82 +566,101 @@ export function AIGeneratorPlanPanel({
       ) : null}
       {result?.фокус?.основен ? (
         <p className="aiGenPlanMeta">
-          <strong>Фокус:</strong> {result.фокус.основен} / {result.фокус.вторичен || "—"}
+          <strong>Фокус:</strong> {result.фокус.основен} / {result.фокус.вторичен || "-"}
         </p>
       ) : null}
       <p className="aiGenPlanMeta">
-        <strong>Общо минути:</strong> {result?.session?.totalMinutes ?? result?.totalMinutes} · <strong>Време ОК:</strong>{" "}
-        {String(result?.session?.checks?.minutesOk ?? result?.checks?.minutesOk)} · <strong>Покритие:</strong>{" "}
-        {String(result?.session?.checks?.primaryFocusRatio ?? "—")}
+        Общо: {totalMinutes || clockCursor} мин
+        {cover != null ? ` · Покритие на темата: ${cover}%` : ""}
+        {` · Интензивност: ${intensityLabel}`}
       </p>
       {!minTwoPerBlockOk ? (
         <div className="aiGenWarn">В някоя част има под 2 упражнения. Промени насочеността и генерирай отново.</div>
       ) : null}
-      {planBlocks.map((b) => (
+      {blocksWithClock.map((b) => (
         <div key={b.blockType} className="aiGenBlock">
           <h3 className="aiGenBlockTitle">
-            {b.blockType} <span>({b.targetMinutes} мин)</span>
+            {b.blockType} <span>({b.actualMinutes} мин)</span>
           </h3>
-          <BlockMethodContext block={b} blockGuide={sessionReview?.blockGuide} />
           <div className="aiGenBlockDrills">
-            {(b.textDrills || []).map((td, tidx) => (
-              <div key={`${b.blockType}-text-${tidx}`} className="aiGenPlanRow aiGenPlanRow--text aiGenPlanRow--assistant">
-                <div className="aiGenPlanRowHead">
-                  <strong>{td.title}</strong>
-                  <span>
-                    {td.minutes} мин ·{" "}
-                    {td.source === "assistant" ? "от помощника" : "текстово (методика)"}
-                  </span>
+            {b.rows.map((row) => {
+              if (row.kind === "text") {
+                const td = row.td;
+                return (
+                  <div key={row.key} className="aiGenPlanRow aiGenPlanRow--text aiGenPlanRow--assistant">
+                    <div className="aiGenPlanRowMain">
+                      <div className="aiGenPlanRowHead">
+                        <strong>{td.title}</strong>
+                        <span>
+                          {formatClock(row.start)} – {formatClock(row.end)} · {row.mins} мин ·{" "}
+                          {td.source === "assistant" ? "от помощника" : "текстово (методика)"}
+                        </span>
+                      </div>
+                      <p className="aiGenTextDrillInstr">{td.instructions}</p>
+                    </div>
+                  </div>
+                );
+              }
+              const d = row.d;
+              const national = isNationalWhy(d.why);
+              return (
+                <div key={row.key} className="aiGenPlanRow aiGenPlanRow--compact">
+                  <div className="aiGenPlanRowMain">
+                    <div className="aiGenPlanRowHead">
+                      <strong>
+                        {d.name}
+                        {national ? <span className="aiGenNationalBadge">Национално упражнение БФВ</span> : null}
+                      </strong>
+                      <span>
+                        {formatClock(row.start)} – {formatClock(row.end)} · {row.mins} мин
+                      </span>
+                    </div>
+                    <DrillDesc text={drillBodyText(d)} />
+                  </div>
+                  <div className="aiGenPlanRowActions">
+                    <button type="button" className="aiGenBtn aiGenBtn--ghost" onClick={() => openDrillPreview(d.drillId)}>
+                      Видео
+                    </button>
+                    <button
+                      type="button"
+                      className="aiGenBtn aiGenBtn--ghost"
+                      onClick={() => moveDrillInsideBlock(b.blockType, row.idx, "up")}
+                      disabled={row.idx === 0}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="aiGenBtn aiGenBtn--ghost"
+                      onClick={() => moveDrillInsideBlock(b.blockType, row.idx, "down")}
+                      disabled={row.idx === (b.drills?.length || 0) - 1}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="aiGenBtn aiGenBtn--danger"
+                      onClick={() => removeDrillFromBlock(b.blockType, d.drillId)}
+                    >
+                      Премахни
+                    </button>
+                    <label className="aiGenMoveLabel">
+                      <select
+                        aria-label="Фаза"
+                        defaultValue={b.blockType}
+                        onChange={(e) => moveDrillToBlock(b.blockType, e.target.value, d.drillId)}
+                      >
+                        {planBlocks.map((target) => (
+                          <option key={target.blockType} value={target.blockType}>
+                            {target.blockType}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 </div>
-                <p className="aiGenTextDrillInstr">{td.instructions}</p>
-              </div>
-            ))}
-            {b.drills?.map((d, idx) => (
-              <div key={`${b.blockType}-${d.drillId}`} className="aiGenPlanRow">
-                <div className="aiGenPlanRowHead">
-                  <strong>{d.name}</strong>
-                  <span>
-                    {d.minutes} мин · {d.intensity_type}
-                  </span>
-                </div>
-                <div className="aiGenPlanRowActions">
-                  <button type="button" className="aiGenBtn aiGenBtn--ghost" onClick={() => openDrillPreview(d.drillId)}>
-                    Видео
-                  </button>
-                  <button type="button" className="aiGenBtn aiGenBtn--ghost" onClick={() => moveDrillInsideBlock(b.blockType, idx, "up")} disabled={idx === 0}>
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="aiGenBtn aiGenBtn--ghost"
-                    onClick={() => moveDrillInsideBlock(b.blockType, idx, "down")}
-                    disabled={idx === (b.drills?.length || 0) - 1}
-                  >
-                    ↓
-                  </button>
-                  <button type="button" className="aiGenBtn aiGenBtn--danger" onClick={() => removeDrillFromBlock(b.blockType, d.drillId)}>
-                    Премахни
-                  </button>
-                  <label className="aiGenMoveLabel">
-                    <span>В:</span>
-                    <select defaultValue={b.blockType} onChange={(e) => moveDrillToBlock(b.blockType, e.target.value, d.drillId)}>
-                      {planBlocks.map((target) => (
-                        <option key={target.blockType} value={target.blockType}>
-                          {target.blockType}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                {(d.why || []).length > 0 ? (
-                  <ul className="aiGenWhyList">
-                    {(d.why || []).map((w, i) => (
-                      <li key={i}>{w}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

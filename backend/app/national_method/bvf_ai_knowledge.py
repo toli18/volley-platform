@@ -752,7 +752,7 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
     secondary = request_data.get("secondaryFocus") or ""
 
     lines = [
-        f"# Тренировъчен план — {age_band} · {total} мин",
+        f"# Тренировъчен план · {age_band} · {total} мин",
         "",
         "## 1. Контекст от цикъл",
     ]
@@ -786,8 +786,8 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
 
     lines.extend(["", "## 2. Фокус на тренировката"])
     if primary or secondary:
-        lines.append(f"- **Основен:** {primary or '—'}")
-        lines.append(f"- **Вторичен:** {secondary or '—'}")
+        lines.append(f"- **Основен:** {primary or '-'}")
+        lines.append(f"- **Вторичен:** {secondary or '-'}")
     else:
         focus = (wc or {}).get("focus") or k.get("focus_priority") or []
         if focus:
@@ -803,25 +803,59 @@ def build_training_plan_text(session: dict[str, Any], request_data: dict[str, An
         lines.append("")
         lines.append("**В залата:** " + " · ".join(cues[:3]))
 
+    def _clock(mins: int) -> str:
+        m = max(0, int(mins or 0))
+        return f"{m // 60:02d}:{m % 60:02d}"
+
+    def _short_instr(d: dict[str, Any]) -> str:
+        for key in ("instructions", "description", "setup"):
+            text = str(d.get(key) or "").strip()
+            if text:
+                return text if len(text) <= 160 else text[:157].rstrip() + "..."
+        return ""
+
     lines.extend(["", "## 4. Структура на сесията"])
+    cursor = 0
     for block in session.get("blocks") or []:
         bt = block.get("blockType") or block.get("име")
-        tm = block.get("targetMinutes") or block.get("целевоВреме") or 0
+        drills = list(block.get("drills") or [])
+        text_drills = list(block.get("textDrills") or [])
+        actual = sum(int(d.get("minutes") or d.get("минути") or 0) for d in drills) + sum(
+            int(td.get("minutes") or 0) for td in text_drills
+        )
+        tm = actual or block.get("targetMinutes") or block.get("целевоВреме") or 0
         goal = phase_block_goal(bt)
-        lines.append(f"### {bt} ({tm} мин)")
+        block_start = cursor
+        block_end = cursor + int(tm or 0)
+        lines.append(f"### {bt} ({int(tm)} мин · {_clock(block_start)} – {_clock(block_end)})")
         if goal:
             lines.append(f"**Задача:** {goal}")
-        drills = block.get("drills") or []
-        if drills:
+        if drills or text_drills:
             lines.append("**Упражнения:**")
-            for d in drills:
-                name = d.get("name") or d.get("име") or "Упражнение"
-                mins = d.get("minutes") or d.get("минути") or 0
-                lines.append(f"- {name} — {mins} мин")
-        for td in block.get("textDrills") or []:
-            lines.append(
-                f"- *{td.get('title')}* ({td.get('minutes', 0)} мин) — {td.get('instructions', '')[:100]}"
-            )
+        # Същият ред като UI: текстови сегменти, после упражнения от базата
+        for td in text_drills:
+            mins = int(td.get("minutes") or 0)
+            start = cursor
+            end = cursor + mins
+            cursor = end
+            instr = str(td.get("instructions") or "").strip()
+            snippet = instr[:160] + ("..." if len(instr) > 160 else "")
+            title = td.get("title") or "Текстово упражнение"
+            if snippet:
+                lines.append(f"- {_clock(start)} – {_clock(end)} · *{title}* ({mins} мин): {snippet}")
+            else:
+                lines.append(f"- {_clock(start)} – {_clock(end)} · *{title}* ({mins} мин)")
+        for d in drills:
+            name = d.get("name") or d.get("име") or "Упражнение"
+            mins = int(d.get("minutes") or d.get("минути") or 0)
+            start = cursor
+            end = cursor + mins
+            cursor = end
+            instr = _short_instr(d)
+            if instr:
+                lines.append(f"- {_clock(start)} – {_clock(end)} · **{name}** ({mins} мин): {instr}")
+            else:
+                lines.append(f"- {_clock(start)} – {_clock(end)} · **{name}** ({mins} мин)")
 
     lines.extend(
         [

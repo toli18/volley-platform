@@ -95,6 +95,8 @@ def _drill_to_dict(drill: Any) -> Dict[str, Any]:
         "skillFocus": _safe_str(_get_field(drill, "skillFocus", "skill_focus")),
         "goal": _safe_str(_get_field(drill, "goal")),
         "description": _safe_str(_get_field(drill, "description")),
+        "setup": _safe_str(_get_field(drill, "setup")),
+        "instructions": _safe_str(_get_field(drill, "instructions")),
         "training_goal": _safe_str(_get_field(drill, "training_goal")),
         "technical_focus": _get_field(drill, "technical_focus", "technicalFocus"),
         "tactical_focus": _get_field(drill, "tactical_focus", "tacticalFocus"),
@@ -110,6 +112,59 @@ def _drill_to_dict(drill: Any) -> Dict[str, Any]:
         "intensity_type": _safe_str(_get_field(drill, "intensity_type", "intensityType")),
         "complexity_level": _safe_str(_get_field(drill, "complexity_level", "complexityLevel")),
         "decision_level": _safe_str(_get_field(drill, "decision_level", "decisionLevel")),
+    }
+
+
+def _is_warmup_like(drill: Dict[str, Any]) -> bool:
+    cat = _norm(drill.get("category"))
+    name = _norm(drill.get("name"))
+    return (
+        "загрявка" in cat
+        or "разгрявка" in cat
+        or "загрявка" in name
+        or "разгрявка" in name
+    )
+
+
+def _is_competitive_game_like(drill: Dict[str, Any]) -> bool:
+    blob = _norm(
+        " ".join(
+            [
+                _safe_str(drill.get("name")),
+                _safe_str(drill.get("category")),
+                _safe_str(drill.get("description")),
+                _safe_str(drill.get("type_of_drill")),
+                _safe_str(drill.get("goal")),
+            ]
+        )
+    )
+    markers = (
+        "6v6",
+        "6 срещу 6",
+        "игра с правила",
+        "игра 6х6",
+        "игра 6x6",
+        "официален мач",
+        "състезателна игра",
+        "мач до",
+    )
+    return any(m in blob for m in markers)
+
+
+def _phase_hard_ban(drill: Dict[str, Any], target_phase: str) -> Optional[str]:
+    """Твърда забрана: загрявка не в края; чисто игрови форми не в активиране."""
+    if _is_warmup_like(drill) and target_phase in {"Интеграция", "Състезателност"}:
+        return "загрявка/разгрявка: забранено за крайна фаза"
+    if _is_competitive_game_like(drill) and target_phase == "Активиране":
+        return "игрова/тактическа форма: забранено за активиране"
+    return None
+
+
+def _content_fields(drill: Dict[str, Any]) -> Dict[str, str]:
+    return {
+        "description": _safe_str(drill.get("description")),
+        "setup": _safe_str(drill.get("setup")),
+        "instructions": _safe_str(drill.get("instructions")),
     }
 
 
@@ -151,8 +206,11 @@ def _clamp01(value: float) -> float:
 def phaseWeightsFromCategory(categoryString: Any) -> Dict[str, float]:
     category = _norm(categoryString)
     weights = {phase: 0.0 for phase in PHASES_BG}
-    if "загрявка" in category:
+    if "загрявка" in category or "разгрявка" in category:
         weights["Активиране"] = max(weights["Активиране"], 0.9)
+        # Твърдо: разгрявка/загрявка не към крайните фази
+        weights["Интеграция"] = 0.0
+        weights["Състезателност"] = 0.0
     if "основна фаза 1" in category:
         weights["Изграждане"] = max(weights["Изграждане"], 0.8)
     if "основна фаза 2" in category:
@@ -160,6 +218,7 @@ def phaseWeightsFromCategory(categoryString: Any) -> Dict[str, float]:
     if "игрова ситуация" in category:
         weights["Интеграция"] = max(weights["Интеграция"], 0.6)
         weights["Състезателност"] = max(weights["Състезателност"], 0.4)
+        weights["Активиране"] = 0.0
     if "затваряне" in category:
         weights["Състезателност"] = max(weights["Състезателност"], 0.9)
     if "техническа подготовка" in category:
@@ -168,13 +227,28 @@ def phaseWeightsFromCategory(categoryString: Any) -> Dict[str, float]:
     if "тактика" in category:
         weights["Интеграция"] = max(weights["Интеграция"], 0.7)
         weights["Състезателност"] = max(weights["Състезателност"], 0.3)
+        weights["Активиране"] = min(weights["Активиране"], 0.0)
     return weights
 
 
 def phaseMatchScore(drill: Dict[str, Any], targetPhaseName: str) -> float:
+    if _phase_hard_ban(drill, targetPhaseName):
+        return 0.0
+
     weights = phaseWeightsFromCategory(drill.get("category"))
     score = float(weights.get(targetPhaseName, 0.0))
     text = _norm(f"{drill.get('goal', '')} {drill.get('description', '')} {drill.get('training_goal', '')}")
+
+    if _is_warmup_like(drill):
+        if targetPhaseName == "Активиране":
+            score = max(score, 0.95)
+        elif targetPhaseName == "Изграждане":
+            score = min(score, 0.25)
+        else:
+            return 0.0
+
+    if _is_competitive_game_like(drill) and targetPhaseName == "Активиране":
+        return 0.0
 
     competitive_kw = ("точки", "гейм", "сет", "резултат", "състезание")
     if targetPhaseName == "Състезателност" and any(kw in text for kw in competitive_kw):
@@ -404,18 +478,18 @@ _GENERIC_REASON_PREFIXES = (
 
 
 def _pick_coach_reason(reasons: List[str], target_phase: str, fallback: str) -> str:
-    """Една конкретна бележка — без повторение на основен/вторичен фокус на всяко упражнение."""
+    """Една конкретна бележка, без повторение на основен/вторичен фокус на всяко упражнение."""
     specific = [
         r
         for r in reasons
         if r and not any(r.lower().startswith(p) for p in _GENERIC_REASON_PREFIXES)
     ]
     for needle, label in (
-        ("национално упражнение бфв", "Национално упражнение БФВ — препоръчано за възрастта."),
+        ("национално упражнение бфв", "Национално упражнение БФВ: препоръчано за възрастта."),
         ("седмичен фокус", None),
         ("надгражда", None),
         ("подходящо е за фаза", None),
-        ("novelty бонус", "Свеж избор — не е ползвано в последните тренировки."),
+        ("novelty бонус", "Свеж избор: не е ползвано в последните тренировки."),
         ("по-нисък приоритет", None),
     ):
         for r in specific:
@@ -550,6 +624,19 @@ def scoreDrill(
     skill_count = max(1, inferSkillCount(drill))
     context = inferGameContext(drill)
     duration_target = inferDurationTarget(drill)
+
+    ban = _phase_hard_ban(drill, targetPhase)
+    if ban:
+        return {
+            "score": -1000.0,
+            "reasons": [ban],
+            "primaryMatch": primary_match,
+            "secondaryMatch": secondary_match,
+            "skills": list(skills),
+            "durationTarget": duration_target,
+            "phaseMatchScore": 0.0,
+            "gameContext": context,
+        }
 
     score = 0.0
     reasons: List[str] = []
@@ -750,6 +837,29 @@ def selectDrillsForPhase(
         reverse=True,
     )
 
+    scored = [row for row in scored if float(row[0]) > -500]
+
+    def _picked_item(drill: Dict[str, Any], meta: Dict[str, Any], fallback: str) -> Dict[str, Any]:
+        item = {
+            "id": int(drill["id"]),
+            "name": drill.get("name"),
+            "category": drill.get("category"),
+            "skillFocus": drill.get("skillFocus"),
+            "videoUrls": drill.get("videoUrls"),
+            "imageUrls": drill.get("imageUrls"),
+            "rpe": drill.get("rpe"),
+            "minutes": 0,
+            "обосновка": _reason_sentence(meta["reasons"], fallback, targetPhase),
+            "__score": meta["score"],
+            "__primary_match": meta["primaryMatch"],
+            "__secondary_match": meta["secondaryMatch"],
+            "__skills": meta["skills"],
+            "__duration": meta["durationTarget"],
+            "__phase": targetPhase,
+        }
+        item.update(_content_fields(drill))
+        return item
+
     target_count = max(2, min(4, _target_count_for_phase(targetMinutes)))
     selected: List[Dict[str, Any]] = []
     for _, drill, meta in scored:
@@ -758,27 +868,11 @@ def selectDrillsForPhase(
         if _is_too_similar(drill, selected):
             continue
         selected.append(
-            {
-                "id": int(drill["id"]),
-                "name": drill.get("name"),
-                "category": drill.get("category"),
-                "skillFocus": drill.get("skillFocus"),
-                "videoUrls": drill.get("videoUrls"),
-                "imageUrls": drill.get("imageUrls"),
-                "rpe": drill.get("rpe"),
-                "minutes": 0,
-                "обосновка": _reason_sentence(
-                    meta["reasons"],
-                    f"Подходящо за {targetPhase} според категория и контекст.",
-                    targetPhase,
-                ),
-                "__score": meta["score"],
-                "__primary_match": meta["primaryMatch"],
-                "__secondary_match": meta["secondaryMatch"],
-                "__skills": meta["skills"],
-                "__duration": meta["durationTarget"],
-                "__phase": targetPhase,
-            }
+            _picked_item(
+                drill,
+                meta,
+                f"Подходящо за {targetPhase} според категория и контекст.",
+            )
         )
 
     if len(selected) < 2:
@@ -788,27 +882,11 @@ def selectDrillsForPhase(
             if any(int(x["id"]) == int(drill["id"]) for x in selected):
                 continue
             selected.append(
-                {
-                    "id": int(drill["id"]),
-                    "name": drill.get("name"),
-                    "category": drill.get("category"),
-                    "skillFocus": drill.get("skillFocus"),
-                    "videoUrls": drill.get("videoUrls"),
-                    "imageUrls": drill.get("imageUrls"),
-                    "rpe": drill.get("rpe"),
-                    "minutes": 0,
-                    "обосновка": _reason_sentence(
-                        meta["reasons"],
-                        f"Избрано като най-близко упражнение за фаза {targetPhase}.",
-                        targetPhase,
-                    ),
-                    "__score": meta["score"],
-                    "__primary_match": meta["primaryMatch"],
-                    "__secondary_match": meta["secondaryMatch"],
-                    "__skills": meta["skills"],
-                    "__duration": meta["durationTarget"],
-                    "__phase": targetPhase,
-                }
+                _picked_item(
+                    drill,
+                    meta,
+                    f"Избрано като най-близко упражнение за фаза {targetPhase}.",
+                )
             )
 
     _allocate_minutes(targetMinutes, selected)
@@ -863,6 +941,8 @@ def _replace_to_enforce_primary_ratio(
                     recent_rank_by_id={},
                 )
                 meta = scoreDrill(drill, phase_name, session_focus, pseudo_state)
+                if float(meta.get("score") or 0) <= -500:
+                    continue
                 replacements.append((meta["score"], drill, meta))
             if not replacements:
                 continue
@@ -870,7 +950,7 @@ def _replace_to_enforce_primary_ratio(
             _, replacement, meta = replacements[0]
             used_ids.discard(int(current["id"]))
             used_ids.add(int(replacement["id"]))
-            phase["упражнения"][idx] = {
+            replaced = {
                 "id": int(replacement["id"]),
                 "name": replacement.get("name"),
                 "category": replacement.get("category"),
@@ -891,6 +971,8 @@ def _replace_to_enforce_primary_ratio(
                 "__duration": meta["durationTarget"],
                 "__phase": phase_name,
             }
+            replaced.update(_content_fields(replacement))
+            phase["упражнения"][idx] = replaced
             selected = _all_selected()
             current_hits = sum(1 for item in selected if item.get("__primary_match"))
 
@@ -1005,6 +1087,9 @@ def generate_training_session(drills_raw: Sequence[Any], request_data: Dict[str,
                     "intensity_type": _safe_str(item.get("intensity_type", "medium")) or "medium",
                     "rpe": item.get("rpe"),
                     "category": item.get("category"),
+                    "description": _safe_str(item.get("description")),
+                    "setup": _safe_str(item.get("setup")),
+                    "instructions": _safe_str(item.get("instructions")),
                     "why": [item.get("обосновка")],
                     "score": item.get("__score", 0),
                     "scoreBreakdown": {},
