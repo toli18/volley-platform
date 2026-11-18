@@ -1,109 +1,87 @@
-# Публичен API · график на клуб (за външен сайт)
+# Публичен API · график (клубен сайт)
 
-Без login. Данните идват от същия график, който треньорите поддържат в платформата.
+Без login. Данните идват от **График** в Volley Coach (правила, отмени, мачове).
 
-**База (production):** `https://volley-platform-production.up.railway.app`
-
+**База:** `https://volley-platform-production.up.railway.app`  
 **Троян Волей · slug:** `troyanvolley`
 
-## 1. График (тренировки + състезания)
+---
+
+## Препоръчителен URL (дайте на колегата)
+
+**Опресняване на всеки ~15–30 мин. от сървъра на сайта** (или cron):
 
 ```
-GET /api/public/clubs/{slug}/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD
+https://volley-platform-production.up.railway.app/api/public/clubs/troyanvolley/schedule/feed
 ```
 
-**Седмичен шаблон** (ако календарът е празен заради изтекли `effective_to` в правилата):
+- По подразбиране: **днес + 21 дни**
+- Включва **тренировки** (с отмени/премествания) и **състезания**
+- Отговорът има `generated_at` и `items[]`
+
+По-дълъг период (до 92 дни):
 
 ```
-GET /api/public/clubs/troyanvolley/schedule?view=weekly
-GET /api/public/clubs/troyanvolley/schedule?view=weekly&from=2026-03-17
+.../schedule/feed?days=45
 ```
 
-Опционални query параметри:
-
-| Параметър      | Описание |
-|----------------|----------|
-| `view`         | `calendar` (по подразбиране) или `weekly` |
-| `team_id`      | само една група (виж списък от `/teams`) |
-| `event_type`   | `training` или `competition` (без параметър = и двете) |
-
-Ограничение: периодът `from`..`to` е максимум **92 дни**.
-
-### Пример (Троян, две седмици)
+Само една група:
 
 ```
-https://volley-platform-production.up.railway.app/api/public/clubs/troyanvolley/schedule?from=2026-03-17&to=2026-03-31
+.../schedule/feed?team_id=8
 ```
 
-### Пример за отговор (скъсен)
-
-```json
-{
-  "slug": "troyanvolley",
-  "club_name": "Сдружение ВК Троян Волей",
-  "from": "2026-03-17",
-  "to": "2026-03-31",
-  "count": 2,
-  "items": [
-    {
-      "date": "2026-03-18",
-      "weekday": 2,
-      "weekday_label": "Ср",
-      "event_type": "training",
-      "start_time": "17:30",
-      "end_time": "19:00",
-      "location": "Троян",
-      "team_id": 12,
-      "team_name": "U14 Момичета",
-      "team_label": "U14 · момичета",
-      "coach_name": "Иван Иванов",
-      "hall_name": null
-    }
-  ]
-}
-```
-
-При `event_type: competition` полетата включват `opponent_name`, `competition_kind`, `competition_kind_label`.
-
-## 2. Списък групи (за филтър)
+Групи и `team_id`:
 
 ```
 GET /api/public/clubs/troyanvolley/teams
 ```
 
-Връща `teams[]` с `id`, `name`, `age_group`, `gender`, `hint`.
+---
 
-## 3. Интеграция в сайт
+## Други изгледи
 
-**Препоръка:** извличане от **сървъра** на сайта (PHP, Node, WordPress cron), не директно от браузъра, ако не сте настройили CORS.
+| URL | Кога |
+|-----|------|
+| `.../schedule/feed` | **Клубен сайт, актуален календар** |
+| `.../schedule?from=...&to=...` | Произволен период |
+| `.../schedule?view=weekly` | Седмичен шаблон (без конкретни дати) |
 
-За JS от `troyanvolley.com` / `www.troyanvolley.com` CORS е позволен на backend (променлива `CORS_EXTRA_ORIGINS` при нужда от друг домейн).
+---
 
-### PHP (server-side)
+## Примерен отговор (feed)
 
-```php
-$url = 'https://volley-platform-production.up.railway.app/api/public/clubs/troyanvolley/schedule'
-     . '?from=' . date('Y-m-d')
-     . '&to=' . date('Y-m-d', strtotime('+14 days'));
-$json = json_decode(file_get_contents($url), true);
+```json
+{
+  "slug": "troyanvolley",
+  "club_name": "Сдружение ВК Троян Волей",
+  "from": "2026-03-18",
+  "to": "2026-04-08",
+  "count": 42,
+  "view": "feed",
+  "generated_at": "2026-03-18T10:15:00Z",
+  "refresh_hint_minutes": 15,
+  "items": [
+    {
+      "date": "2026-03-18",
+      "weekday_label": "Ср",
+      "event_type": "training",
+      "start_time": "17:30",
+      "end_time": "19:00",
+      "location": "Троян",
+      "team_name": "U14",
+      "coach_name": "..."
+    }
+  ]
+}
 ```
 
-### JavaScript (браузър, след deploy с CORS)
+---
 
-```javascript
-const base = "https://volley-platform-production.up.railway.app";
-const from = "2026-03-17";
-const to = "2026-03-31";
-const res = await fetch(
-  `${base}/api/public/clubs/troyanvolley/schedule?from=${from}&to=${to}`
-);
-const data = await res.json();
-```
+## Интеграция
 
-## 4. Актуализация
+- **PHP / WordPress:** `file_get_contents` или `wp_remote_get` на `/schedule/feed` → рендерирате таблица.
+- **JavaScript от troyanvolley.com:** разрешен CORS (виж `CORS_EXTRA_ORIGINS` в Railway).
+- Кеш на сайта: не над **5–10 мин**, за да се виждат отмени навреме.
 
-Графикът се обновява в Volley Coach (меню **График**). Промените се виждат в API веднага (отговорът може да се кешира до 5 мин. с `Cache-Control`).
-
-## 5. Slug за друг клуб
-
-В настройките **Публична страница** на клуба (`public_slug`) или попитайте администратора. За Троян вече е `troyanvolley`.
+Пълни бележки: същата папка, файл в git `docs/PUBLIC_SCHEDULE_API_BG.md`.

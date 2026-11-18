@@ -122,6 +122,29 @@ def _rule_overlaps_range(rule: TrainingScheduleRule, d0: date, d1: date) -> bool
     return True
 
 
+def _rule_overlaps_range_public(rule: TrainingScheduleRule, d0: date, d1: date) -> bool:
+    """Публичен сайт: активно правило остава видимо, дори ако effective_to не е подновен."""
+    if not rule.is_active:
+        return False
+    ef = _parse_rule_date(rule.effective_from)
+    if ef is not None and ef > d1:
+        return False
+    et = _parse_rule_date(rule.effective_to)
+    if et is not None and et < d0:
+        return True
+    return True
+
+
+def _rule_applies_on_day(rule: TrainingScheduleRule, cur: date, *, public: bool) -> bool:
+    ef = _parse_rule_date(rule.effective_from)
+    if ef is not None and cur < ef:
+        return False
+    et = _parse_rule_date(rule.effective_to)
+    if et is not None and cur > et:
+        return bool(public and rule.is_active)
+    return True
+
+
 def _logo_url(club: Club) -> str | None:
     # Prefer public CDN when we have SEK logo id — works on the public page without API host.
     logo_id = (getattr(club, "bvf_logo_id", None) or "").strip()
@@ -506,7 +529,7 @@ def _public_training_occurrences(
     )
     if team_id:
         q = q.filter(TrainingScheduleRule.team_id == int(team_id))
-    rules = [r for r in q.all() if _rule_overlaps_range(r, d0, d1)]
+    rules = [r for r in q.all() if _rule_overlaps_range_public(r, d0, d1)]
     if not rules:
         return []
 
@@ -551,11 +574,7 @@ def _public_training_occurrences(
         for r in rules:
             if int(r.weekday) != int(weekday):
                 continue
-            ef = _parse_rule_date(r.effective_from)
-            if ef is not None and cur < ef:
-                continue
-            et = _parse_rule_date(r.effective_to)
-            if et is not None and cur > et:
+            if not _rule_applies_on_day(r, cur, public=True):
                 continue
             exc = exc_by_key.get((int(r.id), cur_s))
             if exc and exc.kind == "cancelled":
@@ -838,7 +857,47 @@ def get_public_club_schedule(
             "version": 1,
             "docs_hint": "GET /api/public/clubs/{slug}/teams for team_id filter",
         },
+        "view": "calendar",
     }
+
+
+@router.get("/public/clubs/{slug}/schedule/feed")
+def get_public_club_schedule_feed(
+    slug: str,
+    response: Response,
+    days: int = Query(
+        default=21,
+        ge=1,
+        le=92,
+        description="Брой дни напред от днес (тренировки + мачове)",
+    ),
+    team_id: int | None = Query(default=None, description="Филтър по група"),
+    event_type: str | None = Query(default=None, description="training | competition"),
+    db: Session = Depends(get_db),
+):
+    """Препоръчителен URL за клубен сайт: винаги от днес, с отмени/премествания."""
+    d0 = date.today()
+    d1 = d0 + timedelta(days=int(days))
+    payload = get_public_club_schedule(
+        slug=slug,
+        response=response,
+        from_date=d0.isoformat(),
+        to_date=d1.isoformat(),
+        view="calendar",
+        team_id=team_id,
+        event_type=event_type,
+        db=db,
+    )
+    payload["view"] = "feed"
+    payload["generated_at"] = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    payload["refresh_hint_minutes"] = 15
+    payload["api"] = {
+        "version": 1,
+        "stable": True,
+        "teams_url": f"/api/public/clubs/{slug}/teams",
+        "weekly_template_url": f"/api/public/clubs/{slug}/schedule?view=weekly",
+    }
+    return payload
 
 
 class PublicEnrollmentCreate(BaseModel):
