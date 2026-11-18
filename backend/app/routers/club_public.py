@@ -703,6 +703,7 @@ def list_public_club_teams(
 @router.get("/public/clubs/{slug}/schedule")
 def get_public_club_schedule(
     slug: str,
+    response: Response,
     from_date: str | None = Query(default=None, alias="from", description="YYYY-MM-DD"),
     to_date: str | None = Query(default=None, alias="to", description="YYYY-MM-DD"),
     view: str = Query(
@@ -715,7 +716,6 @@ def get_public_club_schedule(
         description="training | competition (мачове/турнири/контролни)",
     ),
     db: Session = Depends(get_db),
-    response: Response,
 ):
     """Публичен график: тренировки + състезания (мачове/турнири) за всички възрасти."""
     club = _public_club_by_slug_or_404(db, slug)
@@ -728,8 +728,7 @@ def get_public_club_schedule(
         as_of_raw = (from_date or today.isoformat()).strip()
         as_of = _parse_public_date(as_of_raw, "from")
         weekly_items = _public_weekly_rules(db, club, team_id=team_id, as_of=as_of)
-        if response is not None:
-            response.headers["Cache-Control"] = "public, max-age=300"
+        response.headers["Cache-Control"] = "public, max-age=300"
         return {
             "slug": club.public_slug,
             "club_name": club.name,
@@ -827,8 +826,7 @@ def get_public_club_schedule(
             )
 
     items.sort(key=lambda x: (x.get("date") or "", x.get("start_time") or "", x.get("team_name") or ""))
-    if response is not None:
-        response.headers["Cache-Control"] = "public, max-age=300"
+    response.headers["Cache-Control"] = "public, max-age=300"
     return {
         "slug": club.public_slug,
         "club_name": club.name,
