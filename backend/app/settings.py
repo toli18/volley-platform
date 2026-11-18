@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     smtp_user: Optional[str] = Field(default=None, env="SMTP_USER")
     smtp_password: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
     smtp_from: Optional[str] = Field(default=None, env="SMTP_FROM")
+    cors_extra_origins: str = Field(
+        default="https://troyanvolley.com,https://www.troyanvolley.com",
+        env="CORS_EXTRA_ORIGINS",
+        description="Comma-separated extra origins for browser calls (public schedule embed).",
+    )
     api_public_url: Optional[str] = Field(
         default=None,
         validation_alias=AliasChoices(

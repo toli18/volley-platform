@@ -7,7 +7,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -100,6 +100,26 @@ def _parse_public_date(value: str, field: str) -> date:
         return datetime.strptime(raw, "%Y-%m-%d").date()
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD") from exc
+
+
+def _parse_rule_date(value: str | None) -> date | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _rule_overlaps_range(rule: TrainingScheduleRule, d0: date, d1: date) -> bool:
+    ef = _parse_rule_date(rule.effective_from)
+    if ef is not None and ef > d1:
+        return False
+    et = _parse_rule_date(rule.effective_to)
+    if et is not None and et < d0:
+        return False
+    return True
 
 
 def _logo_url(club: Club) -> str | None:
@@ -222,9 +242,11 @@ def _upcoming_trainings_for_team(
         for r in rules:
             if int(r.weekday) != int(weekday):
                 continue
-            if r.effective_from > cur_s:
+            ef = _parse_rule_date(r.effective_from)
+            if ef is not None and cur < ef:
                 continue
-            if r.effective_to and r.effective_to < cur_s:
+            et = _parse_rule_date(r.effective_to)
+            if et is not None and cur > et:
                 continue
             exc = exc_by_key.get((int(r.id), cur_s))
             if exc and exc.kind == "cancelled":
@@ -481,15 +503,10 @@ def _public_training_occurrences(
     q = db.query(TrainingScheduleRule).filter(
         TrainingScheduleRule.club_id == int(club_id),
         TrainingScheduleRule.is_active.is_(True),
-        TrainingScheduleRule.effective_from <= d1.isoformat(),
-    )
-    q = q.filter(
-        (TrainingScheduleRule.effective_to.is_(None))
-        | (TrainingScheduleRule.effective_to >= d0.isoformat())
     )
     if team_id:
         q = q.filter(TrainingScheduleRule.team_id == int(team_id))
-    rules = q.all()
+    rules = [r for r in q.all() if _rule_overlaps_range(r, d0, d1)]
     if not rules:
         return []
 
@@ -534,9 +551,11 @@ def _public_training_occurrences(
         for r in rules:
             if int(r.weekday) != int(weekday):
                 continue
-            if r.effective_from > cur_s:
+            ef = _parse_rule_date(r.effective_from)
+            if ef is not None and cur < ef:
                 continue
-            if r.effective_to and r.effective_to < cur_s:
+            et = _parse_rule_date(r.effective_to)
+            if et is not None and cur > et:
                 continue
             exc = exc_by_key.get((int(r.id), cur_s))
             if exc and exc.kind == "cancelled":
@@ -593,20 +612,135 @@ def _public_training_occurrences(
     return out
 
 
+def _public_weekly_rules(
+    db: Session,
+    club: Club,
+    *,
+    team_id: int | None = None,
+    as_of: date | None = None,
+) -> list[dict[str, Any]]:
+    """Седмичен шаблон (активни правила), подходящ за клубен сайт."""
+    as_of_d = as_of or date.today()
+    q = db.query(TrainingScheduleRule).filter(
+        TrainingScheduleRule.club_id == int(club.id),
+        TrainingScheduleRule.is_active.is_(True),
+    )
+    if team_id:
+        q = q.filter(TrainingScheduleRule.team_id == int(team_id))
+    # Седмичен шаблон за сайт: всички активни правила (като публичната страница), с период на валидност.
+    rules = q.order_by(
+        TrainingScheduleRule.weekday.asc(),
+        TrainingScheduleRule.start_time.asc(),
+    ).all()
+
+    team_ids = {int(r.team_id) for r in rules}
+    teams = db.query(Team).filter(Team.id.in_(list(team_ids))).all() if team_ids else []
+    team_by_id = {int(t.id): t for t in teams}
+    coach_ids = {int(r.coach_id) for r in rules}
+    coach_names = (
+        dict(db.query(User.id, User.name).filter(User.id.in_(list(coach_ids))).all())
+        if coach_ids
+        else {}
+    )
+    halls = load_club_halls(db, int(club.id), active_only=True)
+
+    out: list[dict[str, Any]] = []
+    for r in sorted(rules, key=lambda x: (int(x.weekday), x.start_time or "", int(x.team_id))):
+        team = team_by_id.get(int(r.team_id))
+        gender = (getattr(team, "gender", None) or "").strip().lower() or None if team else None
+        age_group = (getattr(team, "age_group", None) or "").strip() or None if team else None
+        wd = int(r.weekday or 0)
+        loc = " ".join((r.location or "").strip().split())
+        row = {
+            "rule_id": int(r.id),
+            "weekday": wd,
+            "weekday_label": _WEEKDAY_BG[wd] if 0 <= wd < 7 else str(wd),
+            "event_type": "training",
+            "start_time": r.start_time,
+            "end_time": r.end_time,
+            "location": loc or None,
+            "team_id": int(r.team_id),
+            "team_name": team.name if team else None,
+            "team_label": _public_team_hint(age_group, gender, None) or (team.name if team else None),
+            "coach_name": coach_names.get(int(r.coach_id)),
+            "effective_from": (r.effective_from or "")[:10] or None,
+            "effective_to": (r.effective_to or "")[:10] or None,
+        }
+        out.append(_enrich_slot_location(row, halls))
+    return out
+
+
+@router.get("/public/clubs/{slug}/teams")
+def list_public_club_teams(
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    """Активни групи за филтър `team_id` в публичния график (без JWT)."""
+    club = _public_club_by_slug_or_404(db, slug)
+    teams = (
+        db.query(Team)
+        .filter(Team.club_id == int(club.id), Team.is_active.is_(True))
+        .order_by(Team.name.asc())
+        .all()
+    )
+    return {
+        "slug": club.public_slug,
+        "club_name": club.name,
+        "teams": [
+            {
+                "id": int(t.id),
+                "name": t.name,
+                "age_group": (t.age_group or "").strip() or None,
+                "gender": (t.gender or "").strip().lower() or None,
+                "gender_label": _gender_label(t.gender),
+                "hint": _public_team_hint(t.age_group, t.gender, t.season),
+            }
+            for t in teams
+        ],
+    }
+
+
 @router.get("/public/clubs/{slug}/schedule")
 def get_public_club_schedule(
     slug: str,
-    from_date: str = Query(..., alias="from", description="YYYY-MM-DD"),
-    to_date: str = Query(..., alias="to", description="YYYY-MM-DD"),
+    from_date: str | None = Query(default=None, alias="from", description="YYYY-MM-DD"),
+    to_date: str | None = Query(default=None, alias="to", description="YYYY-MM-DD"),
+    view: str = Query(
+        default="calendar",
+        description="calendar (дни в периода) | weekly (седмичен шаблон)",
+    ),
     team_id: int | None = Query(default=None, description="Филтър по група/възраст"),
     event_type: str | None = Query(
         default=None,
         description="training | competition (мачове/турнири/контролни)",
     ),
     db: Session = Depends(get_db),
+    response: Response,
 ):
     """Публичен график: тренировки + състезания (мачове/турнири) за всички възрасти."""
     club = _public_club_by_slug_or_404(db, slug)
+    view_key = (view or "calendar").strip().lower()
+    if view_key not in {"calendar", "weekly"}:
+        raise HTTPException(status_code=422, detail="view must be calendar or weekly")
+
+    today = date.today()
+    if view_key == "weekly":
+        as_of_raw = (from_date or today.isoformat()).strip()
+        as_of = _parse_public_date(as_of_raw, "from")
+        weekly_items = _public_weekly_rules(db, club, team_id=team_id, as_of=as_of)
+        if response is not None:
+            response.headers["Cache-Control"] = "public, max-age=300"
+        return {
+            "slug": club.public_slug,
+            "club_name": club.name,
+            "view": "weekly",
+            "as_of": as_of.isoformat(),
+            "count": len(weekly_items),
+            "items": weekly_items,
+        }
+
+    if not from_date or not to_date:
+        raise HTTPException(status_code=422, detail="from and to are required for calendar view")
     d0 = _parse_public_date(from_date, "from")
     d1 = _parse_public_date(to_date, "to")
     if d1 < d0:
@@ -693,6 +827,8 @@ def get_public_club_schedule(
             )
 
     items.sort(key=lambda x: (x.get("date") or "", x.get("start_time") or "", x.get("team_name") or ""))
+    if response is not None:
+        response.headers["Cache-Control"] = "public, max-age=300"
     return {
         "slug": club.public_slug,
         "club_name": club.name,
@@ -700,6 +836,10 @@ def get_public_club_schedule(
         "to": d1.isoformat(),
         "count": len(items),
         "items": items,
+        "api": {
+            "version": 1,
+            "docs_hint": "GET /api/public/clubs/{slug}/teams for team_id filter",
+        },
     }
 
 

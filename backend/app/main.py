@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.init_db import init_db
+from app.settings import settings
 
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
@@ -79,6 +80,10 @@ allowed_origins = [
     "https://volley-platform-bul.vercel.app",
     "https://volley-platform-production.up.railway.app",
 ]
+_extra = [o.strip() for o in (settings.cors_extra_origins or "").split(",") if o.strip()]
+for origin in _extra:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
