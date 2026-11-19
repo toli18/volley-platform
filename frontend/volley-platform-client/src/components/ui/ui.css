@@ -587,6 +587,15 @@
     width: 100%;
   }
 
+  /* Team sheet O-2: keep dialog inside the viewport on phones */
+  .teamSheetO2Modal.uiModal {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(92dvh, calc(100dvh - 20px));
+    overflow: hidden;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
   .teamMembersDesktop,
   .teamReportDesktop,
   .teamCandidatesDesktop {
@@ -736,22 +745,22 @@
     color: #415472;
   }
 
-  .cardIndexRoster td[data-label="Име"] {
+  .cardIndexRoster td[data-label="???"] {
     grid-column: 1 / -1;
     font-size: 15px;
     padding-top: 12px;
     border-bottom: 1px solid #f1f5f9;
   }
 
-  .cardIndexRoster td[data-label="Име"]::before {
+  .cardIndexRoster td[data-label="???"]::before {
     display: none;
   }
 
-  .cardIndexRoster td[data-label="Липси"] {
+  .cardIndexRoster td[data-label="?????"] {
     grid-column: 1 / -1;
   }
 
-  .cardIndexRoster td[data-label="Отбори"] {
+  .cardIndexRoster td[data-label="??????"] {
     grid-column: 1 / -1;
   }
 
@@ -770,8 +779,8 @@
   }
 }
 
-/* Toast stack: позицията е само тук — без inline top/right, за да няма конфликт
-   (иначе при max-width 720px остават top + bottom и fixed блокът се разтяга на цял екран). */
+/* Toast stack: ????????? ? ???? ??? ? ??? inline top/right, ?? ?? ???? ????????
+   (????? ??? max-width 720px ??????? top + bottom ? fixed ?????? ?? ??????? ?? ??? ?????). */
 .uiToastStack {
   position: fixed;
   z-index: 12000;
@@ -805,7 +814,7 @@
 @media (max-width: 720px) {
   .uiToastStack {
     top: auto;
-    /* Sit above coach bottom nav (~56–64px) + home indicator */
+    /* Sit above coach bottom nav (~56?64px) + home indicator */
     bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     left: 12px;
     right: 12px;
@@ -1422,7 +1431,7 @@
   background: #f0fdf4 !important;
 }
 
-/* Coach mobile shell — monthly fees */
+/* Coach mobile shell ? monthly fees */
 .feesCoachPage {
   padding-bottom: 8px;
 }
@@ -1935,7 +1944,7 @@
   }
 }
 
-/* Coach mobile — athlete profile */
+/* Coach mobile ? athlete profile */
 .athleteProfileCoachPage {
   gap: 10px;
   padding-bottom: 8px;
@@ -3026,3 +3035,215 @@
   align-items: center;
 }
 
+
+/* Team sheet O-2 modal (mobile + desktop) */
+.uiModalOverlay:has(.teamSheetO2Modal) {
+  overflow-x: hidden;
+}
+
+.teamSheetO2Modal.uiModal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(560px, calc(100vw - 20px));
+  max-width: 100%;
+  max-height: min(92dvh, 720px);
+  overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.teamSheetO2Body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.teamSheetO2Hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.teamSheetO2Toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.teamSheetO2Count {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.teamSheetO2Links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.teamSheetO2Link {
+  border: none;
+  background: none;
+  color: #0f766e;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.teamSheetO2Link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.teamSheetO2Link--muted {
+  color: #64748b;
+}
+
+.teamSheetO2List {
+  max-height: min(38vh, 280px);
+  overflow: auto;
+  overflow-x: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 4px 6px;
+  background: #f8fafc;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+}
+
+.teamSheetO2Row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.teamSheetO2Row:last-child {
+  border-bottom: none;
+}
+
+.teamSheetO2Row--dim {
+  opacity: 0.55;
+}
+
+.teamSheetO2Row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.teamSheetO2Jersey {
+  flex: 0 0 52px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong, #cbd5e1);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-main, #0f172a);
+  padding: 6px 4px;
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.teamSheetO2Jersey:disabled {
+  background: #f4f7fb;
+  color: #7a8da8;
+}
+
+.teamSheetO2Name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+}
+
+.teamSheetO2Roles {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  min-width: 0;
+}
+
+.teamSheetO2Roles label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.teamSheetO2Roles select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font: inherit;
+}
+
+.teamSheetO2LiberoList {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.teamSheetO2LiberoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.teamSheetO2LiberoRow span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamSheetO2Actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 4px;
+  border-top: 1px solid #eef2f7;
+}
+
+.teamSheetO2Note {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}

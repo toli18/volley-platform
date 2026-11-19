@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
+import { downloadPdfBlob } from "../../utils/downloadPdfBlob";
 import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
-import { normalizeError } from "../../utils/normalizeError";
+import { parseApiError } from "../../utils/normalizeError";
 
 export const TEAM_SHEET_MAX_PLAYERS = 14;
 
@@ -19,8 +20,7 @@ function normalizeAthletes(list) {
       return {
         athlete_id: id,
         athlete_name: m.athlete_name || m.name || `Състезател #${id}`,
-        jersey_number:
-          j === 0 || j ? String(j) : "",
+        jersey_number: j === 0 || j ? String(j) : "",
       };
     })
     .filter(Boolean);
@@ -113,7 +113,7 @@ export default function TeamSheetO2Modal({
     setJerseyByAthlete(buildJerseyMapFromRoster(rosterNow));
     setCaptainAthleteId(initialIds[0] ?? null);
     setLiberoAthleteIds([]);
-    // Reset only when dialog opens — avoid wiping edits on parent re-render.
+    // Reset only when dialog opens; avoid wiping edits on parent re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -255,18 +255,17 @@ export default function TeamSheetO2Modal({
         },
         { responseType: "blob" },
       );
-      const blob = new Blob([res.data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `timov-list-${tid}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Тимовият лист (О-2) е генериран.");
+      const result = await downloadPdfBlob(res.data, `timov-list-${tid}.pdf`);
+      if (result === "cancelled") return;
+      toast.success(
+        result === "shared"
+          ? "Тимовият лист (О-2) е готов за споделяне/запис."
+          : "Тимовият лист (О-2) е генериран.",
+      );
       onClose?.();
       setSheetStep(1);
     } catch (err) {
-      toast.error(normalizeError(err, "Неуспешно генериране на тимов лист."));
+      toast.error(await parseApiError(err, "Неуспешно генериране на тимов лист."));
     } finally {
       setSheetBusy(false);
     }
@@ -277,11 +276,13 @@ export default function TeamSheetO2Modal({
       open={open}
       onClose={close}
       dismissable={!sheetBusy}
+      showClose={!sheetBusy}
       title={sheetStep === 1 ? "Тимов лист (О-2) · Стъпка 1" : "Тимов лист (О-2) · Стъпка 2"}
       size="compact"
+      className="teamSheetO2Modal"
     >
-      <div style={{ display: "grid", gap: 8 }}>
-        <p style={{ margin: 0, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+      <div className="teamSheetO2Body">
+        <p className="teamSheetO2Hint">
           {sheetStep === 1
             ? "Попълнете данните за листа"
             : "Изберете състезателите и проверете номерата (до 14)"}
@@ -332,188 +333,118 @@ export default function TeamSheetO2Modal({
               value={sheetForm.assistant_2}
               onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
             />
-            <div className="uiModalActions">
-              <Button disabled={sheetBusy} onClick={() => setSheetStep(2)}>
-                Напред · Състезатели
-              </Button>
-              <Button variant="secondary" disabled={sheetBusy} onClick={close}>
-                Отказ
-              </Button>
-            </div>
           </>
         ) : (
           <>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-                  Състезатели ({selectedAthleteIds.length}/{TEAM_SHEET_MAX_PLAYERS})
-                </span>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    disabled={sheetBusy || roster.length === 0}
-                    onClick={selectAllAthletes}
-                    style={{
-                      border: "none",
-                      background: "none",
-                      color: "#0f766e",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Всички
-                  </button>
-                  <button
-                    type="button"
-                    disabled={sheetBusy || selectedAthleteIds.length === 0}
-                    onClick={() => setSelectedAthleteIds([])}
-                    style={{
-                      border: "none",
-                      background: "none",
-                      color: "#64748b",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Изчисти
-                  </button>
-                  <button
-                    type="button"
-                    disabled={sheetBusy || roster.length === 0}
-                    onClick={resetJerseysFromProfile}
-                    style={{
-                      border: "none",
-                      background: "none",
-                      color: "#0f766e",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Номера от профил
-                  </button>
-                </div>
-              </div>
-              {roster.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Няма състезатели.</p>
-              ) : (
-                <div
-                  style={{
-                    maxHeight: 320,
-                    overflow: "auto",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 12,
-                    padding: "6px 8px",
-                    background: "#f8fafc",
-                    WebkitOverflowScrolling: "touch",
-                  }}
+            <div className="teamSheetO2Toolbar">
+              <span className="teamSheetO2Count">
+                Състезатели ({selectedAthleteIds.length}/{TEAM_SHEET_MAX_PLAYERS})
+              </span>
+              <div className="teamSheetO2Links">
+                <button
+                  type="button"
+                  className="teamSheetO2Link"
+                  disabled={sheetBusy || roster.length === 0}
+                  onClick={selectAllAthletes}
                 >
-                  {sortedRoster.map((m) => {
-                    const id = m.athlete_id;
-                    const checked = selectedAthleteIds.includes(id);
-                    return (
-                      <div
-                        key={id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "7px 4px",
-                          borderBottom: "1px solid #eef2f7",
-                          fontSize: 14,
-                          opacity: checked ? 1 : 0.55,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={sheetBusy}
-                          onChange={() => toggleAthlete(id)}
-                          aria-label={`Включи ${m.athlete_name}`}
-                        />
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={99}
-                          disabled={sheetBusy || !checked}
-                          value={jerseyByAthlete[id] ?? ""}
-                          onChange={(e) => setJersey(id, e.target.value)}
-                          placeholder="№"
-                          style={{ width: 56, flexShrink: 0, padding: "6px 8px" }}
-                          aria-label={`Номер ${m.athlete_name}`}
-                        />
-                        <span style={{ flex: 1, minWidth: 0 }}>{m.athlete_name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                  Всички
+                </button>
+                <button
+                  type="button"
+                  className="teamSheetO2Link teamSheetO2Link--muted"
+                  disabled={sheetBusy || selectedAthleteIds.length === 0}
+                  onClick={() => setSelectedAthleteIds([])}
+                >
+                  Изчисти
+                </button>
+                <button
+                  type="button"
+                  className="teamSheetO2Link"
+                  disabled={sheetBusy || roster.length === 0}
+                  onClick={resetJerseysFromProfile}
+                >
+                  Номера от профил
+                </button>
+              </div>
             </div>
 
+            {roster.length === 0 ? (
+              <p className="teamSheetO2Note">Няма състезатели.</p>
+            ) : (
+              <div className="teamSheetO2List">
+                {sortedRoster.map((m) => {
+                  const id = m.athlete_id;
+                  const checked = selectedAthleteIds.includes(id);
+                  return (
+                    <div
+                      key={id}
+                      className={`teamSheetO2Row${checked ? "" : " teamSheetO2Row--dim"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={sheetBusy}
+                        onChange={() => toggleAthlete(id)}
+                        aria-label={`Включи ${m.athlete_name}`}
+                      />
+                      <input
+                        className="teamSheetO2Jersey"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={99}
+                        disabled={sheetBusy || !checked}
+                        value={jerseyByAthlete[id] ?? ""}
+                        onChange={(e) => setJersey(id, e.target.value)}
+                        placeholder="№"
+                        aria-label={`Номер ${m.athlete_name}`}
+                      />
+                      <span className="teamSheetO2Name" title={m.athlete_name}>
+                        {m.athlete_name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {selectedSorted.length > 0 ? (
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  padding: 10,
-                  borderRadius: 10,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                }}
-              >
-                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
-                  Капитан (K) и либеро (L) в колона „№ екип“
-                </span>
-                <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Капитан</span>
+              <div className="teamSheetO2Roles">
+                <span className="teamSheetO2Count">Капитан (K) и либеро (L) в колона „№ екип“</span>
+                <label>
+                  <span className="teamSheetO2Count">Капитан</span>
                   <select
                     value={captainAthleteId ?? ""}
                     disabled={sheetBusy}
                     onChange={(e) => setCaptainAthleteId(e.target.value ? Number(e.target.value) : null)}
-                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1" }}
                   >
-                    {selectedSorted.map((m) => (
-                      <option key={m.athlete_id} value={m.athlete_id}>
-                        {parseJerseyInput(jerseyByAthlete[m.athlete_id]) != null &&
-                        parseJerseyInput(jerseyByAthlete[m.athlete_id]) !== "invalid"
-                          ? `№${jerseyByAthlete[m.athlete_id]} · `
-                          : ""}
-                        {m.athlete_name}
-                      </option>
-                    ))}
+                    {selectedSorted.map((m) => {
+                      const j = parseJerseyInput(jerseyByAthlete[m.athlete_id]);
+                      const prefix =
+                        j != null && j !== "invalid" ? `№${jerseyByAthlete[m.athlete_id]} · ` : "";
+                      return (
+                        <option key={m.athlete_id} value={m.athlete_id}>
+                          {prefix}
+                          {m.athlete_name}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
-                <div style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-                    Либеро (по избор, макс. 2)
-                  </span>
+                <div className="teamSheetO2LiberoList">
+                  <span className="teamSheetO2Count">Либеро (по избор, макс. 2)</span>
                   {selectedSorted.map((m) => {
                     const id = m.athlete_id;
                     const isLib = liberoAthleteIds.includes(id);
                     return (
-                      <label
-                        key={`lib-${id}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontSize: 14,
-                          cursor: "pointer",
-                        }}
-                      >
+                      <label key={`lib-${id}`} className="teamSheetO2LiberoRow">
                         <input
                           type="checkbox"
                           checked={isLib}
                           disabled={sheetBusy}
                           onChange={() => toggleLibero(id)}
                         />
-                        <span>
+                        <span title={m.athlete_name}>
                           {m.athlete_name}
                           {isLib ? " · L" : ""}
                         </span>
@@ -524,18 +455,32 @@ export default function TeamSheetO2Modal({
               </div>
             ) : null}
 
-            <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+            <p className="teamSheetO2Note">
               В PDF редът е по номер (възходящо). K = капитан, L = либеро (ако има). Номерата от
               профила; промяната тук важи само за този лист.
             </p>
-            <div className="uiModalActions">
-              <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
-                {sheetBusy ? "Генериране..." : "Изтегли PDF"}
-              </Button>
-              <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetStep(1)}>
-                Назад
-              </Button>
-            </div>
+          </>
+        )}
+      </div>
+
+      <div className="uiModalActions teamSheetO2Actions">
+        {sheetStep === 1 ? (
+          <>
+            <Button disabled={sheetBusy} onClick={() => setSheetStep(2)}>
+              Напред · Състезатели
+            </Button>
+            <Button variant="secondary" disabled={sheetBusy} onClick={close}>
+              Отказ
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
+              {sheetBusy ? "Генериране..." : "Изтегли PDF"}
+            </Button>
+            <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetStep(1)}>
+              Назад
+            </Button>
           </>
         )}
       </div>
