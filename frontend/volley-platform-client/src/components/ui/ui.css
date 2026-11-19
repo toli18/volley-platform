@@ -591,9 +591,14 @@
   .teamSheetO2Modal.uiModal {
     width: 100%;
     max-width: 100%;
-    max-height: min(92dvh, calc(100dvh - 20px));
+    max-height: min(90dvh, calc(100dvh - 16px));
     overflow: hidden;
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .teamSheetO2Tag {
+    width: 36px;
+    height: 36px;
   }
 
   .teamMembersDesktop,
@@ -3044,26 +3049,49 @@
 .teamSheetO2Modal.uiModal {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: min(560px, calc(100vw - 20px));
+  gap: 8px;
+  width: min(768px, calc(100vw - 20px));
   max-width: 100%;
-  max-height: min(92dvh, 720px);
+  max-height: min(90dvh, 900px);
   overflow: hidden;
   overflow-x: hidden;
   box-sizing: border-box;
   min-width: 0;
 }
 
+.teamSheetO2Modal .uiModalHeader {
+  flex: 0 0 auto;
+}
+
 .teamSheetO2Body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.teamSheetO2Body--step2 {
+  min-height: 0;
+}
+
+.teamSheetO2Top {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.teamSheetO2Step1 {
+  display: grid;
+  gap: 8px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .teamSheetO2Hint {
@@ -3115,31 +3143,42 @@
 }
 
 .teamSheetO2List {
-  max-height: min(38vh, 280px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   overflow-x: hidden;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 4px 6px;
+  padding: 6px;
   background: #f8fafc;
   -webkit-overflow-scrolling: touch;
-  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-content: start;
+}
+
+@media (min-width: 768px) {
+  .teamSheetO2List {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8px;
+  }
+
+  .teamSheetO2Row {
+    border-bottom: 1px solid #eef2f7;
+  }
 }
 
 .teamSheetO2Row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 4px;
+  gap: 6px;
+  padding: 8px 6px;
   border-bottom: 1px solid #eef2f7;
   font-size: 14px;
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-}
-
-.teamSheetO2Row:last-child {
-  border-bottom: none;
 }
 
 .teamSheetO2Row--dim {
@@ -3154,16 +3193,16 @@
 }
 
 .teamSheetO2Jersey {
-  flex: 0 0 52px;
-  width: 52px;
-  min-width: 52px;
-  max-width: 52px;
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
   box-sizing: border-box;
   border: 1px solid var(--border-strong, #cbd5e1);
   border-radius: 8px;
   background: #fff;
   color: var(--text-main, #0f172a);
-  padding: 6px 4px;
+  padding: 6px 2px;
   font-size: 16px;
   line-height: 1.2;
   text-align: center;
@@ -3183,44 +3222,63 @@
   color: #0f172a;
 }
 
-.teamSheetO2Roles {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  min-width: 0;
-}
-
-.teamSheetO2Roles label {
-  display: grid;
+.teamSheetO2Tags {
+  display: inline-flex;
   gap: 4px;
-  font-size: 13px;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 
-.teamSheetO2Roles select {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px;
+.teamSheetO2Tag {
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #fff;
-  font: inherit;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.teamSheetO2Tag:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.teamSheetO2Tag.is-active.is-captain {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.teamSheetO2Tag.is-active.is-libero {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.teamSheetO2Footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid #eef2f7;
+  min-width: 0;
 }
 
 .teamSheetO2Actions {
-  flex: 0 0 auto;
   margin-top: 0;
-  padding-top: 4px;
-  border-top: 1px solid #eef2f7;
 }
 
 .teamSheetO2Note {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #64748b;
-  line-height: 1.4;
+  line-height: 1.35;
 }

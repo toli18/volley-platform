@@ -128,15 +128,6 @@ export default function TeamSheetO2Modal({
     [roster, jerseyByAthlete],
   );
 
-  const selectedSorted = useMemo(
-    () =>
-      sortRosterByJersey(
-        roster.filter((m) => selectedAthleteIds.includes(m.athlete_id)),
-        jerseyByAthlete,
-      ),
-    [roster, selectedAthleteIds, jerseyByAthlete],
-  );
-
   const toggleAthlete = (athleteId) => {
     const id = Number(athleteId);
     if (selectedAthleteIds.includes(id)) {
@@ -155,26 +146,22 @@ export default function TeamSheetO2Modal({
     setSelectedAthleteIds((prev) => [...prev, id]);
   };
 
-  const jerseyOptionLabel = (m) => {
-    const j = parseJerseyInput(jerseyByAthlete[m.athlete_id]);
-    const prefix = j != null && j !== "invalid" ? `№${jerseyByAthlete[m.athlete_id]} · ` : "";
-    return `${prefix}${m.athlete_name}`;
+  const toggleCaptainTag = (athleteId) => {
+    const id = Number(athleteId);
+    if (!selectedAthleteIds.includes(id)) return;
+    setCaptainAthleteId((prev) => (prev === id ? null : id));
   };
 
-  const setLiberoSlot = (slotIndex, rawValue) => {
-    const id = rawValue ? Number(rawValue) : null;
+  const toggleLiberoTag = (athleteId) => {
+    const id = Number(athleteId);
+    if (!selectedAthleteIds.includes(id)) return;
     setLiberoAthleteIds((prev) => {
-      const first = prev[0] ?? null;
-      const second = prev[1] ?? null;
-      if (slotIndex === 0) {
-        if (!id) return [];
-        const keepSecond = second && second !== id ? second : null;
-        return keepSecond ? [id, keepSecond] : [id];
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) {
+        toast.error("Можете да изберете най-много 2 либеро.");
+        return prev;
       }
-      if (!first) return [];
-      if (!id) return [first];
-      if (id === first) return [first];
-      return [first, id];
+      return [...prev, id];
     });
   };
 
@@ -293,15 +280,56 @@ export default function TeamSheetO2Modal({
       size="compact"
       className="teamSheetO2Modal"
     >
-      <div className="teamSheetO2Body">
-        <p className="teamSheetO2Hint">
-          {sheetStep === 1
-            ? "Попълнете данните за листа"
-            : "Изберете състезателите и проверете номерата (до 14)"}
-        </p>
+      <div className={`teamSheetO2Body${sheetStep === 2 ? " teamSheetO2Body--step2" : ""}`}>
+        <div className="teamSheetO2Top">
+          <p className="teamSheetO2Hint">
+            {sheetStep === 1
+              ? "Попълнете данните за листа"
+              : "Изберете състезателите и проверете номерата (до 14). Докосни K / L в реда."}
+          </p>
+          {sheetStep === 2 ? (
+            <div className="teamSheetO2Toolbar">
+              <span className="teamSheetO2Count">
+                Състезатели ({selectedAthleteIds.length}/{TEAM_SHEET_MAX_PLAYERS})
+                {captainAthleteId ? " · K ✓" : ""}
+                {liberoAthleteIds.length ? ` · L ${liberoAthleteIds.length}` : ""}
+              </span>
+              <div className="teamSheetO2Links">
+                <button
+                  type="button"
+                  className="teamSheetO2Link"
+                  disabled={sheetBusy || roster.length === 0}
+                  onClick={selectAllAthletes}
+                >
+                  Всички
+                </button>
+                <button
+                  type="button"
+                  className="teamSheetO2Link teamSheetO2Link--muted"
+                  disabled={sheetBusy || selectedAthleteIds.length === 0}
+                  onClick={() => {
+                    setSelectedAthleteIds([]);
+                    setCaptainAthleteId(null);
+                    setLiberoAthleteIds([]);
+                  }}
+                >
+                  Изчисти
+                </button>
+                <button
+                  type="button"
+                  className="teamSheetO2Link"
+                  disabled={sheetBusy || roster.length === 0}
+                  onClick={resetJerseysFromProfile}
+                >
+                  Номера от профил
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {sheetStep === 1 ? (
-          <>
+          <div className="teamSheetO2Step1">
             <Input
               placeholder="Състезание"
               value={sheetForm.competition}
@@ -345,165 +373,99 @@ export default function TeamSheetO2Modal({
               value={sheetForm.assistant_2}
               onChange={(e) => setSheetForm((p) => ({ ...p, assistant_2: e.target.value }))}
             />
-          </>
+          </div>
+        ) : roster.length === 0 ? (
+          <p className="teamSheetO2Note">Няма състезатели.</p>
         ) : (
-          <>
-            <div className="teamSheetO2Toolbar">
-              <span className="teamSheetO2Count">
-                Състезатели ({selectedAthleteIds.length}/{TEAM_SHEET_MAX_PLAYERS})
-              </span>
-              <div className="teamSheetO2Links">
-                <button
-                  type="button"
-                  className="teamSheetO2Link"
-                  disabled={sheetBusy || roster.length === 0}
-                  onClick={selectAllAthletes}
+          <div className="teamSheetO2List">
+            {sortedRoster.map((m) => {
+              const id = m.athlete_id;
+              const checked = selectedAthleteIds.includes(id);
+              const isCaptain = captainAthleteId === id;
+              const isLibero = liberoAthleteIds.includes(id);
+              return (
+                <div
+                  key={id}
+                  className={`teamSheetO2Row${checked ? "" : " teamSheetO2Row--dim"}`}
                 >
-                  Всички
-                </button>
-                <button
-                  type="button"
-                  className="teamSheetO2Link teamSheetO2Link--muted"
-                  disabled={sheetBusy || selectedAthleteIds.length === 0}
-                  onClick={() => {
-                    setSelectedAthleteIds([]);
-                    setCaptainAthleteId(null);
-                    setLiberoAthleteIds([]);
-                  }}
-                >
-                  Изчисти
-                </button>
-                <button
-                  type="button"
-                  className="teamSheetO2Link"
-                  disabled={sheetBusy || roster.length === 0}
-                  onClick={resetJerseysFromProfile}
-                >
-                  Номера от профил
-                </button>
-              </div>
-            </div>
-
-            {roster.length === 0 ? (
-              <p className="teamSheetO2Note">Няма състезатели.</p>
-            ) : (
-              <div className="teamSheetO2List">
-                {sortedRoster.map((m) => {
-                  const id = m.athlete_id;
-                  const checked = selectedAthleteIds.includes(id);
-                  return (
-                    <div
-                      key={id}
-                      className={`teamSheetO2Row${checked ? "" : " teamSheetO2Row--dim"}`}
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={sheetBusy}
+                    onChange={() => toggleAthlete(id)}
+                    aria-label={`Включи ${m.athlete_name}`}
+                  />
+                  <input
+                    className="teamSheetO2Jersey"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={99}
+                    disabled={sheetBusy || !checked}
+                    value={jerseyByAthlete[id] ?? ""}
+                    onChange={(e) => setJersey(id, e.target.value)}
+                    placeholder="№"
+                    aria-label={`Номер ${m.athlete_name}`}
+                  />
+                  <span className="teamSheetO2Name" title={m.athlete_name}>
+                    {m.athlete_name}
+                  </span>
+                  <div className="teamSheetO2Tags">
+                    <button
+                      type="button"
+                      className={`teamSheetO2Tag${isCaptain ? " is-active is-captain" : ""}`}
+                      disabled={sheetBusy || !checked}
+                      aria-pressed={isCaptain}
+                      aria-label={`Капитан: ${m.athlete_name}`}
+                      onClick={() => toggleCaptainTag(id)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={sheetBusy}
-                        onChange={() => toggleAthlete(id)}
-                        aria-label={`Включи ${m.athlete_name}`}
-                      />
-                      <input
-                        className="teamSheetO2Jersey"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={99}
-                        disabled={sheetBusy || !checked}
-                        value={jerseyByAthlete[id] ?? ""}
-                        onChange={(e) => setJersey(id, e.target.value)}
-                        placeholder="№"
-                        aria-label={`Номер ${m.athlete_name}`}
-                      />
-                      <span className="teamSheetO2Name" title={m.athlete_name}>
-                        {m.athlete_name}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {selectedSorted.length > 0 ? (
-              <div className="teamSheetO2Roles">
-                <span className="teamSheetO2Count">Капитан (K) и либеро (L) в колона „№ екип“</span>
-                <label>
-                  <span className="teamSheetO2Count">Капитан</span>
-                  <select
-                    value={captainAthleteId ?? ""}
-                    disabled={sheetBusy}
-                    onChange={(e) => setCaptainAthleteId(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    {selectedSorted.map((m) => (
-                      <option key={m.athlete_id} value={m.athlete_id}>
-                        {jerseyOptionLabel(m)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span className="teamSheetO2Count">Либеро 1 (по избор)</span>
-                  <select
-                    value={liberoAthleteIds[0] ?? ""}
-                    disabled={sheetBusy}
-                    onChange={(e) => setLiberoSlot(0, e.target.value)}
-                  >
-                    <option value="">Без либеро</option>
-                    {selectedSorted.map((m) => (
-                      <option key={`lib1-${m.athlete_id}`} value={m.athlete_id}>
-                        {jerseyOptionLabel(m)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span className="teamSheetO2Count">Либеро 2 (по избор)</span>
-                  <select
-                    value={liberoAthleteIds[1] ?? ""}
-                    disabled={sheetBusy || !liberoAthleteIds[0]}
-                    onChange={(e) => setLiberoSlot(1, e.target.value)}
-                  >
-                    <option value="">Без втори либеро</option>
-                    {selectedSorted
-                      .filter((m) => m.athlete_id !== liberoAthleteIds[0])
-                      .map((m) => (
-                        <option key={`lib2-${m.athlete_id}`} value={m.athlete_id}>
-                          {jerseyOptionLabel(m)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              </div>
-            ) : null}
-
-            <p className="teamSheetO2Note">
-              В PDF редът е по номер (възходящо). K = капитан, L = либеро (ако има). Номерата от
-              профила; промяната тук важи само за този лист.
-            </p>
-          </>
+                      K
+                    </button>
+                    <button
+                      type="button"
+                      className={`teamSheetO2Tag${isLibero ? " is-active is-libero" : ""}`}
+                      disabled={sheetBusy || !checked}
+                      aria-pressed={isLibero}
+                      aria-label={`Либеро: ${m.athlete_name}`}
+                      onClick={() => toggleLiberoTag(id)}
+                    >
+                      L
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      <div className="uiModalActions teamSheetO2Actions">
-        {sheetStep === 1 ? (
-          <>
-            <Button disabled={sheetBusy} onClick={() => setSheetStep(2)}>
-              Напред · Състезатели
-            </Button>
-            <Button variant="secondary" disabled={sheetBusy} onClick={close}>
-              Отказ
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
-              {sheetBusy ? "Генериране..." : "Изтегли PDF"}
-            </Button>
-            <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetStep(1)}>
-              Назад
-            </Button>
-          </>
-        )}
+      <div className="teamSheetO2Footer">
+        {sheetStep === 2 ? (
+          <p className="teamSheetO2Note">
+            PDF се подрежда по № · K = Капитан · L = Либеро (промените важат само за този лист).
+          </p>
+        ) : null}
+        <div className="uiModalActions teamSheetO2Actions">
+          {sheetStep === 1 ? (
+            <>
+              <Button disabled={sheetBusy} onClick={() => setSheetStep(2)}>
+                Напред · Състезатели
+              </Button>
+              <Button variant="secondary" disabled={sheetBusy} onClick={close}>
+                Отказ
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button disabled={sheetBusy || selectedAthleteIds.length === 0} onClick={downloadTeamSheet}>
+                {sheetBusy ? "Генериране..." : "Изтегли PDF"}
+              </Button>
+              <Button variant="secondary" disabled={sheetBusy} onClick={() => setSheetStep(1)}>
+                Назад
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </Modal>
   );
