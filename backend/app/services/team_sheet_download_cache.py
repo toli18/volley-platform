@@ -1,6 +1,7 @@
-"""One-time tokens for team-sheet PDF downloads (mobile-friendly HTTPS links).
+"""Short-lived tokens for team-sheet PDF downloads (mobile-friendly HTTPS links).
 
 Uses the local filesystem so multiple uvicorn workers on the same host share state.
+Tokens may be fetched a few times within TTL (Android often retries / double-navigates).
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ class TeamSheetDownloadEntry:
 
 _LOCK = threading.Lock()
 DEFAULT_TTL_SEC = 300
+MAX_HITS = 5
 _CACHE_DIR = Path(tempfile.gettempdir()) / "vp_team_sheet_dl"
 
 
@@ -80,6 +82,7 @@ def put_team_sheet_pdf(
             "team_id": int(team_id),
             "user_id": int(user_id),
             "filename": safe_name,
+            "hits": 0,
         }
         _pdf_path(token).write_bytes(pdf_bytes)
         _meta_path(token).write_text(json.dumps(meta), encoding="utf-8")
@@ -88,6 +91,8 @@ def put_team_sheet_pdf(
 
 def take_team_sheet_pdf(token: str, *, team_id: int) -> TeamSheetDownloadEntry | None:
     key = str(token or "").strip()
+    if key.endswith(".pdf"):
+        key = key[:-4]
     if not key or "/" in key or "\\" in key or ".." in key:
         return None
     now = time.time()
@@ -99,17 +104,27 @@ def take_team_sheet_pdf(token: str, *, team_id: int) -> TeamSheetDownloadEntry |
             return None
         try:
             data = json.loads(meta_file.read_text(encoding="utf-8"))
+            if int(data.get("team_id") or 0) != int(team_id):
+                return None
+            if float(data.get("expires_at") or 0) <= now:
+                meta_file.unlink(missing_ok=True)
+                pdf_file.unlink(missing_ok=True)
+                return None
+            hits = int(data.get("hits") or 0)
+            if hits >= MAX_HITS:
+                meta_file.unlink(missing_ok=True)
+                pdf_file.unlink(missing_ok=True)
+                return None
             pdf_bytes = pdf_file.read_bytes()
+            data["hits"] = hits + 1
+            if data["hits"] >= MAX_HITS:
+                meta_file.unlink(missing_ok=True)
+                pdf_file.unlink(missing_ok=True)
+            else:
+                meta_file.write_text(json.dumps(data), encoding="utf-8")
         except Exception:
             return None
-        finally:
-            meta_file.unlink(missing_ok=True)
-            pdf_file.unlink(missing_ok=True)
 
-    if int(data.get("team_id") or 0) != int(team_id):
-        return None
-    if float(data.get("expires_at") or 0) <= now:
-        return None
     return TeamSheetDownloadEntry(
         expires_at=float(data["expires_at"]),
         team_id=int(data["team_id"]),

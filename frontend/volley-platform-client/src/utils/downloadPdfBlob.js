@@ -1,8 +1,9 @@
 /**
  * Save/open a PDF for desktop browsers, Android/iOS browsers, and Capacitor.
  *
- * Mobile browsers often ignore <a download> for blob: URLs after an async
- * request. Prefer downloadViaHttpsUrl() with a same-origin attachment link.
+ * Android Chrome ignores hidden-iframe PDF navigations. Mobile must open a
+ * real top-level tab (synchronously on click), then navigate it to an HTTPS
+ * download URL after the async generate call.
  */
 
 import { resolveApiBaseUrl } from "./apiBaseUrl";
@@ -19,9 +20,28 @@ export function isMobileBrowser() {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
 }
 
-/** @deprecated Prefer downloadViaHttpsUrl on mobile; kept for rare callers. */
+/**
+ * Must run synchronously inside the click handler (before any await).
+ * Returns a window handle Android can later navigate to the HTTPS PDF URL.
+ */
 export function openPdfPreviewWindow() {
-  return null;
+  if (typeof window === "undefined") return null;
+  if (!isMobileBrowser() && !isNativeApp()) return null;
+  try {
+    const w = window.open("about:blank", "_blank");
+    if (w) {
+      try {
+        w.document.title = "Тимов лист…";
+        w.document.body.innerHTML =
+          '<p style="font-family:system-ui,sans-serif;padding:20px;color:#334155;font-size:16px">Генериране на PDF…</p>';
+      } catch {
+        /* ignore */
+      }
+    }
+    return w;
+  } catch {
+    return null;
+  }
 }
 
 function triggerAnchorDownload(url, filename) {
@@ -35,7 +55,7 @@ function triggerAnchorDownload(url, filename) {
   a.remove();
 }
 
-function absoluteApiUrl(pathOrUrl) {
+export function absoluteApiUrl(pathOrUrl) {
   const raw = String(pathOrUrl || "").trim();
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -48,40 +68,50 @@ function absoluteApiUrl(pathOrUrl) {
 }
 
 /**
- * Download via a real HTTPS URL with Content-Disposition: attachment.
- * Uses a hidden iframe so Android Chrome saves the file without a white tab.
+ * Navigate a pre-opened window to a same-origin HTTPS download URL.
+ * One navigation only (no iframe + anchor double-hit).
  */
-export function downloadViaHttpsUrl(pathOrUrl, filename = "document.pdf") {
+export function navigateToHttpsDownload(pathOrUrl, options = {}) {
   const url = absoluteApiUrl(pathOrUrl);
   if (!url) throw new Error("Липсва линк за изтегляне.");
 
-  const safeName = String(filename || "document.pdf").replace(/[^\w.\-]+/g, "_");
+  const previewWindow = options.previewWindow || null;
+  const filename = String(options.filename || "document.pdf").replace(/[^\w.\-]+/g, "_");
 
-  // Same-origin attachment: hidden iframe is the most reliable on Android WebView/Chrome.
-  try {
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("aria-hidden", "true");
-    iframe.style.cssText = "position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px;opacity:0";
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    window.setTimeout(() => {
+  if (previewWindow && !previewWindow.closed) {
+    try {
+      previewWindow.location.replace(url);
       try {
-        iframe.remove();
+        previewWindow.focus();
       } catch {
         /* ignore */
       }
-    }, 120_000);
-  } catch {
-    /* fall through to anchor */
+      return "opened";
+    } catch {
+      /* fall through */
+    }
   }
 
+  // Popup blocked: same-tab navigation still triggers Android download for attachment.
   try {
-    triggerAnchorDownload(url, safeName);
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (opened) return "opened";
   } catch {
     /* ignore */
   }
 
-  return "downloaded";
+  try {
+    triggerAnchorDownload(url, filename);
+    return "downloaded";
+  } catch {
+    window.location.assign(url);
+    return "navigated";
+  }
+}
+
+/** @deprecated Use navigateToHttpsDownload */
+export function downloadViaHttpsUrl(pathOrUrl, filename = "document.pdf") {
+  return navigateToHttpsDownload(pathOrUrl, { filename });
 }
 
 export async function downloadPdfBlob(blob, filename = "document.pdf", options = {}) {
@@ -113,7 +143,6 @@ export async function downloadPdfBlob(blob, filename = "document.pdf", options =
     }
   }
 
-  // Capacitor native: Share sheet is the reliable save path.
   if (isNativeApp()) {
     try {
       const file = new File([typed], safeName, { type: "application/pdf" });
@@ -130,7 +159,6 @@ export async function downloadPdfBlob(blob, filename = "document.pdf", options =
     }
   }
 
-  // Desktop (and fallback): classic download via blob URL + download attribute.
   try {
     triggerAnchorDownload(url, safeName);
   } catch {

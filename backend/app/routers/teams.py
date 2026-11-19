@@ -1428,7 +1428,8 @@ def generate_team_sheet_pdf(
             {
                 "filename": filename,
                 "token": token,
-                "url": f"/api/teams/{int(team.id)}/team-sheet-files/{token}",
+                # .pdf suffix helps Android treat the navigation as a file download.
+                "url": f"/api/teams/{int(team.id)}/team-sheet-files/{token}.pdf",
                 "expiresInSec": 300,
             }
         )
@@ -1441,16 +1442,35 @@ def generate_team_sheet_pdf(
 
 
 @router.get("/teams/{team_id}/team-sheet-files/{token}")
-def download_team_sheet_file(team_id: int, token: str):
-    """One-time PDF download. Auth is the unguessable token (no Bearer header needed for <a href>)."""
+def download_team_sheet_file(
+    team_id: int,
+    token: str,
+    disposition: str = Query("attachment", description="attachment|inline"),
+):
+    """Token-authorized PDF download (no Bearer). Safe for top-level mobile navigation."""
     entry = take_team_sheet_pdf(token, team_id=int(team_id))
     if entry is None:
         raise HTTPException(status_code=404, detail="Линкът за изтегляне е изтекъл или вече е използван.")
-    return Response(
-        content=entry.pdf_bytes,
-        media_type="application/pdf",
-        headers={
+
+    disp = (disposition or "attachment").strip().lower()
+    if disp not in {"attachment", "inline"}:
+        disp = "attachment"
+
+    # Android Chrome often ignores attachment for application/pdf in iframes/hidden contexts.
+    # octet-stream + attachment forces a real download on top-level navigation.
+    if disp == "attachment":
+        media_type = "application/octet-stream"
+        headers = {
             "Content-Disposition": f'attachment; filename="{entry.filename}"',
+            "Content-Type": "application/octet-stream",
             "Cache-Control": "no-store",
-        },
-    )
+            "X-Content-Type-Options": "nosniff",
+        }
+    else:
+        media_type = "application/pdf"
+        headers = {
+            "Content-Disposition": f'inline; filename="{entry.filename}"',
+            "Cache-Control": "no-store",
+        }
+
+    return Response(content=entry.pdf_bytes, media_type=media_type, headers=headers)

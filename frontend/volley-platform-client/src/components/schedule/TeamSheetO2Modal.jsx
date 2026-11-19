@@ -4,9 +4,10 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import {
   downloadPdfBlob,
-  downloadViaHttpsUrl,
   isMobileBrowser,
   isNativeApp,
+  navigateToHttpsDownload,
+  openPdfPreviewWindow,
 } from "../../utils/downloadPdfBlob";
 import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
@@ -254,8 +255,9 @@ export default function TeamSheetO2Modal({
         .filter((id) => id && selectedAthleteIds.includes(id)),
     };
     const filename = `timov-list-${tid}.pdf`;
-    // Mobile: one-time HTTPS attachment link (no blob / about:blank white screen).
+    // Mobile: sync-open a tab, then navigate it to HTTPS attachment URL (no iframe).
     const useLink = isMobileBrowser() || isNativeApp();
+    const previewWindow = useLink ? openPdfPreviewWindow() : null;
 
     try {
       setSheetBusy(true);
@@ -264,12 +266,19 @@ export default function TeamSheetO2Modal({
           `${API_PATHS.TEAM_SHEET_PDF(tid)}?as=link`,
           body,
         );
-        const url = res?.data?.url || (res?.data?.token
+        const path = res?.data?.url || (res?.data?.token
           ? API_PATHS.TEAM_SHEET_FILE(tid, res.data.token)
           : null);
-        if (!url) throw new Error("Сървърът не върна линк за изтегляне.");
-        downloadViaHttpsUrl(url, res?.data?.filename || filename);
-        toast.success("Тимовият лист (О-2) се изтегля. Провери Downloads / Файлове.");
+        if (!path) throw new Error("Сървърът не върна линк за изтегляне.");
+        const result = navigateToHttpsDownload(path, {
+          previewWindow,
+          filename: res?.data?.filename || filename,
+        });
+        toast.success(
+          result === "opened" || result === "navigated"
+            ? "PDF е готов. Ако не се запише сам, ползвай Изтегли / Сподели в новия таб."
+            : "Тимовият лист (О-2) се изтегля. Провери Downloads / Известия.",
+        );
       } else {
         const res = await axiosInstance.post(API_PATHS.TEAM_SHEET_PDF(tid), body, {
           responseType: "blob",
@@ -290,6 +299,13 @@ export default function TeamSheetO2Modal({
         setSheetStep(1);
       }, 500);
     } catch (err) {
+      if (previewWindow && !previewWindow.closed) {
+        try {
+          previewWindow.close();
+        } catch {
+          /* ignore */
+        }
+      }
       toast.error(await parseApiError(err, "Неуспешно генериране на тимов лист."));
     } finally {
       setSheetBusy(false);
