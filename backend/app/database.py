@@ -75,5 +75,12 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        # Clear aborted Postgres transactions before the connection returns to the pool.
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
     finally:
         db.close()
