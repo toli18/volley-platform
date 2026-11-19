@@ -211,6 +211,35 @@ def get_active_consent(db: Session, athlete_id: int, club_id: int | None = None)
     return consent
 
 
+def get_active_consents_by_athlete(
+    db: Session,
+    athlete_ids: list[int] | set[int],
+    club_id: int | None = None,
+) -> dict[int, AthleteClubConsent]:
+    """Latest valid active consent per athlete (one query)."""
+    ids = sorted({int(x) for x in athlete_ids if x})
+    if not ids:
+        return {}
+    q = (
+        db.query(AthleteClubConsent)
+        .filter(
+            AthleteClubConsent.athlete_id.in_(ids),
+            AthleteClubConsent.is_active.is_(True),
+        )
+        .order_by(AthleteClubConsent.signed_at.desc())
+    )
+    if club_id is not None:
+        q = q.filter(AthleteClubConsent.club_id == int(club_id))
+    out: dict[int, AthleteClubConsent] = {}
+    for consent in q.all():
+        aid = int(consent.athlete_id)
+        if aid in out:
+            continue
+        if consent_still_valid(consent):
+            out[aid] = consent
+    return out
+
+
 def deactivate_expired_or_prior_consents(db: Session, athlete_id: int, club_id: int) -> None:
     """Деактивира стари/изтекли активни заявления преди нов подпис."""
     now = datetime.utcnow()
@@ -251,9 +280,11 @@ def _split_child_full_name(full: str | None) -> tuple[str, str, str] | None:
     return parts[0], parts[1], " ".join(parts[2:])
 
 
-def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
+def apply_athlete_identity_from_consent_obj(
+    athlete: Athlete, consent: AthleteClubConsent | None
+) -> bool:
     """
-    Попълва липсващи полета в профила от активното клубно заявление.
+    Попълва липсващи полета в профила от подадено клубно заявление.
     Покрива стари подписи, които са записали само child_full_name / child_egn в consent,
     без first_name / middle_name / last_name на атлета.
     Не пипа идентичност след връзка с БФВ.
@@ -261,7 +292,6 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
     """
     if getattr(athlete, "bvf_player_id", None):
         return False
-    consent = get_active_consent(db, athlete.id, athlete.club_id)
     if not consent:
         return False
 
@@ -301,7 +331,7 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
         except Exception:
             pass
 
-    # Място на раждане е записано при подпис; националност — автоматично от града.
+    # Място на раждане е записано при подпис; националност - автоматично от града.
     place = (athlete.place_of_birth or "").strip()
     if place:
         nat = default_nationality_from_city(place, athlete.nationality)
@@ -319,6 +349,14 @@ def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
         changed = True
 
     return changed
+
+
+def apply_athlete_identity_from_consent(db: Session, athlete: Athlete) -> bool:
+    """Попълва липсващи полета от активното клубно заявление (една заявка за consent)."""
+    if getattr(athlete, "bvf_player_id", None):
+        return False
+    consent = get_active_consent(db, athlete.id, athlete.club_id)
+    return apply_athlete_identity_from_consent_obj(athlete, consent)
 
 
 def build_consent_pdf(consent: AthleteClubConsent, club: Club | None = None) -> bytes:

@@ -11,6 +11,7 @@ import BvfLinkByEgnModal from "../../components/athletes/BvfLinkByEgnModal";
 import { EmptyState } from "../../components/ui";
 import AthleteProfileCoachMobile from "./AthleteProfileCoachMobile";
 import { normalizeError } from "../../utils/normalizeError";
+import { invalidateCoachAthletesListCache } from "../../utils/coachAthletesListCache";
 import {
   athleteGenderMissing,
   athleteToIdentityForm,
@@ -95,7 +96,8 @@ export default function CoachAthleteProfile() {
         ]);
         if (cancelled) return;
 
-        setProfile(profileRes.data || null);
+        const profileData = profileRes.data || null;
+        setProfile(profileData);
 
         let teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
         teams = teams.filter((t) => t.is_active !== false);
@@ -105,20 +107,17 @@ export default function CoachAthleteProfile() {
         teams.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "bg"));
         setCoachTeams(teams);
 
-        const memberChecks = await Promise.all(
-          teams.map(async (team) => {
-            try {
-              const res = await axiosInstance.get(API_PATHS.TEAM_MEMBERS_GET(team.id));
-              const members = Array.isArray(res.data?.members) ? res.data.members : [];
-              return members.some((m) => Number(m.athlete_id) === athleteIdNum) ? team.id : null;
-            } catch {
-              return null;
-            }
-          }),
+        // Membership from profile.teams names (already loaded) — avoid N× TEAM_MEMBERS_GET.
+        const nameSet = new Set(
+          (Array.isArray(profileData?.teams) ? profileData.teams : [])
+            .map((n) => String(n || "").trim().toLowerCase())
+            .filter(Boolean),
         );
-        if (cancelled) return;
-
-        const inTeams = new Set(memberChecks.filter(Boolean));
+        const inTeams = new Set(
+          teams
+            .filter((t) => nameSet.has(String(t.name || "").trim().toLowerCase()))
+            .map((t) => t.id),
+        );
         setSelectedTeamIds(new Set(inTeams));
         setInitialTeamIds(new Set(inTeams));
       } catch (err) {
@@ -179,6 +178,7 @@ export default function CoachAthleteProfile() {
       }
 
       setInitialTeamIds(new Set(selectedTeamIds));
+      invalidateCoachAthletesListCache();
       await reloadProfile();
       toast.success(changedNames.length ? "Отборите са запазени." : "Промените са запазени.");
     } catch (err) {
@@ -233,6 +233,7 @@ export default function CoachAthleteProfile() {
     try {
       setSavingProfile(true);
       await axiosInstance.put(API_PATHS.FEES_ATHLETE_UPDATE(profile.athlete_id), payload);
+      invalidateCoachAthletesListCache();
       await reloadProfile();
       setEditing(false);
       setEditForm(null);
@@ -286,6 +287,7 @@ export default function CoachAthleteProfile() {
           ? "Снимката е записана и изпратена към СЕК."
           : "Снимката е записана локално (до създаване в СЕК).",
       );
+      invalidateCoachAthletesListCache();
       await reloadProfile();
     } catch (err) {
       toast.error(normalizeError(err, "Неуспешно качване на снимка."));
@@ -309,6 +311,7 @@ export default function CoachAthleteProfile() {
     try {
       setLeavingClub(true);
       const res = await axiosInstance.post(API_PATHS.FEES_ATHLETE_LEAVE_CLUB(profile.athlete_id));
+      invalidateCoachAthletesListCache();
       toast.success(res.data?.message || "Отписан от клуба.");
       navigate(from || "/coach/athletes", { replace: true });
     } catch (err) {
@@ -323,6 +326,7 @@ export default function CoachAthleteProfile() {
     try {
       setRestoringClub(true);
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_RESTORE_CLUB(profile.athlete_id));
+      invalidateCoachAthletesListCache();
       toast.success("Възстановен в клуба. Добави го към група при нужда.");
       await reloadProfile();
     } catch (err) {
@@ -348,6 +352,7 @@ export default function CoachAthleteProfile() {
     try {
       setDeleting(true);
       await axiosInstance.delete(API_PATHS.FEES_ATHLETE_DELETE(profile.athlete_id));
+      invalidateCoachAthletesListCache();
       toast.success("Черновата е изтрита.");
       navigate(from || "/coach/athletes", { replace: true });
     } catch (err) {

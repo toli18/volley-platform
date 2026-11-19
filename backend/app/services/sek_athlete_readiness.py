@@ -13,7 +13,7 @@ TASK_NEED_PHOTO = "need_photo"
 TASK_NEED_DATA = "need_data"
 
 
-def bvf_missing_fields(athlete: Athlete) -> list[str]:
+def bvf_missing_fields(athlete: Athlete, *, photo_cached: bool | None = None) -> list[str]:
     missing: list[str] = []
     if not (getattr(athlete, "first_name", None) or "").strip():
         missing.append("собствено име")
@@ -32,30 +32,37 @@ def bvf_missing_fields(athlete: Athlete) -> list[str]:
     egn_digits = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
     if len(egn_digits) != 10:
         missing.append("ЕГН")
-    if not has_cached_photo(athlete.id) and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
+    cached = has_cached_photo(athlete.id) if photo_cached is None else bool(photo_cached)
+    if not cached and not (getattr(athlete, "bvf_photo_id", None) or "").strip():
         missing.append("снимка")
     return missing
 
 
-def bvf_ready_for_create(athlete: Athlete) -> bool:
+def bvf_ready_for_create(athlete: Athlete, *, photo_cached: bool | None = None) -> bool:
     """Ready for POST /api/players except photo (uploaded at create time)."""
     if getattr(athlete, "bvf_player_id", None):
         return True
-    critical = [m for m in bvf_missing_fields(athlete) if m != "снимка"]
+    critical = [m for m in bvf_missing_fields(athlete, photo_cached=photo_cached) if m != "снимка"]
     return len(critical) == 0
 
 
-def has_local_photo(athlete: Athlete) -> bool:
-    return has_cached_photo(athlete.id) or bool((getattr(athlete, "bvf_photo_id", None) or "").strip())
+def has_local_photo(athlete: Athlete, *, photo_cached: bool | None = None) -> bool:
+    cached = has_cached_photo(athlete.id) if photo_cached is None else bool(photo_cached)
+    return cached or bool((getattr(athlete, "bvf_photo_id", None) or "").strip())
 
 
-def compute_sek_board_row(athlete: Athlete, *, coach_name: str | None = None) -> dict[str, Any]:
+def compute_sek_board_row(
+    athlete: Athlete,
+    *,
+    coach_name: str | None = None,
+    photo_cached: bool | None = None,
+) -> dict[str, Any]:
     in_sek = bool(getattr(athlete, "bvf_player_id", None))
-    missing = bvf_missing_fields(athlete)
+    missing = bvf_missing_fields(athlete, photo_cached=photo_cached)
     missing_no_photo = [m for m in missing if m != "снимка"]
     egn_digits = "".join(ch for ch in str(getattr(athlete, "egn", None) or "") if ch.isdigit())
     has_egn = len(egn_digits) == 10
-    photo_ok = has_local_photo(athlete)
+    photo_ok = has_local_photo(athlete, photo_cached=photo_cached)
 
     if in_sek:
         readiness = "in_sek"

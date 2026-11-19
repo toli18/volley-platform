@@ -17,6 +17,8 @@
 """
 from __future__ import annotations
 
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
@@ -66,12 +68,27 @@ class ScoutRow:
     cells: list[ScoutCell] = field(default_factory=list)
 
 
+_LATEST_VALUE_INDEX_TTL_SEC = 60.0
+_latest_value_index_lock = threading.Lock()
+_latest_value_index_cache: dict[
+    tuple[tuple[str, ...], int],
+    tuple[float, dict[str, dict[int, tuple[float, Optional[str], Optional[str]]]]],
+] = {}
+
+
 def _latest_value_index(
     db: Session, test_codes: list[str], ref_year: int
 ) -> dict[str, dict[int, tuple[float, Optional[str], Optional[str]]]]:
     """test_code → { athlete_id → (последна стойност, U-band, пол) } за цялата система."""
     if not test_codes:
         return {}
+
+    cache_key = (tuple(sorted(test_codes)), int(ref_year))
+    now = time.monotonic()
+    with _latest_value_index_lock:
+        hit = _latest_value_index_cache.get(cache_key)
+        if hit and (now - hit[0]) < _LATEST_VALUE_INDEX_TTL_SEC:
+            return hit[1]
 
     rows = (
         db.query(
@@ -99,6 +116,9 @@ def _latest_value_index(
     ):
         age_band = age_band_from_birth_year(birth_year, ref_year)
         index.setdefault(test_code, {})[athlete_id] = (raw_value, age_band, gender)
+
+    with _latest_value_index_lock:
+        _latest_value_index_cache[cache_key] = (time.monotonic(), index)
     return index
 
 

@@ -13,6 +13,10 @@ import { Button, Card, EmptyState, Input, OverflowActionSheet, PageHero, SearchF
 import { normalizeError } from "../../utils/normalizeError";
 import { filterFeesAthletes } from "../../utils/feesAthleteSearch";
 import {
+  getCoachAthletesListCache,
+  setCoachAthletesListCache,
+} from "../../utils/coachAthletesListCache";
+import {
   buildAthletePayload,
   emptyAthleteIdentityForm,
   validateAthleteIdentityForm,
@@ -92,19 +96,22 @@ export default function CoachAthletes() {
     const res = await axiosInstance.get(API_PATHS.FEES_ATHLETES_LIST, {
       params: { status: "all" },
     });
-    setAthletes(Array.isArray(res.data) ? res.data : []);
+    const list = Array.isArray(res.data) ? res.data : [];
+    setAthletes(list);
+    return list;
   };
 
   const loadTeams = async () => {
     const res = await axiosInstance.get(API_PATHS.TEAMS_LIST);
-    const list = Array.isArray(res.data) ? res.data : [];
-    setTeams(list.filter((t) => t.is_active !== false));
+    const list = (Array.isArray(res.data) ? res.data : []).filter((t) => t.is_active !== false);
+    setTeams(list);
+    return list;
   };
 
   const loadCardIndexes = async () => {
     if (!showCardIndexes) {
       setCardIndexes([]);
-      return;
+      return [];
     }
     try {
       const res = await axiosInstance.get(API_PATHS.BVF_ADMIN_CARD_INDEXES_LOCAL);
@@ -113,31 +120,58 @@ export default function CoachAthletes() {
         : Array.isArray(res.data)
           ? res.data
           : [];
-      setCardIndexes(list.filter((row) => !["signed", "closed"].includes(String(row.status || ""))));
+      const filtered = list.filter((row) => !["signed", "closed"].includes(String(row.status || "")));
+      setCardIndexes(filtered);
+      return filtered;
     } catch {
       setCardIndexes([]);
+      return [];
     }
   };
 
   const loadClubCoaches = async () => {
     if (!isHeadCoach) {
       setClubCoaches([]);
-      return;
+      return [];
     }
     try {
       const res = await axiosInstance.get(API_PATHS.FEES_COACHES_LIST);
-      setClubCoaches(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setClubCoaches(list);
+      return list;
     } catch {
       setClubCoaches([]);
+      return [];
     }
   };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const cached = getCoachAthletesListCache();
+      if (cached) {
+        setAthletes(cached.athletes);
+        setTeams(cached.teams);
+        setCardIndexes(cached.cardIndexes);
+        setClubCoaches(cached.clubCoaches);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        await Promise.all([loadAthletes(), loadTeams(), loadCardIndexes(), loadClubCoaches()]);
+        const [athletesList, teamsList, cardIndexesList, clubCoachesList] = await Promise.all([
+          loadAthletes(),
+          loadTeams(),
+          loadCardIndexes(),
+          loadClubCoaches(),
+        ]);
+        if (cancelled) return;
+        setCoachAthletesListCache({
+          athletes: athletesList,
+          teams: teamsList,
+          cardIndexes: cardIndexesList,
+          clubCoaches: clubCoachesList,
+        });
       } catch (err) {
         if (!cancelled) toast.error(normalizeError(err));
       } finally {
@@ -214,7 +248,13 @@ export default function CoachAthletes() {
       }
       await axiosInstance.post(API_PATHS.FEES_ATHLETE_CREATE, payload);
       resetForm();
-      await loadAthletes();
+      const athletesList = await loadAthletes();
+      setCoachAthletesListCache({
+        athletes: athletesList,
+        teams,
+        cardIndexes,
+        clubCoaches,
+      });
       toast.success("Състезателят е създаден. Родителят да попълни заявлението за прием.");
       window.setTimeout(() => setTab("list"), 0);
     } catch (err2) {
@@ -233,7 +273,13 @@ export default function CoachAthletes() {
       const res = await axiosInstance.post(API_PATHS.FEES_ATHLETES_IMPORT, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      await loadAthletes();
+      const athletesList = await loadAthletes();
+      setCoachAthletesListCache({
+        athletes: athletesList,
+        teams,
+        cardIndexes,
+        clubCoaches,
+      });
       toast.success(
         `Импорт: създадени ${res.data?.created ?? 0}, пропуснати ${res.data?.skipped_duplicates ?? 0}.`,
       );
@@ -261,7 +307,7 @@ export default function CoachAthletes() {
   };
 
   const openProfile = (athleteId) => {
-    navigate(`/coach/athletes/${athleteId}`);
+    navigate(`/coach/athletes/${athleteId}?from=${encodeURIComponent("/coach/athletes")}`);
   };
 
   const countLabel = query.trim() || statusFilter !== "all"

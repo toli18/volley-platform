@@ -1,0 +1,1 @@
+let t=null;function s(){return t?Date.now()-t.at>9e4?(t=null,null):t:null}function i({athletes:a,teams:r,cardIndexes:e,clubCoaches:n}){t={athletes:Array.isArray(a)?a:[],teams:Array.isArray(r)?r:[],cardIndexes:Array.isArray(e)?e:[],clubCoaches:Array.isArray(n)?n:[],at:Date.now()}}function l(){t=null}export{s as g,l as i,i as s};

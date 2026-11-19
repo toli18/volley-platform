@@ -946,12 +946,10 @@ def athlete_profile(
         db.commit()
         db.refresh(athlete)
 
+    # BVF photo sync stays on GET .../photo (not on profile) to avoid blocking profile open.
     club_for_photo = None
     if athlete.club_id:
         club_for_photo = db.query(Club).filter(Club.id == int(athlete.club_id)).first()
-    if ensure_athlete_photo_from_bvf(athlete, club_for_photo):
-        db.commit()
-        db.refresh(athlete)
 
     team_rows = (
         db.query(Team.name)

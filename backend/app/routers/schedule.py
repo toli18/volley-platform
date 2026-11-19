@@ -11,6 +11,7 @@ from app.dependencies.roles import require_role
 from app.competition_kinds import competition_kind_label, is_valid_competition_kind
 from app.models import (
     Athlete,
+    BvfCardIndexMember,
     ClubCompetitionEvent,
     CompetitionRosterAthlete,
     Team,
@@ -692,32 +693,75 @@ def _competition_roster_counts(db: Session, event_ids: list[int]) -> dict[int, i
     return {int(cid): int(cnt) for cid, cnt in rows}
 
 
-def _competition_to_read(
-    db: Session,
+def _competition_candidate_counts(db: Session, events: list[ClubCompetitionEvent]) -> dict[int, int]:
+    """event_id → candidate count without loading full athlete rows."""
+    if not events:
+        return {}
+    card_ids = {int(e.card_index_id) for e in events if getattr(e, "card_index_id", None)}
+    team_ids = {int(e.team_id) for e in events if not getattr(e, "card_index_id", None)}
+
+    by_card: dict[int, int] = {}
+    if card_ids:
+        rows = (
+            db.query(BvfCardIndexMember.card_index_id, func.count())
+            .join(Athlete, Athlete.id == BvfCardIndexMember.athlete_id)
+            .filter(
+                BvfCardIndexMember.card_index_id.in_(list(card_ids)),
+                Athlete.is_active.is_(True),
+            )
+            .group_by(BvfCardIndexMember.card_index_id)
+            .all()
+        )
+        by_card = {int(cid): int(cnt) for cid, cnt in rows}
+
+    by_team: dict[int, int] = {}
+    if team_ids:
+        rows = (
+            db.query(TeamMember.team_id, func.count())
+            .join(Athlete, Athlete.id == TeamMember.athlete_id)
+            .filter(
+                TeamMember.team_id.in_(list(team_ids)),
+                TeamMember.is_active.is_(True),
+                Athlete.is_active.is_(True),
+            )
+            .group_by(TeamMember.team_id)
+            .all()
+        )
+        by_team = {int(tid): int(cnt) for tid, cnt in rows}
+
+    out: dict[int, int] = {}
+    for ev in events:
+        eid = int(ev.id)
+        ci_id = getattr(ev, "card_index_id", None)
+        if ci_id:
+            out[eid] = int(by_card.get(int(ci_id), 0))
+        else:
+            out[eid] = int(by_team.get(int(ev.team_id), 0))
+    return out
+
+
+def _competition_event_to_read(
     event: ClubCompetitionEvent,
     *,
-    current_user: User | None = None,
+    team_name: str | None,
+    coach_name: str | None,
+    carded_team_label: str | None,
+    selected_count: int,
+    candidate_count: int,
+    can_edit_event: bool,
+    can_edit_roster: bool,
+    today: date | None = None,
 ) -> CompetitionEventRead:
-    from app.models import BvfCardIndex
-    from app.services.bvf_season_carding import card_index_display_label
-    from app.services.competition_roster import roster_is_locked, roster_summary
-    from app.services.schedule_competitions import can_edit_competition, can_edit_roster
+    from app.services.competition_roster import (
+        days_until_match,
+        roster_action_for_event,
+        roster_is_locked,
+    )
 
-    team_name = db.query(Team.name).filter(Team.id == event.team_id).scalar()
-    coach_name = db.query(User.name).filter(User.id == event.coach_id).scalar()
     kind = str(event.competition_kind)
-    carded_team_label = None
-    ci_id = getattr(event, "card_index_id", None)
-    if ci_id:
-        ci = db.query(BvfCardIndex).filter(BvfCardIndex.id == int(ci_id)).first()
-        if ci:
-            carded_team_label = card_index_display_label(ci)
-
-    summary = roster_summary(db, event)
-    is_head = _is_head_coach(current_user) if current_user else False
-    can_event = bool(current_user and can_edit_competition(db, current_user, event, is_head))
-    can_roster = bool(current_user and can_edit_roster(db, current_user, event, is_head))
-
+    status = str(getattr(event, "roster_status", None) or "pending").strip().lower()
+    today = today or date.today()
+    locked = roster_is_locked(event)
     return CompetitionEventRead(
         id=int(event.id),
         club_id=int(event.club_id),
@@ -732,21 +776,21 @@ def _competition_to_read(
         opponent_name=(getattr(event, "opponent_name", None) or None),
         notes=event.notes,
         is_cancelled=bool(event.is_cancelled),
-        roster_status=str(getattr(event, "roster_status", None) or "pending"),
+        roster_status=status,
         roster_edit_count=int(getattr(event, "roster_edit_count", 0) or 0),
-        roster_locked=roster_is_locked(event),
-        roster_selected_count=int(summary.get("selected_count") or 0),
-        roster_candidate_count=int(summary.get("candidate_count") or 0),
-        needs_roster=bool(summary.get("needs_roster")),
-        roster_action=summary.get("roster_action"),
-        days_until=summary.get("days_until"),
-        can_edit_event=can_event,
-        can_edit_roster=can_roster and not roster_is_locked(event),
+        roster_locked=locked,
+        roster_selected_count=int(selected_count or 0),
+        roster_candidate_count=int(candidate_count or 0),
+        needs_roster=status == "pending",
+        roster_action=roster_action_for_event(event, today=today),
+        days_until=days_until_match(event, today=today),
+        can_edit_event=bool(can_edit_event),
+        can_edit_roster=bool(can_edit_roster) and not locked,
         created_at=event.created_at,
         updated_at=event.updated_at,
         team_name=team_name,
         coach_name=coach_name,
-        card_index_id=int(ci_id) if ci_id else None,
+        card_index_id=int(event.card_index_id) if getattr(event, "card_index_id", None) else None,
         carded_team_label=carded_team_label,
         ris_game_id=int(event.ris_game_id) if getattr(event, "ris_game_id", None) else None,
         ris_championship_id=(
@@ -766,6 +810,83 @@ def _competition_to_read(
         result_source=(getattr(event, "result_source", None) or None),
         result_synced_at=getattr(event, "result_synced_at", None),
     )
+
+
+def _competitions_to_read_bulk(
+    db: Session,
+    events: list[ClubCompetitionEvent],
+    *,
+    current_user: User | None = None,
+) -> list[CompetitionEventRead]:
+    """List path: bulk names/labels/counts (no per-event candidate_athletes)."""
+    if not events:
+        return []
+    from app.models import BvfCardIndex
+    from app.services.bvf_season_carding import card_index_display_label
+    from app.services.schedule_competitions import can_edit_competition, line_coach_team_ids
+
+    team_ids = {int(e.team_id) for e in events}
+    coach_ids = {int(e.coach_id) for e in events}
+    ci_ids = {int(e.card_index_id) for e in events if getattr(e, "card_index_id", None)}
+    event_ids = [int(e.id) for e in events]
+
+    team_names = dict(db.query(Team.id, Team.name).filter(Team.id.in_(team_ids)).all()) if team_ids else {}
+    coach_names = dict(db.query(User.id, User.name).filter(User.id.in_(coach_ids)).all()) if coach_ids else {}
+    carded_labels: dict[int, str] = {}
+    if ci_ids:
+        for ci in db.query(BvfCardIndex).filter(BvfCardIndex.id.in_(list(ci_ids))).all():
+            carded_labels[int(ci.id)] = card_index_display_label(ci)
+
+    selected = _competition_roster_counts(db, event_ids)
+    candidates = _competition_candidate_counts(db, events)
+
+    is_head = _is_head_coach(current_user) if current_user else False
+    owned_teams: set[int] = set()
+    if current_user and not is_head:
+        club_id = int(getattr(current_user, "club_id", 0) or 0) or (
+            int(events[0].club_id) if events else 0
+        )
+        if club_id:
+            owned_teams = set(line_coach_team_ids(db, club_id, int(current_user.id)))
+
+    today = date.today()
+    out: list[CompetitionEventRead] = []
+    for ev in events:
+        can_event = bool(current_user and can_edit_competition(db, current_user, ev, is_head))
+        if not current_user:
+            can_roster = False
+        else:
+            can_roster = bool(
+                is_head
+                or int(ev.coach_id) == int(current_user.id)
+                or int(ev.team_id) in owned_teams
+            )
+
+        ci_id = getattr(ev, "card_index_id", None)
+        out.append(
+            _competition_event_to_read(
+                ev,
+                team_name=team_names.get(int(ev.team_id)),
+                coach_name=coach_names.get(int(ev.coach_id)),
+                carded_team_label=carded_labels.get(int(ci_id)) if ci_id else None,
+                selected_count=selected.get(int(ev.id), 0),
+                candidate_count=candidates.get(int(ev.id), 0),
+                can_edit_event=can_event,
+                can_edit_roster=can_roster,
+                today=today,
+            )
+        )
+    return out
+
+
+def _competition_to_read(
+    db: Session,
+    event: ClubCompetitionEvent,
+    *,
+    current_user: User | None = None,
+) -> CompetitionEventRead:
+    """Single-event path (create/update/get). List uses _competitions_to_read_bulk."""
+    return _competitions_to_read_bulk(db, [event], current_user=current_user)[0]
 
 
 def _resolve_competition_coach(
@@ -855,11 +976,8 @@ def list_competition_events(
         if prev is None or _ris_rank(ev) > _ris_rank(prev):
             best_by_ris[int(gid)] = ev
     keep_ids = {int(e.id) for e in best_by_ris.values()} | {int(e.id) for e in no_ris}
-    out = [
-        _competition_to_read(db, ev, current_user=current_user)
-        for ev in ordered_events
-        if int(ev.id) in keep_ids
-    ]
+    keep_events = [ev for ev in ordered_events if int(ev.id) in keep_ids]
+    out = _competitions_to_read_bulk(db, keep_events, current_user=current_user)
     if needs_roster:
         out = [r for r in out if r.needs_roster or r.roster_status == "pending"]
     return out
