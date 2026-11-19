@@ -160,6 +160,7 @@ export const API_PATHS = {
   TEAM_ATTENDANCE_REPORT: (teamId) => `/api/teams/${teamId}/attendance/report`,
   TEAM_ATTENDANCE_MATRIX: (teamId) => `/api/teams/${teamId}/attendance/matrix`,
   TEAM_SHEET_PDF: (teamId) => `/api/teams/${teamId}/team-sheet.pdf`,
+  TEAM_SHEET_FILE: (teamId, token) => `/api/teams/${teamId}/team-sheet-files/${token}`,
   TEAM_MATCHES: (teamId) => `/api/teams/${teamId}/matches`,
   TEAM_MATCH: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}`,
   TEAM_MATCH_ROSTER: (teamId, matchId) => `/api/teams/${teamId}/matches/${matchId}/roster`,

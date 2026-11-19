@@ -2,8 +2,8 @@ import re
 from calendar import monthrange
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 from app.services.athlete_photo import ensure_athlete_photo_from_bvf, has_cached_photo, read_athlete_photo
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -65,6 +65,7 @@ def _bvf_ready(athlete: Athlete) -> bool:
     return bvf_ready_for_create(athlete)
 
 
+from app.services.team_sheet_download_cache import put_team_sheet_pdf, take_team_sheet_pdf
 from app.services.team_sheet_pdf import (
     MAX_PLAYERS,
     TeamSheetPayload,
@@ -1264,8 +1265,10 @@ def _latest_anthro_map(db: Session, athlete_ids: list[int]) -> dict[int, dict[st
 def generate_team_sheet_pdf(
     team_id: int,
     payload: TeamSheetRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.coach, UserRole.federation_admin, UserRole.platform_admin)),
+    as_link: bool = Query(False, alias="as_link", description="Return one-time HTTPS download link (mobile)"),
 ):
     team = _ensure_team_owner(db, team_id, current_user)
     club = db.query(Club).filter(Club.id == team.club_id).first() if team.club_id else None
@@ -1411,8 +1414,43 @@ def generate_team_sheet_pdf(
     )
     pdf_bytes = build_team_sheet_pdf(sheet)
     filename = f"timov-list-{team.id}.pdf"
+
+    # Mobile browsers/WebViews often cannot save blob: URLs. Give a one-time HTTPS link instead.
+    want_link = as_link or str(request.query_params.get("as") or "").lower() in {"link", "url", "1", "true"}
+    if want_link:
+        token = put_team_sheet_pdf(
+            team_id=int(team.id),
+            user_id=int(current_user.id),
+            filename=filename,
+            pdf_bytes=pdf_bytes,
+        )
+        return JSONResponse(
+            {
+                "filename": filename,
+                "token": token,
+                "url": f"/api/teams/{int(team.id)}/team-sheet-files/{token}",
+                "expiresInSec": 300,
+            }
+        )
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/teams/{team_id}/team-sheet-files/{token}")
+def download_team_sheet_file(team_id: int, token: str):
+    """One-time PDF download. Auth is the unguessable token (no Bearer header needed for <a href>)."""
+    entry = take_team_sheet_pdf(token, team_id=int(team_id))
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Линкът за изтегляне е изтекъл или вече е използван.")
+    return Response(
+        content=entry.pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{entry.filename}"',
+            "Cache-Control": "no-store",
+        },
     )

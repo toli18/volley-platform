@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { downloadPdfBlob, openPdfPreviewWindow } from "../../utils/downloadPdfBlob";
+import {
+  downloadPdfBlob,
+  downloadViaHttpsUrl,
+  isMobileBrowser,
+  isNativeApp,
+} from "../../utils/downloadPdfBlob";
 import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
 import { parseApiError } from "../../utils/normalizeError";
@@ -232,54 +237,59 @@ export default function TeamSheetO2Modal({
       }
     }
 
-    // Open before await: Android blocks window.open after the network call.
-    const previewWindow = openPdfPreviewWindow();
+    const body = {
+      competition: sheetForm.competition.trim() || null,
+      venue_city: sheetForm.venue_city.trim() || null,
+      age_group: sheetForm.age_group.trim() || null,
+      sheet_date: sheetForm.sheet_date || null,
+      jersey_color: sheetForm.jersey_color.trim() || null,
+      head_coach: sheetForm.head_coach.trim() || null,
+      assistant_1: sheetForm.assistant_1.trim() || null,
+      assistant_2: sheetForm.assistant_2.trim() || null,
+      athlete_ids: selectedAthleteIds,
+      jersey_overrides,
+      captain_athlete_id: Number(captainAthleteId),
+      libero_athlete_ids: liberoAthleteIds
+        .map(Number)
+        .filter((id) => id && selectedAthleteIds.includes(id)),
+    };
+    const filename = `timov-list-${tid}.pdf`;
+    // Mobile: one-time HTTPS attachment link (no blob / about:blank white screen).
+    const useLink = isMobileBrowser() || isNativeApp();
+
     try {
       setSheetBusy(true);
-      const res = await axiosInstance.post(
-        API_PATHS.TEAM_SHEET_PDF(tid),
-        {
-          competition: sheetForm.competition.trim() || null,
-          venue_city: sheetForm.venue_city.trim() || null,
-          age_group: sheetForm.age_group.trim() || null,
-          sheet_date: sheetForm.sheet_date || null,
-          jersey_color: sheetForm.jersey_color.trim() || null,
-          head_coach: sheetForm.head_coach.trim() || null,
-          assistant_1: sheetForm.assistant_1.trim() || null,
-          assistant_2: sheetForm.assistant_2.trim() || null,
-          athlete_ids: selectedAthleteIds,
-          jersey_overrides,
-          captain_athlete_id: Number(captainAthleteId),
-          libero_athlete_ids: liberoAthleteIds
-            .map(Number)
-            .filter((id) => id && selectedAthleteIds.includes(id)),
-        },
-        { responseType: "blob" },
-      );
-      const result = await downloadPdfBlob(res.data, `timov-list-${tid}.pdf`, { previewWindow });
-      if (result === "cancelled") {
-        toast.error("Изтеглянето е отказано. Опитай отново.");
-        return;
-      }
-      toast.success(
-        result === "shared"
-          ? "Тимовият лист (О-2) е готов. Запиши го от менюто Сподели."
-          : result === "opened" || result === "navigated"
-            ? "PDF е отворен. От менюто на браузъра избери Изтегли / Сподели."
+      if (useLink) {
+        const res = await axiosInstance.post(
+          `${API_PATHS.TEAM_SHEET_PDF(tid)}?as=link`,
+          body,
+        );
+        const url = res?.data?.url || (res?.data?.token
+          ? API_PATHS.TEAM_SHEET_FILE(tid, res.data.token)
+          : null);
+        if (!url) throw new Error("Сървърът не върна линк за изтегляне.");
+        downloadViaHttpsUrl(url, res?.data?.filename || filename);
+        toast.success("Тимовият лист (О-2) се изтегля. Провери Downloads / Файлове.");
+      } else {
+        const res = await axiosInstance.post(API_PATHS.TEAM_SHEET_PDF(tid), body, {
+          responseType: "blob",
+        });
+        const result = await downloadPdfBlob(res.data, filename);
+        if (result === "cancelled") {
+          toast.error("Изтеглянето е отказано. Опитай отново.");
+          return;
+        }
+        toast.success(
+          result === "shared"
+            ? "Тимовият лист (О-2) е готов. Запиши го от менюто Сподели."
             : "Тимовият лист (О-2) е генериран. Провери Downloads / Файлове.",
-      );
+        );
+      }
       window.setTimeout(() => {
         onClose?.();
         setSheetStep(1);
       }, 500);
     } catch (err) {
-      if (previewWindow && !previewWindow.closed) {
-        try {
-          previewWindow.close();
-        } catch {
-          /* ignore */
-        }
-      }
       toast.error(await parseApiError(err, "Неуспешно генериране на тимов лист."));
     } finally {
       setSheetBusy(false);
