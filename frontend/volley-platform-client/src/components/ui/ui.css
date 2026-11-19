@@ -3211,29 +3211,6 @@
   font: inherit;
 }
 
-.teamSheetO2LiberoList {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.teamSheetO2LiberoRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  min-width: 0;
-}
-
-.teamSheetO2LiberoRow span {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .teamSheetO2Actions {
   flex: 0 0 auto;
   margin-top: 0;

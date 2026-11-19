@@ -155,16 +155,26 @@ export default function TeamSheetO2Modal({
     setSelectedAthleteIds((prev) => [...prev, id]);
   };
 
-  const toggleLibero = (athleteId) => {
-    const id = Number(athleteId);
-    if (!selectedAthleteIds.includes(id)) return;
+  const jerseyOptionLabel = (m) => {
+    const j = parseJerseyInput(jerseyByAthlete[m.athlete_id]);
+    const prefix = j != null && j !== "invalid" ? `№${jerseyByAthlete[m.athlete_id]} · ` : "";
+    return `${prefix}${m.athlete_name}`;
+  };
+
+  const setLiberoSlot = (slotIndex, rawValue) => {
+    const id = rawValue ? Number(rawValue) : null;
     setLiberoAthleteIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 2) {
-        toast.error("Можете да изберете най-много 2 либеро.");
-        return prev;
+      const first = prev[0] ?? null;
+      const second = prev[1] ?? null;
+      if (slotIndex === 0) {
+        if (!id) return [];
+        const keepSecond = second && second !== id ? second : null;
+        return keepSecond ? [id, keepSecond] : [id];
       }
-      return [...prev, id];
+      if (!first) return [];
+      if (!id) return [first];
+      if (id === first) return [first];
+      return [first, id];
     });
   };
 
@@ -251,7 +261,9 @@ export default function TeamSheetO2Modal({
           athlete_ids: selectedAthleteIds,
           jersey_overrides,
           captain_athlete_id: Number(captainAthleteId),
-          libero_athlete_ids: liberoAthleteIds.map(Number),
+          libero_athlete_ids: liberoAthleteIds
+            .map(Number)
+            .filter((id) => id && selectedAthleteIds.includes(id)),
         },
         { responseType: "blob" },
       );
@@ -353,7 +365,11 @@ export default function TeamSheetO2Modal({
                   type="button"
                   className="teamSheetO2Link teamSheetO2Link--muted"
                   disabled={sheetBusy || selectedAthleteIds.length === 0}
-                  onClick={() => setSelectedAthleteIds([])}
+                  onClick={() => {
+                    setSelectedAthleteIds([]);
+                    setCaptainAthleteId(null);
+                    setLiberoAthleteIds([]);
+                  }}
                 >
                   Изчисти
                 </button>
@@ -418,40 +434,45 @@ export default function TeamSheetO2Modal({
                     disabled={sheetBusy}
                     onChange={(e) => setCaptainAthleteId(e.target.value ? Number(e.target.value) : null)}
                   >
-                    {selectedSorted.map((m) => {
-                      const j = parseJerseyInput(jerseyByAthlete[m.athlete_id]);
-                      const prefix =
-                        j != null && j !== "invalid" ? `№${jerseyByAthlete[m.athlete_id]} · ` : "";
-                      return (
-                        <option key={m.athlete_id} value={m.athlete_id}>
-                          {prefix}
-                          {m.athlete_name}
-                        </option>
-                      );
-                    })}
+                    {selectedSorted.map((m) => (
+                      <option key={m.athlete_id} value={m.athlete_id}>
+                        {jerseyOptionLabel(m)}
+                      </option>
+                    ))}
                   </select>
                 </label>
-                <div className="teamSheetO2LiberoList">
-                  <span className="teamSheetO2Count">Либеро (по избор, макс. 2)</span>
-                  {selectedSorted.map((m) => {
-                    const id = m.athlete_id;
-                    const isLib = liberoAthleteIds.includes(id);
-                    return (
-                      <label key={`lib-${id}`} className="teamSheetO2LiberoRow">
-                        <input
-                          type="checkbox"
-                          checked={isLib}
-                          disabled={sheetBusy}
-                          onChange={() => toggleLibero(id)}
-                        />
-                        <span title={m.athlete_name}>
-                          {m.athlete_name}
-                          {isLib ? " · L" : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <label>
+                  <span className="teamSheetO2Count">Либеро 1 (по избор)</span>
+                  <select
+                    value={liberoAthleteIds[0] ?? ""}
+                    disabled={sheetBusy}
+                    onChange={(e) => setLiberoSlot(0, e.target.value)}
+                  >
+                    <option value="">Без либеро</option>
+                    {selectedSorted.map((m) => (
+                      <option key={`lib1-${m.athlete_id}`} value={m.athlete_id}>
+                        {jerseyOptionLabel(m)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="teamSheetO2Count">Либеро 2 (по избор)</span>
+                  <select
+                    value={liberoAthleteIds[1] ?? ""}
+                    disabled={sheetBusy || !liberoAthleteIds[0]}
+                    onChange={(e) => setLiberoSlot(1, e.target.value)}
+                  >
+                    <option value="">Без втори либеро</option>
+                    {selectedSorted
+                      .filter((m) => m.athlete_id !== liberoAthleteIds[0])
+                      .map((m) => (
+                        <option key={`lib2-${m.athlete_id}`} value={m.athlete_id}>
+                          {jerseyOptionLabel(m)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
               </div>
             ) : null}
 
