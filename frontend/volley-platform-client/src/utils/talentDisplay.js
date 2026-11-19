@@ -12,6 +12,7 @@ const LEVEL_CLASS = {
 /** Softer wording for the lowest talent band. */
 export function displayTalentLabel(label) {
   if (label === "Незадоволително") return "Начално ниво";
+  if (label === "В развитие" || label === "За развитие") return label;
   return label || "";
 }
 
@@ -85,6 +86,13 @@ export function compactSekCardLabel(raw) {
   // Keep year if present (season context), unlike competition card titles.
   const out = cleaned.length ? cleaned : deduped;
   return out.filter((p, i, arr) => !(yearRe.test(p) && arr.length === 1)).join(" · ") || parts[0];
+}
+
+/** Age-group label for competition titles (no year / adult gender). */
+export function competitionAgeLabel(raw) {
+  const compact = compactSekCardLabel(raw);
+  if (!compact) return "";
+  return compact.replace(/\s*[·|]\s*(19|20)\d{2}\s*$/u, "").trim() || compact;
 }
 
 /** Approximate official net height (cm) by U-band + gender. */

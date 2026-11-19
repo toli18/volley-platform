@@ -1,6 +1,7 @@
 import { Button } from "../ui";
 import { competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
-import { teamColorForName } from "../../utils/parentPortalSchedule";
+import { formatLocationDisplay, teamColorForName } from "../../utils/parentPortalSchedule";
+import { competitionAgeLabel } from "../../utils/talentDisplay";
 
 function eventTypeLabel(row) {
   return isCompetitionEvent(row) ? competitionKindLabel(row) : "Тренировка";
@@ -84,10 +85,12 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
                   ) : null}
                   {row.carded_team_label ? (
                     <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
-                      Картотека: {row.carded_team_label}
+                      {competitionAgeLabel(row.carded_team_label) || row.carded_team_label}
+                      {row.event_type === "competition" && row.opponent_name
+                        ? ` vs ${row.opponent_name}`
+                        : ""}
                     </div>
-                  ) : null}
-                  {row.event_type === "competition" && row.opponent_name ? (
+                  ) : row.event_type === "competition" && row.opponent_name ? (
                     <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
                       vs {row.opponent_name}
                     </div>
@@ -95,9 +98,9 @@ export default function ParentDayDetailModal({ date, items, formatDateLabel, onC
                   {row.event_type === "competition" && row.athlete_participates ? (
                     <div className="parentPortalDayModalItemMeta">Участва детето</div>
                   ) : null}
-                  {row.location ? (
+                  {formatLocationDisplay(row.location) ? (
                     <div className={`parentPortalDayModalItemMeta${cancelled ? " parentPortalSchedStruck" : ""}`}>
-                      Място: {row.location}
+                      Място: {formatLocationDisplay(row.location)}
                     </div>
                   ) : null}
                 </li>

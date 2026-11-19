@@ -136,8 +136,28 @@ export function itemsOnDate(items, date) {
   return (items || []).filter((it) => it.date === date);
 }
 
-/** Trim trailing dashes from hall/location labels (e.g. "НУПИ-"). */
+/** Trim trailing dashes/commas and dedupe repeated city tokens (e.g. "Троян, Троян, ул..."). */
 export function formatLocationDisplay(loc) {
   if (!loc) return "";
-  return String(loc).trim().replace(/[-–—]+\s*$/g, "").trim();
+  let s = String(loc).trim().replace(/[-–—,]+\s*$/gu, "").trim();
+  if (!s) return "";
+  const parts = s
+    .split(/\s*,\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const out = [];
+  for (const p of parts) {
+    if (out.length && out[out.length - 1].toLowerCase() === p.toLowerCase()) continue;
+    out.push(p);
+  }
+  s = out.join(", ");
+  if (
+    out.length === 1 &&
+    !/^(гр\.|ул\.|бул\.|пл\.)/i.test(out[0]) &&
+    !/\d/.test(out[0]) &&
+    out[0].length <= 32
+  ) {
+    return `гр. ${out[0]}`;
+  }
+  return s;
 }

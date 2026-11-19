@@ -225,6 +225,8 @@ export const API_PATHS = {
   TEAM_CHAT_MESSAGES: (teamId) => `/api/teams/${teamId}/chat/messages`,
   TEAM_CHAT_MESSAGE_DELETE: (teamId, messageId) => `/api/teams/${teamId}/chat/messages/${messageId}`,
   PARENT_PORTAL_ME: "/api/parent-portal/me",
+  PARENT_PORTAL_ME_PHOTO: "/api/parent-portal/me/photo",
+  PARENT_PORTAL_TOKEN_PHOTO: (token) => `/api/parent-portal/${token}/photo`,
   PARENT_PORTAL_ME_SCHEDULE: "/api/parent-portal/me/schedule",
   PARENT_PORTAL_ACK_CHANGES_ME: "/api/parent-portal/me/ack-changes",
   PARENT_PORTAL_ACK_CHANGES_TOKEN: (token) => `/api/parent-portal/${token}/ack-changes`,

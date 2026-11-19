@@ -171,7 +171,10 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
     );
   }
 
-  const missingSchool = !data.school_name || !data.school_class;
+  const schoolReady = Boolean(
+    (schoolForm.school_name || data?.school_name || "").trim() &&
+      (schoolForm.school_class || data?.school_class || "").trim(),
+  );
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -266,21 +269,28 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
           >
             Изтегли PDF за занималня
           </Button>
-          {!data.annual?.can_download && data.annual?.missing_fields?.length ? (
-            <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
-              {data.annual.missing_fields.includes("training_schedule")
-                ? "Нужен е активен график на тренировки от треньора."
-                : data.annual.missing_fields.includes("club_config")
-                  ? "Клубът още не е завършил настройката (председател/подпис)."
-                  : "Попълнете училище и клас."}
-            </p>
-          ) : null}
+          {!data.annual?.can_download && data.annual?.missing_fields?.length
+            ? (() => {
+                const msg = data.annual.missing_fields.includes("training_schedule")
+                  ? "Нужен е активен график на тренировки от треньора."
+                  : data.annual.missing_fields.includes("club_config")
+                    ? "Клубът още не е завършил настройката (председател/подпис)."
+                    : schoolReady
+                      ? ""
+                      : "Попълнете училище и клас.";
+                return msg ? (
+                  <p className="uiMuted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    {msg}
+                  </p>
+                ) : null;
+              })()
+            : null}
         </Card>
       ) : null}
 
       {data.enabled ? (
       <Card title="Състезания — извинителни бележки">
-        {missingSchool ? (
+        {!schoolReady ? (
           <p className="uiMuted" style={{ marginTop: 0 }}>
             Попълнете училище и клас, за да активирате изтеглянето.
           </p>
@@ -353,11 +363,15 @@ export default function ParentSchoolExcuseSection({ isSession, token, onSaved })
                   )}
                 </div>
                 {!item.can_download && item.missing_fields?.length ? (
-                  <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
-                    {item.missing_fields.includes("club_config")
-                      ? "Клубът още не е завършил настройката (председател/подпис)."
-                      : "Попълнете училище и клас."}
-                  </p>
+                  item.missing_fields.includes("club_config") ? (
+                    <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+                      Клубът още не е завършил настройката (председател/подпис).
+                    </p>
+                  ) : schoolReady ? null : (
+                    <p className="uiMuted" style={{ margin: 0, fontSize: 12 }}>
+                      Попълнете училище и клас.
+                    </p>
+                  )
                 ) : null}
               </article>
             ))}

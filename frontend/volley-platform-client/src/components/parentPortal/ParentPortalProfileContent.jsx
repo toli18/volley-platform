@@ -6,7 +6,6 @@ import ParentPortalFeed from "./ParentPortalFeed";
 import ParentDevelopmentSection from "./ParentDevelopmentSection";
 import ParentAbsenceNoticeSection from "./ParentAbsenceNoticeSection";
 import ParentSchoolExcuseSection from "./ParentSchoolExcuseSection";
-import AthleteMembershipChips from "../athletes/AthleteMembershipChips";
 import { IconCalendar, IconEuro } from "./parentPortalIcons";
 import { Button, Card, EmptyState, Input } from "../ui";
 import { formatMoney } from "../../utils/currency";
@@ -541,20 +540,11 @@ export default function ParentPortalProfileContent({
 
       <ParentPortalTabPanel tabId="profile" activeTab={activeTab}>
         <Card title="Състезател">
-          <p className="parentPortalProfileAthleteName">{profile.athlete_name}</p>
           {profile.club_name || feeCoach.club_name ? (
-            <p className="parentPortalHighlightMuted" style={{ marginTop: 4 }}>
+            <p className="parentPortalHighlightMuted" style={{ marginTop: 0 }}>
               {profile.club_name || feeCoach.club_name}
             </p>
           ) : null}
-
-          <div style={{ marginTop: 12 }}>
-            <AthleteMembershipChips
-              teamNames={profile.teams}
-              cardedTeams={profile.carded_teams}
-              showEmpty
-            />
-          </div>
 
           <div className="parentPortalInfoGrid" style={{ marginTop: 12 }}>
             {profile.birth_year ? <span className="uiBadge">Роден/а: {profile.birth_year}</span> : null}

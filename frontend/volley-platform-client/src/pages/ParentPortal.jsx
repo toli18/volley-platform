@@ -13,6 +13,7 @@ import ParentCardingParent2Gate from "../components/parentPortal/ParentCardingPa
 import AthleteMembershipChips from "../components/athletes/AthleteMembershipChips";
 import { IconRefresh } from "../components/parentPortal/parentPortalIcons";
 import { Button, Card, EmptyState } from "../components/ui";
+import useAthletePhoto from "../hooks/useAthletePhoto";
 import {
   ackParentPortalChange,
   patchProfileAfterScheduleAck,
@@ -249,6 +250,24 @@ export default function ParentPortal() {
     !needsConsent && !needsCardingForm && Boolean(profile?.carding_form?.needs_parent2_sign);
   const gated = needsConsent || needsCardingForm || needsParent2Sign;
 
+  const photoPath = isSession
+    ? API_PATHS.PARENT_PORTAL_ME_PHOTO
+    : token
+      ? API_PATHS.PARENT_PORTAL_TOKEN_PHOTO(token)
+      : null;
+  const photoUrl = useAthletePhoto(profile?.athlete_id, profile?.has_photo, {
+    canFetchFromBvf: Boolean(profile?.has_photo),
+    photoPath,
+  });
+
+  const initials = useMemo(() => {
+    const name = String(profile?.athlete_name || "").trim();
+    if (!name) return "?";
+    const parts = name.split(/\s+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map((p) => p[0]?.toUpperCase() || "");
+    return letters.join("") || "?";
+  }, [profile?.athlete_name]);
+
   const fab = profile && !gated ? (
     <button
       type="button"
@@ -257,7 +276,7 @@ export default function ParentPortal() {
       disabled={refreshing || loading}
       aria-label="Обнови данните"
     >
-      <IconRefresh size={24} />
+      <IconRefresh size={18} />
       {hasUnreadChanges ? <span className="parentPortalUnreadDot parentPortalUnreadDot--fab" aria-hidden /> : null}
     </button>
   ) : null;
@@ -280,16 +299,31 @@ export default function ParentPortal() {
     >
       <div className="parentPortalPage">
         <header className="parentPortalHero">
-          <h1 className="parentPortalHeroTitle">{profile ? profile.athlete_name : "Родителски профил"}</h1>
-          <p className="parentPortalHeroSub">
-            {needsConsent
-              ? "Необходимо е клубно заявление"
-              : needsCardingForm
-                ? "Необходима е Форма 03 / 03-А за картотекиране"
-                : needsParent2Sign
-                  ? "Липсва подпис на родител 2 (СЕК)"
-                  : "Присъствие, график и профил"}
-          </p>
+          <div className="parentPortalHeroRow">
+            {profile ? (
+              <div className="parentPortalHeroAvatar" aria-hidden={!photoUrl}>
+                {photoUrl ? (
+                  <img src={photoUrl} alt="" className="parentPortalHeroAvatarImg" />
+                ) : (
+                  <span className="parentPortalHeroAvatarInitials">{initials}</span>
+                )}
+              </div>
+            ) : null}
+            <div className="parentPortalHeroText">
+              <h1 className="parentPortalHeroTitle">
+                {profile ? profile.athlete_name : "Родителски профил"}
+              </h1>
+              <p className="parentPortalHeroSub">
+                {needsConsent
+                  ? "Необходимо е клубно заявление"
+                  : needsCardingForm
+                    ? "Необходима е Форма 03 / 03-А за картотекиране"
+                    : needsParent2Sign
+                      ? "Липсва подпис на родител 2 (СЕК)"
+                      : "Присъствие, график и профил"}
+              </p>
+            </div>
+          </div>
           {profile && !gated ? (
             <AthleteMembershipChips
               teamNames={profile.teams}

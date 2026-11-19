@@ -23,6 +23,7 @@ import {
 } from "../../utils/parentPortalSchedule";
 import { competitionBlockStyle, competitionKindLabel, isCompetitionEvent } from "../../utils/competitionKinds";
 import { applyAckToScheduleItems } from "../../utils/parentPortalAck";
+import { competitionAgeLabel } from "../../utils/talentDisplay";
 
 function weekdayShortForDate(isoDate) {
   const d = new Date(`${isoDate}T12:00:00`);
@@ -37,10 +38,11 @@ function formatAgendaDayLabel(isoDate) {
 function eventTitle(row) {
   if (row.is_cancelled) return "Отменена";
   if (isCompetitionEvent(row)) {
-    const kind = competitionKindLabel(row);
     const opp = (row.opponent_name || "").trim();
-    const base = row.carded_team_label ? `${kind} · ${row.carded_team_label}` : kind;
-    return opp ? `${base} vs ${opp}` : base;
+    const age = competitionAgeLabel(row.carded_team_label) || competitionKindLabel(row);
+    if (age && opp) return `${age} vs ${opp}`;
+    if (opp) return `vs ${opp}`;
+    return age || "Състезание";
   }
   return row.team_name || "Група";
 }
@@ -150,12 +152,6 @@ function SessionBlock({ row, variant = "card", onAckChange }) {
         <span className="parentPortalSchedRowTime">{time}</span>
         <span className="parentPortalSchedRowMain">
           <span className="parentPortalSchedRowTitle">{title}</span>
-          {isComp && row.opponent_name ? (
-            <span className="parentPortalSchedRowLoc"> · vs {row.opponent_name}</span>
-          ) : null}
-          {row.team_name && isComp ? (
-            <span className="parentPortalSchedRowLoc"> · Група: {row.team_name}</span>
-          ) : null}
           {displayLocation(row) ? <span className="parentPortalSchedRowLoc"> · {displayLocation(row)}</span> : null}
           {isComp && row.athlete_participates ? (
             <span className="parentPortalSchedRowLoc"> · Участва</span>
@@ -176,9 +172,6 @@ function SessionBlock({ row, variant = "card", onAckChange }) {
     >
       <div className="parentPortalSchedBlockTime">{time}</div>
       <div className="parentPortalSchedBlockTeam">{title}</div>
-      {isComp && row.opponent_name ? (
-        <div className="parentPortalSchedBlockMeta">vs {row.opponent_name}</div>
-      ) : null}
       {displayLocation(row) ? (
         <div className="parentPortalSchedBlockMeta">
           {variant === "compact" ? displayLocation(row) : `Място: ${displayLocation(row)}`}
@@ -636,7 +629,9 @@ export default function ParentScheduleViews({
         ) : null}
       </div>
 
-      {loadingMonth ? <p className="uiHint">Зареждане на график...</p> : null}
+      {loadingMonth && activeItems.length === 0 ? (
+        <p className="uiHint">Зареждане на график...</p>
+      ) : null}
 
       {view === "week" ? (
         <>

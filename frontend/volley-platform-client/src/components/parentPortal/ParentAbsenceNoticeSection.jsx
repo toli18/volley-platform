@@ -84,9 +84,26 @@ export default function ParentAbsenceNoticeSection({
     }
   };
 
+  const fillQuickRange = (which) => {
+    const base = new Date();
+    if (which === "tomorrow") base.setDate(base.getDate() + 1);
+    const iso = base.toISOString().slice(0, 10);
+    setNoticeDate(iso);
+    setEndDate(iso);
+    setError("");
+  };
+
   return (
     <div className="parentPortalAbsenceSection">
       <form className="parentPortalAbsenceForm" onSubmit={handleSubmit}>
+        <div className="parentPortalAbsenceQuickRow" role="group" aria-label="Бърз избор на дата">
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => fillQuickRange("today")}>
+            Днес
+          </Button>
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => fillQuickRange("tomorrow")}>
+            Утре
+          </Button>
+        </div>
         <div className="parentPortalAbsenceFormRow">
           <Input
             type="date"

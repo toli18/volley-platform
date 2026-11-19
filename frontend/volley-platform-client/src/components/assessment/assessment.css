@@ -478,6 +478,45 @@
   padding: 2px 8px;
   white-space: nowrap;
 }
+
+.devRadarWrap {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+.devRadarSvg {
+  max-width: 100%;
+  height: auto;
+}
+.devRadarRing {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+.devRadarAxis {
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+.devRadarArea {
+  fill: rgba(15, 77, 58, 0.18);
+  stroke: none;
+}
+.devRadarOutline {
+  fill: none;
+  stroke: #0f4d3a;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.devRadarDot {
+  fill: #0f4d3a;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+.devRadarLabel {
+  fill: #475569;
+  font-size: 11px;
+  font-weight: 600;
+}
 .talentCell {
   text-align: center;
   background: #f8fafc;

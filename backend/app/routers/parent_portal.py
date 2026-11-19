@@ -1035,6 +1035,9 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
                     club_name=club_name,
                 )
 
+    from app.services.athlete_memberships import athlete_display_has_photo
+    from app.services.athlete_photo import has_cached_photo
+
     return ParentAthleteProfileResponse(
         athlete_id=athlete.id,
         athlete_name=athlete.athlete_name,
@@ -1043,6 +1046,7 @@ def _build_parent_athlete_profile(db: Session, athlete: Athlete) -> ParentAthlet
         parent_phone=athlete.parent_phone,
         club_name=club_name,
         club_logo_url=club_logo_url,
+        has_photo=athlete_display_has_photo(athlete, cached=has_cached_photo(athlete.id)),
         teams=teams,
         carded_teams=carded_teams,
         fee_coach=fee_coach,
@@ -1220,12 +1224,41 @@ def parent_push_unsubscribe_token(
     return None
 
 
+def _parent_athlete_photo_response(db: Session, athlete: Athlete) -> Response:
+    from app.services.athlete_photo import ensure_athlete_photo_from_bvf, read_athlete_photo
+
+    data = read_athlete_photo(athlete.id)
+    if not data:
+        club = db.query(Club).filter(Club.id == int(athlete.club_id)).first() if athlete.club_id else None
+        data = ensure_athlete_photo_from_bvf(athlete, club)
+        if data and getattr(athlete, "bvf_photo_id", None):
+            db.commit()
+    if not data:
+        raise HTTPException(status_code=404, detail="Няма снимка")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+
 @router.get("/parent-portal/me", response_model=ParentAthleteProfileResponse)
 def parent_portal_me(
     db: Session = Depends(get_db),
     athlete: Athlete = Depends(get_current_parent_athlete),
 ):
     return _build_parent_athlete_profile(db, athlete)
+
+
+@router.get("/parent-portal/me/photo")
+def parent_portal_me_photo(
+    db: Session = Depends(get_db),
+    athlete: Athlete = Depends(get_current_parent_athlete),
+):
+    """Портрет на детето за родителска сесия (локален кеш / при нужда от БФВ)."""
+    return _parent_athlete_photo_response(db, athlete)
+
+
+@router.get("/parent-portal/{token}/photo")
+def parent_portal_token_photo(token: str, db: Session = Depends(get_db)):
+    athlete = _resolve_parent_portal_athlete(db, token)
+    return _parent_athlete_photo_response(db, athlete)
 
 
 @router.get("/parent-portal/me/development", response_model=ParentDevelopmentOut)

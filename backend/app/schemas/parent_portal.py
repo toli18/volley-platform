@@ -308,6 +308,7 @@ class ParentAthleteProfileResponse(BaseModel):
     parent_phone: Optional[str] = None
     club_name: Optional[str] = None
     club_logo_url: Optional[str] = None
+    has_photo: bool = False
     teams: list[str] = Field(default_factory=list)  # тренировъчни групи
     carded_teams: list[ParentCardedTeamBadge] = Field(default_factory=list)
     fee_coach: ParentFeeCoachContact = Field(default_factory=ParentFeeCoachContact)

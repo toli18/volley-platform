@@ -4,6 +4,7 @@ import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Card, EmptyState } from "../ui";
 import DevelopmentScoreChart from "../assessment/DevelopmentScoreChart";
+import DevelopmentRadarChart from "../assessment/DevelopmentRadarChart";
 import MotivationView from "../assessment/MotivationView";
 import "../assessment/assessment.css";
 
@@ -150,6 +151,10 @@ export default function ParentDevelopmentSection({
     if (variant === "tab") return null;
   }
 
+  const radarAxes = (data?.deficits || [])
+    .filter((d) => d?.domain != null && d.normalized != null)
+    .map((d) => ({ label: d.domain, value: d.normalized }));
+
   const renderScoreBody = (chartScores, { showFocus, showDisclaimer } = {}) =>
     chartScores.length || scores.length ? (
       <>
@@ -157,6 +162,14 @@ export default function ParentDevelopmentSection({
           scores={chartScores.length ? chartScores : scores}
           windowMap={windowMap}
         />
+        {showFocus && radarAxes.length >= 3 ? (
+          <>
+            <p className="devSectionTitle" style={{ marginTop: 14 }}>
+              Профил по показатели
+            </p>
+            <DevelopmentRadarChart axes={radarAxes} />
+          </>
+        ) : null}
         {showFocus ? (
           <>
             <p className="devSectionTitle" style={{ marginTop: 14 }}>
