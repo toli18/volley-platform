@@ -45,7 +45,7 @@ export function formatVenueLocation(raw) {
   if (!text) return "";
 
   const parts = text
-    .split(",")
+    .split(/[,·|;]+/)
     .map((p) => p.trim())
     .filter(Boolean);
   if (!parts.length) return "";
@@ -66,7 +66,7 @@ export function formatVenueLocation(raw) {
 
     if (isSettlementPart(part)) {
       const bare = stripSettlementPrefix(part);
-      const key = bare.toLowerCase();
+      const key = bare.toLowerCase().replace(/\s+/g, " ");
       if (!key || seenSettlements.has(key)) continue;
       seenSettlements.add(key);
       out.push(`гр. ${bare}`);
@@ -76,7 +76,22 @@ export function formatVenueLocation(raw) {
     out.push(part);
   }
 
-  return out.join(", ");
+  // Final pass: drop consecutive duplicates ("гр. Враца, гр. Враца").
+  const collapsed = [];
+  for (const part of out) {
+    const prev = collapsed[collapsed.length - 1];
+    if (!prev) {
+      collapsed.push(part);
+      continue;
+    }
+    const a = stripSettlementPrefix(prev).toLowerCase().replace(/\s+/g, " ");
+    const b = stripSettlementPrefix(part).toLowerCase().replace(/\s+/g, " ");
+    if (a && a === b) continue;
+    if (prev.toLowerCase() === part.toLowerCase()) continue;
+    collapsed.push(part);
+  }
+
+  return collapsed.join(", ");
 }
 
 /** Сортиране: дата → начален час → приоритет тимов лист. */

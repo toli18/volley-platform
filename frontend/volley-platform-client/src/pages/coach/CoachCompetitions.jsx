@@ -74,14 +74,42 @@ function defaultCompetitionForm(date, coachId = "") {
   };
 }
 
-function statusLabel(row) {
+/** Compact grey-row status: days / sheet state only (no button-label echo). */
+function statusMetaHint(row) {
   const action = competitionRosterAction(row);
-  if (action === "generate") return "Генерирай тимов лист (≤10 дни)";
-  if (action === "review") return "Провери тимовия лист (≤5 дни)";
-  if (row.roster_locked || row.roster_status === "locked") return "Заключен състав";
+  if (action === "generate") return "≤10 дни";
+  if (action === "review") return "≤5 дни";
+  if (row.roster_locked || row.roster_status === "locked") return "Заключен";
   if (row.roster_status === "confirmed") return "Състав готов";
-  if (row.needs_roster || row.roster_status === "pending") return "Чака тимов лист";
-  return row.roster_status || "-";
+  if (row.needs_roster || row.roster_status === "pending") return "Чака лист";
+  return null;
+}
+
+const YEAR_TOKEN_RE = /^(19|20)\d{2}$/;
+const ADULT_GENDER_RE = /^(жени|мъже|women|men)$/i;
+const YOUTH_LABEL_RE = /момичета|момчета|девойк|юнош|под\s*\d|u\s*\d|мини/i;
+
+/** Strip redundant gender/year noise: "Мъже · Мъже · 2026" → "Мъже". */
+function compactCardedTeamLabel(raw) {
+  const parts = String(raw || "")
+    .split(/\s*[·|]\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!parts.length) return "";
+
+  const withoutYear = parts.filter((p) => !YEAR_TOKEN_RE.test(p));
+  const seen = new Set();
+  const deduped = [];
+  for (const p of withoutYear) {
+    const key = p.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(p);
+  }
+
+  const hasYouth = deduped.some((p) => YOUTH_LABEL_RE.test(p));
+  const cleaned = hasYouth ? deduped.filter((p) => !ADULT_GENDER_RE.test(p)) : deduped;
+  return (cleaned.length ? cleaned : deduped).join(" · ") || parts[0];
 }
 
 function hasReportedResult(row) {
@@ -118,7 +146,8 @@ function competitionCardTone(row, today = todayKey()) {
 }
 
 function competitionCardTitle(row) {
-  const team = row.carded_team_label || row.team_name || `Група #${row.team_id}`;
+  const raw = row.carded_team_label || row.team_name || `Група #${row.team_id}`;
+  const team = compactCardedTeamLabel(raw) || raw;
   const opp = row.opponent_name ? `vs ${row.opponent_name}` : "без противник";
   return `${team} ${opp}`;
 }
@@ -242,6 +271,7 @@ export default function CoachCompetitions() {
   const [resultOpp, setResultOpp] = useState("0");
   const [savingResult, setSavingResult] = useState(false);
   const [syncingResults, setSyncingResults] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const rangeLabel = useMemo(() => formatRangeLabel(fromDate, toDate), [fromDate, toDate]);
   const deepRosterId = searchParams.get("roster");
@@ -612,10 +642,18 @@ export default function CoachCompetitions() {
   };
 
   return (
-    <div className="coachMobilePage">
-      <header className="feesCoachHead">
-        <h2 className="feesCoachHeadTitle">Състезания</h2>
-        <span className="feesCoachHeadBadge">{visibleRows.length}</span>
+    <div className="coachMobilePage competitionsPage">
+      <header className="feesCoachHead competitionsPageHead">
+        <div className="competitionsPageHeadMain">
+          <h2 className="feesCoachHeadTitle">Състезания</h2>
+          <span className="feesCoachHeadBadge">{visibleRows.length}</span>
+        </div>
+        {isHeadCoachUser ? (
+          <Button size="sm" className="competitionsNewBtn" onClick={openCreate}>
+            <span className="competitionsNewBtnShort">+ Ново</span>
+            <span className="competitionsNewBtnFull">Ново състезание</span>
+          </Button>
+        ) : null}
       </header>
 
       <div className="coachMobileSubNav competitionsListTabs" role="tablist" aria-label="Период на списъка">
@@ -635,91 +673,106 @@ export default function CoachCompetitions() {
           className={`coachMobileSubNavBtn${listTab === "past" ? " is-active" : ""}`}
           onClick={() => setListTab("past")}
         >
-          Минали (с резултат) ({tabCounts.past})
+          <span className="competitionsTabPastFull">Минали (с резултат) ({tabCounts.past})</span>
+          <span className="competitionsTabPastShort">Минали ({tabCounts.past})</span>
         </button>
       </div>
 
-      <div className="competitionsListFilters">
-        <label className="competitionsTeamFilter">
-          <span className="competitionsTeamFilterLabel">Отбор / възраст</span>
-          <select
-            className="competitionsTeamFilterSelect"
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-          >
-            <option value="all">Всички</option>
-            {teamFilterOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="coachMobileSubNav competitionsScopeNav">
-          {[
-            { id: "all", label: "Всички" },
-            { id: "mine", label: "Моите" },
-            { id: "needs_roster", label: "Чака лист" },
-          ].map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={`coachMobileSubNavBtn${filter === f.id ? " is-active" : ""}`}
-              onClick={() => setFilter(f.id)}
+      <div className="competitionsFiltersBar">
+        <button
+          type="button"
+          className={`competitionsFiltersToggle${filtersOpen ? " is-open" : ""}`}
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          Филтри
+          <span className="competitionsFiltersToggleHint" aria-hidden="true">
+            {filtersOpen ? "▴" : "▾"}
+          </span>
+        </button>
+        {!filtersOpen ? (
+          <span className="competitionsFiltersSummary">{rangeLabel}</span>
+        ) : null}
+      </div>
+
+      <div className={`competitionsFiltersPanel${filtersOpen ? " is-open" : ""}`}>
+        <div className="competitionsListFilters">
+          <label className="competitionsTeamFilter">
+            <span className="competitionsTeamFilterLabel">Отбор / възраст</span>
+            <select
+              className="competitionsTeamFilterSelect"
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
             >
-              {f.label}
+              <option value="all">Всички</option>
+              {teamFilterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="coachMobileSubNav competitionsScopeNav">
+            {[
+              { id: "all", label: "Всички" },
+              { id: "mine", label: "Моите" },
+              { id: "needs_roster", label: "Чака лист" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`coachMobileSubNavBtn${filter === f.id ? " is-active" : ""}`}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="coachMobileSubNav competitionsPeriodNav">
+          {PERIOD_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`coachMobileSubNavBtn${periodPreset === p.id ? " is-active" : ""}`}
+              onClick={() => applyPreset(p.id)}
+            >
+              {p.label}
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="coachMobileSubNav" style={{ marginBottom: 8 }}>
-        {PERIOD_PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={`coachMobileSubNavBtn${periodPreset === p.id ? " is-active" : ""}`}
-            onClick={() => applyPreset(p.id)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="competitionsToolbar">
-        <span className="competitionsToolbarLabel">{rangeLabel}</span>
-        <div className="competitionsToolbarActions">
-          <Button size="sm" variant="secondary" onClick={syncRisResults} disabled={syncingResults || busy}>
-            {syncingResults ? "Обновяване…" : "Обнови от БФВ"}
-          </Button>
-          {isHeadCoachUser ? (
-            <>
+        <div className="competitionsToolbar">
+          <span className="competitionsToolbarLabel">{rangeLabel}</span>
+          <div className="competitionsToolbarActions">
+            <Button size="sm" variant="secondary" onClick={syncRisResults} disabled={syncingResults || busy}>
+              {syncingResults ? "Обновяване…" : "Обнови от БФВ"}
+            </Button>
+            {isHeadCoachUser ? (
               <Button size="sm" variant="secondary" onClick={() => setRisOpen(true)}>
                 От БФВ календар
               </Button>
-              <Button size="sm" onClick={openCreate}>
-                Ново състезание
-              </Button>
-            </>
-          ) : null}
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      {periodPreset === "custom" ? (
-        <div className="competitionsDateRange">
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>От</span>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>До</span>
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </label>
-          <Button size="sm" variant="secondary" onClick={load} disabled={busy}>
-            Приложи
-          </Button>
-        </div>
-      ) : null}
+        {periodPreset === "custom" ? (
+          <div className="competitionsDateRange">
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>От</span>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>До</span>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </label>
+            <Button size="sm" variant="secondary" onClick={load} disabled={busy}>
+              Приложи
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {busy ? <p className="coachMobileMuted">Зареждане…</p> : null}
       {!busy && rows.length === 0 ? (
@@ -789,8 +842,7 @@ export default function CoachCompetitions() {
                     row.ris_game_id
                       ? `БФВ${row.ris_match_number ? ` №${row.ris_match_number}` : ""}`
                       : null,
-                    statusLabel(row),
-                    rosterCount ? `${rosterCount} в листа` : null,
+                    statusMetaHint(row),
                     !badgeTone && isPastCompetition(row, today)
                       ? row.ris_game_id
                         ? "Няма резултат от БФВ още"
@@ -802,32 +854,6 @@ export default function CoachCompetitions() {
                 </div>
               </div>
               <div className="compListCardActions">
-                <div className="compListCardSecondary">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={openingMatchId === row.id}
-                    onClick={() => openMatchStats(row)}
-                  >
-                    {openingMatchId === row.id ? "…" : "Статистика"}
-                  </Button>
-                  {row.ris_championship_id ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setStandingsChampId(Number(row.ris_championship_id));
-                        setStandingsHint(
-                          [kindBit, row.carded_team_label].filter(Boolean).join(" · "),
-                        );
-                        setStandingsOpen(true);
-                      }}
-                    >
-                      Класиране
-                    </Button>
-                  ) : null}
-                  <OverflowActionSheet label="Още действия" actions={overflowActions} />
-                </div>
                 <Button
                   size="sm"
                   className={
@@ -837,10 +863,58 @@ export default function CoachCompetitions() {
                   }
                   onClick={() => openRoster(row)}
                 >
-                  {rosterReady
-                    ? `Тимов лист${rosterCount ? ` (${rosterCount})` : ""}`
-                    : "Генерирай тимов лист"}
+                  {rosterReady ? (
+                    <>
+                      <span className="compListBtnLabelShort">
+                        Лист{rosterCount ? ` (${rosterCount})` : ""}
+                      </span>
+                      <span className="compListBtnLabelFull">
+                        Тимов лист{rosterCount ? ` (${rosterCount})` : ""}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="compListBtnLabelShort">Генерирай</span>
+                      <span className="compListBtnLabelFull">Генерирай тимов лист</span>
+                    </>
+                  )}
                 </Button>
+                <div className="compListCardSecondary">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={openingMatchId === row.id}
+                    onClick={() => openMatchStats(row)}
+                  >
+                    {openingMatchId === row.id ? (
+                      "…"
+                    ) : (
+                      <>
+                        <span className="compListSecLabelShort">Стат.</span>
+                        <span className="compListSecLabelFull">Статистика</span>
+                      </>
+                    )}
+                  </Button>
+                  {row.ris_championship_id ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setStandingsChampId(Number(row.ris_championship_id));
+                        setStandingsHint(
+                          [kindBit, compactCardedTeamLabel(row.carded_team_label) || row.carded_team_label]
+                            .filter(Boolean)
+                            .join(" · "),
+                        );
+                        setStandingsOpen(true);
+                      }}
+                    >
+                      <span className="compListSecLabelShort">Клас.</span>
+                      <span className="compListSecLabelFull">Класиране</span>
+                    </Button>
+                  ) : null}
+                  <OverflowActionSheet label="Още действия" actions={overflowActions} />
+                </div>
               </div>
             </li>
           );
