@@ -47,7 +47,12 @@ const monthLabelBg = (monthKey) => {
   if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || "";
   const [y, m] = monthKey.split("-");
   const d = new Date(Number(y), Number(m) - 1, 1);
-  return d.toLocaleDateString("bg-BG", { month: "long", year: "numeric" });
+  const raw = d.toLocaleDateString("bg-BG", { month: "long", year: "numeric" });
+  const cleaned = String(raw || "")
+    .replace(/\s*г\.?\s*$/i, "")
+    .trim();
+  if (!cleaned) return monthKey;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 };
 
 const shortenTeamName = (name) => {
@@ -71,8 +76,15 @@ const statusShort = (value) => {
   if (value === "present") return "✓";
   if (value === "late") return "З";
   if (value === "absent") return "—";
-  if (value === "excused") return "И";
+  // Avoid "И Извинен" duplication; letter alone is enough for others.
+  if (value === "excused") return "";
   return "·";
+};
+
+const statusDisplay = (value) => {
+  const short = statusShort(value);
+  const label = statusLabel(value);
+  return short ? `${short} ${label}` : label;
 };
 
 const genderShort = (g) => {
@@ -246,10 +258,33 @@ function IdentityReadonly({ profile }) {
       {profile.egn ? (
         <div>
           <dt>ЕГН</dt>
-          <dd>{profile.egn}</dd>
+          <dd>
+            <EgnReveal value={profile.egn} />
+          </dd>
         </div>
       ) : null}
     </dl>
+  );
+}
+
+function EgnReveal({ value }) {
+  const [visible, setVisible] = useState(false);
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const masked = raw.length <= 4 ? "****" : `${raw.slice(0, Math.max(0, raw.length - 4))}****`;
+  return (
+    <span className="athleteProfileEgnReveal">
+      <span className="athleteProfileEgnValue">{visible ? raw : masked}</span>
+      <button
+        type="button"
+        className="athleteProfileEgnToggle"
+        aria-label={visible ? "Скрий ЕГН" : "Покажи ЕГН"}
+        title={visible ? "Скрий" : "Покажи"}
+        onClick={() => setVisible((v) => !v)}
+      >
+        {visible ? "🙈" : "👁️"}
+      </button>
+    </span>
   );
 }
 
@@ -323,7 +358,9 @@ export default function AthleteProfileCoachMobile({
     setFeeExemptNote(profile?.fee_exempt_note || "");
   }, [profile?.athlete_id, profile?.fee_exempt_note]);
 
-  const canFetchPhoto = Boolean(profile.bvf_player_id || profile.bvf_photo_id);
+  const canFetchPhoto = Boolean(
+    profile.has_photo || profile.bvf_player_id || profile.bvf_photo_id || profile.bvf_has_photo,
+  );
   const photoUrl = useAthletePhoto(profile.athlete_id, Boolean(profile.has_photo), {
     canFetchFromBvf: canFetchPhoto,
   });
@@ -960,7 +997,7 @@ export default function AthleteProfileCoachMobile({
                     <span className="athleteProfileAttDate">{formatDay(row.date)}</span>
                     <span className="athleteProfileAttTeam">{shortenTeamName(row.team_name)}</span>
                     <span className={`athleteProfileAttStatus ${statusLabel(row.status) === "Присъства" ? "is-ok" : ""}`}>
-                      {statusShort(row.status)} {statusLabel(row.status)}
+                      {statusDisplay(row.status)}
                     </span>
                   </li>
                 ))}
@@ -987,7 +1024,7 @@ export default function AthleteProfileCoachMobile({
                 const paid = paymentPaid(row);
                 return (
                   <li key={row.month_key} className="athleteProfileFeesRow">
-                    <span className="athleteProfileFeesMonth">{row.month_key}</span>
+                    <span className="athleteProfileFeesMonth">{monthLabelBg(row.month_key)}</span>
                     <span className={`uiBadge ${paid ? "uiBadge--success" : "uiBadge--danger"}`}>
                       {paid ? `Платено ${formatMoney(row.amount)}` : "Дължи"}
                     </span>

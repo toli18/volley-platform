@@ -1,3 +1,5 @@
+import { compactSekCardLabel } from "../../utils/talentDisplay";
+
 /** Compact chips for training groups + SEK carded teams. */
 export default function AthleteMembershipChips({
   teamNames = [],
@@ -7,7 +9,10 @@ export default function AthleteMembershipChips({
 }) {
   const teams = Array.isArray(teamNames) ? teamNames.filter(Boolean) : [];
   const carded = Array.isArray(cardedTeams)
-    ? cardedTeams.map((c) => (typeof c === "string" ? c : c?.label)).filter(Boolean)
+    ? cardedTeams
+        .map((c) => (typeof c === "string" ? c : c?.label))
+        .map((label) => compactSekCardLabel(label) || label)
+        .filter(Boolean)
     : [];
 
   if (!teams.length && !carded.length && !showEmpty) return null;

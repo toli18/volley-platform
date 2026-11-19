@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "../ui";
 import useClubBvfLink from "../../hooks/useClubBvfLink";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import { netHeightCmForBand } from "../../utils/talentDisplay";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -15,11 +16,17 @@ function fmtDate(iso) {
   }
 }
 
+function fieldValue(mapping, field) {
+  const row = (mapping || []).find((m) => m.field === field);
+  const n = Number(row?.value);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
  * Картотечни показатели от тестовете → бутон „Изпрати данни“ към БФВ.
  * Без ръчно преписване.
  */
-export default function AthletePhysicalPanel({ athleteId, bvfPlayerId, toast }) {
+export default function AthletePhysicalPanel({ athleteId, bvfPlayerId, toast, ageBand = null, gender = null }) {
   const { permanent, tokenBody } = useClubBvfLink();
   const [items, setItems] = useState([]);
   const [fromTests, setFromTests] = useState(null);
@@ -112,6 +119,14 @@ export default function AthletePhysicalPanel({ athleteId, bvfPlayerId, toast }) 
 
   const mapping = fromTests?.mapping || [];
   const hasData = Boolean(fromTests?.has_data);
+  const netCm = useMemo(() => netHeightCmForBand(ageBand, gender), [ageBand, gender]);
+  const attackCm = fieldValue(mapping, "attack_cm") ?? fieldValue(mapping, "Attack");
+  const blockCm = fieldValue(mapping, "block_cm") ?? fieldValue(mapping, "Block");
+  // Also match by label when field keys differ.
+  const attackFromLabel = (mapping.find((m) => /атака/i.test(m.label || "")) || {}).value;
+  const blockFromLabel = (mapping.find((m) => /блок/i.test(m.label || "")) || {}).value;
+  const attack = attackCm ?? (Number.isFinite(Number(attackFromLabel)) ? Number(attackFromLabel) : null);
+  const block = blockCm ?? (Number.isFinite(Number(blockFromLabel)) ? Number(blockFromLabel) : null);
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -151,6 +166,37 @@ export default function AthletePhysicalPanel({ athleteId, bvfPlayerId, toast }) 
             ))}
           </div>
         )}
+
+        {hasData && netCm && (attack != null || block != null) ? (
+          <div
+            className="athleteNetRef"
+            style={{
+              marginTop: 4,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: "#ecfdf5",
+              border: "1px solid #bbf7d0",
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: "#14532d",
+            }}
+          >
+            <strong>Мрежа {netCm} см</strong>
+            {ageBand ? ` · ${ageBand}` : ""}
+            {attack != null ? (
+              <div>
+                Атака {attack} см:{" "}
+                {attack >= netCm ? `+${Math.round(attack - netCm)} см над мрежата` : `${Math.round(netCm - attack)} см под мрежата`}
+              </div>
+            ) : null}
+            {block != null ? (
+              <div>
+                Блок {block} см:{" "}
+                {block >= netCm ? `+${Math.round(block - netCm)} см над мрежата` : `${Math.round(netCm - block)} см под мрежата`}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
           <Button type="button" size="sm" disabled={busy || !canSend || !hasData} onClick={sendFromTests}>

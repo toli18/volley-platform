@@ -453,6 +453,10 @@
   background: #fef2f2;
   color: #b91c1c;
 }
+.talentBadge--develop {
+  background: #fff7ed;
+  color: #c2410c;
+}
 .talentBadge--warn {
   background: #fffbeb;
   color: #b45309;

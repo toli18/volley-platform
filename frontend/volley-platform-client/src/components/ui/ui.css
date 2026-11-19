@@ -1990,6 +1990,34 @@
   display: block;
 }
 
+.athleteProfileEgnReveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.athleteProfileEgnValue {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.athleteProfileEgnToggle {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  min-width: 32px;
+  min-height: 28px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+
+.athleteProfileEgnToggle:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
 .athleteProfileCardTitleRow {
   display: flex;
   align-items: center;

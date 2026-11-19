@@ -6,22 +6,13 @@ import AthletePhysicalPanel from "./AthletePhysicalPanel";
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
 import { normalizeError } from "../../utils/normalizeError";
+import {
+  displayCategoryLabel,
+  displayTalentLabel,
+  displayUnitLabel,
+  talentLevelClass,
+} from "../../utils/talentDisplay";
 import "../assessment/assessment.css";
-
-const LEVEL_CLASS = {
-  Незадоволително: "talentBadge--bad",
-  Задоволително: "talentBadge--warn",
-  "Много добро": "talentBadge--good",
-  Отлично: "talentBadge--great",
-};
-
-const CATEGORY_LABEL = {
-  anthropometry: "Антропометрия",
-  physical: "Физически",
-  technical: "Технически",
-  tactical: "Тактически",
-  psychological: "Психологически",
-};
 
 function fmt(value) {
   if (value === null || value === undefined) return "—";
@@ -32,7 +23,7 @@ function peerClass(p) {
   if (p >= 80) return "talentBadge--great";
   if (p >= 60) return "talentBadge--good";
   if (p >= 40) return "talentBadge--warn";
-  return "talentBadge--bad";
+  return "talentBadge--develop";
 }
 
 /**
@@ -113,7 +104,11 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
           <div className="athleteTestCards">
             {tested.map((t) => {
               const c = cellMap[t.code];
-              const cat = CATEGORY_LABEL[t.category] || t.category;
+              const cat = displayCategoryLabel(t.category);
+              const unit = displayUnitLabel(t.unit);
+              const talentLabel = displayTalentLabel(c.talent_label);
+              const normLabel = displayTalentLabel(c.score_2022_label);
+              const showNorm = c.score_2022 != null;
               return (
                 <article key={t.code} className="athleteTestCard">
                   <div className="athleteTestCardName" title={t.name}>
@@ -121,27 +116,28 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
                   </div>
                   <div className="athleteTestCardMeta">
                     {cat}
-                    {t.unit ? ` · ${t.unit}` : ""}
+                    {unit ? ` · ${unit}` : ""}
                   </div>
                   <div className="athleteTestCardValue">
                     {fmt(c.raw_value)}
-                    {t.unit ? <span className="athleteTestCardValueUnit"> {t.unit}</span> : null}
+                    {unit ? <span className="athleteTestCardValueUnit"> {unit}</span> : null}
                   </div>
 
                   <div className="athleteTestCardMetrics">
-                    <div className="athleteTestCardMetric">
-                      <span className="athleteTestCardMetricLabel">2022</span>
-                      {c.score_2022 != null ? (
-                        <span
-                          className={`talentBadge talentBadgeSm ${LEVEL_CLASS[c.score_2022_label] || "talentBadge--good"}`}
-                          title={c.score_2022_label || ""}
-                        >
-                          {fmt(c.score_2022)} · {c.score_2022_label}
+                    {showNorm ? (
+                      <div className="athleteTestCardMetric">
+                        <span className="athleteTestCardMetricLabel" title="Национален стандарт 2022">
+                          Норма &apos;22
                         </span>
-                      ) : (
-                        <span className="athleteTestCardHint">—</span>
-                      )}
-                    </div>
+                        <span
+                          className={`talentBadge talentBadgeSm ${talentLevelClass(c.score_2022_label)}`}
+                          title={normLabel || ""}
+                        >
+                          {fmt(c.score_2022)}
+                          {normLabel ? ` · ${normLabel}` : ""}
+                        </span>
+                      </div>
+                    ) : null}
 
                     <div className="athleteTestCardMetric">
                       <span className="athleteTestCardMetricLabel">Връстници</span>
@@ -161,10 +157,11 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
                       <span className="athleteTestCardMetricLabel">Талант</span>
                       {c.talent_score != null ? (
                         <span
-                          className={`talentBadge talentBadgeSm ${LEVEL_CLASS[c.talent_label] || "talentBadge--good"}`}
-                          title={c.talent_label || ""}
+                          className={`talentBadge talentBadgeSm ${talentLevelClass(c.talent_label)}`}
+                          title={talentLabel || ""}
                         >
-                          {fmt(c.talent_score)} · {c.talent_label}
+                          {fmt(c.talent_score)}
+                          {talentLabel ? ` · ${talentLabel}` : ""}
                         </span>
                       ) : (
                         <span className="athleteTestCardHint">—</span>
@@ -193,7 +190,13 @@ export default function AthleteTestsPanel({ athleteId, bvfPlayerId, toast }) {
             височина, тегло, размах/разтег, атака (отскок със засилване), блок (отскок с 2 ръце).
           </p>
         </div>
-        <AthletePhysicalPanel athleteId={athleteId} bvfPlayerId={bvfPlayerId} toast={toast} />
+        <AthletePhysicalPanel
+          athleteId={athleteId}
+          bvfPlayerId={bvfPlayerId}
+          toast={toast}
+          ageBand={row?.age_band}
+          gender={row?.gender}
+        />
       </section>
     </div>
   );
