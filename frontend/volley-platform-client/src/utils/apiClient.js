@@ -42,8 +42,13 @@ axiosInstance.interceptors.request.use((config) => {
   const url = String(config.url || "");
   config.headers = config.headers || {};
 
-  // Blob/binary GET не трябва да носят Content-Type: application/json
-  if (config.responseType === "blob" || config.responseType === "arraybuffer") {
+  // Blob/binary GET не трябва да носят Content-Type: application/json.
+  // Keep JSON Content-Type for POST/PUT bodies that still expect application/json.
+  const method = String(config.method || "get").toLowerCase();
+  if (
+    (config.responseType === "blob" || config.responseType === "arraybuffer") &&
+    (method === "get" || method === "head" || config.data == null || config.data === "")
+  ) {
     delete config.headers["Content-Type"];
   }
 

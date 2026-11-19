@@ -255,14 +255,20 @@ export default function TeamSheetO2Modal({
         { responseType: "blob" },
       );
       const result = await downloadPdfBlob(res.data, `timov-list-${tid}.pdf`);
-      if (result === "cancelled") return;
+      if (result === "cancelled") {
+        toast.error("Изтеглянето е отказано. Опитай отново.");
+        return;
+      }
       toast.success(
         result === "shared"
-          ? "Тимовият лист (О-2) е готов за споделяне/запис."
-          : "Тимовият лист (О-2) е генериран.",
+          ? "Тимовият лист (О-2) е готов. Запиши го от менюто Сподели."
+          : "Тимовият лист (О-2) е генериран. Провери Downloads / Файлове.",
       );
-      onClose?.();
-      setSheetStep(1);
+      // Keep modal open briefly so the download gesture is not interrupted on mobile.
+      window.setTimeout(() => {
+        onClose?.();
+        setSheetStep(1);
+      }, 400);
     } catch (err) {
       toast.error(await parseApiError(err, "Неуспешно генериране на тимов лист."));
     } finally {
