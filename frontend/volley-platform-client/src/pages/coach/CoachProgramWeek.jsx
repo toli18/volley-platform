@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Children, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../../utils/apiClient";
@@ -10,6 +10,32 @@ function formatShortBg(iso) {
   if (!iso) return "—";
   const [y, m, d] = String(iso).split("-");
   return `${d}.${m}.${y}`;
+}
+
+/** "ЗАЛА ЧАВДАР" → "Зала Чавдар" */
+function formatHallName(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  return text
+    .split(/(\s+)/)
+    .map((tok) => {
+      if (!tok || /^\s+$/.test(tok)) return tok;
+      const lower = tok.toLocaleLowerCase("bg-BG");
+      return lower.charAt(0).toLocaleUpperCase("bg-BG") + lower.slice(1);
+    })
+    .join("");
+}
+
+function ProgramActionRow({ children }) {
+  const items = Children.toArray(children).filter(Boolean);
+  if (!items.length) return null;
+  return (
+    <div
+      className={`programWeekActions${items.length === 1 ? " programWeekActions--single" : ""}`}
+    >
+      {items}
+    </div>
+  );
 }
 
 const EXEC_META = {
@@ -100,6 +126,31 @@ function IntensityBadge({ value }) {
 }
 
 function DayCard({ day, ctx }) {
+  const hall = day.location ? formatHallName(day.location) : "";
+  const textbookBtn = day.textbook_slug ? (
+    <Link key="tb" to={`/textbook/${day.textbook_slug}`} className="coachMobileQuickBtn">
+      Виж конспекта
+    </Link>
+  ) : null;
+  const generateBtn = !day.is_cancelled && !day.training_id ? (
+    <Link
+      key="gen"
+      to={buildProgramGenerateHref(day, ctx)}
+      className="coachMobileQuickBtn coachMobileQuickBtn--primary"
+    >
+      Генерирай сега
+    </Link>
+  ) : null;
+  const continueBtn = !day.is_cancelled && day.training_id ? (
+    <Link
+      key="cont"
+      to={`/trainings/${day.training_id}`}
+      className="coachMobileQuickBtn coachMobileQuickBtn--continue"
+    >
+      Продължи →
+    </Link>
+  ) : null;
+
   return (
     <article
       className="coachMobileCard"
@@ -116,7 +167,7 @@ function DayCard({ day, ctx }) {
       </div>
       <p className="coachMobileMuted" style={{ margin: "2px 0 6px" }}>
         {day.start_time} – {day.end_time}
-        {day.location ? ` · ${day.location}` : ""}
+        {hall ? ` · ${hall}` : ""}
         {day.is_cancelled ? " · отменена" : ""}
       </p>
 
@@ -133,11 +184,6 @@ function DayCard({ day, ctx }) {
           {day.session_goal ? (
             <p style={{ margin: "0 0 6px", fontSize: 13 }}>{day.session_goal}</p>
           ) : null}
-          {day.textbook_slug ? (
-            <Link to={`/textbook/${day.textbook_slug}`} className="coachMobileQuickBtn" style={{ display: "inline-block" }}>
-              Виж конспекта
-            </Link>
-          ) : null}
         </>
       ) : (
         <p className="coachMobileMuted" style={{ margin: 0, fontStyle: "italic" }}>
@@ -145,27 +191,10 @@ function DayCard({ day, ctx }) {
         </p>
       )}
 
-      {!day.is_cancelled ? (
-        <div style={{ marginTop: 8 }}>
-          {day.training_id ? (
-            <Link
-              to={`/trainings/${day.training_id}`}
-              className="coachMobileQuickBtn"
-              style={{ display: "inline-block", background: "#2563eb", color: "#fff", borderColor: "#2563eb" }}
-            >
-              Продължи с тренировката →
-            </Link>
-          ) : (
-            <Link
-              to={buildProgramGenerateHref(day, ctx)}
-              className="coachMobileQuickBtn"
-              style={{ display: "inline-block" }}
-            >
-              Генерирай сега
-            </Link>
-          )}
-        </div>
-      ) : null}
+      <ProgramActionRow>
+        {textbookBtn}
+        {generateBtn || continueBtn}
+      </ProgramActionRow>
     </article>
   );
 }
@@ -339,20 +368,51 @@ export default function CoachProgramWeek() {
                 <p className="coachMobileMuted" style={{ marginTop: 0, fontSize: 12 }}>
                   Тези програмни теми не са покрити от тренировка тази седмица.
                 </p>
-                {data.unmapped_days.map((pd, i) => (
-                  <article className="coachMobileCard" key={`um-${i}`}>
-                    {pd.theme ? <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{pd.theme}</p> : null}
-                    {Array.isArray(pd.focus) && pd.focus.length ? (
-                      <p className="coachMobileMuted" style={{ margin: "0 0 4px" }}>Фокус: {pd.focus.join(", ")}</p>
-                    ) : null}
-                    {pd.session_goal ? <p style={{ margin: "0 0 6px", fontSize: 13 }}>{pd.session_goal}</p> : null}
-                    {pd.textbook_slug ? (
-                      <Link to={`/textbook/${pd.textbook_slug}`} className="coachMobileQuickBtn" style={{ display: "inline-block" }}>
-                        Виж конспекта
-                      </Link>
-                    ) : null}
-                  </article>
-                ))}
+                {data.unmapped_days.map((pd, i) => {
+                  const genCtx = {
+                    teamId: data.team_id,
+                    ageBand: data.age_band,
+                    mesoNumber: data.meso_number,
+                    weekInMeso: data.week_in_meso,
+                    weekTheme: data.week_theme || data.meso_theme || "",
+                  };
+                  const genDay = {
+                    ...pd,
+                    has_program_day: true,
+                    date: w?.from_date || undefined,
+                  };
+                  return (
+                    <article className="coachMobileCard" key={`um-${i}`}>
+                      {pd.theme ? <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{pd.theme}</p> : null}
+                      {Array.isArray(pd.focus) && pd.focus.length ? (
+                        <p className="coachMobileMuted" style={{ margin: "0 0 4px" }}>
+                          Фокус: {pd.focus.join(", ")}
+                        </p>
+                      ) : null}
+                      {pd.session_goal ? (
+                        <p style={{ margin: "0 0 6px", fontSize: 13 }}>{pd.session_goal}</p>
+                      ) : null}
+                      <ProgramActionRow>
+                        {pd.textbook_slug ? (
+                          <Link
+                            key="tb"
+                            to={`/textbook/${pd.textbook_slug}`}
+                            className="coachMobileQuickBtn"
+                          >
+                            Виж конспекта
+                          </Link>
+                        ) : null}
+                        <Link
+                          key="gen"
+                          to={buildProgramGenerateHref(genDay, genCtx)}
+                          className="coachMobileQuickBtn coachMobileQuickBtn--primary"
+                        >
+                          Генерирай тренировка
+                        </Link>
+                      </ProgramActionRow>
+                    </article>
+                  );
+                })}
               </>
             ) : null}
           </>

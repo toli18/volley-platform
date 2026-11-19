@@ -8436,6 +8436,40 @@
   text-align: center;
 }
 
+.coachMobileQuickBtn--primary {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.coachMobileQuickBtn--primary:hover {
+  background: #166534;
+  border-color: #166534;
+  color: #fff;
+}
+
+.coachMobileQuickBtn--continue {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.programWeekActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.programWeekActions--single {
+  grid-template-columns: 1fr;
+}
+
+.programWeekActions .coachMobileQuickBtn {
+  min-height: 44px;
+  width: 100%;
+}
+
 .coachMobileTeamList {
   list-style: none;
   margin: 0;
@@ -8456,6 +8490,35 @@
   background: #fff;
   text-decoration: none;
   color: inherit;
+}
+
+.coachMobileTeamCard--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  grid-template-columns: unset;
+  grid-template-rows: unset;
+}
+
+.coachMobileTeamCardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.coachMobileTeamCard--row .coachMobileTeamName {
+  text-align: left;
+}
+
+.coachMobileTeamCard--row .coachMobileTeamChevron {
+  grid-row: unset;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .cardIndexesMobilePage {
