@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import axiosInstance from "../../utils/apiClient";
 import { API_PATHS } from "../../utils/apiPaths";
-import { downloadPdfBlob } from "../../utils/downloadPdfBlob";
+import { downloadPdfBlob, openPdfPreviewWindow } from "../../utils/downloadPdfBlob";
 import { Button, Input, Modal } from "../ui";
 import { useToast } from "../ToastProvider";
 import { parseApiError } from "../../utils/normalizeError";
@@ -232,6 +232,8 @@ export default function TeamSheetO2Modal({
       }
     }
 
+    // Open before await: Android blocks window.open after the network call.
+    const previewWindow = openPdfPreviewWindow();
     try {
       setSheetBusy(true);
       const res = await axiosInstance.post(
@@ -254,7 +256,7 @@ export default function TeamSheetO2Modal({
         },
         { responseType: "blob" },
       );
-      const result = await downloadPdfBlob(res.data, `timov-list-${tid}.pdf`);
+      const result = await downloadPdfBlob(res.data, `timov-list-${tid}.pdf`, { previewWindow });
       if (result === "cancelled") {
         toast.error("Изтеглянето е отказано. Опитай отново.");
         return;
@@ -262,14 +264,22 @@ export default function TeamSheetO2Modal({
       toast.success(
         result === "shared"
           ? "Тимовият лист (О-2) е готов. Запиши го от менюто Сподели."
-          : "Тимовият лист (О-2) е генериран. Провери Downloads / Файлове.",
+          : result === "opened" || result === "navigated"
+            ? "PDF е отворен. От менюто на браузъра избери Изтегли / Сподели."
+            : "Тимовият лист (О-2) е генериран. Провери Downloads / Файлове.",
       );
-      // Keep modal open briefly so the download gesture is not interrupted on mobile.
       window.setTimeout(() => {
         onClose?.();
         setSheetStep(1);
-      }, 400);
+      }, 500);
     } catch (err) {
+      if (previewWindow && !previewWindow.closed) {
+        try {
+          previewWindow.close();
+        } catch {
+          /* ignore */
+        }
+      }
       toast.error(await parseApiError(err, "Неуспешно генериране на тимов лист."));
     } finally {
       setSheetBusy(false);

@@ -1,9 +1,12 @@
 /**
- * Save/open a PDF blob for desktop browsers and Capacitor WebViews.
- * Prefer a real file download; use the native Share sheet only inside the app shell.
+ * Save/open a PDF blob for desktop browsers, Android/iOS browsers, and Capacitor.
+ *
+ * Android Chrome often ignores <a download> for blob URLs after an async request,
+ * and window.open(blob) is blocked once the user gesture is gone. Call
+ * openPdfPreviewWindow() synchronously on click, then pass it here.
  */
 
-function isNativeApp() {
+export function isNativeApp() {
   try {
     return Boolean(window.Capacitor?.isNativePlatform?.());
   } catch {
@@ -11,8 +14,32 @@ function isNativeApp() {
   }
 }
 
-function isMobileBrowser() {
+export function isMobileBrowser() {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+}
+
+/**
+ * Must run synchronously inside the click handler (before any await).
+ * Returns a window handle Android/iOS can later navigate to the PDF blob.
+ */
+export function openPdfPreviewWindow() {
+  if (typeof window === "undefined") return null;
+  if (!isMobileBrowser() && !isNativeApp()) return null;
+  try {
+    const w = window.open("about:blank", "_blank");
+    if (w) {
+      try {
+        w.document.title = "Тимов лист…";
+        w.document.body.innerHTML =
+          '<p style="font-family:sans-serif;padding:16px;color:#334155">Генериране на PDF…</p>';
+      } catch {
+        /* cross-origin / opaque window — ignore */
+      }
+    }
+    return w;
+  } catch {
+    return null;
+  }
 }
 
 function triggerAnchorDownload(url, filename) {
@@ -20,19 +47,39 @@ function triggerAnchorDownload(url, filename) {
   a.href = url;
   a.download = filename;
   a.rel = "noopener";
+  a.target = "_blank";
   a.style.display = "none";
   document.body.appendChild(a);
   a.click();
   a.remove();
 }
 
-export async function downloadPdfBlob(blob, filename = "document.pdf") {
+function navigateWindowToPdf(win, url) {
+  if (!win || win.closed) return false;
+  try {
+    win.location.href = url;
+    try {
+      win.focus();
+    } catch {
+      /* ignore */
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function downloadPdfBlob(blob, filename = "document.pdf", options = {}) {
+  const previewWindow = options.previewWindow || null;
+
   if (!(blob instanceof Blob)) {
+    if (previewWindow && !previewWindow.closed) previewWindow.close();
     throw new Error("Невалиден PDF отговор.");
   }
 
   const header = await blob.slice(0, 5).text();
   if (!header.startsWith("%PDF")) {
+    if (previewWindow && !previewWindow.closed) previewWindow.close();
     const err = new Error("PDF не е генериран.");
     err.response = { data: blob };
     throw err;
@@ -41,47 +88,62 @@ export async function downloadPdfBlob(blob, filename = "document.pdf") {
   const safeName = String(filename || "document.pdf").replace(/[^\w.\-]+/g, "_");
   const typed = blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" });
   const url = URL.createObjectURL(typed);
-  const revokeLater = (ms = 120_000) => setTimeout(() => URL.revokeObjectURL(url), ms);
+  const revokeLater = (ms = 180_000) => setTimeout(() => URL.revokeObjectURL(url), ms);
 
-  // Native app shell: Share sheet is the reliable "Save to Files / Drive" path.
+  // Capacitor native: Share sheet is the reliable save path.
   if (isNativeApp()) {
     try {
       const file = new File([typed], safeName, { type: "application/pdf" });
       if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+        if (previewWindow && !previewWindow.closed) previewWindow.close();
         await navigator.share({ files: [file], title: safeName });
         revokeLater();
         return "shared";
       }
     } catch (err) {
       if (err?.name === "AbortError") {
+        if (previewWindow && !previewWindow.closed) previewWindow.close();
         revokeLater();
         return "cancelled";
       }
-      // Fall through to anchor / open.
     }
   }
 
-  // Desktop + mobile browsers: always download via <a download>.
-  // Do NOT call navigator.share here - it often swallows the file with no save.
+  // Mobile: put the PDF into the pre-opened tab (survives lost user-gesture).
+  // User can then use Chrome's Download / Share from the PDF viewer.
+  if (previewWindow && !previewWindow.closed) {
+    if (navigateWindowToPdf(previewWindow, url)) {
+      // Also try download attribute for browsers that honor it.
+      try {
+        triggerAnchorDownload(url, safeName);
+      } catch {
+        /* ignore */
+      }
+      revokeLater();
+      return "opened";
+    }
+  }
+
+  // Desktop (and mobile without preview window): classic download.
   try {
     triggerAnchorDownload(url, safeName);
-
-    // iOS Safari often ignores the download attribute for blob URLs.
-    // Open the PDF viewer as a backup so the coach can share/save from there.
-    if (isMobileBrowser() && !isNativeApp()) {
-      window.setTimeout(() => {
-        const opened = window.open(url, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          // Popup blocked: navigate same tab as last resort.
-          window.location.assign(url);
-        }
-      }, 250);
-    }
-
-    revokeLater();
-    return "downloaded";
-  } catch (err) {
-    revokeLater(5_000);
-    throw err;
+  } catch {
+    /* ignore */
   }
+
+  // Last-resort open if still on mobile and download likely no-op.
+  if (isMobileBrowser()) {
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      // Same-tab navigation keeps the PDF reachable if popups are blocked.
+      window.location.assign(url);
+      revokeLater(300_000);
+      return "navigated";
+    }
+    revokeLater();
+    return "opened";
+  }
+
+  revokeLater();
+  return "downloaded";
 }
