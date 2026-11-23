@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 
-import CoachSpeedFab from "../../components/coachMobile/CoachSpeedFab";
+import CoachChatModeTabs from "../../components/coachMobile/CoachChatModeTabs";
 import { EmptyState } from "../../components/ui";
+import { coachTeamCardMeta } from "../../utils/coachTeamCardMeta";
 import useCoachTeams from "../../utils/useCoachTeams";
 
 export default function CoachChatList() {
@@ -17,21 +18,9 @@ export default function CoachChatList() {
 
   return (
     <>
-      <div className="coachChatListHead">
-        <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush">Чат</h2>
-        <Link
-          to="/coach/chat/parents"
-          className="coachChatParentMsgBtn"
-          title="Съобщения към родителите — текст и снимка"
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 5h16v11H7l-3 3V5z" strokeLinejoin="round" />
-            <path d="M8 9h8M8 12h5" strokeLinecap="round" />
-          </svg>
-          <span>Към родители</span>
-        </Link>
-      </div>
-      <p className="coachMobileMuted" style={{ marginTop: 4 }}>
+      <h2 className="coachMobileSectionTitle coachMobileSectionTitle--flush">Чат</h2>
+      <CoachChatModeTabs />
+      <p className="coachMobileMuted" style={{ marginTop: 0 }}>
         Изберете група за чат със състезателите.
       </p>
 
@@ -41,14 +30,12 @@ export default function CoachChatList() {
           description="Все още нямате назначени тренировъчни групи, с които да чатите."
         />
       ) : (
-        <ul className="coachMobileTeamList">
+        <ul className="coachMobileTeamList coachChatTeamList">
           {teams.map((team) => (
             <li key={team.id}>
               <Link to={`/coach/chat/${team.id}`} className="coachMobileTeamCard">
                 <span className="coachMobileTeamName">{team.name}</span>
-                <span className="coachMobileMuted">
-                  {[team.age_group, team.season].filter(Boolean).join(" · ") || "Отвори чата"}
-                </span>
+                <span className="coachMobileMuted">{coachTeamCardMeta(team)}</span>
                 <span className="coachMobileTeamChevron" aria-hidden>
                   ›
                 </span>
@@ -57,22 +44,6 @@ export default function CoachChatList() {
           ))}
         </ul>
       )}
-
-      <CoachSpeedFab
-        actions={[
-          {
-            id: "parents",
-            label: "Родителски новини",
-            primary: true,
-            to: "/coach/chat/parents",
-          },
-          {
-            id: "photo",
-            label: "Снимка към родители",
-            to: "/coach/chat/parents",
-          },
-        ]}
-      />
     </>
   );
 }

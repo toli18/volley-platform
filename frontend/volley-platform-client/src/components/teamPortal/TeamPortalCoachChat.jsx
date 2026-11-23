@@ -387,42 +387,47 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
         </div>
       ) : null}
       <form className="teamPortalCoachChatComposer" onSubmit={onSend}>
-        <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={busy} />
-        {onToggleAnnounce ? (
-          <button
-            type="button"
-            className={`chatToolBtn chatToolBtn--text${announceOpen ? " chatToolBtn--active" : ""}`}
-            onClick={onToggleAnnounce}
-            disabled={busy}
-            title="Публикувай текстово обявление в Новините на отбора"
-            aria-label="Текстово обявление"
-          >
-            Текст
-          </button>
-        ) : null}
-        {onPickPhoto ? (
-          <button
-            type="button"
-            className="chatToolBtn chatToolBtn--photo"
-            onClick={onPickPhoto}
-            disabled={busy}
-            title="Качи снимка в Новините на отбора"
-            aria-label="Качи снимка"
-          >
-            📷
-          </button>
-        ) : null}
-        <Input
-          as="textarea"
-          rows={2}
-          placeholder="Съобщение към отбора..."
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          maxLength={2000}
-        />
-        <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
-          Изпрати
-        </Button>
+        <div className="teamPortalCoachChatComposerTools">
+          <ChatComposerTools onInsertEmoji={onInsertEmoji} onPickGifUrl={onPickGifUrl} disabled={busy} />
+          {onToggleAnnounce ? (
+            <button
+              type="button"
+              className={`chatToolBtn chatToolBtn--text${announceOpen ? " chatToolBtn--active" : ""}`}
+              onClick={onToggleAnnounce}
+              disabled={busy}
+              title="Публикувай текстово обявление в Новините на отбора"
+              aria-label="Текстово обявление"
+            >
+              Текст
+            </button>
+          ) : null}
+          {onPickPhoto ? (
+            <button
+              type="button"
+              className="chatToolBtn chatToolBtn--photo"
+              onClick={onPickPhoto}
+              disabled={busy}
+              title="Качи снимка в Новините на отбора"
+              aria-label="Качи снимка"
+            >
+              📷
+            </button>
+          ) : null}
+        </div>
+        <div className="teamPortalCoachChatComposerRow">
+          <Input
+            as="textarea"
+            rows={2}
+            className="teamPortalCoachChatComposerField"
+            placeholder="Съобщение към отбора..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={2000}
+          />
+          <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
+            Изпрати
+          </Button>
+        </div>
       </form>
     </div>
   );
