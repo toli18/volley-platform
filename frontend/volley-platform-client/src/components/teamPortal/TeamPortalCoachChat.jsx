@@ -5,6 +5,7 @@ import { API_PATHS } from "../../utils/apiPaths";
 import { gifBodyFromUrl, parseChatBody } from "../../utils/chatContent";
 import ChatLinkedText from "../chat/ChatLinkedText";
 import ChatComposerTools from "../chat/ChatComposerTools";
+import { useCoachMobileChatChrome } from "../coachMobile/CoachMobileChatChromeContext";
 import { Button, Card, Input, Modal } from "../ui";
 import { parseServerUtcDate } from "../../utils/serverTime";
 
@@ -113,7 +114,9 @@ function ChatReadSheet({ teamId, message, onClose }) {
   );
 }
 
-export default function TeamPortalCoachChat({ teamId, teamName }) {
+export default function TeamPortalCoachChat({ teamId, teamName, fillViewport = false }) {
+  const { setComposerFocused } = useCoachMobileChatChrome();
+  const composerBlurTimer = useRef(null);
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -261,14 +264,42 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
     }
   };
 
+  const handleComposerFocus = useCallback(() => {
+    if (composerBlurTimer.current) {
+      clearTimeout(composerBlurTimer.current);
+      composerBlurTimer.current = null;
+    }
+    setComposerFocused(true);
+  }, [setComposerFocused]);
+
+  const handleComposerBlur = useCallback(() => {
+    composerBlurTimer.current = setTimeout(() => {
+      setComposerFocused(false);
+      composerBlurTimer.current = null;
+    }, 180);
+  }, [setComposerFocused]);
+
+  useEffect(
+    () => () => {
+      if (composerBlurTimer.current) clearTimeout(composerBlurTimer.current);
+      setComposerFocused(false);
+    },
+    [setComposerFocused],
+  );
+
   if (!teamId) return null;
+
+  const cardClass = fillViewport ? "teamPortalCoachChatCard--fill" : "";
+  const panelClass = fillViewport ? "teamPortalCoachChat--fill" : "";
 
   return (
     <Card
+      className={cardClass}
       title={teamName ? `Отборен чат · ${teamName}` : "Отборен чат"}
       subtitle={`Съобщенията се пазят ${RETENTION_DAYS} дни`}
     >
       <CoachChatPanel
+        className={panelClass}
         messages={messages}
         listRef={listRef}
         onDelete={handleDelete}
@@ -286,6 +317,8 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
         setAnnounceBody={setAnnounceBody}
         onToggleAnnounce={handleToggleAnnounce}
         onPublishAnnounce={handlePublishAnnounce}
+        onComposerFocus={handleComposerFocus}
+        onComposerBlur={handleComposerBlur}
       />
       <input
         ref={fileRef}
@@ -301,9 +334,30 @@ export default function TeamPortalCoachChat({ teamId, teamName }) {
   );
 }
 
-function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft, setDraft, onSend, onInsertEmoji, onPickGifUrl, onPickPhoto, photoNote, announceOpen, announceBody, setAnnounceBody, onToggleAnnounce, onPublishAnnounce }) {
+function CoachChatPanel({
+  className = "",
+  messages,
+  listRef,
+  onDelete,
+  onShowReads,
+  busy,
+  draft,
+  setDraft,
+  onSend,
+  onInsertEmoji,
+  onPickGifUrl,
+  onPickPhoto,
+  photoNote,
+  announceOpen,
+  announceBody,
+  setAnnounceBody,
+  onToggleAnnounce,
+  onPublishAnnounce,
+  onComposerFocus,
+  onComposerBlur,
+}) {
   return (
-    <div className="teamPortalCoachChat">
+    <div className={`teamPortalCoachChat${className ? ` ${className}` : ""}`}>
       <div className="teamPortalCoachChatMessages" ref={listRef}>
         {messages.length === 0 ? (
           <p className="uiHint" style={{ margin: 0 }}>
@@ -374,6 +428,8 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
             placeholder="Напишете обявление към отбора (вижда се в Новините)..."
             value={announceBody}
             onChange={(e) => setAnnounceBody(e.target.value)}
+            onFocus={onComposerFocus}
+            onBlur={onComposerBlur}
             maxLength={4000}
           />
           <div className="teamPortalCoachChatAnnounceActions">
@@ -422,6 +478,8 @@ function CoachChatPanel({ messages, listRef, onDelete, onShowReads, busy, draft,
             placeholder="Съобщение към отбора..."
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onFocus={onComposerFocus}
+            onBlur={onComposerBlur}
             maxLength={2000}
           />
           <Button type="submit" size="sm" disabled={busy || !draft.trim()}>

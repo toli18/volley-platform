@@ -153,7 +153,9 @@ export default function CoachTeamHub() {
   }
 
   return (
-    <div className="coachMobilePage coachMobilePage--hub">
+    <div
+      className={`coachMobilePage coachMobilePage--hub${validSection === "chat" ? " coachMobilePage--hubChat" : ""}`}
+    >
       <h2 className="coachMobileHubTeamName">{team.name}</h2>
 
       <nav className="coachMobileSubNav" aria-label="Секции на отбора">
@@ -208,7 +210,7 @@ export default function CoachTeamHub() {
 
       {validSection === "chat" && canManage ? (
         <section className="coachMobileHubSection coachMobileHubSection--chat">
-          <TeamPortalCoachChat teamId={teamIdNum} />
+          <TeamPortalCoachChat teamId={teamIdNum} teamName={team.name} fillViewport />
         </section>
       ) : null}
 

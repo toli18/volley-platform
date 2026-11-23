@@ -7508,8 +7508,98 @@
 .coachChatRoomMobile {
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - 140px);
-  min-height: calc(100svh - 140px);
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.coachMobileShell--chatViewport {
+  height: 100dvh;
+  height: 100svh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.coachMobileShell--chatViewport .coachMobileMain {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.coachMobileShell--noBottomNav .coachMobileMain {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.coachMobilePage--hubChat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+}
+
+.coachMobilePage--hubChat .coachMobileHubTeamName {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.coachMobilePage--hubChat .coachMobileSubNav {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.coachMobilePage--hubChat .coachMobileHubSwipeArea {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.coachMobilePage--hubChat .coachMobileHubSection--chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.teamPortalCoachChatCard--fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+}
+
+.teamPortalCoachChatCard--fill .uiCardHeader {
+  flex-shrink: 0;
+}
+
+.teamPortalCoachChat--fill {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teamPortalCoachChat--fill .teamPortalCoachChatMessages {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.teamPortalCoachChat--fill .teamPortalCoachChatComposer {
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .coachChatRoomMobile .teamPortalCoachChat {
@@ -7520,7 +7610,7 @@
 
 .coachChatRoomMobile .teamPortalCoachChatMessages {
   flex: 1;
-  min-height: 180px;
+  min-height: 0;
   max-height: none;
   -webkit-overflow-scrolling: touch;
 }

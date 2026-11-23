@@ -1,17 +1,23 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import useIsCoachMobileShell from "../../hooks/useIsCoachMobileShell";
 import ClubLogo from "../shared/ClubLogo";
 import CoachBottomNav from "./CoachBottomNav";
+import {
+  CoachMobileChatChromeProvider,
+  isCoachMobileChatThreadPath,
+  useCoachMobileChatChrome,
+} from "./CoachMobileChatChromeContext";
 import CoachMobileHeaderBrand from "./CoachMobileHeaderBrand";
 import CoachMobileNotificationBell from "./CoachMobileNotificationBell";
 
-export default function CoachMobileLayout() {
-  const isMobileShell = useIsCoachMobileShell();
+function CoachMobileLayoutBody() {
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { composerFocused } = useCoachMobileChatChrome();
   const role = String(user?.role || "").toLowerCase();
   const brandSubtitle = role === "club_head_coach" ? "Главен треньор" : "Треньорски профил";
   const isAttendanceHub = pathname === "/coach/attendance";
@@ -27,7 +33,12 @@ export default function CoachMobileLayout() {
   const isBvfAdmin = pathname.startsWith("/coach/bvf-admin");
   const isFeesPage = pathname.startsWith("/coach/fees");
   const isChatRoom = pathname.startsWith("/coach/chat/") && pathname !== "/coach/chat";
+  const isChatThread = isCoachMobileChatThreadPath(pathname);
+  const isTeamHubChat =
+    /^\/coach\/teams\/[^/]+$/.test(pathname) && (searchParams.get("tab") || "overview") === "chat";
   const isMatchLive = /\/matches\/[^/]+\/live(?:\/|$)/.test(pathname);
+  const hideBottomNav = isMatchLive || isChatThread || isTeamHubChat || composerFocused;
+  const isChatViewport = isChatThread || isTeamHubChat;
   const showBack =
     isFeesPage ||
     isAttendanceHub ||
@@ -76,12 +87,17 @@ export default function CoachMobileLayout() {
     navigate("/coach/teams");
   };
 
-  if (!isMobileShell) {
-    return <Outlet />;
-  }
+  const shellClass = [
+    "coachMobileShell",
+    isMatchLive ? "coachMobileShell--matchLive" : "",
+    isChatViewport ? "coachMobileShell--chatViewport" : "",
+    hideBottomNav ? "coachMobileShell--noBottomNav" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className={`coachMobileShell${isMatchLive ? " coachMobileShell--matchLive" : ""}`}>
+    <div className={shellClass}>
       {!isMatchLive ? (
       <header
         className={`coachMobileTopBar portalShellHeader${showBack ? "" : " coachMobileTopBar--root"}`}
@@ -114,7 +130,21 @@ export default function CoachMobileLayout() {
       <main className="coachMobileMain">
         <Outlet />
       </main>
-      {!isMatchLive ? <CoachBottomNav /> : null}
+      {!hideBottomNav ? <CoachBottomNav /> : null}
     </div>
+  );
+}
+
+export default function CoachMobileLayout() {
+  const isMobileShell = useIsCoachMobileShell();
+
+  if (!isMobileShell) {
+    return <Outlet />;
+  }
+
+  return (
+    <CoachMobileChatChromeProvider>
+      <CoachMobileLayoutBody />
+    </CoachMobileChatChromeProvider>
   );
 }

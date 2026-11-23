@@ -10,7 +10,7 @@ export default function CoachChatRoom() {
 
   return (
     <div className="coachChatRoomMobile">
-      <TeamPortalCoachChat teamId={Number(teamId)} teamName={team?.name} />
+      <TeamPortalCoachChat teamId={Number(teamId)} teamName={team?.name} fillViewport />
     </div>
   );
 }
