@@ -3068,6 +3068,111 @@
   align-items: center;
 }
 
+.teamAttendanceStatusBtn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.teamAttendanceStatusBtn.is-active.teamAttendanceStatusBtn--present {
+  background: #047857;
+  border-color: #047857;
+  color: #fff;
+}
+
+.teamAttendanceStatusBtn.is-active.teamAttendanceStatusBtn--late {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.teamAttendanceStatusBtn.is-active.teamAttendanceStatusBtn--absent {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.teamAttendanceStatusBtn.is-active.teamAttendanceStatusBtn--excused {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.teamAttendanceNoteToggle {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.teamAttendanceNoteToggle.has-note {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+}
+
+.teamAttendanceNoteField {
+  margin-top: 8px;
+}
+
+.teamAttendanceSaveBar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .teamAttendancePage {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .teamAttendanceTopSave,
+  .teamAttendanceBottomSave {
+    display: none;
+  }
+
+  .teamAttendanceSaveBar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    z-index: 84;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.1);
+    backdrop-filter: blur(6px);
+  }
+
+  .teamAttendanceSaveBarCounts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+  }
+
+  .teamAttendanceSaveBarDot {
+    color: #94a3b8;
+    font-weight: 400;
+  }
+}
 
 /* Team sheet O-2 modal (mobile + desktop) */
 .uiModalOverlay:has(.teamSheetO2Modal) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import axiosInstance from "../utils/apiClient";
@@ -18,6 +18,13 @@ const shortStatusLabel = (value) => {
   if (value === "absent") return "Няма";
   if (value === "excused") return "Извинен";
   return value || "";
+};
+
+const attendanceStatusBtnClass = (statusKey, current) => {
+  const base = "teamAttendanceStatusBtn";
+  const cur = String(current || "present");
+  if (cur !== statusKey) return base;
+  return `${base} is-active teamAttendanceStatusBtn--${statusKey}`;
 };
 
 const roleValue = (user) => {
@@ -44,6 +51,7 @@ export default function TeamAttendance() {
   const [dayTrainingLoading, setDayTrainingLoading] = useState(false);
   const [programDay, setProgramDay] = useState(null);
   const [programCtx, setProgramCtx] = useState(null);
+  const [noteOpenIds, setNoteOpenIds] = useState(() => new Set());
 
   const teamIdNum = Number(teamId);
   const isHeadCoach = roleValue(user) === "club_head_coach";
@@ -177,6 +185,43 @@ export default function TeamAttendance() {
     setAttendanceRows((prev) => prev.map((x) => ({ ...x, status })));
   };
 
+  const markAllAbsent = () => {
+    if (!window.confirm("Да маркирате всички като отсъстващи?")) return;
+    quickSetAllAttendance("absent");
+  };
+
+  const toggleNoteOpen = (athleteId) => {
+    setNoteOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(athleteId)) next.delete(athleteId);
+      else next.add(athleteId);
+      return next;
+    });
+  };
+
+  const attendanceCounts = useMemo(() => {
+    const counts = { present: 0, late: 0, absent: 0, excused: 0 };
+    for (const row of attendanceRows) {
+      const st = String(row.status || "present");
+      if (st in counts) counts[st] += 1;
+      else counts.present += 1;
+    }
+    return counts;
+  }, [attendanceRows]);
+
+  useEffect(() => {
+    setNoteOpenIds((prev) => {
+      const next = new Set(prev);
+      for (const row of attendanceRows) {
+        const hasNote = Boolean(String(row.note || "").trim());
+        if (hasNote || row.parent_absence_notice) {
+          next.add(row.athlete_id);
+        }
+      }
+      return next;
+    });
+  }, [attendanceRows]);
+
   const quickToggleRow = (athleteId, status) => {
     setAttendanceRows((prev) => prev.map((x) => (x.athlete_id === athleteId ? { ...x, status } : x)));
   };
@@ -211,19 +256,14 @@ export default function TeamAttendance() {
   }
 
   return (
-    <div className="uiPage">
+    <div className="uiPage teamAttendancePage">
       <PageHero
         title={`Присъствие: ${team.name}`}
         subtitle="Отделен екран за дата, бързо маркиране и запис."
         actions={
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link to={`/teams/${teamIdNum}/report`}>
-              <Button>Отчет</Button>
-            </Link>
-            <Link to={`/teams/${teamIdNum}`}>
-              <Button variant="secondary">Назад към отбора</Button>
-            </Link>
-          </div>
+          <Link to={`/teams/${teamIdNum}/report`}>
+            <Button>Отчет</Button>
+          </Link>
         }
       />
 
@@ -237,10 +277,15 @@ export default function TeamAttendance() {
             <Button size="sm" type="button" onClick={() => quickSetAllAttendance("present")}>
               Всички: присъстват
             </Button>
-            <Button size="sm" variant="secondary" type="button" onClick={() => quickSetAllAttendance("absent")}>
+            <Button size="sm" variant="secondary" type="button" onClick={markAllAbsent}>
               Всички: отсъстват
             </Button>
-            <Button size="sm" disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
+            <Button
+              className="teamAttendanceTopSave"
+              size="sm"
+              disabled={busy || attendanceRows.length === 0}
+              onClick={saveAttendance}
+            >
               Запази
             </Button>
             <Button
@@ -276,28 +321,40 @@ export default function TeamAttendance() {
                   </div>
                   <div className="teamAttendanceQuickRow">
                     {(["present", "late", "absent", "excused"]).map((st) => (
-                      <Button
+                      <button
                         key={st}
-                        size="sm"
-                        variant={String(row.status || "present") === st ? "primary" : "secondary"}
                         type="button"
+                        className={attendanceStatusBtnClass(st, row.status)}
                         onClick={() => quickToggleRow(row.athlete_id, st)}
                       >
                         {shortStatusLabel(st)}
-                      </Button>
+                      </button>
                     ))}
+                    <button
+                      type="button"
+                      className={`teamAttendanceNoteToggle${
+                        noteOpenIds.has(row.athlete_id) || String(row.note || "").trim() ? " has-note" : ""
+                      }`}
+                      aria-label="Бележка"
+                      title="Бележка"
+                      onClick={() => toggleNoteOpen(row.athlete_id)}
+                    >
+                      💬
+                    </button>
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Input
-                      placeholder="Бележка"
-                      value={row.note || ""}
-                      onChange={(e) =>
-                        setAttendanceRows((prev) =>
-                          prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, note: e.target.value } : x))
-                        )
-                      }
-                    />
-                  </div>
+                  {noteOpenIds.has(row.athlete_id) || String(row.note || "").trim() ? (
+                    <div className="teamAttendanceNoteField">
+                      <Input
+                        placeholder="Бележка"
+                        value={row.note || ""}
+                        onChange={(e) =>
+                          setAttendanceRows((prev) =>
+                            prev.map((x) => (x.athlete_id === row.athlete_id ? { ...x, note: e.target.value } : x))
+                          )
+                        }
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -401,11 +458,32 @@ export default function TeamAttendance() {
               </>
             )}
           </div>
-          <Button disabled={busy || attendanceRows.length === 0} onClick={saveAttendance}>
+          <Button
+            className="teamAttendanceBottomSave"
+            disabled={busy || attendanceRows.length === 0}
+            onClick={saveAttendance}
+          >
             Запази присъствие
           </Button>
         </div>
       </Card>
+
+      {attendanceRows.length > 0 ? (
+        <div className="teamAttendanceSaveBar" role="region" aria-label="Обобщение и запазване">
+          <div className="teamAttendanceSaveBarCounts">
+            <span>Тук: {attendanceCounts.present}</span>
+            <span className="teamAttendanceSaveBarDot">·</span>
+            <span>Закъсня: {attendanceCounts.late}</span>
+            <span className="teamAttendanceSaveBarDot">·</span>
+            <span>Няма: {attendanceCounts.absent}</span>
+            <span className="teamAttendanceSaveBarDot">·</span>
+            <span>Изв: {attendanceCounts.excused}</span>
+          </div>
+          <Button size="sm" disabled={busy} onClick={saveAttendance}>
+            Запази
+          </Button>
+        </div>
+      ) : null}
 
       <TrainingSessionAdjustModal
         open={sessionAdjustOpen}
